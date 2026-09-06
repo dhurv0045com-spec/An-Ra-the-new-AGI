@@ -1,0 +1,40 @@
+{
+  "schema": "arkenstone-provenance-erratum/v1",
+  "target_receipt": "experiments/ARK-002/R1_T2_SATURATION.json",
+  "original_receipt_sha256": "b9c7c31380f448e65219870cf6c1c6ad15e1710087ae26997d20657a5b44de39",
+  "issues": [
+    {
+      "field": "preregistration",
+      "value": "experiments/ARK-001/PLAN.md",
+      "problem": "R1 is an ARK-002a run; the receipt binds ARK-001's plan",
+      "correct": "experiments/ARK-002/PLAN.md (ARK-002a)"
+    },
+    {
+      "field": "schema",
+      "value": "arkenstone-ark001-result/v1",
+      "problem": "ARK-002a result carried the ARK-001 schema id",
+      "correct": "experiment-specific schema id per receipt"
+    },
+    {
+      "field": "claim language in ledgers",
+      "problem": "'saturates at 1.0' overstated a noisy high region (0.89-1.00 tail); 'replicated' overstated single-seed T2",
+      "correct": "sustained-threshold metrics (M99/G50/G90/G95, >=3 consecutive evals); T2 trajectory = SUPPORTED on seed 13, multi-seed replication pending (ARK-002B)"
+    },
+    {
+      "field": "preregistration timing",
+      "problem": "PLAN and RESULT entered git in the same commit; pre-execution status not git-timestamp verified",
+      "correct": "CLAIMED_PREEXECUTION_PLAN, NOT_GIT_TIMESTAMP_VERIFIED; from ARK-002B onward PLAN commits precede execution and RESULTs bind plan_commit_sha"
+    }
+  ],
+  "numeric_results_affected": false,
+  "numeric_rationale": "The mislabeled metadata does not touch training, data, or evaluation code paths; raw metric trajectories are genuine outputs of the described harness at the recorded seeds.",
+  "split_discovery": {
+    "issue": "ARK-001/002a T2 holdout contained 48 commuted operand-pair overlaps (e.g. '34+62' trained, '62+34' tested)",
+    "affected": [
+      "ARK-001 T2-COMPACT",
+      "ARK-002a R1"
+    ],
+    "severity": "MODERATE: order-sensitive memorization could partially pass the band; the ~0-to-1.0 transition shape remains, but absolute OOD numbers may be optimistic",
+    "resolution": "ARK-002B freezes a commutation-free manifest (split_sha 0dd930569704...) and re-runs the trajectory on fresh seeds"
+  }
+}

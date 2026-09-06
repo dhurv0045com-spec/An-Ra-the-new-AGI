@@ -18,10 +18,7 @@ import math
 import time
 from pathlib import Path
 
-import sys as _sys
-print("module body reached", flush=True)
 import torch
-print("torch imported", flush=True)
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -112,6 +109,31 @@ def t2_rows(split: str, n: int) -> list[tuple[str, str]]:
         rows.append((f"{a} + {b} = ", f"{a + b}"))
     return rows
 
+
+
+def t3_rows(split: str, n: int) -> list[tuple[str, str]]:
+    """Two-digit add WITH carry (compositional tier), structural tens bands.
+
+    train: tens of a in 1..5 ; test: tens of a in 6..7. Ones digits are
+    unconstrained (carry happens); the tens answer requires ta+tb+carry.
+    """
+    import random
+
+    rng = random.Random(13 if split == "train" else 29)
+    tens_a = range(1, 6) if split == "train" else range(6, 8)
+    rows = []
+    seen = set()
+    while len(rows) < n:
+        ta = rng.choice(list(tens_a))
+        ua = rng.randrange(0, 10)
+        tb = rng.randrange(1, 10 - ta)
+        ub = rng.randrange(0, 10)
+        a, b = ta * 10 + ua, tb * 10 + ub
+        if (a, b) in seen:
+            continue
+        seen.add((a, b))
+        rows.append((f"{a} + {b} = ", f"{a + b}"))
+    return rows
 
 # ---------------------------------------------------------------- model
 
@@ -400,6 +422,8 @@ def main() -> int:
                            vocab=compact, width=128),
         "T0-COMPACT": dict(rows_train=t0_pool(), rows_eval=t0_pool()[:500], vocab=compact, width=128),
         "T1-COMPACT-LARGE": dict(rows_train=t1_pool(), rows_eval=t1_pool(), vocab=compact, width=256),
+        "T3-COMPACT": dict(rows_train=t3_rows("train", 500), rows_eval=t3_rows("test", 200),
+                           vocab=compact, width=128),
     }
     if "T1-BYTE" in args.arms:
         byte_vocab = ByteVocab(artifact)

@@ -29,7 +29,8 @@ of known ideas; a laboratory for what remains unknown.
 
 ## Experiments
 - `experiments/ARK-001/` — micro lift-off mapping (executed, analyzed)
-- `experiments/ARK-002/` — grokking saturation + replication (executed)
+- `experiments/ARK-002/` — grokking continuation + ERRATUM_002a (see also ARK-002B for the multi-seed replication)
+- `experiments/ARK-002B/` — independent T2 replication, separated init/order seeds, commutation-free manifest
 - `experiments/BINDING-V2-REDTEAM/` — independent verification of cymek's binding-v2 qualification (CONSISTENT)
 
 ## Rules (inherited, non-negotiable)
