@@ -44,12 +44,17 @@ type, and novelty class for Arkenstone.
 - Query-swap λ ∈ {0.05, 0.15} matched-compute arms (esoes/cymek plans).
 - P35-A control/treatment cognition-mixture experiment (cymek, dataset pair frozen, NOT authorized).
 
-## MISSING (needed, does not exist anywhere)
+## RESOLVED SINCE ORIGINAL MAP (updated through ARK-003)
 
-- Any measured **lift-off threshold** (dose of exposures/steps/tokens at which train exact first rises from 0) on ANY task.
-- **Per-position digit accuracy** decomposition of the exact-match failures (citadel recorded only exact + loss).
-- Tokenizer/vocabulary contrast for symbolic learning (H_REPR was a diagnostic arm in T1D, never run; vocab size never varied).
-- Mechanistic probes on a model that CAN do the task (nothing to probe yet — no branch has a model that exhibits the capability).
+- Lift-off threshold: MEASURED (ARK-001/002a/002B: 200-400 steps train lift-off; OOD G90 at ~9k-18k steps, seed-variable).
+- Per-position decomposition: MEASURED (ones-rule early 0.91, tens-rule late 0.37 mid-transition; 1.0/1.0 at saturation).
+- Tokenizer contrast: MEASURED (no effect at micro scale).
+- A capable model exists: T2 reaches 1.0 structural-OOD (ARK-002B seed 47) — mechanistic probes now possible (ARK-004A).
+
+## MISSING (updated)
+
+- Any validated PRECURSOR of the generalization transition (ARK-004A's question).
+- Any causal intervention that SHORTENS the post-memorization delay (ARK-003 null under wall-time budget; step-matched rerun open).
 
 ## BLOCKED
 

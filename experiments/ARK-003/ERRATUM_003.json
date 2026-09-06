@@ -1,0 +1,20 @@
+{
+  "schema": "arkenstone-provenance-erratum/v1",
+  "target": "experiments/ARK-003 (PLAN commit 9d06a49)",
+  "issues": [
+    {
+      "issue": "PLAN references experiments/ARK-002B/TASK_MANIFEST.json which was NOT committed at plan time",
+      "verified": "git cat-file -e 9d06a49:experiments/ARK-002B/TASK_MANIFEST.json fails; the manifest first entered git in 4d55e0a (002B results)",
+      "data_integrity": "the manifest CONTENT was frozen locally before both ARK-002B runs and its hash 0dd930569704... is identically bound in every 002B/003 receipt; data identity holds, plan-time git visibility of the bound artifact failed",
+      "resolution": "from ARK-004A onward, any artifact bound by a PLAN must be committed in or before the PLAN commit"
+    },
+    {
+      "issue": "preregistration/execution mismatch on compute accounting",
+      "verified": "PLAN stated 'all arms run the same number of optimizer steps'; the wall-time box caused C/D to run ~5300 steps vs A's ~9600 (suffix tokens cost ~2.7x supervised tokens/step)",
+      "classification": "experimental confound, not fraud; recorded in ANALYSIS.md and REDTEAM.md",
+      "resolution": "ARK-004B (if earned) must use step-matched accounting and report multiple resource axes"
+    }
+  ],
+  "numeric_results_affected": false,
+  "numeric_rationale": "the confound affects INTERPRETATION of the C/D null, not the recorded numbers; trajectories are genuine outputs"
+}
