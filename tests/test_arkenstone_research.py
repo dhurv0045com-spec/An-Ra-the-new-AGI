@@ -50,8 +50,8 @@ class SustainedThresholdTest(unittest.TestCase):
         ]
         summary = m.sustained_summary(traj)
         self.assertEqual(summary["M99"]["step"], 200)
-        self.assertEqual(summary["G90"]["step"], 1100)
-        self.assertEqual(summary["post_mem_delay_90_steps"], 900)
+        self.assertEqual(summary["G90"]["step"], 1000)
+        self.assertEqual(summary["post_mem_delay_90_steps"], 800)
         self.assertIsNotNone(summary["exposure_ratio_90"])
         self.assertGreater(summary["ood_auc_after_M99"], 0.0)
 
@@ -100,7 +100,7 @@ class ReceiptBindingTest(unittest.TestCase):
         code.write_text("x = 1", encoding="utf-8")
         receipt = m.bind_receipt(
             experiment_id="unit",
-            plan_commit_sha256="a" * 40,
+            plan_commit_sha="a" * 40,
             code_paths={"code.py": str(code)},
             config={"seed": 1},
             results={"ok": True},
@@ -114,7 +114,7 @@ class ReceiptBindingTest(unittest.TestCase):
         code.write_text("x = 1", encoding="utf-8")
         receipt = m.bind_receipt(
             experiment_id="unit",
-            plan_commit_sha256="a" * 40,
+            plan_commit_sha="a" * 40,
             code_paths={"code.py": str(code)},
             config={},
             results={},
