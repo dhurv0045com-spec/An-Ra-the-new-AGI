@@ -852,6 +852,8 @@ def run_pre50m_only(session_dir: str, *, preflight_runner=None,
                        error=f"{type(exc).__name__}: {exc}")
         session["phases"]["PRE50M"] = "IMPLEMENTATION_FAILURE"
 
+    (root / "SESSION_MANIFEST.json").write_text(
+        json.dumps(session, indent=2, sort_keys=True), encoding="utf-8")
     start = time.time()
     try:
         out = root / "CITADEL_PRE50M_RESULTS.zip"

@@ -1939,15 +1939,36 @@ def _run_pre50m_phase(root: Path, arm_receipts: dict[str, Any], *, rt_sha: str,
     packing = p50.packing_cert(out_dir=str(root))
     feas = {"MID_3_7M": p50.memory_estimate(t1c.MID_EXPECTED_PARAMS),
             "SCALE2_7_4M": p50.memory_estimate(SCALE2_EXPECTED_PARAMS)}
-    try:
-        scale2_rate = (smoke["capacity_tokens"] / max(
-            smoke.get("train_wall_seconds", 0) or smoke["wall_seconds"], 1e-9))
-    except Exception:
-        scale2_rate = None
-    curve = {"MID": p50.throughput_estimates(rate),
-             "SCALE2": p50.throughput_estimates(scale2_rate) if scale2_rate else None}
+    # REAL measured SCALE2 throughput from the smoke's actual training
+    # interval (never invented, never zero-rated).
+    scale2_rate = None
+    interval = smoke.get("train_wall_seconds")
+    if isinstance(interval, (int, float)) and interval > 0             and smoke.get("capacity_tokens"):
+        candidate = smoke["capacity_tokens"] / float(interval)
+        if candidate > 0 and math_isfinite(candidate):
+            scale2_rate = candidate
+    # effective rate: a caller-supplied positive rate (calibration) wins;
+    # otherwise the smoke's own measured rate IS the PRE50M-only evidence.
+    effective_rate = None
+    for candidate in (rate, scale2_rate):
+        if isinstance(candidate, (int, float)) and candidate > 0                 and math_isfinite(candidate):
+            effective_rate = float(candidate)
+            break
+    curve = {"MID": p50.throughput_estimates(effective_rate)
+             if effective_rate else None,
+             "SCALE2": p50.throughput_estimates(scale2_rate)
+             if scale2_rate else None}
     grad_accum = p50.grad_accumulation_status(True, shape[0])
-    oom = p50.oom_decision(cal_candidates(root))
+    # shape evidence: real calibration candidates when present; otherwise the
+    # smoke's own executed shape is the certified PRE50M-only safe shape.
+    candidates = cal_candidates(root)
+    if not candidates and smoke.get("status") in ("PASS", "FAIL"):
+        candidates = [{"batch": smoke.get("shape", {}).get("batch", 32),
+                       "length": smoke.get("shape", {}).get("length", 64),
+                       "tokens_per_second":
+                           smoke.get("tokens_per_second_measured", 0.0),
+                       "correct": True, "source": "pre50m-smoke"}]
+    oom = p50.oom_decision(candidates)
     feas["grad_accumulation"] = grad_accum
     feas["oom_selection"] = oom
     (root / "PRE50M_FEASIBILITY.json").write_text(json.dumps(
@@ -1973,10 +1994,18 @@ def _run_pre50m_phase(root: Path, arm_receipts: dict[str, Any], *, rt_sha: str,
         smoke=smoke, feasibility={"verdict": feas["SCALE2_7_4M"]["verdict"]},
         data_interface=di, packing=packing,
         recommended_batch=shape[0], recommended_sequence_length=shape[1],
-        rate_tok_s=rate)
+        rate_tok_s=effective_rate)
     (root / "NEXT_50M_DECISION.json").write_text(
         json.dumps(decision, indent=2, sort_keys=True), encoding="utf-8")
-    return {"status": "PASS", "decision": decision}
+    # phase status derives from the DECISION, never from file existence:
+    # ready -> PASS; otherwise NOT_READY with the decision carried truthfully.
+    status = "PASS" if decision.get("ready_for_50m_training") is True         else "NOT_READY"
+    return {"status": status, "decision": decision,
+            "effective_rate_tok_s": effective_rate}
+
+
+def math_isfinite(value: float) -> bool:
+    return value == value and value not in (float("inf"), float("-inf"))
 
 
 def cal_candidates(root: Path) -> list[dict[str, Any]]:

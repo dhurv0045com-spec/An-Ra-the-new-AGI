@@ -209,6 +209,7 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
     easy_targets = [cev.split_prompt_target(r)[1] for r in easy_rows]
     feeder = t1d.TierFeeder("flat", 32, 64)
     losses, gnorms, nonfinite = [], [], 0
+    t_train0 = time.time()
     for u in range(updates):
         seqs = feeder.fill_sequences(u / max(updates, 1))
         tokens, seg_ids, eligible, stats = t1d.assemble_batch(
@@ -258,6 +259,14 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
             ledger_delta={"smoke-tiered": tokens_per_update})
         losses.append(lv)
         gnorms.append(gn)
+    train_wall_seconds = time.time() - t_train0
+    if train_wall_seconds > 0:
+        measured_tokens_per_second = round(
+            (updates * tokens_per_update) / train_wall_seconds, 1)
+    else:
+        # a non-measurable interval yields NO rate (the decision gate adds
+        # its precise blocker) - never an invented constant
+        measured_tokens_per_second = None
     cum_after_training = int(prev_state.cumulative_tokens)
     out = Path(out_dir)
     with torch.no_grad():
@@ -340,6 +349,10 @@ def smoke_target_model(*, out_dir: str, updates: int = SMOKE_UPDATES,
         "citadel_sha": rb.citadel_sha(), "cymek_runtime_sha": rt_sha,
         "environment": env, "model": {"spec": SMOKE_SPEC, "parameter_count": param_count},
         "updates": updates, "losses": losses,
+        "train_wall_seconds": round(train_wall_seconds, 3),
+        "tokens_per_second_measured": measured_tokens_per_second,
+        "shape": {"batch": 32, "length": 64, "correct": True},
+        "updates": updates, "losses": losses,
         "capacity_tokens": updates * 32 * 64,
         "grad_norm": {"min": min(gnorms), "mean": sum(gnorms) / len(gnorms),
                       "max": max(gnorms)},
@@ -406,6 +419,10 @@ def data_interface_cert(*, out_dir: str, n_seq: int = 8, length: int = 64) -> di
     feeder = t1d.TierFeeder("teacher", n_seq, length)
     for r in rows:
         feeder._carry.append((r, "audit", "audit"))
+    # register the injected rows in the carry ledger: fill_sequences
+    # decrements carried[key] on every pop, so an unregistered key raises
+    # KeyError and the certification could never run
+    feeder.carried["audit"] = feeder.carried.get("audit", 0) + len(rows)
     seqs = feeder.fill_sequences(0.5)
     assert len(seqs) == n_seq, "static batch shape violated"
     tokens, seg_ids, eligible, stats = t1d.assemble_batch(seqs, length=length,

@@ -1194,6 +1194,149 @@ def test_t1e_eos_helpers() -> None:
     assert h.content_exact_truncated("", "21") is False
 
 
+def _pre50m_only_setup(tmp: str) -> Path:
+    """Synthetic development certificate at the CURRENT code identity
+    (restored after the test), plus a passing preflight stub."""
+    cert_path = CITADEL_ROOT / "docs" / "citadel" / "experiments" / "T1D" / \
+        "DEVELOPMENT_CERTIFICATION.json"
+    saved = cert_path.read_text(encoding="utf-8") if cert_path.is_file() else None
+    cert = {"schema": "citadel-development-certificate/v1",
+            "citadel_sha": _runtime_sha(), "code_sha": _code_sha(),
+            "cymek_sha": _cymek_sha(), "status": "PASS",
+            "files_passed": 7, "files_total": 7}
+    cert_path.parent.mkdir(parents=True, exist_ok=True)
+    cert_path.write_text(json.dumps(cert), encoding="utf-8")
+    return cert_path, saved
+
+
+def _passing_preflight(root):
+    return {"schema": "citadel-t1d-preflight/v1", "status": "PASS",
+            "gates": [], "blocking_gates": [], "environment": {},
+            "citadel_sha": "0" * 40, "cymek_sha": "1" * 64,
+            "plan_sha": t1d.plan_identity()}
+
+
+def _code_sha():
+    from citadel_tpu.t1d_one_shot import code_sha
+
+    return code_sha()
+
+
+def _cymek_sha():
+    from citadel_tpu import runtime_bootstrap as rb
+
+    return rb.ensure_cymek_runtime()[1]
+
+
+def test_pre50m_only_real_chain_ready() -> None:
+    """§7: the REAL chain run_pre50m_only -> REAL _run_pre50m_phase (device
+    ops mocked only at the lowest seam: probe/device/step/generation). No
+    fake pre50m_runner. Asserts a real positive measured throughput, a
+    safe shape with evidence, PRE50M_THROUGHPUT.json parses, the decision
+    becomes ready=true under an all-green smoke, the session manifest
+    agrees, and CITADEL_PRE50M_RESULTS.zip verifies."""
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        raise SkipTest("torch unavailable in this interpreter")
+    import hashlib as _hl
+    import tempfile
+    import types
+
+    from citadel_tpu import calculator_eval as cev
+    from citadel_tpu import environment as env_mod
+    from citadel_tpu import xla_backend as xb
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cert_path, saved = _pre50m_only_setup(tmp)
+        session_dir = Path(tmp) / "pre50m_session"
+        try:
+            with _CpuSeams():
+                session = oshot.run_pre50m_only(
+                    str(session_dir), preflight_runner=_passing_preflight,
+                    canary_runner=lambda sd: {"status": "PASS"})
+            assert session["status"] == "COMPLETE", session.get("error")
+            assert session["phases"]["PRE50M"] == "PASS"
+            # effective throughput: REAL, positive, from the smoke interval
+            decision = json.loads(
+                (session_dir / "NEXT_50M_DECISION.json").read_text())
+            rate = decision["estimated_tokens_per_second"]
+            assert isinstance(rate, (int, float)) and rate > 0, decision
+            # PRE50M_THROUGHPUT.json parses with numeric estimates
+            curve_doc = json.loads(
+                (session_dir / "PRE50M_THROUGHPUT.json").read_text())
+            curve = curve_doc["curve"]["SCALE2"]
+            assert curve["measured_rate_tok_s"] > 0
+            assert curve["estimates_seconds"]["50M"] == \
+                50_000_000 / curve["measured_rate_tok_s"]
+            # safe shape with REAL evidence (the smoke's executed shape)
+            oom = json.loads(
+                (session_dir / "PRE50M_FEASIBILITY.json").read_text()
+            )["oom_selection"]
+            assert oom["selected"]["batch"] > 0 and oom["selected"]["length"] > 0
+            assert decision["recommended_batch"] > 0
+            # all-green smoke -> the gate can become ready=true
+            assert decision["ready_for_50m_training"] is True
+            assert decision["blocking_reasons"] == []
+            # session manifest agrees with the decision
+            manifest = json.loads(
+                (session_dir / "SESSION_MANIFEST.json").read_text())
+            assert manifest["pre50m"]["status"] == "PASS"
+            assert session["phases"]["PRE50M"] == "PASS"
+            # bundle verifies
+            assert oshot.verify_pre50m_bundle(str(session_dir))["status"] == \
+                "VALID"
+        finally:
+            if saved is not None:
+                cert_path.write_text(saved, encoding="utf-8")
+
+
+def test_pre50m_only_no_throughput_blocked() -> None:
+    """§8: no measurable positive throughput -> ready=false with a precise
+    blocker, and a valid bundle is still produced (the run's evidence is
+    never lost)."""
+    try:
+        import torch  # noqa: F401
+    except ImportError:
+        raise SkipTest("torch unavailable in this interpreter")
+    import tempfile
+    import types
+
+    from citadel_tpu import pre50m as p50
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cert_path, saved = _pre50m_only_setup(tmp)
+        session_dir = Path(tmp) / "pre50m_session"
+        try:
+            with _CpuSeams():
+                # frozen clock -> train interval 0.0 -> NO measurable rate
+                real_time = p50.time
+                p50.time = types.SimpleNamespace(time=lambda: 1_000_000.0)
+                try:
+                    session = oshot.run_pre50m_only(
+                        str(session_dir), preflight_runner=_passing_preflight,
+                        canary_runner=lambda sd: {"status": "PASS"})
+                finally:
+                    p50.time = real_time
+            assert session["status"] == "COMPLETE"  # evidence preserved
+            decision = json.loads(
+                (session_dir / "NEXT_50M_DECISION.json").read_text())
+            assert decision["ready_for_50m_training"] is False
+            assert any("throughput" in b.lower()
+                       for b in decision["blocking_reasons"]), decision
+            assert decision["estimated_tokens_per_second"] is None
+            # the session PRE50M status must NOT be PASS
+            manifest = json.loads(
+                (session_dir / "SESSION_MANIFEST.json").read_text())
+            assert manifest["pre50m"]["status"] != "PASS"
+            # a valid bundle is still produced and verifies
+            assert oshot.verify_pre50m_bundle(str(session_dir))["status"] == \
+                "VALID"
+        finally:
+            if saved is not None:
+                cert_path.write_text(saved, encoding="utf-8")
+
+
 def main() -> int:
     tests = [test_portability_scan, test_plan_identity_stable_and_sensitive,
              test_self_feeder_cadence_and_rows, test_self_classify_rules,
@@ -1209,7 +1352,9 @@ def main() -> int:
              test_pre50m_status_from_decision,
              test_pre50m_reserved_final_update_contract,
              test_pre50m_phase_status_propagation,
-             test_t1e_eos_helpers]
+             test_t1e_eos_helpers,
+             test_pre50m_only_real_chain_ready,
+             test_pre50m_only_no_throughput_blocked]
     failed = skipped = 0
     for fn in tests:
         try:
