@@ -29,3 +29,4 @@
 | Weight-decay removal does not prevent post-G90 decay (identical trajectory to control) | ARK-005 arm C | H-WD not supported at micro scale |
 | EMA-0.999 consolidation does not prevent post-G90 decay (identical trajectory to control) | ARK-005 arm D | simple consolidation machinery is insufficient; the decay is in the training dynamics, not the weights' recency |
 | LR-decay x0.1 delays but does not prevent post-G90 collapse (single decaying seed) | ARK-005 arm B | H-LR weakly supported; stronger LR intervention untested |
+| LR 1e-4 (10x reduction from 1e-3) is NOT sufficient to prevent collapse — threshold is lower | ARK-006 | the decay requires a >=100x LR reduction to prevent, not just a 10x reduction |

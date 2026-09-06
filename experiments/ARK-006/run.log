@@ -1,2 +1,10 @@
 === lr x0.001 ===
   trigger at 18600, lr -> 0.000001
+{"lr_mult": 0.001, "RET90": 1.0, "collapse": null, "final": 0.9848}
+=== lr x0.01 ===
+  trigger at 18600, lr -> 0.000010
+{"lr_mult": 0.01, "RET90": 1.0, "collapse": null, "final": 1.0}
+=== lr x0.1 ===
+  trigger at 18600, lr -> 0.000100
+{"lr_mult": 0.1, "RET90": 0.1912, "collapse": 21200, "final": 0.8223}
+saved: C:\Users\ankit\.zcode\workspace\default\Arkenstone\experiments\ARK-006\RESULT.json
