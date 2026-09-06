@@ -1,0 +1,71 @@
+{
+  "schema": "arkenstone-ark005-retention-observations/v1",
+  "source": "ARK-004A receipts (observational; no new training)",
+  "metrics_definitions": "ARK-005 observational analysis: retention metrics from ARK-004A receipts.\n\nProspectively defined metrics (ARK-005 PLAN):\n  PEAK_G            maximum sustained generalized regime (peak of the\n                    3-eval trailing mean of OOD after M99)\n  RET90 / RET50     fraction of post-G90 evaluations remaining >= 0.90 / >= 0.50\n  T_COLLAPSE_90/50  first sustained (3 consecutive) fall below 0.90 / 0.50\n                    after G90\n  GENERALIZATION_AREA  mean OOD exact from first G90 to termination\n  STABILITY_GAP     peak sustained OOD minus final sustained OOD\n",
+  "seeds": [
+    {
+      "seed": 101,
+      "M99": 400,
+      "G90": 15800,
+      "steps_run": 24000,
+      "PEAK_G": 1.0,
+      "PEAK_G_step": 15800,
+      "RET90": 0.524,
+      "RET50": 0.929,
+      "T_COLLAPSE_90": 16800,
+      "T_COLLAPSE_50": null,
+      "GENERALIZATION_AREA": 0.832,
+      "STABILITY_GAP": 0.597,
+      "FINAL_OOD": 0.188,
+      "classification": "DECAYING"
+    },
+    {
+      "seed": 202,
+      "M99": 800,
+      "G90": 12000,
+      "steps_run": 24000,
+      "PEAK_G": 1.0,
+      "PEAK_G_step": 13600,
+      "RET90": 0.951,
+      "RET50": 1.0,
+      "T_COLLAPSE_90": null,
+      "T_COLLAPSE_50": null,
+      "GENERALIZATION_AREA": 0.984,
+      "STABILITY_GAP": 0.0,
+      "FINAL_OOD": 1.0,
+      "classification": "STABLE"
+    },
+    {
+      "seed": 303,
+      "M99": 1000,
+      "G90": 20200,
+      "steps_run": 24000,
+      "PEAK_G": 0.952,
+      "PEAK_G_step": 20400,
+      "RET90": 0.2,
+      "RET50": 1.0,
+      "T_COLLAPSE_90": 20800,
+      "T_COLLAPSE_50": null,
+      "GENERALIZATION_AREA": 0.796,
+      "STABILITY_GAP": 0.106,
+      "FINAL_OOD": 0.645,
+      "classification": "DECAYING"
+    },
+    {
+      "seed": 404,
+      "M99": 1400,
+      "G90": 14400,
+      "steps_run": 24000,
+      "PEAK_G": 1.0,
+      "PEAK_G_step": 14400,
+      "RET90": 0.857,
+      "RET50": 1.0,
+      "T_COLLAPSE_90": 15000,
+      "T_COLLAPSE_50": null,
+      "GENERALIZATION_AREA": 0.956,
+      "STABILITY_GAP": 0.046,
+      "FINAL_OOD": 0.949,
+      "classification": "DECAYING"
+    }
+  ]
+}
