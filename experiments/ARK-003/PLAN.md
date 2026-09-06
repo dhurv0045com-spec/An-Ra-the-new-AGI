@@ -67,3 +67,12 @@ Grokking, curriculum, and decomposition supervision are known in the
 literature. New-for-program content: measured causal effect of aligned vs
 unaligned decomposition on the post-memorization delay at the identified
 binding bottleneck, with counterfactual locality as the behavioral signature.
+
+
+## ADDENDUM (pre-execution, committed with runner): S1 redefinition
+The original S1 ("test rows with unseen ones-pairs") is VACUOUS for this pool:
+500 training rows cover all 55 possible ones-pairs. S1 is redefined as the
+rarest-support composition slice (test rows whose ones-pair appears <= 2 times
+in training). Empty-set guards added to phase evaluations. This addendum was
+written after the first launch crashed on the empty S1 set and BEFORE any
+completed run; no results existed to influence it.

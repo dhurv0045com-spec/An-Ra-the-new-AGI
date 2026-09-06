@@ -135,11 +135,19 @@ def counterfactual_locality(model, vocab, cases, device) -> float:
 
 
 def build_transfer_sets(manifest: dict) -> dict:
-    train_ones = {(int(p.split("+")[0]) % 10, int(p.split("+")[1].split("=")[0].strip()) % 10)
-                  for p, _ in manifest["train"]}
+    # S1 REDEFINITION (documented): the train pool covers ALL 55 possible
+    # ones-pairs, so "unseen ones-pair" is vacuous. S1 is therefore the
+    # RAREST-SUPPORT composition slice: test rows whose ones-pair occurs
+    # <= 2 times in training (weakest-exposure generalization).
+    from collections import Counter
+
+    ones_counts = Counter(
+        (int(p.split("+")[0]) % 10, int(p.split("+")[1].split("=")[0].strip()) % 10)
+        for p, _ in manifest["train"]
+    )
     s1 = [row for row in manifest["test"]
-          if (int(row[0].split("+")[0]) % 10, int(row[0].split("+")[1].split("=")[0].strip()) % 10)
-          not in train_ones]
+          if ones_counts[(int(row[0].split("+")[0]) % 10,
+                          int(row[0].split("+")[1].split("=")[0].strip()) % 10)] <= 2]
     s2 = []
     for ha in range(1, 9):
         for hb in range(1, 10 - ha):
@@ -239,21 +247,27 @@ def run_arm(arm: str, *, manifest: dict, init_seed: int, order_seed: int,
     torch.save(model.state_dict(), checkpoint_dir / f"{arm}_final.pt")
     summary = m.sustained_summary(trajectory)
     phase_evals = {}
+    final_state = torch.load(checkpoint_dir / f"{arm}_final.pt",
+                             map_location=device, weights_only=True)
     for phase, path in (("M99", saved_phases["M99"]), ("G90", saved_phases["G90"]),
                         ("final", step)):
         if path is None:
+            phase_evals[phase] = {"step": None, "S1_composition": None,
+                                  "S2_length_transfer": None,
+                                  "note": "phase not reached within box"}
             continue
         state = torch.load(checkpoint_dir / f"{arm}_{phase if phase != 'final' else 'final'}.pt",
                            map_location=device, weights_only=True)
         model.load_state_dict(state)
-        s1, _ = greedy_exact(model, vocab, transfer["S1_composition"][:200], device)
-        s2, _ = greedy_exact(model, vocab, transfer["S2_length_transfer"][:200], device)
-        phase_evals[phase] = {"step": path, "S1_composition": s1, "S2_length_transfer": s2}
-        # restore the final weights after intermediate phase evaluation
-        if phase != "final":
-            final_state = torch.load(checkpoint_dir / f"{arm}_final.pt",
-                                     map_location=device, weights_only=True)
-            model.load_state_dict(final_state)
+        s1_rows = transfer["S1_composition"]
+        s2_rows = transfer["S2_length_transfer"]
+        s1, _ = greedy_exact(model, vocab, s1_rows[:200], device) if s1_rows else (None, {})
+        s2, _ = greedy_exact(model, vocab, s2_rows[:200], device) if s2_rows else (None, {})
+        phase_evals[phase] = {"step": path,
+                              "S1_rare_support_composition": s1,
+                              "S1_rows": len(s1_rows),
+                              "S2_length_transfer": s2}
+
     return {
         "arm": arm,
         "init_seed": init_seed,
