@@ -1,0 +1,10 @@
+{
+  "experiment_id":"MASTER_GPU_V5_SMOKE","status":"PASS",
+  "t2_manifest_sha256":"0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+  "binding_manifest_sha256":"a3625a12996c08495e8a3d416abf1243193cf7bb9d9ac9d10f9c5fdd51ab4cdc",
+  "continuation_hash_reproducible":true,"snapshot_reload_exact":true,
+  "base_plan_commit_sha":"3d98103cacc38177390df78ee0eff402da687fcf",
+  "plan_addendum_commit_sha":"6809bfe8ca70661a4f8b2cd42679db594b944668",
+  "device":"cuda","torch":"2.11.0+cu128",
+  "source_receipt_sha256":"57fa990b5664670fbef176c03841fddad6eb0f8130dbbe129e17ff8f50d3ab1b"
+}

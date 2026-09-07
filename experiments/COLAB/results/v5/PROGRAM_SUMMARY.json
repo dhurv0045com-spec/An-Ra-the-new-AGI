@@ -1,0 +1,11 @@
+{
+  "experiment_id":"MASTER_GPU_V5",
+  "ARK-007R_summary":{"paired_conditions":12,"high_collapses":9,"low_collapses":0,"risk_difference_low_minus_high":-0.75,"high_collapse_low_stable":9,"high_stable_low_collapse":0},
+  "ARK-009_status":"TRANSFER_BLOCKED_BY_ACQUISITION",
+  "ARK-010_status":"EXECUTED",
+  "minutes_used":96.47046062946319,
+  "base_plan_commit_sha":"3d98103cacc38177390df78ee0eff402da687fcf",
+  "plan_addendum_commit_sha":"6809bfe8ca70661a4f8b2cd42679db594b944668",
+  "device":"cuda","torch":"2.11.0+cu128",
+  "source_receipt_sha256":"a902ff38ef1048fb5987c019aa4c1ad2c912a38b76e2d5e12bca71e5af937dfb"
+}
