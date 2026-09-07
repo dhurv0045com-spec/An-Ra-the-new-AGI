@@ -11,6 +11,15 @@
     "note": "production corpus not MATERIALIZED - BLOCKING",
     "state": "DECLARED"
   },
+  "evaluation_metrics": {
+    "digit_accuracy": "per-position and aggregate",
+    "exact_match_by_tier": "T0-T4 structural holdout",
+    "generation_samples": "20 deterministic samples per eval point",
+    "loss_perplexity": "on frozen eval sets",
+    "query_swap_sensitivity": "change query, verify answer changes (S3)",
+    "retention_probe": "held-out re-eval after idle/decay at each milestone (S2)",
+    "termination_behavior": "EOS stop rate + MAX_TOKENS rate (T1D postmortem)"
+  },
   "evaluation_token_points": [
     0,
     10000000,
@@ -60,6 +69,12 @@
   "precision": "bf16 compute / fp32 master",
   "retention": {
     "cadence": "at ladder milestones (diagnostic)"
+  },
+  "retention_policy": {
+    "go_no_go_integration": "retention drop > 50% flags REVIEW with LR reduction as candidate remedy",
+    "lr_decay_consideration": "evaluate LR reduction near milestones if retention drops",
+    "note": "Arkenstone ARK-006/007: retention safe below LR 1e-5; 3e-4 campaign LR is above threshold; probes are diagnostic",
+    "probe_at_milestones": true
   },
   "static_shape": {
     "batch": 32,

@@ -172,6 +172,10 @@ def build_next_500m_decision(**parts: Any) -> dict[str, Any]:
             ("fresh_runtime_resume_certified",
              "fresh-runtime resume uncertified"),
             ("evaluation_hooks_wired", "evaluation hooks not wired"),
+            ("query_swap_sensitivity_wired",
+             "query-swap sensitivity not wired into evaluation"),
+            ("retention_probes_wired",
+             "retention probes not wired into evaluation"),
             ("storage_feasible", "storage infeasible")):
         if parts.get(requirement) is not True:
             blocking.append(label)
