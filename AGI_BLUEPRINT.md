@@ -1,5 +1,7 @@
 # An-Ra: a full research blueprint for general intelligence from scratch
 
+**Active engineering entry point (2026-09-07): [engineering/README.md](engineering/README.md). The owner has directed a BRAMASTRA-owned architecture and chief-led delegation. The engineering specifications supersede this document's earlier recommendations to integrate other branches; historical audits remain evidence, not dependencies.**
+
 **Design revision: 2026-09-06. Status: proposed architecture and research program, grounded in the branch audits below. This document does not report a completed AGI or a demonstrated autonomous self-improvement loop.**
 
 The objective is an AGI that acquires new abilities, investigates unfamiliar situations, acts effectively, and improves its own learning over time. All learned core weights start randomly initialized. The available planning envelope is approximately 100 owner-reported Kaggle TPU-hours per week. Actual hardware, quota, session limits, storage, and throughput remain runtime measurements.

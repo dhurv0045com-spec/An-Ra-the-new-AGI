@@ -1,6 +1,10 @@
 # BRAMASTRA — An-Ra research from first principles
 
-Start with the [full AGI blueprint](AGI_BLUEPRINT.md): a proposed integrated learner that investigates, plans, consolidates skills and independently validates its own improvement, with all core weights trained from scratch and approximately 100 owner-reported Kaggle TPU-hours per week. The detailed [Cymek roadmap](docs/bramastra/CYMEK_100X_ROADMAP.md) and [Citadel roadmap](docs/bramastra/CITADEL_100X_ROADMAP.md) audit current branch evidence and specify the missing work. Their 100× targets are measurable ambitions, not achieved results.
+**Agents start at [AGENTS.md](AGENTS.md), then [engineering headquarters](engineering/README.md) and [current status](engineering/STATUS.md).** The chief owns architecture, algorithms and experiments; execution agents receive substantial [work orders](engineering/work_orders/README.md) with interfaces, dependencies, file ownership and acceptance evidence. The active system is designed directly for BRAMASTRA.
+
+The [full AGI blueprint](AGI_BLUEPRINT.md) states the broader objective: intelligence trained from scratch that investigates, plans, consolidates skills and improves under independent evaluation. The [engineering specifications](engineering/SYSTEM_ARCHITECTURE.md) define the current implementation program.
+
+The new [discovery prototype review](engineering/reports/PROTOTYPE_REVIEW.md) records executable rule-learning, learned inquiry, acquisition/replay comparisons and two development seeds. It also records unresolved retention failures. This is an experimental system, not an achieved AGI.
 
 [BRAMASTRA.md](BRAMASTRA.md) preserves the initial experiment plan; the [research-loop note](docs/bramastra/RESEARCH_LOOP.md) records its earlier outline.
 
