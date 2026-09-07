@@ -1,0 +1,88 @@
+{
+  "checkpoint_sha256": "f2453e9dfc6347415967e7c11452ba6497a387fc13ca9cbd41f6408c9354b9c6",
+  "continuation": {
+    "next_step": 501,
+    "parameter_sha256": "9e8082d1eba2f52f506d24e1fd1a3701f0d2a02687f5ccdda462c3a5ce72e4f3",
+    "scope": "local CPU, same process; optimizer and sampler restored",
+    "status": "PASS"
+  },
+  "data": {
+    "budget": 6,
+    "episodes": 512,
+    "seed": 701,
+    "states": 3584,
+    "teacher_fraction": 0.5,
+    "teacher_scope": "training worlds only",
+    "tensor_sha256": "abd7fc0245ef0cc23748477ba1e0b64238210447a77dbc6fb3793d3e8079813d",
+    "world_ids_sha256": "7819b4a4a267604abbf0ee7d4ec1ac9418c0aabb36fbcdfc1e2fa49565254768",
+    "worlds": 129
+  },
+  "final_sha256": "ebd3a23e4f39127ea50b2728974dbcc596ca08cb5288c3a00521d7bcceec359e",
+  "initial_sha256": "be648cb8b91aa9e21075f464d69fc09893e2ec40c628f9a3747fd3ff8749a7c1",
+  "parameters_changed": true,
+  "seconds": 6.035190499998862,
+  "specification": {
+    "bits": 6,
+    "initialization": "random",
+    "parameters": 35074,
+    "policy_training": "training-only information-gain imitation",
+    "width": 64
+  },
+  "trace": [
+    {
+      "grad_norm": 0.04598594829440117,
+      "informative_fraction": 0.546875,
+      "loss": 1.7206577062606812,
+      "policy_loss": 4.108283996582031,
+      "prediction_loss": 0.6935867071151733,
+      "step": 1
+    },
+    {
+      "grad_norm": 0.12648577988147736,
+      "informative_fraction": 0.703125,
+      "loss": 1.7087239027023315,
+      "policy_loss": 4.09390115737915,
+      "prediction_loss": 0.685248613357544,
+      "step": 100
+    },
+    {
+      "grad_norm": 0.13097992539405823,
+      "informative_fraction": 0.640625,
+      "loss": 1.6778051853179932,
+      "policy_loss": 4.042405128479004,
+      "prediction_loss": 0.6672038435935974,
+      "step": 200
+    },
+    {
+      "grad_norm": 0.22618477046489716,
+      "informative_fraction": 0.59375,
+      "loss": 1.6725651025772095,
+      "policy_loss": 4.018746852874756,
+      "prediction_loss": 0.6678783893585205,
+      "step": 300
+    },
+    {
+      "grad_norm": 0.1938079595565796,
+      "informative_fraction": 0.625,
+      "loss": 1.6363757848739624,
+      "policy_loss": 3.9639594554901123,
+      "prediction_loss": 0.6453859210014343,
+      "step": 400
+    },
+    {
+      "grad_norm": 0.3067286014556885,
+      "informative_fraction": 0.671875,
+      "loss": 1.486696481704712,
+      "policy_loss": 3.8004469871520996,
+      "prediction_loss": 0.5365847945213318,
+      "step": 500
+    }
+  ],
+  "training": {
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "policy_weight": 0.25,
+    "seed": 701,
+    "steps": 500
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "checkpoint_sha256": "2c97601686c05771db1f67deddadd8427efee507f43bc90ab95d233ab7deca54",
+  "continuation": {
+    "next_step": 3,
+    "parameter_sha256": "2a707b92f5c8b5fc9d36cb43e23c42fed27ed78bcb136d7245d30ad8aaf55c0c",
+    "scope": "local CPU, same process; optimizer and sampler restored",
+    "status": "PASS"
+  },
+  "data": {
+    "mix": "equal state counts: prior/new",
+    "new": {
+      "budget": 2,
+      "episodes": 64,
+      "seed": 702,
+      "states": 192,
+      "teacher_fraction": 0.5,
+      "teacher_scope": "training worlds only",
+      "world_ids_sha256": "d9f259ffa95a2276993b98ee5a24a41050410eafdde5524ea89cf9b20497fd73",
+      "worlds": 50
+    },
+    "old": {
+      "budget": 2,
+      "episodes": 16,
+      "seed": 701,
+      "states": 48,
+      "teacher_fraction": 0.5,
+      "teacher_scope": "training worlds only",
+      "world_ids_sha256": "7819b4a4a267604abbf0ee7d4ec1ac9418c0aabb36fbcdfc1e2fa49565254768",
+      "worlds": 129
+    },
+    "seed": 701,
+    "states": 384
+  },
+  "final_sha256": "47ddb735c00be0c7836f4a36c1fd0a73d6015cf49f73170d2a3b89ecde25b908",
+  "initial_sha256": "7826efe8e6253c95e811468c79fc0eb81a84773d1c03889030c01911f65c7c48",
+  "parameters_changed": true,
+  "seconds": 0.03355889999875217,
+  "specification": {
+    "bits": 6,
+    "initialization": "random",
+    "parameters": 5474,
+    "policy_training": "training-only information-gain imitation",
+    "width": 24
+  },
+  "trace": [
+    {
+      "grad_norm": 0.07039958983659744,
+      "informative_fraction": 0.84375,
+      "loss": 1.7358405590057373,
+      "policy_loss": 4.137247562408447,
+      "prediction_loss": 0.7015286684036255,
+      "step": 1
+    },
+    {
+      "grad_norm": 0.09606149047613144,
+      "informative_fraction": 0.9375,
+      "loss": 1.7418906688690186,
+      "policy_loss": 4.135225296020508,
+      "prediction_loss": 0.7080843448638916,
+      "step": 2
+    }
+  ],
+  "training": {
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "policy_weight": 0.25,
+    "seed": 703,
+    "steps": 2
+  }
+}

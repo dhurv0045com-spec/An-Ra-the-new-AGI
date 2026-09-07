@@ -15,7 +15,14 @@ class BramastraReceiptTests(unittest.TestCase):
     root = Path(__file__).resolve().parents[1] / "artifacts" / "bramastra"
 
     def test_manifests_bind_exact_sources_datasets_and_matched_arms(self):
-        runs = sorted(self.root.glob("*/result.json"))
+        # This receipt contract covers the original terminal/binding campaign.
+        # Discovery campaign directories use a different manifest and are checked
+        # by their own evaluation tests.
+        runs = []
+        for result_path in sorted(self.root.glob("*/result.json")):
+            manifest_path = result_path.parent / "manifest.json"
+            if manifest_path.exists() and json.loads(manifest_path.read_text()).get("schema") == "bramastra-terminal-experiment/v1":
+                runs.append(result_path)
         self.assertEqual(len(runs), 3)
         for result_path in runs:
             with self.subTest(run=result_path.parent.name):

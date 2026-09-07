@@ -1,0 +1,73 @@
+{
+  "checkpoint_sha256": "d2a63856d3b1170053e647d26e43c1f07be84af41309520af82a7027b358b5fb",
+  "continuation": {
+    "next_step": 3,
+    "parameter_sha256": "7343fd607413d43dedf22ab1ba57b4a323617890906611994101a8ed80affe3c",
+    "scope": "local CPU, same process; optimizer and sampler restored",
+    "status": "PASS"
+  },
+  "data": {
+    "mix": "equal state counts: prior/new",
+    "new": {
+      "budget": 2,
+      "episodes": 64,
+      "seed": 702,
+      "states": 192,
+      "teacher_fraction": 0.5,
+      "teacher_scope": "training worlds only",
+      "tensor_sha256": "59607fec4a33ade532c90c14cfd59181453058ec741458bb5b2243f92306d822",
+      "world_ids_sha256": "d9f259ffa95a2276993b98ee5a24a41050410eafdde5524ea89cf9b20497fd73",
+      "worlds": 50
+    },
+    "old": {
+      "budget": 2,
+      "episodes": 8,
+      "seed": 701,
+      "states": 24,
+      "teacher_fraction": 0.5,
+      "teacher_scope": "training worlds only",
+      "tensor_sha256": "d70f36a68ba78884fc4401774db01556cbe316ccd855fa4a5f056708c86a6bfc",
+      "world_ids_sha256": "7819b4a4a267604abbf0ee7d4ec1ac9418c0aabb36fbcdfc1e2fa49565254768",
+      "worlds": 129
+    },
+    "seed": 701,
+    "states": 384,
+    "tensor_sha256": "eddb976f0e2a8c9b8db714435c3b7957c4a7fc719bb1cc4c78c4765d8b0a16ce"
+  },
+  "final_sha256": "1430f57760362fd8ffc9d3b34e1d62511e7e3072446f8395aac7691f95e03a36",
+  "initial_sha256": "9f9b183c8c9212a0811e5fba2cba0a118882a53b57cc3be9a4cc0e9125e6b669",
+  "parameters_changed": true,
+  "seconds": 0.014274999994086102,
+  "specification": {
+    "bits": 6,
+    "initialization": "random",
+    "parameters": 2626,
+    "policy_training": "training-only information-gain imitation",
+    "width": 16
+  },
+  "trace": [
+    {
+      "grad_norm": 0.06950540095567703,
+      "informative_fraction": 0.84375,
+      "loss": 1.7267773151397705,
+      "policy_loss": 4.1310648918151855,
+      "prediction_loss": 0.6940110325813293,
+      "step": 1
+    },
+    {
+      "grad_norm": 0.07232382148504257,
+      "informative_fraction": 0.9375,
+      "loss": 1.722423791885376,
+      "policy_loss": 4.124114990234375,
+      "prediction_loss": 0.691395103931427,
+      "step": 2
+    }
+  ],
+  "training": {
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "policy_weight": 0.25,
+    "seed": 703,
+    "steps": 2
+  }
+}

@@ -1,0 +1,1587 @@
+{
+  "adaptations": {
+    "new_only": {
+      "evaluation": {
+        "aggregates": {
+          "coverage": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24890571107236456,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.24455067123001553,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25226313722853516,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.6666666666666666,
+                  "brier": 0.24990332475854293,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24907012968529793,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2415985403325891,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2540246649570396,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.2515871837662651,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "learned": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24890571107236456,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.24455067123001553,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25226313722853516,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.6666666666666666,
+                  "brier": 0.24990332475854293,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5,
+              "brier": 0.2492775624600515,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.2389907954882872,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25535412591183276,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2534877659800346,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "no_memory": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24890571107236456,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.24455067123001553,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25226313722853516,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.6666666666666666,
+                  "brier": 0.24990332475854293,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24890571107236456,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.24455067123001553,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25226313722853516,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.6666666666666666,
+                  "brier": 0.24990332475854293,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "random": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24890571107236456,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.24455067123001553,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25226313722853516,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.6666666666666666,
+                  "brier": 0.24990332475854293,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5,
+              "brier": 0.24952878544050291,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.23945350832859771,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.255604162263306,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253528685729605,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "uncertainty": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.24890571107236456,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.24455067123001553,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25226313722853516,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.6666666666666666,
+                  "brier": 0.24990332475854293,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5,
+              "brier": 0.24911927940812253,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.23978632630499078,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25540543663437987,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25216607528499696,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          }
+        },
+        "comparisons": [
+          {
+            "baseline": "random",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 2,
+            "ci95": [
+              -0.2777777777777778,
+              0.0
+            ],
+            "delta_accuracy": -0.1111111111111111,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 2,
+            "ci95": [
+              -0.1111111111111111,
+              0.3888888888888889
+            ],
+            "delta_accuracy": 0.1111111111111111,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 2,
+            "ci95": [
+              -0.16666666666666666,
+              0.16666666666666666
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 2,
+            "ci95": [
+              -0.2777777777777778,
+              0.0
+            ],
+            "delta_accuracy": -0.1111111111111111,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          }
+        ],
+        "primary_distinction": "exploratory, not confirmatory"
+      },
+      "training": {
+        "checkpoint_sha256": "538fca2aaf85067c6cef586681c8603b2771ad247c3715eb6036ae43f41439c3",
+        "continuation": {
+          "next_step": 3,
+          "parameter_sha256": "43c4899227139d937d3233f9f7c522c43deaaacda877a6c3600fb2d89972e34d",
+          "scope": "local CPU, same process; optimizer and sampler restored",
+          "status": "PASS"
+        },
+        "data": {
+          "budget": 2,
+          "episodes": 64,
+          "seed": 702,
+          "states": 192,
+          "teacher_fraction": 0.5,
+          "teacher_scope": "training worlds only",
+          "tensor_sha256": "59607fec4a33ade532c90c14cfd59181453058ec741458bb5b2243f92306d822",
+          "world_ids_sha256": "d9f259ffa95a2276993b98ee5a24a41050410eafdde5524ea89cf9b20497fd73",
+          "worlds": 50
+        },
+        "final_sha256": "954aebacca9432805d553d096a35dea227a81f1f39aefda551b5102d2b4ddd76",
+        "initial_sha256": "9f9b183c8c9212a0811e5fba2cba0a118882a53b57cc3be9a4cc0e9125e6b669",
+        "parameters_changed": true,
+        "seconds": 0.02408739998645615,
+        "specification": {
+          "bits": 6,
+          "initialization": "random",
+          "parameters": 2626,
+          "policy_training": "training-only information-gain imitation",
+          "width": 16
+        },
+        "trace": [
+          {
+            "grad_norm": 0.18751971423625946,
+            "informative_fraction": 0.625,
+            "loss": 1.7396444082260132,
+            "policy_loss": 4.147134780883789,
+            "prediction_loss": 0.7028607130050659,
+            "step": 1
+          },
+          {
+            "grad_norm": 0.0856875330209732,
+            "informative_fraction": 0.75,
+            "loss": 1.7241730690002441,
+            "policy_loss": 4.123249053955078,
+            "prediction_loss": 0.6933607459068298,
+            "step": 2
+          }
+        ],
+        "training": {
+          "batch_size": 64,
+          "learning_rate": 0.001,
+          "policy_weight": 0.25,
+          "seed": 703,
+          "steps": 2
+        }
+      }
+    },
+    "replay": {
+      "evaluation": {
+        "aggregates": {
+          "coverage": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.249148136127445,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2428311081604558,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253747688646349,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.25086561157553017,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5,
+              "brier": 0.2494068550896785,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.2396332691703281,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2557893108763851,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2527979852223223,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "learned": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.249148136127445,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2428311081604558,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253747688646349,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.25086561157553017,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5,
+              "brier": 0.24965983728170002,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.23674585802139228,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2572783700266279,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2549552837970799,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "no_memory": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.249148136127445,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2428311081604558,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253747688646349,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.25086561157553017,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.249148136127445,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2428311081604558,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253747688646349,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.25086561157553017,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "random": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.249148136127445,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2428311081604558,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253747688646349,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.25086561157553017,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5,
+              "brier": 0.25009819243763104,
+              "family": {
+                "conjunction": {
+                  "accuracy": 0.8333333333333334,
+                  "brier": 0.2368104051857632,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.25809501756475645,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2553891545623735,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          },
+          "uncertainty": {
+            "0": {
+              "accuracy": 0.6111111111111112,
+              "brier": 0.249148136127445,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.2428311081604558,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.253747688646349,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.5,
+                  "brier": 0.25086561157553017,
+                  "mean_queries": 0.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 0.0,
+              "nrows": 18,
+              "nworlds": 9
+            },
+            "2": {
+              "accuracy": 0.5555555555555556,
+              "brier": 0.24932958554926485,
+              "family": {
+                "conjunction": {
+                  "accuracy": 1.0,
+                  "brier": 0.23984873569427054,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "parity": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2555452350946254,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                },
+                "threshold": {
+                  "accuracy": 0.3333333333333333,
+                  "brier": 0.2525947858588986,
+                  "mean_queries": 2.0,
+                  "nrows": 6,
+                  "nworlds": 3
+                }
+              },
+              "mean_queries": 2.0,
+              "nrows": 18,
+              "nworlds": 9
+            }
+          }
+        },
+        "comparisons": [
+          {
+            "baseline": "random",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "learned",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.2777777777777778
+            ],
+            "delta_accuracy": 0.1111111111111111,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.2777777777777778
+            ],
+            "delta_accuracy": 0.1111111111111111,
+            "nworlds": 9,
+            "policy": "no_memory",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 0,
+            "ci95": [
+              0.0,
+              0.0
+            ],
+            "delta_accuracy": 0.0,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "random",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.16666666666666666
+            ],
+            "delta_accuracy": 0.05555555555555555,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          },
+          {
+            "baseline": "coverage",
+            "budget": 2,
+            "ci95": [
+              0.0,
+              0.16666666666666666
+            ],
+            "delta_accuracy": 0.05555555555555555,
+            "nworlds": 9,
+            "policy": "uncertainty",
+            "uncertainty": "cluster bootstrap percentile"
+          }
+        ],
+        "primary_distinction": "exploratory, not confirmatory"
+      },
+      "training": {
+        "checkpoint_sha256": "d2a63856d3b1170053e647d26e43c1f07be84af41309520af82a7027b358b5fb",
+        "continuation": {
+          "next_step": 3,
+          "parameter_sha256": "7343fd607413d43dedf22ab1ba57b4a323617890906611994101a8ed80affe3c",
+          "scope": "local CPU, same process; optimizer and sampler restored",
+          "status": "PASS"
+        },
+        "data": {
+          "mix": "equal state counts: prior/new",
+          "new": {
+            "budget": 2,
+            "episodes": 64,
+            "seed": 702,
+            "states": 192,
+            "teacher_fraction": 0.5,
+            "teacher_scope": "training worlds only",
+            "tensor_sha256": "59607fec4a33ade532c90c14cfd59181453058ec741458bb5b2243f92306d822",
+            "world_ids_sha256": "d9f259ffa95a2276993b98ee5a24a41050410eafdde5524ea89cf9b20497fd73",
+            "worlds": 50
+          },
+          "old": {
+            "budget": 2,
+            "episodes": 8,
+            "seed": 701,
+            "states": 24,
+            "teacher_fraction": 0.5,
+            "teacher_scope": "training worlds only",
+            "tensor_sha256": "d70f36a68ba78884fc4401774db01556cbe316ccd855fa4a5f056708c86a6bfc",
+            "world_ids_sha256": "7819b4a4a267604abbf0ee7d4ec1ac9418c0aabb36fbcdfc1e2fa49565254768",
+            "worlds": 129
+          },
+          "seed": 701,
+          "states": 384,
+          "tensor_sha256": "eddb976f0e2a8c9b8db714435c3b7957c4a7fc719bb1cc4c78c4765d8b0a16ce"
+        },
+        "final_sha256": "1430f57760362fd8ffc9d3b34e1d62511e7e3072446f8395aac7691f95e03a36",
+        "initial_sha256": "9f9b183c8c9212a0811e5fba2cba0a118882a53b57cc3be9a4cc0e9125e6b669",
+        "parameters_changed": true,
+        "seconds": 0.014274999994086102,
+        "specification": {
+          "bits": 6,
+          "initialization": "random",
+          "parameters": 2626,
+          "policy_training": "training-only information-gain imitation",
+          "width": 16
+        },
+        "trace": [
+          {
+            "grad_norm": 0.06950540095567703,
+            "informative_fraction": 0.84375,
+            "loss": 1.7267773151397705,
+            "policy_loss": 4.1310648918151855,
+            "prediction_loss": 0.6940110325813293,
+            "step": 1
+          },
+          {
+            "grad_norm": 0.07232382148504257,
+            "informative_fraction": 0.9375,
+            "loss": 1.722423791885376,
+            "policy_loss": 4.124114990234375,
+            "prediction_loss": 0.691395103931427,
+            "step": 2
+          }
+        ],
+        "training": {
+          "batch_size": 64,
+          "learning_rate": 0.001,
+          "policy_weight": 0.25,
+          "seed": 703,
+          "steps": 2
+        }
+      }
+    }
+  },
+  "elapsed_seconds": 0.7026261999999406,
+  "initial": {
+    "evaluation": {
+      "aggregates": {
+        "coverage": {
+          "0": {
+            "accuracy": 0.6111111111111112,
+            "brier": 0.24892819867539517,
+            "family": {
+              "conjunction": {
+                "accuracy": 1.0,
+                "brier": 0.24264480929721075,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25327993450930036,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.5,
+                "brier": 0.2508598522196744,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 0.0,
+            "nrows": 18,
+            "nworlds": 9
+          },
+          "2": {
+            "accuracy": 0.5,
+            "brier": 0.24922227282417447,
+            "family": {
+              "conjunction": {
+                "accuracy": 0.8333333333333334,
+                "brier": 0.23869051103679517,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.2557678914306683,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.2532084160050599,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 2.0,
+            "nrows": 18,
+            "nworlds": 9
+          }
+        },
+        "learned": {
+          "0": {
+            "accuracy": 0.6111111111111112,
+            "brier": 0.24892819867539517,
+            "family": {
+              "conjunction": {
+                "accuracy": 1.0,
+                "brier": 0.24264480929721075,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25327993450930036,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.5,
+                "brier": 0.2508598522196744,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 0.0,
+            "nrows": 18,
+            "nworlds": 9
+          },
+          "2": {
+            "accuracy": 0.5,
+            "brier": 0.24940328803796133,
+            "family": {
+              "conjunction": {
+                "accuracy": 0.8333333333333334,
+                "brier": 0.2353289212658245,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25728617037113494,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.2555947724769245,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 2.0,
+            "nrows": 18,
+            "nworlds": 9
+          }
+        },
+        "no_memory": {
+          "0": {
+            "accuracy": 0.6111111111111112,
+            "brier": 0.24892819867539517,
+            "family": {
+              "conjunction": {
+                "accuracy": 1.0,
+                "brier": 0.24264480929721075,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25327993450930036,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.5,
+                "brier": 0.2508598522196744,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 0.0,
+            "nrows": 18,
+            "nworlds": 9
+          },
+          "2": {
+            "accuracy": 0.6111111111111112,
+            "brier": 0.24892819867539517,
+            "family": {
+              "conjunction": {
+                "accuracy": 1.0,
+                "brier": 0.24264480929721075,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25327993450930036,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.5,
+                "brier": 0.2508598522196744,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 2.0,
+            "nrows": 18,
+            "nworlds": 9
+          }
+        },
+        "random": {
+          "0": {
+            "accuracy": 0.6111111111111112,
+            "brier": 0.24892819867539517,
+            "family": {
+              "conjunction": {
+                "accuracy": 1.0,
+                "brier": 0.24264480929721075,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25327993450930036,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.5,
+                "brier": 0.2508598522196744,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 0.0,
+            "nrows": 18,
+            "nworlds": 9
+          },
+          "2": {
+            "accuracy": 0.5,
+            "brier": 0.24967259031693276,
+            "family": {
+              "conjunction": {
+                "accuracy": 0.8333333333333334,
+                "brier": 0.23622427271388627,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.2574746409929946,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.2553188572439174,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 2.0,
+            "nrows": 18,
+            "nworlds": 9
+          }
+        },
+        "uncertainty": {
+          "0": {
+            "accuracy": 0.6111111111111112,
+            "brier": 0.24892819867539517,
+            "family": {
+              "conjunction": {
+                "accuracy": 1.0,
+                "brier": 0.24264480929721075,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25327993450930036,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.5,
+                "brier": 0.2508598522196744,
+                "mean_queries": 0.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 0.0,
+            "nrows": 18,
+            "nworlds": 9
+          },
+          "2": {
+            "accuracy": 0.5,
+            "brier": 0.24922936445802582,
+            "family": {
+              "conjunction": {
+                "accuracy": 0.8333333333333334,
+                "brier": 0.23833165712994875,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "parity": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.2557771776705266,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              },
+              "threshold": {
+                "accuracy": 0.3333333333333333,
+                "brier": 0.25357925857360214,
+                "mean_queries": 2.0,
+                "nrows": 6,
+                "nworlds": 3
+              }
+            },
+            "mean_queries": 2.0,
+            "nrows": 18,
+            "nworlds": 9
+          }
+        }
+      },
+      "comparisons": [
+        {
+          "baseline": "random",
+          "budget": 0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "learned",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "coverage",
+          "budget": 0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "learned",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "random",
+          "budget": 2,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "learned",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "coverage",
+          "budget": 2,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "learned",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "random",
+          "budget": 0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "no_memory",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "coverage",
+          "budget": 0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "no_memory",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "random",
+          "budget": 2,
+          "ci95": [
+            0.0,
+            0.2777777777777778
+          ],
+          "delta_accuracy": 0.1111111111111111,
+          "nworlds": 9,
+          "policy": "no_memory",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "coverage",
+          "budget": 2,
+          "ci95": [
+            0.0,
+            0.2777777777777778
+          ],
+          "delta_accuracy": 0.1111111111111111,
+          "nworlds": 9,
+          "policy": "no_memory",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "random",
+          "budget": 0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "uncertainty",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "coverage",
+          "budget": 0,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "uncertainty",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "random",
+          "budget": 2,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "uncertainty",
+          "uncertainty": "cluster bootstrap percentile"
+        },
+        {
+          "baseline": "coverage",
+          "budget": 2,
+          "ci95": [
+            0.0,
+            0.0
+          ],
+          "delta_accuracy": 0.0,
+          "nworlds": 9,
+          "policy": "uncertainty",
+          "uncertainty": "cluster bootstrap percentile"
+        }
+      ],
+      "primary_distinction": "exploratory, not confirmatory"
+    },
+    "training": {
+      "checkpoint_sha256": "d4fe59a6da1281607c2057e657c71990a1ff68680350cba6fe81db366327f45b",
+      "continuation": {
+        "next_step": 4,
+        "parameter_sha256": "92f4af8c8ba9015a696dcb909ba7cb4b8105b5611829d9b240cb89a3f44ed34e",
+        "scope": "local CPU, same process; optimizer and sampler restored",
+        "status": "PASS"
+      },
+      "data": {
+        "budget": 2,
+        "episodes": 8,
+        "seed": 701,
+        "states": 24,
+        "teacher_fraction": 0.5,
+        "teacher_scope": "training worlds only",
+        "tensor_sha256": "d70f36a68ba78884fc4401774db01556cbe316ccd855fa4a5f056708c86a6bfc",
+        "world_ids_sha256": "7819b4a4a267604abbf0ee7d4ec1ac9418c0aabb36fbcdfc1e2fa49565254768",
+        "worlds": 129
+      },
+      "final_sha256": "9f9b183c8c9212a0811e5fba2cba0a118882a53b57cc3be9a4cc0e9125e6b669",
+      "initial_sha256": "6c95c1d3509b0fcc119e049d09c7db374ff199dfbc4cf8dc885ca1da7fb3703a",
+      "parameters_changed": true,
+      "seconds": 0.0259784999943804,
+      "specification": {
+        "bits": 6,
+        "initialization": "random",
+        "parameters": 2626,
+        "policy_training": "training-only information-gain imitation",
+        "width": 16
+      },
+      "trace": [
+        {
+          "grad_norm": 0.10155756771564484,
+          "informative_fraction": 1.0,
+          "loss": 1.7294169664382935,
+          "policy_loss": 4.127964496612549,
+          "prediction_loss": 0.6974258422851562,
+          "step": 1
+        },
+        {
+          "grad_norm": 0.12648597359657288,
+          "informative_fraction": 1.0,
+          "loss": 1.7307991981506348,
+          "policy_loss": 4.125585556030273,
+          "prediction_loss": 0.6994027495384216,
+          "step": 3
+        }
+      ],
+      "training": {
+        "batch_size": 64,
+        "learning_rate": 0.001,
+        "policy_weight": 0.25,
+        "seed": 701,
+        "steps": 3
+      }
+    }
+  },
+  "limits": [
+    "synthetic Boolean rules, not broad AGI",
+    "policy imitates a privileged training-only teacher",
+    "development results, not independent confirmation",
+    "CPU only; no TPU validation",
+    "consolidation resets AdamW for both children; it is not a full resume experiment",
+    "one acquisition round; no autonomous promotion or recursive self-improvement"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "checkpoint_sha256": "538fca2aaf85067c6cef586681c8603b2771ad247c3715eb6036ae43f41439c3",
+  "continuation": {
+    "next_step": 3,
+    "parameter_sha256": "43c4899227139d937d3233f9f7c522c43deaaacda877a6c3600fb2d89972e34d",
+    "scope": "local CPU, same process; optimizer and sampler restored",
+    "status": "PASS"
+  },
+  "data": {
+    "budget": 2,
+    "episodes": 64,
+    "seed": 702,
+    "states": 192,
+    "teacher_fraction": 0.5,
+    "teacher_scope": "training worlds only",
+    "tensor_sha256": "59607fec4a33ade532c90c14cfd59181453058ec741458bb5b2243f92306d822",
+    "world_ids_sha256": "d9f259ffa95a2276993b98ee5a24a41050410eafdde5524ea89cf9b20497fd73",
+    "worlds": 50
+  },
+  "final_sha256": "954aebacca9432805d553d096a35dea227a81f1f39aefda551b5102d2b4ddd76",
+  "initial_sha256": "9f9b183c8c9212a0811e5fba2cba0a118882a53b57cc3be9a4cc0e9125e6b669",
+  "parameters_changed": true,
+  "seconds": 0.02408739998645615,
+  "specification": {
+    "bits": 6,
+    "initialization": "random",
+    "parameters": 2626,
+    "policy_training": "training-only information-gain imitation",
+    "width": 16
+  },
+  "trace": [
+    {
+      "grad_norm": 0.18751971423625946,
+      "informative_fraction": 0.625,
+      "loss": 1.7396444082260132,
+      "policy_loss": 4.147134780883789,
+      "prediction_loss": 0.7028607130050659,
+      "step": 1
+    },
+    {
+      "grad_norm": 0.0856875330209732,
+      "informative_fraction": 0.75,
+      "loss": 1.7241730690002441,
+      "policy_loss": 4.123249053955078,
+      "prediction_loss": 0.6933607459068298,
+      "step": 2
+    }
+  ],
+  "training": {
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "policy_weight": 0.25,
+    "seed": 703,
+    "steps": 2
+  }
+}

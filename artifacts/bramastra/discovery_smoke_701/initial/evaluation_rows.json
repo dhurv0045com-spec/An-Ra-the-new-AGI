@@ -1,0 +1,2432 @@
+[
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5501734614372253,
+    "queries": 0,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5265747308731079,
+    "queries": 0,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5305254459381104,
+    "queries": 0,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5530054569244385,
+    "queries": 0,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5453115701675415,
+    "queries": 0,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5477296113967896,
+    "queries": 0,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5309222936630249,
+    "queries": 0,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5457844138145447,
+    "queries": 0,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      0,
+      34
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5338563323020935,
+    "queries": 2,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      6,
+      20
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5161661505699158,
+    "queries": 2,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      42,
+      44
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5190290808677673,
+    "queries": 2,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      5,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5178605914115906,
+    "queries": 2,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      57,
+      55
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5236966609954834,
+    "queries": 2,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      33,
+      35
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5338746905326843,
+    "queries": 2,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      11,
+      33
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5276841521263123,
+    "queries": 2,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      63,
+      13
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5336039066314697,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      52,
+      45
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5347415208816528,
+    "queries": 2,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      39,
+      18
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5212034583091736,
+    "queries": 2,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      49,
+      44
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5328713655471802,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      56,
+      34
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5147696733474731,
+    "queries": 2,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      38,
+      59
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5331563949584961,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      2,
+      28
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5385841727256775,
+    "queries": 2,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      50,
+      29
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5278295278549194,
+    "queries": 2,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      30,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.522631824016571,
+    "queries": 2,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      60,
+      17
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "random",
+    "probability": 0.5229930877685547,
+    "queries": 2,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      14,
+      28
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "random",
+    "probability": 0.5386691689491272,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5501734614372253,
+    "queries": 0,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5265747308731079,
+    "queries": 0,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5305254459381104,
+    "queries": 0,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5530054569244385,
+    "queries": 0,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5453115701675415,
+    "queries": 0,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5477296113967896,
+    "queries": 0,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5309222936630249,
+    "queries": 0,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5457844138145447,
+    "queries": 0,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5367916226387024,
+    "queries": 2,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5127834677696228,
+    "queries": 2,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5210081338882446,
+    "queries": 2,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5180830955505371,
+    "queries": 2,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5192558765411377,
+    "queries": 2,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5390889048576355,
+    "queries": 2,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5303449630737305,
+    "queries": 2,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5322213172912598,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5344932079315186,
+    "queries": 2,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5174542665481567,
+    "queries": 2,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5335789918899536,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5153427720069885,
+    "queries": 2,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5353367924690247,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5328088402748108,
+    "queries": 2,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5205257534980774,
+    "queries": 2,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.519314169883728,
+    "queries": 2,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "coverage",
+    "probability": 0.5153427720069885,
+    "queries": 2,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "coverage",
+    "probability": 0.5353367924690247,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5501734614372253,
+    "queries": 0,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5265747308731079,
+    "queries": 0,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5305254459381104,
+    "queries": 0,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5530054569244385,
+    "queries": 0,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5453115701675415,
+    "queries": 0,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5477296113967896,
+    "queries": 0,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5309222936630249,
+    "queries": 0,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5457844138145447,
+    "queries": 0,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5348995923995972,
+    "queries": 2,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5109014511108398,
+    "queries": 2,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5195749998092651,
+    "queries": 2,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5165802240371704,
+    "queries": 2,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5173355340957642,
+    "queries": 2,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5371856093406677,
+    "queries": 2,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5292545557022095,
+    "queries": 2,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5312561392784119,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5333829522132874,
+    "queries": 2,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5161499977111816,
+    "queries": 2,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.531845211982727,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5136710405349731,
+    "queries": 2,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.531473696231842,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5306143760681152,
+    "queries": 2,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5191771388053894,
+    "queries": 2,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5173355340957642,
+    "queries": 2,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "learned",
+    "probability": 0.5136710405349731,
+    "queries": 2,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      2,
+      3
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "learned",
+    "probability": 0.5334231853485107,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5501734614372253,
+    "queries": 0,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5265747308731079,
+    "queries": 0,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5305254459381104,
+    "queries": 0,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5530054569244385,
+    "queries": 0,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5453115701675415,
+    "queries": 0,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5477296113967896,
+    "queries": 0,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5309222936630249,
+    "queries": 0,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5457844138145447,
+    "queries": 0,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5437932014465332,
+    "queries": 2,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5199304223060608,
+    "queries": 2,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.52749103307724,
+    "queries": 2,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5241967439651489,
+    "queries": 2,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5276173949241638,
+    "queries": 2,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5467737317085266,
+    "queries": 2,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5379765629768372,
+    "queries": 2,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5395358204841614,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5410681366920471,
+    "queries": 2,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5242491364479065,
+    "queries": 2,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5399186015129089,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5225695967674255,
+    "queries": 2,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5415487885475159,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5391435027122498,
+    "queries": 2,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5275111794471741,
+    "queries": 2,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5273815393447876,
+    "queries": 2,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "uncertainty",
+    "probability": 0.5219470858573914,
+    "queries": 2,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      56,
+      48
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "uncertainty",
+    "probability": 0.5404055118560791,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5501734614372253,
+    "queries": 0,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5265747308731079,
+    "queries": 0,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5305254459381104,
+    "queries": 0,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5530054569244385,
+    "queries": 0,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5453115701675415,
+    "queries": 0,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5477296113967896,
+    "queries": 0,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5309222936630249,
+    "queries": 0,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5465934872627258,
+    "queries": 0,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5457844138145447,
+    "queries": 0,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5339553356170654,
+    "queries": 0,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5340455174446106,
+    "queries": 0,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5294225215911865,
+    "queries": 0,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [],
+    "budget": 0,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5481998920440674,
+    "queries": 0,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5501734614372253,
+    "queries": 2,
+    "target": 45,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5265747308731079,
+    "queries": 2,
+    "target": 57,
+    "world_id": "conjunction:1p.2p:04f3763aaea318c0"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5339553356170654,
+    "queries": 2,
+    "target": 10,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5305254459381104,
+    "queries": 2,
+    "target": 18,
+    "world_id": "conjunction:2p.5p:45620deea7703f24"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "conjunction",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5340455174446106,
+    "queries": 2,
+    "target": 9,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "conjunction",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5530054569244385,
+    "queries": 2,
+    "target": 47,
+    "world_id": "conjunction:2n.4n:a03393df60c4bb77"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5453115701675415,
+    "queries": 2,
+    "target": 61,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5465934872627258,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m61-f1:d2f09f5a8cbab54b"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5477296113967896,
+    "queries": 2,
+    "target": 55,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5309222936630249,
+    "queries": 2,
+    "target": 59,
+    "world_id": "parity:m13-f1:478515590c266574"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "parity",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5465934872627258,
+    "queries": 2,
+    "target": 20,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "parity",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5294225215911865,
+    "queries": 2,
+    "target": 40,
+    "world_id": "parity:m56-f0:38718d3de2223471"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5481998920440674,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5457844138145447,
+    "queries": 2,
+    "target": 62,
+    "world_id": "threshold:m27-k2:56a08ca7dbdcc81a"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5339553356170654,
+    "queries": 2,
+    "target": 10,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5340455174446106,
+    "queries": 2,
+    "target": 9,
+    "world_id": "threshold:m10-k1:87d6311cf67d7ceb"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": false,
+    "family": "threshold",
+    "label": 0,
+    "policy": "no_memory",
+    "probability": 0.5294225215911865,
+    "queries": 2,
+    "target": 40,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  },
+  {
+    "actions": [
+      1,
+      2
+    ],
+    "budget": 2,
+    "correct": true,
+    "family": "threshold",
+    "label": 1,
+    "policy": "no_memory",
+    "probability": 0.5481998920440674,
+    "queries": 2,
+    "target": 37,
+    "world_id": "threshold:m53-k2:b88a54e0232b0c9f"
+  }
+]

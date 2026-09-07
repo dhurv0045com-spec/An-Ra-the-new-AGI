@@ -10,10 +10,12 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-bramastra = ["torch>=2.6", "pytest>=8"]
+bramastra = ["torch>=2.6", "pytest>=8", "numpy>=1.26"]
 
 [project.scripts]
 bramastra-experiment = "bramastra_lab.experiment:main"
+bramastra-discovery = "bramastra_lab.discovery.run:main"
+bramastra-discovery-compare = "bramastra_lab.discovery.compare:main"
 esoes-e0-certify = "e0_cognition.certify:main"
 esoes-e0-scoring = "e0_cognition.scoring_certification:main"
 esoes-v5-contracts = "v5_contracts.certify:main"
