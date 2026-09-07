@@ -27,10 +27,10 @@ from v5_data.pack import pack_documents, sampler_order
 from v5_model.core import initialize
 from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer
+from v5_training.schedule import lr_at
 from v5_training.production_backend import (
     PackedBatch,
     ProductionTrainingBackend,
-    bounded_warmup_schedule,
     capture_evidence,
     production_payloads,
     restore_production,
@@ -46,11 +46,29 @@ from v5_training.state import (
 )
 
 ENTRY_SCHEMA = "anra-v5-production-entry-receipt/v1"
-TOKENS_PER_UPDATE = 4_096
-SEQUENCES_PER_UPDATE = 8
-SEQUENCE_BUCKET = 512
-SEQUENCES_PER_SHARD = SEQUENCES_PER_UPDATE
+GLOBAL_TOKENS_PER_UPDATE = 131_072  # frozen Cymek training_spec
+WARMUP_TOKENS = 50_000_000
 PEAK_LR = 3e-4
+MILESTONE_TOKENS = (50_000_000, 100_000_000, 200_000_000, 350_000_000, 500_000_000)
+SEQUENCES_PER_SHARD = 8
+SEQUENCE_BUCKET = 512
+
+
+def crossed_milestones(previous_tokens: int, new_tokens: int,
+                       milestones: tuple = MILESTONE_TOKENS) -> list[int]:
+    """Milestones strictly crossed when tokens move prev -> new. Pure."""
+    if new_tokens < previous_tokens:
+        raise ValueError(f"backward: {new_tokens} < {previous_tokens}")
+    return sorted(m for m in milestones if previous_tokens < m <= new_tokens)
+
+
+def canonical_lr_at(cumulative_tokens: int) -> float:
+    """Cymek's frozen token-indexed WSD schedule at cumulative_tokens."""
+    if cumulative_tokens < 0:
+        raise ValueError("cumulative_tokens must be nonnegative")
+    if cumulative_tokens < WARMUP_TOKENS:
+        return PEAK_LR * (cumulative_tokens / WARMUP_TOKENS)
+    return PEAK_LR
 
 
 def _canonical_json(value: object) -> bytes:
@@ -86,7 +104,7 @@ def prepare_data(*, documents: list[dict[str, Any]], tokenizer: Any,
             if rec.split == "training"}
     packed, pack_audit = pack_documents(
         [(d["doc_id"], tokenizer.encode(d["text"]), d["source_id"])
-         for d in documents if d["doc_id"] in keep],
+         for d in documents if d["source_id"] in keep],
         bos=2, eos=3, pad=0, sequences_per_shard=SEQUENCES_PER_SHARD)
     shard_hashes = [shard.sha256() for shard in packed]
     order = sampler_order(shard_hashes, run_seed=seed, epoch=0)
@@ -117,7 +135,7 @@ def _walk_windows(packed, order: list[int], want: int
         except ValueError:
             pass
         take = (batch is not None
-                and batch.consumed_real_tokens == TOKENS_PER_UPDATE
+                and batch.consumed_real_tokens == GLOBAL_TOKENS_PER_UPDATE
                 and all(len(row) == SEQUENCE_BUCKET for row in batch.tokens))
         if take:
             windows.append((batch.tokens, batch.segment_ids,
@@ -136,6 +154,7 @@ def _walk_windows(packed, order: list[int], want: int
 
 def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                  model_spec, run_id: str, seed: int, updates: int,
+                 cymek_sha: str = '28bf57a0d299a2c13a99fe0046616c00a1b8530c',
                  store_root: str | Path, device: Any, torch_module: Any = None,
                  xb: Any | None = None, progress: Callable[[str], None]
                  | None = None, resume_store_root: str | Path | None = None,
@@ -154,7 +173,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                         run_id=run_id, seed=seed)
     packed, order = data["packed"], data["sampler_order"]
     identities = IdentityBindings(
-        schema=IDENTITY_SCHEMA, source_commit=hashlib.sha256(_canonical_json({'campaign': run_id})).hexdigest()[:40],
+        schema=IDENTITY_SCHEMA, source_commit=cymek_sha,
         model_spec_sha256=model_spec.sha256(),
         tokenizer_sha256=tokenizer.identity.artifact_sha256,
         data_manifest_sha256=data["manifest_sha256"],
@@ -165,7 +184,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             {"optimizer": "AdamW", "beta1": 0.9, "beta2": 0.95,
              "epsilon": 1e-8, "weight_decay": 0.1})).hexdigest(),
         schedule_spec_sha256=hashlib.sha256(_canonical_json(
-            {"kind": "bounded_warmup", "peak_lr": PEAK_LR})).hexdigest(),
+            {"kind": "canonical_wsd_token_indexed", "warmup_tokens": WARMUP_TOKENS, "peak_lr": PEAK_LR})).hexdigest(),
         curriculum_spec_sha256=hashlib.sha256(
             b"production-entry").hexdigest())
 
@@ -186,8 +205,8 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                     "wall_seconds": 0.0}
     else:
         state = TrainingState.initial(
-            lineage_id=run_id, token_budget=updates * TOKENS_PER_UPDATE,
-            tokens_per_update=TOKENS_PER_UPDATE,
+            lineage_id=run_id, token_budget=updates * GLOBAL_TOKENS_PER_UPDATE,
+            tokens_per_update=GLOBAL_TOKENS_PER_UPDATE,
             cursor=CursorState(CURSOR_SCHEMA, data["pack_manifest_sha256"],
                                0, 0, 0),
             rng_state_sha256="0" * 64, curriculum_phase="500m-campaign",
@@ -199,7 +218,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     optimizer = build_adamw_optimizer(model, torch_module=torch)
     backend = ProductionTrainingBackend(
         model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
-        schedule=bounded_warmup_schedule(peak_learning_rate=PEAK_LR),
+        schedule=lr_at,
         bfloat16_autocast=getattr(device, "type", "cpu") == "cuda")
     if resume_store is not None:
         restore_production(backend, payloads=payloads)
@@ -220,7 +239,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             cursor=CursorState(
                 CURSOR_SCHEMA, data["pack_manifest_sha256"], 0,
                 current.global_update,
-                TOKENS_PER_UPDATE * (current.global_update + 1)),
+                GLOBAL_TOKENS_PER_UPDATE * (current.global_update + 1)),
             rng_state_sha256=hashlib.sha256(
                 f"prod-rng-{current.global_update}".encode()).hexdigest())
         report = backend.step(current, pbatch)
@@ -247,8 +266,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     fresh_optimizer = build_adamw_optimizer(fresh_model, torch_module=torch)
     fresh_backend = ProductionTrainingBackend(
         model=fresh_model, optimizer=fresh_optimizer, bos_id=2, pad_id=0,
-        device=device, schedule=bounded_warmup_schedule(
-            peak_learning_rate=PEAK_LR))
+        device=device, schedule=lr_at)
     restore_production(fresh_backend, payloads=restored_payloads)
     live = capture_evidence(backend.model, backend.optimizer, torch=torch)
     resumed = capture_evidence(fresh_model, fresh_optimizer, torch=torch)
@@ -265,6 +283,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "state_complete": bool(final.complete),
         "losses": losses, "wall_seconds": round(wall, 3),
         "resume_equal": resume_equal,
+        "cymek_sha": cymek_sha,
         "data_manifest_sha256": data["manifest_sha256"],
         "pack_manifest_sha256": data["pack_manifest_sha256"],
         "model_spec_sha256": model_spec.sha256(),
@@ -357,4 +376,5 @@ MILESTONE_TOKENS = (50_000_000, 100_000_000, 200_000_000, 350_000_000,
 
 __all__ = ["ENTRY_SCHEMA", "MILESTONE_TOKENS", "prepare_data", "run_campaign",
            "run_500m_session"]
-__all__ = ["ENTRY_SCHEMA", "prepare_data", "run_campaign"]
+__all__ = ["ENTRY_SCHEMA", "crossed_milestones", "canonical_lr_at",
+           "prepare_data", "run_campaign"]
