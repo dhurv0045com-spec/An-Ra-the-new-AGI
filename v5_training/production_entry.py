@@ -265,6 +265,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "state_complete": bool(final.complete),
         "losses": losses, "wall_seconds": round(wall, 3),
         "resume_equal": resume_equal,
+        "milestones_crossed": crossed,
         "data_manifest_sha256": data["manifest_sha256"],
         "pack_manifest_sha256": data["pack_manifest_sha256"],
         "model_spec_sha256": model_spec.sha256(),
@@ -272,4 +273,89 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     }
 
 
+def run_500m_session(*, documents: list[dict[str, Any]], tokenizer: Any,
+                     model_spec, run_id: str, seed: int,
+                     campaign_tokens: int, session_dir: str | Path,
+                     device: Any, torch_module: Any = None,
+                     xb: Any | None = None,
+                     max_session_minutes: float = 90.0,
+                     recovery_interval_updates: int = 25,
+                     progress: Callable[[str], None] | None = None,
+                     ) -> dict[str, Any]:
+    """One 500M-campaign training session with milestone detection,
+    recovery checkpointing, heartbeat, and session receipt.
+
+    Multi-session: call again on a fresh runtime — resumes from the latest
+    committed generation in `session_dir/campaign_store`. Milestone
+    checkpoints are immutable and separate from recovery rotation.
+    """
+    root = Path(session_dir)
+    root.mkdir(parents=True, exist_ok=True)
+    store_root = str(root / "campaign_store")
+    milestone_dir = root / "milestones"
+    milestone_dir.mkdir(parents=True, exist_ok=True)
+
+    def hb(**kw):
+        doc = {"schema": "anra-v5-heartbeat/v1", "utc": time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **kw}
+        (root / "HEARTBEAT.json").write_text(
+            json.dumps(doc, indent=2, sort_keys=True), encoding="utf-8")
+
+    hb(phase="starting", campaign_tokens=campaign_tokens)
+
+    campaign_spec_sha = hashlib.sha256(_canonical_json(
+        {"campaign_id": run_id, "target": campaign_tokens})).hexdigest()
+
+    result = run_campaign(
+        documents=documents, tokenizer=tokenizer, model_spec=model_spec,
+        run_id=run_id, seed=seed, updates=campaign_tokens // TOKENS_PER_UPDATE,
+        store_root=store_root, device=device, torch_module=torch_module,
+        xb=xb, progress=progress, resume_store_root=store_root,
+        resume_run_id=run_id)
+
+    crossed = []
+    for m in MILESTONE_TOKENS:
+        if result["cumulative_tokens"] >= m:
+            crossed.append(m)
+            mpath = milestone_dir / f"milestone_{m}.json"
+            if not mpath.is_file():
+                mpath.write_text(json.dumps({
+                    "schema": "anra-v5-milestone/v1",
+                    "tokens": m, "utc": time.strftime(
+                        "%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "checkpoint": result["checkpoint_head"],
+                    "run_id": run_id,
+                }, indent=2, sort_keys=True), encoding="utf-8")
+
+    session_receipt = {
+        "schema": "anra-v5-session-receipt/v1",
+        "run_id": run_id, "campaign_tokens": campaign_tokens,
+        "updates_executed": result["updates_executed"],
+        "cumulative_tokens": result["cumulative_tokens"],
+        "milestones_crossed": crossed,
+        "losses": result["losses"][-20:] if result["losses"] else [],
+        "resume_equal": result["resume_equal"],
+        "wall_seconds": result["wall_seconds"],
+        "checkpoint_head": result["checkpoint_head"],
+        "utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    (root / "SESSION_RECEIPT.json").write_text(
+        json.dumps(session_receipt, indent=2, sort_keys=True),
+        encoding="utf-8")
+    hb(phase="complete", tokens=result["cumulative_tokens"],
+       milestones=crossed)
+
+    return {"schema": "anra-v5-500m-session/v1",
+            "session_dir": str(root),
+            "result": result, "milestones_crossed": crossed,
+            "session_receipt": session_receipt,
+            "campaign_store": store_root,
+            "milestone_dir": str(milestone_dir)}
+
+
+MILESTONE_TOKENS = (50_000_000, 100_000_000, 200_000_000, 350_000_000,
+                    500_000_000)
+
+__all__ = ["ENTRY_SCHEMA", "MILESTONE_TOKENS", "prepare_data", "run_campaign",
+           "run_500m_session"]
 __all__ = ["ENTRY_SCHEMA", "prepare_data", "run_campaign"]
