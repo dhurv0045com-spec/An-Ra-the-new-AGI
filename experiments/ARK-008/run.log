@@ -1,0 +1,28 @@
+=== seed 505 LR x1.0 (HIGH) ===
+{
+ "seed": 505,
+ "lr_mult": 1.0,
+ "status": "NO_TRIGGER",
+ "final_test": 0.22,
+ "peak_test": 0.24,
+ "label": "HIGH"
+}
+=== seed 505 LR x0.01 (LOW) ===
+{
+ "seed": 505,
+ "lr_mult": 0.01,
+ "status": "NO_TRIGGER",
+ "final_test": 0.22,
+ "peak_test": 0.28,
+ "label": "LOW"
+}
+=== seed 606 LR x1.0 (HIGH) ===
+{
+ "seed": 606,
+ "lr_mult": 1.0,
+ "status": "NO_TRIGGER",
+ "final_test": 0.28,
+ "peak_test": 0.34,
+ "label": "HIGH"
+}
+=== seed 606 LR x0.01 (LOW) ===
