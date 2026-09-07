@@ -103,3 +103,28 @@ Classification: **BLOCKING** (PRE500M cannot go green without it) /
 - Why: auto-stop on persistent nonfinite/exploding gradients/corruption
   exists piecewise; centralize into one documented stop policy with
   counters.
+
+---
+
+## IMPLEMENTATION STATUS (2026-09-06)
+
+All three BLOCKING items are IMPLEMENTED on branch `cymek-500m-readiness`
+@ 12375ea35fe645bdfeca8b1d401fa391014f76cb (off pin 28bf57a, pushed as a
+new branch for Cymek agent review; origin/cymek NOT repointed).
+
+- B1: `v5_data/materialize_first_party.py` — materializes first-party
+  documents and reports honest 500M supply accounting (DATA_NOT_READY with
+  per-source shortfall + replay factors). Test:
+  `test_materialize_first_party_supply_accounting`.
+- B2: `v5_training/production_entry.py` — the single fail-closed chain
+  (documents -> manifest -> frozen tokenizer -> packing -> sampler/cursor
+  -> microbatches -> ProductionTrainingBackend -> checkpoint transactions
+  -> exact-resume verification -> receipt). Test: `test_fresh_campaign_and_
+  exact_resume`, `test_already_complete_short_circuits`.
+- B3: `v5_tokenizer/freeze_production.py` — freezes the E1 tournament
+  24,576 artifact (identity verified: SHA, vocab, specials, no normalizer)
+  into an immutable production identity receipt. Test:
+  `test_freeze_production_identity`.
+
+All tests PASS on CPU via the torch environment. The branch is ready for
+Cymek agent review and merge into `origin/cymek`.

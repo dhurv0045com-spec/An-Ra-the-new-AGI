@@ -69,17 +69,19 @@ NONE
 
 ## BIGGEST BLOCKER
 
-CYMEK REQUIRED CHANGES B1-B3 (production corpus materialization,
-production entry point, tokenizer artifact freeze) - then the PRE500M
-certification can go green and the operator launches the 500M campaign.
+Cymek-side code for B1-B3 is IMPLEMENTED on branch `cymek-500m-readiness`
+@ 12375ea (off pin 28bf57a, pushed as a new branch for Cymek agent review;
+origin/cymek NOT repointed). Once the Cymek agent approves/merges and
+origin/cymek is repointed, Citadel re-audits the delta and re-runs contract
+tests before repinning. PRE500M then certifies and the operator launches
+the 500M campaign.
 
 ## NEXT ACTION
 
-Cymek-side: implement docs/citadel/500M/CYMEK_REQUIRED_CHANGES.md items
-B1-B3 (BLOCKING: production corpus materialization, top-level production
-training entry point, frozen tokenizer artifact). Citadel-side: PRE500M
-certification is built and fail-closed — it returns BLOCKED with precise
-reasons until B1-B3 land. Do NOT start the 500M training or the 5B corpus.
+Cymek agent: review + merge `cymek-500m-readiness` into `origin/cymek`.
+Citadel: once merged, audit the delta, repin, re-run contract tests, then
+PRE500M certifies and the operator launches the 500M campaign.
+Do NOT start the 500M training or the 5B corpus.
 
 ## T0 / T1 / T1B / T1C (history)
 
