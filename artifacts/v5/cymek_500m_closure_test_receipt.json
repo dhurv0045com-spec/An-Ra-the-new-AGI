@@ -1,0 +1,71 @@
+{
+  "environment": {
+    "cpu": "AMD Ryzen 7 170 8C/16T",
+    "cpu_venv": "torch 2.13+cpu",
+    "cuda_venv": "torch 2.11+cu128",
+    "gpu": "RTX 4050 Laptop 6 GB (small legs only; frozen microsteps OOM: DOES_NOT_FIT)",
+    "os": "Windows",
+    "ram_gb": 15.3,
+    "threads": 6
+  },
+  "results": [
+    {
+      "command": "python -m pytest tests/test_v5_training.py tests/test_v5_step_schedule_trainer.py tests/test_v5_production_backend.py tests/test_v5_runner.py tests/test_v5_checkpoint_adapter.py tests/test_v5_data.py tests/test_v5_data_pipeline.py tests/test_v5_stream_cursor.py tests/test_v5_stream_resume.py tests/test_v5_durability_canary.py tests/test_v5_contracts.py tests/test_v5_model.py tests/test_v5_objectives.py tests/test_v5_foundry.py tests/test_v5_mutation_canary.py tests/test_anra_v5_cli.py tests/test_anra_v5_status.py tests/test_v5_launch_readiness.py tests/test_v5_evaluation.py tests/test_v5_evaluation_protocol.py tests/test_v5_promotion.py tests/test_v5_registry.py tests/test_v5_redteam.py tests/test_v5_subject_v2.py tests/test_v5_tokenizer.py tests/test_v5_bucket_cursor.py tests/test_v5_mixture.py tests/test_v5_durability_contracts.py tests/test_v5_training_equivalence.py -q (.venv CPU)",
+      "device": "cpu",
+      "failed": 0,
+      "files": [
+        "tests/test_v5_training.py",
+        "tests/test_v5_step_schedule_trainer.py",
+        "tests/test_v5_production_backend.py",
+        "tests/test_v5_runner.py",
+        "tests/test_v5_checkpoint_adapter.py",
+        "tests/test_v5_data.py",
+        "tests/test_v5_data_pipeline.py",
+        "tests/test_v5_stream_cursor.py",
+        "tests/test_v5_stream_resume.py",
+        "tests/test_v5_durability_canary.py",
+        "tests/test_v5_contracts.py",
+        "tests/test_v5_model.py",
+        "tests/test_v5_objectives.py",
+        "tests/test_v5_foundry.py",
+        "tests/test_v5_mutation_canary.py",
+        "tests/test_anra_v5_cli.py",
+        "tests/test_anra_v5_status.py",
+        "tests/test_v5_launch_readiness.py",
+        "tests/test_v5_evaluation.py",
+        "tests/test_v5_evaluation_protocol.py",
+        "tests/test_v5_promotion.py",
+        "tests/test_v5_registry.py",
+        "tests/test_v5_redteam.py",
+        "tests/test_v5_subject_v2.py",
+        "tests/test_v5_tokenizer.py",
+        "tests/test_v5_bucket_cursor.py",
+        "tests/test_v5_mixture.py",
+        "tests/test_v5_durability_contracts.py",
+        "tests/test_v5_training_equivalence.py"
+      ],
+      "passed": 212,
+      "skipped": 2
+    },
+    {
+      "command": "entry suite main(), throttled CPU 6 threads, excluding self-hosting exact-head gate (no receipt yet)",
+      "device": "cpu",
+      "failed": 0,
+      "files": [
+        "tests/test_production_entry.py"
+      ],
+      "note": "test_exact_head_test_receipt fails by design pre-receipt; v2 records it green once the receipt exists",
+      "passed": 48,
+      "skipped": 0
+    }
+  ],
+  "schema": "anra-v5-test-receipt/v1",
+  "sha256": "4d92f2377ed1c13c7a38f17c068e40433c9df69599f7a606eb3e85a1928ae8c2",
+  "tested_commit_sha": "ef86910c010f413aabb7a83af923f668ba341047",
+  "timestamp_utc": "2026-09-07T23:43:40Z",
+  "totals": {
+    "failed": 0,
+    "passed": 260,
+    "skipped": 2
+  }
+}
