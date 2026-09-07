@@ -1,44 +1,49 @@
 # COGNITION BOTTLENECK GRAPH (Arkenstone)
 
-DATA → REPRESENTATION → OBJECTIVE → OPTIMIZATION → INTERNAL STATE →
-QUERY CONDITIONING → COMPUTATION → MEMORY → ANSWER GENERATION →
-GENERALIZATION → TRANSFER → EVALUATION → NOVELTY VERIFICATION
+DATA → REPRESENTATION → OBJECTIVE → OPTIMIZATION → INTERNAL STATE → QUERY CONDITIONING → COMPUTATION → GENERALIZATION → RETENTION/RECOVERY → TRANSFER → SCALE → NOVELTY VERIFICATION
 
-## Node status and the single sharpest unknown
+Reconciled through MASTER GPU V5 (ARK-007R/009/010).
 
-| Node | Evidence | Failure modes consistent with T1/T1C | Cheapest distinguishing experiment |
+## Current node status
+
+| Node | Current evidence | Sharpest unresolved failure | Cheapest high-information next test |
 |---|---|---|---|
-| DATA | mixed corpora 6.5M/4k rows tried | dilution of trivial tiers; repetition dose uncontrolled | dose-response on ONE trivial family (ARK-001) |
-| REPRESENTATION | vocab 24576 assumed everywhere; never varied | dead-vocab embedding wastes capacity; digit tokenization awkward | compact vs byte-level vocab at matched decoder (ARK-001) |
-| OBJECTIVE | whole-row vs answer-only tried | answer-only CE still distributional; per-position marginals may suffice for loss | per-position accuracy decomposition (ARK-001) |
-| OPTIMIZATION | AdamW standard; loss always falls | optimization reaches marginal mode, not instances (train exact 0) | measure lift-off dose on simplest task (ARK-001) |
-| INTERNAL STATE | unmeasured (no model exhibits capability) | state never forms | only probe-able after lift-off exists anywhere |
-| QUERY CONDITIONING | esoes probes designed | never exercised on a capable model | after lift-off |
-| COMPUTATION | single pass | iterative depth untested | after lift-off |
-| ANSWER GENERATION | valid integers, wrong digits | mode-digit repetition observed in T1C generations | per-position decomposition (ARK-001) |
-| GENERALIZATION/TRANSFER | never reached (nothing to transfer) | — | after lift-off |
-| EVALUATION | exact-match + Wilson; heuristics nulled | per-position detail missing | ARK-001 metric set |
-| NOVELTY VERIFICATION | this register | — | continuous |
+| DATA | canonical T2 manifest is commutation-free; ARK-009 fact-set split has zero train/test fact-set overlap | non-arithmetic diagnostic semantics still confounded | orthogonal query/order diagnostic on existing ARK-009 task |
+| REPRESENTATION | compact-vs-byte contrast negative at micro | no evidence representation is current bottleneck | PARK unless transfer task exposes a representation-specific failure |
+| OBJECTIVE | flat answer-only CE can produce T2 structural OOD; curriculum/teacher screen did not accelerate | no validated accelerator of post-memorization emergence | do not reopen until causal target identified |
+| OPTIMIZATION | post-G90 behavior strongly LR-sensitive | protection may be trivial near-freezing rather than consolidation | matched adaptive controller + displacement/update-magnitude analysis |
+| INTERNAL STATE | selectivity marker measured but precursor falsified | no validated early internal predictor of G90 | keep observational only unless new precursor beats time/behavior baselines |
+| QUERY CONDITIONING | ARK-009 ordinary exact 1.0 but composite query/order robustness low | query-only vs order-only failure not isolated | QUERY_ONLY / ORDER_ONLY / QUERY+ORDER factorial diagnostic |
+| COMPUTATION | T2 structural OOD can emerge | scope narrow; carry/other families not transferred | qualified non-arithmetic task before architecture changes |
+| GENERALIZATION | T2 G90 replicated across many seeds | timing variable and expensive after memorization | causal accelerator still open, but not current top priority |
+| RETENTION | LOW `1e-5` protects generalized T2 state vs HIGH `1e-3` under matched data | whether effect is just tiny parameter movement | intermediate/update-matched study after adaptive controller |
+| RECOVERY | after instability HIGH recovered G90 8/9 vs LOW 2/9 | no HIGH→LOW post-recovery switch arm | ARK-011 adaptive switch tournament |
+| TRANSFER | ARK-009 strict gate not qualified; no retention transfer fork | no clean non-arithmetic transfer receipt | repair diagnostic then rerun only if capability qualifies |
+| SCALE | Micro evidence only | unknown whether effect survives P35/V5 dynamics | blocked until transfer + causal-credit gates pass |
+| NOVELTY | program-local empirical discoveries recorded | no general new mechanism yet | continuous novelty audit |
 
-## Ranked bottlenecks (expected information gain / cost)
+## Ranked bottlenecks by expected information gain / cost
 
-1. **Lift-off existence + dose at micro scale** (ARK-001): if even single-digit
-   arithmetic never lifts off, curriculum/teacher/scale arms are premature — the
-   pathology is upstream (optimization/representation). If it lifts off in
-   minutes, the threshold is measured and every downstream arm gains a target.
-   Cost: minutes of CPU. Information: discriminates H1/H2/H9 vs H3/H4/H6 as the
-   NEXT bottleneck group.
-2. **Per-position decomposition** of failures (rides on ARK-001 arms): distinguishes
-   "distributional marginal fit" from "instance fit".
-3. **Vocabulary contrast** (rides on ARK-001): H_REPR without a TPU session.
-4. (post-lift-off) query conditioning, composition, transfer.
+1. **State-dependent LR controller.** From the same collapse checkpoint and same future batches compare: HIGH-only; LOW-only; HIGH until sustained recovery then LOW. Prediction: switched arm reacquires like HIGH and retains like LOW. This directly connects ARK-007R and ARK-010.
+2. **Transfer diagnostic repair.** Without new training, first isolate QUERY_ONLY and ORDER_ONLY on the ARK-009 task. If canonical capability survives pure query swaps but fails order permutations, diagnose order robustness rather than query conditioning. Then preregister a clean transfer task/fork.
+3. **Near-freezing vs consolidation.** LOW final relative displacement was ~0.008 vs HIGH ~0.379 in ARK-007R. Test whether retention tracks LR itself, integrated update norm, or displacement. Do not claim a consolidation mechanism before this is separated.
+4. **Transfer replication.** Only after a non-arithmetic capability qualifies should the LR-retention effect be tested outside T2.
+5. **Scale.** P35/V5-Core promotion remains downstream of transfer and mechanism-credit evidence.
 
-## Hypothesis groups mapped to ARK-001 outcomes
+## Current causal picture
 
-- H1 capacity floor / H2 budget floor / H9 optimization pathology → predict
-  lift-off FAILURE even on single-digit at micro scale (or absurd dose).
-- H3 curriculum / H4 teacher / H6 objective → predict single-digit lifts off
-  easily with flat CE (so the multi-digit boundary is where these act);
-  T1D's B/C arms then target the measured boundary.
-- H5 representation → predicts compact-vocab arm lifts off at far lower dose
-  than byte-level arm at matched decoder.
+Observed state machine:
+
+`ACQUIRE/GENERALIZE --(continued HIGH LR + some continuation trajectories)--> INSTABILITY`
+
+`GENERALIZED --(LOW LR)--> STABLE in ARK-007R`
+
+`INSTABILITY --(HIGH LR)--> RECOVERY in 8/9 ARK-010 sources`
+
+`INSTABILITY --(LOW LR)--> RECOVERY in 2/9 ARK-010 sources`
+
+Unexecuted prediction:
+
+`INSTABILITY --HIGH until recovered--> RECOVERED --LOW--> STABLE`
+
+That final edge is the highest-value missing causal test. Architecture changes remain unjustified until this optimization-state model is falsified or exhausted.
