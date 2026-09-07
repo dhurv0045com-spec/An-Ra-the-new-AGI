@@ -845,7 +845,8 @@ def test_exact_head_test_receipt():
     assert receipt["totals"]["passed"] > 0
 
 
-def test_build_milestone_receipt_self_describing():    receipt = build_milestone_receipt(
+def test_build_milestone_receipt_self_describing():
+    receipt = build_milestone_receipt(
         run_id="r", threshold_tokens=100, actual_cumulative_tokens=150,
         global_update=2, checkpoint_sha256="ab" * 32,
         identity_bundle={"cymek_sha": TEST_SHA})
