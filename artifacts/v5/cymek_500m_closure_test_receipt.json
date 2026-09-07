@@ -48,24 +48,23 @@
       "skipped": 2
     },
     {
-      "command": "entry suite main(), throttled CPU 6 threads, excluding self-hosting exact-head gate (no receipt yet)",
+      "command": "entry suite main(), throttled CPU 6 threads",
       "device": "cpu",
       "failed": 0,
       "files": [
         "tests/test_production_entry.py"
       ],
-      "note": "test_exact_head_test_receipt fails by design pre-receipt; v2 records it green once the receipt exists",
-      "passed": 48,
+      "passed": 49,
       "skipped": 0
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "4d92f2377ed1c13c7a38f17c068e40433c9df69599f7a606eb3e85a1928ae8c2",
-  "tested_commit_sha": "ef86910c010f413aabb7a83af923f668ba341047",
-  "timestamp_utc": "2026-09-07T23:43:40Z",
+  "sha256": "d152f7cdd44ce4b241172db72250b985673f94e68277e538706a2a86af31604c",
+  "tested_commit_sha": "79999c9ad5edade56f5c992142c72c2da64f0e54",
+  "timestamp_utc": "2026-09-07T23:43:51Z",
   "totals": {
     "failed": 0,
-    "passed": 260,
+    "passed": 261,
     "skipped": 2
   }
 }
