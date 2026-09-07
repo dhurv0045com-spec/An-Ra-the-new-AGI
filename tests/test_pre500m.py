@@ -107,6 +107,8 @@ def test_next_500m_decision_fail_closed() -> None:
         "static_shape_fit": True, "checkpoint_transaction_certified": True,
         "exact_resume_certified": True, "fresh_runtime_resume_certified": True,
         "evaluation_hooks_wired": True, "storage_feasible": True,
+        "query_swap_sensitivity_wired": True,
+        "retention_probes_wired": True,
         "estimated_tokens_per_second": 7000.0,
         "stop_gates_at": [50_000_000, 100_000_000, 200_000_000],
         "storage": {"PEAK_LOCAL_STORAGE_GB": 12.0},
@@ -118,7 +120,8 @@ def test_next_500m_decision_fail_closed() -> None:
     assert green["estimated_hours_500m"] == round(500_000_000 / 7000 / 3600, 2)
     # each individual requirement removal must block
     for key in ("campaign_spec_sha256", "milestone_logic_verified",
-                "exact_resume_certified", "evaluation_hooks_wired"):
+                "exact_resume_certified", "evaluation_hooks_wired",
+                "query_swap_sensitivity_wired", "retention_probes_wired"):
         bad = copy.deepcopy(green_parts)
         bad[key] = False if isinstance(green_parts[key], bool) else None
         d = pre500m.build_next_500m_decision(**bad)
