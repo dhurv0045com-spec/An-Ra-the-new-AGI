@@ -1,0 +1,41 @@
+{
+ "dose_response": [
+  {
+   "seed": 707,
+   "lr_mult": 0.001,
+   "RET90": 1.0,
+   "AREA": 1.0,
+   "T_COLLAPSE_90": null,
+   "FINAL": 1.0,
+   "collapsed": false
+  },
+  {
+   "seed": 707,
+   "lr_mult": 0.01,
+   "RET90": 1.0,
+   "AREA": 1.0,
+   "T_COLLAPSE_90": null,
+   "FINAL": 1.0,
+   "collapsed": false
+  },
+  {
+   "seed": 707,
+   "lr_mult": 0.1,
+   "RET90": 1.0,
+   "AREA": 1.0,
+   "T_COLLAPSE_90": null,
+   "FINAL": 1.0,
+   "collapsed": false
+  },
+  {
+   "seed": 808,
+   "lr_mult": 0.001,
+   "RET90": 1.0,
+   "AREA": 0.977,
+   "T_COLLAPSE_90": null,
+   "FINAL": 0.97,
+   "collapsed": false
+  }
+ ],
+ "device": "cuda"
+}
