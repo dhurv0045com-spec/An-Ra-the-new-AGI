@@ -1,0 +1,14 @@
+{
+  "experiment_id":"ARK-009",
+  "import_kind":"validated_summary_of_colab_receipt",
+  "source_bundle":{"filename":"ARKENSTONE_V5_RESULTS.zip","sha256":"e40355e0e0212406985c2445d2a8388b5d704ad722fd4c4b4c3455a5e64f0c7f","size_bytes":83273},
+  "source_receipt_sha256":"3b6ad165386cc853b700d72e5c5a44ed6a05d384c7e069141ea87baa0e323da5",
+  "base_plan_commit_sha":"3d98103cacc38177390df78ee0eff402da687fcf",
+  "plan_addendum_commit_sha":"6809bfe8ca70661a4f8b2cd42679db594b944668",
+  "device":"cuda","torch":"2.11.0+cu128",
+  "status":"TRANSFER_BLOCKED_BY_ACQUISITION",
+  "task_manifest":{"task_seed":4242,"train_factset_sha256":"4b4e2e2e6e32448ef70841562e550122232e08a72ec579dc916678d312fb53b4","test_factset_sha256":"f31bd6586232f77e43cc91e6351a5eada8a654c1fa91e9bb8559270c5a98287a","train_examples":1200,"test_examples":300,"factset_overlap":0,"manifest_sha256":"a3625a12996c08495e8a3d416abf1243193cf7bb9d9ac9d10f9c5fdd51ab4cdc"},
+  "seed_results":[{"seed":1201,"status":"NO_QUALIFICATION","steps":24000,"peak_test":1.0,"peak_swap":0.38333333333333336,"final_test":1.0,"final_swap":0.31},{"seed":1202,"status":"NO_QUALIFICATION","steps":24000,"peak_test":1.0,"peak_swap":0.36,"final_test":1.0,"final_swap":0.33666666666666667}],
+  "scientific_status":"STRICT_QUALIFICATION_NOT_MET_RETENTION_NOT_EXECUTED",
+  "diagnostic_confounds":["query_swap changes query and reverses fact order simultaneously"]
+}

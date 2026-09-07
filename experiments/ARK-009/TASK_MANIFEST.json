@@ -1,0 +1,14 @@
+{
+  "task_seed": 4242,
+  "train_factset_sha256": "4b4e2e2e6e32448ef70841562e550122232e08a72ec579dc916678d312fb53b4",
+  "test_factset_sha256": "f31bd6586232f77e43cc91e6351a5eada8a654c1fa91e9bb8559270c5a98287a",
+  "train_examples": 1200,
+  "test_examples": 300,
+  "train_query_counts": {"0":208,"3":199,"5":198,"2":218,"1":187,"4":190},
+  "test_query_counts": {"1":45,"3":43,"4":56,"0":46,"2":51,"5":59},
+  "train_answer_counts": {"4":195,"2":199,"3":186,"0":204,"1":203,"5":213},
+  "test_answer_counts": {"0":56,"2":45,"4":53,"3":52,"1":51,"5":43},
+  "factset_overlap": 0,
+  "manifest_sha256": "a3625a12996c08495e8a3d416abf1243193cf7bb9d9ac9d10f9c5fdd51ab4cdc",
+  "source_receipt_sha256": "785ef921c5120cabaab7700676554fe96122c317f4825e1e533f421b2028ecce"
+}

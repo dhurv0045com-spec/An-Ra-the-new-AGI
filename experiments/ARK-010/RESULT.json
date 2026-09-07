@@ -1,0 +1,23 @@
+{
+  "experiment_id":"ARK-010",
+  "import_kind":"validated_summary_of_colab_receipt",
+  "source_bundle":{"filename":"ARKENSTONE_V5_RESULTS.zip","sha256":"e40355e0e0212406985c2445d2a8388b5d704ad722fd4c4b4c3455a5e64f0c7f","size_bytes":83273},
+  "source_receipt_sha256":"1ef4f8b7b8511486baf5bfa57251f567d90d6b3db91a50e5456413aa2f5fde15",
+  "base_plan_commit_sha":"3d98103cacc38177390df78ee0eff402da687fcf",
+  "plan_addendum_commit_sha":"6809bfe8ca70661a4f8b2cd42679db594b944668",
+  "device":"cuda","torch":"2.11.0+cu128","status":"EXECUTED",
+  "summary":{"recovery_sources":9,"high_recovered":8,"low_recovered":2,"mean_RET90_high":0.6111111111111112,"mean_RET90_low":0.1111111111111111,"mean_AREA_high":0.9093344613649182,"mean_AREA_low":0.7875352509870277,"mean_FINAL_high":0.9486745628877609,"mean_FINAL_low":0.8116187253243091},
+  "outcomes":[
+    {"acquisition_seed":909,"continuation_seed":2702,"source_collapse_confirmation_step":2800,"HIGH_CONTINUE":{"recovery90":{"onset":200,"confirm":600},"RET90":1.0,"FINAL":1.0},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.1,"FINAL":0.934010152284264}},
+    {"acquisition_seed":909,"continuation_seed":2703,"source_collapse_confirmation_step":1400,"HIGH_CONTINUE":{"recovery90":{"onset":200,"confirm":600},"RET90":1.0,"FINAL":1.0},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.5939086294416244}},
+    {"acquisition_seed":909,"continuation_seed":2704,"source_collapse_confirmation_step":2200,"HIGH_CONTINUE":{"recovery90":{"onset":800,"confirm":1200},"RET90":0.85,"FINAL":0.9949238578680203},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.7868020304568528}},
+    {"acquisition_seed":1010,"continuation_seed":2701,"source_collapse_confirmation_step":1800,"HIGH_CONTINUE":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.700507614213198},"RECOVERY_LOW":{"recovery90":{"onset":1400,"confirm":1800},"RET90":0.7,"FINAL":0.9035532994923858}},
+    {"acquisition_seed":1010,"continuation_seed":2702,"source_collapse_confirmation_step":2600,"HIGH_CONTINUE":{"recovery90":{"onset":2800,"confirm":3200},"RET90":0.25,"FINAL":0.9441624365482234},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.8274111675126904}},
+    {"acquisition_seed":1010,"continuation_seed":2703,"source_collapse_confirmation_step":2600,"HIGH_CONTINUE":{"recovery90":{"onset":2400,"confirm":2800},"RET90":0.45,"FINAL":1.0},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.8020304568527918}},
+    {"acquisition_seed":1010,"continuation_seed":2704,"source_collapse_confirmation_step":3000,"HIGH_CONTINUE":{"recovery90":{"onset":3200,"confirm":3600},"RET90":0.25,"FINAL":1.0},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.7817258883248731}},
+    {"acquisition_seed":1111,"continuation_seed":2703,"source_collapse_confirmation_step":4200,"HIGH_CONTINUE":{"recovery90":{"onset":800,"confirm":1200},"RET90":0.75,"FINAL":0.8984771573604061},"RECOVERY_LOW":{"recovery90":{"onset":null,"confirm":null},"RET90":0.0,"FINAL":0.8223350253807107}},
+    {"acquisition_seed":1111,"continuation_seed":2704,"source_collapse_confirmation_step":2000,"HIGH_CONTINUE":{"recovery90":{"onset":200,"confirm":600},"RET90":0.95,"FINAL":1.0},"RECOVERY_LOW":{"recovery90":{"onset":2000,"confirm":2400},"RET90":0.2,"FINAL":0.8527918781725888}}
+  ],
+  "claim_level":"SUPPORTED_POST_COLLAPSE_HIGH_LR_REACQUISITION_PATTERN",
+  "new_hypothesis":"HIGH LR for acquisition/recovery -> LOW LR after confirmed capability for retention"
+}
