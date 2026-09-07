@@ -144,6 +144,33 @@ class CheckpointStore:
             raise InjectedCrash("after_pointer")
         return checkpoint_sha256
 
+    def prune(self, *, keep: set[str]) -> list[str]:
+        """Delete committed generations outside ``keep`` for bounded rotation.
+
+        Refuses to remove the LATEST pointer target: rotation never orphans
+        the resumable head. Milestone generations stay reachable by keeping
+        their SHAs in ``keep``. Returns removed checkpoint SHAs.
+        """
+
+        import shutil
+
+        head = self.latest_sha256()
+        if head is not None and head not in keep:
+            raise ValueError("rotation must retain the latest committed checkpoint")
+        removed: list[str] = []
+        if not self.objects.exists():
+            return removed
+        for child in sorted(self.objects.iterdir()):
+            if not child.is_dir() or child.name in keep:
+                continue
+            if len(child.name) != 64 or any(
+                c not in "0123456789abcdef" for c in child.name
+            ):
+                continue
+            shutil.rmtree(child)
+            removed.append(child.name)
+        return removed
+
     def restore(self, checkpoint_sha256: str | None = None) -> tuple[TrainingState, dict[str, bytes]]:
         identity = checkpoint_sha256 or self.latest_sha256()
         if identity is None:

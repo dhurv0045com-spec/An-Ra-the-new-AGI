@@ -37,16 +37,37 @@ def train(
     payload_builder: Callable[[TrainingState], dict[str, bytes]],
     backend_step: Callable[[TrainingState], BackendReport],
     updates: int,
-    checkpoint_every: int,
+    checkpoint_every: int | None,
+    should_checkpoint: Callable[[TrainingState], bool] | None = None,
+    on_committed: Callable[[TrainingState, str], None] | None = None,
+    should_stop: Callable[[TrainingState], bool] | None = None,
+    resume_parent_sha256: str | None = None,
 ) -> TrainingState:
-    """Run bounded updates; return the advanced training state."""
+    """Run bounded updates; return the advanced training state.
+
+    ``should_checkpoint`` forces extra checkpoint boundaries (milestones,
+    recovery cadence) beyond ``checkpoint_every``. ``on_committed`` observes
+    each committed (state, checkpoint_sha256) for milestone receipts.
+    ``should_stop`` halts after the current update without completing the
+    run, leaving a resumable recovery state for timeboxed sessions.
+    ``checkpoint_every=None`` disables periodic boundaries entirely, so
+    commits happen only at should_checkpoint boundaries and completion.
+    ``resume_parent_sha256`` continues a restored lineage: the next publish
+    is fenced against the restored head instead of the state's recorded
+    parent (which names the grandparent, the parent at restore time).
+    """
 
     if updates <= 0:
         raise ValueError("must run at least one update")
-    if checkpoint_every <= 0:
+    if checkpoint_every is not None and checkpoint_every <= 0:
         raise ValueError("checkpoint interval must be positive")
     state.assert_valid()
-    parent: str | None = state.parent_checkpoint_sha256
+    if resume_parent_sha256 is not None and (
+            len(resume_parent_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in resume_parent_sha256)):
+        raise ValueError("resume parent must be a lowercase SHA-256")
+    parent: str | None = (resume_parent_sha256 if resume_parent_sha256 is not None
+                           else state.parent_checkpoint_sha256)
     try:
         for _ in range(updates):
             if state.complete:
@@ -69,7 +90,12 @@ def train(
             )
             controller.complete_update()
             state = after
-            boundary = state.global_update % checkpoint_every == 0 or state.complete
+            boundary = state.complete
+            if checkpoint_every is not None:
+                boundary = boundary or state.global_update % checkpoint_every == 0
+            if should_checkpoint is not None and should_checkpoint(state):
+                boundary = True
+            committed_sha: str | None = None
             if boundary:
                 controller.begin_checkpoint()
                 parent = store.publish(
@@ -78,8 +104,14 @@ def train(
                     expected_parent_sha256=parent,
                 )
                 controller.commit_checkpoint(checkpoint_sha256=parent)
-        if state.complete:
-            controller.complete()
+                committed_sha = parent
+                if on_committed is not None:
+                    on_committed(state, committed_sha)
+            if state.complete:
+                controller.complete()
+                break
+            if should_stop is not None and should_stop(state):
+                break
     except Exception as exc:
         try:
             controller.fail(code=type(exc).__name__ or "STEP_ABORT")

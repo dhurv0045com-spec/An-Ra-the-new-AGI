@@ -42,6 +42,45 @@ from v5_objectives.causal_lm import causal_lm_loss
 
 BACKEND_SCHEMA = "anra-v5-production-backend-receipt/v1"
 GRAD_CLIP_GLOBAL_L2 = 1.0
+
+EXECUTABLE_RUNTIMES = ("cpu", "cuda")
+
+
+def _runtime_of(device: Any) -> str:
+    if device is None:
+        return "cpu"
+    return str(getattr(device, "type", device))
+
+
+def precision_receipt(*, runtime: str, torch_module: Any = None) -> dict[str, object]:
+    """Frozen precision contract for a runtime, without executing anything.
+
+    Persistent/master parameters are FP32, compute is BF16 autocast on CUDA
+    only, and loss/reductions/moments are FP32. Anything outside {"cpu",
+    "cuda"} is NOT certified here: XLA/TPU dtype behavior requires PRE500M
+    evidence and fails closed as TPU_EVIDENCE_REQUIRED.
+    """
+
+    if runtime not in EXECUTABLE_RUNTIMES:
+        return {
+            "schema": "anra-v5-precision-contract/v1",
+            "runtime": runtime,
+            "status": "TPU_EVIDENCE_REQUIRED",
+            "reason": "XLA collectives, memory fit, and bf16 execution need PRE500M certification",
+        }
+    compute = "bfloat16-autocast" if runtime == "cuda" else "float32"
+    return {
+        "schema": "anra-v5-precision-contract/v1",
+        "runtime": runtime,
+        "persistent_parameters": "float32",
+        "compute": compute,
+        "logits_loss_reductions": "float32",
+        "global_gradient_norm": "float32 replica-global",
+        "optimizer_moments": "float32",
+        "persistent_bfloat16_shadow": False,
+        "loss_scaler": None,
+        "status": "CERTIFIED_LOCAL",
+    }
 _NORM_TOLERANCE = 1e-6
 
 
@@ -312,6 +351,14 @@ class ProductionTrainingBackend:
             raise ValueError("schedule must map cumulative tokens to a learning rate")
         if self.bfloat16_autocast and not hasattr(self.torch, "autocast"):
             raise ValueError("bfloat16 autocast requires a framework with autocast support")
+        self.runtime = _runtime_of(device)
+        if self.runtime not in EXECUTABLE_RUNTIMES:
+            raise ValueError(
+                f"runtime {self.runtime!r} is not locally executable: XLA/TPU dtype "
+                "behavior needs PRE500M certification (TPU_EVIDENCE_REQUIRED)"
+            )
+        if self.bfloat16_autocast and self.runtime != "cuda":
+            raise ValueError("bfloat16 autocast is only valid on the CUDA runtime")
         assert_live_ownership(self.model, self.optimizer)
         self.last_receipt: dict[str, object] | None = None
 
@@ -406,6 +453,158 @@ class ProductionTrainingBackend:
             cursor=batch.cursor,
             rng_state_sha256=receipt["rng_state_sha256"],
             loss_finite=finite_loss,
+            grad_finite=finite_grads,
+            grad_norm_post_clip=float(grad_norm_post_clip),
+            tied_preserved=True,
+        )
+
+    # -- accumulated optimizer transaction ------------------------------
+    # One logical optimizer update = N accumulation microsteps sharing one
+    # global eligible-token denominator. Gradients accumulate as exact
+    # token-weighted sums: microstep i contributes (n_i / N) * mean_i, which
+    # equals sum_i / N, the frozen replica-global mean. A single clip, a
+    # single optimizer.step(), and a single TrainingState.advance() happen
+    # at the accumulation boundary only.
+    def begin_update(self, state: Any) -> dict[str, Any]:
+        """Open one logical update: set token-indexed LR, zero grads, capture before."""
+
+        torch = self.torch
+        assert_live_ownership(self.model, self.optimizer)
+        expected_lr = float(self.schedule(cumulative_tokens=int(state.cumulative_tokens)))
+        for group in self.optimizer.param_groups:
+            group["lr"] = float(expected_lr)
+        self.optimizer.zero_grad(set_to_none=True)
+        before = capture_evidence(self.model, self.optimizer, torch=torch)
+        return {
+            "learning_rate": expected_lr,
+            "before": before,
+            "loss_numerators": [],
+            "eligible_counts": [],
+            "tokens_by_source": {},
+            "microsteps": 0,
+        }
+
+    def _forward_microstep(self, tokens: Any, segment_ids: Any) -> Any:
+        torch = self.torch
+        positions, mask = packed_layout(segment_ids, torch_module=torch)
+        mask = mask.to(tokens.device)
+        if mask.dtype != torch.bool:
+            mask = mask.to(torch.bool)
+        if self.bfloat16_autocast:
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                return self.model(tokens, positions, mask)
+        return self.model(tokens, positions, mask)
+
+    def accumulate_microstep(
+        self,
+        ctx: dict[str, Any],
+        *,
+        tokens: Any,
+        segment_ids: Any,
+        eligible: Any,
+        tokens_by_source: Mapping[str, int],
+        planned_total: int,
+    ) -> dict[str, Any]:
+        """Forward one microstep and backward its exact share of the global mean."""
+
+        torch = self.torch
+        if tokens.ndim != 2 or segment_ids.shape != tokens.shape:
+            raise ValueError("microstep tensors must be rank-two and identically shaped")
+        if eligible.shape != tokens.shape:
+            raise ValueError("eligibility mask must match microstep token shape")
+        if planned_total <= 0:
+            raise ValueError("planned update total must be positive")
+        if tokens.dtype not in (torch.int32, torch.int64):
+            raise ValueError("microstep tokens must be integer token ids")
+        logits = self._forward_microstep(tokens, segment_ids)
+        loss, supervised = causal_lm_loss(
+            logits, tokens, segment_ids, bos_id=self.bos_id, pad_id=self.pad_id,
+            eligible=eligible, torch_module=torch,
+        )
+        if supervised <= 0:
+            raise ValueError("abort NO_SUPERVISED_TOKENS: microstep carried no eligible targets")
+        loss_value = float(loss.detach().item())
+        if not math.isfinite(loss_value):
+            raise ValueError("abort NONFINITE_LOSS: microstep loss is not finite")
+        scale = supervised / planned_total
+        (loss * scale).backward()
+        merged = dict(ctx["tokens_by_source"])
+        for source, count in tokens_by_source.items():
+            if not source or count < 0:
+                raise ValueError("microstep ledger requires names and nonnegative counts")
+            merged[source] = merged.get(source, 0) + int(count)
+        return {
+            "learning_rate": ctx["learning_rate"],
+            "before": ctx["before"],
+            "loss_numerators": [*ctx["loss_numerators"], loss_value * supervised],
+            "eligible_counts": [*ctx["eligible_counts"], supervised],
+            "tokens_by_source": merged,
+            "microsteps": ctx["microsteps"] + 1,
+        }
+
+    def finish_update(
+        self,
+        state: Any,
+        ctx: dict[str, Any],
+        *,
+        planned_total: int,
+        cursor: Any,
+    ) -> BackendReport:
+        """Close one logical update: global clip, single step, certified report.
+
+        The post-step RNG digest is captured inside this boundary from the
+        live framework state, never supplied by the caller: a caller-provided
+        digest could disagree with the actual resume bytes.
+        """
+
+        torch = self.torch
+        if ctx["microsteps"] <= 0:
+            raise ValueError("cannot finish an update with no microsteps")
+        eligible_total = sum(ctx["eligible_counts"])
+        if eligible_total != planned_total:
+            raise ValueError(
+                f"accumulated {eligible_total} eligible tokens but update planned {planned_total}"
+            )
+        trainable = [
+            parameter for parameter in self.model.parameters() if parameter.requires_grad
+        ]
+        if not trainable:
+            raise ValueError("model has no trainable parameters")
+        grad_norm_pre_clip = float(
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), GRAD_CLIP_GLOBAL_L2)
+        )
+        grad_norm_post_clip = _global_norm(
+            [parameter.grad for parameter in trainable], torch
+        )
+        self.optimizer.step()
+        loss_value = sum(ctx["loss_numerators"]) / planned_total
+        after = capture_evidence(self.model, self.optimizer, torch=torch)
+        receipt = certify_real_update(
+            model=self.model,
+            optimizer=self.optimizer,
+            before=ctx["before"],
+            after=after,
+            expected_learning_rate=float(ctx["learning_rate"]),
+            supervised_tokens=planned_total,
+            loss=loss_value,
+            grad_norm_pre_clip=grad_norm_pre_clip,
+            grad_norm_post_clip=grad_norm_post_clip,
+            torch=torch,
+        )
+        receipt["rng_state_sha256"] = _rng_state_sha256(torch)
+        receipt["consumed_real_tokens"] = planned_total
+        receipt["microsteps"] = ctx["microsteps"]
+        self.last_receipt = receipt
+        finite_grads = all(
+            bool(torch.isfinite(parameter.grad).all().item())
+            for parameter in trainable
+            if parameter.grad is not None
+        )
+        return BackendReport(
+            tokens_by_source=dict(ctx["tokens_by_source"]),
+            cursor=cursor,
+            rng_state_sha256=receipt["rng_state_sha256"],
+            loss_finite=True,
             grad_finite=finite_grads,
             grad_norm_post_clip=float(grad_norm_post_clip),
             tied_preserved=True,
