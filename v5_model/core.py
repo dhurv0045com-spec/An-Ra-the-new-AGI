@@ -40,12 +40,17 @@ def initialize(spec: ModelSpec, seed: int, *, torch_module: Any = None) -> Any:
             self.final_norm = build_rmsnorm(
                 config.width, epsilon=config.norm_epsilon, torch_module=torch)
 
-        def forward(self, token_ids: Any, positions: Any, mask: Any) -> Any:
+        def forward(self, token_ids: Any, positions: Any, mask: Any,
+                      use_activation_checkpointing: bool = False) -> Any:
             if token_ids.ndim != 2 or not 0 < token_ids.shape[1] <= config.context_length:
                 raise ValueError("token ids must be [batch, length] within native context")
             hidden = self.embedding(token_ids)
             for block in self.blocks:
-                hidden = block(hidden, positions, mask)
+                if use_activation_checkpointing and self.training:
+                    hidden = torch.utils.checkpoint.checkpoint(
+                        block, hidden, positions, mask, use_reentrant=False)
+                else:
+                    hidden = block(hidden, positions, mask)
             return functional.linear(self.final_norm(hidden), self.embedding.weight)
 
     with torch.random.fork_rng():

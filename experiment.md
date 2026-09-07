@@ -1,99 +1,115 @@
-# Cymek 500M campaign-engine experiments
+# Cymek 500M closure-cycle experiments
 
-Branch: `cymek-500m-readiness`. Single real chain under test:
-documents -> manifest -> pack -> sampler order -> layout -> exact-token
-microsteps -> accumulation -> one optimizer update -> trainer state machine
--> checkpoint transactions -> resume verification -> campaign receipt.
-
-## Machine (do not exceed without asking)
-- CPU: AMD Ryzen 7 170, 8C/16T @ 3.2 GHz — throttle with
-  `torch.set_num_threads(8)`, `OMP/MKL_NUM_THREADS=8`, BelowNormal priority.
-- RAM: ~15 GB usable.
-- GPU: NVIDIA RTX 4050 Laptop, 6 GB. `torch.cuda.is_available() == True`
-  via `.venv-cuda` (torch 2.11+cu128). CPU venv: `.venv` (torch 2.13+cpu).
-- Device switch for the suite: `ANRA_TEST_DEVICE=cuda` (default `cpu`).
+Branch: `cymek-500m-readiness`. Machine: Ryzen 7 170 (8C/16T), ~15 GB RAM,
+RTX 4050 Laptop 6 GB. CPU venv `.venv` (torch 2.13+cpu); CUDA venv
+`.venv-cuda` (torch 2.11+cu128, `tokenizers` present). Training runs:
+6 torch threads, `OMP/MKL_NUM_THREADS=6`, foreground only, one test at a
+time, RAM checked before/after (9–11 GB free throughout; no swap event).
+Suite device switch: `ANRA_TEST_DEVICE=cuda` (default `cpu`).
 
 ## Completed (measured)
 
-### E1 — Contract suite, throttled CPU: 33/33
-`python tests/test_production_entry.py` with 8 torch threads, BelowNormal.
-Covers: exact completion, determinism, over-budget fail-closed, 5
-resume/identity guards, 4-microstep full-update proof, partial-tail exactness,
-milestones, rotation, recovery cadence, LR wiring incl. no-rewarm, precision
-contract, TPU fail-closed, contamination commitment, mode labels, certificate
-completeness, banned-symbol scan, helper purity, compressed e2e
-(fresh -> recovery -> milestone -> stop -> resume -> partial -> complete),
-session COMPLETE/TIMEBOX/RESUMABLE, already-complete, identity freeze,
-supply accounting.
+### E1 — Bucket-lane unit suite: 10/10 (CPU, seconds)
+`python tests/test_v5_bucket_cursor.py`. Single-bucket physical windows,
+split-window resume prefix equality, missing-bucket fail-closed, lane
+exhaustion, epoch determinism + reproducibility, mixed-cell rejection,
+segregated family lanes, remainder accounting, cursor round-trip, receipt.
 
-### E2 — Contract suite, RTX 4050: 27/33 (6 environmental OOM, 0 code failures)
-Same suite with `ANRA_TEST_DEVICE=cuda`. All 6 failures are
-`torch.OutOfMemoryError` on the frozen 131,072-token full update, in fresh
-processes too — not fragmentation.
-Measured: one 32,768-token microstep peaks at ~5 GB transient
-(3.2 GB full-vocab FP32 logit upcast in `causal_lm_loss` + 1.6 GB bf16 +
-grads/activations) vs 6 GB total shared with the OS. Conclusion: the frozen
-microstep does not fit a 6 GB laptop GPU. Data-center GPUs/TPUs fit it;
-no production-code change was made to accommodate test hardware.
+### E2 — Mixture + lifecycle suite: 7/7 (CPU, seconds)
+`python tests/test_v5_mixture.py`. 500M allocation exact
+(325M/100M/75M), deficit-scheduler exactness on unit steps, convergence
+bound, purity/resumability, offline-demand == live-assignment proof,
+lifecycle order + evidence gates.
 
-### E3 — CUDA determinism probe: PASS, 2.8 s for two campaigns
-Two fresh identical campaigns on CUDA: losses and per-update receipts
-bit-identical. Small-model GPU path is deterministic in practice here.
+### E3 — Durability/mirror/eval/XLA/topology suite: 9/9 (CPU, seconds)
+`python tests/test_v5_durability_contracts.py`. Mirror round-trip,
+interrupted copy, corrupt mirror, stale/foreign pointers, train/eval
+collision, eval schedule + ingest idempotence + tamper rejection,
+promotion delegation, replica sharding/divisibility/padding, XLA
+fail-closed paths.
 
-### E4 — Interrupted == uninterrupted, byte-for-byte: PASS (CPU)
-Stop after update 1 with `max_updates=1`, resume to completion, compare
-against an uninterrupted run: `model.bin`, `optimizer.bin`, `rng.bin`,
-`cursor.json`, `ledger.json` hashes identical.
+### E4 — Equivalence suite: 2/2 (CPU torch, ~1 min)
+`python tests/test_v5_training_equivalence.py`. Activation checkpointing
+off-vs-on: bit-identical logits AND gradients, inference path unchanged.
+Replica-sharded (3 unequal replicas) vs single-shot global accumulation:
+same denominator → loss/grads/params equal within 1e-5 (kernel tiling
+justifies tolerance, not bit equality).
 
-### E5 — Checkpoint rotation: PASS (CPU)
-Three publishes with no milestones/recovery configured: store ends with
-exactly the head generation; older generations pruned; head never orphaned
-(`prune()` refuses to drop LATEST).
+### E5 — Production-entry contract suite: 49/49 (throttled CPU + CUDA legs)
+`python tests/test_production_entry.py`. Prior 33-test coverage carried
+over and extended: exact single-bucket microstep shapes (64/32/16/8 rows,
+width == bucket, frozen plan certified), supercycle order, partial-tail
+pad-path receipts, durable cross-session milestone protection (object
+survives rotation, receipt verifies, restore works), dangling/tampered
+milestone rejection, rotation, recovery, LR wiring + no-rewarm, precision
+per device, TPU fail-closed, contamination commitment + content binding,
+mixture/freeze/provenance production gates, frozen-mixture end-to-end
+(65/20/15 consumed exactly per plan), shortfall DATA_NOT_READY, epoch
+replay (multi-epoch merge) + forbidden-replay failure, certificate,
+banned-symbol scan, EOS packing contract (one-token doc → 2 supervised;
+exact fill; ragged tail), e2e, sessions, V5A exact count, bf16 diagnostic,
+soak, exact-head receipt.
 
-### E6 — Session timebox: PASS (CPU)
-`max_session_minutes=0.000001` stops after update 1 with TIMEBOX/RESUMABLE;
-a second `run_500m_session` call resumes to COMPLETE. Milestone files written
-once, never duplicated; `SESSION_RECEIPT.json` + `HEARTBEAT.json` present.
+### E6 — Multi-session soak: PASS (throttled CPU, one shot)
+`test_multi_session_soak_state_machine`. Budget 264144 across 3 sessions
+(TIMEBOX, TIMEBOX, COMPLETE): exact final tokens + ledger, 3 losses,
+milestone objects preserved + verified, no duplicate milestone files,
+LR equals schedule at both resume points, epoch 0 / zero replays.
 
-### E7 — Regression suites (CPU venv): all green
-`test_v5_training` (7), `test_v5_step_schedule_trainer`,
-`test_v5_production_backend`, `test_v5_runner`, `test_v5_checkpoint_adapter`,
-`test_v5_data`, `test_v5_data_pipeline`, `test_v5_stream_cursor`,
-`test_v5_durability_canary`, `test_v5_stream_resume` — 70+ tests pass.
+### E7 — P2 bf16-vs-fp32 diagnostic: delta 5.1e-5 (CUDA + CPU, ~2 min)
+Same seed/docs/budget 4000: CUDA-bf16 loss 10.125044, CPU-fp32 loss
+10.124993. Diagnostic only; no cross-precision hash equality claimed.
 
-### E8 — Canary artifact refresh
-`artifacts/v5/training_transaction_canary.json` regenerated via
-`python -m v5_training.transaction_canary`. Proven by diff: the ONLY change
-vs the committed artifact is `implementation_sha256` (pre-existing `prune()`
-addition to `checkpoint.py`); all behavior/checks identical.
+### E8 — V5A_250M instantiation: PASS (CPU, one shot)
+`initialize(V5A_250M)` → 250,216,960 live parameters == receipt total.
+~1 GB transient, freed after.
 
-### E9 — Bugs caught by execution (both fixed, both covered by tests)
-1. Window real-token count != loss supervised count (BOS/segment-starts
-   excluded by the loss). Fix: predict the supervised total with the loss's
-   own keep rule; backend cross-checks and fails closed on drift.
-2. Resume published against the grandparent (`writer fence rejected stale
-   parent`). Fix: `train(..., resume_parent_sha256=<restored head>)`.
+### E9 — Relevant regression suites: all green (CPU venv)
+training (7), step/schedule/trainer, production_backend, runner,
+checkpoint_adapter, data, data_pipeline, stream_cursor, stream_resume,
+durability_canary, contracts (incl. import boundaries + transaction
+canary), model, objectives, foundry, mutation_canary, cli, status,
+launch_readiness, evaluation, evaluation_protocol, promotion, registry,
+redteam, subject_v2, tokenizer — 200+ tests, 0 failures.
 
-## Planned (not run)
-- **P1 — Microstep memory vs width/vocab.** Measure peak transient per
-  microstep for wider models; feeds PRE500M memory-fit evidence. Needs >6 GB GPU.
-- **P2 — bf16 vs fp32 trajectory.** Same seed/budget on CPU-fp32 vs CUDA-bf16;
-  compare loss curves and final param hashes. Expect small divergence; quantify.
-- **P3 — Multi-session soak (CPU).** 500k-token budget across many
-  stop/resume cycles with mixed MANUAL_BOUNDARY/TIMEBOX stops; assert ledger
-  == budget and single head at end.
-- **P4 — PRE500M TPU certification.** Collectives, 8-replica topology, memory
-  fit, bf16 execution on real TPU. BLOCKED: needs TPU hardware.
-- **P5 — Throughput curve.** Tokens/sec vs microstep size on a data-center
-  GPU; validates the 8x4x4096 topology choice. Needs data-center GPU.
-- **P6 — Full repo marathon suite.** Whole-repo pytest at exact HEAD.
-  Skipped deliberately (laptop load); run on a bigger machine or overnight.
-- **P7 — Real-corpus production run.** Requires DATA_READY 500M first-party
-  corpus + frozen contamination benchmarks. BLOCKED by supply (honestly
-  reported by `materialize_first_party`: DATA_NOT_READY).
+### E10 — Bugs caught by execution (all fixed, all covered)
+1. Window real tokens != loss supervised tokens (BOS/segment-starts) →
+   predict-with-loss-rule + backend cross-check.
+2. Resume published against grandparent (stale writer fence) →
+   `resume_parent_sha256`.
+3. Checkpoint cursor-component check compared dict-with-tuples against
+   JSON lists → compare through canonical JSON.
+4. Overwrote tracked `v5_data/mixture.py`; restored and merged (kept
+   `allocate`/`bucket_plan`/exports, added scheduler).
+5. Moved `_load_corpus/_load_tokenizer` to `v5_data/corpus_loading.py`
+   (fixes the pre-existing v5_data→v5_training plane violation; training
+   modules re-export, all importers verified).
+6. Test-pack bucket drift (BPE rate misestimated twice) → measured
+   calibration (`_sized_text`, exact-full rows).
 
-## Load rules for this machine
-1. Check specs and state the cost estimate BEFORE any training-step run.
-2. Default to cheap tests; heavy runs only on explicit approval, throttled,
-   one at a time.
-3. Never modify production math to fit test hardware.
+### E11 — Canary artifacts regenerated (behavior-identical, hash-only diffs)
+`training_transaction_canary.json` (covers state.py + checkpoint.py
+changes: resume-parent param is additive, prune auto-union, cursor
+compare normalization — canary semantics unchanged, PASS).
+
+## OOM classification (corrected per audit — no overclaim)
+- RTX 4050 6 GB, frozen 32,768-token microstep, this implementation:
+  **DOES_NOT_FIT** (measured ~5 GB transient vs 6 GB shared; fails in
+  fresh processes, not fragmentation).
+- Larger data-center GPUs: **UNMEASURED**.
+- TPU: **UNMEASURED** (XLA adapter reports IMPLEMENTED_PENDING_PRE500M_TPU).
+- No production math was changed to fit test hardware.
+
+## Planned / blocked (not run)
+- **P1** microstep memory vs width (needs >6 GB GPU).
+- **P4** PRE500M TPU certification (needs TPU hardware).
+- **P5** throughput curve (needs data-center GPU).
+- **P6** whole-repo marathon (all *relevant* suites ran, E9; research
+  stacks e0/e1/e2/e3, remote, and hardware benchmarks untouched —
+  out of scope for this closure cycle, stated not implied).
+- **P7** real-corpus production run (BLOCKED: DATA_NOT_READY supply).
+
+## Load rules used
+Specs checked before every training run; one test at a time; foreground
+so aborts kill workers; no uncommitted-background batches after the first
+orphan incident; V5A-size loads run once.

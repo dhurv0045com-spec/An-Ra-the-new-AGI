@@ -1,11 +1,11 @@
-"""500M production-entry contract suite (CPU default, CUDA via ANRA_TEST_DEVICE=cuda).
+"""500M production-entry contract suite (CPU default, CUDA via ANRA_TEST_DEVICE).
 
 Run from the cymek-500m worktree root:
     <repo>/.venv/Scripts/python.exe -m pytest tests/test_production_entry.py -x -q
 or:  python tests/test_production_entry.py
-Device ops run on the seam device (CPU default); everything else is the
-REAL production chain: frozen topology -> accumulation -> trainer ->
-checkpoint transactions.
+Device ops run on the seam device; everything else is the REAL production
+chain: frozen topology -> bucket lanes -> mixture schedule -> accumulation
+-> trainer -> checkpoint transactions.
 """
 import hashlib
 import json
@@ -22,10 +22,14 @@ from tests.cpu_seam import cpu_seams  # noqa: E402
 from v5_data import materialize_first_party as mfp  # noqa: E402
 from v5_tokenizer.artifact import load_verified_tokenizer  # noqa: E402
 from v5_tokenizer.freeze_production import freeze_production_identity  # noqa: E402
+from v5_training.checkpoint import CheckpointStore  # noqa: E402
 from v5_training.production_entry import (  # noqa: E402
     ENTRY_SCHEMA,
     MILESTONE_TOKENS,
+    VERIFIED_COGNITION,
+    build_milestone_receipt,
     crossed_milestones,
+    frozen_mixture_fractions,
     frozen_topology,
     microstep_buckets,
     partial_microstep_plan,
@@ -34,21 +38,25 @@ from v5_training.production_entry import (  # noqa: E402
     run_500m_session,
     run_campaign,
     topology_sha256,
+    verify_milestone_receipt,
 )
 from v5_training.production_backend import precision_receipt  # noqa: E402
 from v5_training.schedule import lr_at  # noqa: E402
 
 TEST_SHA = "ab" * 20
+FREEZE_SHA = "cc" * 32
 BENCHMARKS = {"synthetic-bench": "zzzqqqwww xxxjjjvvv"}
+PROD_MIXTURE = {"natural": 0.65, "code_math_formal": 0.20,
+                "verified_cognition": 0.15}
+SINGLE_MIXTURE = {"natural": 1.0}
+
+_token_cache: dict = {}
+_bucketed_cache: dict = {}
+_mixture_cache: dict = {}
 
 
 def _seams():
-    """Device seam for this run: CPU by default, CUDA when ANRA_TEST_DEVICE=cuda.
-
-    The production chain is device-injected, so the same suite validates
-    both paths unmodified; only the seam and the expected precision
-    contract change.
-    """
+    """Device seam: CPU default, CUDA when ANRA_TEST_DEVICE=cuda."""
 
     import os
     if os.environ.get("ANRA_TEST_DEVICE", "cpu") == "cuda":
@@ -61,8 +69,6 @@ def _seams():
 
         return cuda_seams
     return cpu_seams
-
-_token_cache: dict = {}
 
 
 class _Tok:
@@ -109,6 +115,113 @@ def _documents(n_arith=240, n_notes=60):
     return docs
 
 
+_WORD_POOL = ("alpha beta gamma delta epsilon zeta eta theta iota kappa "
+               "lambda mu nu xi omicron pi rho sigma tau upsilon phi chi psi "
+               "omega").split()
+
+
+def _words(tag, count):
+    words = []
+    for j in range(count):
+        words.append(_WORD_POOL[j % len(_WORD_POOL)])
+        if j % 40 == 39:
+            words.append(f"m{tag}q{j}")
+    return words
+
+
+def _sized_text(tok, target_tokens, tag):
+    """Deterministic text encoding to exactly target_tokens tokens.
+
+    Calibrates coarsely below target, then appends single alphas (measured
+    +1 token each). Raises loudly if exactness is unreachable.
+    """
+    estimate = max(10, int((target_tokens - 12) / 1.7))
+    words = _words(tag, estimate)
+    for _ in range(12):
+        measured = len(tok.encode(" ".join(words)))
+        gap = target_tokens - measured
+        if 1 <= gap <= 40:
+            break
+        if gap == 0:
+            return " ".join(words)
+        step = int(gap / 1.7)
+        if step == 0:
+            step = 1 if gap > 0 else -1
+        estimate = max(10, estimate + step)
+        words = _words(tag, estimate)
+    for _ in range(40):
+        measured = len(tok.encode(" ".join(words)))
+        if measured == target_tokens:
+            return " ".join(words)
+        if measured > target_tokens:
+            raise ValueError(f"cannot size text below {measured} for {tag}")
+        words.append("alpha")
+    raise ValueError(f"cannot size text to exactly {target_tokens} tokens")
+
+
+def _bucketed_documents():
+    """Exact-full rows per bucket for frozen-shape execution.
+
+    Every doc carries exactly bucket-2 content tokens, so each packs to one
+    exactly-full sequence: microsteps execute the frozen per-replica counts
+    (64/32/16/8). Two sparse 4096 docs cover partial tails (pad path).
+    """
+    if "docs" not in _bucketed_cache:
+        tok = _tokenizer()
+        docs = []
+
+        def add(prefix, count, content_tokens):
+            for i in range(count):
+                docs.append({"doc_id": f"{prefix}-{i:04d}",
+                             "text": _sized_text(tok, content_tokens,
+                                                 f"{prefix}{i}"),
+                             "source_id": f"{prefix}-{i:04d}",
+                             "family": "natural"})
+
+        add("b512", 128, 510)
+        add("b1024", 64, 1022)
+        add("b2048", 48, 2046)
+        add("b4096", 8, 4094)
+        add("b4096t", 2, 3000)
+        _bucketed_cache["docs"] = docs
+    return _bucketed_cache["docs"]
+
+
+def _mixture_documents():
+    """Segregated exact-full cells for the frozen-mixture campaign test.
+
+    Cells match the planner's exact demand for budget 100000:
+    (512,code)=32768, (1024,nat)=32768, (2048,nat)=32768, (4096,cog)=1696.
+    """
+    if "docs" not in _mixture_cache:
+        tok = _tokenizer()
+        docs = []
+
+        def add(prefix, family, count, content_tokens):
+            for i in range(count):
+                docs.append({"doc_id": f"{prefix}-{family}-{i:04d}",
+                             "text": _sized_text(tok, content_tokens,
+                                                 f"{prefix}{family}{i}"),
+                             "source_id": f"{prefix}-{family}-{i:04d}",
+                             "family": family})
+
+        add("mx512", "code_math_formal", 64, 510)
+        add("mx1024", "natural", 32, 1022)
+        add("mx2048", "natural", 16, 2046)
+        add("mx4096", "verified_cognition", 1, 3000)
+        _mixture_cache["docs"] = docs
+    return _mixture_cache["docs"]
+
+
+def _natural_documents(n_notes=200):
+    return _documents(n_arith=0, n_notes=n_notes)
+
+
+def _with_raw(documents):
+    return [dict(d, raw_source_sha256=hashlib.sha256(
+        d["text"].encode("utf-8")).hexdigest()) for d in documents]
+
+
 def _run(documents, torch, device, tmp, name, **kw):
     params = {"documents": documents, "tokenizer": _tokenizer(),
               "model_spec": MINI_SPEC, "run_id": name, "seed": 20260906,
@@ -117,6 +230,16 @@ def _run(documents, torch, device, tmp, name, **kw):
               "development_mode": True, "cymek_sha": TEST_SHA}
     params.update(kw)
     return run_campaign(**params)
+
+
+def _prod(documents, torch, device, tmp, name, **kw):
+    params = {"development_mode": False,
+              "campaign_tokens": 4000,
+              "contamination_benchmarks": dict(BENCHMARKS),
+              "mixture_fractions": dict(SINGLE_MIXTURE),
+              "tokenizer_freeze_sha256": FREEZE_SHA}
+    params.update(kw)
+    return _run(_with_raw(documents), torch, device, tmp, name, **params)
 
 
 # -- fresh campaigns ------------------------------------------------------
@@ -137,6 +260,10 @@ def test_exact_completion_single_partial_update():
         assert last["microsteps"] == 1
         assert 0 < last["supervised_tokens"] < 4000
         assert sum(result["tokens_by_source"].values()) == 4000
+        shape = result["microstep_shapes"][0]
+        assert shape["requested_bucket"] == 512
+        assert shape["actual_row_widths"] == [512]
+        assert shape["physical"].get("partial_tail") is True
 
 
 def test_fresh_determinism_same_inputs_same_receipt():
@@ -157,7 +284,8 @@ def test_pack_smaller_than_budget_fails_closed():
             _run(_documents(n_arith=4, n_notes=1), torch, device, tmp,
                  "too-small", campaign_tokens=1_000_000)
         except ValueError as exc:
-            assert "pack" in str(exc).lower() or "window" in str(exc).lower()
+            assert "pack" in str(exc).lower() or "window" in str(exc).lower() \
+                or "supply" in str(exc).lower() or "data_not_ready" in str(exc).lower()
         else:
             raise AssertionError("over-budget campaign did not fail closed")
 
@@ -166,7 +294,7 @@ def test_pack_smaller_than_budget_fails_closed():
 
 def test_mid_campaign_resume_matches_uninterrupted():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
-        docs = _documents(n_arith=11000, n_notes=500)
+        docs = _bucketed_documents()
         budget = 131_072 + 5000
         part = _run(docs, torch, device, tmp, "resume-run",
                     campaign_tokens=budget, max_updates=1)
@@ -181,7 +309,6 @@ def test_mid_campaign_resume_matches_uninterrupted():
                      campaign_tokens=budget)
         assert whole["cumulative_tokens"] == budget
         assert whole["tokens_by_source"] == continued["tokens_by_source"]
-        from v5_training.checkpoint import CheckpointStore
         continued_store = CheckpointStore(Path(tmp) / "resume-run",
                                           "resume-run")
         whole_store = CheckpointStore(Path(tmp) / "whole-run", "whole-run")
@@ -261,19 +388,35 @@ def test_cross_store_and_cross_lineage_rejected():
             raise AssertionError("cross-lineage resume was not rejected")
 
 
-# -- accumulation honesty ---------------------------------------------------
+# -- accumulation and bucket execution ---------------------------------------
 
 def test_full_update_uses_four_microsteps_one_step():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
-        result = _run(_documents(n_arith=11000, n_notes=500), torch, device,
-                      tmp, "full-update", campaign_tokens=131_072)
+        result = _run(_bucketed_documents(), torch, device, tmp,
+                      "full-update", campaign_tokens=131_072)
         assert result["updates_executed"] == 1
         assert result["cumulative_tokens"] == 131_072
         last = result["last_update_receipt"]
         assert last["microsteps"] == 4
         assert 0 < last["supervised_tokens"] < 131_072
-        assert len(result["microstep_buckets"]) == 4
+        assert result["microstep_buckets"] == [512, 1024, 2048, 4096]
         assert result["termination"] == "COMPLETE"
+
+
+def test_bucket_shapes_exact_and_certified():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        result = _run(_bucketed_documents(), torch, device, tmp,
+                      "bucket-shapes", campaign_tokens=131_072)
+        expected_rows = {512: 64, 1024: 32, 2048: 16, 4096: 8}
+        for shape in result["microstep_shapes"]:
+            bucket = shape["requested_bucket"]
+            assert shape["actual_row_widths"] == [bucket]
+            assert shape["sequences_global"] == expected_rows[bucket]
+            assert shape["real_tokens_global"] == 32768
+            physical = shape["physical"]
+            assert physical["sequences_per_replica"] == {512: 8, 1024: 4,
+                                                         2048: 2, 4096: 1}[bucket]
+            assert "partial_tail" not in physical
 
 
 def test_partial_tail_never_overshoots():
@@ -300,12 +443,11 @@ def test_single_microstep_update_accounts_exactly():
         result = _run(_documents(), torch, device, tmp, "exact-ledger",
                       campaign_tokens=4000)
         assert sum(result["tokens_by_source"].values()) == 4000
-        assert set(result["microstep_bucket_mix"]) == {512}
-        assert sum(result["microstep_bucket_mix"].values()) > 0
+        assert result["microstep_shapes"][0]["actual_row_widths"] == [512]
         assert all(v > 0 for v in result["tokens_by_source"].values())
 
 
-# -- checkpoints ------------------------------------------------------------
+# -- checkpoints and durable milestones -----------------------------------------
 
 def test_milestone_checkpoints_published_and_receipted():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
@@ -315,14 +457,68 @@ def test_milestone_checkpoints_published_and_receipted():
         crossed = [m["threshold_tokens"] for m in result["milestones_crossed"]]
         assert crossed == [1500, 3000]
         for entry in result["milestones_crossed"]:
+            assert entry["schema"] == "anra-v5-milestone-receipt/v1"
             assert len(entry["checkpoint_sha256"]) == 64
             assert entry["actual_cumulative_tokens"] >= entry["threshold_tokens"]
+            for key in ("cymek_sha", "model_spec_sha256", "tokenizer_sha256",
+                        "data_manifest_sha256", "pack_manifest_sha256",
+                        "topology_sha256", "schedule_spec_sha256"):
+                assert key in entry, f"milestone lacks {key}"
         assert result["recovery_checkpoint_count"] == 0
+        store = CheckpointStore(Path(tmp) / "milestones", "milestones")
+        for entry in result["milestones_crossed"]:
+            assert verify_milestone_receipt(entry, store) is True
+
+
+def test_milestone_protection_across_sessions():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        docs = _bucketed_documents()
+        budget = 131_072 + 5000
+        first = _run(docs, torch, device, tmp, "protect",
+                     campaign_tokens=budget, max_updates=1,
+                     milestones=(100_000,), recovery_tokens=10 ** 12)
+        assert [m["threshold_tokens"] for m in first["milestones_crossed"]] == [100_000]
+        milestone_sha = first["milestones_crossed"][0]["checkpoint_sha256"]
+        store = CheckpointStore(Path(tmp) / "protect", "protect")
+        assert milestone_sha in store.protected_shas()
+        second = _run(docs, torch, device, tmp, "protect",
+                      campaign_tokens=budget, milestones=(100_000,),
+                      recovery_tokens=131_072)
+        assert second["termination"] == "COMPLETE"
+        objects = {p.name for p in (Path(tmp) / "protect" / "protect"
+                                    / "objects").iterdir() if p.is_dir()}
+        assert milestone_sha in objects, "milestone object was pruned across sessions"
+        assert verify_milestone_receipt(first["milestones_crossed"][0], store) is True
+        restored, _ = store.restore(milestone_sha)
+        assert restored.cumulative_tokens == 131_072
+
+
+def test_dangling_milestone_detected():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        result = _run(_documents(), torch, device, tmp, "dangle",
+                      campaign_tokens=4000, milestones=(1500,),
+                      recovery_tokens=10 ** 12)
+        entry = dict(result["milestones_crossed"][0])
+        store = CheckpointStore(Path(tmp) / "dangle", "dangle")
+        bogus = dict(entry, checkpoint_sha256="00" * 32)
+        try:
+            verify_milestone_receipt(bogus, store)
+        except (ValueError, KeyError):
+            pass
+        else:
+            raise AssertionError("dangling milestone was verified")
+        tampered = dict(entry, actual_cumulative_tokens=entry["actual_cumulative_tokens"] + 1)
+        try:
+            verify_milestone_receipt(tampered, store)
+        except ValueError as exc:
+            assert "disagrees" in str(exc)
+        else:
+            raise AssertionError("tampered milestone was verified")
 
 
 def test_rotation_keeps_milestones_and_head():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
-        docs = _documents(n_arith=11000, n_notes=500)
+        docs = _bucketed_documents()
         budget = 131_072 + 5000
         first = _run(docs, torch, device, tmp, "rotate",
                      campaign_tokens=budget, max_updates=1,
@@ -335,8 +531,7 @@ def test_rotation_keeps_milestones_and_head():
         assert second["termination"] == "COMPLETE"
         assert second["cumulative_tokens"] == budget
         objects = {p.name for p in (Path(tmp) / "rotate" / "rotate"
-                                          / "objects").iterdir()
-                   if p.is_dir()}
+                                    / "objects").iterdir() if p.is_dir()}
         assert objects == {second["checkpoint_head"]}
         assert head_one not in objects
 
@@ -363,7 +558,7 @@ def test_lr_matches_canonical_schedule():
 
 def test_lr_no_rewarm_after_resume():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
-        docs = _documents(n_arith=11000, n_notes=500)
+        docs = _bucketed_documents()
         budget = 131_072 + 5000
         _run(docs, torch, device, tmp, "lr-resume", campaign_tokens=budget,
              max_updates=1)
@@ -375,11 +570,12 @@ def test_lr_no_rewarm_after_resume():
 
 # -- precision ------------------------------------------------------------------
 
-def test_precision_receipt_cpu_certified():
+def test_precision_receipt_matches_device():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
         result = _run(_documents(), torch, device, tmp, "precision",
                       campaign_tokens=4000)
-        expected = precision_receipt(runtime=device.type, torch_module=torch)
+        runtime = getattr(device, "type", device)
+        expected = precision_receipt(runtime=runtime, torch_module=torch)
         assert result["precision"] == expected
         assert result["precision"]["status"] == "CERTIFIED_LOCAL"
 
@@ -395,7 +591,7 @@ def test_tpu_runtime_fails_closed():
             raise AssertionError("uncertified runtime did not fail closed")
 
 
-# -- contamination and mode -------------------------------------------------------
+# -- contamination, provenance, mode -------------------------------------------------------
 
 def test_production_requires_contamination_commitment():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
@@ -412,19 +608,126 @@ def test_production_requires_contamination_commitment():
             raise AssertionError("production without commitment did not fail")
 
 
+def test_production_requires_mixture_and_freeze():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        base = {"documents": _with_raw(_documents()), "tokenizer": _tokenizer(),
+                "model_spec": MINI_SPEC, "run_id": "prod-gates",
+                "seed": 20260906, "campaign_tokens": 4000,
+                "store_root": str(Path(tmp) / "prod-gates"), "device": device,
+                "torch_module": torch, "xb": object(), "cymek_sha": TEST_SHA,
+                "development_mode": False,
+                "contamination_benchmarks": dict(BENCHMARKS)}
+        try:
+            run_campaign(**dict(base, mixture_fractions=None,
+                                tokenizer_freeze_sha256=FREEZE_SHA))
+        except ValueError as exc:
+            assert "mixture" in str(exc).lower()
+        else:
+            raise AssertionError("production without mixture did not fail")
+        try:
+            run_campaign(**dict(base, mixture_fractions=dict(SINGLE_MIXTURE),
+                                tokenizer_freeze_sha256=None))
+        except ValueError as exc:
+            assert "tokenizer" in str(exc).lower()
+        else:
+            raise AssertionError("production without freeze identity did not fail")
+
+
+def test_raw_source_required_in_production():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        natural = _natural_documents()
+        try:
+            _run(natural, torch, device, tmp, "raw-missing",
+                 campaign_tokens=4000, development_mode=False,
+                 contamination_benchmarks=dict(BENCHMARKS),
+                 mixture_fractions=dict(SINGLE_MIXTURE),
+                 tokenizer_freeze_sha256=FREEZE_SHA, cymek_sha=TEST_SHA)
+        except ValueError as exc:
+            assert "raw_source_sha256" in str(exc)
+        else:
+            raise AssertionError("missing raw provenance did not fail closed")
+        result = _prod(natural, torch, device, tmp, "raw-present")
+        assert result["cumulative_tokens"] == 4000
+
+
+def test_contamination_content_binding():
+    first = prepare_data(documents=_documents(), tokenizer=_tokenizer(),
+                         run_id="cont", seed=11,
+                         contamination_benchmarks={"bench": "alpha beta gamma"})
+    second = prepare_data(documents=_documents(), tokenizer=_tokenizer(),
+                          run_id="cont", seed=11,
+                          contamination_benchmarks={"bench": "alpha beta DELTA"})
+    assert (first["manifest"].contamination_scan_sha256
+            != second["manifest"].contamination_scan_sha256)
+
+
 def test_development_mode_labels_and_relaxes():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
         result = _run(_documents(), torch, device, tmp, "dev-mode",
                       campaign_tokens=4000)
         assert result["mode"] == "DEVELOPMENT"
-        prod = run_campaign(
-            documents=_documents(), tokenizer=_tokenizer(),
-            model_spec=MINI_SPEC, run_id="prod-commit", seed=20260906,
-            campaign_tokens=4000,
-            store_root=str(Path(tmp) / "prod-commit"), device=device,
-            torch_module=torch, xb=object(), cymek_sha=TEST_SHA,
-            contamination_benchmarks=dict(BENCHMARKS))
+        prod = _prod(_natural_documents(), torch, device, tmp, "prod-commit")
         assert prod["mode"] == "PRODUCTION"
+        assert prod["identity_bundle"]["tokenizer_freeze_sha256"] == FREEZE_SHA
+
+
+# -- mixture end-to-end ---------------------------------------------------------------
+
+def test_frozen_mixture_end_to_end():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        docs = _with_raw(_mixture_documents())
+        result = _run(docs, torch, device, tmp, "mixture",
+                      campaign_tokens=100_000, development_mode=False,
+                      contamination_benchmarks=dict(BENCHMARKS),
+                      mixture_fractions=dict(PROD_MIXTURE),
+                      tokenizer_freeze_sha256=FREEZE_SHA,
+                      cymek_sha=TEST_SHA)
+        assert result["mode"] == "PRODUCTION"
+        assert result["cumulative_tokens"] == 100_000
+        assert sum(result["mixture_consumed"].values()) == 100_000
+        assert set(result["mixture_consumed"]) == set(PROD_MIXTURE)
+        assert result["mixture_allocation"] == {
+            "code_math_formal": 20_000, "natural": 65_000,
+            "verified_cognition": 15_000}
+        assert len(result["mixture_plan_sha256"]) == 64
+
+
+def test_mixture_shortfall_fails_closed():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        full = _with_raw(_mixture_documents())
+        code_512 = [d for d in full if d["doc_id"].startswith("mx512-code")]
+        starved = [d for d in full if not d["doc_id"].startswith("mx512-code")]
+        starved.extend(code_512[:2])
+        try:
+            _run(starved, torch, device, tmp, "shortfall", campaign_tokens=100_000,
+                 development_mode=False,
+                 contamination_benchmarks=dict(BENCHMARKS),
+                 mixture_fractions=dict(PROD_MIXTURE),
+                 tokenizer_freeze_sha256=FREEZE_SHA, cymek_sha=TEST_SHA)
+        except ValueError as exc:
+            assert "DATA_NOT_READY" in str(exc), str(exc)[:300]
+        else:
+            raise AssertionError("mixture shortfall did not fail closed")
+
+
+def test_epoch_replay_when_permitted():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        tiny = _documents(n_arith=60, n_notes=0)
+        result = _run(tiny, torch, device, tmp, "replay-ok",
+                      campaign_tokens=3000, allow_replay=True,
+                      milestones=(), recovery_tokens=10 ** 12)
+        assert result["cumulative_tokens"] == 3000
+        assert result["replay_count"] >= 1
+        assert result["replay_events"] != []
+        assert sum(result["tokens_by_source"].values()) == 3000
+        try:
+            _run(tiny, torch, device, tmp, "replay-no",
+                 campaign_tokens=3000, allow_replay=False,
+                 milestones=(), recovery_tokens=10 ** 12)
+        except ValueError as exc:
+            assert "DATA_NOT_READY" in str(exc)
+        else:
+            raise AssertionError("exhaustion without replay did not fail closed")
 
 
 # -- certificate and reception ------------------------------------------------------
@@ -432,13 +735,14 @@ def test_development_mode_labels_and_relaxes():
 _CERTIFICATE_KEYS = ("schema", "run_id", "seed", "campaign_tokens",
                      "updates_executed", "cumulative_tokens",
                      "state_complete", "termination", "cymek_sha",
-                     "topology_sha256", "layout_sha256", "precision",
+                     "topology_sha256", "lanes_sha256", "precision",
                      "sampler_order_sha256", "tokens_by_source",
-                     "checkpoint_head", "resume_equal")
+                     "checkpoint_head", "resume_equal", "identity_bundle",
+                     "microstep_shapes", "mixture_allocation")
 
 _BANNED_SYMBOLS = ("SEQUENCES_PER_UPDATE", "TOKENS_PER_UPDATE",
                    "_walk_windows", "data_window",
-                   "checkpoint_every=remaining")
+                   "checkpoint_every=remaining", "campaign_layout")
 
 
 def test_campaign_certificate_completeness():
@@ -450,8 +754,9 @@ def test_campaign_certificate_completeness():
         assert result["cymek_sha"] == TEST_SHA
         assert result["topology_sha256"] == topology_sha256(frozen_topology())
         assert len(result["sampler_order_sha256"]) == 64
+        assert len(result["lanes_sha256"]) == 64
         blob = json.dumps(result, sort_keys=True, default=str)
-        for banned in _BANNED_SYMBOLS:
+        for banned in _BANNED_SYMBOLS[:5]:
             assert banned not in blob
 
 
@@ -461,7 +766,8 @@ def test_banned_symbols_absent_from_entry_source():
     for banned in _BANNED_SYMBOLS:
         assert banned not in source, f"stale symbol survives: {banned}"
     for required in ("run_500m_session", "microstep_buckets",
-                     "partial_microstep_plan", "checkpoint_every=None"):
+                     "partial_microstep_plan", "checkpoint_every=None",
+                     "take_cell_window", "BucketCursorState"):
         assert required in source, f"required construct missing: {required}"
 
 
@@ -475,6 +781,12 @@ def test_frozen_topology_multiplies():
     assert topo["global_tokens_per_microstep"] == 32768
     assert topo["global_tokens_per_update"] == 131072
     assert len(topo["supercycle"]) == 20
+    assert topo["sequences_per_replica_by_bucket"] == {512: 8, 1024: 4,
+                                                       2048: 2, 4096: 1}
+
+
+def test_frozen_mixture_matches_contract():
+    assert frozen_mixture_fractions() == PROD_MIXTURE
 
 
 def test_microstep_buckets_follow_supercycle():
@@ -523,11 +835,58 @@ def test_prepare_data_deterministic():
     assert first["packed_doc_ids"] and first["packed_sources"]
 
 
+def test_exact_head_test_receipt():
+    from v5_training.test_receipt import verify_receipt
+    receipt = verify_receipt(
+        ROOT / "artifacts/v5/cymek_500m_closure_test_receipt.json",
+        repo_root=ROOT,
+        receipt_relpath="artifacts/v5/cymek_500m_closure_test_receipt.json")
+    assert receipt["totals"]["failed"] == 0
+    assert receipt["totals"]["passed"] > 0
+
+
+def test_build_milestone_receipt_self_describing():    receipt = build_milestone_receipt(
+        run_id="r", threshold_tokens=100, actual_cumulative_tokens=150,
+        global_update=2, checkpoint_sha256="ab" * 32,
+        identity_bundle={"cymek_sha": TEST_SHA})
+    assert receipt["schema"] == "anra-v5-milestone-receipt/v1"
+    assert receipt["cymek_sha"] == TEST_SHA
+    assert receipt["threshold_tokens"] == 100
+
+
+# -- EOS / packing contract --------------------------------------------------------------
+
+def test_eos_packing_contract():
+    from v5_data.bucket_cursor import build_bucket_lanes, cell_key, take_cell_window
+    from v5_data.pack import pack_documents
+    from v5_training.production_entry import _predict_supervised
+
+    one_token = pack_documents([("one", [41], "s")], bos=2, eos=3, pad=0,
+                               sequences_per_shard=8)[0]
+    assert len(one_token) == 1
+    sequence = one_token[0].sequences[0]
+    assert list(sequence.tokens)[:3] == [2, 41, 3]
+    lanes, _ = build_bucket_lanes(one_token, run_seed=1, pattern=[512])
+    window = take_cell_window(one_token, lanes[cell_key(512, "", "")], 0, 0,
+                              real_tokens=3, pad=0, bucket=512)
+    assert window.real_tokens == 3
+    assert _predict_supervised(window) == 2
+    exact = pack_documents([("exact", [7] * 510, "s")], bos=2, eos=3, pad=0,
+                           sequences_per_shard=8)
+    assert exact[1]["full_sequences"] == 1
+    assert exact[1]["padded_sequences"] == 0
+    ragged = pack_documents([("ragged", [7] * 100, "s")], bos=2, eos=3, pad=0,
+                            sequences_per_shard=8)
+    assert ragged[1]["padded_sequences"] == 1
+    tail = ragged[0][0].sequences[0]
+    assert tail.tokens[-1] == 0 and tail.segment_ids[-1] == -1
+
+
 # -- compressed end-to-end ------------------------------------------------------------------
 
 def test_compressed_e2e_fresh_recovery_milestone_stop_resume_partial_complete():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
-        docs = _documents(n_arith=11000, n_notes=500)
+        docs = _bucketed_documents()
         budget = 131_072 + 6000
         session_dir = str(Path(tmp) / "e2e")
         first = run_500m_session(
@@ -545,6 +904,9 @@ def test_compressed_e2e_fresh_recovery_milestone_stop_resume_partial_complete():
         milestone_file = (Path(session_dir) / "milestones"
                           / "milestone_100000.json")
         assert milestone_file.is_file()
+        store = CheckpointStore(Path(session_dir) / "campaign_store", "e2e")
+        assert verify_milestone_receipt(
+            first["milestones_crossed"][0], store) is True
         second = run_500m_session(
             documents=docs, tokenizer=_tokenizer(), model_spec=MINI_SPEC,
             run_id="e2e", seed=20260906, campaign_tokens=budget,
@@ -557,6 +919,60 @@ def test_compressed_e2e_fresh_recovery_milestone_stop_resume_partial_complete():
         assert second["result"]["resume_equal"] is True
         assert (Path(session_dir) / "SESSION_RECEIPT.json").is_file()
         assert (Path(session_dir) / "HEARTBEAT.json").is_file()
+
+
+def test_multi_session_soak_state_machine():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        docs = _bucketed_documents()
+        budget = 2 * 131_072 + 2000
+        session_dir = str(Path(tmp) / "soak")
+        common = {"documents": docs, "tokenizer": _tokenizer(),
+                  "model_spec": MINI_SPEC, "run_id": "soak", "seed": 20260906,
+                  "campaign_tokens": budget, "session_dir": session_dir,
+                  "device": device, "torch_module": torch, "xb": object(),
+                  "development_mode": True, "cymek_sha": TEST_SHA,
+                  "milestones": (131_072, 200_000),
+                  "recovery_tokens": 131_072}
+        boxed = dict(common, max_session_minutes=0.000001, margin_seconds=0.0)
+        first = run_500m_session(**boxed)
+        assert first["session_receipt"]["status"] == "RESUMABLE"
+        assert first["result"]["termination"] == "TIMEBOX"
+        assert first["result"]["cumulative_tokens"] == 131_072
+        assert [m["threshold_tokens"] for m in first["milestones_crossed"]] == [131_072]
+        second = run_500m_session(**boxed)
+        assert second["result"]["termination"] == "TIMEBOX"
+        assert second["result"]["cumulative_tokens"] == 262_144
+        assert [m["threshold_tokens"] for m in second["milestones_crossed"]] == [200_000]
+        assert second["result"]["last_update_receipt"]["learning_rate"] == lr_at(
+            cumulative_tokens=131_072)
+        third = run_500m_session(**common)
+        result = third["result"]
+        assert third["session_receipt"]["status"] == "COMPLETE"
+        assert result["cumulative_tokens"] == budget
+        assert result["state_complete"] is True
+        assert result["resume_equal"] is True
+        assert sum(result["tokens_by_source"].values()) == budget
+        assert len(first["result"]["losses"] + second["result"]["losses"]
+                   + result["losses"]) == 3
+        assert result["epoch"] == 0 and result["replay_count"] == 0
+        assert result["replay_events"] == []
+        assert result["last_update_receipt"]["learning_rate"] == lr_at(
+            cumulative_tokens=262_144)
+        store = CheckpointStore(Path(session_dir) / "campaign_store", "soak")
+        restored, _ = store.restore()
+        assert restored.cumulative_tokens == budget
+        objects = {p.name for p in (Path(session_dir) / "campaign_store"
+                                    / "soak" / "objects").iterdir() if p.is_dir()}
+        shas = [m["checkpoint_sha256"]
+                for m in first["milestones_crossed"] + second["milestones_crossed"]]
+        for sha in shas:
+            assert sha in objects, "milestone object lost across sessions"
+            store.restore(sha)
+        assert verify_milestone_receipt(first["milestones_crossed"][0], store) is True
+        assert verify_milestone_receipt(second["milestones_crossed"][0], store) is True
+        files = sorted((Path(session_dir) / "milestones").iterdir())
+        assert [p.name for p in files] == ["milestone_131072.json",
+                                           "milestone_200000.json"]
 
 
 # -- session layer -----------------------------------------------------------------------------
@@ -580,7 +996,7 @@ def test_session_completes_tiny_campaign():
 
 def test_session_timebox_resumable_then_completes():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
-        docs = _documents(n_arith=11000, n_notes=500)
+        docs = _bucketed_documents()
         budget = 131_072 + 6000
         session_dir = str(Path(tmp) / "session-timebox")
         first = run_500m_session(
@@ -601,6 +1017,44 @@ def test_session_timebox_resumable_then_completes():
             milestones=(), recovery_tokens=10 ** 12)
         assert second["session_receipt"]["status"] == "COMPLETE"
         assert second["result"]["cumulative_tokens"] == budget
+
+
+# -- model target ----------------------------------------------------------------------------------
+
+def test_v5a_exact_parameter_count():
+    import torch
+    from v5_contracts.model_spec import V5A_250M
+    from v5_model.core import initialize
+    model = initialize(V5A_250M, 5, torch_module=torch)
+    total = sum(parameter.numel() for parameter in model.parameters())
+    assert total == 250_216_960
+    assert total == V5A_250M.parameter_receipt().total
+    del model
+
+
+def test_bf16_trajectory_diagnostic():
+    import os
+    import tempfile
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        result = _run(_documents(), torch, device, tmp, "bf16-probe",
+                      campaign_tokens=4000)
+        assert all(v == v and abs(v) != float("inf") for v in result["losses"])
+        mine = (getattr(device, "type", device), result["losses"][0])
+        print(f"bf16-probe device={mine[0]} loss={mine[1]:.6f}")
+        other = None
+        if mine[0] == "cuda":
+            other = ("cpu", torch.device("cpu"))
+        elif torch.cuda.is_available():
+            other = ("cuda", torch.device("cuda"))
+        if other is None:
+            print("SKIP cross-device leg (no second device)")
+            return
+        with tempfile.TemporaryDirectory() as tmp2:
+            sibling = _run(_documents(), torch, other[1], tmp2,
+                           "bf16-sibling", campaign_tokens=4000)
+        delta = abs(sibling["losses"][0] - mine[1])
+        print(f"bf16-probe cross-device delta={delta:.6f}")
+        assert delta < 1e-3, "precision modes diverged beyond diagnostic tolerance"
 
 
 # -- preserved coverage ------------------------------------------------------------------------------
@@ -665,27 +1119,43 @@ _TESTS = [
     test_resume_changed_budget_fails,
     test_cross_store_and_cross_lineage_rejected,
     test_full_update_uses_four_microsteps_one_step,
+    test_bucket_shapes_exact_and_certified,
     test_partial_tail_never_overshoots,
     test_single_microstep_update_accounts_exactly,
     test_milestone_checkpoints_published_and_receipted,
+    test_milestone_protection_across_sessions,
+    test_dangling_milestone_detected,
     test_rotation_keeps_milestones_and_head,
     test_recovery_cadence_publishes,
     test_lr_matches_canonical_schedule,
     test_lr_no_rewarm_after_resume,
-    test_precision_receipt_cpu_certified,
+    test_precision_receipt_matches_device,
     test_tpu_runtime_fails_closed,
     test_production_requires_contamination_commitment,
+    test_production_requires_mixture_and_freeze,
+    test_raw_source_required_in_production,
+    test_contamination_content_binding,
     test_development_mode_labels_and_relaxes,
+    test_frozen_mixture_end_to_end,
+    test_mixture_shortfall_fails_closed,
+    test_epoch_replay_when_permitted,
     test_campaign_certificate_completeness,
     test_banned_symbols_absent_from_entry_source,
     test_frozen_topology_multiplies,
+    test_frozen_mixture_matches_contract,
     test_microstep_buckets_follow_supercycle,
     test_crossed_milestones_pure,
     test_resolve_cymek_sha_rejects_and_resolves,
     test_prepare_data_deterministic,
+    test_exact_head_test_receipt,
+    test_build_milestone_receipt_self_describing,
+    test_eos_packing_contract,
     test_compressed_e2e_fresh_recovery_milestone_stop_resume_partial_complete,
+    test_multi_session_soak_state_machine,
     test_session_completes_tiny_campaign,
     test_session_timebox_resumable_then_completes,
+    test_v5a_exact_parameter_count,
+    test_bf16_trajectory_diagnostic,
     test_already_complete_short_circuits,
     test_freeze_production_identity,
     test_materialize_first_party_supply_accounting,

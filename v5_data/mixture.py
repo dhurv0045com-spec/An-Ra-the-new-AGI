@@ -4,32 +4,38 @@ Budgets: 65% high-quality natural, 20% code/mathematics/formal, 15%
 mechanically verified cognition, over exactly 5,000,000,000 real non-padding
 tokens. Cognition families, difficulty shares, and the 20-microstep
 supercycle come from the frozen training spec. Allocation uses
-largest-remainder rounding so every split sums exactly.
+largest-remainder rounding so every split sums exactly. The DeficitScheduler
+schedules those shares online over committed real-token counters for
+campaign execution; Triquetra owns qualification, this module only
+schedules, ledgers, and binds identities.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
+
+from v5_contracts.training_spec import build_training_spec
+
+
+def _frozen() -> dict:
+    return build_training_spec()
+
 
 TOTAL_TOKENS = 5_000_000_000
-SLICE_FRACTIONS = {"natural": 0.65, "code_math_formal": 0.20, "verified_cognition": 0.15}
+SLICE_FRACTIONS = {str(name): float(share) for name, share in
+                   _frozen()["data"]["mixture_fractions"].items()}
 
-COGNITION_FRACTIONS = {
-    "identity_copy": 0.08,
-    "query_binding": 0.16,
-    "semantic_state": 0.16,
-    "interference_retrieval": 0.10,
-    "relational_composition": 0.20,
-    "counterfactual_sensitivity": 0.10,
-    "heldout_rule_induction": 0.10,
-    "missing_information": 0.05,
-    "faithful_realization": 0.05,
-}
+COGNITION_FRACTIONS = {str(name): float(share) for name, share in
+                       _frozen()["cognition"]["family_fractions_within_cognition"].items()}
 
-DIFFICULTY_FRACTIONS = {"easy": 0.34, "medium": 0.355, "hard": 0.305}
+DIFFICULTY_FRACTIONS = {str(name): float(share) for name, share in
+                        _frozen()["cognition"]["difficulty_distribution"].items()}
 
-BUCKET_FRACTIONS = {512: 0.25, 1024: 0.25, 2048: 0.30, 4096: 0.20}
-SUPERCYCLE = [512, 1024, 2048, 4096, 2048, 512, 1024, 2048, 4096, 512,
-              1024, 2048, 4096, 2048, 512, 1024, 2048, 4096, 512, 1024]
+BUCKET_FRACTIONS = {int(bucket): float(share) for bucket, share in
+                    _frozen()["packing"]["sequence_buckets"].items()}
+SUPERCYCLE = [int(bucket) for bucket in
+              _frozen()["packing"]["twenty_microstep_supercycle"]]
 
 
 def allocate(total: int, fractions: dict[str, float]) -> dict[str, int]:
@@ -70,15 +76,73 @@ def bucket_plan(supercycle_repeats: int) -> list[int]:
     return SUPERCYCLE * supercycle_repeats
 
 
+MIXTURE_SCHEDULE_SCHEMA = "anra-v5-mixture-schedule/v1"
+
+
+def _canonical_json(value: object) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False).encode("utf-8")
+
+
+class DeficitScheduler:
+    """Largest-deficit greedy scheduler over committed token counters.
+
+    At a committed total T, the next family maximizes
+    ``fraction * T - consumed[family]`` (deterministic construction-order
+    tie-break). Pure: identical counters always yield the identical choice,
+    so offline demand planning and live execution cannot diverge.
+    """
+
+    def __init__(self, *, fractions: dict[str, float],
+                 order: tuple[str, ...] | None = None) -> None:
+        if not fractions or any(value < 0 for value in fractions.values()):
+            raise ValueError("scheduler fractions require names and nonnegative shares")
+        if abs(sum(fractions.values()) - 1.0) > 1e-9:
+            raise ValueError("scheduler fractions must sum to one")
+        self.fractions = dict(fractions)
+        self.order = tuple(order) if order is not None else tuple(fractions)
+
+    def next(self, *, consumed_total: int,
+             consumed: dict[str, int]) -> str:
+        """Return the family to schedule next. Pure function of counters."""
+
+        if consumed_total < 0:
+            raise ValueError("consumed total cannot be negative")
+        best: str | None = None
+        best_deficit = 0.0
+        first = True
+        for name in self.order:
+            if name not in self.fractions:
+                raise ValueError(f"unknown scheduled family: {name}")
+            deficit = self.fractions[name] * consumed_total - consumed.get(name, 0)
+            if first or deficit > best_deficit:
+                best, best_deficit, first = name, deficit, False
+        assert best is not None
+        return best
+
+
+def mixture_schedule_sha256(*, fractions: dict[str, float],
+                            allocation: dict[str, int],
+                            cell_map_sha256: str | None) -> str:
+    """Content identity of the mixture plan actually executed."""
+
+    return hashlib.sha256(_canonical_json(
+        {"schema": MIXTURE_SCHEDULE_SCHEMA, "fractions": fractions,
+         "allocation": allocation, "cell_map_sha256": cell_map_sha256})).hexdigest()
+
+
 __all__ = [
     "BUCKET_FRACTIONS",
     "COGNITION_FRACTIONS",
     "DIFFICULTY_FRACTIONS",
+    "DeficitScheduler",
+    "MIXTURE_SCHEDULE_SCHEMA",
     "SLICE_FRACTIONS",
     "SUPERCYCLE",
     "TOTAL_TOKENS",
     "allocate",
     "bucket_plan",
     "cognition_allocation",
+    "mixture_schedule_sha256",
     "slice_allocation",
 ]

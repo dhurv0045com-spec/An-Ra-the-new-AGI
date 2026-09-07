@@ -29,7 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
 from .optimizer import validate_parameter_ownership
@@ -336,6 +336,7 @@ class ProductionTrainingBackend:
         bfloat16_autocast: bool = False,
         schedule: Any = None,
         torch_module: Any = None,
+        activation_checkpointing: bool = True,
     ) -> None:
         if torch_module is None:
             import torch as torch_module
@@ -347,6 +348,7 @@ class ProductionTrainingBackend:
         self.device = device
         self.bfloat16_autocast = bool(bfloat16_autocast)
         self.schedule = schedule if schedule is not None else lr_at
+        self.activation_checkpointing = bool(activation_checkpointing)
         if not callable(self.schedule):
             raise ValueError("schedule must map cumulative tokens to a learning rate")
         if self.bfloat16_autocast and not hasattr(self.torch, "autocast"):
@@ -404,9 +406,11 @@ class ProductionTrainingBackend:
             mask = mask.to(torch.bool)
         if self.bfloat16_autocast:
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                logits = self.model(tokens, positions, mask)
+                logits = self.model(tokens, positions, mask,
+                                    use_activation_checkpointing=self.activation_checkpointing)
         else:
-            logits = self.model(tokens, positions, mask)
+            logits = self.model(tokens, positions, mask,
+                                use_activation_checkpointing=self.activation_checkpointing)
         loss, supervised_tokens = causal_lm_loss(
             logits, tokens, segment_ids, bos_id=self.bos_id, pad_id=self.pad_id,
             torch_module=torch,
@@ -492,8 +496,10 @@ class ProductionTrainingBackend:
             mask = mask.to(torch.bool)
         if self.bfloat16_autocast:
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                return self.model(tokens, positions, mask)
-        return self.model(tokens, positions, mask)
+                return self.model(tokens, positions, mask,
+                                  use_activation_checkpointing=self.activation_checkpointing)
+        return self.model(tokens, positions, mask,
+                          use_activation_checkpointing=self.activation_checkpointing)
 
     def accumulate_microstep(
         self,
@@ -660,15 +666,7 @@ def production_payloads(
         "optimizer.bin": optimizer_bin,
         "scheduler.json": _canonical_json(scheduler),
         "rng.bin": rng_bin,
-        "cursor.json": _canonical_json(
-            {
-                "schema": state.cursor.schema,
-                "pack_manifest_sha256": state.cursor.pack_manifest_sha256,
-                "shard_ordinal": state.cursor.shard_ordinal,
-                "sequence_ordinal": state.cursor.sequence_ordinal,
-                "token_offset": state.cursor.token_offset,
-            }
-        ),
+        "cursor.json": _canonical_json(asdict(state.cursor)),
         "ledger.json": _canonical_json(dict(state.tokens_by_source)),
         "training_state.json": _canonical_json(state.canonical()),
     }

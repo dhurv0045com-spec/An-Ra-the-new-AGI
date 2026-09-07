@@ -21,6 +21,17 @@ NUM_HASHES = 64
 BANDS = 16
 ROWS_PER_BAND = NUM_HASHES // BANDS
 
+# Preregistered production near-duplicate policy. Thresholds are documented
+# here BEFORE any evaluation outcome; do not tune them against eval results.
+FROZEN_NEAR_DUP_POLICY = {
+    "method": "minhash-lsh/word-5grams",
+    "version": "v1",
+    "threshold": 0.80,
+    "num_hashes": NUM_HASHES,
+    "bands": BANDS,
+    "ngram_order": NGRAM_ORDER,
+}
+
 # 61-bit Mersenne prime for universal-hash permutations: one content hash
 # per shingle plus 64 multiply-adds replaces 64 SHA-256 calls.
 _MERSENNE_61 = 2**61 - 1
@@ -170,6 +181,7 @@ def _union_groups(groups: list[set[str]]) -> list[set[str]]:
 
 __all__ = [
     "BANDS",
+    "FROZEN_NEAR_DUP_POLICY",
     "NGRAM_ORDER",
     "NUM_HASHES",
     "DedupCluster",

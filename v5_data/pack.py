@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from typing import Mapping
 
 
 BUCKETS = (512, 1024, 2048, 4096)
@@ -177,6 +178,7 @@ def pack_documents(
     eos: int,
     pad: int,
     sequences_per_shard: int,
+    cell_of_source: Mapping[str, tuple[str, str]] | None = None,
 ) -> tuple[list[MultiPackedShard], dict[str, int]]:
     """Pack documents into exactly-full, multi-segment, content-addressed shards.
 
@@ -189,7 +191,11 @@ def pack_documents(
     (the model applies block-diagonal attention) and the ledger stays exact.
     A sequence closes with trailing padding only when its remaining capacity
     does not divide evenly -- which surfaces as the run's final partial
-    update. Returns the shards plus an audit with exact per-source totals.
+    update. ``cell_of_source`` maps a source id to a (family, subfamily)
+    cell for mixture segregation: streams split per (bucket, cell) so packed
+    sequences never mix cells. Without it the legacy bucket-only path runs
+    byte-identically. Returns the shards plus an audit with exact per-source
+    totals.
     """
 
     if sequences_per_shard <= 0:
@@ -207,16 +213,32 @@ def pack_documents(
         for chunk in chunk_document(content, bos=bos, eos=eos):
             chunks.append((source, tuple(chunk)))
 
-    streams: dict[int, list[tuple[str, tuple[int, ...]]]] = {bucket: [] for bucket in BUCKETS}
+    streams: dict = {}
     for source, chunk in chunks:
-        streams[bucket_for(len(chunk))].append((source, chunk))
+        bucket = bucket_for(len(chunk))
+        if cell_of_source is None:
+            stream_key = (bucket,)
+        else:
+            if source not in cell_of_source:
+                raise ValueError(
+                    f"segregated packing lacks a mixture cell for source {source!r}")
+            stream_key = (bucket,) + tuple(cell_of_source[source])
+        streams.setdefault(stream_key, []).append((source, chunk))
 
     shards: list[MultiPackedShard] = []
     ledger: dict[str, int] = {}
     total_real = 0
     total_segments = 0
-    for bucket in BUCKETS:
-        queue = streams[bucket]
+    cells: list[str] = []
+    for stream_key in sorted(streams):
+        bucket = stream_key[0]
+        queue = streams[stream_key]
+        if len(stream_key) > 1:
+            cell_slug = hashlib.sha256(
+                "|".join(stream_key[1:]).encode("utf-8")).hexdigest()[:8]
+            cells.append("|".join(stream_key[1:]))
+        else:
+            cell_slug = None
         bucket_sequences: list[PackedSequence] = []
         while queue:
             emitted: list[tuple[str, tuple[int, ...]]] = []
@@ -271,7 +293,11 @@ def pack_documents(
                 )
         for index in range(0, len(bucket_sequences), sequences_per_shard):
             group = tuple(bucket_sequences[index:index + sequences_per_shard])
-            shard_id = f"packed{bucket}-{index // sequences_per_shard:06d}"
+            if cell_slug is None:
+                shard_id = f"packed{bucket}-{index // sequences_per_shard:06d}"
+            else:
+                shard_id = (f"packed{bucket}-{cell_slug}-"
+                            f"{index // sequences_per_shard:06d}")
             shards.append(
                 MultiPackedShard(
                     shard_id,
@@ -297,6 +323,7 @@ def pack_documents(
         "padded_sequences": padded_count,
         "segments": total_segments,
         "tokens_by_source": dict(sorted(ledger.items())),
+        "segregated_cells": sorted(cells),
     }
     return shards, audit
 

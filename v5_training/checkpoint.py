@@ -17,6 +17,8 @@ from .state import TrainingState
 
 
 MANIFEST_SCHEMA = "anra-v5-checkpoint-transaction/v1"
+MILESTONES_FILENAME = "MILESTONES"
+MILESTONES_SCHEMA = "anra-v5-milestone-protection/v1"
 REQUIRED_COMPONENTS = frozenset(
     {
         "model.bin",
@@ -147,16 +149,20 @@ class CheckpointStore:
     def prune(self, *, keep: set[str]) -> list[str]:
         """Delete committed generations outside ``keep`` for bounded rotation.
 
-        Refuses to remove the LATEST pointer target: rotation never orphans
-        the resumable head. Milestone generations stay reachable by keeping
-        their SHAs in ``keep``. Returns removed checkpoint SHAs.
+        Refuses to remove the LATEST pointer target and every checkpoint SHA
+        persisted in the lineage MILESTONES protection file: rotation never
+        orphans the resumable head or an immutable milestone, across
+        processes and sessions. Milestone generations stay reachable by
+        recording them with ``record_milestone``. Returns removed SHAs.
         """
 
         import shutil
 
+        protected = set(self.protected_shas())
         head = self.latest_sha256()
-        if head is not None and head not in keep:
-            raise ValueError("rotation must retain the latest committed checkpoint")
+        if head is not None:
+            protected.add(head)
+        keep = set(keep) | protected
         removed: list[str] = []
         if not self.objects.exists():
             return removed
@@ -170,6 +176,62 @@ class CheckpointStore:
             shutil.rmtree(child)
             removed.append(child.name)
         return removed
+
+    def record_milestone(self, *, threshold_tokens: int, checkpoint_sha256: str) -> dict[str, object]:
+        """Persist one milestone -> checkpoint binding for cross-session protection.
+
+        The MILESTONES file survives process destruction: later sessions and
+        rotations discover the protected set mechanically instead of relying
+        on in-memory state. Re-recording a threshold keeps the first binding
+        (milestones are immutable); a conflicting SHA for the same threshold
+        fails closed.
+        """
+
+        if threshold_tokens <= 0:
+            raise ValueError("milestone threshold must be positive")
+        if len(checkpoint_sha256) != 64 or any(
+                c not in "0123456789abcdef" for c in checkpoint_sha256):
+            raise ValueError("milestone checkpoint must be a lowercase SHA-256")
+        milestones = self._read_milestones()
+        recorded = milestones["milestones"]
+        if threshold_tokens in recorded:
+            if recorded[threshold_tokens] != checkpoint_sha256:
+                raise ValueError(
+                    f"milestone {threshold_tokens} already bound to another checkpoint")
+            return dict(milestones)
+        recorded[threshold_tokens] = checkpoint_sha256
+        milestones["milestones"] = {key: recorded[key] for key in sorted(recorded)}
+        payload = _canonical_json(milestones)
+        staging = self.lineage_root / f".{MILESTONES_FILENAME}.tmp"
+        _write_sync(staging, payload)
+        os.replace(staging, self.lineage_root / MILESTONES_FILENAME)
+        return dict(milestones)
+
+    def protected_shas(self) -> list[str]:
+        """Checkpoint SHAs the rotation must never delete."""
+
+        return list(self._read_milestones()["milestones"].values())
+
+    def _read_milestones(self) -> dict[str, object]:
+        path = self.lineage_root / MILESTONES_FILENAME
+        if not path.exists():
+            return {"schema": MILESTONES_SCHEMA, "lineage_id": self.lineage_id,
+                    "milestones": {}}
+        try:
+            document = json.loads(path.read_bytes())
+        except ValueError as exc:
+            raise ValueError("milestone protection file is corrupt") from exc
+        if (not isinstance(document, dict) or document.get("schema") != MILESTONES_SCHEMA
+                or document.get("lineage_id") != self.lineage_id
+                or not isinstance(document.get("milestones"), dict)):
+            raise ValueError("milestone protection file is corrupt")
+        milestones = {int(key): str(value)
+                      for key, value in document["milestones"].items()}
+        for threshold, sha in milestones.items():
+            if threshold <= 0 or len(sha) != 64:
+                raise ValueError("milestone protection file is corrupt")
+        return {"schema": MILESTONES_SCHEMA, "lineage_id": self.lineage_id,
+                "milestones": milestones}
 
     def restore(self, checkpoint_sha256: str | None = None) -> tuple[TrainingState, dict[str, bytes]]:
         identity = checkpoint_sha256 or self.latest_sha256()
@@ -221,7 +283,7 @@ class CheckpointStore:
             ledger_payload = json.loads(payloads["ledger.json"])
         except (TypeError, ValueError) as exc:
             raise ValueError("cursor or source ledger payload is not valid JSON") from exc
-        if cursor_payload != asdict(state.cursor):
+        if cursor_payload != json.loads(_canonical_json(asdict(state.cursor))):
             raise ValueError("cursor component disagrees with training state")
         if ledger_payload != dict(state.tokens_by_source):
             raise ValueError("source ledger component disagrees with training state")

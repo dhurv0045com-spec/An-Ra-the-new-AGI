@@ -27,7 +27,7 @@ def materialize_first_party(*, repo_root: str | Path, tokenizer: Any,
     """Materialize first-party documents + supply accounting (pure I/O over
     the repo tree + deterministic generators)."""
     from e0_cognition.training_generators import build_training_examples
-    from v5_training.miniature import _load_corpus, _load_tokenizer
+    from v5_data.corpus_loading import _load_corpus, _load_tokenizer
 
     root = Path(repo_root)
     _tok, _eval = _load_tokenizer(root)

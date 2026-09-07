@@ -18,6 +18,45 @@ from typing import Any
 
 
 SCHEMA = "anra-v5-target-preflight/v1"
+V5A_TARGET_SCHEMA = "anra-v5-v5a-target-receipt/v1"
+
+
+def v5a_target_receipt() -> dict[str, object]:
+    """PRE500M-facing target receipt for the frozen V5A_250M production model.
+
+    Reports exact parameter accounting, planning byte budgets, the frozen
+    bucket/topology execution shape, the precision contract, and whether
+    activation checkpointing is enabled in the production path. Memory FIT
+    stays PENDING_TPU_MEASUREMENT until real TPU execution: this receipt
+    never claims it.
+    """
+
+    from v5_contracts.model_spec import V5A_250M
+    from v5_contracts.training_spec import build_training_spec
+
+    spec = build_training_spec()
+    topo = spec["target_topology"]
+    params = V5A_250M.parameter_receipt()
+    receipt: dict[str, object] = {
+        "schema": V5A_TARGET_SCHEMA,
+        "model_sha256": V5A_250M.sha256(),
+        "parameter_count": params.total,
+        "parameter_breakdown": params.as_dict(),
+        "persistent_parameter_bytes_fp32": 4 * params.total,
+        "optimizer_moment_bytes_fp32": 8 * params.total,
+        "planning_bytes_per_parameter": spec["checkpointing"]["planning_tensor_bytes_per_parameter"],
+        "target_bucket": 4096,
+        "sequences_per_replica_by_bucket": dict(topo["sequences_per_replica_by_bucket"]),
+        "replicas": int(topo["replicas"]),
+        "global_tokens_per_microstep": int(topo["global_real_tokens_per_microstep"]),
+        "global_tokens_per_update": int(spec["optimization"]["global_tokens_per_update"]),
+        "activation_checkpointing": "every transformer block (production training)",
+        "precision": dict(spec["core"]["precision"]),
+        "memory_fit": "PENDING_TPU_MEASUREMENT",
+    }
+    payload = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    receipt["sha256"] = hashlib.sha256(payload).hexdigest()
+    return receipt
 
 
 @dataclass(frozen=True, slots=True)

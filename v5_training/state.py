@@ -11,6 +11,11 @@ import json
 from dataclasses import asdict, dataclass
 from typing import Mapping
 
+from v5_data.bucket_cursor import (
+    BUCKET_CURSOR_SCHEMA,
+    BucketCursorState,
+)
+
 
 STATE_SCHEMA = "anra-v5-training-state/v1"
 IDENTITY_SCHEMA = "anra-v5-identity-bindings/v1"
@@ -240,7 +245,11 @@ class TrainingState:
         }
         if set(value) != expected:
             raise ValueError("training-state fields do not match schema")
-        cursor = CursorState(**value["cursor"])
+        cursor_value = value["cursor"]
+        if isinstance(cursor_value, Mapping) and cursor_value.get("schema") == BUCKET_CURSOR_SCHEMA:
+            cursor = BucketCursorState.from_dict(dict(cursor_value))
+        else:
+            cursor = CursorState(**cursor_value)
         identities = IdentityBindings(**value["identities"])
         state = cls(
             **{key: item for key, item in value.items() if key not in {"cursor", "identities"}},
