@@ -13,9 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install regression dependencies
+        run: |
+          pip install numpy pytest tokenizers
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Run E0 regression tests
         run: python -m unittest discover -s tests -v
       - name: Enforce package boundaries
