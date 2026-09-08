@@ -5,7 +5,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 NOTEBOOK = REPO / "notebooks" / "cymek_colab_gpu_research_v6.ipynb"
-RUNNER = REPO / "anra_v5" / "cyr_gpu006_run.py"
+RUNNER = REPO / "anra_v5" / "cyr_gpu006_run_final.py"
 
 
 def _cells():
@@ -20,26 +20,37 @@ def test_three_cells_compile():
         ast.parse(source)
 
 
-def test_runner_module_imports_without_optional_accelerator_runtime():
-    module = importlib.import_module("anra_v5.cyr_gpu006_run")
+def test_final_runner_imports_without_optional_accelerator_runtime():
+    module = importlib.import_module("anra_v5.cyr_gpu006_run_final")
     assert callable(module.run_campaign)
     assert callable(module.calibrate_candidates)
+    assert callable(module.transfer_plasticity_replicated)
 
 
 def test_cell0_freezes_tests_and_calibrates_generation_plus_training():
     cell0 = _cells()[0]
-    for text in ("PREREGISTRATION.json", "checkout", "EXECUTABLE_SHA",
-                 "dependency_blobs", "py_compile", "pytest",
-                 "calibrate_candidates", "resolve_from_calibrations",
-                 "CYR-GPU-006 PREEXECUTION GATE: PASS"):
+    for text in (
+        "PREREGISTRATION.json",
+        "checkout",
+        "EXECUTABLE_SHA",
+        "dependency_blobs",
+        "pytest",
+        "cyr_gpu006_run_final",
+        "cyr_gpu006_final",
+        "calibrate_candidates",
+        "resolve_from_calibrations",
+        "ARKENSTONE_AUDITED_SHA",
+        "CYR-GPU-006 PREEXECUTION GATE: PASS",
+    ):
         assert text in cell0
     assert "tokenizers" in cell0
     assert "check=True" in cell0
 
 
-def test_cell1_passes_cuda_and_resolved_plan_to_runner():
+def test_cell1_passes_cuda_and_exact_resolved_plan_to_final_runner():
     cell1 = _cells()[1]
     assert 'DEVICE = torch.device("cuda")' in cell1
+    assert "cyr_gpu006_run_final" in cell1
     assert "device=DEVICE" in cell1
     assert "resolved=RESOLVED" in cell1
     assert "calibrations=CALIBRATIONS" in cell1
@@ -47,7 +58,7 @@ def test_cell1_passes_cuda_and_resolved_plan_to_runner():
     assert "MyDrive/CYMEK/CYR-GPU-006" in cell1
 
 
-def test_runner_attempts_all_parent_seeds_without_first_g90_break():
+def test_final_runner_attempts_all_parent_seeds_without_first_g90_break():
     source = RUNNER.read_text("utf-8")
     marker = "for seed in core.CYR6_PARENT_SEEDS:"
     assert marker in source
@@ -55,15 +66,23 @@ def test_runner_attempts_all_parent_seeds_without_first_g90_break():
     assert "break" not in block
 
 
-def test_runner_full_mode_has_no_cpu_fallback():
+def test_final_runner_full_mode_has_no_cpu_fallback():
     source = RUNNER.read_text("utf-8")
     assert 'device = torch.device("cuda")' in source
     assert "refuses non-CUDA device" in source
 
 
-def test_runner_consumes_resolved_plan_instead_of_recalibrating():
+def test_final_runner_consumes_resolved_plan_instead_of_recalibrating():
     source = RUNNER.read_text("utf-8")
     run_source = source[source.index("def run_campaign("):]
     assert "resolved = core.validate_resolved(resolved)" in run_source
     assert "calibrate_candidates(" not in run_source
     assert "resolve_from_calibrations(" not in run_source
+
+
+def test_transfer_is_equal_age_hyst_vs_low_not_parent_vs_postcontinuation():
+    source = RUNNER.read_text("utf-8")
+    assert 'CYR6_TRANSFER_CANDIDATE' in source
+    assert 'CYR6_TRANSFER_COMPARATOR' in source
+    assert 'candidate/comparator continuation exposure differs' in source
+    assert 'source_continuation_tokens' in source
