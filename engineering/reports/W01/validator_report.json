@@ -1,0 +1,38 @@
+{
+  "schema": "W01ValidatorReport/v1",
+  "status": "PASS",
+  "fixture": "engineering/reports/W01/fixture_dataset.json",
+  "focused_test_command": ".venv\\Scripts\\python.exe -m pytest tests\\test_research_contracts.py -q --basetemp=.codex-test-tmp-w01-luna-final -p no:cacheprovider",
+  "focused_test_result": "22 passed in 5.39s",
+  "source_identities": {
+    "contracts_core": {
+      "path": "bramastra_lab/research/contracts/core.py",
+      "sha256": "209e656bfee6799b1ffb257248440b6fbdea412eafe20b0f72ca526767b3592b"
+    },
+    "focused_tests": {
+      "path": "tests/test_research_contracts.py",
+      "sha256": "1feb80a96843a0ddd9fcac4c3b291623ad37b3d841aad067606bf23c2bc0250b"
+    }
+  },
+  "actual_discovery_adapter": {
+    "run_id": "discovery_dev_701",
+    "source": "artifacts/bramastra/discovery_dev_701/initial/evaluation_rows.json",
+    "rows_validated": 3520,
+    "code_identity": "7e5055dab3ab2616d0c1dc481068cee0b3be5b0d2e5ef4582dcbe75da68354e8",
+    "data_identity": "f2316f680fe740b9fb5bc6dad83de06872950db9fbd601bc64f3f34dbaa78719",
+    "unavailable_fields": ["cost", "failure_reason", "timing_seconds"]
+  },
+  "review_corrections": {
+    "actual_outcome_mapping": "PASS",
+    "strict_json_keys_and_binary_rejection": "PASS",
+    "deep_immutability": "PASS",
+    "direct_constructor_validation": "PASS",
+    "nested_episode_consistency": "PASS",
+    "metadata_subclass_semantics": "PASS",
+    "tensor_endianness": "PASS",
+    "normalized_split_inventory": "PASS",
+    "explicit_public_schema_validation": "PASS",
+    "strict_outcome_integer_labels": "PASS",
+    "frozen_array_and_object_enum_round_trip": "PASS"
+  }
+}

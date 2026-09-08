@@ -1,0 +1,98 @@
+{
+  "schema": "W01FixtureDataset/v1",
+  "split_assignments": {
+    "development": [
+      {
+        "schema": "TaskSpec/v1",
+        "semantic_id": "fixture-rule-development",
+        "family": "fixture",
+        "generator_hash": "fixture-generator-v1",
+        "public_schema_id": "fixture-observation-v1",
+        "split": "development",
+        "difficulty": {"level": 2},
+        "resource_limits": {"inquiries": 1}
+      }
+    ],
+    "training": [
+      {
+        "schema": "TaskSpec/v1",
+        "semantic_id": "fixture-rule-training",
+        "family": "fixture",
+        "generator_hash": "fixture-generator-v1",
+        "public_schema_id": "fixture-observation-v1",
+        "split": "training",
+        "difficulty": {"level": 1},
+        "resource_limits": {"inquiries": 1}
+      }
+    ]
+  },
+  "episode_shard": {
+    "schema": "Episode/v1",
+    "task_semantic_id": "fixture-rule-training",
+    "collection_policy": "fixture-policy-v1",
+    "seed": 701,
+    "reset_scope": "semantic-task",
+    "transitions": [
+      {
+        "schema": "Transition/v1",
+        "observation": {
+          "schema": "PublicObservation/v1",
+          "task_id": "fixture-rule-training",
+          "episode_id": "fixture-episode-701",
+          "step_id": 0,
+          "observable_values": {"signal": [1, 0]},
+          "legal_action_schema": {"type": "object", "properties": {"choice": {"type": "integer"}}, "required": ["choice"]},
+          "feedback": null,
+          "remaining_budget": 1
+        },
+        "action": {
+          "schema": "Action/v1",
+          "episode_id": "fixture-episode-701",
+          "step_id": 0,
+          "action_kind": "choose",
+          "arguments": {"choice": 1},
+          "policy_identity": "fixture-policy-v1"
+        },
+        "next_observation": {
+          "schema": "PublicObservation/v1",
+          "task_id": "fixture-rule-training",
+          "episode_id": "fixture-episode-701",
+          "step_id": 1,
+          "observable_values": {"signal": [1, 0]},
+          "legal_action_schema": {"type": "object", "properties": {"choice": {"type": "integer"}}, "required": ["choice"]},
+          "feedback": {"correct": true},
+          "remaining_budget": 0
+        },
+        "reward": 1.0,
+        "cost": 1.0,
+        "termination": true,
+        "truncation": false,
+        "behavior_probability": 0.5
+      }
+    ]
+  },
+  "replay_descriptor": {
+    "schema": "TrainingBatch/v1",
+    "tensor_content_ids": {"observations": "fixture-observations-sha256"},
+    "source_ids": ["fixture-episode-701"],
+    "masks": {"loss": "fixture-loss-mask-sha256"},
+    "lengths": [1],
+    "target_count": 1,
+    "sampler_cursor": {"family": "fixture", "offset": 1, "seed": 701}
+  },
+  "checkpoint_manifest": {
+    "schema": "Checkpoint/v1",
+    "model_spec_identity": "fixture-model-spec-sha256",
+    "weights_identity": "fixture-weights-sha256",
+    "optimizer_identity": "fixture-optimizer-sha256",
+    "schedule_identity": "fixture-schedule-sha256",
+    "rng_state_identities": {"python": "fixture-python-rng-sha256", "torch": "fixture-torch-rng-sha256"},
+    "sampler_state_identity": "fixture-sampler-sha256",
+    "replay_cursor_identity": "fixture-replay-cursor-sha256",
+    "replay_index_identity": "fixture-replay-index-sha256",
+    "parent_identity": null,
+    "data_identity": "fixture-data-sha256",
+    "code_identity": "fixture-code-sha256",
+    "runtime_identity": "fixture-runtime-sha256"
+  }
+}
