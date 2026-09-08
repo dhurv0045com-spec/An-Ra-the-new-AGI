@@ -2,6 +2,8 @@
 
 Updated: 2026-09-09. This is the dispatch entry point. Update from actual evidence, not intention.
 
+Owner direction: finish the paper; further experiments will be run later. [The manuscript](../BRAMASTRA_PAPER.md) is complete as a research design and preliminary report. Work orders remain specifications for later execution, not active training authorization. No experimental agent is running.
+
 ## Current state
 
 | Area | State | Evidence / next action |
