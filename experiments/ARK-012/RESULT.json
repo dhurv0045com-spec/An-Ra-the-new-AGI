@@ -1,0 +1,31 @@
+{
+  "experiment_id": "ARK-012",
+  "import_kind": "validated_summary_of_discovery_v6_receipt",
+  "source_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+  "source_receipt_sha256": "17a1dc14c43746502d85cb19aac5a2bbc77cbf6c04ef796da90dfd4cd8bb857f",
+  "plan_commit_sha": "324b762b3cd3e362e1a28a34bd609c30fbc1f171",
+  "master_plan_commit_sha": "f46bae74c783821452947f3927acddbc14cc6dbf",
+  "runner_commit_sha": "2238f5519c3225f44010e74ba6d1af9f31d8524f",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "runtime_minutes": 43.206185142199196,
+  "selected_event_design": true,
+  "sources": {
+    "executed": ["909/2702", "1010/2702"],
+    "budget_blocked": ["1111/2703"]
+  },
+  "mean_sealed_area": {
+    "HIGH_CONTINUE": 0.914795918367347,
+    "LOW_IMMEDIATE": 0.8622448979591837,
+    "SWITCH_75": 0.8835459183673469,
+    "SWITCH_85": 0.9403061224489795,
+    "SWITCH_90": 0.9403061224489795,
+    "SWITCH_95": 0.9163265306122449
+  },
+  "key_switch_steps": {
+    "909/2702": {"SWITCH_75": 600, "SWITCH_85": 600, "SWITCH_90": 600, "SWITCH_95": 600},
+    "1010/2702": {"SWITCH_75": 600, "SWITCH_85": 3200, "SWITCH_90": 3200, "SWITCH_95": 7000}
+  },
+  "verdict": "TIME_NOT_STATE_SCREEN",
+  "claim_level": "SELECTED_EVENT_MECHANISTIC_SCREEN"
+}
