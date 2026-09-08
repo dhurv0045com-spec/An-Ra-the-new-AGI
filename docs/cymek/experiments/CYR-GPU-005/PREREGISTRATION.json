@@ -1,0 +1,241 @@
+{
+  "schema": "anra-cyr-gpu005-preregistration/v1",
+  "experiment": "CYR-GPU-005",
+  "created_utc": "2026-09-08T18:30:00Z",
+  "executable_sha256": "eb6fa1186079115bb52f7dc0ddd01b315a7578b4",
+  "executable_files": {
+    "v5_experiments/cyr_gpu005.py": "1c0e154ca1ae0c07e61109408be8d80936198460a009dbac3d76aeafc9db291f",
+    "v5_experiments/xla_accumulation_oracle.py": "13202b358f79f1f2dd820f97371820f7be38c6bd7dfc900eabde83cceeef8574",
+    "anra_v5/cyr_gpu005_run.py": "874d98100a5d6764ba2b63671f56b8dbd8044931a1e749e0da32ce9bbc2e8e88",
+    "v5_training/production_entry.py": "727f68f39f4d85a1e72c2eed5f003eda4c8d88799558c26d313e6e7e63a040f5",
+    "v5_training/test_receipt.py": "c0f9615ba8822b9d0336f7e5636607da745a596313ef323b3abc65519cbcf9b3",
+    "notebooks/cymek_colab_gpu_research_v5.ipynb": "3102c9b56e26a55a45a31ff81e7aed5f59f0921ca277828e2dc3314c56c5d39e",
+    "tests/test_v5_cyr_gpu005_core.py": "9724e98eb5238d3175ae0c761294168f492e38aa92c0fd3dd428ced917c0ed69",
+    "tests/test_v5_cyr_gpu005_plumbing_e2e.py": "242c278b66551685709d829b1d6b6b490cd6a2c3e1f5dc041349d1f844ead428",
+    "tests/test_v5_cyr_gpu005_freeze_sim.py": "00ea15888ba2a98b0942bf0060cfb4c993a0a3101a139defca87f6189813611c",
+    "tests/test_v5_cyr_gpu005_notebook.py": "5bbc809abb30c1f28d3a73e6f44d5ec15d8c89c14743d52d01028ea9ca844037",
+    "tests/test_v5_cyr_gpu005_receipt.py": "f6f5de1f3cb42d20080cda7395138bb6f077d49b1256a0b5361224e78c098ede",
+    "tests/test_v5_xla_accumulation_oracle.py": "2092fd28fa0912a5c210973ca109a818a3bba084ad46c7e55629c55a0f6a5549"
+  },
+  "two_commit_freeze": {
+    "commit_a": "executable freeze (bound here by SHA + file hashes)",
+    "commit_b": "preregistration freeze (this file + RUN_READINESS.json + chronology + agent brief)",
+    "notebook_order": [
+      "read_preregistration_from_commit_B_head",
+      "copy_outside_repo_/content/CYR-GPU-005-PREREGISTRATION.json",
+      "checkout_executable_sha_A",
+      "assert_HEAD_eq_A",
+      "verify_executable_file_hashes",
+      "run_with_external_preregistration"
+    ],
+    "post_prereg_change": "SUPERSEDED_BEFORE_EXECUTION and a new identity (section 45)"
+  },
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "trainer_config_sha256": "6e06d267fb814b69ca3b6f4f912bcc81757fbf053f10a3d3789df5da1f13409a",
+    "corpus_manifest_sha256": "6b91d30282bfb2e7ba63ce6e43ecb09422a30189978eadb7a100720b1bb71d7e",
+    "vocabulary_size": 24576,
+    "pad_id": 0,
+    "unk_id": 1,
+    "bos_id": 2,
+    "eos_id": 3,
+    "source": "read from artifact added_tokens, cross-checked against the frozen TokenizerIdentity; never hardcoded"
+  },
+  "model": {
+    "construction": "ModelSpec + v5_model.core.initialize() ONLY",
+    "canonical_registry": {
+      "TINY": {
+        "role": "plumbing only",
+        "parameters": 1647104
+      },
+      "RESEARCH_SMALL": {
+        "role": "cheap scientific screening",
+        "parameters": 4130688
+      },
+      "MICRO": {
+        "role": "standard replicated research",
+        "parameters": 8654592
+      },
+      "MIDI": {
+        "role": "main GPU candidate",
+        "parameters": 22424448
+      },
+      "P35": {
+        "role": "larger finalist only",
+        "parameters": 35411328
+      }
+    },
+    "proxy_rule": "resolver picks from the registry; scale may not be labeled beyond its verified parameter count",
+    "candidate_spec_sha256": "21f14a48a11874f4b1544ddec32e3d4068b03bae12a9d6cb8e6bbdcf39061cc5"
+  },
+  "data": {
+    "family": "t2-two-digit-addition",
+    "generator_version": "cyr-gpu005-t2/v1",
+    "holdout_axis": "first_operand_tens_band (train 1-5, eval 6-7)",
+    "canonical_closure": "declared (commutative addition); ordered-question holdout enforced by leak audit",
+    "splits_full": {
+      "train": 500,
+      "dev_controller": 96,
+      "dev_measurement": 112,
+      "sealed_reserved": 48
+    },
+    "split_seeds": {
+      "train": 5001,
+      "dev_controller": 6002,
+      "dev_measurement": 6003,
+      "sealed_reserved": 6004
+    },
+    "roles": {
+      "train": "training",
+      "dev_controller": "controls G90/hysteresis",
+      "dev_measurement": "passive trajectory",
+      "sealed_reserved": "scored once after DECISION.json"
+    },
+    "data_manifest_sha256_full": "b7a4d5bef28b6d1c26fcc85dc7eecc3562607badbd78b45066f81ac846386ad9",
+    "split_manifest_sha256_full": "fa15a482f3ef9db78690fa97f48ba084bcc15faddfbc72aefab69e5f6710daf3",
+    "leak_audit_full": {
+      "commutation_free": true,
+      "tv_bound": 0.2
+    },
+    "loss_contract": "content + EOS with loss; PAD never; BOS never"
+  },
+  "seeds": {
+    "parents": [
+      707,
+      808,
+      909
+    ],
+    "arm_seed_offsets": {
+      "HIGH_CONTINUE": 101,
+      "LOW_CONTINUE": 202,
+      "FIXED_TIME_HIGH_TO_LOW": 303,
+      "HYSTERETIC_HIGH_LOW": 404
+    },
+    "rule": "fork_seed = parent_seed + ARM_SEED_OFFSETS[arm]"
+  },
+  "acquisition_policy": {
+    "runs": "EXACTLY ONE per parent seed",
+    "lr": 0.001,
+    "gate": "G90 = candidate-free generated complete_exact_with_valid_stop >= 0.90 on DEV_CONTROLLER, sustained 3 evaluations",
+    "gates": {
+      "M99": [
+        "train_probe_complete",
+        0.99
+      ],
+      "G50": [
+        "dev_controller_complete",
+        0.5
+      ],
+      "G90": [
+        "dev_controller_complete",
+        0.9
+      ],
+      "G95": [
+        "dev_controller_complete",
+        0.95
+      ]
+    },
+    "unqualified": "parent_status=NOT_QUALIFIED; forks refused",
+    "actual_token_dose": {
+      "min": 2000000,
+      "target": 4000000
+    }
+  },
+  "fork_arms": {
+    "arms": [
+      "HIGH_CONTINUE",
+      "LOW_CONTINUE",
+      "FIXED_TIME_HIGH_TO_LOW",
+      "HYSTERETIC_HIGH_LOW"
+    ],
+    "policies": {
+      "HIGH_CONTINUE": {
+        "lr": 0.001,
+        "policy": "constant_high"
+      },
+      "LOW_CONTINUE": {
+        "lr": 1e-05,
+        "policy": "constant_low"
+      },
+      "FIXED_TIME_HIGH_TO_LOW": {
+        "lr_high": 0.001,
+        "lr_low": 1e-05,
+        "policy": "fixed_time",
+        "switch_fraction_of_actual_tokens": 0.5
+      },
+      "HYSTERETIC_HIGH_LOW": {
+        "lr_plasticity": 0.001,
+        "lr_retention": 1e-05,
+        "policy": "hysteretic",
+        "enter_retention": 0.9,
+        "reenter_plasticity": 0.5,
+        "confirmations": 3
+      }
+    },
+    "parent_contract": "all forks restore THE SAME checkpoint bytes and consume THE SAME future tail (PARENT_EQUIVALENCE + consumed-batch SHA equality enforced before comparison)"
+  },
+  "metrics": {
+    "rates": [
+      "content_exact",
+      "complete_exact_with_valid_stop",
+      "eos_rate",
+      "max_tokens_rate",
+      "prefix_correct_extra"
+    ],
+    "primary": "RET90 area over the DEV_MEASUREMENT trajectory",
+    "gates_free_generation_only": true
+  },
+  "token_resolver": {
+    "inputs": [
+      "GPU",
+      "VRAM",
+      "throughput",
+      "wall budget"
+    ],
+    "forbidden_inputs": [
+      "accuracy",
+      "loss",
+      "curves"
+    ],
+    "output": "RESOLVED_PREREGISTRATION.json before training",
+    "continuation_dose": {
+      "min": 500000,
+      "target": 2000000
+    }
+  },
+  "wall_resolver": {
+    "target_minutes": [
+      120.0,
+      150.0
+    ],
+    "hard_max_minutes": 175.0,
+    "deadline": "one absolute campaign deadline; TIMEBOXed arms cannot be compared"
+  },
+  "red_team": {
+    "required": [
+      "parameter_displacement",
+      "relative_displacement",
+      "adam_moment_norms",
+      "high_low_exposure_tokens"
+    ],
+    "rule": "LOW protective effects read against relative displacement; near-freezing reported, not hidden"
+  },
+  "verdict_rules": {
+    "comparison_requires": [
+      "status=COMPLETE",
+      "actual-token target reached",
+      "shared valid parent",
+      "shared future tail",
+      "red-team pass"
+    ],
+    "otherwise": "INCONCLUSIVE (recorded, never buried)",
+    "sealed_reserved": "scored once, after DECISION.json"
+  },
+  "local_boundary": {
+    "heavy_training_locally": false,
+    "smoke_override": "PLUMBING_SMOKE_ONLY (smoke mode only; full mode refuses)",
+    "gpu_science": "operator-run on Colab; agent never executes it"
+  },
+  "preregistration_sha256": "ed1efac949bc9c2b727e30c9b32e877e2756c445eb9ad7d15ae6664b33f5524b"
+}

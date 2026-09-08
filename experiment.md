@@ -133,6 +133,35 @@ compare normalization — canary semantics unchanged, PASS).
   repo closure receipt goes stale-by-design on new code and refreshes
   from Colab evidence next cycle (documented, not hidden).
 
+## 2026-09-08 — CYR-GPU-005 freeze cycle (branch cymek-500m-readiness)
+- CYR-GPU-004 audited post-correction and SUPERSEDED_BEFORE_EXECUTION:
+  run_v4 still performed independent acquisitions per LR (LOW active
+  during learning), never restored its G90 snapshot, and carried no
+  future-stream identity. Preserved as evidence; see
+  docs/cymek/experiments/CYR-GPU-004/SUPERSEDED.md.
+- Production XLA accumulation defect confirmed and FIXED in
+  v5_training/production_entry.py: the gradient SUM collective now fires
+  ONCE at the accumulation boundary instead of inside the microstep
+  loop (which scaled early microstep gradients by R**(M-i)). Guarded by
+  an AST test plus the new distributed CPU oracle with negative
+  regression (v5_experiments/xla_accumulation_oracle.py). Status stays
+  IMPLEMENTED_PENDING_PRE500M_TPU.
+- CYR-GPU-005 built and frozen (COMMIT A: runner, canonical proxy
+  registry, T2 manifest + leak audit, future-stream hashing, G90
+  gating, fork contract, arms, transfer, red team, section-39 bundle,
+  notebook, tests; COMMIT B: hash-bound PREREGISTRATION.json +
+  RUN_READINESS.json + chronology). Local plumbing E2E green on TINY
+  with the labeled PLUMBING_SMOKE_ONLY gate override; full mode fails
+  closed without CUDA. GPU evidence: NONE YET. Status:
+  READY_FOR_OPERATOR_COLAB_GPU_RUN (agent does not execute the science).
+- Test-receipt verifier generalized: sibling test-receipt artifacts
+  under artifacts/v5/ no longer render a receipt stale (receipts are
+  evidence, not executable code); executable changes still do.
+- Cross-branch evidence refreshed from remote: Arkenstone@fc3e689
+  (ARK-007R replication, ARK-010 recovery split, ARK-009 transfer gate
+  not qualified, Discovery-V6 hash-valid), BRAMASTRA@4655733 (chief D02
+  horizon audit, discovery_dev_701).
+
 ## Planned / blocked (not run)
 - **P1** microstep memory vs width (needs >6 GB GPU).
 - **P4** PRE500M TPU certification (needs TPU hardware).

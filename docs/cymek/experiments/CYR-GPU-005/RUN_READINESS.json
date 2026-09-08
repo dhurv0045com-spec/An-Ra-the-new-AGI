@@ -1,0 +1,42 @@
+{
+  "schema": "anra-cyr-gpu005-run-readiness/v1",
+  "experiment": "CYR-GPU-005",
+  "ready": true,
+  "conditions": {
+    "exact_cymek_v5_used": true,
+    "canonical_proxy_identity": true,
+    "production_tokenizer": true,
+    "data_manifest_verified": true,
+    "commutation_leak_audit_pass": true,
+    "acquisition_once_per_seed": true,
+    "forks_restore_exact_same_parent": true,
+    "optimizer_state_matches_at_fork": true,
+    "rng_cursor_state_matches": true,
+    "future_minibatches_hash_identical": true,
+    "actual_token_targeting": true,
+    "candidate_free_g90": true,
+    "controller_measurement_split": true,
+    "fixed_time_control": true,
+    "hysteresis_tested_locally": true,
+    "timebox_safe": true,
+    "checkpoint_recovery_works": true,
+    "evidence_packaging_works": true,
+    "full_compressed_pipeline_passes": true,
+    "static_analysis_passes": true,
+    "freeze_checkout_simulation_passes": true,
+    "xla_accumulation_oracle_passes": true
+  },
+  "blockers": [],
+  "evidence": {
+    "exact_cymek_v5_used": "v5_model.core.initialize via ProductionTrainingBackend (E2E)",
+    "canonical_proxy_identity": "tests/test_v5_cyr_gpu005_core.py::test_registry_matches_built_models",
+    "production_tokenizer": "artifact-bound identity cross-check + mini E2E",
+    "data_manifest_verified": "core.assert_manifest_sha (full-mode manifest bound in prereg)",
+    "commutation_leak_audit_pass": "full-mode audit commutation_free; negative control",
+    "full_compressed_pipeline_passes": "tests/test_v5_cyr_gpu005_plumbing_e2e.py (21 passed)",
+    "freeze_checkout_simulation_passes": "tests/test_v5_cyr_gpu005_freeze_sim.py",
+    "xla_accumulation_oracle_passes": "tests/test_v5_xla_accumulation_oracle.py (+AST guard)",
+    "static_analysis_passes": "v5_experiments.static_check: 0 findings",
+    "test_receipt": "artifacts/v5/cyr_gpu_005_test_receipt.json (bound to commit B)"
+  }
+}
