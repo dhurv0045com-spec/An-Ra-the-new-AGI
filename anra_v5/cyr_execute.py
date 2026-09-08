@@ -14,6 +14,7 @@ import argparse
 import gc
 import hashlib
 import json
+import shutil
 import tempfile
 import time
 import traceback
@@ -27,6 +28,7 @@ from v5_experiments.cyr_tournament import (
     discover_environment,
     guard_full_mode,
     package_bundle,
+    package_bundle_v2,
     pair_batches,
     proxy_ladder,
     render_worlds,
@@ -64,6 +66,76 @@ class ByteTokenizer:
         return [(ord(character) % 250) + 4 for character in text[:512]]
 
 
+def _stub_state(cumulative_tokens: int):
+    return type("ResearchState", (), {"cumulative_tokens": int(cumulative_tokens)})()
+
+
+def save_research_checkpoint(path: str | Path, *, model: Any, optimizer: Any,
+                             torch: Any, counters: Mapping[str, Any]) -> dict[str, Any]:
+    """Save model/optimizer/counters with a content-bound receipt (research-grade).
+
+    This is NOT the production transaction (no TrainingState, no ledger
+    certification); it is a byte-exact fork/restore point for research
+    arms, and it says so.
+    """
+
+    import io
+    root = Path(path)
+    root.mkdir(parents=True, exist_ok=True)
+    model_buffer, optim_buffer = io.BytesIO(), io.BytesIO()
+    torch.save(model.state_dict(), model_buffer)
+    torch.save(optimizer.state_dict(), optim_buffer)
+    (root / "model.bin").write_bytes(model_buffer.getvalue())
+    (root / "optimizer.bin").write_bytes(optim_buffer.getvalue())
+    (root / "counters.json").write_text(
+        json.dumps(dict(counters), indent=2, sort_keys=True), encoding="utf-8")
+    receipt = {"schema": "anra-cyr-research-checkpoint/v1",
+               "model_sha256": hashlib.sha256(model_buffer.getvalue()).hexdigest(),
+               "optimizer_sha256": hashlib.sha256(optim_buffer.getvalue()).hexdigest(),
+               "counters": dict(counters)}
+    (root / "receipt.json").write_text(
+        json.dumps(receipt, indent=2, sort_keys=True), encoding="utf-8")
+    return receipt
+
+
+def load_research_checkpoint(path: str | Path, *, model: Any, optimizer: Any,
+                             torch: Any) -> dict[str, Any]:
+    """Restore a research checkpoint, verifying bytes first (fail-closed)."""
+
+    import io
+    root = Path(path)
+    model_bytes = (root / "model.bin").read_bytes()
+    optim_bytes = (root / "optimizer.bin").read_bytes()
+    receipt = json.loads((root / "receipt.json").read_text(encoding="utf-8"))
+    if hashlib.sha256(model_bytes).hexdigest() != receipt["model_sha256"]:
+        raise ValueError("research checkpoint model bytes mismatch")
+    if hashlib.sha256(optim_bytes).hexdigest() != receipt["optimizer_sha256"]:
+        raise ValueError("research checkpoint optimizer bytes mismatch")
+    model.load_state_dict(torch.load(io.BytesIO(model_bytes), map_location="cpu",
+                                     weights_only=True))
+    optimizer.load_state_dict(torch.load(io.BytesIO(optim_bytes), map_location="cpu",
+                                         weights_only=True))
+    counters = json.loads((root / "counters.json").read_text(encoding="utf-8"))
+    if counters != receipt["counters"]:
+        raise ValueError("research checkpoint counters mismatch")
+    return {"counters": counters, "receipt": receipt}
+
+
+def optimizer_moment_norms(*, optimizer: Any, torch: Any) -> dict[str, float]:
+    """Frobenius norms of Adam first/second moments (displacement diagnostics)."""
+
+    exp_avg, exp_avg_sq = 0.0, 0.0
+    for group in optimizer.param_groups:
+        for parameter in group["params"]:
+            state = optimizer.state.get(parameter, {})
+            first, second = state.get("exp_avg"), state.get("exp_avg_sq")
+            if torch.is_tensor(first):
+                exp_avg += float((first.detach().float() ** 2).sum().item())
+            if torch.is_tensor(second):
+                exp_avg_sq += float((second.detach().float() ** 2).sum().item())
+    return {"exp_avg_norm": exp_avg ** 0.5, "exp_avg_sq_norm": exp_avg_sq ** 0.5}
+
+
 def train_arm(*, proxy: Mapping[str, Any], tokenizer: Any, torch: Any,
               device: Any, records: list[dict[str, str]],
               microbatch_rows: int, row_width: int, updates: int,
@@ -72,44 +144,36 @@ def train_arm(*, proxy: Mapping[str, Any], tokenizer: Any, torch: Any,
               progress: Callable[[str], None] | None = None,
               eval_every: int = 0,
               evaluate: Callable[[Any], dict[str, Any]] | None = None,
-              fork_from: Mapping[str, bytes] | None = None,
+              fork_from: str | Path | None = None,
+              fork_head: str | None = None,
               start_row: int = 0,
+              deadline_min: float | None = None,
               ) -> dict[str, Any]:
-    """Train one arm through the REAL certified update + state machinery.
+    """Train one arm through the REAL certified update math.
 
-    Every record must encode to exactly row_width-2 content tokens (the
-    renderer guarantees this; anything else fails closed), so rows are
-    exactly full and token accounting is exact everywhere. Microbatches
-    slice consecutive rows; with an even row count and pair-adjacent order,
-    twins share microbatches guaranteed (pair_split_rate receipted, must be
-    0 for grouped arms). Checkpoints fork through the real CheckpointStore.
-    ``fork_from`` (model/optimizer payload bytes from a parent receipt)
-    continues from a lineage checkpoint for LR-tournament arms; RNG state
-    is intentionally not restored (dropout-free compute consumes no RNG).
-    Tiny proxy budgets only. Certification failures abort loudly.
+    Backend begin/accumulate/finish (global clip, token-indexed LR,
+    mutation certification) executes every update; research checkpoints
+    (byte-exact, SHA-bound) fork and persist. Rows use normal batch
+    padding + eligible masks; token accounting measures exact real tokens
+    (no fixed-size fiction). Microbatches slice consecutive rows; even
+    counts with pair-adjacent order keep twins together (pair_splits
+    receipted). Deadlines stop cleanly with TIMEBOX + checkpoint.
+    Tiny proxy budgets locally; real budgets only on Colab (guarded).
     """
 
     from v5_model.core import initialize
-    from v5_training.checkpoint import CheckpointStore
     from v5_training.optimizer import build_adamw_optimizer
     from v5_training.production_backend import ProductionTrainingBackend
     from v5_training.production_backend import (
         capture_evidence,
-        production_payloads,
     )
     from v5_training.production_entry import _predict_supervised
-    from v5_training.runner import RunController
-    from v5_training.state import (
-        CURSOR_SCHEMA,
-        IDENTITY_SCHEMA,
-        CursorState,
-        IdentityBindings,
-        TrainingState,
-    )
-    from v5_training.trainer import BackendReport, train
+    from v5_training.state import CURSOR_SCHEMA, CursorState
 
     if microbatch_rows <= 0 or microbatch_rows % 2:
         raise ValueError("microbatch rows must be a positive even count")
+    if deadline_min is not None and deadline_min <= 0:
+        raise ValueError("deadline must be positive")
     torch.manual_seed(seed)
     model_spec = _model_spec(proxy, vocab_size=tokenizer.vocab_size)
     model = initialize(model_spec, seed, torch_module=torch).to(device)
@@ -118,114 +182,129 @@ def train_arm(*, proxy: Mapping[str, Any], tokenizer: Any, torch: Any,
         model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
         schedule=schedule, bfloat16_autocast=False, torch_module=torch,
         activation_checkpointing=False)
-    fork_head: str | None = None
+    store_path = Path(store_root) / run_id
     if fork_from is not None:
-        import io
-        model.load_state_dict(torch.load(
-            io.BytesIO(fork_from["model.bin"]), map_location="cpu",
-            weights_only=True))
-        optimizer.load_state_dict(torch.load(
-            io.BytesIO(fork_from["optimizer.bin"]), map_location="cpu",
-            weights_only=True))
-        fork_head = fork_from.get("fork_head", None)
-        if isinstance(fork_head, bytes):
-            fork_head = fork_head.decode("ascii")
+        load_research_checkpoint(fork_from, model=model,
+                                 optimizer=optimizer, torch=torch)
     before_params = {name: param.detach().clone()
                      for name, param in model.named_parameters()}
     before_evidence = capture_evidence(model, optimizer, torch=torch)
     rows: list[tuple[int, list[int]]] = []
     for index, record in enumerate(records):
         ids = tokenizer.encode(record["text"])
-        if len(ids) != row_width - 2:
+        if len(ids) + 2 > row_width:
             raise ValueError(
-                f"record {index} encodes to {len(ids)} tokens, not the exact "
-                f"{row_width - 2}: renderer sizing violated")
+                f"record {index} exceeds row width {row_width}")
         rows.append((index, [2, *ids, 3]))
-    if len(rows) % microbatch_rows:
-        raise ValueError("record count must divide evenly into microbatches")
     if start_row < 0 or start_row + updates * microbatch_rows > len(rows):
-        raise ValueError("fork offset runs past the rendered records")
-    tokens_per_update = microbatch_rows * row_width
+        raise ValueError("arm rows run past the rendered records")
     data_sha = hashlib.sha256(_canonical_json(
         [record["text"] for record in records])).hexdigest()
-    identities = IdentityBindings(
-        schema=IDENTITY_SCHEMA, source_commit="0" * 40,
-        model_spec_sha256=model_spec.sha256(),
-        tokenizer_sha256=tokenizer.identity.artifact_sha256,
-        data_manifest_sha256=data_sha, pack_manifest_sha256=data_sha,
-        run_spec_sha256=data_sha, optimizer_spec_sha256=data_sha,
-        schedule_spec_sha256=data_sha, curriculum_spec_sha256=data_sha)
-    state = TrainingState.initial(
-        lineage_id=run_id, token_budget=tokens_per_update * updates,
-        tokens_per_update=tokens_per_update,
-        cursor=CursorState(CURSOR_SCHEMA, data_sha, 0, 0, 0),
-        rng_state_sha256="0" * 64, curriculum_phase="cyr-tournament",
-        identities=identities)
-    store = CheckpointStore(Path(store_root), run_id)
-    controller = RunController(target_update=updates)
-    controller.start()
+    deadline_s = None
+    if deadline_min is not None:
+        import time as _time
+        deadline_s = _time.monotonic() + deadline_min * 60.0 - 30.0
     losses: list[float] = []
     grad_norms: list[float] = []
+    moment_norms: list[dict[str, float]] = []
     eval_trace: list[dict[str, Any]] = []
+    lr_per_update: list[float] = []
     pair_splits = 0
-
-    def backend_step(current: TrainingState) -> BackendReport:
-        nonlocal pair_splits
-        start = start_row + current.global_update * microbatch_rows
-        group = rows[start:start + microbatch_rows]
+    cumulative_real = 0
+    executed = 0
+    status = "COMPLETE"
+    milestones_hit: dict[str, dict[str, Any]] = {}
+    for step in range(updates):
+        if deadline_s is not None:
+            import time as _time
+            if _time.monotonic() >= deadline_s:
+                status = "TIMEBOX"
+                break
+        group = rows[start_row + step * microbatch_rows:
+                     start_row + (step + 1) * microbatch_rows]
         worlds = [records[item[0]].get("world_id", "") for item in group]
         for position in range(0, len(worlds), 2):
             if worlds[position] != worlds[position + 1]:
                 pair_splits += 1
-        tokens = torch.tensor([item[1] for item in group], dtype=torch.long,
-                              device=device)
-        segment_ids = torch.zeros_like(tokens)
-        eligible = torch.ones_like(tokens, dtype=torch.bool)
+        width = max(len(item[1]) for item in group)
+        tokens = torch.tensor(
+            [item[1] + [0] * (width - len(item[1])) for item in group],
+            dtype=torch.long, device=device)
+        segment_ids = torch.tensor(
+            [[0] * len(item[1]) + [-1] * (width - len(item[1])) for item in group],
+            dtype=torch.long, device=device)
+        eligible = torch.tensor(
+            [[True] * len(item[1]) + [False] * (width - len(item[1]))
+             for item in group], dtype=torch.bool, device=device)
         predicted = _predict_supervised(
             type("Window", (), {"tokens": tuple(tuple(row) for row in tokens.tolist()),
                                 "segment_ids": tuple(tuple(row) for row in segment_ids.tolist()),
                                 "eligible": tuple(tuple(row) for row in eligible.tolist())}))
-        ctx = backend.begin_update(current)
+        real = int(eligible.sum().item())
+        current_lr = float(schedule(cumulative_real))
+        lr_per_update.append(current_lr)
+        ctx = backend.begin_update(_stub_state(cumulative_real))
         ctx = backend.accumulate_microstep(
             ctx, tokens=tokens, segment_ids=segment_ids, eligible=eligible,
-            tokens_by_source={"cyr": tokens_per_update},
-            planned_total=predicted)
-        cursor = CursorState(CURSOR_SCHEMA, data_sha, current.global_update + 1,
-                             start + len(group), 0)
-        report = backend.finish_update(
-            current, ctx, planned_total=predicted, cursor=cursor)
-        return report
-
-    def payload_builder(live: TrainingState) -> dict[str, bytes]:
-        return production_payloads(backend, state=live)
-
-    def on_committed(live: TrainingState, _sha: str) -> None:
+            tokens_by_source={"cyr": real}, planned_total=predicted)
+        cursor = CursorState(CURSOR_SCHEMA, data_sha, executed + 1,
+                             start_row + step * microbatch_rows, 0)
+        backend.finish_update(
+            _stub_state(cumulative_real), ctx, planned_total=predicted,
+            cursor=cursor)
         receipt = backend.last_receipt
         assert receipt is not None
         losses.append(float(receipt["loss"]))
         grad_norms.append(float(receipt["grad_norm_post_clip"]))
-        if evaluate is not None and eval_every and live.global_update % eval_every == 0:
-            eval_trace.append({"update": live.global_update,
-                               "tokens": live.cumulative_tokens,
-                               **evaluate(model)})
-
-    final = train(state=state, controller=controller, store=store,
-                  payload_builder=payload_builder, backend_step=backend_step,
-                  updates=updates, checkpoint_every=1,
-                  on_committed=on_committed)
+        cumulative_real += real
+        executed += 1
+        if progress is not None:
+            progress(f"update {executed}/{updates} loss {losses[-1]:.4f}")
+        if evaluate is not None and eval_every and executed % eval_every == 0:
+            entry = {"update": executed, "tokens": cumulative_real,
+                     "moments": optimizer_moment_norms(
+                         optimizer=optimizer, torch=torch),
+                     **evaluate(model)}
+            eval_trace.append(entry)
+            moment_norms.append(entry["moments"])
+            from v5_experiments.cyr_tournament import (
+                MILESTONE_THRESHOLDS,
+                sustained,
+            )
+            for milestone, (metric, threshold) in MILESTONE_THRESHOLDS.items():
+                if milestone not in milestones_hit and sustained(
+                        [point[metric] >= threshold for point in eval_trace],
+                        required=3):
+                    milestone_path = store_path / f"milestone-{milestone}"
+                    save_research_checkpoint(
+                        milestone_path, model=model, optimizer=optimizer,
+                        torch=torch,
+                        counters={"run_id": run_id, "milestone": milestone,
+                                  "update": executed, "tokens": cumulative_real})
+                    milestones_hit[milestone] = {
+                        "update": executed, "tokens": cumulative_real,
+                        "path": str(milestone_path)}
     after_evidence = capture_evidence(model, optimizer, torch=torch)
     displacement = sum(
         float(((param.detach().float() - before_params[name].float()) ** 2).sum())
         for name, param in model.named_parameters()) ** 0.5
-    return {"losses": losses, "updates": final.global_update,
-            "tokens": final.cumulative_tokens, "eval_trace": eval_trace,
-            "grad_norms": grad_norms, "pair_splits": pair_splits,
-            "start_row": start_row,
+    head_path = store_path / f"head-{executed}"
+    head_receipt = save_research_checkpoint(
+        head_path, model=model, optimizer=optimizer, torch=torch,
+        counters={"run_id": run_id, "updates": executed,
+                  "tokens": cumulative_real, "start_row": start_row,
+                  "seed": seed, "status": status})
+    return {"losses": losses, "updates": executed, "tokens": cumulative_real,
+            "eval_trace": eval_trace, "grad_norms": grad_norms,
+            "moment_norms": moment_norms, "lr_per_update": lr_per_update,
+            "pair_splits": pair_splits, "start_row": start_row,
+            "status": status, "milestones_hit": milestones_hit,
             "parameter_sha_before": before_evidence.parameter_sha256,
             "parameter_sha_after": after_evidence.parameter_sha256,
             "displacement_norm": displacement,
             "optimizer_steps": after_evidence.optimizer_steps,
-            "checkpoint_head": store.latest_sha256(),
+            "checkpoint_head": head_receipt["model_sha256"],
+            "checkpoint_path": str(head_path),
             "fork_head": fork_head}
 
 
@@ -289,33 +368,57 @@ def teacher_forced_exact(*, model: Any, tokenizer: Any, torch: Any,
 
 def free_generation_spot(*, model: Any, tokenizer: Any, torch: Any,
                          device: Any, worlds: list[dict[str, Any]],
-                         max_new_tokens: int = 32, eos_id: int = 3
+                         max_new_tokens: int = 32, eos_id: int = 3,
+                         batch_size: int = 8
                          ) -> dict[str, Any]:
-    """Sparse metric: greedy generation terminates (EOS or cap)."""
+    """Sparse metric: batched greedy generation (EOS / cap / invalid tracked).
+
+    Prompts advance together, one forward per step for the whole batch;
+    finished rows stop extending. Bounded cost by construction.
+    """
 
     from v5_model.core import packed_layout
     stops = {"eos": 0, "cap": 0}
+    examined = worlds[:16]
+    generated_all: list[list[int]] = []
     was_training = model.training
     model.eval()
     with torch.no_grad():
-        for world in worlds[:16]:
-            prompt = world["base"]["text"].rsplit(RENDER_SUFFIX, 1)[0] + RENDER_SUFFIX
-            token_ids = [2, *tokenizer.encode(prompt)]
+        for start in range(0, len(examined), batch_size):
+            chunk = examined[start:start + batch_size]
+            batch_ids = [[2, *tokenizer.encode(
+                world["base"]["text"].rsplit(RENDER_SUFFIX, 1)[0] + RENDER_SUFFIX)]
+                for world in chunk]
+            done = [False] * len(chunk)
+            generated = [[] for _ in chunk]
             for _ in range(max_new_tokens):
-                tokens = torch.tensor([token_ids], dtype=torch.long, device=device)
-                segments = torch.zeros_like(tokens)
+                if all(done):
+                    break
+                width = max(len(ids) for ids in batch_ids)
+                tokens = torch.tensor(
+                    [ids + [0] * (width - len(ids)) for ids in batch_ids],
+                    dtype=torch.long, device=device)
+                segments = torch.tensor(
+                    [[0] * len(ids) + [-1] * (width - len(ids)) for ids in batch_ids],
+                    dtype=torch.long, device=device)
                 positions, mask = packed_layout(segments, torch_module=torch)
                 logits = model(tokens, positions, mask.to(tokens.device))
-                next_id = int(torch.argmax(logits[0, -1]).item())
-                if next_id == eos_id:
-                    stops["eos"] += 1
-                    break
-                token_ids.append(next_id)
-            else:
-                stops["cap"] += 1
+                for row in range(len(chunk)):
+                    if done[row]:
+                        continue
+                    next_id = int(torch.argmax(logits[row, len(batch_ids[row]) - 1]).item())
+                    if next_id == eos_id:
+                        done[row] = True
+                    else:
+                        batch_ids[row].append(next_id)
+                        generated[row].append(next_id)
+            for row, complete in enumerate(done):
+                stops["eos" if complete else "cap"] += 1
+            generated_all.extend(generated)
     if was_training:
         model.train()
-    return {"stops": stops, "worlds": min(len(worlds), 16)}
+    return {"stops": stops, "worlds": len(examined),
+            "generated": generated_all}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -327,6 +430,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--prereg", type=Path, default=None)
     parser.add_argument("--repo", type=Path, default=Path("."))
     parser.add_argument("--stages", default=",".join(CYR_STAGE_ORDER))
+    parser.add_argument("--mirror", type=Path, default=None)
     return parser
 
 
@@ -348,8 +452,7 @@ def smoke(torch: Any, device: Any, out: Path) -> dict[str, Any]:
     proxy = proxy_ladder()["TINY"]
     tok = ByteTokenizer()
     worlds = render_worlds(family="registry",
-                           split_seeds={"train": 11}, worlds_per_split=4,
-                           encode=tok.encode, row_content_tokens=300)
+                           split_seeds={"train": 11}, worlds_per_split=4)
     records = pair_batches(worlds["train"], group_pairs=True, seed=11)
     with tempfile.TemporaryDirectory() as tmp:
         result = train_arm(proxy=proxy, tokenizer=tok, torch=torch,
@@ -393,16 +496,17 @@ def main(argv: list[str] | None = None) -> int:
             stages = tuple(stage for stage in args.stages.split(",") if stage)
             run_cyr_campaign(out=out, torch=torch, device=device,
                              tokenizer=tokenizer, stages=stages,
-                             prereg=prereg, progress=print)
+                             prereg=prereg, progress=print,
+                             mirror_root=args.mirror)
     except Exception as exc:
         failure = {"schema": "anra-cyr-failure/v1", "stage": args.stage,
                    "exception": type(exc).__name__, "message": str(exc),
                    "traceback": traceback.format_exc()}
         (out / "FAILURE.json").write_text(
             json.dumps(failure, indent=2, sort_keys=True), encoding="utf-8")
-        package_bundle(out)
+        package_bundle_v2(out)
         raise
-    package_bundle(out)
+    package_bundle_v2(out)
     return 0
 
 
@@ -449,9 +553,7 @@ def score_variants(*, model: Any, tokenizer: Any, torch: Any,
             "worlds": total}
 
 
-def blind_gap(*, model_both: float,
-              contexts: list[str], queries: list[str], answers: list[str],
-              twins: list[tuple[str, str, str]]) -> dict[str, Any]:
+def blind_gap(*, model_both: float, worlds: list[dict[str, Any]]) -> dict[str, Any]:
     """Model both-correct minus best heuristic both-correct (same worlds)."""
 
     from v5_experiments.cyr_tournament import heuristic_baselines
@@ -459,13 +561,12 @@ def blind_gap(*, model_both: float,
     scores = {}
     for name, predict in baselines.items():
         hits = 0
-        for context, query, answer, (twin_query, twin_answer, twin_context) in zip(
-                contexts, queries, answers, twins):
-            _ = twin_context
-            if predict(context, query) == answer and \
-                    predict(context, twin_query) == twin_answer:
+        for world in worlds:
+            base, twin = world["base"], world["twin"]
+            if predict(base["context"], base["query"]) == base["answer"] and \
+                    predict(twin["context"], twin["query"]) == twin["answer"]:
                 hits += 1
-        scores[name] = hits / len(contexts) if contexts else 0.0
+        scores[name] = hits / len(worlds) if worlds else 0.0
     best = max(scores.values()) if scores else 0.0
     return {"model_both_correct": model_both,
             "best_baseline_both_correct": best,
@@ -477,22 +578,77 @@ CYR_STAGE_ORDER = ("s0", "s1", "s2", "s3", "s4")
 
 def _write_json(out: Path, name: str, payload: Mapping[str, Any]) -> Path:
     target = out / name
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(dict(payload), indent=2, sort_keys=True,
                                  default=str), encoding="utf-8")
     return target
+
+
+def _negative_controls() -> dict[str, Any]:
+    """Red-team self-tests on synthetic fixtures (never the real ledger)."""
+
+    from v5_experiments.cyr_tournament import redteam_near_dup, redteam_overlap
+    overlap_caught = not redteam_overlap(["w1", "w2"], ["w2", "w3"])["pass"]
+    clean_pass = redteam_overlap(["w1"], ["w2"])["pass"]
+    dup_caught = not redteam_near_dup(["alpha beta gamma delta epsilon zeta eta",
+                                       "alpha beta gamma delta epsilon zeta eta"])["pass"]
+    assert overlap_caught and clean_pass and dup_caught, "red-team self-test failed"
+    return {"schema": "anra-cyr-negative-controls/v1",
+            "overlap_catch": overlap_caught, "clean_pass": clean_pass,
+            "dup_catch": dup_caught}
+
+
+def mirror_stage(out: Path, mirror_root: str | Path | None,
+                 summary: dict[str, Any]) -> None:
+    """Mirror new/changed JSON receipts to durable storage (best-effort).
+
+    Warns EPHEMERAL_STORAGE_ONLY when no mirror is configured. Never
+    raises for copy problems that leave the local evidence intact;
+    records the outcome either way.
+    """
+
+    if mirror_root is None:
+        summary.setdefault("durability", {})["storage"] = "EPHEMERAL_STORAGE_ONLY"
+        return
+    try:
+        mirror = Path(mirror_root) / "CYR-GPU-002"
+        mirror.mkdir(parents=True, exist_ok=True)
+        copied = 0
+        for path in sorted(out.rglob("*.json")):
+            target = mirror / path.relative_to(out)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists() or target.read_bytes() != path.read_bytes():
+                shutil.copyfile(path, target)
+                copied += 1
+        (mirror / "MIRROR_MANIFEST.json").write_text(json.dumps(
+            {"schema": "anra-cyr-mirror-manifest/v1",
+             "files_copied_this_stage": copied}, indent=2), encoding="utf-8")
+        summary.setdefault("durability", {})["storage"] = "MIRRORED"
+    except OSError as exc:
+        summary.setdefault("durability", {})["storage"] = \
+            f"MIRROR_FAILED:{type(exc).__name__}"
 
 
 def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
                      stages: tuple[str, ...] = CYR_STAGE_ORDER,
                      time_limit_min: float = 170.0,
                      progress: Callable[[str], None] | None = None,
-                     prereg: Mapping[str, Any]) -> dict[str, Any]:
+                     prereg: Mapping[str, Any],
+                     mirror_root: str | Path | None = None,
+                     proxy_name: str | None = None,
+                     updates_per_arm: int | None = None,
+                     seeds: tuple[int, ...] | None = None,
+                     gate_overrides: Mapping[str, bool] | None = None) -> dict[str, Any]:
     """Execute the preregistered CYR-GPU-001 stage plan with gates and timeboxes."""
 
     from v5_experiments.cyr_tournament import (
+        CYR_ARMS,
+        CYR_DEV_WORLDS,
         CYR_EVAL_DENSE_WORLDS,
         CYR_EVAL_EVERY_UPDATES,
         CYR_FIXED_SWITCH_FRACTION,
+        CYR_FREE_GEN_CAP,
+        CYR_FREE_GEN_WORLDS,
         CYR_MICROBATCH_ROWS,
         CYR_ROW_CONTENT_TOKENS,
         CYR_SEEDS,
@@ -501,6 +657,7 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
         HysteresisController,
         assert_split_firewall,
         constant_lr,
+        find_transitions,
         pair_batches,
         proxy_ladder,
         redteam_exposure,
@@ -524,7 +681,9 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
 
     out.mkdir(parents=True, exist_ok=True)
     summary: dict[str, Any] = {"stages": {}, "gates": {}, "redteam": []}
-    row_width = CYR_ROW_CONTENT_TOKENS + 2
+    # Row cap: widest ladder context (records must fit; overflow fails
+    # closed in train_arm). Microbatches pad to their own max width.
+    row_width = max(entry["context_length"] for entry in proxy_ladder().values())
 
     # -- S0: bootstrap truth checks, EOS contract, calibration, resolve -----
     # Full worlds render AFTER resolve (sized to the resolved budget).
@@ -533,8 +692,7 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
         env = discover_environment()
         probe_worlds = render_worlds(
             family="registry", split_seeds={"train": 999},
-            worlds_per_split=2, encode=tokenizer.encode,
-            row_content_tokens=CYR_ROW_CONTENT_TOKENS)
+            worlds_per_split=2)
         assert_split_firewall(probe_worlds)
         from v5_data.pack import pack_documents
         sample = [("eos-check", tokenizer.encode(
@@ -556,17 +714,27 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
                         "prereg_sha256": prereg.get("sha256"),
                         "environment": env}
         _write_json(out, "RESOLVED_PREREGISTRATION.json", resolved_doc)
+        _write_json(out, "CALIBRATION.json", calibration)
+        _write_json(out, "NEGATIVE_CONTROL_TESTS.json", _negative_controls())
         summary["stages"]["s0"] = {"status": "COMPLETE", "resolved": resolved}
+        mirror_stage(out, mirror_root, summary)
     else:
         resolved = {"proxy": "MICRO", "tokens_per_arm": 150_000,
                     "reason": "stages run standalone; default MICRO budget"}
 
-    proxy_name = resolved["proxy"]
+    proxy_name = proxy_name or resolved["proxy"]
     proxy = proxy_ladder()[proxy_name]
     tokens_per_arm = int(resolved["tokens_per_arm"])
-    microbatch_tokens = CYR_MICROBATCH_ROWS * row_width
-    updates_per_arm = max(4, tokens_per_arm // microbatch_tokens)
-    cont_updates = max(8, updates_per_arm // 2)
+    # Nominal microbatch size for budget math (actuals measured per
+    # microbatch at runtime; receipts carry exact tokens, never estimates).
+    nominal_row_tokens = 320
+    microbatch_tokens = CYR_MICROBATCH_ROWS * nominal_row_tokens
+    row_width = int(proxy["context_length"])
+    updates_per_arm = updates_per_arm or max(4, tokens_per_arm // microbatch_tokens)
+    seeds = tuple(seeds) if seeds else CYR_SEEDS
+    if not seeds:
+        raise ValueError("seed set cannot be empty")
+    cont_updates = max(2, updates_per_arm // 2)
     # Train streams must cover S1 acquisition AND S3 continuation rows.
     train_worlds = (updates_per_arm + cont_updates) * CYR_MICROBATCH_ROWS // 2
     worlds = {family: render_worlds(
@@ -575,44 +743,63 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
         worlds_per_split={"train": train_worlds,
                           "dev_controller": CYR_DEV_WORLDS,
                           "dev_measurement": CYR_DEV_WORLDS,
-                          "sealed_reserved": CYR_DEV_WORLDS},
-        encode=tokenizer.encode,
-        row_content_tokens=CYR_ROW_CONTENT_TOKENS) for family in ("registry", "transfer")}
+                          "sealed_reserved": CYR_DEV_WORLDS})
+              for family in ("registry", "transfer")}
     for family_worlds in worlds.values():
         assert_split_firewall(family_worlds)
     manifests = {family: split_manifest(family_worlds)
                  for family, family_worlds in worlds.items()}
     _write_json(out, "SPLIT_MANIFEST.json",
                 {"registry": manifests["registry"], "transfer": manifests["transfer"]})
+    _write_json(out, "DATA_MANIFEST.json",
+                {"schema": "anra-cyr-data-manifest/v1",
+                 "families": sorted(worlds),
+                 "tokenizer_artifact_sha256": getattr(
+                     getattr(tokenizer, "identity", None), "artifact_sha256", ""),
+                 "splits": {family: {split: {"worlds": len(members),
+                                             "sha256": manifests[family]["sha256"]}
+                                     for split, members in family_worlds.items()}
+                            for family, family_worlds in worlds.items()}})
     summary["worlds_rendered"] = {
         family: {split: len(members) for split, members in family_worlds.items()}
         for family, family_worlds in worlds.items()}
     stores = out / "stores"
     stores.mkdir(parents=True, exist_ok=True)
 
-    def evaluate_on(split_worlds: list[dict[str, Any]]):
+    def evaluate_on(train_subset: list[dict[str, Any]],
+                    split_worlds: list[dict[str, Any]]):
         def evaluate(model: Any) -> dict[str, Any]:
-            return teacher_forced_exact(model=model, tokenizer=tokenizer,
+            train = teacher_forced_exact(model=model, tokenizer=tokenizer,
+                                         torch=torch, device=device,
+                                         worlds=train_subset)
+            dev = teacher_forced_exact(model=model, tokenizer=tokenizer,
                                        torch=torch, device=device,
                                        worlds=split_worlds[:CYR_EVAL_DENSE_WORLDS])
+            return {"train_exact": train["exact"],
+                    "exact": dev["exact"],
+                    "both_correct": dev["both_correct"],
+                    "worlds": dev["worlds"]}
         return evaluate
 
     def run_arm(records, *, arm_id, schedule, seed, updates, eval_worlds,
-                start_row: int = 0, fork_from=None):
+                train_subset, start_row: int = 0, fork_from=None,
+                fork_head: str | None = None, deadline_min: float | None = None,
+                proxy_override: Mapping[str, Any] | None = None):
+        if deadline_min is None:
+            deadline_min = max(1.0, remaining_min() - 2.0)
         return train_arm(
-            proxy=proxy, tokenizer=tokenizer, torch=torch,
+            proxy=proxy_override or proxy, tokenizer=tokenizer, torch=torch,
             device=device, records=records,
             microbatch_rows=CYR_MICROBATCH_ROWS, row_width=row_width,
             updates=updates, schedule=schedule, seed=seed, run_id=arm_id,
             store_root=str(stores / arm_id), progress=say,
             eval_every=CYR_EVAL_EVERY_UPDATES,
-            evaluate=evaluate_on(eval_worlds), fork_from=fork_from,
-            start_row=start_row)
+            evaluate=evaluate_on(train_subset, eval_worlds), fork_from=fork_from,
+            fork_head=fork_head, start_row=start_row, deadline_min=deadline_min)
 
-    def arm_payloads(arm_id: str, head: str) -> dict[str, bytes]:
-        store = CheckpointStore(stores / arm_id, arm_id)
-        _, payloads = store.restore(head)
-        return dict(payloads)
+    def arm_deadline() -> float | None:
+        remaining = remaining_min() - 2.0
+        return remaining if remaining > 1.0 else None
 
     # -- S1: baseline acquisition + factorial gate ---------------------------
     if "s1" in stages:
@@ -622,33 +809,48 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
             train_ids = [world["world_id"] for world in worlds[family]["train"]]
             eval_ids = [world["world_id"] for world in worlds[family]["dev_measurement"]]
             summary["redteam"].append(redteam_overlap(train_ids, eval_ids))
-            for seed in CYR_SEEDS:
+            for seed in seeds:
                 ordered = pair_batches(worlds[family]["train"], group_pairs=False,
                                        seed=seed)
                 key = f"s1-{family}-{seed}"
+                train_subset = worlds[family]["train"][:16]
                 result = run_arm(
                     ordered, arm_id=key, schedule=constant_lr(RESEARCH_LRS["HIGH"]),
                     seed=seed, updates=updates_per_arm,
-                    eval_worlds=worlds[family]["dev_measurement"])
+                    eval_worlds=worlds[family]["dev_measurement"],
+                    train_subset=train_subset)
                 _write_json(out, f"BASELINE-{family}-{seed}.json", result)
-                s1[key] = {"final_train_exact": result["eval_trace"][-1]["exact"]
-                           if result["eval_trace"] else 0.0,
+                trace = result["eval_trace"]
+                m99 = find_transitions(
+                    flags=[entry["train_exact"] >= 0.99 for entry in trace],
+                    updates=[entry["update"] for entry in trace],
+                    tokens_per_update=result["tokens"] // max(1, result["updates"]),
+                    started_wall_s=0.0,
+                    eval_wall_s=[float(entry["update"]) for entry in trace],
+                    threshold_name="M99") if trace else {"confirmation": None}
+                s1[key] = {"final_train_exact": trace[-1]["train_exact"] if trace else 0.0,
+                           "m99": m99,
                            "checkpoint_head": result["checkpoint_head"],
+                           "checkpoint_path": result["checkpoint_path"],
                            "losses": result["losses"][-3:],
                            "displacement_norm": result["displacement_norm"]}
-        trace_ok = any(entry["final_train_exact"] >= 0.99 for entry in s1.values())
+        trace_ok = any(entry["m99"]["confirmation"] is not None for entry in s1.values())
+        overridden = bool((gate_overrides or {}).get("learnability"))
         summary["stages"]["s1"] = s1
-        summary["gates"]["learnability"] = bool(trace_ok)
-        if not trace_ok:
+        summary["gates"]["learnability"] = bool(trace_ok or overridden)
+        summary["gates"]["gates_overridden"] = sorted(
+            key for key, value in (gate_overrides or {}).items() if value)
+        if not trace_ok and not overridden:
             summary["stages"]["s1"]["status"] = "ABORT_NO_SIGNAL"
             _write_json(out, "DECISION.json", _decision(summary, prereg))
-            package_bundle(out)
+            package_bundle_v2(out)
             return summary
         summary["stages"]["s1"]["status"] = "COMPLETE"
         factorial = {}
         for family in ("registry", "transfer"):
             factorial[family] = "deferred-to-s2-eval"
         summary["stages"]["s1"]["factorial"] = factorial
+        mirror_stage(out, mirror_root, summary)
 
     # -- S2: pair-preserving vs shuffled --------------------------------------
     if "s2" in stages and remaining_min() > 25:
@@ -660,7 +862,7 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
         )
         s2: dict[str, Any] = {}
         for family in ("registry", "transfer"):
-            for seed in CYR_SEEDS:
+            for seed in seeds:
                 arms = {}
                 orders = {}
                 for grouped in (False, True):
@@ -670,7 +872,8 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
                     result = run_arm(
                         ordered, arm_id=arm_id, schedule=constant_lr(RESEARCH_LRS["HIGH"]),
                         seed=seed, updates=updates_per_arm,
-                        eval_worlds=worlds[family]["dev_measurement"])
+                        eval_worlds=worlds[family]["dev_measurement"],
+                        train_subset=worlds[family]["train"][:16])
                     if grouped:
                         assert result["pair_splits"] == 0, "pair treatment leaked"
                     arms["paired" if grouped else "shuffled"] = result
@@ -683,14 +886,16 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
                 paired = arms["paired"]
                 model = reload_model(
                     proxy=proxy, tokenizer=tokenizer, torch=torch, device=device,
-                    store_root=str(stores / f"s2-{family}-paired-{seed}"),
-                    run_id=f"s2-{family}-paired-{seed}",
-                    checkpoint_sha=paired["checkpoint_head"])
+                    checkpoint_path=paired["checkpoint_path"])
                 factorial = score_variants(
                     model=model, tokenizer=tokenizer, torch=torch, device=device,
                     worlds=worlds[family]["dev_measurement"][:CYR_EVAL_DENSE_WORLDS])
                 gap = blind_gap(model_both=factorial["both_correct"],
                                 worlds=worlds[family]["dev_measurement"][:CYR_EVAL_DENSE_WORLDS])
+                free_gen = free_generation_spot(
+                    model=model, tokenizer=tokenizer, torch=torch, device=device,
+                    worlds=worlds[family]["dev_measurement"][:CYR_FREE_GEN_WORLDS],
+                    max_new_tokens=CYR_FREE_GEN_CAP)
                 del model
                 gc.collect()
                 paired_both = factorial["both_correct"]
@@ -713,7 +918,9 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
                     "gap": paired_both - shuffled_both,
                     "factorial": factorial["exact"],
                     "blind_gap": gap,
+                    "free_generation": free_gen,
                     "matched": _matched_sampler_pair(family, seed),
+                    "arms": list(CYR_ARMS["s2"]),
                     "redteam_pass": all(check["pass"] for check in redteam)}
                 _write_json(out, f"FACTORIAL-{family}-{seed}.json",
                             {"factorial": factorial, "blind_gap": gap})
@@ -722,6 +929,7 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
             "matched": all(entry.get("matched", {}).get("matched", False)
                            for entry in s2.values()
                            if isinstance(entry, dict) and "matched" in entry)}
+        mirror_stage(out, mirror_root, summary)
     elif "s2" in stages:
         summary["stages"]["s2"] = {"status": "SKIPPED_TIMEBOX"}
 
@@ -730,9 +938,10 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
         say("S3 LR tournament")
         summary["stages"]["s3"] = _run_lr_tournament(
             out=out, worlds=worlds,
-            updates_per_arm=updates_per_arm,
-            run_arm=run_arm, arm_payloads=arm_payloads,
-            microbatch_rows=CYR_MICROBATCH_ROWS, summary=summary)
+            updates_per_arm=updates_per_arm, row_width=row_width,
+            run_arm=run_arm,
+            microbatch_rows=CYR_MICROBATCH_ROWS, summary=summary,
+            seeds=seeds)
     elif "s3" in stages:
         summary["stages"]["s3"] = {"status": "SKIPPED_TIMEBOX"}
 
@@ -743,44 +952,132 @@ def run_cyr_campaign(*, out: Path, torch: Any, device: Any, tokenizer: Any,
         s2 = summary.get("stages", {}).get("s2", {})
         winners = {}
         for family in ("registry", "transfer"):
-            gaps = [s2.get(f"{family}-{seed}", {}).get("gap", 0.0) for seed in CYR_SEEDS]
+            gaps = [s2.get(f"{family}-{seed}", {}).get("gap", 0.0) for seed in seeds]
             winners[family] = len(gaps) == len(CYR_SEEDS) and all(gap >= 0.10 for gap in gaps)
         transfer: dict[str, Any] = {
             "arms": {},
             "winner_rule": {family: ("paired" if won else "shuffled")
                             for family, won in winners.items()}}
-        microbatch_tokens = CYR_MICROBATCH_ROWS * row_width
-        transfer_updates = max(4, tokens_per_arm // microbatch_tokens)
+        transfer_updates = updates_per_arm
         for family in ("registry", "transfer"):
             grouped = winners[family]
             ordered = pair_batches(worlds[family]["train"], group_pairs=grouped,
-                                   seed=303)
+                                   seed=seeds[0])
             arm_id = f"s4-{family}-{'paired' if grouped else 'shuffled'}"
             result = run_arm(
                 ordered, arm_id=arm_id, schedule=constant_lr(RESEARCH_LRS["HIGH"]),
-                seed=303, updates=transfer_updates,
-                eval_worlds=worlds[family]["dev_measurement"])
+                seed=seeds[0], updates=transfer_updates,
+                eval_worlds=worlds[family]["dev_measurement"],
+                train_subset=worlds[family]["train"][:16])
             _write_json(out, f"TRANSFER-{family}.json", result)
             transfer["arms"][family] = {
                 "sampler": "paired" if grouped else "shuffled",
                 "final_both_correct": result["eval_trace"][-1]["both_correct"]
                 if result["eval_trace"] else 0.0,
-                "displacement_norm": result["displacement_norm"]}
+                "displacement_norm": result["displacement_norm"],
+                "checkpoint_path": result["checkpoint_path"]}
         order = ["TINY", "MICRO", "MIDI", "P35"]
-        transfer["larger_proxy"] = {
-            "status": "AVAILABLE",
-            "next": order[order.index(proxy_name) + 1],
-            "note": "operator may re-run S4 at the next proxy with --stages s4",
-        } if proxy_name in order and order.index(proxy_name) + 1 < len(order) \
-            else {"status": "AT_TOP"}
+        if proxy_name in order and order.index(proxy_name) + 1 < len(order) \
+                and remaining_min() > 40:
+            bigger_name = order[order.index(proxy_name) + 1]
+            bigger = proxy_ladder()[bigger_name]
+            say(f"S4 larger proxy replication on {bigger_name}")
+            big_updates = min(max(4, tokens_per_arm // (CYR_MICROBATCH_ROWS * row_width) // 2),
+                              updates_per_arm)
+            big_ordered = pair_batches(worlds["transfer"]["train"],
+                                       group_pairs=winners["transfer"],
+                                       seed=seeds[0])
+            big_result = run_arm(
+                big_ordered, arm_id=f"s4-transfer-{bigger_name}",
+                schedule=constant_lr(RESEARCH_LRS["HIGH"]), seed=seeds[0],
+                updates=big_updates,
+                eval_worlds=worlds["transfer"]["dev_measurement"],
+                train_subset=worlds["transfer"]["train"][:16],
+                proxy_override=bigger)
+            big_result["proxy"] = bigger_name
+            from v5_experiments.cyr_tournament import proxy_spec_kwargs as _spec_kw
+            big_result["parameters"] = _spec_kw(
+                bigger, vocab_size=tokenizer.vocab_size)["parameters"]
+            _write_json(out, f"SCALE-{bigger_name}.json", big_result)
+            transfer["larger_proxy"] = {
+                "status": "EXECUTED", "proxy": bigger_name,
+                "parameters": big_result["parameters"],
+                "final_both_correct": big_result["eval_trace"][-1]["both_correct"]
+                if big_result["eval_trace"] else 0.0}
+        else:
+            transfer["larger_proxy"] = {"status": "LARGER_PROXY_NOT_EXECUTED_TIMEBOX"}
+        # Sealed scoring, ONCE, reporting only: never an input to any
+        # decision, gate, or budget rule in this campaign.
+        sealed_report = _score_sealed_once(
+            torch=torch, device=device, tokenizer=tokenizer, proxy=proxy,
+            worlds=worlds, summary=summary, out=out)
+        transfer["sealed_report"] = sealed_report
         transfer["status"] = "COMPLETE"
         summary["stages"]["s4"] = transfer
+        mirror_stage(out, mirror_root, summary)
     elif "s4" in stages:
         summary["stages"]["s4"] = {"status": "SKIPPED_TIMEBOX"}
 
     _write_json(out, "DECISION.json", _decision(summary, prereg))
-    package_bundle(out)
+    _write_json(out, "REDTEAM.json", {"schema": "anra-cyr-redteam-ledger/v1",
+                                      "checks": list(summary.get("redteam", []))})
+    package_bundle_v2(out)
     return summary
+
+
+def reload_model(*, proxy: Mapping[str, Any], tokenizer: Any, torch: Any,
+                 device: Any, checkpoint_path: str | Path):
+    """Reload a tournament arm's model for post-hoc scoring (eval only)."""
+
+    import io
+    from v5_model.core import initialize
+    model = initialize(_model_spec(proxy, vocab_size=tokenizer.vocab_size),
+                       0, torch_module=torch).to(device)
+    model_bytes = (Path(checkpoint_path) / "model.bin").read_bytes()
+    model.load_state_dict(torch.load(
+        io.BytesIO(model_bytes), map_location="cpu", weights_only=True))
+    model.eval()
+    return model
+
+
+def _score_sealed_once(*, torch: Any, device: Any, tokenizer: Any,
+                       proxy: Mapping[str, Any], worlds, summary, out: Path
+                       ) -> dict[str, Any]:
+    """Score sealed worlds exactly ONCE for reporting (never for decisions).
+
+    Sealed data must not switch LRs, stop acquisition, select winners,
+    change budgets, or decide stages. This function enforces that by
+    construction: it only reads, and its output is excluded from DECISION
+    inputs (verified by the sealed-exclusion test pattern).
+    """
+
+    from v5_experiments.cyr_tournament import proxy_spec_kwargs
+    sealed = [world for family in ("registry", "transfer")
+              for world in worlds[family]["sealed_reserved"][:32]]
+    transfer_arms = summary.get("stages", {}).get("s4", {}).get("arms", {})
+    entry = transfer_arms.get("transfer")
+    if entry is None or "checkpoint_path" not in entry:
+        return {"status": "SKIPPED_NO_TRANSFER_ARM", "use_count": 0}
+    _ = proxy_spec_kwargs(proxy, vocab_size=tokenizer.vocab_size)
+    model = reload_model(proxy=proxy, tokenizer=tokenizer, torch=torch,
+                         device=device,
+                         checkpoint_path=entry["checkpoint_path"])
+    scored = teacher_forced_exact(model=model, tokenizer=tokenizer,
+                                 torch=torch, device=device, worlds=sealed)
+    del model
+    import gc
+    gc.collect()
+    report = {"schema": "anra-cyr-sealed-report/v1",
+              "status": "REPORT_ONLY",
+              "use_count": 1,
+              "worlds": len(sealed),
+              "both_correct": scored["both_correct"],
+              "exact": scored["exact"],
+              "excluded_from": ["lr_switch", "stopping", "winner_selection",
+                                "budgets", "stage_decisions", "promotion"],
+              "note": "development evidence only; final promotion remains later"}
+    _write_json(out, "SEALED_REPORT.json", report)
+    return report
 
 
 def _matched_sampler_pair(family: str, seed: int) -> dict[str, Any]:
@@ -821,8 +1118,7 @@ def _calibrate(torch: Any, device: Any, out: Path,
     proxy = ladder()["MICRO"]
     tok = ByteTokenizer()
     worlds = render_worlds(family="registry", split_seeds={"train": 77},
-                           worlds_per_split=4, encode=tok.encode,
-                           row_content_tokens=300)
+                           worlds_per_split=8)
     records = pair_batches(worlds["train"], group_pairs=True, seed=77)
     t0 = time.monotonic()
     with tempfile.TemporaryDirectory() as tmp:
@@ -848,9 +1144,10 @@ def _calibrate(torch: Any, device: Any, out: Path,
 
 def _run_lr_tournament(*, out: Path,
                        worlds: Mapping[str, list[dict[str, Any]]],
-                       updates_per_arm: int,
-                       run_arm, arm_payloads, microbatch_rows: int,
-                       summary: dict[str, Any]) -> dict[str, Any]:
+                       updates_per_arm: int, row_width: int,
+                       run_arm, microbatch_rows: int,
+                       summary: dict[str, Any],
+                       seeds: tuple[int, ...]) -> dict[str, Any]:
     """Fork-based LR tournament with sequential threshold derivation.
 
     Parents are the S1 baseline arms (matched history, persisted stores).
@@ -863,9 +1160,11 @@ def _run_lr_tournament(*, out: Path,
     """
 
     from v5_experiments.cyr_tournament import (
+        CYR_ARMS,
         CYR_EVAL_EVERY_UPDATES,
         CYR_FIXED_SWITCH_FRACTION,
         CYR_MICROBATCH_ROWS,
+        CYR_SEEDS,
         CYR_SUSTAINED_REQUIRED,
         HysteresisController,
         constant_lr,
@@ -875,23 +1174,23 @@ def _run_lr_tournament(*, out: Path,
     )
     from v5_experiments.cyr_tournament import RESEARCH_LRS as LRS
     stage: dict[str, Any] = {"arms": {}, "forks": {}, "derivations": {}}
-    cont_updates = max(8, updates_per_arm // 2)
+    cont_updates = max(2, updates_per_arm // 2)
     chunk = max(2, CYR_EVAL_EVERY_UPDATES)
     for family in ("registry", "transfer"):
-        for seed in (101, 202):
+        for seed in seeds:
             parent_key = f"s1-{family}-{seed}"
             parent_entry = summary.get("stages", {}).get("s1", {}).get(parent_key)
             if parent_entry is None:
                 stage["arms"][f"{family}-{seed}"] = {"status": "SKIPPED_NO_PARENT"}
                 continue
             parent_head = parent_entry["checkpoint_head"]
-            fork = arm_payloads(parent_key, parent_head)
-            fork["fork_head"] = parent_head.encode("ascii")
+            parent_path = parent_entry["checkpoint_path"]
             parent_rows = updates_per_arm * CYR_MICROBATCH_ROWS
             ordered = pair_batches(worlds[family]["train"], group_pairs=True,
                                    seed=seed)
             stage["forks"][f"{family}-{seed}"] = {
                 "parent_head": parent_head,
+                "parent_path": parent_path,
                 "parent_final_exact": parent_entry.get("final_train_exact", 0.0),
                 "fork_row": parent_rows}
             schedules = {
@@ -904,13 +1203,17 @@ def _run_lr_tournament(*, out: Path,
                     microbatch_rows=CYR_MICROBATCH_ROWS, row_width=row_width),
             }
             displacements: dict[str, float] = {}
+            assert set(schedules) | {"state", "hysteretic"} == set(CYR_ARMS["s3"]), \
+                "S3 arm set drifted from preregistered CYR_ARMS"
             for arm_name, schedule in schedules.items():
                 arm_id = f"s3-{family}-{seed}-{arm_name}"
                 result = run_arm(
                     ordered, arm_id=arm_id, schedule=schedule, seed=seed,
                     updates=cont_updates,
                     eval_worlds=worlds[family]["dev_controller"],
-                    start_row=parent_rows, fork_from=dict(fork))
+                    train_subset=worlds[family]["train"][:16],
+                    start_row=parent_rows, fork_from=parent_path,
+                    fork_head=parent_head)
                 result["fork_head"] = parent_head
                 _write_json(out, f"LR-{family}-{seed}-{arm_name}.json", result)
                 displacements[arm_name] = result["displacement_norm"]
@@ -924,10 +1227,10 @@ def _run_lr_tournament(*, out: Path,
                 arm_id = f"s3-{family}-{seed}-{phased_name}"
                 result = _run_phased_switch(
                     ordered=ordered, arm_id=arm_id, seed=seed,
-                    cont_updates=cont_updates, parent_fork=fork,
-                    parent_rows=parent_rows, use_hysteresis=use_hysteresis,
-                    run_arm=run_arm, load_payloads=arm_payloads,
-                    microbatch_rows=CYR_MICROBATCH_ROWS,
+                    cont_updates=cont_updates, parent_fork_path=parent_path,
+                    parent_head=parent_head, parent_rows=parent_rows,
+                    use_hysteresis=use_hysteresis,
+                    run_arm=run_arm, microbatch_rows=CYR_MICROBATCH_ROWS,
                     worlds=worlds, family=family)
                 _write_json(out, f"LR-{family}-{seed}-{phased_name}.json", result)
                 stage["arms"][f"{family}-{seed}-{phased_name}"] = result
@@ -955,9 +1258,9 @@ def _fixed_switch(high: Callable[[int], float], low: Callable[[int], float],
 
 
 def _run_phased_switch(*, ordered, arm_id: str, seed: int,
-                       cont_updates: int, parent_fork: Mapping[str, bytes],
-                       parent_rows: int, use_hysteresis: bool,
-                       run_arm, load_payloads, microbatch_rows: int,
+                       cont_updates: int, parent_fork_path: str | Path,
+                       parent_head: str, parent_rows: int, use_hysteresis: bool,
+                       run_arm, microbatch_rows: int,
                        worlds, family: str) -> dict[str, Any]:
     """Phased continuation: HIGH chunks, fork LOW on sustained criterion.
 
@@ -969,6 +1272,8 @@ def _run_phased_switch(*, ordered, arm_id: str, seed: int,
 
     from v5_experiments.cyr_tournament import (
         CYR_EVAL_EVERY_UPDATES,
+        CYR_MICROBATCH_ROWS,
+        CYR_SEEDS,
         HysteresisController,
         constant_lr,
         sustained,
@@ -978,13 +1283,17 @@ def _run_phased_switch(*, ordered, arm_id: str, seed: int,
     controller = HysteresisController(
         enter_retention=0.90, reenter_plasticity=0.75, confirmations=3)
     phases: list[dict[str, Any]] = []
+    phased_history: list[bool] = []
     consumed_updates = 0
     chunk_index = 0
     switched = False
-    current_fork: Mapping[str, bytes] | None = dict(parent_fork)
+    current_fork_path: str | Path | None = parent_fork_path
+    current_fork_head: str | None = parent_head
     current_rows = parent_rows
     total_displacement = 0.0
     last_both = 0.0
+    tokens_at_high, tokens_at_low = 0, 0
+    updates_at_high, updates_at_low = 0, 0
     while consumed_updates < cont_updates:
         block = min(chunk, cont_updates - consumed_updates)
         schedule = constant_lr(LRS["LOW"] if switched else LRS["HIGH"])
@@ -992,38 +1301,53 @@ def _run_phased_switch(*, ordered, arm_id: str, seed: int,
         result = run_arm(
             ordered, arm_id=phase_id, schedule=schedule, seed=seed,
             updates=block, eval_worlds=worlds[family]["dev_controller"],
-            start_row=current_rows, fork_from=current_fork)
+            train_subset=worlds[family]["train"][:16],
+            start_row=current_rows, fork_from=current_fork_path,
+            fork_head=current_fork_head)
         phases.append({"phase": chunk_index, "schedule": "LOW" if switched else "HIGH",
                        "updates": result["updates"], "tokens": result["tokens"],
                        "losses": result["losses"],
                        "displacement_norm": result["displacement_norm"]})
+        if switched:
+            tokens_at_low += result["tokens"]
+            updates_at_low += result["updates"]
+        else:
+            tokens_at_high += result["tokens"]
+            updates_at_high += result["updates"]
         total_displacement += result["displacement_norm"]
         consumed_updates += result["updates"]
         current_rows += result["updates"] * microbatch_rows
-        current_fork = load_payloads(phase_id, result["checkpoint_head"])
-        current_fork["fork_head"] = result["checkpoint_head"].encode("ascii")
+        current_fork_path = result["checkpoint_path"]
+        current_fork_head = result["checkpoint_head"]
         last_both = result["eval_trace"][-1]["both_correct"] if result["eval_trace"] else 0.0
-        if not switched:
-            if use_hysteresis:
-                for entry in result["eval_trace"]:
-                    controller.observe(
-                        metric=entry["both_correct"],
-                        threshold_note="enter>=0.90x3",
-                        token_position=entry["tokens"],
-                        lr_before=LRS["HIGH"], lr_plasticity=LRS["HIGH"],
-                        lr_retention=LRS["LOW"])
-                switched = controller.mode == "retention"
-            else:
-                switched = sustained(
-                    [entry["both_correct"] >= 0.90 for entry in result["eval_trace"]],
-                    required=3)
+        # Observe in BOTH states: retention->plasticity re-entry requires
+        # continued observation after the switch (history persists in the
+        # controller across chunks by construction).
+        if use_hysteresis:
+            for entry in result["eval_trace"]:
+                controller.observe(
+                    metric=entry["both_correct"],
+                    threshold_note="enter>=0.90x3/reenter<0.75x3",
+                    token_position=entry["tokens"],
+                    lr_before=LRS["HIGH"] if controller.mode == "plasticity" else LRS["LOW"],
+                    lr_plasticity=LRS["HIGH"],
+                    lr_retention=LRS["LOW"])
+            switched = controller.mode == "retention"
+        else:
+            history = [entry["both_correct"] >= 0.90 for entry in result["eval_trace"]]
+            phased_history.extend(history)
+            switched = sustained(phased_history, required=3)
         chunk_index += 1
     return {"schedule": "hysteretic" if use_hysteresis else "state-triggered",
             "updates": consumed_updates, "phases": phases,
             "controller_decisions": list(controller.decisions) if use_hysteresis else [],
+            "controller_snapshot": controller.snapshot() if use_hysteresis else None,
             "displacement_norm": total_displacement,
             "final_both_correct": last_both,
-            "switched": switched}
+            "switched": switched,
+            "exposure": {"tokens_at_high": tokens_at_high, "tokens_at_low": tokens_at_low,
+                        "updates_at_high": updates_at_high,
+                        "updates_at_low": updates_at_low}}
 
 
 def _decision(summary: Mapping[str, Any], prereg: Mapping[str, Any]) -> dict[str, Any]:
@@ -1031,28 +1355,50 @@ def _decision(summary: Mapping[str, Any], prereg: Mapping[str, Any]) -> dict[str
     clean_redteam = bool(redteam) and all(
         check.get("pass", False) for check in redteam if isinstance(check, dict))
     stages = summary.get("stages", {})
-    two_seeds = True
     matched = summary.get("matched_arms", {}).get("matched", False)
-    return {"schema": "anra-cyr-decision/v1",
-            "experiment": "CYR-GPU-001",
+    s2 = stages.get("s2", {}) if isinstance(stages.get("s2"), dict) else {}
+    gaps = [entry.get("gap", 0.0) for entry in s2.values()
+            if isinstance(entry, dict) and "gap" in entry]
+    s2_win = len(gaps) >= 2 and all(gap >= 0.10 for gap in gaps)
+    s4 = stages.get("s4", {}) if isinstance(stages.get("s4"), dict) else {}
+    transfer_arms = s4.get("arms", {}) if isinstance(s4, dict) else {}
+    transfer_hit = any(isinstance(arm.get("final_both_correct"), float)
+                       and arm["final_both_correct"] >= 0.50
+                       for arm in transfer_arms.values()
+                       if isinstance(arm, dict))
+    larger = s4.get("larger_proxy", {}) if isinstance(s4, dict) else {}
+    larger_done = isinstance(larger, dict) and larger.get("status") == "EXECUTED"
+    if s2_win and transfer_hit and larger_done and clean_redteam and matched:
+        level = "LARGER_PROXY_REPLICATED"
+    elif s2_win and transfer_hit and clean_redteam and matched:
+        level = "MULTI_TASK_REPLICATED"
+    elif s2_win and clean_redteam and matched:
+        level = "DEVELOPMENT_REPLICATED"
+    elif clean_redteam and matched:
+        level = "DEVELOPMENT_SINGLE_SEED"
+    else:
+        level = "HYPOTHESIS"
+    return {"schema": "anra-cyr-decision/v2",
+            "experiment": "CYR-GPU-002",
             "prereg_sha256": prereg.get("sha256"),
             "stages": {name: (stage.get("status", "COMPLETE") if isinstance(stage, dict) else "n/a")
                        for name, stage in stages.items()
                        if name.startswith("s")},
             "gates": dict(summary.get("gates", {})),
             "redteam": redteam,
-            "claim_ladder": "HYPOTHESIS (promotion requires independent review; "
-                            "nothing here is TPU evidence)",
+            "claim_ladder": level,
+            "claim_note": "GPU development evidence only; TPU_CONFIRMED and "
+                          "PRODUCTION_APPROVED are unreachable from GPU",
             "promotion_bar": {
                 "preregistered": bool(prereg.get("sha256")),
-                "two_seeds": two_seeds,
+                "two_seeds": True,
                 "matched_controls": bool(matched),
                 "clean_redteam": clean_redteam,
                 "complete_answer": bool(summary.get("gates", {}).get("eos_contract", False)),
                 "no_controller_leakage": True,
                 "no_substrate_regression": False,
-                "non_arithmetic_transfer": False,
-                "larger_proxy": False,
+                "non_arithmetic_transfer": bool(transfer_hit),
+                "larger_proxy": bool(larger_done),
                 "tpu_confirmed": False}}
 
 

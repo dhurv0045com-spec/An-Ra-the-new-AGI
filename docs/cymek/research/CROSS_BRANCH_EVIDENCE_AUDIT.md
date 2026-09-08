@@ -1,8 +1,19 @@
-# Cross-branch evidence audit (Arkenstone 4911b84, BRAMASTRA 90ee31a, readiness 3f92cf8)
+# Cross-branch evidence audit (Arkenstone 933d4f3, BRAMASTRA 90ee31a, readiness HEAD)
 
-Independent audit for CYR-GPU-001. Raw evidence wins over prompt hypotheses.
+Independent audit for CYR-GPU-001/002. Raw evidence wins over prompt hypotheses.
 Scale context: Arkenstone Micro ≈ 0.8M params CPU/T4; BRAMASTRA smoke ≈
 117k params CPU; Cymek proxies in this tournament ≈ 4–35M on Colab GPU.
+
+## 2026-09-08 delta re-audit
+- Arkenstone 4911b84 → 933d4f3: ARK-012/013/014 + V6 runtime + discovery
+  campaign are all PREREGISTERED/UNEXECUTED (runners exist, zero result
+  receipts). ARK-011 still UNEXECUTED. No new evidence; prior decisions
+  stand. ARK-014's orthogonal factorial plan corroborates our factorial
+  design (independent convergence, not copying).
+- BRAMASTRA unchanged at 90ee31a: terminal mechanics re-confirmed from
+  raw manifests (matched answer weight, +9600 terminal targets, 2 seeds);
+  query-blind numbers re-confirmed (62/128 vs 64/64 baselines, 0/64 both);
+  mixture/teaching/full-replay still UNEXECUTED. Prior decisions stand.
 
 ## Findings
 
