@@ -1,0 +1,55 @@
+{
+  "environment": {
+    "cpu": "AMD Ryzen 7 170 8C/16T",
+    "cpu_venv": "torch 2.13+cpu",
+    "cuda_venv": "torch 2.11+cu128",
+    "gpu": "RTX 4050 Laptop 6 GB (not used for training this cycle)",
+    "os": "Windows",
+    "ram_gb": 15.3,
+    "scope": "unit + plumbing validation only; heavy suites rerun on Colab CELL 0; prior closure receipt superseded for this tree (refreshes from Colab evidence)",
+    "threads": "4-6 throttled, foreground only, one run at a time"
+  },
+  "results": [
+    {
+      "command": "python tests/test_v5_cyr_tournament.py (full file, throttled CPU)",
+      "device": "cpu",
+      "failed": 0,
+      "files": [
+        "tests/test_v5_cyr_tournament.py",
+        "v5_experiments/cyr_tournament.py",
+        "anra_v5/cyr_execute.py"
+      ],
+      "note": "includes compressed S0-S4 pipeline (TINY plumbing), deadline TIMEBOX, MIDI construction, tokenizer render path, notebook static checks, static self-check",
+      "passed": 21,
+      "skipped": 0,
+      "tree": "095b29111c2d0b61db4c70298163a0ebb8c786a8"
+    },
+    {
+      "command": "pytest contracts/complete-answer/training/data/pipeline/backend/stream/durability + prereg/notebook/static (CPU venv)",
+      "device": "cpu",
+      "failed": 0,
+      "files": [
+        "tests/test_v5_contracts.py",
+        "tests/test_v5_complete_answer.py",
+        "tests/test_v5_training.py",
+        "tests/test_v5_data.py",
+        "tests/test_v5_data_pipeline.py",
+        "tests/test_v5_production_backend.py",
+        "tests/test_v5_stream_resume.py",
+        "tests/test_v5_durability_canary.py"
+      ],
+      "passed": 58,
+      "skipped": 0,
+      "tree": "095b29111c2d0b61db4c70298163a0ebb8c786a8"
+    }
+  ],
+  "schema": "anra-v5-test-receipt/v1",
+  "sha256": "f80834272510d89214ac373953732b2c0261b185a4992023435e8ddf7778ed7c",
+  "tested_commit_sha": "095b29111c2d0b61db4c70298163a0ebb8c786a8",
+  "timestamp_utc": "2026-09-08T14:15:14Z",
+  "totals": {
+    "failed": 0,
+    "passed": 79,
+    "skipped": 0
+  }
+}
