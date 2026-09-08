@@ -1,14 +1,24 @@
 # CYR-GPU-006 — THREATS
 
-- **Near-freezing:** LOW may preserve capability by almost stopping movement. Record displacement, integrated grad norms, Adam moments and HIGH/LOW exposure; do not call this consolidation without stronger evidence.
-- **Lucky parent:** blocked by the >=2 independent-parent verdict gate.
-- **Future-data mismatch:** blocked by consumed-batch SHA equality within each parent.
-- **Controller leakage:** only DEV_CONTROLLER drives state; DEV_MEASUREMENT is passive; SEALED_RESERVED is post-decision only.
-- **Timebox/order bias:** equal actual-token targets, rotated arm order, incomplete arms excluded.
-- **Evaluation cost:** resolver includes measured candidate-free generation throughput.
+- **Near-freezing:** LOW may preserve capability mainly by suppressing parameter motion. Record relative displacement, gradient norms, Adam moments and HIGH/LOW exposure. Do not call this consolidation without stronger evidence.
+- **State vs ordinary decay:** ARK-012 did not identify a universal state threshold. FIXED_TIME_HIGH_TO_LOW is mandatory; the hysteresis thresholds are experimental settings, not laws.
+- **Lucky parent / pseudo-replication:** arithmetic winner requires >=2 independent acquired parents; nested continuation events do not count as independent model seeds.
+- **Pre/post-age confound in plasticity:** blocked by comparing HYSTERETIC_HIGH_LOW with LOW_CONTINUE after equal same-task continuation exposure from the same parent. The pre-continuation parent is not the transfer comparator.
+- **Transfer source-quality mismatch:** both HYST and LOW source states must be COMPLETE, red-team clean, same-parent/same-tail, equal continuation dose and T2-qualified at transfer start.
+- **Future-data mismatch:** arithmetic forks are blocked by consumed-batch SHA equality within each parent. Transfer candidate/comparator use the same deterministic binding+replay generator and equal actual-token targets.
+- **Known brittle binding subject:** ARK-014 showed canonical-only success can hide order fragility. CYR transfer trains with deterministic order/query augmentation and reports CANONICAL / QUERY_ONLY / ORDER_ONLY / QUERY+ORDER separately.
+- **No-replay rediscovery:** ARK-013 already showed severe old-skill loss under long pure-new-skill/no-replay training. CYR's primary plasticity stage fixes 18 binding + 2 T2 replay rows per batch and reports actual token fraction; it does not claim this replay rate is optimal.
+- **Replay dominates new learning:** new-skill and replay actual-token counts are reported separately. If the candidate fails to acquire robust binding, the pair is not called plasticity-compatible regardless of T2 retention.
+- **Controller leakage:** only DEV_CONTROLLER may drive arithmetic state transitions. DEV_MEASUREMENT is passive. Arithmetic SEALED_RESERVED is measured after all optimization/decision work. Binding CONTROL can measure acquisition; binding SEALED never drives optimization/stopping.
+- **Post-hoc transfer selection:** blocked by freezing HYSTERETIC_HIGH_LOW as candidate and LOW_CONTINUE as comparator from Arkenstone evidence before CYR outcomes.
+- **Transfer zero-event / no-acquisition:** reported INCONCLUSIVE. No perturbation is injected merely to create failures.
+- **Optimizer-state confound:** transfer preserves full Adam state. Therefore a plasticity difference is a property of the complete post-retention training state, not isolated parameter-state causality. Any later optimizer-reset mechanism test must be a new preregistered experiment.
+- **Timebox/order bias:** equal actual-token targets, rotated retention-arm order, counterbalanced transfer candidate/comparator execution order, stage budgets derived only from hardware calibration, incomplete arms excluded.
+- **Evaluation cost:** resolver includes measured batched candidate-free generation throughput in addition to real optimizer-step throughput.
 - **GPU/CPU drift:** full mode refuses non-CUDA devices; Cell 1 passes CUDA explicitly.
-- **Calibration drift:** scientific runner consumes Cell-0 calibration/resolution verbatim and never re-resolves.
-- **Runtime loss:** stage-level Drive resume preserves completed work; incomplete arm is restarted from the pristine parent/tail.
-- **Scale overclaim:** selected proxy name is mechanically tied to the canonical parameter registry.
-- **Transfer zero-event:** reported INCONCLUSIVE rather than manufacturing interference.
-- **TPU overclaim:** CPU oracle/GPU experiment cannot certify XLA hardware.
+- **Calibration drift:** scientific runner consumes Cell-0 calibration/resolution verbatim and never recalibrates or re-resolves after observing outcomes.
+- **Runtime loss:** Drive-backed stage-level resume preserves completed parents/arms/transfer states; incomplete states restart from immutable source checkpoints and deterministic streams.
+- **Mutable-branch execution:** Cell 0 copies preregistration outside the repo, checks out exact EXECUTABLE_SHA and verifies executable/dependency hashes before importing the experiment.
+- **Scale overclaim:** selected proxy name is mechanically tied to the canonical ModelSpec parameter registry. GPU proxy evidence is not V5A-250M evidence.
+- **Stale Arkenstone summary:** raw ARK-011..014 results and validated Discovery V6 bundle override the stale bottleneck graph that still describes ARK-011 as unexecuted.
+- **TPU overclaim:** CPU oracle and GPU experiment cannot certify XLA hardware. `production_promotion_authorized` remains false mechanically.
