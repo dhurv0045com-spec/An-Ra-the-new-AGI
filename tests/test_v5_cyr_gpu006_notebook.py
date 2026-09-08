@@ -1,4 +1,5 @@
 import ast
+import importlib
 import json
 from pathlib import Path
 
@@ -19,12 +20,21 @@ def test_three_cells_compile():
         ast.parse(source)
 
 
-def test_cell0_freezes_and_calibrates_generation_plus_training():
+def test_runner_module_imports_without_optional_accelerator_runtime():
+    module = importlib.import_module("anra_v5.cyr_gpu006_run")
+    assert callable(module.run_campaign)
+    assert callable(module.calibrate_candidates)
+
+
+def test_cell0_freezes_tests_and_calibrates_generation_plus_training():
     cell0 = _cells()[0]
     for text in ("PREREGISTRATION.json", "checkout", "EXECUTABLE_SHA",
-                 "dependency_blobs", "calibrate_candidates", "resolve_from_calibrations",
+                 "dependency_blobs", "py_compile", "pytest",
+                 "calibrate_candidates", "resolve_from_calibrations",
                  "CYR-GPU-006 PREEXECUTION GATE: PASS"):
         assert text in cell0
+    assert "tokenizers" in cell0
+    assert "check=True" in cell0
 
 
 def test_cell1_passes_cuda_and_resolved_plan_to_runner():
@@ -49,3 +59,11 @@ def test_runner_full_mode_has_no_cpu_fallback():
     source = RUNNER.read_text("utf-8")
     assert 'device = torch.device("cuda")' in source
     assert "refuses non-CUDA device" in source
+
+
+def test_runner_consumes_resolved_plan_instead_of_recalibrating():
+    source = RUNNER.read_text("utf-8")
+    run_source = source[source.index("def run_campaign("):]
+    assert "resolved = core.validate_resolved(resolved)" in run_source
+    assert "calibrate_candidates(" not in run_source
+    assert "resolve_from_calibrations(" not in run_source
