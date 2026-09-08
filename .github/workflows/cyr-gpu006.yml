@@ -31,3 +31,12 @@ jobs:
           PY
       - name: Run CYR-GPU-006 deterministic contract tests
         run: python -m pytest tests/test_v5_cyr_gpu006_core.py tests/test_v5_cyr_gpu006_notebook.py -q
+      - name: Emit executable SHA256 freeze candidates
+        run: |
+          sha256sum \
+            v5_experiments/cyr_gpu006.py \
+            anra_v5/cyr_gpu006_run.py \
+            notebooks/cymek_colab_gpu_research_v6.ipynb \
+            tests/test_v5_cyr_gpu006_core.py \
+            tests/test_v5_cyr_gpu006_notebook.py \
+            tests/test_v5_cyr_gpu006_torch_smoke.py
