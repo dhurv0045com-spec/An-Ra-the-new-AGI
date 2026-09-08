@@ -13,30 +13,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install lightweight validation deps
         run: pip install pytest
-      - name: Compile frozen CYR-GPU-006 Python and notebook cells
+      - name: Compile CYR-GPU-006 executable candidates and notebook cells
         run: |
-          python -m py_compile v5_experiments/cyr_gpu006.py anra_v5/cyr_gpu006_run.py
+          python -m py_compile \
+            v5_experiments/cyr_gpu006.py \
+            v5_experiments/cyr_gpu006_v2.py \
+            v5_experiments/cyr_gpu006_final.py \
+            anra_v5/cyr_gpu006_run.py \
+            anra_v5/cyr_gpu006_run_v2.py \
+            anra_v5/cyr_gpu006_run_final.py
           python - <<'PY'
           import ast, json
           body=json.load(open('notebooks/cymek_colab_gpu_research_v6.ipynb', encoding='utf-8'))
           cells=[''.join(c['source']) for c in body['cells'] if c['cell_type']=='code']
           assert len(cells)==3
-          for cell in cells: ast.parse(cell)
+          for cell in cells:
+              ast.parse(cell)
           print('3/3 notebook cells compile')
           PY
-      - name: Run CYR-GPU-006 deterministic contract tests
-        run: python -m pytest tests/test_v5_cyr_gpu006_core.py tests/test_v5_cyr_gpu006_notebook.py -q
+      - name: Run deterministic CYR-GPU-006 contract and Arkenstone-transfer tests
+        run: |
+          python -m pytest \
+            tests/test_v5_cyr_gpu006_core.py \
+            tests/test_v5_cyr_gpu006_notebook.py \
+            tests/test_v5_cyr_gpu006_final_core.py \
+            tests/test_v5_cyr_gpu006_final_transfer.py \
+            -q
       - name: Emit executable SHA256 freeze candidates
         run: |
           sha256sum \
             v5_experiments/cyr_gpu006.py \
+            v5_experiments/cyr_gpu006_v2.py \
+            v5_experiments/cyr_gpu006_final.py \
             anra_v5/cyr_gpu006_run.py \
+            anra_v5/cyr_gpu006_run_v2.py \
+            anra_v5/cyr_gpu006_run_final.py \
             notebooks/cymek_colab_gpu_research_v6.ipynb \
             tests/test_v5_cyr_gpu006_core.py \
-            tests/test_v5_cyr_gpu006_notebook.py \
-            tests/test_v5_cyr_gpu006_torch_smoke.py
+            tests/test_v5_cyr_gpu006_final_core.py \
+            tests/test_v5_cyr_gpu006_final_transfer.py \
+            tests/test_v5_cyr_gpu006_notebook.py
