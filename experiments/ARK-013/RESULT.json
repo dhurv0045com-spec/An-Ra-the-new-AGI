@@ -1,0 +1,30 @@
+{
+  "experiment_id": "ARK-013",
+  "import_kind": "validated_summary_of_discovery_v6_receipt",
+  "source_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+  "source_receipt_sha256": "4598ec0117869a4da55d885fb78d2bdf27cc8a0598c4bf5f1cfe9eeef1be5ad4",
+  "task_manifest_receipt_sha256": "ac9543230fa699d7980373261b16c2efc2715a16ef22af9ffaf67ad6a79d8ed1",
+  "task_manifest_sha256": "8d3b43c757a3191d8bbe029b1b0b04bd7ab771b3e0ae4525d5d6616ac5839a78",
+  "plan_commit_sha": "fefbe39350d39e25e998a24e81e1caf0090ea8e4",
+  "preexecution_addendum_commit_sha": "8d086a501ef579574947b506fec6e0c71bd80711",
+  "runner_commit_sha": "2238f5519c3225f44010e74ba6d1af9f31d8524f",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "runtime_minutes": 59.751139628887174,
+  "t2_acquisitions": [
+    {"seed": 1717, "status": "ACQUIRED", "control_g90_confirm": 11800},
+    {"seed": 1818, "status": "ACQUIRED", "control_g90_confirm": 15200}
+  ],
+  "matched_triplets": 4,
+  "fixed_high_t3_acquired_triplets": 0,
+  "aggregate_sealed_means": {
+    "FIXED_HIGH": {"T3_AREA": 0.1470, "T3_FINAL": 0.0707, "T2_AREA": 0.0026, "T2_FINAL": 0.0},
+    "FIXED_LOW": {"T3_AREA": 0.2094, "T3_FINAL": 0.2652, "T2_AREA": 0.0608, "T2_FINAL": 0.0383},
+    "ADAPTIVE_HIGH_LOW": {"T3_AREA": 0.1470, "T3_FINAL": 0.0707, "T2_AREA": 0.0026, "T2_FINAL": 0.0}
+  },
+  "adaptive_switches": 0,
+  "plasticity_cost_votes": 0,
+  "plasticity_cost_demonstrated": false,
+  "verdict": "INCONCLUSIVE_NEW_SKILL_NOT_ACQUIRED",
+  "secondary_observation": "Under 12k pure T3 updates with no T2 replay, all arms lost sustained T2 retention; LOW slowed but did not prevent cross-task interference."
+}
