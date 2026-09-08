@@ -1,0 +1,40 @@
+{
+  "experiment_id": "ARK-014",
+  "import_kind": "validated_summary_of_discovery_v6_receipt",
+  "source_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+  "source_receipt_sha256": "873887b31f14b12665258445ee53b2c16f851778cd0aa78ec47866e46e705fd4",
+  "task_manifest_receipt_sha256": "f984b71c2149cf10352e3d2bb4ef3ddd4befa07fa04f88af6fe72f829ca05212",
+  "task_manifest_sha256": "fbc8605dc1cfc19ac8692d2b2c6338fcb2af3e02b24907f3b5cca3571947fee3",
+  "plan_commit_sha": "59e01a33a11aea1222368553d0819764341e2577",
+  "runner_commit_sha": "2238f5519c3225f44010e74ba6d1af9f31d8524f",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "runtime_minutes": 20.401891760031383,
+  "acquisition": {
+    "CANONICAL_TRAIN": {
+      "status": "NO_QUALIFICATION",
+      "final_control": {"canonical": 1.0, "order_only": 0.3333333333333333, "query_only": 1.0, "query_order": 0.3333333333333333},
+      "final_sealed": {"canonical": 1.0, "order_only": 0.32666666666666666, "query_only": 1.0, "query_order": 0.32666666666666666}
+    },
+    "ORDER_AUGMENTED": {
+      "status": "QUALIFIED",
+      "qualification_onset_step": 1400,
+      "qualification_confirmation_step": 1800,
+      "sealed_at_fork": {"canonical": 1.0, "order_only": 0.9866666666666667, "query_only": 1.0, "query_order": 0.9866666666666667}
+    }
+  },
+  "retention_screen": {
+    "matched_orders": 3,
+    "sealed_qualified_pairs": 3,
+    "high_failures": 0,
+    "low_failures": 0,
+    "reverse_discordance": 0,
+    "mean_high_sealed_RET_QUALIFIED": 1.0,
+    "mean_low_sealed_RET_QUALIFIED": 1.0,
+    "mean_high_order_only_area": 0.9994814814814815,
+    "mean_low_order_only_area": 0.9999259259259259
+  },
+  "acquisition_verdict": "ORDER_ROBUSTNESS_REPAIRED",
+  "transfer_verdict": "ROBUST_BINDING_ACQUIRED_BUT_TRANSFER_INCONCLUSIVE",
+  "claim_level": "NONARITHMETIC_ROBUST_ACQUISITION_SCREEN_ONLY"
+}
