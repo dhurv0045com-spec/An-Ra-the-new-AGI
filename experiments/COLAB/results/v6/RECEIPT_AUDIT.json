@@ -1,0 +1,32 @@
+{
+  "source_bundle": {
+    "filename": "ARKENSTONE_DISCOVERY_V6_RESULTS.zip",
+    "sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+    "size_bytes": 162312
+  },
+  "canonical_receipt_hashes_valid": 14,
+  "canonical_receipt_hashes_total": 14,
+  "failure_receipt_present": false,
+  "receipts": {
+    "ARK-012_PARTIAL.json": "ac9eb45268edb9e30f4bd70c47e6ee2a7d3bb651a9a34dfe67761e9c938aef6c",
+    "ARK-012_RESULT.json": "17a1dc14c43746502d85cb19aac5a2bbc77cbf6c04ef796da90dfd4cd8bb857f",
+    "ARK-013_PARTIAL.json": "1f54ad6650498374b89cb06429e442921838daca056e23d38ea8e9e73559ae1a",
+    "ARK-013_RESULT.json": "4598ec0117869a4da55d885fb78d2bdf27cc8a0598c4bf5f1cfe9eeef1be5ad4",
+    "ARK-013_TASK_MANIFEST.json": "ac9543230fa699d7980373261b16c2efc2715a16ef22af9ffaf67ad6a79d8ed1",
+    "ARK-014_PARTIAL.json": "04fdc5694fcee899ef3b9184578392d7c02480647a664d91f3bc31e9d352f2e8",
+    "ARK-014_RESULT.json": "873887b31f14b12665258445ee53b2c16f851778cd0aa78ec47866e46e705fd4",
+    "ARK-014_TASK_MANIFEST.json": "f984b71c2149cf10352e3d2bb4ef3ddd4befa07fa04f88af6fe72f829ca05212",
+    "DISCOVERY_V6_PROGRAM_PARTIAL.json": "34612dfcfd578a08497d6d4c32d9f47e2f475eb72b9f7a9d927318d9af84d308",
+    "DISCOVERY_V6_PROGRAM_SUMMARY.json": "246ee43c1701b09e199c3cf6cebb5f3a7f1644bd351f8730af3169ccfb1a4403",
+    "DISCOVERY_V6_SMOKE_TEST.json": "750ef460c2b71b240ec25e79d297a132b55298dcf807672f4cd58936512f050b",
+    "ARK-011/ARK-011_PARTIAL.json": "101d1589c5dfbc109a37a6829a08c3ac4b1e7750bf566360536156f991799b8a",
+    "ARK-011/ARK-011_RESULT.json": "0b677b7ab07d0064466c6080d6ae5c876956341bd5f787d7a07f0b5d33be4558",
+    "ARK-011/ARK-011_TASK_MANIFEST.json": "0a79f7a183ecea3ab39a019e34cd8fcbe11c8b56aa16e6c3a540c65c77ebf5e0"
+  },
+  "additional_integrity_checks": {
+    "ARK-011_control_sealed_assignment_sha256_matches": true,
+    "ARK-013_internal_manifest_sha256_matches": true,
+    "ARK-014_internal_manifest_sha256_matches": true,
+    "gpu_smoke_test_status": "PASS"
+  }
+}
