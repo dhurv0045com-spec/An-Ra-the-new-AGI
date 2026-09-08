@@ -1,0 +1,17 @@
+{
+  "accuracy_ci95": [
+    0.0,
+    0.05434782608695652
+  ],
+  "accuracy_delta": 0.021739130434782608,
+  "brier_delta": -0.004144600894179142,
+  "budget": 2,
+  "contrast": "depth_two_minus_one_step",
+  "family_accuracy_delta": {
+    "conjunction": 0.0,
+    "parity": 0.041666666666666664,
+    "threshold": 0.08333333333333333
+  },
+  "nworlds": 23,
+  "policy": "learned"
+}

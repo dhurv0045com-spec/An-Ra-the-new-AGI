@@ -1,0 +1,725 @@
+{
+  "sha256": "c70c1d521b1a835258fe524834b7730fd274d02836bd92d69257f5a9d7b452f0",
+  "splits": {
+    "dev": [
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "9d34149fbd1fe777eb238799054c8cbfbce372255f219f8740838def9bfd02db",
+        "world_id": "conjunction:0n.1n.2n.3p:9d34149fbd1fe777"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "c363a7bc246a6180ed9330821f26c31b9a43d94a8462e5d95d8d6face2253822",
+        "world_id": "conjunction:0n.1n.2p.3n:c363a7bc246a6180"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "b35c194be488b20ad2a2564a46fbf301037f6625ef185287c9c7ff5191ca3904",
+        "world_id": "conjunction:0n.1n.3n:b35c194be488b20a"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "b342c83d7060c5852f741e8e009d375103df2e1f7c76fbc512e575cd86d7b03d",
+        "world_id": "conjunction:0n.1n.3p:b342c83d7060c585"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "a3b2ac39a46697259efb5b464e0a58ec43acced86727d4b54c2a37846a0a88f1",
+        "world_id": "conjunction:0n.1p.2p.3n:a3b2ac39a4669725"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "bec108d1a526644f5a72288c648321b4c550e21d6951c2829471fb6d66a4dcf0",
+        "world_id": "conjunction:0n.1p.3n:bec108d1a526644f"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "a15a89733093afdf630e0b837dcd5b69a471e7c04fd24cd9343b97f0f699a1e9",
+        "world_id": "conjunction:0p.1n.2n.3p:a15a89733093afdf"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "c291b9c570e3ea1f426ac550bdd7519fd5c9d88ebdf4de7eeb191fc542125199",
+        "world_id": "conjunction:0p.2n.3n:c291b9c570e3ea1f"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "99c48881f06521cb984ebc30dcaddea1e3f695d69a683a6f7350ee3e6bc908fe",
+        "world_id": "conjunction:0p.2n.3p:99c48881f06521cb"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "9f24a20ed961a5b6bc44d2121bc880d4e69e281f13a9f062768f0f29e969aefd",
+        "world_id": "conjunction:0p.2p.3n:9f24a20ed961a5b6"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "a9d594ce3eedfefb3fe933a45c9e4e3b6a6c574dc2034fa33635dd533d1128de",
+        "world_id": "conjunction:0p.2p.3p:a9d594ce3eedfefb"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "a020b7f8043620b11605e4b25e35803538e4679d5f7a9e6ae90300bf28791989",
+        "world_id": "conjunction:1n.2n.3n:a020b7f8043620b1"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "bc257a5ff37c67af4010afa19ae7065506a47aa6b12161ce8570e3cb5eb00697",
+        "world_id": "conjunction:1n.2p.3p:bc257a5ff37c67af"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "c325f039993feff84a64fb770c04b359d1967ab6c090987ed7907773e05e3c69",
+        "world_id": "conjunction:2p.3p:c325f039993feff8"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "ae2d736c996e81f69723399ea00bf67aaec1599283bed735c77eec10599e796d",
+        "world_id": "parity:m10-f1:ae2d736c996e81f6"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "a8299d0c0095d5a2df932bacc36c74c83853986e8055468d80808b55d2b9a6ff",
+        "world_id": "parity:m11-f1:a8299d0c0095d5a2"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "ab441bb1e2f8c02d3ea8343718d4362e8ebc5c54246604759e8bb684a95a7646",
+        "world_id": "parity:m3-f0:ab441bb1e2f8c02d"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "a542c9482f752cfed769c85f7c5d34750bf3cc3d4a22a856baf9c2382f6bd8c1",
+        "world_id": "parity:m4-f1:a542c9482f752cfe"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "a3a406b222f455917fcc6801316d8286df86aa9017c0ce639a3542f2072e816c",
+        "world_id": "parity:m6-f1:a3a406b222f45591"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "9dc76f5c4867fed315e6beacddba73cf265a2a9ed8b0e32c4ed96b8098be73d7",
+        "world_id": "parity:m7-f0:9dc76f5c4867fed3"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "d8369d96fc425867783fb7a8d8234d9a5947494f84281ac183d971491fc1a778",
+        "world_id": "threshold:m14-k2:d8369d96fc425867"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "d01f5700f86eba73a0e46ed0908e69cd60bb8c2ae6ec9764c37ffc11ea741ee0",
+        "world_id": "threshold:m5-k1:d01f5700f86eba73"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "c6ef31d37b6b29433a0e73e65e937362c1a56a956f88ea6378b89b405b1776c0",
+        "world_id": "threshold:m7-k1:c6ef31d37b6b2943"
+      }
+    ],
+    "test": [
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "d05e4ba1495455f01bd2414525b857c4ea6d63025c7fdeea88a0aebc576ca056",
+        "world_id": "conjunction:0n.1p.2n.3p:d05e4ba1495455f0"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "d7e025da5798a67d7fd074d6996c76279fdb045709c94ccbd52baafd463aad50",
+        "world_id": "conjunction:0n.1p.2p:d7e025da5798a67d"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "d9e0a41282edfca0326061f2136e65a2c6ed63d0139f4cfd812f46d951be1dab",
+        "world_id": "conjunction:0n.1p:d9e0a41282edfca0"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "e74a8f30ae1dc51d26f4ebe794a86f49cca071f24928d22547bc209adae7244f",
+        "world_id": "conjunction:0p.1n.2n:e74a8f30ae1dc51d"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "d4b3cfe2735979a3a4c020b8fcdbc3c0014b5db3456e1d05de5690bedf416a14",
+        "world_id": "conjunction:0p.1n.2p.3n:d4b3cfe2735979a3"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "f59eec4b551a3b30a6276d502b2e67663fac602d983e1fa57e65f065adac3355",
+        "world_id": "conjunction:0p.1n.2p.3p:f59eec4b551a3b30"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "fec12d084df842ac49047b7331ac63f5b2f15eee3a7d28b76d899e6eb7a11b39",
+        "world_id": "conjunction:0p.1n.3p:fec12d084df842ac"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "cc5f6bb5ea2a5926b5167f6a776c7e6a5748abe247b11a0be162fdf06067eacd",
+        "world_id": "conjunction:0p.1p.2n.3n:cc5f6bb5ea2a5926"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "d66c3b2546298fcb2c1a95a86cf0c9529bec3e79bc38f3c6908994b78715fe5e",
+        "world_id": "conjunction:0p.1p.3n:d66c3b2546298fcb"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "ebdde9d4554891f9f1ed23af1d9c381b0bab8e5e5b6d6aca48a2b0254ec1bc5e",
+        "world_id": "conjunction:1n.3p:ebdde9d4554891f9"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "fed74582cc0fa8247491d2f4c7906d1d5d8ae6d3c5cdb3402e890ede71ec26f0",
+        "world_id": "conjunction:1p.2n.3n:fed74582cc0fa824"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "d87fcff86125dc5943210e7387fd1591ba17fa944d4b63209db08dfcb179a965",
+        "world_id": "conjunction:1p.2n:d87fcff86125dc59"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "c4de171a2cf57a9951f3f3e67f7c84e138566ec8c424b0c9cf08a3f4b7981f69",
+        "world_id": "conjunction:1p.2p.3p:c4de171a2cf57a99"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "e0bf655b62e5a1823055f871a9615020217b92f3c0227449ff93901380033e24",
+        "world_id": "conjunction:1p.3n:e0bf655b62e5a182"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "b8a2134e24af0e947808b26fc998fd286e2a7dbf7114e4415fcca670f593ccea",
+        "world_id": "parity:m1-f0:b8a2134e24af0e94"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "e9503c6f2e5035c157cf887f38b1a5ef5baf03a8d176b43dd0bd10caf73ef652",
+        "world_id": "parity:m10-f0:e9503c6f2e5035c1"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "bed82c45eb7a63ddeedb03d10c695bc1dcbe0917ddef06be1de6f466e05d23ed",
+        "world_id": "parity:m11-f0:bed82c45eb7a63dd"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "cfd2d96099c0b39b52acae4af7ea5eab7869b9040b4e912fb034af00e8ff33dd",
+        "world_id": "parity:m14-f0:cfd2d96099c0b39b"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "b541ace425d1572c6ba70b71cfae4b79ee46c5f292779ad695cc359f6285bbff",
+        "world_id": "parity:m2-f0:b541ace425d1572c"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "ddcc6047b172375b1a007bc7fc836e4af08b2d5694967efcdbd86f108691d52e",
+        "world_id": "parity:m9-f1:ddcc6047b172375b"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "f0f07c5a9d0e465e4d6590bbc7fa25baee83030d0a5307dc5eb663530cc937a7",
+        "world_id": "threshold:m10-k1:f0f07c5a9d0e465e"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "fafed2c6a15394501d748f97bb21d68dc2ea266ed33939a12431e13437df9db5",
+        "world_id": "threshold:m14-k1:fafed2c6a1539450"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "de8c0e73f8729b8e2487e831d1975b0d3f8302a3f374a7faabee1db2b6326ac1",
+        "world_id": "threshold:m3-k1:de8c0e73f8729b8e"
+      }
+    ],
+    "train": [
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "4cbbd8ca5215b8d161aec181a74b694f4e24b001d5b081dc0030ed797a8973e0",
+        "world_id": "conjunction:0n.1n.2n.3n:4cbbd8ca5215b8d1"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "814dd7b9784d57c15b9c2972e9b4fd6cf7e164f8162a934bdb2452a413dab1f7",
+        "world_id": "conjunction:0n.1n.2n:814dd7b9784d57c1"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "741939ccb979df0dbf391a6548f88fd9d1873aa3fb996f1df39abc6a66df7025",
+        "world_id": "conjunction:0n.1n.2p.3p:741939ccb979df0d"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "7605713c8dae56537c6f3beb182bfc4efa2ae399d80004a20a45425fd1b25762",
+        "world_id": "conjunction:0n.1n.2p:7605713c8dae5653"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "1b897dddd4c151e2a2e6e3e91b7ea0f7fc4fd5ed00ef1c9669e8566393a02586",
+        "world_id": "conjunction:0n.1n:1b897dddd4c151e2"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "0324c7a75b0959e363ffb56aacfaea27ed0bbb6ebd7962fd34e29e05f426f9e2",
+        "world_id": "conjunction:0n.1p.2n.3n:0324c7a75b0959e3"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "5b005620063a3600eb98e101be86de6060bfbad07be191ef895d17f856bac207",
+        "world_id": "conjunction:0n.1p.2n:5b005620063a3600"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "98368624fb0a435fdf6de12c0b0c3397d661f28abaadaa8ee76fe90c09c4ba25",
+        "world_id": "conjunction:0n.1p.2p.3p:98368624fb0a435f"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "136e74e74ed4a9fc7d34823e786626b982f98b2f5167463b55c0b67ffc152cbf",
+        "world_id": "conjunction:0n.1p.3p:136e74e74ed4a9fc"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "3667e4a643a7f500034c0c6f355bdd61d8c108dc028deeaddb257c740f4f04f3",
+        "world_id": "conjunction:0n.2n.3n:3667e4a643a7f500"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "755bcbc51f91baea6629306623ceb8afa375e5f9cb1f11f7cadf385919e3a9e7",
+        "world_id": "conjunction:0n.2n.3p:755bcbc51f91baea"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "88c6d84a980e691de34aca39abe1f698aae9dbe39a9f76165a2527af218bf9d1",
+        "world_id": "conjunction:0n.2n:88c6d84a980e691d"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "766664c66a4a357e20a6295e68b57acfb45c174089296e703cf45d10f2cf790c",
+        "world_id": "conjunction:0n.2p.3n:766664c66a4a357e"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "5fca42ee5b3e9c008aa9fe810b497663aa793b8ffac10fd33f6ffeb7c2429274",
+        "world_id": "conjunction:0n.2p.3p:5fca42ee5b3e9c00"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "8ffe1dcfe5f16294c6a577f9c9d8270a14aabf9360532400e28fc500ac17b1b3",
+        "world_id": "conjunction:0n.2p:8ffe1dcfe5f16294"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "92344c1be04a68a1fcccb99436c91df1060dfd0249f5d07aede2bc5de2098b9a",
+        "world_id": "conjunction:0n.3n:92344c1be04a68a1"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "18e0a6f6cfa84bb786d8ddd686b36aa335f8e355e0045b66263519a8d586f0bd",
+        "world_id": "conjunction:0n.3p:18e0a6f6cfa84bb7"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "066fa49a5cb02a5e73a6caa73ea937cd2711f6b78e4cdb2099a673e9229dd933",
+        "world_id": "conjunction:0p.1n.2n.3n:066fa49a5cb02a5e"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "8cf7f8900d4a9f282c8482a706a2a541c1df60b77c9a6e545c6e431092be999c",
+        "world_id": "conjunction:0p.1n.2p:8cf7f8900d4a9f28"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "004e46536bb1d1752edf2803fe1ed4b5d6786c84c1905d40b645593c79e78063",
+        "world_id": "conjunction:0p.1n.3n:004e46536bb1d175"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "33266c334860b0308e5587ed3dcb95344edbc942f6c26d921feeb92dc68bbfcf",
+        "world_id": "conjunction:0p.1n:33266c334860b030"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "3bbf4dc56e87d7d076449159d8b43057496f5dd72b4b95763d4edf71537863d5",
+        "world_id": "conjunction:0p.1p.2n.3p:3bbf4dc56e87d7d0"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "8a2e77537c324b8ecfa4a28090b2c315d294926af6265bfacf6584bc310ea93e",
+        "world_id": "conjunction:0p.1p.2n:8a2e77537c324b8e"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "783825822a6f9e62da2190e828e4c9d2576e5977e3a0b3620b092dfb9e9996fa",
+        "world_id": "conjunction:0p.1p.2p.3n:783825822a6f9e62"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "7c3ccd10bb7ec37b46d37926ae6274267f007a34aeaf15c882a715a7f3300529",
+        "world_id": "conjunction:0p.1p.2p.3p:7c3ccd10bb7ec37b"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "532deabf88729cb43995ab5a9cd49bf9b90a079904dc0645ecda9e47ce7345a9",
+        "world_id": "conjunction:0p.1p.2p:532deabf88729cb4"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "8f239a25128e381ce8ec76c7476d87994515b149ae4d970ac083bf3d83545dc9",
+        "world_id": "conjunction:0p.1p.3p:8f239a25128e381c"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "1a450973ad52325a7c0106eda8827605a7c80a21961cb232d1046b7dd6296606",
+        "world_id": "conjunction:0p.1p:1a450973ad52325a"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "7a22ccf03f8ad6091b7a62e9bc0611239dca89bc1c96ca1bfe00880377aad717",
+        "world_id": "conjunction:0p.2n:7a22ccf03f8ad609"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "0935bec963b91dc42a46ad53d638bbd6c9caf749c104ee62b75f69f1eb6d028c",
+        "world_id": "conjunction:0p.2p:0935bec963b91dc4"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "088506e5f3a43be561a98220efb1a3115c0473fb63bf72c2119579557352d9d2",
+        "world_id": "conjunction:0p.3n:088506e5f3a43be5"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "9913f7c359512685abf5f78375113eb24f6245e7da19ba4bd30556b7c4e21ba8",
+        "world_id": "conjunction:0p.3p:9913f7c359512685"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "7c261807fcb7c867b02415094c78301f016ca5a3eb587c7ca83969559a92f8f5",
+        "world_id": "conjunction:1n.2n.3p:7c261807fcb7c867"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "6ba679e4018fcee845912ec03e7fcca2cad4eae102d97de19190a2d4af7c7df8",
+        "world_id": "conjunction:1n.2n:6ba679e4018fcee8"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "863f5de872f35b91cd9e1656af27c15bf4d75530d7e86b9051ffab147bd0f359",
+        "world_id": "conjunction:1n.2p.3n:863f5de872f35b91"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "856dd869694b52a2894b286068ed07cebbedafa14cdbd3bcf8dd824f06cc3c3e",
+        "world_id": "conjunction:1n.2p:856dd869694b52a2"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "93e3180bdbaea876d1dddefa6750e2bb37fa10b4f110324553c20a2262ad1f3a",
+        "world_id": "conjunction:1n.3n:93e3180bdbaea876"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "5564c5c839dd6458dc3686ff820dde0ed67090f924765b741d892540ba1e5b47",
+        "world_id": "conjunction:1p.2n.3p:5564c5c839dd6458"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "3a177d6afec2c33582f9d670e82ff507660d0ae7b8f471cc07b162cb2303757b",
+        "world_id": "conjunction:1p.2p.3n:3a177d6afec2c335"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "8d330668d44bfe714a25bde42905d8dbb5cf38a9b53fc979dbef298aef5bca1f",
+        "world_id": "conjunction:1p.2p:8d330668d44bfe71"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "4ffa7c25c0f57f01a2cf8c9e609806226975b17c655ad5f963960a61f9225958",
+        "world_id": "conjunction:1p.3p:4ffa7c25c0f57f01"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "3b0e4842b28d6b39ec725a6459fb943f5f1d658f4d0ee991004dd50f2c182f31",
+        "world_id": "conjunction:2n.3n:3b0e4842b28d6b39"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "5dfe55f1672244f52d1a6835d531e6c5121a95e387ec98a67220e4f5961cb159",
+        "world_id": "conjunction:2n.3p:5dfe55f1672244f5"
+      },
+      {
+        "bits": 4,
+        "family": "conjunction",
+        "table_sha256": "0c7d5520cb32934df511301cce71f8da4533e0f1efc8c2887ab512269ccfb1c0",
+        "world_id": "conjunction:2p.3n:0c7d5520cb32934d"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "278abfb53cf32e306305c34f6ad5469b82453fa58f29fd339bf1615e7ffb4331",
+        "world_id": "parity:m1-f1:278abfb53cf32e30"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "2897596ab36c0c432090c76de37832b6a2824c1710886dd2bcf7f871a04e5bb9",
+        "world_id": "parity:m12-f0:2897596ab36c0c43"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "283094e60a5f3bc8858562d1a6ff02f391410982ad3a0bd0d4b25c2559825eec",
+        "world_id": "parity:m12-f1:283094e60a5f3bc8"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "10b7493d27d2cd815189fa476dcc41fedc6ba0d571aadbf13869e258f0f48c9c",
+        "world_id": "parity:m13-f0:10b7493d27d2cd81"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "612586e25966bcc97c1277c1b3e8b47a002cb065f3c07cb50b861a879dba4f89",
+        "world_id": "parity:m13-f1:612586e25966bcc9"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "787a73346b6170b69b23b26a1f124410e4dec473d5e65ac15103dceea9777943",
+        "world_id": "parity:m14-f1:787a73346b6170b6"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "516f0f2b348f378bbfdfaa1783dcfa2095bb0f8285efe3b239dbe1059072e5b8",
+        "world_id": "parity:m15-f0:516f0f2b348f378b"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "1137197f9ab0420d0e3ac41978d2ea6937cb78913c0afb8fb3230f721d9c492c",
+        "world_id": "parity:m15-f1:1137197f9ab0420d"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "0ef6657f1ef3d57d3039b838837ee670569c55faec16004b220c894540bcd97d",
+        "world_id": "parity:m2-f1:0ef6657f1ef3d57d"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "3397e34b4bc33099d26c6d9e9d7645d36cc5a724c99dc7f1f2e3a56882fc419f",
+        "world_id": "parity:m3-f1:3397e34b4bc33099"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "11b765e53ec967e1904e134661abe6fc9eb78de839e98cd1cca2906d63cc79b8",
+        "world_id": "parity:m4-f0:11b765e53ec967e1"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "734953cf0b77c978cd3dda99e7f42cc8da2ca6ede082e61ea83a1c7bc9e3c7c7",
+        "world_id": "parity:m5-f0:734953cf0b77c978"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "79193b263b4c3c4d72372b1c4debf859f74a8cb724bf3649e177c7fa47ebf131",
+        "world_id": "parity:m5-f1:79193b263b4c3c4d"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "6baf7c6d0da37e4e6ffb56154e5e3544e6d59c89154dd6a0b44638c7a0d608a0",
+        "world_id": "parity:m6-f0:6baf7c6d0da37e4e"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "7edf4df489ede78a4edd0b09f37b6de82d9770ce1942d4b11a85d5875883c332",
+        "world_id": "parity:m7-f1:7edf4df489ede78a"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "25c9aef83e7b6c3fd2cb8918c725bac9c46f6ce469488731479d790b7fc2c372",
+        "world_id": "parity:m8-f0:25c9aef83e7b6c3f"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "3cda893eb18b58e6bf19bae09cd9cdd08450668b0d367b909b527ddadab7232c",
+        "world_id": "parity:m8-f1:3cda893eb18b58e6"
+      },
+      {
+        "bits": 4,
+        "family": "parity",
+        "table_sha256": "0230877cfe55c7b3e9a6baa0f6a0a53914701e07ccbbda09535fc07f288e11e8",
+        "world_id": "parity:m9-f0:0230877cfe55c7b3"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "02c2437224ad2b0d5e98fd62141e0f8317dd2e56430d818ba4abeb292c67b80f",
+        "world_id": "threshold:m11-k1:02c2437224ad2b0d"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "750445ef5cb47b53dc08b7a1827e6a1c9a7e7aee07afb1d144b01cecfb7a80a7",
+        "world_id": "threshold:m11-k2:750445ef5cb47b53"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "2990eb523f770596caea54878040d0674ee9ae99cbef853374b82bf2ac960463",
+        "world_id": "threshold:m12-k1:2990eb523f770596"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "78daba9e0c3d4f38b42ff1d66cf05170cde8d3002b5e72c0e04bf2263974b50d",
+        "world_id": "threshold:m13-k1:78daba9e0c3d4f38"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "a32895cd56de40be708bb0159656d9b86fa1f56b6514605e7724c7c55dd0ea62",
+        "world_id": "threshold:m13-k2:a32895cd56de40be"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "6c014c89abbc90a6e18d92cca238f2cc0987918516b2bc0d164da54f99182a3a",
+        "world_id": "threshold:m15-k1:6c014c89abbc90a6"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "6a4832d382937a0b9959eff4041c22f68d0c5a697a82185619c492b273e23a57",
+        "world_id": "threshold:m15-k2:6a4832d382937a0b"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "b799caa84fdf5719eacefdcfcf2681cf0e1d7eeeec774bd4cb25200e570e9669",
+        "world_id": "threshold:m15-k3:b799caa84fdf5719"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "0ab65dc80c8b2a3c6fc2a4acf595b6b765e2d4732bf7e5bacada21ac071288bc",
+        "world_id": "threshold:m6-k1:0ab65dc80c8b2a3c"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "5e8e8168f31e3428d32e0839d66873758b067f76090a98286b705f8b5d492557",
+        "world_id": "threshold:m7-k2:5e8e8168f31e3428"
+      },
+      {
+        "bits": 4,
+        "family": "threshold",
+        "table_sha256": "4301d98c204e15260a077aa069ab0f8623031d1a2f0543e13ae145370714c736",
+        "world_id": "threshold:m9-k1:4301d98c204e1526"
+      }
+    ]
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "configuration": {
+    "batch_size": 32,
+    "bits": 4,
+    "bootstrap_samples": 1000,
+    "budget": 2,
+    "episodes": 256,
+    "evaluation_seed": 17,
+    "learning_rate": 0.001,
+    "policy_weight": 0.25,
+    "query_cost": 0.0,
+    "seeds": [
+      801,
+      802
+    ],
+    "steps": 500,
+    "targets_per_world": 4,
+    "threads": 2,
+    "width": 32
+  },
+  "elapsed_seconds": 26.782688999999664,
+  "inventory_sha256": "c70c1d521b1a835258fe524834b7730fd274d02836bd92d69257f5a9d7b452f0",
+  "limitations": [
+    "uniform legal histories test off-policy teacher imitation coverage",
+    "development synthetic Boolean rules; not AGI evidence"
+  ],
+  "results": {
+    "801": {
+      "comparison": {
+        "accuracy_ci95": [
+          0.0,
+          0.0
+        ],
+        "accuracy_delta": 0.0,
+        "brier_delta": 0.00416609496484858,
+        "budget": 2,
+        "contrast": "depth_two_minus_one_step",
+        "family_accuracy_delta": {
+          "conjunction": 0.0,
+          "parity": 0.0,
+          "threshold": 0.0
+        },
+        "nworlds": 23,
+        "policy": "learned"
+      },
+      "generation_seconds": 1.696585599987884
+    },
+    "802": {
+      "comparison": {
+        "accuracy_ci95": [
+          0.0,
+          0.05434782608695652
+        ],
+        "accuracy_delta": 0.021739130434782608,
+        "brier_delta": -0.004144600894179142,
+        "budget": 2,
+        "contrast": "depth_two_minus_one_step",
+        "family_accuracy_delta": {
+          "conjunction": 0.0,
+          "parity": 0.041666666666666664,
+          "threshold": 0.08333333333333333
+        },
+        "nworlds": 23,
+        "policy": "learned"
+      },
+      "generation_seconds": 1.7402498000010382
+    }
+  },
+  "runtime": {
+    "device": "cpu",
+    "numpy": "2.4.6",
+    "python": "3.11.15",
+    "threads": 2,
+    "torch": "2.13.0+cpu"
+  },
+  "schema": "bramastra-d02/v1",
+  "seeds": [
+    801,
+    802
+  ],
+  "source_integrity": true,
+  "source_sha256_after": {
+    "bramastra_lab/discovery/__init__.py": "88223e5d990a142a0d7fbfceb0e62872189af681846f1ff29f4a6034562b16f3",
+    "bramastra_lab/discovery/curriculum.py": "3aee75b525bd3eb17cc2af86d8a4f783f43bc33787a9219fa52a0a8ed26553fa",
+    "bramastra_lab/discovery/evaluation.py": "d3f0bb3d3e4cd6e0a5e4f7e49e9e68da794cb7c1f5722aed5fd81a41972c31fc",
+    "bramastra_lab/discovery/learner.py": "59acb9004de0238b0a910f45cf087eeda633dca326eb68e8bd6e9e74ed5dea9a",
+    "bramastra_lab/discovery/statistics.py": "a13fb3ab869e2c9092dfafdb19cefc9ac5a2b3a4057faa5e9b7e359c9753db5d",
+    "bramastra_lab/discovery/training.py": "622e04dae4a07001d90074ad0f8ce738d23a526c7751cd138a7c87de3ee852c7",
+    "bramastra_lab/discovery/worlds.py": "45b568c49054801fd8ddce8d95047b9fe398dcd7fa8fa79c5992de837877e2b8",
+    "bramastra_lab/research/learning/inquiry/__init__.py": "715c95e02544d71850617ff60e9c46a3e891dfc18f62458019e2c7f82c205c4f",
+    "bramastra_lab/research/learning/inquiry/run_d02.py": "930a2c6eba4664789da6175780b380738b8f633d128cfcf3d86a02ad0d981c5f",
+    "bramastra_lab/research/learning/inquiry/teaching.py": "c9c896aaac1cead038f8f99b51a0ab1a8f7cca646746863337a86cce104baeba"
+  },
+  "source_sha256_before": {
+    "bramastra_lab/discovery/__init__.py": "88223e5d990a142a0d7fbfceb0e62872189af681846f1ff29f4a6034562b16f3",
+    "bramastra_lab/discovery/curriculum.py": "3aee75b525bd3eb17cc2af86d8a4f783f43bc33787a9219fa52a0a8ed26553fa",
+    "bramastra_lab/discovery/evaluation.py": "d3f0bb3d3e4cd6e0a5e4f7e49e9e68da794cb7c1f5722aed5fd81a41972c31fc",
+    "bramastra_lab/discovery/learner.py": "59acb9004de0238b0a910f45cf087eeda633dca326eb68e8bd6e9e74ed5dea9a",
+    "bramastra_lab/discovery/statistics.py": "a13fb3ab869e2c9092dfafdb19cefc9ac5a2b3a4057faa5e9b7e359c9753db5d",
+    "bramastra_lab/discovery/training.py": "622e04dae4a07001d90074ad0f8ce738d23a526c7751cd138a7c87de3ee852c7",
+    "bramastra_lab/discovery/worlds.py": "45b568c49054801fd8ddce8d95047b9fe398dcd7fa8fa79c5992de837877e2b8",
+    "bramastra_lab/research/learning/inquiry/__init__.py": "715c95e02544d71850617ff60e9c46a3e891dfc18f62458019e2c7f82c205c4f",
+    "bramastra_lab/research/learning/inquiry/run_d02.py": "930a2c6eba4664789da6175780b380738b8f633d128cfcf3d86a02ad0d981c5f",
+    "bramastra_lab/research/learning/inquiry/teaching.py": "c9c896aaac1cead038f8f99b51a0ab1a8f7cca646746863337a86cce104baeba"
+  },
+  "status": "COMPLETE"
+}
