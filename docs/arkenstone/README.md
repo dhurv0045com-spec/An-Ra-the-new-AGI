@@ -10,9 +10,26 @@ of known ideas; a laboratory for what remains unknown.
 - **Transition evidence:** the T2 memorize -> delayed structural-OOD transition is replicated; memorization timing does not explain G90 timing.
 - **ARK-004A-R correction:** the claimed column-selectivity precursor was directionally inverted and is retained only as a transition marker; ARK-004B was cancelled.
 - **Current retention evidence:** ARK-007R replicated a strong post-G90 low-LR protection effect on three fresh Micro T2 checkpoints under matched future minibatches: HIGH `1e-3` collapse90 9/12 vs LOW `1e-5` 0/12.
-- **Current recovery evidence:** ARK-010 shows immediate low LR is usually poor after an instability event: continued HIGH recovered sustained G90 8/9 vs LOW 2/9. This opens, but does not prove, a state-dependent controller hypothesis: HIGH acquire/recover -> LOW retain.
+- **Current recovery evidence:** ARK-010 shows immediate low LR is usually poor after an instability event: continued HIGH recovered sustained G90 8/9 vs LOW 2/9.
+- **Current experiment:** ARK-011 is **PREREGISTERED / NOT EXECUTED**. It tests the state-dependent controller hypothesis HIGH acquire/recover -> LOW retain using fresh seeds, an exact recovery-checkpoint fork, matched future minibatches, and a new `OOD_CONTROL` / `OOD_SEALED` firewall so sealed evaluation cannot drive the optimizer controller.
 - **Transfer status:** NOT DEMONSTRATED. ARK-009 reached ordinary fact-set-disjoint held-out exact 1.0 on both seeds but failed a stricter composite query/order diagnostic; no retention-transfer forks ran. The diagnostic itself must be orthogonalized before retry.
-- **Core promotion:** NOT JUSTIFIED. Micro T2 replication is not enough; transfer and scale gates remain open.
+- **Core promotion:** NOT JUSTIFIED. Micro T2 replication is not enough; transfer, plasticity-cost, and scale gates remain open.
+
+## Current execution target
+
+ARK-011 artifacts:
+
+- `experiments/ARK-011/PLAN.md`
+- `experiments/ARK-011/PREEXECUTION_ADDENDUM.md`
+- `experiments/ARK-011/PREEXECUTION_AUDIT.md`
+- `experiments/ARK-011/run_ark011.py`
+- `experiments/COLAB/arkenstone_ark011.ipynb`
+
+The scientific plan was committed before runner implementation. The Colab launcher pins the exact runner commit and requires a CUDA smoke test before long training.
+
+## Cymek boundary
+
+See `CYMEK_500M_ALIGNMENT.md`. Arkenstone inspected `cymek` and `cymek-500m-readiness` read-only. The newer readiness branch materially strengthens production/resume/mixture/evaluation-boundary engineering but does not contain a 500M cognition result. Arkenstone may borrow discipline; it does not modify Cymek's production scheduler without transfer and promotion evidence.
 
 ## Latest validated campaign
 
