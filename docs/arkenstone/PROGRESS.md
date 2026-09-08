@@ -17,16 +17,18 @@
 | 2026-09-08 | user Colab T4 | **ARK-007R fresh-checkpoint retention replication** (seeds 909/1010/1111 × continuation 2701..2704) | **REPLICATED MICRO-TASK RETENTION EFFECT**: HIGH collapse 9/12, LOW 0/12, risk diff -0.75; direction holds on all 3 independent acquisitions |
 | 2026-09-08 | user Colab T4 | **ARK-009 non-arithmetic transfer gate** | Ordinary fact-set-disjoint held-out exact reached 1.0 on both seeds; strict composite query/order diagnostic failed, so no retention forks; transfer remains NOT_DEMONSTRATED |
 | 2026-09-08 | user Colab T4 | **ARK-010 recovery after instability** (9 prospective collapse states) | Immediate LOW recovery hypothesis falsified: HIGH recovered sustained G90 8/9 vs LOW 2/9; opens state-dependent HIGH-recover -> LOW-retain controller hypothesis |
+| 2026-09-08 | ChatGPT live-repo audit | **Cymek 500M alignment review** (`cymek` + `cymek-500m-readiness`, read-only) | Readiness branch is 13 commits ahead and substantially hardens production/resume/mixture/eval boundaries; no 500M cognition result exists. Arkenstone adopts the discipline, not Cymek ownership. |
+| 2026-09-08 | ChatGPT | **ARK-011 adaptive LR controller** | **PREREGISTERED / NOT EXECUTED**. Fresh T2 events; CONTROL/SEALED firewall; HIGH recovery then matched HIGH_CONTINUE vs SWITCH_LOW fork. Pinned Colab runner prepared. |
 
 ## Current high-confidence program regularities
 
 | # | Regularity | Status | Evidence |
-|---|---|---|---|
+|---|------------|--------|----------|
 | 1 | **Lift-off**: simple symbolic instance-fitting emerges rapidly under flat answer-only CE once the task is sufficiently simple | REPLICATED at micro | ARK-001/002B |
 | 2 | **Memorization ≠ generalization**: T2 memorizes early, then reaches structural OOD after a long seed-variable delay; M99 does not predict G90 timing | REPLICATED | ARK-002/002B/004A |
 | 3 | **Retention is state-dependent**: a generalized solution can enter instability episodes under continued high-LR training | REPLICATED phenomenon | ARK-004A/005/007/007R |
 | 4 | **Low LR protects an already-generalized T2 state**: under matched continuations, 1e-5 produces far fewer instability events than 1e-3 | REPLICATED at Micro T2 | ARK-007R: 9/12 vs 0/12 |
-| 5 | **Recovery and retention require different dynamics**: after an instability episode, high LR usually reacquires G90 better than immediate low LR | SUPPORTED pattern, controller untested | ARK-010: 8/9 vs 2/9 |
+| 5 | **Recovery and retention require different dynamics**: after an instability episode, high LR usually reacquires G90 better than immediate low LR | SUPPORTED pattern, adaptive controller under preregistered test | ARK-010; ARK-011 pending |
 
 ## Falsified / superseded claims
 
