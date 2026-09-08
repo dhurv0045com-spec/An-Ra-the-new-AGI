@@ -1,5 +1,4 @@
 {
-  "cycle": "CYR-GPU-005 freeze cycle refresh (supersedes the 45b1c96 binding)",
   "environment": {
     "cpu": "AMD Ryzen 7 170 8C/16T",
     "note": "plumbing/TINY fixtures only; no heavy local training (operator compute boundary honored)",
@@ -36,7 +35,7 @@
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "5aecf1effb819728a6e4f1bad10ba4f0db74d573aac338ab39e3993ef022e144",
+  "sha256": "3a64ab15647a0fdcf7c777e8d0aab0151a3a9bf739835350ed6f96b2a784d268",
   "tested_commit_sha": "d0e1417cc21c8184644e5a5ebb9eb1520d85855f",
   "timestamp_utc": "2026-09-08T20:12:59Z",
   "totals": {
