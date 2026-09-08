@@ -710,6 +710,64 @@ def test_mixture_shortfall_fails_closed():
             raise AssertionError("mixture shortfall did not fail closed")
 
 
+def test_cognition_mixture_resume_equality():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        tok = _tokenizer()
+        # Cells match the offline-planned demand for budget 135072 exactly:
+        # (512,identity_copy)=32768, (1024,relational)=32768,
+        # (2048,query_binding)=32768, (4096,semantic)=32768,
+        # (2048,interference)=4000.
+        cells = [(512, "identity_copy", 64, 510),
+                 (1024, "relational_composition", 32, 1022),
+                 (2048, "query_binding", 16, 2046),
+                 (4096, "semantic_state", 8, 4094),
+                 (2048, "interference_retrieval", 3, 2000)]
+        docs = []
+        cognition_map = {}
+        for bucket, sub, count, content_tokens in cells:
+            for i in range(count):
+                doc_id = f"cg{bucket}-{sub}-{i:04d}"
+                docs.append({"doc_id": doc_id,
+                             "text": _sized_text(tok, content_tokens,
+                                                 f"{doc_id}"),
+                             "source_id": doc_id,
+                             "family": "verified_cognition"})
+                cognition_map[doc_id] = sub
+        budget = 131_072 + 4000
+        mixture = {"verified_cognition": 1.0}
+        base = {"campaign_tokens": budget, "development_mode": False,
+                "contamination_benchmarks": dict(BENCHMARKS),
+                "mixture_fractions": dict(mixture),
+                "cognition_map": cognition_map,
+                "tokenizer_freeze_sha256": FREEZE_SHA, "cymek_sha": TEST_SHA}
+        part = _run(_with_raw(docs), torch, device, tmp, "cog-run",
+                    max_updates=1, **base)
+        assert part["termination"] == "MANUAL_BOUNDARY"
+        assert part["cumulative_tokens"] == 131_072
+        continued = _run(_with_raw(docs), torch, device, tmp, "cog-run",
+                         **base)
+        assert continued["resumed"] is True
+        assert continued["cumulative_tokens"] == budget
+        assert continued["state_complete"] is True
+        assert set(continued["sub_consumed"]) == {
+            "identity_copy", "relational_composition", "query_binding",
+            "semantic_state", "interference_retrieval"}
+        assert sum(continued["sub_consumed"].values()) == budget
+        assert set(continued["mixture_consumed"]) == {"verified_cognition"}
+        whole = _run(_with_raw(docs), torch, device, tmp, "cog-whole",
+                     **base)
+        assert whole["tokens_by_source"] == continued["tokens_by_source"]
+        continued_store = CheckpointStore(Path(tmp) / "cog-run", "cog-run")
+        whole_store = CheckpointStore(Path(tmp) / "cog-whole", "cog-whole")
+        _, continued_payloads = continued_store.restore()
+        _, whole_payloads = whole_store.restore()
+        for component in ("model.bin", "optimizer.bin", "rng.bin",
+                          "cursor.json", "ledger.json"):
+            assert hashlib.sha256(continued_payloads[component]).hexdigest() == \
+                hashlib.sha256(whole_payloads[component]).hexdigest(), \
+                f"cognition resume diverges at {component}"
+
+
 def test_epoch_replay_when_permitted():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
         tiny = _documents(n_arith=60, n_notes=0)
@@ -1139,6 +1197,7 @@ _TESTS = [
     test_development_mode_labels_and_relaxes,
     test_frozen_mixture_end_to_end,
     test_mixture_shortfall_fails_closed,
+    test_cognition_mixture_resume_equality,
     test_epoch_replay_when_permitted,
     test_campaign_certificate_completeness,
     test_banned_symbols_absent_from_entry_source,

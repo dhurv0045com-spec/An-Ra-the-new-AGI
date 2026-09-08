@@ -93,6 +93,37 @@ def test_demand_planner_matches_live_assignment():
     assert replay == demand
 
 
+def test_demand_planner_resume_matches_uninterrupted():
+    topo = frozen_topology()
+    fam = DeficitScheduler(fractions={"natural": 0.65, "code_math_formal": 0.20,
+                                      "verified_cognition": 0.15})
+    whole = campaign_microstep_plan(start_tokens=0, campaign_tokens=200_000,
+                                    topo=topo)
+    whole_demand = plan_campaign_demand(
+        microstep_plan=whole, fam_scheduler=fam, sub_scheduler=None,
+        cognition_mapped=False)
+    first = whole[:4]
+    first_demand = plan_campaign_demand(
+        microstep_plan=first, fam_scheduler=fam, sub_scheduler=None,
+        cognition_mapped=False)
+    consumed: dict[str, int] = {}
+    total = 0
+    for _, count in first:
+        choice = fam.next(consumed_total=total, consumed=consumed)
+        consumed[choice] = consumed.get(choice, 0) + count
+        total += count
+    rest = whole[4:]
+    rest_demand = plan_campaign_demand(
+        microstep_plan=rest, fam_scheduler=fam, sub_scheduler=None,
+        cognition_mapped=False, initial_fam_consumed=consumed,
+        initial_total=total)
+    merged: dict[str, int] = {}
+    for part in (first_demand, rest_demand):
+        for key, count in part.items():
+            merged[key] = merged.get(key, 0) + count
+    assert merged == whole_demand
+
+
 def test_lifecycle_order_enforced():
     life = DatasetLifecycle(lineage_id="ds1")
     assert life.state == "DECLARED"
@@ -132,6 +163,7 @@ _TESTS = [test_500m_allocation_exact,
           test_deficit_scheduler_converges,
           test_scheduler_pure_and_resumable,
           test_demand_planner_matches_live_assignment,
+          test_demand_planner_resume_matches_uninterrupted,
           test_lifecycle_order_enforced,
           test_lifecycle_evidence_required]
 

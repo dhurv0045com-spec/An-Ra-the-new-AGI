@@ -50,6 +50,12 @@ banned-symbol scan, EOS packing contract (one-token doc → 2 supervised;
 exact fill; ragged tail), e2e, sessions, V5A exact count, bf16 diagnostic,
 soak, exact-head receipt.
 
+### E5b — Cognition nested scheduling + mixture resume: PASS
+Five planned cells (one per nested sub-family) consumed exactly;
+interrupted vs uninterrupted runs byte-identical incl. cursor/ledger.
+Demand planner proven to restart from restored counters (unit proof),
+closing a planner-vs-executor resume divergence found live.
+
 ### E6 — Multi-session soak: PASS (throttled CPU, one shot)
 `test_multi_session_soak_state_machine`. Budget 264144 across 3 sessions
 (TIMEBOX, TIMEBOX, COMPLETE): exact final tokens + ledger, 3 losses,

@@ -373,12 +373,23 @@ def assign_mixture_cell(*, fam_consumed: dict[str, int],
 def plan_campaign_demand(*, microstep_plan: list[tuple[int, int]],
                          fam_scheduler: DeficitScheduler | None,
                          sub_scheduler: DeficitScheduler | None,
-                         cognition_mapped: bool) -> dict[str, int]:
-    """Exact per-cell real-token demand for a microstep plan. Pure."""
+                         cognition_mapped: bool,
+                         initial_fam_consumed: dict[str, int] | None = None,
+                         initial_sub_consumed: dict[str, int] | None = None,
+                         initial_total: int = 0) -> dict[str, int]:
+    """Exact per-cell real-token demand for a microstep plan. Pure.
 
-    fam_consumed: dict[str, int] = {}
-    sub_consumed: dict[str, int] = {}
-    total = 0
+    Counters start from the (possibly restored) schedule state, so offline
+    planning and live execution from the same state cannot diverge — including
+    across resume, where the plan covers only the remainder but the counters
+    continue from the checkpoint.
+    """
+
+    fam_consumed: dict[str, int] = dict(initial_fam_consumed or {})
+    sub_consumed: dict[str, int] = dict(initial_sub_consumed or {})
+    total = initial_total
+    if total < 0:
+        raise ValueError("planning total cannot be negative")
     demand: dict[str, int] = {}
     for bucket, count in microstep_plan:
         family, sub = assign_mixture_cell(
@@ -629,6 +640,9 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                 ("data manifest", identities.data_manifest_sha256, state.identities.data_manifest_sha256),
                 ("pack manifest", identities.pack_manifest_sha256, state.identities.pack_manifest_sha256),
                 ("run spec", identities.run_spec_sha256, state.identities.run_spec_sha256),
+                ("optimizer spec", identities.optimizer_spec_sha256, state.identities.optimizer_spec_sha256),
+                ("schedule spec", identities.schedule_spec_sha256, state.identities.schedule_spec_sha256),
+                ("curriculum spec", identities.curriculum_spec_sha256, state.identities.curriculum_spec_sha256),
                 ("source commit", identities.source_commit, state.identities.source_commit),
                 ("token budget", campaign_tokens, state.token_budget)):
             if expected != actual:
@@ -686,7 +700,10 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         raise ValueError("resume lane drift: rebuilt lanes disagree with the checkpoint")
     demand = plan_campaign_demand(
         microstep_plan=microstep_plan, fam_scheduler=fam_scheduler,
-        sub_scheduler=sub_scheduler, cognition_mapped=cognition_mapped)
+        sub_scheduler=sub_scheduler, cognition_mapped=cognition_mapped,
+        initial_fam_consumed=dict(fam_consumed),
+        initial_sub_consumed=dict(sub_consumed),
+        initial_total=state.cumulative_tokens)
     supply = {key: int(cell["real_tokens"])
               for key, cell in lanes_receipt["cells"].items()}
     shortfall = {key: demand[key] - supply.get(key, 0) for key in demand
@@ -976,6 +993,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "mixture_allocation": dict(allocation),
         "mixture_plan_sha256": mixture_plan_sha,
         "mixture_consumed": dict(final_cursor.mixture_consumed),
+        "sub_consumed": dict(final_cursor.sub_consumed),
         "replay_events": list(replay_events),
         "replay_count": int(final_cursor.replay_count),
         "epoch": int(final_cursor.epoch),
