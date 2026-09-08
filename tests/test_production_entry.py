@@ -591,6 +591,24 @@ def test_tpu_runtime_fails_closed():
             raise AssertionError("uncertified runtime did not fail closed")
 
 
+def test_xla_execution_fails_closed_without_hardware():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        try:
+            _run(_documents(), torch, device, tmp, "xla-fail",
+                 campaign_tokens=4000, execution="xla")
+        except ValueError as exc:
+            assert "TPU_EVIDENCE_REQUIRED" in str(exc)
+        else:
+            raise AssertionError("XLA execution did not fail closed")
+        try:
+            _run(_documents(), torch, device, tmp, "xla-bad",
+                 campaign_tokens=4000, execution="tpu")
+        except ValueError as exc:
+            assert "execution" in str(exc).lower()
+        else:
+            raise AssertionError("unknown execution mode was accepted")
+
+
 # -- contamination, provenance, mode -------------------------------------------------------
 
 def test_production_requires_contamination_commitment():
@@ -1118,6 +1136,26 @@ def test_bf16_trajectory_diagnostic():
 
 # -- preserved coverage ------------------------------------------------------------------------------
 
+def test_durable_mirror_session_recovery():
+    import shutil
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        mirror = str(Path(tmp) / "mirror")
+        first = _run(_documents(), torch, device, tmp, "mirrored",
+                     campaign_tokens=4000, mirror_root=mirror,
+                     milestones=(), recovery_tokens=10 ** 12)
+        assert first["termination"] == "COMPLETE"
+        assert first["mirrored_recovery"] is False
+        assert first["mirrored_generations"] == 1
+        assert first["execution_mode"] == "local"
+        assert first["xla_status"]["status"] == "LOCAL_EMULATION"
+        shutil.rmtree(Path(tmp) / "mirrored")
+        second = _run(_documents(), torch, device, tmp, "mirrored",
+                      campaign_tokens=4000, mirror_root=mirror,
+                      milestones=(), recovery_tokens=10 ** 12)
+        assert second["mirrored_recovery"] is True
+        assert second["already_complete"] is True
+
+
 def test_already_complete_short_circuits():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
         docs = _documents()
@@ -1190,6 +1228,8 @@ _TESTS = [
     test_lr_no_rewarm_after_resume,
     test_precision_receipt_matches_device,
     test_tpu_runtime_fails_closed,
+    test_xla_execution_fails_closed_without_hardware,
+    test_durable_mirror_session_recovery,
     test_production_requires_contamination_commitment,
     test_production_requires_mixture_and_freeze,
     test_raw_source_required_in_production,

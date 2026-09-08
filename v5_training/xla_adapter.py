@@ -127,9 +127,14 @@ class XLAReplicatedBackend:
     def rank_owns_checkpoints(self) -> bool:
         """Checkpoint writer ownership: rank 0 only."""
 
+        return self.ordinal() == 0
+
+    def ordinal(self) -> int:
+        """This rank's global ordinal (fails closed without XLA)."""
+
         xruntime, _ = _load_xla()
         try:
-            return int(xruntime.global_ordinal()) == 0
+            return int(xruntime.global_ordinal())
         except Exception as exc:
             raise RuntimeError(f"cannot determine XLA rank: {exc}") from exc
 

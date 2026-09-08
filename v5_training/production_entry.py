@@ -50,6 +50,12 @@ from v5_data.pack import pack_documents, sampler_order
 from v5_model.core import initialize
 from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer
+from v5_training.persistent_store import (
+    DURABLE_STATUS,
+    materialize_local,
+    mirror_checkpoint,
+    read_mirror_pointer,
+)
 from v5_training.production_backend import (
     ProductionTrainingBackend,
     capture_evidence,
@@ -65,8 +71,15 @@ from v5_training.state import (
     TrainingState,
     next_update_tokens,
 )
-from v5_training.topology_map import certify_microstep_shape
+from v5_training.topology_map import certify_microstep_shape, replica_shards
 from v5_training.trainer import train
+from v5_training.xla_adapter import (
+    EVIDENCE_REQUIRED,
+    PENDING_STATUS,
+    XLAReplicatedBackend,
+    require_frozen_topology,
+    xla_status,
+)
 
 ENTRY_SCHEMA = "anra-v5-production-entry-receipt/v1"
 MILESTONE_SCHEMA = "anra-v5-milestone-receipt/v1"
@@ -481,6 +494,8 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                  allow_replay: bool = False,
                  dataset_lifecycle=None,
                  tokenizer_freeze_sha256: str | None = None,
+                 execution: str = "local",
+                 mirror_root: str | Path | None = None,
                  ) -> dict[str, Any]:
     """Execute (or resume) a token-targeted certified production campaign.
 
@@ -491,6 +506,10 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     must be deterministic in state. ``allow_replay`` permits bounded epoch
     replay on lane exhaustion (default fails closed DATA_NOT_READY).
     ``dataset_lifecycle``, when provided, must already be RUNNABLE.
+    ``execution="xla"`` routes through the XLA replicated adapter and fails
+    closed without certified XLA hardware (IMPLEMENTED_PENDING_PRE500M_TPU).
+    ``mirror_root``, when provided, mirrors every committed generation to
+    durable storage and recovers a missing local store from the mirror.
     """
 
     if xb is None:
@@ -509,6 +528,17 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             "no fallback or provisional tokenizer")
     if dataset_lifecycle is not None:
         require_runnable(dataset_lifecycle)
+    if execution not in ("local", "xla"):
+        raise ValueError("execution must be 'local' or 'xla'")
+    xla_adapter = None
+    xla_status_doc: dict[str, object] | None = None
+    if execution == "xla":
+        xla_status_doc = xla_status()
+        if xla_status_doc.get("status") != PENDING_STATUS:
+            raise ValueError(
+                "XLA execution requested but the adapter reports "
+                f"{xla_status_doc.get('status')}: "
+                f"{xla_status_doc.get('reason')} ({EVIDENCE_REQUIRED})")
     if campaign_tokens <= 0:
         raise ValueError("campaign token budget must be positive")
     if max_updates is not None and max_updates < 0:
@@ -611,6 +641,12 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             "collectives, memory fit, and bf16 behavior need PRE500M "
             "certification (TPU_EVIDENCE_REQUIRED)")
     latest = store.latest_sha256()
+    mirrored_recovery = False
+    if latest is None and mirror_root is not None:
+        mirror_head = read_mirror_pointer(mirror_root, lineage_id=run_id)
+        if mirror_head is not None:
+            latest = materialize_local(mirror_root, store)
+            mirrored_recovery = True
     if latest is None:
         torch.manual_seed(seed)
         model = initialize(model_spec, seed).to(device)
@@ -620,6 +656,12 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             schedule=lr_at,
             bfloat16_autocast=runtime == "cuda",
             torch_module=torch)
+        if execution == "xla":
+            require_frozen_topology(int(xla_status_doc["world_size"]), replicas=replicas)
+            xla_adapter = XLAReplicatedBackend(
+                replica_backend=backend, replicas=replicas,
+                world_size=int(xla_status_doc["world_size"]),
+                torch_module=torch)
         fresh_state = True
         resumed, done_updates = False, 0
         start_tokens = 0
@@ -657,6 +699,12 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             bfloat16_autocast=runtime == "cuda",
             torch_module=torch)
         restore_production(backend, payloads=payloads)
+        if execution == "xla":
+            require_frozen_topology(int(xla_status_doc["world_size"]), replicas=replicas)
+            xla_adapter = XLAReplicatedBackend(
+                replica_backend=backend, replicas=replicas,
+                world_size=int(xla_status_doc["world_size"]),
+                torch_module=torch)
         resumed, done_updates = True, state.global_update
         start_tokens = state.cumulative_tokens
         fresh_state = False
@@ -669,6 +717,12 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         if state.cumulative_tokens >= campaign_tokens:
             return {"schema": ENTRY_SCHEMA, "run_id": run_id, "seed": seed,
                     "mode": mode_label,
+                    "execution_mode": execution,
+                    "xla_status": dict(xla_status_doc) if xla_status_doc is not None else {
+                        "status": "LOCAL_EMULATION",
+                        "note": "single-device global-tensor execution; not TPU evidence"},
+                    "mirrored_recovery": mirrored_recovery,
+                    "mirrored_generations": 0,
                     "updates_executed": int(state.global_update),
                     "cumulative_tokens": int(state.cumulative_tokens),
                     "losses": [], "resumed": True, "already_complete": True,
@@ -731,6 +785,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     milestones_crossed: list[dict[str, object]] = []
     recovery_shas: list[str] = []
     milestone_shas: dict[int, str] = {}
+    mirrored_shas: list[str] = []
     last_boundary_tokens = [state.cumulative_tokens]
     updates_this_session = [0]
     stop_reasons: list[str] = []
@@ -844,19 +899,46 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             if any(width > bucket for width in window.row_widths):
                 raise ValueError("microstep row exceeds its requested bucket")
             width = bucket
-            tokens = torch.tensor(
-                [list(row) + [0] * (width - len(row)) for row in window.tokens],
-                dtype=torch.long, device=device)
-            segment_ids = torch.tensor(
-                [list(row) + [-1] * (width - len(row)) for row in window.segment_ids],
-                dtype=torch.long, device=device)
-            eligible = torch.tensor(
-                [list(row) + [False] * (width - len(row)) for row in window.eligible],
-                dtype=torch.bool, device=device)
-            ctx = backend.accumulate_microstep(
-                ctx, tokens=tokens, segment_ids=segment_ids, eligible=eligible,
-                tokens_by_source=dict(window.tokens_by_source),
-                planned_total=eligible_total)
+            row_items = [([*row, *[0] * (width - len(row))],
+                          [*seg, *[-1] * (width - len(seg))],
+                          [*elig, *[False] * (width - len(elig))])
+                         for row, seg, elig in zip(window.tokens, window.segment_ids,
+                                                   window.eligible)]
+            if xla_adapter is None:
+                groups = [row_items]
+            else:
+                if len(row_items) % replicas:
+                    raise ValueError(
+                        "XLA execution requires replica-divisible rows; "
+                        "partial tails need explicit pad rows first")
+                groups = replica_shards(row_items, replicas=replicas)
+            rank_rows: list[int] = []
+            # SPMD-correct sharding: every rank runs this same program over
+            # the same windows, but accumulates ONLY its own rank shard with
+            # the GLOBAL denominator; the SUM collective reunites the exact
+            # global mean before the single clip/step. Ledgers are identical
+            # on all ranks, so training states cannot diverge. Correct under
+            # the frozen dropout-free contract (no rank RNG is consumed in
+            # the compute path); any stochastic op would need rank-aware RNG
+            # (PRE500M detail). Rank 0 alone writes checkpoints.
+            target_rank = (xla_adapter.ordinal()
+                           if xla_adapter is not None else None)
+            for rank, group in enumerate(groups):
+                if target_rank is not None and rank != target_rank:
+                    continue
+                tokens = torch.tensor([item[0] for item in group],
+                                      dtype=torch.long, device=device)
+                segment_ids = torch.tensor([item[1] for item in group],
+                                           dtype=torch.long, device=device)
+                eligible = torch.tensor([item[2] for item in group],
+                                        dtype=torch.bool, device=device)
+                ctx = backend.accumulate_microstep(
+                    ctx, tokens=tokens, segment_ids=segment_ids, eligible=eligible,
+                    tokens_by_source=dict(window.tokens_by_source),
+                    planned_total=eligible_total)
+                rank_rows.append(len(group))
+            if xla_adapter is not None:
+                xla_adapter.all_reduce_sum_gradients(backend.model)
             rows = len(window.tokens)
             shape_receipt = certify_microstep_shape(
                 bucket=bucket, sequences_global=rows, replicas=replicas,
@@ -865,6 +947,8 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                 "requested_bucket": bucket, "actual_row_widths": sorted(set(window.row_widths)),
                 "sequences_global": rows, "real_tokens_global": window.real_tokens,
                 "eligible_tokens_global": _predict_supervised(window),
+                "execution": "xla-sharded" if xla_adapter is not None else "local-global",
+                "executing_rank_rows": list(rank_rows),
                 "physical": shape_receipt})
         end_cursor = BucketCursorState(
             BUCKET_CURSOR_SCHEMA, data["pack_manifest_sha256"],
@@ -919,6 +1003,14 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         keep = (set(recovery_shas[-topo["recovery_generations_retained"]:])
                 | {checkpoint_sha})
         store.prune(keep=keep)
+        if mirror_root is not None:
+            mirror_receipt = mirror_checkpoint(
+                store, mirror_root, checkpoint_sha256=checkpoint_sha)
+            if mirror_receipt.get("status") != DURABLE_STATUS:
+                raise ValueError("durable mirror did not confirm persistence")
+            mirrored_shas.append(checkpoint_sha)
+            if progress is not None:
+                progress(f"mirrored {checkpoint_sha[:8]}")
 
     def should_stop(live: TrainingState) -> bool:
         if max_updates is not None and updates_this_session[0] >= max_updates:
@@ -972,6 +1064,12 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     return {
         "schema": ENTRY_SCHEMA, "run_id": run_id, "seed": seed,
         "mode": mode_label, "campaign_tokens": campaign_tokens,
+        "execution_mode": execution,
+        "xla_status": dict(xla_status_doc) if xla_status_doc is not None else {
+            "status": "LOCAL_EMULATION",
+            "note": "single-device global-tensor execution; not TPU evidence"},
+        "mirrored_recovery": mirrored_recovery,
+        "mirrored_generations": len(mirrored_shas),
         "updates_executed": int(final.global_update),
         "cumulative_tokens": int(final.cumulative_tokens),
         "state_complete": bool(final.complete),
@@ -1033,6 +1131,7 @@ def run_500m_session(*, documents: list[dict[str, Any]], tokenizer: Any,
                      allow_replay: bool = False,
                      dataset_lifecycle=None,
                      tokenizer_freeze_sha256: str | None = None,
+                     mirror_root: str | Path | None = None,
                      ) -> dict[str, Any]:
     """One 500M-campaign training session with milestone detection,
     recovery checkpointing, heartbeat, and session receipt.
@@ -1084,7 +1183,8 @@ def run_500m_session(*, documents: list[dict[str, Any]], tokenizer: Any,
         milestones=milestones, recovery_tokens=recovery_tokens,
         mixture_fractions=mixture_fractions, cognition_map=cognition_map,
         allow_replay=allow_replay, dataset_lifecycle=dataset_lifecycle,
-        tokenizer_freeze_sha256=tokenizer_freeze_sha256)
+        tokenizer_freeze_sha256=tokenizer_freeze_sha256,
+        mirror_root=mirror_root)
 
     for milestone in result["milestones_crossed"]:
         mpath = milestone_dir / f"milestone_{milestone['threshold_tokens']}.json"

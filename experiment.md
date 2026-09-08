@@ -106,6 +106,33 @@ compare normalization — canary semantics unchanged, PASS).
 - TPU: **UNMEASURED** (XLA adapter reports IMPLEMENTED_PENDING_PRE500M_TPU).
 - No production math was changed to fit test hardware.
 
+## CYR-GPU-001 cycle (research tournament preparation, PENDING execution)
+
+- Audited Arkenstone@4911b84 (ARK-011 confirmed UNEXECUTED, notebook never
+  run) and BRAMASTRA@90ee31a live; matrix in
+  `docs/cymek/research/CROSS_BRANCH_EVIDENCE_AUDIT.md`.
+- Hardened Cymek this cycle: complete-answer contract tests (EOS-final
+  segments, EOS supervised, generation EOS/cap stops), XLA selection
+  through run_campaign (fail-closed, receipt-bound, rank-sharded math),
+  auto-mirror + mirror recovery in run_campaign/run_500m_session.
+  Prior-cycle work verified intact, not redone: bucket lanes, mixture
+  scheduler, durable milestones, persistent mirror, eval hooks, corpus
+  loading plane, activation checkpointing (full regression re-run green).
+- Built version-controlled tournament (pure logic + torch executors
+  split for import planes): exact-sized counterfactual worlds, matched
+  pair/shuffled sampler, fork-based LR tournament (HIGH/fixed/state/
+  hysteretic/MID), displacement diagnostics, sustained metrics,
+  heuristic baselines, redteam gates, hardware resolver, failure-proof
+  packaging, Colab guard (smoke default).
+- Preregistered CYR-GPU-001 (PLAN/THREATS/README + hash-bound
+  PREREGISTRATION.json) + thin 3-cell notebook.
+- Local validation only: unit suites, tiny CPU smoke, notebook JSON +
+  cell-compile checks, receipt schema checks. NO heavy/local/GPU/TPU
+  training this cycle. Status: PENDING_OPERATOR_EXECUTION.
+- Full validation (unit + entry suites) deferred to Colab CELL 0 gate;
+  repo closure receipt goes stale-by-design on new code and refreshes
+  from Colab evidence next cycle (documented, not hidden).
+
 ## Planned / blocked (not run)
 - **P1** microstep memory vs width (needs >6 GB GPU).
 - **P4** PRE500M TPU certification (needs TPU hardware).
