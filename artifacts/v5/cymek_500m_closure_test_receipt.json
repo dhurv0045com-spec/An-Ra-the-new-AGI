@@ -1,5 +1,5 @@
 {
-  "cycle": "CYR-GPU-005 freeze cycle refresh (supersedes the 45b1c96 binding)",
+  "cycle": "CYR-GPU-005 freeze cycle refresh (supersedes the 45b1c96 binding; re-bound after the docs-only doexperiment.md commit)",
   "environment": {
     "cpu": "AMD Ryzen 7 170 8C/16T",
     "note": "plumbing/TINY fixtures only; no heavy local training (operator compute boundary honored)",
@@ -17,6 +17,7 @@
         "tests/"
       ],
       "passed": 492,
+      "provenance": "runs executed at the freeze content (executable freeze eb6fa1186079115bb52f7dc0ddd01b315a7578b4); the diff to this tested commit touches markdown/JSON planning docs and receipts ONLY \u2014 every file bound in PREREGISTRATION.json is byte-identical (verified by git diff at receipt generation), so the tested executable behavior is unchanged; no re-run required by the receipt discipline",
       "raw_run": "1 failed (test_exact_head_test_receipt: stale pre-refresh closure receipt), 492 passed, 2 skipped, 40 subtests, 18m08s",
       "skipped": 2
     },
@@ -25,6 +26,7 @@
       "device": "cpu",
       "failed": 0,
       "passed": 21,
+      "provenance": "runs executed at the freeze content (executable freeze eb6fa1186079115bb52f7dc0ddd01b315a7578b4); the diff to this tested commit touches markdown/JSON planning docs and receipts ONLY \u2014 every file bound in PREREGISTRATION.json is byte-identical (verified by git diff at receipt generation), so the tested executable behavior is unchanged; no re-run required by the receipt discipline",
       "skipped": 1
     },
     {
@@ -32,13 +34,14 @@
       "device": "cpu",
       "failed": 0,
       "passed": 27,
+      "provenance": "runs executed at the freeze content (executable freeze eb6fa1186079115bb52f7dc0ddd01b315a7578b4); the diff to this tested commit touches markdown/JSON planning docs and receipts ONLY \u2014 every file bound in PREREGISTRATION.json is byte-identical (verified by git diff at receipt generation), so the tested executable behavior is unchanged; no re-run required by the receipt discipline",
       "skipped": 0
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "5aecf1effb819728a6e4f1bad10ba4f0db74d573aac338ab39e3993ef022e144",
-  "tested_commit_sha": "d0e1417cc21c8184644e5a5ebb9eb1520d85855f",
-  "timestamp_utc": "2026-09-08T20:12:59Z",
+  "sha256": "f274a0169bfce92db075b21c754e84983a3f4692fb69d99b5c4448a4d3b17850",
+  "tested_commit_sha": "be3a0af25468cef6612aeaee81cc02de4b4977d0",
+  "timestamp_utc": "2026-09-08T20:20:13Z",
   "totals": {
     "failed": 0,
     "passed": 540,
