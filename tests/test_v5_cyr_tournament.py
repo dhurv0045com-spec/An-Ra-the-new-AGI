@@ -386,7 +386,12 @@ def test_notebook_fail_hard():
     blob = json.dumps(notebook)
     assert "| tail" not in blob, "failure-masking pipe in notebook"
     assert "run_checked" in blob, "notebook must fail hard on commands"
-    assert "COLAB_GPU" in blob and '"--mode", "full"' in blob
+    assert "COLAB_GPU" in blob
+    joined = "\n".join(
+        "".join(cell["source"]) for cell in notebook["cells"]
+        if cell["cell_type"] == "code")
+    assert '"--mode", "full"' in joined
+    assert "assert completed.returncode == 0" in joined
     assert notebook["nbformat"] == 4
     code_cells = [cell["source"] for cell in notebook["cells"]
                   if cell["cell_type"] == "code"]
@@ -418,7 +423,10 @@ def test_static_self_check():
 def test_tiny_smoke_cpu():
     import torch
     torch.set_num_threads(4)
-    torch.set_num_interop_threads(2)
+    try:
+        torch.set_num_interop_threads(2)
+    except RuntimeError:
+        pass  # already initialized by an earlier test in this process
     from anra_v5.cyr_execute import smoke
     with tempfile.TemporaryDirectory() as tmp:
         bundle = smoke(torch, torch.device("cpu"), Path(tmp) / "out")
@@ -431,7 +439,10 @@ def test_tiny_smoke_cpu():
 def test_full_pipeline_s0_to_s4():
     import torch
     torch.set_num_threads(4)
-    torch.set_num_interop_threads(2)
+    try:
+        torch.set_num_interop_threads(2)
+    except RuntimeError:
+        pass  # already initialized by an earlier test in this process
     from anra_v5.cyr_execute import ByteTokenizer, run_cyr_campaign
     tok = ByteTokenizer()
     with tempfile.TemporaryDirectory() as tmp:
