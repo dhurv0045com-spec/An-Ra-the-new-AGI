@@ -31,6 +31,8 @@ W02/W07/W08/W09 may design and implement against the frozen documented contracts
 
 ## Waves and concurrency
 
+Under constrained agent capacity, use one primary implementation agent and the chief's review. Add a second execution/review agent only for an independent, useful scope. After a shared usage-limit failure, do not repeatedly dispatch the same batch: inspect saved work, check available capacity once, and try one bounded continuation when there is evidence it can run. Mark stopped packages queued or interrupted rather than active. Reuse completed agents for subsequent packages when practical.
+
 **Wave 0:** close the current prototype's correctness review and bounded development runs; publish honest findings. This is underway, not one of the full 3–5-hour packets.
 
 **Wave 1:** W01, W02, W07 and W08; W11 follows the W01 interface freeze. With fewer execution slots, prioritize W01/W02/W08 and leave W07 design-only until the model interface stabilizes. W09 is independently useful when data/provenance access is available.

@@ -9,6 +9,7 @@ This directory makes the owner's AGI research program executable by independent 
 3. [System architecture](SYSTEM_ARCHITECTURE.md): modules, information flow and dependency boundaries.
 4. [Data contracts](DATA_CONTRACTS.md): identities, tensors, state and storage semantics.
 5. [Learning algorithms](LEARNING_ALGORITHMS.md): exact initial choices, alternatives and falsifying experiments.
+   The [public evidence encoding specification](OBSERVATION_ENCODING.md) defines the shared model interface across environment families.
 6. [Experiment registry](EXPERIMENT_REGISTRY.md): hypotheses, comparisons, budgets and decision rules.
 7. [Execution plan](EXECUTION_PLAN.md): package dependencies, ownership and dispatch instructions.
 8. Your assigned [work order](work_orders/README.md).

@@ -28,10 +28,10 @@ W04's exact delayed-information diagnostic can start independently; its learned 
 
 | Packet | Status | Owner / acceptance |
 |---|---|---|
-| W01 | Revisions in progress; prior handoff not accepted | Sol execution agent repairing the nine chief-review findings |
-| W02 | In progress; integration coordinated with W01 | Sol execution agent implementing and qualifying three small environment families |
+| W01 | Saved revision passes 19 focused tests; agent stopped on usage limit; acceptance pending | Two reproduced remaining defects and stale handoff: [chief review](reports/W01_REVIEW.md) |
+| W02 | Stopped after usage interruption; queued, not running | Saved qualification and task reward require [chief corrections](reports/W02_REVIEW.md) |
 | W03 | Waiting on W01/W02 fixtures | Unassigned |
-| W04 | D02 first phase in progress; full outcome-trained policy still pending | Sol execution agent comparing one-step/depth-two teaching through an explicit prototype adapter |
+| W04 | Queued, not running; saved horizon repair verified, runner absent and one fixture incorrect | [Chief audit](reports/D02_REVIEW.md); trained comparison and PPO remain unrun |
 | W05 | Waiting on W02/W03 | Unassigned |
 | W06 | Waiting on canonical data/model; prototype evidence available | Unassigned |
 | W07 | CPU/design ready; accelerator validation unallocated | Unassigned |
@@ -40,7 +40,7 @@ W04's exact delayed-information diagnostic can start independently; its learned 
 | W10 | Waiting on accepted components | Unassigned |
 | W11 | Waiting on W01 interfaces | Unassigned |
 
-The bounded agents that closed the prototype are not counted as having completed these new 3–5-hour packages. W01 revision, W02 and the independent D02 portion of W04 are now dispatched separately; no 33–55-hour campaign has been executed merely because its work orders exist. W01's older handoff claimed completion, but the 2026-09-08 source review still found incomplete acceptance requirements. Chief acceptance remains pending.
+The bounded agents that closed the prototype are not counted as having completed these new 3–5-hour packages. No 33–55-hour campaign has been executed merely because its work orders exist. All implementation agents are currently stopped after usage interruptions. Resume one inexpensive executor with the two remaining W01 corrections, then the independent D02 portion of W04; avoid repeated parallel retries. W01's older handoff claimed completion, but chief acceptance remains pending.
 
 ## Chief's next acceptance decisions
 

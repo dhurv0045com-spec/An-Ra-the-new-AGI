@@ -21,3 +21,14 @@ The execution agent owns implementation and regression tests. The chief will rev
 The previous execution agent is no longer live. Its handoff claims completion with five focused tests, but inspection of the current source contradicts full acceptance. The adapter still expects `case_id` instead of actual `world_id`; public/action/transition and other nested payloads remain mutable; explicit public-schema validation is absent; checkpoint state identities remain incomplete; and several strict type, episode consistency, split normalization and promotion checks are unfinished.
 
 A new Sol execution agent owns revision of W01 and its handoff. W02 is coordinating against the preserved TaskSpec/PublicObservation/Action field interfaces while validation is strengthened. No downstream package may treat the previous five-test handoff as certification of the full contract.
+
+## Latest saved revision: chief verification
+
+The primary Sol agent stopped on a usage-limit error. Its saved revision substantially addresses the nine findings above. Chief execution of `.venv/Scripts/python.exe -m pytest tests/test_research_contracts.py -q --basetemp=.codex-test-tmp-w01-chief-current -p no:cacheprovider` produced **19 passed in 8.14 seconds**. This includes adapting the actual discovery development rows and validating a downstream fixture dataset. The old handoff remains stale; its five-test completion statement is superseded by this review.
+
+Two independently reproduced defects still prevent acceptance:
+
+1. `Outcome(..., label=0.0, ...)` and `label=1.0` are accepted despite the integer-label contract. Equality membership in `(0, 1)` does not enforce integer type. Require the strict integer validator and add both regression cases.
+2. A valid array enum fails after public-record freezing. For example, observable `{"x": [1, 2]}` with an array schema whose enum is `[[1, 2]]` becomes a tuple inside `PublicObservation`; `validate_public` then rejects it because enum comparison requires identical Python container types. Compare canonical JSON representations so supported list/tuple and dict/frozen-mapping representations retain JSON semantics, while boolean and integer values remain distinct. Exercise both array and object enums before and after record round-trip.
+
+The next executor owns only W01 paths and should repair these defects, run focused verification, refresh `HANDOFF.md` and `validator_report.json`, and return for chief acceptance. Do not restart the entire package or rewrite the now-working contracts. W02 and W04 remain queued; no implementation agent is currently running.

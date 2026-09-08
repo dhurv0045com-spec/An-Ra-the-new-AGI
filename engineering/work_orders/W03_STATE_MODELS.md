@@ -2,11 +2,13 @@
 
 **Status:** depends on W01 and usable W02 fixtures. **Effort:** 3–5 hours. **Role:** model engineer. **Compute:** CPU model tests and short learnability pilots; no large pretraining.
 
-Read architecture, contracts and algorithms section A. Own `research/models/`, `tests/test_research_models*`, model fixtures and `engineering/reports/W03/`.
+Read architecture, contracts, [public evidence encoding](../OBSERVATION_ENCODING.md) and algorithms section A. Own `research/models/`, `tests/test_research_models*`, model fixtures and `engineering/reports/W03/`.
 
 ## Deliverable
 
 Implement the width-128 integrated shared learner with typed observation encoder, recurrent state, goal-conditioned outcome head, legal-action scorer and value head. Implement a full-history control with the same public information. Provide explicit inference/reset APIs and a parameter/compute specification derived from real modules.
+
+Use the shared byte/event encoding decision for the canonical three-domain interface. The prototype bit-vector path is a diagnostic adapter, not a substitute for integrating the different public observation schemas. Include the encoding specification's seven acceptance additions and report their completion separately.
 
 Do not add a large memory subsystem, mixture-of-experts or a second unrelated language trainer. First establish whether the shared learner can use observed evidence and goals under the canonical interface.
 

@@ -1,0 +1,13 @@
+{
+  "budget": 2,
+  "episodes": 12,
+  "one_query_remaining_rows_with_different_teacher_scores": 0,
+  "runner_present": false,
+  "schema": "chief-d02-horizon-audit/v1",
+  "scope": "saved implementation verification; no model training",
+  "source_sha256": "c9c896aaac1cead038f8f99b51a0ab1a8f7cca646746863337a86cce104baeba",
+  "source_unchanged": true,
+  "terminal_depth_two_policy_targets": 0,
+  "terminal_one_step_policy_targets": 0,
+  "terminal_rows": 12
+}

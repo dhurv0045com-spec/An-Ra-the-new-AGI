@@ -36,6 +36,8 @@ Implement a small exact depth-two teacher for bounded finite environments:
 
 Account for action costs and avoid the scored target. This control establishes whether the environment contains useful delayed information and whether labels can teach it. Exact search is allowed only in small training/diagnostic spaces, with its full computation counted. It is not a scalable deployed AGI planner.
 
+The teacher horizon is capped by remaining real inquiries. Use depth two only with at least two inquiries left; with one left use one-step net gain; with none left disable policy supervision while retaining legitimate prediction targets. Otherwise a teacher can reward plans that the acting learner has no budget to finish.
+
 Compare random collection, coverage, one-step teacher, depth-two teacher and learned policy at equal real inquiries. Report teacher-assisted oracle controls separately from inference using only the learned core.
 
 ## D. Learning inquiry policies from outcomes
