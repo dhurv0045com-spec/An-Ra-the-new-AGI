@@ -1,0 +1,148 @@
+{
+  "arms": {
+    "s2": [
+      "shuffled",
+      "paired"
+    ],
+    "s3": [
+      "high",
+      "mid",
+      "low",
+      "fixed",
+      "state",
+      "hysteretic"
+    ]
+  },
+  "code_sha256": {
+    "anra_v5/cyr_execute.py": "3b18861b0610cd11d72df9f587d567eea1ec78d5f3f1278681458f64cbba2c45",
+    "docs/cymek/experiments/CYR-GPU-002/PLAN.md": "d9feee9de15b78fcf3ed2efeb4b35475c594d629face54e18153ad254dd8fba6",
+    "docs/cymek/experiments/CYR-GPU-002/THREATS.md": "3f3144cab4c27c02266400da980cf30bef1df966164a9900c6b022a99ecf0341",
+    "notebooks/cymek_colab_gpu_research_v2.ipynb": "8ffae5ec294e5835cc0ac857495e2189ce6d8cb4ff5fa9e169e6e7e35a4dcc0e",
+    "v5_experiments/cyr_tournament.py": "4bd1adcaffcdbf1f2270121ae370ee537682f052ff3f13257f8d22abd91ff4b0"
+  },
+  "controller": {
+    "confirmations": 3,
+    "enter_retention": 0.9,
+    "reenter_gap": 0.15
+  },
+  "cymek_head_sha": "661c7545ec628a7727a1836d046f11519c55ad86",
+  "dose_floor_tokens": 2000000,
+  "eval_every_updates": 10,
+  "experiment_id": "CYR-GPU-002",
+  "fixed_switch_fraction": 0.5,
+  "lr_schedules": {
+    "HIGH": 0.0003,
+    "LOW": 3e-06,
+    "MID": 3e-05
+  },
+  "max_runtime_min": 175,
+  "metrics": [
+    "free_generation_complete_exact",
+    "both_correct",
+    "factorial_variants",
+    "blind_gap",
+    "teacher_exact_diagnostic",
+    "loss",
+    "displacement_norm",
+    "grad_norms",
+    "moment_norms",
+    "stop_histogram"
+  ],
+  "microbatch_rows": 8,
+  "milestone_thresholds": {
+    "G50": [
+      "both_correct",
+      0.5
+    ],
+    "G90": [
+      "both_correct",
+      0.9
+    ],
+    "G95": [
+      "both_correct",
+      0.95
+    ],
+    "M99": [
+      "train_exact",
+      0.99
+    ]
+  },
+  "min_runtime_min": 60,
+  "proxy_ladder": {
+    "MICRO": {
+      "context_length": 512,
+      "ffn_width": 512,
+      "head_dimension": 64,
+      "kv_heads": 2,
+      "layers": 4,
+      "purpose": "standard arms",
+      "query_heads": 4,
+      "width": 256
+    },
+    "MIDI": {
+      "context_length": 512,
+      "ffn_width": 1024,
+      "head_dimension": 64,
+      "kv_heads": 3,
+      "layers": 8,
+      "purpose": "main tournament",
+      "query_heads": 6,
+      "width": 384
+    },
+    "P35": {
+      "context_length": 512,
+      "ffn_width": 1024,
+      "head_dimension": 64,
+      "kv_heads": 3,
+      "layers": 16,
+      "purpose": "scale transfer only",
+      "query_heads": 6,
+      "width": 384
+    },
+    "RESEARCH_SMALL": {
+      "context_length": 512,
+      "ffn_width": 512,
+      "head_dimension": 32,
+      "kv_heads": 2,
+      "layers": 4,
+      "purpose": "fast arms",
+      "query_heads": 4,
+      "width": 128
+    },
+    "TINY": {
+      "context_length": 512,
+      "ffn_width": 128,
+      "head_dimension": 16,
+      "kv_heads": 2,
+      "layers": 2,
+      "purpose": "smoke only",
+      "query_heads": 4,
+      "width": 64
+    }
+  },
+  "schema": "anra-cyr-preregistration/v2",
+  "seeds": [
+    101,
+    202
+  ],
+  "sha256": "f3cc2cc9cd0d4ef236a95894b5f9dc01fe42ad0637cdd5b0d07fb38b15164619",
+  "split_seeds": {
+    "dev_controller": 2002,
+    "dev_measurement": 3003,
+    "sealed_reserved": 4004,
+    "train": 1001
+  },
+  "stage_fractions": {
+    "acquisition": 0.3,
+    "lr_retention": 0.3,
+    "pair_query": 0.25,
+    "transfer": 0.15
+  },
+  "success_gates": {
+    "learnability": "sustained train-exact >= 0.99 (M99)",
+    "pair_gap": ">=0.10 both seeds + clean redteam"
+  },
+  "sustained_required": 3,
+  "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+  "training_wall_minutes": 115.0
+}
