@@ -25,6 +25,8 @@ CYR6_MIN_PER_PARENT_SUPPORT = 0.05
 CYR6_WALL_TARGET_MINUTES = 135.0
 CYR6_WALL_HARD_MINUTES = 170.0
 CYR6_PACKAGING_RESERVE_MINUTES = 8.0
+CYR6_ACQUISITION_STAGE_FRACTION = 0.42
+CYR6_CONTINUATION_STAGE_END_FRACTION = 0.90
 CYR6_ACQ_MIN_TOKENS = 2_000_000
 CYR6_ACQ_TARGET_TOKENS = 4_000_000
 CYR6_FORK_MIN_TOKENS = 500_000
@@ -60,6 +62,7 @@ def validate_resolved(resolved: Mapping[str, Any]) -> dict[str, Any]:
         "target_actual_tokens_acquisition", "target_actual_tokens_continuation",
         "wall_budget_minutes", "acquisition_eval_interval_tokens",
         "continuation_eval_interval_tokens", "predicted_wall_seconds",
+        "predicted_stage_seconds",
     }
     missing = sorted(required - set(resolved))
     if missing:
@@ -75,7 +78,47 @@ def validate_resolved(resolved: Mapping[str, Any]) -> dict[str, Any]:
     wall = float(resolved["wall_budget_minutes"])
     if not (60.0 <= wall <= CYR6_WALL_HARD_MINUTES):
         raise ValueError("resolved wall budget outside preregistered limits")
+    science_seconds = (wall - CYR6_PACKAGING_RESERVE_MINUTES) * 60.0
+    stage = resolved["predicted_stage_seconds"]
+    limits = {
+        "acquisition": science_seconds * CYR6_ACQUISITION_STAGE_FRACTION,
+        "continuation": science_seconds * (
+            CYR6_CONTINUATION_STAGE_END_FRACTION - CYR6_ACQUISITION_STAGE_FRACTION),
+        "transfer": science_seconds * (1.0 - CYR6_CONTINUATION_STAGE_END_FRACTION),
+    }
+    for name, limit in limits.items():
+        if float(stage[name]) > limit:
+            raise ValueError(
+                f"resolved {name} stage predicts {stage[name]:.1f}s but its "
+                f"hard window is {limit:.1f}s")
     return dict(resolved)
+
+
+def estimate_stage_seconds(*, training_tokens_per_sec: float,
+                           eval_examples_per_sec: float,
+                           acquisition_tokens: int,
+                           continuation_tokens: int,
+                           parents: int = 3,
+                           arms: int = 4,
+                           transfer_pairs: int = 2) -> dict[str, float]:
+    """Prospective hardware-only runtime model, including generation cost."""
+    if training_tokens_per_sec <= 0 or eval_examples_per_sec <= 0:
+        return {"acquisition": math.inf, "continuation": math.inf,
+                "transfer": math.inf}
+    acq_events = parents * math.ceil(
+        acquisition_tokens / CYR6_ACQ_EVAL_INTERVAL_TOKENS)
+    fork_events = parents * arms * math.ceil(
+        continuation_tokens / CYR6_FORK_EVAL_INTERVAL_TOKENS)
+    acquisition = (parents * acquisition_tokens / training_tokens_per_sec
+                   + acq_events * (96 + 16) / eval_examples_per_sec)
+    continuation = (
+        parents * arms * continuation_tokens / training_tokens_per_sec
+        + fork_events * (96 + 112) / eval_examples_per_sec)
+    transfer = (transfer_pairs * 2 * CYR6_TRANSFER_TOKENS
+                / training_tokens_per_sec
+                + transfer_pairs * 2 * 32 / eval_examples_per_sec)
+    return {"acquisition": acquisition, "continuation": continuation,
+            "transfer": transfer}
 
 
 def estimate_wall_seconds(*, training_tokens_per_sec: float,
@@ -85,26 +128,34 @@ def estimate_wall_seconds(*, training_tokens_per_sec: float,
                           parents: int = 3,
                           arms: int = 4,
                           transfer_pairs: int = 2) -> float:
-    """Prospective hardware-only runtime model including generated eval cost."""
-    if training_tokens_per_sec <= 0 or eval_examples_per_sec <= 0:
-        return math.inf
-    training_tokens = parents * acquisition_tokens + parents * arms * continuation_tokens
-    training_tokens += transfer_pairs * 2 * CYR6_TRANSFER_TOKENS
-    acq_events = parents * math.ceil(acquisition_tokens / CYR6_ACQ_EVAL_INTERVAL_TOKENS)
-    fork_events = parents * arms * math.ceil(
-        continuation_tokens / CYR6_FORK_EVAL_INTERVAL_TOKENS)
-    eval_examples = acq_events * (96 + 16) + fork_events * (96 + 112)
-    eval_examples += transfer_pairs * 2 * 32
-    return (training_tokens / training_tokens_per_sec
-            + eval_examples / eval_examples_per_sec
+    stages = estimate_stage_seconds(
+        training_tokens_per_sec=training_tokens_per_sec,
+        eval_examples_per_sec=eval_examples_per_sec,
+        acquisition_tokens=acquisition_tokens,
+        continuation_tokens=continuation_tokens,
+        parents=parents, arms=arms, transfer_pairs=transfer_pairs)
+    return (sum(stages.values())
             + CYR6_PACKAGING_RESERVE_MINUTES * 60.0)
 
 
+def _stage_fits(*, stage: Mapping[str, float], wall_minutes: float) -> bool:
+    science_seconds = (wall_minutes - CYR6_PACKAGING_RESERVE_MINUTES) * 60.0
+    return (
+        stage["acquisition"] <= science_seconds * CYR6_ACQUISITION_STAGE_FRACTION
+        and stage["continuation"] <= science_seconds * (
+            CYR6_CONTINUATION_STAGE_END_FRACTION - CYR6_ACQUISITION_STAGE_FRACTION)
+        and stage["transfer"] <= science_seconds * (
+            1.0 - CYR6_CONTINUATION_STAGE_END_FRACTION)
+    )
+
+
 def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-    """Choose the largest proxy that affords replicated minimum dose.
+    """Choose the largest proxy that affords the full replicated campaign.
 
     Inputs are strictly hardware/throughput receipts; no losses/accuracies are
-    accepted or inspected.
+    accepted or inspected. The resolver also respects the runner's frozen
+    acquisition/continuation/transfer wall windows, so an early stage cannot
+    prospectively consume time reserved for later matched arms.
     """
     for name in ("MIDI", "MICRO", "RESEARCH_SMALL"):
         receipt = calibrations.get(name)
@@ -112,32 +163,47 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
             continue
         train_tps = float(receipt["training_real_tokens_per_sec"])
         eval_eps = float(receipt["generation_examples_per_sec"])
-        minimum = estimate_wall_seconds(
+        minimum_stage = estimate_stage_seconds(
             training_tokens_per_sec=train_tps, eval_examples_per_sec=eval_eps,
             acquisition_tokens=CYR6_ACQ_MIN_TOKENS,
             continuation_tokens=CYR6_FORK_MIN_TOKENS)
-        max_science_seconds = (CYR6_WALL_HARD_MINUTES - 2.0) * 60.0
-        if minimum > max_science_seconds:
+        if not _stage_fits(stage=minimum_stage,
+                           wall_minutes=CYR6_WALL_HARD_MINUTES):
             continue
-        lo, hi = 1.0, 4.0
+
+        # Resolve acquisition and continuation doses independently because
+        # their stage costs differ sharply once candidate-free eval is counted.
+        acq_lo, acq_hi = CYR6_ACQ_MIN_TOKENS, CYR6_ACQ_TARGET_TOKENS
         for _ in range(24):
-            mid = (lo + hi) / 2.0
-            acq = min(CYR6_ACQ_TARGET_TOKENS, int(CYR6_ACQ_MIN_TOKENS * mid))
-            fork = min(CYR6_FORK_TARGET_TOKENS, int(CYR6_FORK_MIN_TOKENS * mid))
-            predicted = estimate_wall_seconds(
+            acq_mid = (acq_lo + acq_hi + 1) // 2
+            stage = estimate_stage_seconds(
                 training_tokens_per_sec=train_tps, eval_examples_per_sec=eval_eps,
-                acquisition_tokens=acq, continuation_tokens=fork)
-            if predicted <= CYR6_WALL_TARGET_MINUTES * 60.0:
-                lo = mid
+                acquisition_tokens=acq_mid,
+                continuation_tokens=CYR6_FORK_MIN_TOKENS)
+            science = (CYR6_WALL_HARD_MINUTES - CYR6_PACKAGING_RESERVE_MINUTES) * 60.0
+            if stage["acquisition"] <= science * CYR6_ACQUISITION_STAGE_FRACTION:
+                acq_lo = acq_mid
             else:
-                hi = mid
-        factor = lo
-        acq = min(CYR6_ACQ_TARGET_TOKENS, int(CYR6_ACQ_MIN_TOKENS * factor))
-        fork = min(CYR6_FORK_TARGET_TOKENS, int(CYR6_FORK_MIN_TOKENS * factor))
-        predicted = estimate_wall_seconds(
+                acq_hi = acq_mid - 1
+        fork_lo, fork_hi = CYR6_FORK_MIN_TOKENS, CYR6_FORK_TARGET_TOKENS
+        for _ in range(24):
+            fork_mid = (fork_lo + fork_hi + 1) // 2
+            stage = estimate_stage_seconds(
+                training_tokens_per_sec=train_tps, eval_examples_per_sec=eval_eps,
+                acquisition_tokens=acq_lo, continuation_tokens=fork_mid)
+            science = (CYR6_WALL_HARD_MINUTES - CYR6_PACKAGING_RESERVE_MINUTES) * 60.0
+            continuation_window = science * (
+                CYR6_CONTINUATION_STAGE_END_FRACTION - CYR6_ACQUISITION_STAGE_FRACTION)
+            if stage["continuation"] <= continuation_window:
+                fork_lo = fork_mid
+            else:
+                fork_hi = fork_mid - 1
+        acq, fork = int(acq_lo), int(fork_lo)
+        predicted_stage = estimate_stage_seconds(
             training_tokens_per_sec=train_tps, eval_examples_per_sec=eval_eps,
             acquisition_tokens=acq, continuation_tokens=fork)
-        return {
+        predicted = sum(predicted_stage.values()) + CYR6_PACKAGING_RESERVE_MINUTES * 60.0
+        resolved = {
             "schema": "anra-cyr-gpu006-resolved/v1", "mode": "full",
             "proxy": name, "parents": 3,
             "target_actual_tokens_acquisition": acq,
@@ -148,14 +214,18 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
             "transfer_target_actual_tokens": CYR6_TRANSFER_TOKENS,
             "wall_budget_minutes": CYR6_WALL_HARD_MINUTES,
             "predicted_wall_seconds": round(predicted, 1),
+            "predicted_stage_seconds": {
+                key: round(value, 1) for key, value in predicted_stage.items()},
             "calibration_proxy": name,
             "training_real_tokens_per_sec": train_tps,
             "generation_examples_per_sec": eval_eps,
-            "rule": "hardware-only; accuracy/loss forbidden",
+            "rule": "hardware-only; accuracy/loss forbidden; stage-window aware",
         }
+        validate_resolved(resolved)
+        return resolved
     raise ValueError(
         "no calibrated proxy affords 3 parents + 4 matched forks at the "
-        "preregistered minimum dose inside the wall budget")
+        "preregistered minimum dose inside every frozen stage window")
 
 
 def _valid_parent(parent: Mapping[str, Any]) -> tuple[bool, list[str]]:
@@ -240,7 +310,8 @@ def decide_campaign(parent_runs: list[Mapping[str, Any]], *,
                               for arm, values in scores.items()},
         "pairwise": pairwise,
         "minimum_mean_margin": CYR6_MIN_RET90_MEAN_MARGIN,
-        "promotion_candidate": bool(supported and transfer_ok),
+        "development_candidate_for_postrun_audit": bool(supported and transfer_ok),
+        "production_promotion_authorized": False,
         "transfer": transfer,
         "rejected": rejected,
     }
