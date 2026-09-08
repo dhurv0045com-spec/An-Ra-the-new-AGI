@@ -44,27 +44,28 @@
         "tests/test_v5_durability_contracts.py",
         "tests/test_v5_training_equivalence.py"
       ],
-      "passed": 212,
+      "passed": 213,
       "skipped": 2
     },
     {
-      "command": "entry suite main(), throttled CPU 6 threads",
+      "command": "entry suite main(), throttled CPU 6 threads, excluding self-hosting exact-head gate (no receipt yet)",
       "device": "cpu",
       "failed": 0,
       "files": [
         "tests/test_production_entry.py"
       ],
+      "note": "test_exact_head_test_receipt fails by design pre-receipt; v4 records it green once the receipt exists",
       "passed": 49,
       "skipped": 0
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "d152f7cdd44ce4b241172db72250b985673f94e68277e538706a2a86af31604c",
-  "tested_commit_sha": "79999c9ad5edade56f5c992142c72c2da64f0e54",
-  "timestamp_utc": "2026-09-07T23:43:51Z",
+  "sha256": "cd4822a4c2bf74682e6c1f77ad25cec9f58a8abbbc52b0527cf6561355e7e466",
+  "tested_commit_sha": "57718e178012cf7018c8be00dd918977f6594a94",
+  "timestamp_utc": "2026-09-08T10:15:26Z",
   "totals": {
     "failed": 0,
-    "passed": 261,
+    "passed": 262,
     "skipped": 2
   }
 }
