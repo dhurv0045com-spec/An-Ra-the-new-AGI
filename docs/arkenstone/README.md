@@ -8,38 +8,40 @@ of known ideas; a laboratory for what remains unknown.
 - **Base:** `origin/cymek` at `28bf57a0d299a2c13a99fe0046616c00a1b8530c`.
 - **Central question:** what causes An-Ra to acquire, preserve, recover, and transfer exact symbolic computation rather than merely lowering token-prediction loss?
 - **Transition evidence:** the T2 memorize -> delayed structural-OOD transition is replicated; memorization timing does not explain G90 timing.
-- **ARK-004A-R correction:** the claimed column-selectivity precursor was directionally inverted and is retained only as a transition marker; ARK-004B was cancelled.
-- **Current retention evidence:** ARK-007R replicated a strong post-G90 low-LR protection effect on three fresh Micro T2 checkpoints under matched future minibatches: HIGH `1e-3` collapse90 9/12 vs LOW `1e-5` 0/12.
-- **Current recovery evidence:** ARK-010 shows immediate low LR is usually poor after an instability event: continued HIGH recovered sustained G90 8/9 vs LOW 2/9.
-- **Current experiment:** ARK-011 is **PREREGISTERED / NOT EXECUTED**. It tests the state-dependent controller hypothesis HIGH acquire/recover -> LOW retain using fresh seeds, an exact recovery-checkpoint fork, matched future minibatches, and a new `OOD_CONTROL` / `OOD_SEALED` firewall so sealed evaluation cannot drive the optimizer controller.
-- **Transfer status:** NOT DEMONSTRATED. ARK-009 reached ordinary fact-set-disjoint held-out exact 1.0 on both seeds but failed a stricter composite query/order diagnostic; no retention-transfer forks ran. The diagnostic itself must be orthogonalized before retry.
-- **Core promotion:** NOT JUSTIFIED. Micro T2 replication is not enough; transfer, plasticity-cost, and scale gates remain open.
+- **ARK-004A-R correction:** the claimed column-selectivity precursor was directionally inverted and is retained only as a transition marker.
+- **Same-task retention evidence:** ARK-007R replicated strong LOW-LR protection on three fresh Micro T2 checkpoints: HIGH `1e-3` collapse90 9/12 vs LOW `1e-5` 0/12.
+- **Recovery evidence:** ARK-010 found HIGH reacquisition 8/9 vs immediate LOW 2/9 after instability.
+- **Adaptive controller evidence:** ARK-011 directly supports HIGH-recover -> LOW-retain on Micro T2: 6 sealed-qualified recovery forks across 3 fresh acquisitions, HIGH recurrent instability 3/6 vs SWITCH_LOW 0/6, risk difference -0.50.
+- **Threshold status:** ARK-012 does not identify an exact switch threshold; 0.85/0.90 performed best in a two-source selected screen but threshold timings alias at the 200-step evaluation cadence.
+- **Plasticity boundary:** ARK-013 is inconclusive for new-skill acquisition because T3CARRY never reached G90 under HIGH. It does show LOW LR alone is not enough to preserve old T2 during 12k no-replay T3-only updates.
+- **Non-arithmetic acquisition:** ARK-014 repairs ARK-009's order brittleness using deterministic order augmentation. The qualified augmented subject reached sealed ORDER_ONLY/QUERY_ORDER ~0.987 at fork. **LR-retention transfer remains NOT DEMONSTRATED** because HIGH and LOW both had 0/3 retention failures.
+- **Core promotion:** NOT JUSTIFIED. Transfer, plasticity and scale gates remain open.
 
-## Current execution target
+## Latest validated campaign — Discovery V6
 
-ARK-011 artifacts:
+See:
+- `experiments/COLAB/results/v6/DISCOVERY_V6_VALIDATED.md`
+- `experiments/COLAB/results/v6/RECEIPT_AUDIT.json`
+- `experiments/ARK-011/`
+- `experiments/ARK-012/`
+- `experiments/ARK-013/`
+- `experiments/ARK-014/`
 
-- `experiments/ARK-011/PLAN.md`
-- `experiments/ARK-011/PREEXECUTION_ADDENDUM.md`
-- `experiments/ARK-011/PREEXECUTION_AUDIT.md`
-- `experiments/ARK-011/run_ark011.py`
-- `experiments/COLAB/arkenstone_ark011.ipynb`
+Imported Colab bundle SHA256:
+`1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15`
 
-The scientific plan was committed before runner implementation. The Colab launcher pins the exact runner commit and requires a CUDA smoke test before long training.
+The campaign reported 179.09 minutes on CUDA / torch `2.11.0+cu128`. GPU smoke passed, no failure receipt was present, and **14/14 uploaded JSON receipt hashes independently revalidated**. Internal ARK-013/014 task-manifest hashes and the ARK-011 CONTROL/SEALED assignment hash also matched.
 
 ## Cymek boundary
 
-See `CYMEK_500M_ALIGNMENT.md`. Arkenstone inspected `cymek` and `cymek-500m-readiness` read-only. The newer readiness branch materially strengthens production/resume/mixture/evaluation-boundary engineering but does not contain a 500M cognition result. Arkenstone may borrow discipline; it does not modify Cymek's production scheduler without transfer and promotion evidence.
+See `CYMEK_500M_ALIGNMENT.md`. Arkenstone may borrow engineering discipline from `cymek-500m-readiness`, but the Discovery V6 results do not authorize a Cymek production scheduler change. Cymek remains the production substrate; Arkenstone remains the discovery lab.
 
-## Latest validated campaign
+## Current bottlenecks
 
-See `MASTER_GPU_V5_RESULTS.md` and:
-- `experiments/ARK-007R/`
-- `experiments/ARK-009/`
-- `experiments/ARK-010/`
-- `experiments/COLAB/results/v5/`
-
-The imported Colab bundle was SHA256-bound and all 9 JSON receipt hashes were independently revalidated before the summaries were committed.
+1. Replicate the adaptive HIGH->LOW effect outside the canonical T2 domain.
+2. Create a non-arithmetic retention regime with genuine event rate; ARK-014 acquisition is now robust but its continuation was too stable to test HIGH vs LOW.
+3. Establish a reliably acquirable second skill before repeating the stability-plasticity Pareto experiment.
+4. Only after transfer + plasticity evidence should any scaled/Cymek integration experiment be proposed.
 
 ## Progress tracking
 
