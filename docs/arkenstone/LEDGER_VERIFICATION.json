@@ -1,13 +1,13 @@
 {
   "schema": "arkenstone-ledger-verification/v2",
-  "stamped_at_commit": "986ddea02082d92e33f877f7d30684b9dd345d4b",
+  "stamped_at_commit": "fc3e689d78e5a0039fe4e5dcfe84eafbbd4b8273",
   "governed_file_hashes": {
-    "docs/arkenstone/EXPERIMENT_LOG.md": "b39a2ff1f26e21f6f24cbd6b26f951178f71ffdd1c7079e2de83e9d5a7e99c5d",
-    "docs/arkenstone/MECHANISM_TOURNAMENT.md": "0933f5d59b1bf20dec8819186702c2e68d6baa088c940dee6d88285098fcddc1",
-    "docs/arkenstone/NEGATIVE_RESULTS.md": "753ee7688dfb11e3c90ca249933002887ca35847cf4a747e454e8a9d12daae2c",
-    "docs/arkenstone/AGI_FEATURE_LEDGER.md": "40fafde575cae5c9481970aa2916cef53639023ce7781bb2de25aa5eb4d1b8bb",
-    "docs/arkenstone/NOVELTY_REGISTER.md": "4d4b6f13c0244a2ae5a3150e52fde5a590bbc7f5f20f3f1b8781355b5d578607",
-    "docs/arkenstone/README.md": "6a59b5cf5a71b2d7c0cbcb69de5b726d8803ec3b221741e965fa84e0c92ae107"
+    "docs/arkenstone/EXPERIMENT_LOG.md": "33a30bd9f61a13439f69e695e8d67ec95612429c3750d04385c466e77adc7766",
+    "docs/arkenstone/MECHANISM_TOURNAMENT.md": "ad978667f2db21bf34a9814f7b8cb72c8aae8ea57f8e74f06adb1bcbb9a6f755",
+    "docs/arkenstone/NEGATIVE_RESULTS.md": "d86ce4836e013411e9f79ba884427da90e885528c232e42cbc948ba8ce5f87dc",
+    "docs/arkenstone/AGI_FEATURE_LEDGER.md": "770f2f35fd837226c4e7efb6f5dfe23b443591ddffaa548ba1f884f2b16d11ee",
+    "docs/arkenstone/NOVELTY_REGISTER.md": "1401e0f38f4f99901c44991495f5d370cef6b22d6060990b12caccc4aa19aaa0",
+    "docs/arkenstone/README.md": "5aad1e22feb09c560a5648f1c11c612e9a114cd7251d810d8b3b753a42ece4ca"
   },
   "receipt_checks": [
     {
@@ -141,14 +141,152 @@
       "scheme": null
     },
     {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-006\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-007R\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-009\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-010\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-011\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-012\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-013\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-014\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
       "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\BINDING-V2-REDTEAM\\RECEIPT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\colab_results\\ARK-006_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\colab_results\\ARK-007_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\colab_results\\PROGRAM_SUMMARY.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-001_T1-COMPACT_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-001_T2-COMPACT_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-002B_seed29_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-002B_seed47_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-003_A_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-003_B_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-003_C_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-003_D_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-004A_seed101_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-004A_seed202_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-005_seed505_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\ARK-005_seed606_RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\PROGRAM_SUMMARY.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\v5\\PROGRAM_SUMMARY.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\v5\\SMOKE_TEST.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\v6\\RECEIPT_AUDIT.json",
       "status": "NO_SELF_HASH",
       "scheme": null
     }
   ],
   "drifted_since_last_check": [
+    "docs/arkenstone/EXPERIMENT_LOG.md",
+    "docs/arkenstone/MECHANISM_TOURNAMENT.md",
     "docs/arkenstone/NEGATIVE_RESULTS.md",
     "docs/arkenstone/AGI_FEATURE_LEDGER.md",
+    "docs/arkenstone/NOVELTY_REGISTER.md",
     "docs/arkenstone/README.md"
   ],
   "problems": [],

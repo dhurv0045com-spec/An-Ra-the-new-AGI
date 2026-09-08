@@ -62,3 +62,7 @@ Loss is a diagnostic, never proof of cognition. Execution artifacts beat prose.
 Failures are preserved. Reproductions are labeled reproductions. Every claim gets
 a novelty class. Historical preregistration/receipts are immutable. Branch isolation
 is absolute.
+
+---
+
+stamped-at-commit: fc3e689d78e5a0039fe4e5dcfe84eafbbd4b8273
