@@ -1,0 +1,47 @@
+{
+  "experiment_id": "ARK-011",
+  "import_kind": "validated_summary_of_discovery_v6_receipt",
+  "source_bundle": {
+    "filename": "ARKENSTONE_DISCOVERY_V6_RESULTS.zip",
+    "sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+    "size_bytes": 162312
+  },
+  "source_receipt_sha256": "0b677b7ab07d0064466c6080d6ae5c876956341bd5f787d7a07f0b5d33be4558",
+  "plan_commit_sha": "1d5fc08000614e740b7c93d87e8d233c903bcddf",
+  "runner_commit_sha": "2238f5519c3225f44010e74ba6d1af9f31d8524f",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "program_runtime_minutes": 55.73055014212926,
+  "canonical_t2_split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+  "control_sealed_assignment_sha256": "43a06daa118a3f856b50ba304817a319a7928257faacfbc626af99537aebd713",
+  "acquisitions": [
+    {"seed": 1313, "g90_onset": 12600, "g90_confirm": 13000},
+    {"seed": 1414, "g90_onset": 10600, "g90_confirm": 11000},
+    {"seed": 1515, "g90_onset": 16400, "g90_confirm": 16800}
+  ],
+  "event_status_counts": {
+    "FORK_EXECUTED": 6,
+    "NO_CONTROL_RECOVERY": 4,
+    "NO_CONTROL_COLLAPSE": 2
+  },
+  "primary": {
+    "sealed_qualified_forks": 6,
+    "independent_acquisition_seeds": 3,
+    "high_recollapses": 3,
+    "switch_low_recollapses": 0,
+    "risk_difference_low_minus_high": -0.5,
+    "high_recollapse_low_stable": 3,
+    "high_stable_low_recollapse": 0,
+    "by_acquisition_seed": {
+      "1313": {"n": 3, "high_recollapses": 2, "low_recollapses": 0},
+      "1414": {"n": 2, "high_recollapses": 1, "low_recollapses": 0},
+      "1515": {"n": 1, "high_recollapses": 0, "low_recollapses": 0}
+    }
+  },
+  "sealed_means_over_six_forks": {
+    "HIGH_CONTINUE": {"RET90": 0.8555555555555556, "AREA": 0.957936507936508, "FINAL": 0.9710884353741497},
+    "SWITCH_LOW": {"RET90": 1.0, "AREA": 0.9965986394557823, "FINAL": 0.9965986394557823}
+  },
+  "verdict": "SUPPORTED_ADAPTIVE_PROTECTION",
+  "claim_level": "DEMONSTRATED_MICRO_T2_STATE_CONDITIONAL_LR_PROTECTION"
+}
