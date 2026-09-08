@@ -1,0 +1,106 @@
+{
+  "arms": {
+    "lr": [
+      "high_continue",
+      "fixed_time",
+      "state_triggered",
+      "hysteretic",
+      "mid"
+    ],
+    "sampler": [
+      "paired",
+      "shuffled"
+    ]
+  },
+  "budget_rule": "resolve_proxy throughput/VRAM table only",
+  "code_sha256": {
+    "anra_v5/cyr_execute.py": "61650a6b890e12918d49bea03b3c70539167b517c93c9a8c46ace5d83ebef38f",
+    "docs/cymek/experiments/CYR-GPU-001/PLAN.md": "cf8daff8ab8200082279b5c72d8dc28aebdb84cf427c7dfacf7360aea1b42821",
+    "docs/cymek/experiments/CYR-GPU-001/THREATS.md": "795bfa8a2f54b87fdee56a924d4c03a4176ae0e1088d8e5d6233425baf5a92da",
+    "notebooks/cymek_colab_gpu_research.ipynb": "9cc2b587cb00362e6ab58631214859294a4e75d163cbee09f91ec2d4ffda048c",
+    "v5_experiments/cyr_tournament.py": "a968dcc93c06908d1bb5b33f1b55e8a9c052b02cc2699bd827dcbe64ea5f61bc"
+  },
+  "controller": {
+    "confirmations": 3,
+    "enter_retention": 0.9,
+    "reenter_gap": 0.15
+  },
+  "cymek_head_sha": "25ce413f15138985cf7cbc2673fcdb03d2d01cdd",
+  "eval_every_updates": 10,
+  "experiment_id": "CYR-GPU-001",
+  "fixed_switch_fraction": 0.5,
+  "max_runtime_min": 180,
+  "metrics": [
+    "exact",
+    "both_correct",
+    "factorial_variants",
+    "blind_gap",
+    "loss",
+    "displacement_norm",
+    "grad_norms",
+    "stop_histogram"
+  ],
+  "microbatch_rows": 8,
+  "min_runtime_min": 60,
+  "proxy_ladder": {
+    "MICRO": {
+      "context_length": 512,
+      "ffn_width": 512,
+      "head_dimension": 64,
+      "kv_heads": 2,
+      "layers": 4,
+      "purpose": "fast arms",
+      "query_heads": 4,
+      "width": 256
+    },
+    "MIDI": {
+      "context_length": 512,
+      "ffn_width": 1024,
+      "head_dimension": 64,
+      "kv_heads": 3,
+      "layers": 8,
+      "purpose": "main tournament",
+      "query_heads": 6,
+      "width": 384
+    },
+    "P35": {
+      "context_length": 512,
+      "ffn_width": 1024,
+      "head_dimension": 64,
+      "kv_heads": 3,
+      "layers": 16,
+      "purpose": "scale transfer only",
+      "query_heads": 6,
+      "width": 384
+    },
+    "TINY": {
+      "context_length": 512,
+      "ffn_width": 128,
+      "head_dimension": 16,
+      "kv_heads": 2,
+      "layers": 2,
+      "purpose": "smoke only",
+      "query_heads": 4,
+      "width": 64
+    }
+  },
+  "row_content_tokens": 300,
+  "schema": "anra-cyr-preregistration/v1",
+  "seeds": [
+    101,
+    202
+  ],
+  "sha256": "95c6b7a97cd86d0feceaf95f9ada7a2db9615edcdb506ce22bc5facc670c161d",
+  "split_seeds": {
+    "dev_controller": 2002,
+    "dev_measurement": 3003,
+    "sealed_reserved": 4004,
+    "train": 1001
+  },
+  "success_gates": {
+    "learnability": "sustained train-exact >= 0.99",
+    "pair_gap": ">=0.10 both seeds + clean redteam"
+  },
+  "sustained_required": 3,
+  "tokenizer_artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc"
+}
