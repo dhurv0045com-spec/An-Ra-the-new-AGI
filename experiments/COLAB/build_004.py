@@ -1,0 +1,71 @@
+"""Builds the CYR-GPU-004 Colab notebook."""
+import json
+
+cells = []
+
+cells.append({"cell_type": "markdown", "metadata": {}, "source": [
+    "# CYR-GPU-004 - LR-retention test using REAL Cymek V5\n",
+    "\n",
+    "**Runtime: T4 GPU (NOT TPU, NOT CPU)**\n",
+    "\n",
+    "Runtime -> Change runtime type -> **T4 GPU** -> Run all -> ~2-3 hours -> auto-download\n",
+]})
+
+cells.append({"cell_type": "code", "metadata": {}, "source": [
+    "# CELL 0: SETUP\n",
+    "import subprocess, sys\n",
+    "subprocess.run(['git', 'clone', '--branch', 'cymek-500m-readiness',\n",
+    "    'https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git',\n",
+    "    '/content/repo'], check=True)\n",
+    "subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'tokenizers'], check=True)\n",
+    "import os; os.chdir('/content/repo')\n",
+    "import torch\n",
+    "assert torch.cuda.is_available(), 'CYR-GPU-004 requires GPU'\n",
+    "print('GPU:', torch.cuda.get_device_name(0))\n",
+    "print('torch:', torch.__version__)\n"
+], "outputs": [], "execution_count": None})
+
+cells.append({"cell_type": "code", "metadata": {}, "source": [
+    "# CELL 1: RUN EXPERIMENT (4 arms: 2 seeds x 2 LR)\n",
+    "import subprocess, sys\n",
+    "for seed, lr, label in [(707, 0.001, 'HIGH'), (707, 1e-05, 'LOW'),\n",
+    "                         (808, 0.001, 'HIGH'), (808, 1e-05, 'LOW')]:\n",
+    "    out = 'experiments/ARK-007/CYR_GPU_004_seed{}_lr{}_RESULT.json'.format(seed, lr)\n",
+    "    print('\\n=== seed {} lr {} ({}) ==='.format(seed, lr, label), flush=True)\n",
+    "    subprocess.run([sys.executable, '-u', 'experiments/ARK-007/run_v4.py',\n",
+    "        '--seed', str(seed), '--lr', str(lr),\n",
+    "        '--acq-steps', '16000', '--post-steps', '8000',\n",
+    "        '--device', 'cuda', '--out', out], check=True)\n",
+    "print('\\nALL ARMS COMPLETE')\n"
+], "outputs": [], "execution_count": None})
+
+cells.append({"cell_type": "code", "metadata": {}, "source": [
+    "# CELL 2: SUMMARY + DOWNLOAD\n",
+    "import json, glob, os\n",
+    "all_r = {}\n",
+    "for f in sorted(glob.glob('experiments/ARK-007/CYR_GPU_004_*RESULT*.json')):\n",
+    "    r = json.load(open(f, encoding='utf-8'))\n",
+    "    all_r[os.path.basename(f)] = r\n",
+    "print(json.dumps(all_r, indent=1, default=str))\n",
+    "try:\n",
+    "    from google.colab import files\n",
+    "    import shutil\n",
+    "    shutil.make_archive('/content/CYR-GPU-004_RESULTS', 'zip', 'experiments/ARK-007')\n",
+    "    files.download('/content/CYR-GPU-004_RESULTS.zip')\n",
+    "except Exception as exc:\n",
+    "    print('manual download from experiments/ARK-007/:', exc)\n"
+], "outputs": [], "execution_count": None})
+
+notebook = {"nbformat": 4, "nbformat_minor": 5,
+            "metadata": {"colab": {"provenance": [], "name": "CYR-GPU-004.ipynb"},
+                         "kernelspec": {"name": "python3", "display_name": "Python 3"},
+                         "language_info": {"name": "python"}, "accelerator": "GPU"},
+            "cells": cells}
+
+with open("notebooks/CYR-GPU-004.ipynb", "w", encoding="utf-8") as f:
+    json.dump(notebook, f, indent=1)
+parsed = json.load(open("notebooks/CYR-GPU-004.ipynb", encoding="utf-8"))
+for cell in parsed["cells"]:
+    if cell["cell_type"] == "code":
+        compile("".join(cell["source"]), "cell", "exec")
+print("notebook written: notebooks/CYR-GPU-004.ipynb | cells:", len(parsed["cells"]), "| all compile")

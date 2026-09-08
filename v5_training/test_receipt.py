@@ -3,9 +3,12 @@
 A receipt records what ran (commands, files, pass/fail/skip, device,
 environment, timestamp) against ``tested_commit_sha``. Verification is
 exact: the working tree at verify time must differ from the tested commit
-in NO tracked file except the receipt artifact itself. Any executable change
-after generation makes the receipt stale by construction — re-run and
-regenerate, never hand-edit counts.
+in NO tracked file except test-receipt artifacts themselves (any
+``artifacts/v5/*_test_receipt.json`` — receipts are evidence, not
+executable code, and multiple experiments may add receipts between the
+tested commit and HEAD). Any executable change after generation makes
+the receipt stale by construction — re-run and regenerate, never
+hand-edit counts.
 """
 
 from __future__ import annotations
@@ -80,12 +83,19 @@ def read_receipt(path: str | Path) -> dict[str, object]:
     return document
 
 
+def _is_receipt_artifact(line: str) -> bool:
+    normalized = line.split()[-1].replace("\\", "/") if line.strip() else line
+    return normalized.startswith("artifacts/v5/") \
+        and normalized.endswith("_test_receipt.json")
+
+
 def verify_receipt(path: str | Path, *, repo_root: str | Path,
                    receipt_relpath: str) -> dict[str, object]:
     """Prove the receipt describes the current tree exactly.
 
     Passes iff the receipt hash is intact AND the working tree differs from
-    the tested commit only in the receipt artifact itself. Anything else —
+    the tested commit only in test-receipt artifacts (its own by name, any
+    sibling ``artifacts/v5/*_test_receipt.json`` by kind). Anything else —
     any code, test, or config change — reports STALE.
     """
 
@@ -96,14 +106,15 @@ def verify_receipt(path: str | Path, *, repo_root: str | Path,
         changed = _git(Path(repo_root), "diff", "--name-only", tested, "HEAD").splitlines()
         changed.extend(_git(Path(repo_root), "status", "--porcelain").splitlines())
         changed = sorted({line.split()[-1].replace("\\", "/") for line in changed if line.strip()})
-        nontrivial = [line for line in changed if line != receipt_relpath]
+        nontrivial = [line for line in changed
+                      if line != receipt_relpath and not _is_receipt_artifact(line)]
         if nontrivial:
             raise ValueError(
                 f"test receipt is STALE: tested {tested[:8]}, HEAD {head[:8]}, "
                 f"code changed: {nontrivial[:5]}")
     uncommitted = [line for line in
                    _git(Path(repo_root), "status", "--porcelain").splitlines()
-                   if line.strip() and line.split()[-1].replace("\\", "/") != receipt_relpath]
+                   if line.strip() and not _is_receipt_artifact(line)]
     if uncommitted:
         raise ValueError(
             f"test receipt is STALE: uncommitted changes: {uncommitted[:5]}")

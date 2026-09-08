@@ -915,8 +915,12 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             rank_rows: list[int] = []
             # SPMD-correct sharding: every rank runs this same program over
             # the same windows, but accumulates ONLY its own rank shard with
-            # the GLOBAL denominator; the SUM collective reunites the exact
-            # global mean before the single clip/step. Ledgers are identical
+            # the GLOBAL denominator. The ONE SUM collective happens once at
+            # the accumulation boundary (after the final microstep below),
+            # reuniting the exact global mean before the single clip/step;
+            # reducing inside the microstep loop would all-reduce the
+            # ACCUMULATED buffer repeatedly and multiply early microstep
+            # gradients by powers of the replica count. Ledgers are identical
             # on all ranks, so training states cannot diverge. Correct under
             # the frozen dropout-free contract (no rank RNG is consumed in
             # the compute path); any stochastic op would need rank-aware RNG
@@ -937,8 +941,6 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                     tokens_by_source=dict(window.tokens_by_source),
                     planned_total=eligible_total)
                 rank_rows.append(len(group))
-            if xla_adapter is not None:
-                xla_adapter.all_reduce_sum_gradients(backend.model)
             rows = len(window.tokens)
             shape_receipt = certify_microstep_shape(
                 bucket=bucket, sequences_global=rows, replicas=replicas,
@@ -950,6 +952,14 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                 "execution": "xla-sharded" if xla_adapter is not None else "local-global",
                 "executing_rank_rows": list(rank_rows),
                 "physical": shape_receipt})
+        if xla_adapter is not None:
+            # Accumulation boundary: ONE gradient SUM collective for the
+            # whole logical update, after every microstep has contributed
+            # locally. finish_update then applies the ONE global clip and
+            # the ONE optimizer step. Reducing earlier (per microstep)
+            # would re-reduce already-accumulated gradients and scale
+            # microstep i's contribution by replicas**(microsteps - i).
+            xla_adapter.all_reduce_sum_gradients(backend.model)
         end_cursor = BucketCursorState(
             BUCKET_CURSOR_SCHEMA, data["pack_manifest_sha256"],
             lanes_receipt["lanes_sha256"],
