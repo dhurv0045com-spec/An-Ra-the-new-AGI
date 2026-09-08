@@ -39,7 +39,7 @@
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "f274a0169bfce92db075b21c754e84983a3f4692fb69d99b5c4448a4d3b17850",
+  "sha256": "3128b931bcbc025957c6e88953df0778c4b216fe0b72cd2360d803a767ee3bed",
   "tested_commit_sha": "be3a0af25468cef6612aeaee81cc02de4b4977d0",
   "timestamp_utc": "2026-09-08T20:20:13Z",
   "totals": {
