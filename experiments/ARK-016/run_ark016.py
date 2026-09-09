@@ -31,11 +31,11 @@ FORK_STEPS = 6000
 EVAL_EVERY = 200
 
 
-def sealed_recollapse_metrics(trajectory: list[dict]) -> dict:
+def sealed_recollapse_metrics(trajectory: list[dict], key: str = "sealed_exact") -> dict:
     if not trajectory:
         return {"status": "EMPTY"}
-    vals = [float(x["sealed_exact"]) for x in trajectory]
-    evals = [(int(x["step"]), 1.0 if float(x["sealed_exact"]) < 0.90 else 0.0) for x in trajectory]
+    vals = [float(x[key]) for x in trajectory]
+    evals = [(int(x["step"]), 1.0 if float(x[key]) < 0.90 else 0.0) for x in trajectory]
     onset, confirm = _detect_boolean_streak(evals)
     return {
         "RET90": sum(v >= 0.90 for v in vals) / len(vals),
@@ -157,7 +157,8 @@ def run_post_recovery_arm(
         "cap_fired_fraction": cap_fires / FORK_STEPS,
         "cap_multiplier": cap_multiplier,
         "final_parameter_sha256": parameter_sha(model),
-        "sealed_retention": sealed_recollapse_metrics(trajectory),
+        "control_retention": sealed_recollapse_metrics(trajectory, "control_exact"),
+        "sealed_retention": sealed_recollapse_metrics(trajectory, "sealed_exact"),
         "trajectory": trajectory,
     }
     if record_delta_trace:
@@ -296,6 +297,12 @@ def summarize(results: list[dict]) -> dict:
     }
 
 
+def evaluate_snapshot(ark11, snapshot: dict, rows) -> float:
+    vocab, model, _ = ark11.load_fork(snapshot, 1e-3)
+    exact, _ = ark11.greedy_exact(model, vocab, rows, ark11.dev())
+    return float(exact)
+
+
 def run_campaign(ctx: RunContext) -> dict:
     writer = ReceiptWriter(ctx, experiment_id="ARK-016", plan_sha=ARK016_PLAN_SHA, runner_path=RUNNER_PATH)
     ark11 = load_ark11()
@@ -312,18 +319,22 @@ def run_campaign(ctx: RunContext) -> dict:
         "control_sealed_split": split_manifest,
     })
 
-    acquisitions = []
-    results = []
+    acquisitions: list[dict] = []
+    runtime_acq: dict[int, dict] = {}
+    results: list[dict] = []
     cap_traces: dict[str, dict] = {}
 
+    # Acquire every fresh parent first so later event work is breadth-first across
+    # independent parents rather than exhausting the budget on one seed.
     for seed in ACQ_SEEDS:
-        if ctx.minutes_left < 28:
+        if ctx.minutes_left < 22:
             acquisitions.append({"seed": seed, "status": "BUDGET_BLOCKED"})
             writer.save("ARK-016_PARTIAL.json", {"acquisitions": acquisitions, "results": results})
             continue
-
         print(f"\n=== ARK-016 acquire T2 seed={seed} ===", flush=True)
         acq = ark11.acquire(seed, train, control)
+        if acq["status"] == "ACQUIRED":
+            runtime_acq[seed] = acq
         acquisitions.append({
             "seed": seed,
             "status": acq["status"],
@@ -332,10 +343,14 @@ def run_campaign(ctx: RunContext) -> dict:
             "supervised_tokens": acq.get("supervised_tokens"),
         })
         writer.save("ARK-016_PARTIAL.json", {"acquisitions": acquisitions, "results": results})
-        if acq["status"] != "ACQUIRED":
-            continue
 
-        for order_seed in CONT_SEEDS:
+    # Breadth-first continuation orders preserve acquisition-seed diversity under
+    # a finite Colab budget. A started recovery fork always completes all four arms.
+    for order_seed in CONT_SEEDS:
+        for seed in ACQ_SEEDS:
+            acq = runtime_acq.get(seed)
+            if acq is None:
+                continue
             if ctx.minutes_left < 20:
                 results.append({
                     "acquisition_seed": seed,
