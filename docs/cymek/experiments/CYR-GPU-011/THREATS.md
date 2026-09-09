@@ -15,7 +15,7 @@ Cymek retains V5 GQA/QK norm, initialization, optimizer grouping, backend and CU
 COMPACT→PRODUCTION changes tokenization/vocabulary and embedding/output parameter burden. The causal objective and V5 geometry remain Cymek-native in both stages. A compact-positive/production-negative result therefore implicates the production representation burden broadly, not vocabulary size alone.
 
 ### Evaluation-set adaptation
-DEV_CONTROLLER is used for transition control. To limit control-set overfit, final qualified G90 additionally requires >=.90 on the larger DEV_MEASUREMENT STANDARD set. SEALED_RESERVED never controls optimization or stage selection.
+DEV_CONTROLLER is used for transition timing. To limit control-set overfit, qualified G90 additionally requires >=.90 on the larger DEV_MEASUREMENT STANDARD set. Controller confirmation alone is not an early-stop authority; the bridge continues until measurement support arrives or the exposure/wall bound is reached. SEALED_RESERVED never controls optimization or stage selection.
 
 ### Structural diagnostics are not broad reasoning
 COMMUTED, LOCALITY, CARRY, TRIPLE_ADD, THREE_DIGIT and VERBAL probe narrow controlled transformations. They may reveal structural transfer or brittleness, but do not establish general reasoning, language understanding or AGI.
@@ -32,8 +32,11 @@ Addition is mathematically commutative. COMMUTED performance measures invariance
 ### Locality metric usability
 Counterfactual relation consistency is meaningful only when both generated answers are numeric. V11 reports numeric-usable fraction alongside relation consistency so nonnumeric outputs cannot silently inflate the metric.
 
-### Early stopping on G90
-A stage stops after sustained controller G90, so different subjects can receive different final exposure. G90 timing is itself an endpoint; comparisons must use exposure-at-G90 and final measurement support rather than raw final exposure alone.
+### Early stopping changes exposure
+A stage may stop at qualified G90, so different subjects can receive different final exposure. Controller confirmation and qualification exposure are both receipted. Comparisons must use exposure-at-qualified-G90 and actual final exposure rather than raw update counts alone.
+
+### Decode-budget sensitivity
+Exact-with-EOS can depend on generation budget. V11 therefore fixes the controller, structural battery and final/sealed candidate-free generator to the same eight-new-token cap. This does not prove robustness to longer generation horizons; it removes a hidden within-experiment cap mismatch.
 
 ## Engineering threats
 
@@ -57,6 +60,15 @@ An earlier prefreeze attempt inserted an answer-prefix BOS to mimic Arkenstone, 
 
 ### Drive/runtime interruption
 The runner writes progress/checkpoints and packages failures, but CYR-GPU-011 is primarily a one-shot session rather than a fully transactional campaign resume system. A Colab termination can still truncate a stage. Drive evidence already written remains useful; any missing stage is incomplete, not negative evidence.
+
+### Checkpoint receipt versus tensor transport
+The returned ZIP carries checkpoint byte hashes and durable Drive paths, not duplicate model/optimizer tensors. Independent restoration therefore requires the Drive checkpoint directory. A missing tensor directory must not be treated as a restorable checkpoint merely because its hash receipt survives.
+
+### Prediction evidence size
+Only final controller/structural/sealed row-level predictions are retained in the bundle; dense periodic traces remain aggregate. This is intentional to keep the evidence bundle manageable while making final headline metrics independently re-scorable.
+
+### Readiness drift
+The notebook reads `PREREGISTRATION.json` and `RUN_READINESS.json` from branch HEAD before checking out the frozen executable. It then verifies the preregistered executable SHA and every bound blob. Any readiness/prereg mismatch fails before calibration.
 
 ### Bundle/receipt mismatch
 Cell 2 verifies the bundle SHA256 stored in `campaign_receipt.json`. Any mismatch blocks handoff.
