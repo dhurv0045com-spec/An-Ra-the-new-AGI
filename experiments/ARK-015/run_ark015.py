@@ -316,24 +316,31 @@ def run_campaign(ctx: RunContext) -> dict:
         )
     writer.save("ARK-015_TASK_MANIFEST.json", manifest)
 
-    acquisitions = []
-    results = []
+    acquisitions: list[dict] = []
+    runtime_acq: dict[int, dict] = {}
+    results: list[dict] = []
 
+    # Acquire all fresh subjects before expensive continuation triplets so a budget
+    # shortfall cannot silently turn a 3-seed design into a single-seed result.
     for seed in ACQ_SEEDS:
-        if ctx.minutes_left < 22:
+        if ctx.minutes_left < 18:
             acquisitions.append({"seed": seed, "status": "BUDGET_BLOCKED"})
             writer.save("ARK-015_PARTIAL.json", {"acquisitions": acquisitions, "results": results})
             continue
-
         print(f"\n=== ARK-015 robust acquisition seed={seed} ===", flush=True)
         acq = acquire_robust_binding(ark11, ark14, seed=seed, train_meta=train_meta, control=control, sealed=sealed)
-        acq_public = {k: v for k, v in acq.items() if k not in {"snapshot", "reference_flat"}}
-        acquisitions.append(acq_public)
+        if acq["status"] == "QUALIFIED":
+            runtime_acq[seed] = acq
+        acquisitions.append({k: v for k, v in acq.items() if k not in {"snapshot", "reference_flat"}})
         writer.save("ARK-015_PARTIAL.json", {"acquisitions": acquisitions, "results": results})
-        if acq["status"] != "QUALIFIED":
-            continue
 
-        for order_seed in CONT_SEEDS:
+    # Breadth-first orders: order 8801 is attempted for all qualified subjects before
+    # any subject receives 8802, preserving independent-seed coverage under budget.
+    for order_seed in CONT_SEEDS:
+        for seed in ACQ_SEEDS:
+            acq = runtime_acq.get(seed)
+            if acq is None:
+                continue
             if ctx.minutes_left < 18:
                 results.append({
                     "acquisition_seed": seed,
