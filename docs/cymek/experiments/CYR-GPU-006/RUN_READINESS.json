@@ -1,0 +1,78 @@
+{
+  "schema": "anra-cyr-gpu006-run-readiness/v1",
+  "experiment": "CYR-GPU-006",
+  "status": "READY_FOR_OPERATOR_COLAB_GPU_RUN",
+  "ready": true,
+  "ready_for_operator_colab_gpu_run": true,
+  "executable_sha": "125b25c19204cce1994deebbfc4957119f2ae31f",
+  "preregistration_commit": "ede8aec71f903e13061064742fcd0229ee093ce5",
+  "notebook": "notebooks/cymek_colab_gpu_research_v6.ipynb",
+  "result_bundle": "CYMEK_GPU_RESEARCH_V6_RESULTS.zip",
+  "conditions": {
+    "exact_cymek_v5_used": true,
+    "frozen_executable_hash_bound": true,
+    "production_tokenizer_24576_bound": true,
+    "rendered_data_manifest_bound": true,
+    "three_independent_acquisition_parents": true,
+    "g90_candidate_free_and_sustained": true,
+    "shared_parent_model_optimizer_equivalence": true,
+    "matched_future_minibatch_identity": true,
+    "actual_real_token_targeting": true,
+    "fixed_time_switch_in_actual_token_space": true,
+    "hysteretic_controller_observes_both_states": true,
+    "only_g90_confirmed_parents_can_enter_retention": true,
+    "replicated_retention_decision_requires_two_parents": true,
+    "equal_age_equal_exposure_transfer_sources": true,
+    "order_augmented_binding_transfer": true,
+    "transfer_requires_two_independent_parent_pairs": true,
+    "sealed_arithmetic_is_post_decision_only": true,
+    "hardware_only_resolver": true,
+    "candidate_free_generation_cost_in_calibration": true,
+    "full_mode_cuda_only": true,
+    "drive_backed_stage_durability": true,
+    "failure_bundle_is_preserved": true,
+    "timeboxed_or_incomplete_runs_cannot_promote": true,
+    "dedicated_cyr_preexecution_ci_pass": true,
+    "broader_cymek_substantive_suite_pass": true,
+    "xla_accumulation_boundary_repaired_locally": true,
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false
+  },
+  "evidence": {
+    "dedicated_cyr_ci": {
+      "run_id": 34333048587,
+      "result": "PASS",
+      "tests_passed": 25,
+      "tests_failed": 0,
+      "notebook_cells_compiled": "3/3"
+    },
+    "broader_cymek_ci": {
+      "run_id": 34333048641,
+      "raw_result": "522 passed, 1 skipped, 1 failed",
+      "substantive_result": "PASS",
+      "only_failure": "tests/test_production_entry.py::test_exact_head_test_receipt",
+      "failure_cause": "historical CYR-GPU-005 closure receipt still pointed at be3a0af; no model/training/CYR scientific test failed",
+      "repair": "refresh closure receipt against the final readiness tree in the following receipt-only commit; no executable or test file is changed by the repair"
+    },
+    "arkenstone_authority": {
+      "head_sha": "6acd9dcbdd28d00f387ffcd004253a813aca4b66",
+      "discovery_v6_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15"
+    },
+    "preregistration": "docs/cymek/experiments/CYR-GPU-006/PREREGISTRATION.json",
+    "cross_branch_audit": "docs/cymek/research/CROSS_BRANCH_EVIDENCE_AUDIT.md"
+  },
+  "claim_limits": [
+    "This authorizes only the operator-run Colab GPU development experiment.",
+    "A positive GPU result is development evidence, not TPU evidence.",
+    "No PRE500M, 500M training, production scheduler promotion, or 5B-corpus build is authorized by this readiness gate."
+  ],
+  "operator_sequence": [
+    "Select a Colab GPU runtime.",
+    "Run Cell 0 and require the exact message: CYR-GPU-006 PREEXECUTION GATE: PASS.",
+    "Only after that pass, run Cell 1 to completion or durable resume.",
+    "Run Cell 2 and return CYMEK_GPU_RESEARCH_V6_RESULTS.zip for post-run audit."
+  ],
+  "blockers": []
+}
