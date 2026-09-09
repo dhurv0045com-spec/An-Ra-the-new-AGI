@@ -1,0 +1,78 @@
+{
+  "schema": "anra-cyr-gpu008-run-readiness/v1",
+  "experiment": "CYR-GPU-008",
+  "status": "READY_FOR_OPERATOR_COLAB_GPU_RUN_AFTER_RECEIPT_ONLY_CLOSURE",
+  "ready_for_operator_colab_gpu_run": true,
+  "operator_release_requires_final_receipt_ci_pass": true,
+  "executable_sha": "504fe13e735e71baa3a01898f42930486067e5be",
+  "preregistration_commit_sha": "703a94114f34a6f9115d59f7b847722642378e61",
+  "preregistration_path": "docs/cymek/experiments/CYR-GPU-008/PREREGISTRATION.json",
+  "notebook_path": "notebooks/cymek_colab_gpu_research_v8.ipynb",
+  "expected_bundle": "CYMEK_GPU_RESEARCH_V8_RESULTS.zip",
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "arkenstone_audited_sha": "6acd9dcbdd28d00f387ffcd004253a813aca4b66",
+  "discovery_v6_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+  "preexecution": {
+    "dedicated_ci_run_id": 34340001642,
+    "dedicated_ci_result": "PASS",
+    "notebook_cells_compile": "3/3",
+    "deterministic_tests_passed": 22,
+    "deterministic_tests_failed": 0,
+    "full_cymek_ci_run_id_preclosure": 34340001662,
+    "full_cymek_raw": "533 passed, 1 skipped, 40 subtests passed; only failure was the intentionally stale historical exact-head closure receipt",
+    "full_cymek_scientific_or_software_failures": 0,
+    "closure_receipt_path": "artifacts/v5/cymek_500m_closure_test_receipt.json"
+  },
+  "gates": {
+    "real_cymek_v5": true,
+    "production_tokenizer_24576": true,
+    "cuda_only_full_mode": true,
+    "hardware_only_resolver": true,
+    "calibration_written_before_resolution": true,
+    "actual_token_targeting": true,
+    "candidate_free_g90": true,
+    "minimum_independent_parents_for_replication": 2,
+    "shared_parent_model_optimizer_bytes": true,
+    "matched_future_stream": true,
+    "fixed_time_actual_token_control": true,
+    "hysteretic_policy": true,
+    "batched_candidate_free_generation": true,
+    "generation_cost_in_runtime_model": true,
+    "drive_backed_stage_store": true,
+    "failure_evidence_packaged": true,
+    "sealed_post_decision_only": true,
+    "timeboxed_or_incomplete_arms_cannot_promote": true,
+    "tiny_proxy_production_candidate_forbidden": true,
+    "production_promotion_authorized": false
+  },
+  "hardware_tiers": [
+    "FULL_3P_TRANSFER3",
+    "CORE_2P_TRANSFER2",
+    "RETENTION_2P_ONLY"
+  ],
+  "dose_floors": {
+    "acquisition_actual_real_tokens_per_parent": 2000000,
+    "continuation_actual_real_tokens_per_arm": 500000,
+    "transfer_actual_real_tokens_per_state_when_enabled": 500000
+  },
+  "superseded": {
+    "CYR-GPU-006": "real operator Colab calibration rejected the frozen full campaign before scientific training",
+    "CYR-GPU-007": "superseded before execution after audit found a final-decision recursion hazard"
+  },
+  "evidence_limits": {
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "production_data_status": "DATA_NOT_READY",
+    "positive_gpu_result_can_directly_promote_production": false
+  },
+  "blockers": [],
+  "operator_protocol": [
+    "Use the V8 notebook only after the final receipt-only closure CI is green.",
+    "Select a Colab GPU runtime.",
+    "Run Cell 0 only and require CYR-GPU-008 PREEXECUTION GATE: PASS.",
+    "Then run Cell 1 and Cell 2.",
+    "Return CYMEK_GPU_RESEARCH_V8_RESULTS.zip for raw evidence audit."
+  ]
+}
