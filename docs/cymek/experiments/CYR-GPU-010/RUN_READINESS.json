@@ -1,0 +1,61 @@
+{
+  "schema": "anra-cyr-gpu010-run-readiness/v1",
+  "experiment": "CYR-GPU-010",
+  "status": "READY_FOR_OPERATOR_COLAB_GPU_RUN",
+  "ready": true,
+  "ready_for_operator_colab_gpu_run": true,
+  "executable_sha": "4f6e04e870e7fad0af7311e2f57979203ca4aa85",
+  "preregistration_commit_sha": "ea32a94e8877f1bb820c2925fc9e944ad3181dac",
+  "dedicated_preexecution_ci": {
+    "run_id": 34377200356,
+    "job_id": 102552874814,
+    "result": "PASS",
+    "notebook_cells_compile": "3/3",
+    "focused_contracts": "PASS",
+    "executable_candidate_ci_run_id": 34376821098,
+    "executable_candidate_result": "PASS"
+  },
+  "scientific_rationale": {
+    "CYR_GPU_009": "TINY memorized training probes but did not reach candidate-free heldout G90 by 2M actual real tokens / 15,632 updates on either seed; no retention fork executed",
+    "ARK_002B": "4L/128w Micro replicated memorize-first then delayed generalization, with transition dose extending through roughly the 9k-18k update regime",
+    "ARK_003": "simple curriculum/teacher suffixes did not demonstrate acceleration, so CYR-010 keeps flat acquisition",
+    "ARK_015": "learned non-arithmetic invariance was brittle under narrow HIGH continuation and protected by LOW or augmented HIGH; only an optional post-G90 data-support stress is imported",
+    "primary_unknown": "capability formation/generalization at a scale-matched real Cymek V5 proxy"
+  },
+  "runtime_contract": {
+    "cuda_required": true,
+    "preferred_proxy": "RESEARCH_SMALL",
+    "research_small_geometry": "4L/128w/Q4-KV2/head32/FFN512/context512",
+    "research_small_max_updates": 18000,
+    "hardware_fallback": "TINY 36k updates only if RESEARCH_SMALL cannot fit prospectively",
+    "candidate_free_eval_every_updates": 200,
+    "wall_budget_minutes": 175,
+    "packaging_reserve_minutes": 5,
+    "google_drive_output": "/content/drive/MyDrive/CYMEK/CYR-GPU-010",
+    "bundle": "CYMEK_GPU_RESEARCH_V10_RESULTS.zip"
+  },
+  "measurement_contract": {
+    "primary_gate": "STANDARD heldout candidate-free exact with valid EOS stop",
+    "milestones": ["M99", "G50", "G90 onset", "G90 confirmation"],
+    "reasoning_diagnostics": ["STANDARD", "COMMUTED", "LOCALITY", "RENDERING", "THREE_DIGIT", "per-digit accuracy"],
+    "diagnostics_do_not_control_training": true,
+    "G90_confirmation": "3 consecutive DEV_CONTROLLER evaluations >= 0.90",
+    "optional_post_G90_stress": "NARROW_HIGH vs SUPPORT_HIGH_1OF16 from exact G90 checkpoint if hardware-only remaining-time rule affords it"
+  },
+  "claim_boundary": {
+    "single_seed": true,
+    "controlled_task": true,
+    "broad_reasoning_or_agi_claim_authorized": false,
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "production_promotion_authorized": false
+  },
+  "operator_gate": {
+    "cell0_required_final_line": "CYR-GPU-010 PREEXECUTION GATE: PASS",
+    "fresh_gpu_runtime_recommended": true,
+    "drive_mount_required_in_cell1": true
+  },
+  "known_blockers": []
+}
