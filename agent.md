@@ -4,70 +4,67 @@ Branch: `cymek-500m-readiness`.
 
 ## CURRENT EXPERIMENT
 
-`CYR-GPU-010` is the current operator Colab GPU experiment.
+`CYR-GPU-011` is the current operator Colab GPU experiment. It is an exposure-matched capability-emergence bridge designed from the executed CYR-GPU-009 result and demonstrated Arkenstone ARK-002B behavior.
 
 History:
 - CYR-GPU-001 through CYR-GPU-005: superseded before scientific execution.
-- CYR-GPU-006/008: operator Cell-0 hardware-feasibility failures before scientific training; these are NOT negative ML evidence.
-- CYR-GPU-007: superseded before execution after a final audit found a compatibility recursion risk.
-- CYR-GPU-009: EXECUTED on Tesla T4. Returned bundle SHA256 `dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216`.
-- CYR-GPU-010: READY_FOR_OPERATOR_COLAB_GPU_RUN.
+- CYR-GPU-006/008: operator Cell-0 hardware-feasibility failures before scientific training; not negative ML evidence.
+- CYR-GPU-007: superseded before execution after a compatibility recursion risk was found.
+- CYR-GPU-009: EXECUTED on Tesla T4; both TINY parents memorized but failed candidate-free held-out G90 at 2M real tokens each. Bundle SHA256 `dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216`.
+- CYR-GPU-010: superseded before execution after semantic-dose audit showed batch16 x 18k was only 25% of ARK-002B's 1,152,000-row exposure box.
+- CYR-GPU-011: frozen and preregistered; pending final exact-head readiness closure and operator execution.
 
 Executable freeze (Commit A):
-`4f6e04e870e7fad0af7311e2f57979203ca4aa85`
+`0a97257e2b38db6dfa85cc6e58da0697591dde6b`
 
 Preregistration commit (Commit B):
-`ea32a94e8877f1bb820c2925fc9e944ad3181dac`
+`486309fda09b1d89dd14a3655014f89e41c28883`
 
-Preregistration: `docs/cymek/experiments/CYR-GPU-010/PREREGISTRATION.json`.
-Readiness: `docs/cymek/experiments/CYR-GPU-010/RUN_READINESS.json`.
-Notebook: `notebooks/cymek_colab_gpu_research_v10.ipynb`.
-Expected bundle: `CYMEK_GPU_RESEARCH_V10_RESULTS.zip`.
+Preregistration: `docs/cymek/experiments/CYR-GPU-011/PREREGISTRATION.json`.
+Readiness: `docs/cymek/experiments/CYR-GPU-011/RUN_READINESS.json`.
+Notebook: `notebooks/cymek_colab_gpu_research_v11.ipynb`.
+Expected bundle: `CYMEK_GPU_RESEARCH_V11_RESULTS.zip`.
 
-## WHY 010 EXISTS
+## WHY CYR-GPU-011 EXISTS
 
-CYR-GPU-009 showed the real Cymek TINY proxy memorizing its training probe without candidate-free held-out generalization: both seeds consumed 2,000,000 actual real tokens / 15,632 optimizer updates; neither reached G90. No HIGH/LOW retention fork executed. The immediate question is therefore capability formation/generalization, not post-G90 retention.
+CYR-GPU-009 established a clean bottleneck: TINY reached near-perfect train-probe behavior but failed candidate-free held-out arithmetic generalization. Audit against ARK-002B then exposed a dose confound: Arkenstone used batch64 for up to 18,000 updates = 1,152,000 semantic row presentations, whereas V9 and the first V10 design delivered only about 22% and 25% of that semantic exposure.
 
-Live Arkenstone was audited at `59e1b805b7d93b7f2e1e9d3ea66b34c4fabca9c8`:
-- ARK-002B replicated memorize-first -> delayed generalize-later behavior on a 4L/128w Micro subject; transition timing spans roughly 9k-18k updates across seeds.
-- ARK-003 did not demonstrate acceleration from simple curriculum or teacher/decomposition suffixes; CYR-010 therefore keeps flat acquisition.
-- ARK-015 demonstrated non-arithmetic invariance brittleness under narrow HIGH continuation: 8/8 NARROW_HIGH failures vs 0/8 LOW and 0/8 fully augmented HIGH.
-- ARK-016 was inconclusive due low event rate.
-- ARK-017 is preregistered/implemented but had no RESULT artifact at the CYR-010 freeze; do not treat it as evidence.
+CYR-GPU-011 therefore measures semantic row presentations directly and, wall permitting, targets the same 1,152,000-row box at batch64/32/16 using 18k/36k/72k updates respectively.
 
-## CYR-GPU-010 SCIENTIFIC CONTRACT
+Live Arkenstone was re-audited through `c16718a7841c3cc3eba2b4b2c0388a0e36c0b530`. ARK-017 and ARK-018 have plans/implementation but no raw scientific result at this freeze and are not treated as evidence.
 
-Primary subject: real Cymek V5 `RESEARCH_SMALL`, the closest Cymek scale match to Arkenstone's historical 4L/128w Micro: 4 layers, width 128, Q4/KV2, head32, FFN512, context512, QK norm, production 24,576 tokenizer, real `v5_model.core.initialize()` and production backend.
+## SCIENTIFIC CONTRACT
 
-Fresh fixed seed: 3101. HIGH LR 1e-3. Batch rows 16. RESEARCH_SMALL maximum 18,000 optimizer updates. Candidate-free evaluation every 200 updates. Hard Colab wall 175 minutes with 5 minutes reserved for packaging. Hardware-only fallback to TINY 36k updates is allowed only if RESEARCH_SMALL cannot prospectively fit; TINY carries a lower claim ceiling.
+Two bridges use the real Cymek V5 4L/128w geometry: Q4/KV2, head32, FFN512, context512, QK norm, tied embeddings and `v5_model.core.initialize()`.
 
-Milestones: M99 train-probe >=.99; G50 DEV_CONTROLLER >=.50; G90 onset >=.90; sustained G90 = three consecutive candidate-free DEV_CONTROLLER evaluations >=.90. M99/G50/G90/final checkpoints are persisted.
+1. `COMPACT_BRIDGE`: exact frozen ARK-002B data, 19-symbol task vocabulary, 987,392 parameters. It keeps Cymek's canonical causal objective; unlike Arkenstone's helper it does not supervise an answer-prefix BOS. This residual difference is explicit.
+2. `PRODUCTION_BRIDGE`: same geometry with the frozen 24,576-token production tokenizer, 4,130,688 parameters.
 
-Structural reasoning battery is measurement-only except STANDARD:
-- STANDARD: frozen held-out T2 capability metric.
-- COMMUTED: operand-order robustness diagnostic only.
-- LOCALITY: paired counterfactual interventions; score exact output-delta relation and both-exact.
-- RENDERING: unseen natural-language surface-form robustness.
-- THREE_DIGIT: deterministic no-carry 3-digit length/compositional extrapolation diagnostic.
-- Per-digit accuracy is recorded.
+Hard wall is 175 minutes with 5 minutes reserved for packaging. Compact is capped at 25 minutes and can stop early on qualified G90; production receives the remaining science wall. A second independent production seed starts only if primary G90 is qualified and at least 40 minutes remain.
 
-If G90 is confirmed early enough, remaining wall may run an exploratory matched post-G90 stress from the exact G90 model+optimizer checkpoint: `NARROW_HIGH` vs `SUPPORT_HIGH_1OF16`, same HIGH LR and same semantic-example stream, with only 1/16 presentation support differing. This imports the ARK-015 experimental lesson but does not claim ARK-017 mechanism credit.
+Candidate-free milestones use three consecutive evaluations. A final G90 claim additionally requires DEV_MEASUREMENT/STANDARD complete-exact-with-valid-EOS >=0.90. Training sees only the 500 frozen train rows; DEV_CONTROLLER may control milestone timing, DEV_MEASUREMENT cannot alter training, and SEALED_RESERVED is post-decision only.
+
+Structural diagnostics are reported independently: STANDARD, COMMUTED, LOCALITY, CARRY, TRIPLE_ADD, THREE_DIGIT and production-only VERBAL. No aggregate 'reasoning score' and no broad reasoning/AGI claim is authorized.
 
 ## EVIDENCE / TEST STATUS
 
-Executable Commit A dedicated CI: PASS, run `34376821098`.
-Preregistration Commit B dedicated CI: PASS, run `34377200356`; all 3 notebook cells compile and focused CYR-010 contracts pass.
+Executable Commit A focused CYR-GPU-011 CI: PASS, run `34393235657`.
+On the exact executable tree, the full Cymek suite produced 568 passed, 1 skipped and 40 subtests passed. Its only failure was the expected stale exact-head closure-receipt meta-test; no model, optimizer, tokenizer, XLA, notebook or CYR-GPU-011 contract failed.
 
-`RUN_READINESS.json` is `READY_FOR_OPERATOR_COLAB_GPU_RUN` with zero known blockers.
+The final branch closure must still refresh the strict exact-head receipt after all non-receipt readiness metadata is committed. Do not weaken the verifier.
 
-## CLAIM BOUNDARY
+## PRODUCTION / TPU BOUNDARY
 
-Even a positive CYR-GPU-010 result is single-seed controlled-task GPU development evidence. It does not establish AGI, broad natural-language reasoning, TPU equivalence, or permission to change production training.
+CYR-GPU-011 is GPU controlled-task development evidence only.
 
-TPU: no CYR-GPU-010 evidence; PRE500M not run/authorized.
-Production corpus: DATA_NOT_READY; future 5B corpus untouched.
-500M campaign: NOT AUTHORIZED.
+- GPU scientific execution: NOT RUN yet.
+- TPU scientific execution: NONE.
+- XLA accumulation-boundary mathematics: locally repaired/tested, not TPU-certified.
+- PRE500M: NOT RUN / NOT AUTHORIZED.
+- Production corpus: DATA_NOT_READY; future 5B corpus untouched.
+- 500M campaign: NOT AUTHORIZED.
+- Production promotion from CYR-GPU-011 alone: FORBIDDEN.
 
 ## NEXT OPERATOR ACTION
 
-Use a fresh Colab GPU runtime. Open `notebooks/cymek_colab_gpu_research_v10.ipynb`. Run Cell 0 and require `CYR-GPU-010 PREEXECUTION GATE: PASS`. Confirm the selected proxy (expected RESEARCH_SMALL on hardware similar to the prior T4). Then run Cell 1, authorize Google Drive, leave the long run alone, then run Cell 2 and return `CYMEK_GPU_RESEARCH_V10_RESULTS.zip` for raw evidence audit.
+Only after `RUN_READINESS.json` is true and the final exact-head Cymek workflow is green: use a fresh Colab GPU runtime, open `notebooks/cymek_colab_gpu_research_v11.ipynb`, run Cell 0 and require `CYR-GPU-011 PREEXECUTION GATE: PASS`, then run Cell 1, authorize Google Drive, leave the long run alone, then run Cell 2 and return `CYMEK_GPU_RESEARCH_V11_RESULTS.zip` for raw evidence audit.
