@@ -1,0 +1,143 @@
+# DISCOVERY V7 — PRE-EXECUTION IMPLEMENTATION AUDIT
+
+**No Discovery V7 GPU result existed when this audit was committed.**
+
+## Bound preregistrations
+
+- ARK-015 plan commit: `da56dfbbafc6951c8d1c17c86410187cd7472e74`
+- ARK-016 plan commit: `459b8cebb080a7e325378f6396a37963d8fc4ac1`
+- Discovery V7 master plan commit: `cd058b9067c3fe2e001c70969a1966928d74c7df`
+
+All three scientific plans entered Git history before the corresponding executable runners were committed.
+
+## Read-only design context
+
+The campaign was designed after inspecting:
+
+- live `Arkenstone` evidence through Discovery V6;
+- live `cymek-500m-readiness` at `125b25c19204cce1994deebbfc4957119f2ae31f`, especially its read-only Discovery-V6 audit.
+
+No Cymek file is modified by Discovery V7. The Cymek audit independently identifies the same two open gates that V7 targets: non-arithmetic transfer with an informative stress and the near-freezing/update-magnitude mechanism alternative.
+
+## Implemented source
+
+- `experiments/COLAB/discovery_v7_common.py`
+- `experiments/COLAB/run_discovery_v7.py`
+- `experiments/ARK-015/run_ark015.py`
+- `experiments/ARK-016/run_ark016.py`
+- reused, read-only-at-runtime dependencies:
+  - `experiments/ARK-011/run_ark011.py`
+  - `experiments/ARK-014/run_ark014.py`
+  - `experiments/ARK-001/run_ark001.py`
+  - `experiments/lib/ark_tasks.py`
+
+The Colab launcher must mechanically `py_compile` the exact pinned checkout before execution. This audit does not substitute a local compile claim for that runtime gate.
+
+## ARK-015 audit — user-proposed transfer experiment
+
+The implementation sharpens the proposed “harder retention screen” into a natural presentation-distribution narrowing intervention rather than artificial weight corruption.
+
+Static checks:
+
+- reuses ARK-014's exact task construction and fails if manifest SHA differs from `fbc8605dc1cfc19ac8692d2b2c6338fcb2af3e02b24907f3b5cca3571947fee3`;
+- fresh acquisition seeds are exactly `2301,2402,2503`;
+- acquisition uses deterministic `ORDER_AUGMENTED` training;
+- CONTROL alone drives qualification; SEALED is read only at the fork and during measurement;
+- primary arms receive identical semantic-example IDs and differ only in LR under canonical-only rendering;
+- `AUGMENTED_HIGH_REFERENCE` receives the same semantic-example ID stream but preserves order augmentation, isolating whether any failure is specific to narrowing;
+- continuation orders are exactly `8801,8802,8803` and are SHA-bound;
+- the runner acquires all available fresh subjects before starting expensive continuation work;
+- continuation work is breadth-first across acquisition seeds, reducing the risk that a finite budget silently degenerates into a one-seed result;
+- once a triplet starts, all three arms complete before the next budget gate;
+- parameter path length, displacement, gradient norm, supervised-token count, and diagnostic-specific retention are recorded.
+
+Primary verdict code follows the preregistered event-count, risk-difference, reverse-discordance and seed-group rules.
+
+## ARK-016 audit — mechanism / infrastructure experiment
+
+ARK-016 directly attacks the strongest alternative explanation for ARK-007R/011: LOW may protect mainly by reducing parameter movement to near-freezing levels.
+
+Static checks:
+
+- uses the canonical T2 manifest and ARK-011 CONTROL/SEALED firewall;
+- fresh acquisition seeds are exactly `1919,2020,2121`;
+- continuation orders are exactly `9901..9904`;
+- event state machine is prospective: acquire HIGH -> observe HIGH instability -> HIGH recovery -> fork exact recovery snapshot;
+- no weight/data perturbation manufactures instability;
+- LOW_REFERENCE is executed first only to materialize the same-event per-step applied-delta cap trace; evaluation values do not enter that trace;
+- HIGH_UNCAPPED, HIGH_CAP_1X, and HIGH_CAP_10X restore the same recovery snapshot and consume the same unused minibatches;
+- the cap primitive performs an ordinary AdamW HIGH-LR step, then globally rescales only the applied parameter delta if it exceeds the frozen cap; AdamW moment state is intentionally left on the HIGH-LR path;
+- both raw and applied movement are reported, so capped HIGH cannot be mislabeled as ordinary AdamW;
+- LOW delta traces are SHA-bound and preserved in a separate receipt;
+- acquisitions happen before event forks and event work is breadth-first across independent seeds;
+- once a recovery fork starts, LOW/HIGH/CAP1/CAP10 all complete before the next budget gate;
+- CONTROL and SEALED retention are both measured; SEALED cannot drive the intervention.
+
+The mechanism verdict explicitly distinguishes update-magnitude mediation, a useful larger-movement trust-region candidate, LOW-specific behavior beyond movement matching, and unresolved/low-event outcomes.
+
+## Delta-cap primitive risk
+
+Post-step parameter-delta clipping is intentionally nonstandard. The experiment therefore does **not** call capped arms “AdamW at an effective LR.” Their optimizer moments are generated by the uncapped HIGH-LR AdamW proposal while the applied parameter delta may be globally rescaled.
+
+Before any full run, the GPU smoke test must demonstrate:
+
+1. positive finite raw delta norm;
+2. a requested 0.5x cap actually fires;
+3. applied delta is <= requested cap within numerical tolerance;
+4. optimizer moments remain finite.
+
+Any failure blocks the campaign.
+
+## Master scheduling audit
+
+Nominal budget: 300 minutes.
+
+- ARK-015 receives up to 135 minutes while reserving 140 minutes for ARK-016.
+- ARK-016 receives up to 165 remaining minutes.
+- No sleep/filler code exists in the campaign design.
+- Started matched units finish symmetrically even if they slightly cross a sub-allocation.
+- Partial receipts are written throughout.
+- master exception handling writes `DISCOVERY_V7_FAILURE_RECEIPT.json` and packages all JSON evidence in `finally`.
+
+Because both experiments are event-driven, the actual runtime can be below the nominal five-hour budget without invalidating a completed matched design.
+
+## Required output-to-training-design bridge
+
+The master runner emits `TRAINING_DESIGN_DECISION.json` using the preregistered mapping in `MASTER_DISCOVERY_V7_PLAN.md`.
+
+Its purpose is to turn evidence into a bounded next-training recommendation:
+
+- state-dependent LR controller candidate;
+- applied-update trust-region candidate;
+- transferred effect with unresolved mechanism;
+- arithmetic/stress-specific boundary;
+- insufficient event evidence.
+
+The file must always state that no Cymek production scheduler, PRE500M run, or 500M run is automatically authorized.
+
+Measurement-only infrastructure is recommended independently of intervention promotion: CONTROL/SEALED capability probes, raw/applied update norms, cumulative path, milestone displacement, state-transition logs, data-regime IDs, exact controller resume state, and old/new skill metrics across distribution shifts.
+
+## Mandatory pinned-Colab gates
+
+The future launcher must use an exact executable commit and fail closed unless:
+
+- CUDA exists;
+- actual Git HEAD equals the pinned SHA;
+- all V7 and reused Python dependencies compile;
+- T2 and binding manifests match their frozen hashes;
+- CONTROL/SEALED overlap invariants hold;
+- order augmentation is deterministic;
+- CUDA forward/backward/optimizer step succeeds;
+- exact model **and optimizer** snapshot reload succeeds;
+- same snapshot + same minibatch + same LR gives the same next parameter SHA;
+- the delta-cap primitive passes the checks above.
+
+## Claim discipline
+
+Before GPU execution the status is:
+
+- ARK-015: **PREREGISTERED + IMPLEMENTED, NOT EXECUTED**
+- ARK-016: **PREREGISTERED + IMPLEMENTED, NOT EXECUTED**
+- Discovery V7: **PREREGISTERED + IMPLEMENTED, NOT EXECUTED**
+
+No transfer/mechanism result may be inferred from this preparation alone.
