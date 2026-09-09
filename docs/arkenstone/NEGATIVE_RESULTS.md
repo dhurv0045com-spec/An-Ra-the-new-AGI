@@ -34,3 +34,6 @@
 | LOW LR does not preserve old T2 under 12k no-replay T3-only training | ARK-013 | same-task LOW protection is not a general solution to cross-task interference |
 | ARK-013 cannot establish plasticity cost/frontier because HIGH never acquired T3 and ADAPTIVE never switched | ARK-013 | no adaptive-frontier claim from this run |
 | ARK-014 non-arithmetic LR transfer screen had zero failures in both arms | ARK-014: HIGH 0/3, LOW 0/3 | cannot infer protection or failure of transfer from a no-event regime |
+| "Large parameter movement alone causes invariant erosion" is insufficient | ARK-015: AUGMENTED_HIGH moved farther than NARROW_HIGH but retained order robustness at 1.0 | movement magnitude cannot be the only causal variable |
+| Canonical accuracy is sufficient to detect retained capability | ARK-015: NARROW_HIGH final canonical exact 1.0 while final order robustness mean ~0.468 and robust retention failed 8/8 | future retention evaluation must include invariance/robustness probes |
+| ARK-016 cannot establish update-cap mechanism credit | only 1/12 continuation opportunities produced a qualifying collapse→recovery fork; all four arms stable there | do not infer update-cap success/failure from V7 T2 mechanism screen |
