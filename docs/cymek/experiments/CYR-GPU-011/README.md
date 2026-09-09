@@ -22,7 +22,9 @@ Hardware calibration selects batch64/32/16 before outcomes. Target updates scale
 
 ## Primary gate
 
-Candidate-free exact answer with valid EOS stop. Sustained G90 requires three DEV_CONTROLLER evaluations >=.90, and a final claim additionally requires DEV_MEASUREMENT STANDARD >=.90.
+Candidate-free exact answer with valid EOS stop, using a fixed eight-new-token cap. Controller G90 is three consecutive DEV_CONTROLLER evaluations >=.90. It is recorded but does not stop a bridge by itself: **qualified G90** additionally requires contemporaneous DEV_MEASUREMENT STANDARD >=.90. Final decision logic rechecks the larger measurement split.
+
+Final controller/structural/sealed predictions are retained row-by-row with canonical SHA-256 prediction receipts. Milestone/final checkpoints retain their model/optimizer SHA-256 values and durable Drive paths.
 
 ## Diagnostics
 
@@ -35,7 +37,7 @@ STANDARD, COMMUTED, LOCALITY, CARRY, TRIPLE_ADD, THREE_DIGIT and VERBAL are repo
 When eventually ready:
 
 - use a fresh Colab GPU runtime;
-- Cell 0 verifies the frozen executable, runs deterministic tests, calibrates and resolves;
+- Cell 0 first requires `RUN_READINESS.json=true`, copies the preregistration outside the repo, checks out the exact frozen executable, verifies all bound blobs, reruns deterministic + one/two-update runtime contracts, then calibrates and resolves;
 - Cell 0 must end with `CYR-GPU-011 PREEXECUTION GATE: PASS`;
 - Cell 1 mounts Drive and performs the long run;
 - Cell 2 verifies/downloads `CYMEK_GPU_RESEARCH_V11_RESULTS.zip`.
