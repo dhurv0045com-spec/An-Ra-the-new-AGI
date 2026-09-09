@@ -1,0 +1,27 @@
+{
+  "status": "COMPLETE_OR_BUDGETED_PARTIAL",
+  "total_budget_minutes": 300.0,
+  "ARK-015": {
+    "actual_minutes": 117.81625609795252,
+    "verdict": "SUPPORTED_NONARITHMETIC_INVARIANCE_PROTECTION",
+    "acquisitions_qualified": 3,
+    "sealed_qualified_primary_pairs": 8,
+    "narrow_high_failures": 8,
+    "narrow_low_failures": 0,
+    "augmented_high_reference_failures": 0,
+    "risk_difference_low_minus_high": -1.0
+  },
+  "ARK-016": {
+    "actual_minutes": 48.426074488957724,
+    "verdict": "INCONCLUSIVE_LOW_EVENT_RATE",
+    "sealed_qualified_recovery_forks": 1,
+    "event_opportunities": 12
+  },
+  "total_actual_minutes": 166.24236298004786,
+  "training_design_decision": "RETENTION_EFFECT_TRANSFERRED_MECHANISM_UNRESOLVED",
+  "master_plan_commit_sha": "cd058b9067c3fe2e001c70969a1966928d74c7df",
+  "runner_commit_sha": "4a8ffe84223fa64a7409b7d9936f2ff80d3828df",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "source_receipt_sha256": "965dd2651a58a49bd10883a9aa57467cd4e7426ffb9a90e57a0ea4b8607f378a"
+}
