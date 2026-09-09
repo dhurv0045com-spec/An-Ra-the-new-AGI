@@ -1,21 +1,23 @@
 """Canonical operator entry points for CYR-GPU-011.
 
 CYR-GPU-011 is a research bridge, not a production-training API change. This
-module scopes three compatibility controls around the V11 runner:
+module scopes two compatibility controls around the V11 runner:
 
-1. Arkenstone's compact task supervised a second BOS immediately before the
-   answer. Compact-bridge updates reproduce that sequence exactly while the
-   production-tokenizer bridge keeps normal Cymek rendering semantics.
-2. Early runner call-sites redundantly supplied AdamW constants already frozen
+1. Early runner call-sites redundantly supplied AdamW constants already frozen
    by Cymek. The optimizer shim accepts only the canonical constants and is
    restored immediately afterwards.
-3. Exposure/decision logic is semantic-row aware. Batch 32/16 may run up to
-   36k/72k updates so they can, wall permitting, reach the same 1,152,000 row
+2. Exposure/decision logic is semantic-row aware. Batch 32/16 may run up to
+   36k/72k updates so they can, wall permitting, target the same 1,152,000 row
    presentations as ARK-002B batch64 x 18k. A production null is not called a
    representation divergence unless it reached the compact G90 exposure.
 
+The compact bridge uses the exact ARK-002B data and 19-symbol vocabulary but
+keeps Cymek's canonical causal objective. Arkenstone additionally supervised a
+BOS answer-prefix token; Cymek's objective hard-excludes BOS targets, so V11
+records that as an intentional residual difference rather than faking a match.
+
 All patches are process-local, scoped, fail closed, and restored after the
-research call. Nothing changes Cymek production optimizer or tokenizer
+research call. Nothing changes Cymek production optimizer/tokenizer/objective
 semantics.
 """
 from __future__ import annotations
@@ -24,7 +26,6 @@ import math
 from contextlib import contextmanager
 from typing import Any, Iterator, Mapping
 
-from anra_v5 import cyr_gpu006_run as _legacy
 from anra_v5 import cyr_gpu011_run as _runner
 from anra_v5.cyr_gpu011_optimizer_compat import canonical_optimizer_compat
 from v5_experiments import cyr_gpu011 as _core
@@ -84,8 +85,7 @@ def exposure_aware_final_decision(*, compact: Mapping[str, Any] | None,
         verdict = "PRODUCTION_G90_WITHOUT_COMPACT_G90"
 
     return {
-        "schema": "anra-cyr-gpu011-decision/v2",
-        "verdict": verdict,
+        "schema": "anra-cyr-gpu011-decision/v2", "verdict": verdict,
         "compact_controller_and_measurement_g90": c,
         "production_primary_controller_and_measurement_g90": p1,
         "production_replication_controller_and_measurement_g90": p2,
@@ -99,9 +99,9 @@ def exposure_aware_final_decision(*, compact: Mapping[str, Any] | None,
             c and c_g90_fraction is not None and p1_fraction + 1e-12 >= c_g90_fraction
         ),
         "interpretation": (
-            "A representation-divergence label is allowed only when the production bridge received at least "
-            "the semantic exposure at which the compact bridge qualified. G90 claims require sustained "
-            "DEV_CONTROLLER performance and >=0.90 final DEV_MEASUREMENT STANDARD exact-with-EOS."
+            "A representation-divergence label is allowed only when production received at least the "
+            "semantic exposure at which compact qualified. G90 claims require sustained DEV_CONTROLLER "
+            "performance and >=0.90 final DEV_MEASUREMENT STANDARD exact-with-EOS."
         ),
         "broad_reasoning_claim_authorized": False,
         "production_promotion_authorized": False,
@@ -118,23 +118,21 @@ def _target_updates(batch_rows: int) -> int:
 
 
 def _project_rows(rec: Mapping[str, Any], budget_seconds: float) -> tuple[int, int]:
-    """Conservative pre-outcome projection including routine generation cost."""
     batch = int(rec["batch_rows"])
     ups = max(float(rec["training_updates_per_sec"]), 1e-9)
     eps = max(float(rec["generation_examples_per_sec"]), 1e-9)
     target_updates = _target_updates(batch)
-    # Each cadence evaluates 64 controller + 85 measurement + 100 train-probe
-    # examples. Six minutes remain reserved for structural batteries/checkpoints.
     basic_eval_examples = 64 + 85 + 100
     evals_per_update = batch / _core.CYR11_EVAL_EVERY_ROW_PRESENTATIONS
     seconds_per_update = 1.0 / ups + (basic_eval_examples / eps) * evals_per_update
+    # Reserve six minutes for structural batteries/checkpoints/Drive overhead.
     usable = max(0.0, float(budget_seconds) - 360.0)
     projected_updates = min(target_updates, int(usable / max(seconds_per_update, 1e-9)))
     return projected_updates, projected_updates * batch
 
 
 def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
-    """Choose batches by semantic exposure, never by all-or-nothing feasibility."""
+    """Choose batches by projected semantic exposure, without feasibility refusal."""
     compact = [rec for key, rec in calibrations.items()
                if key.startswith("COMPACT_B") and rec.get("status") == "PASS"]
     production = [rec for key, rec in calibrations.items()
@@ -142,17 +140,15 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
     if not compact:
         raise ValueError("no healthy compact bridge calibration")
 
-    compact_budget = _core.CYR11_COMPACT_STAGE_CAP_MINUTES * 60.0
     compact_scored = []
     for rec in compact:
-        updates, rows = _project_rows(rec, compact_budget)
+        updates, rows = _project_rows(rec, _core.CYR11_COMPACT_STAGE_CAP_MINUTES * 60.0)
         batch = int(rec["batch_rows"])
         compact_scored.append((rows * (1.03 if batch == 64 else 1.0), rows, batch, updates, rec))
     compact_scored.sort(reverse=True, key=lambda item: (item[0], item[1], item[2]))
     _cscore, compact_rows, compact_batch, compact_projected_updates, compact_pick = compact_scored[0]
 
-    prod_pick = None
-    prod_rows = prod_batch = prod_projected_updates = 0
+    prod_pick = None; prod_rows = prod_batch = prod_projected_updates = 0
     if production:
         prod_budget = (_core.CYR11_WALL_MINUTES - _core.CYR11_PACKAGING_RESERVE_MINUTES
                        - _core.CYR11_COMPACT_STAGE_CAP_MINUTES) * 60.0
@@ -200,73 +196,15 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
     return resolved
 
 
-def _compact_ark_render_batch(tokenizer: Any, rows: list[dict[str, Any]], *,
-                              torch: Any, device: Any, special: Mapping[str, int]):
-    """Match ARK-002B sequence: BOS prompt, then supervised BOS answer EOS."""
-    bos, eos, pad = int(special["bos_id"]), int(special["eos_id"]), int(special["pad_id"])
-    encoded: list[tuple[list[int], int]] = []
-    for row in rows:
-        prompt = list(tokenizer.encode(row["prompt"])); answer = list(tokenizer.encode(row["answer"]))
-        prompt_len = 1 + len(prompt)
-        encoded.append(([bos, *prompt, bos, *answer, eos], prompt_len))
-    width = max(len(ids) for ids, _ in encoded)
-    tokens = torch.tensor([ids + [pad] * (width - len(ids)) for ids, _ in encoded],
-                          dtype=torch.long, device=device)
-    segment_ids = torch.tensor([[0] * len(ids) + [-1] * (width - len(ids)) for ids, _ in encoded],
-                               dtype=torch.long, device=device)
-    eligible_rows = [[False] * prompt_len + [True] * (len(ids) - prompt_len)
-                     + [False] * (width - len(ids)) for ids, prompt_len in encoded]
-    eligible = torch.tensor(eligible_rows, dtype=torch.bool, device=device)
-    return tokens, segment_ids, eligible, {
-        "real_tokens": int((segment_ids >= 0).sum().item()),
-        "supervised_tokens": int(eligible.sum().item()),
-        "ark_answer_prefix_bos_supervised": True,
-    }
-
-
-def _compact_one_update(*, backend: Any, tokenizer: Any, rows: list[dict[str, Any]],
-                        torch: Any, device: Any, special: Mapping[str, int],
-                        cumulative: int, update: int, data_sha: str):
-    tokens, segment_ids, eligible, counted = _compact_ark_render_batch(
-        tokenizer, rows, torch=torch, device=device, special=special)
-    state = _legacy._stub_state(cumulative)
-    ctx = backend.begin_update(state)
-    ctx = backend.accumulate_microstep(ctx, tokens=tokens, segment_ids=segment_ids,
-        eligible=eligible, tokens_by_source={"cyr": counted["supervised_tokens"]},
-        planned_total=counted["supervised_tokens"])
-    backend.finish_update(state, ctx, planned_total=counted["supervised_tokens"],
-        cursor=_legacy._cursor(update=update, offset=update * len(rows), data_sha=data_sha))
-    receipt = backend.last_receipt
-    if receipt is None:
-        raise RuntimeError("production backend produced no compact-bridge update receipt")
-    return {"counted": counted, "backend_receipt": receipt}
-
-
-@contextmanager
-def _compact_update_scope() -> Iterator[None]:
-    original = _legacy._one_update
-
-    def scoped_one_update(*args: Any, **kwargs: Any):
-        if isinstance(kwargs.get("tokenizer"), _core.CompactCharTokenizer):
-            return _compact_one_update(*args, **kwargs)
-        return original(*args, **kwargs)
-
-    _legacy._one_update = scoped_one_update
-    try:
-        yield
-    finally:
-        if _legacy._one_update is scoped_one_update:
-            _legacy._one_update = original
-
-
 @contextmanager
 def _semantic_exposure_scope() -> Iterator[None]:
     """Allow smaller batches enough updates to target the ARK row-exposure box."""
     original = _runner.run_acquisition
 
     def exposure_matched_run(*args: Any, **kwargs: Any):
-        batch = int(kwargs["batch_rows"]); target_updates = _target_updates(batch)
-        old_max = _core.CYR11_MAX_UPDATES; _core.CYR11_MAX_UPDATES = target_updates
+        batch = int(kwargs["batch_rows"])
+        old_max = _core.CYR11_MAX_UPDATES
+        _core.CYR11_MAX_UPDATES = _target_updates(batch)
         try:
             return original(*args, **kwargs)
         finally:
@@ -282,7 +220,8 @@ def _semantic_exposure_scope() -> Iterator[None]:
 
 @contextmanager
 def _decision_scope() -> Iterator[None]:
-    original = _core.final_decision; _core.final_decision = exposure_aware_final_decision
+    original = _core.final_decision
+    _core.final_decision = exposure_aware_final_decision
     try:
         yield
     finally:
@@ -291,12 +230,12 @@ def _decision_scope() -> Iterator[None]:
 
 
 def calibrate_all(*args: Any, **kwargs: Any):
-    with canonical_optimizer_compat(), _compact_update_scope():
+    with canonical_optimizer_compat():
         return _runner.calibrate_all(*args, **kwargs)
 
 
 def run_campaign(*args: Any, **kwargs: Any):
-    with canonical_optimizer_compat(), _compact_update_scope(), _semantic_exposure_scope(), _decision_scope():
+    with canonical_optimizer_compat(), _semantic_exposure_scope(), _decision_scope():
         return _runner.run_campaign(*args, **kwargs)
 
 
