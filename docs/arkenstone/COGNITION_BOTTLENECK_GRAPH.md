@@ -1,49 +1,60 @@
 # COGNITION BOTTLENECK GRAPH (Arkenstone)
 
-DATA → REPRESENTATION → OBJECTIVE → OPTIMIZATION → INTERNAL STATE → QUERY CONDITIONING → COMPUTATION → GENERALIZATION → RETENTION/RECOVERY → TRANSFER → SCALE → NOVELTY VERIFICATION
+DATA → REPRESENTATION → OBJECTIVE → OPTIMIZATION → INTERNAL STATE → QUERY/ORDER INVARIANCE → COMPUTATION → GENERALIZATION → RETENTION/RECOVERY → TRANSFER → SCALE → NOVELTY VERIFICATION
 
-Reconciled through MASTER GPU V5 (ARK-007R/009/010).
+Reconciled through validated Discovery V6 (ARK-011..014). Discovery V7 (ARK-015/016) is preregistered and implemented but **not executed**.
 
 ## Current node status
 
-| Node | Current evidence | Sharpest unresolved failure | Cheapest high-information next test |
+| Node | Current evidence | Sharpest unresolved failure | Highest-information next test |
 |---|---|---|---|
-| DATA | canonical T2 manifest is commutation-free; ARK-009 fact-set split has zero train/test fact-set overlap | non-arithmetic diagnostic semantics still confounded | orthogonal query/order diagnostic on existing ARK-009 task |
-| REPRESENTATION | compact-vs-byte contrast negative at micro | no evidence representation is current bottleneck | PARK unless transfer task exposes a representation-specific failure |
-| OBJECTIVE | flat answer-only CE can produce T2 structural OOD; curriculum/teacher screen did not accelerate | no validated accelerator of post-memorization emergence | do not reopen until causal target identified |
-| OPTIMIZATION | post-G90 behavior strongly LR-sensitive | protection may be trivial near-freezing rather than consolidation | matched adaptive controller + displacement/update-magnitude analysis |
-| INTERNAL STATE | selectivity marker measured but precursor falsified | no validated early internal predictor of G90 | keep observational only unless new precursor beats time/behavior baselines |
-| QUERY CONDITIONING | ARK-009 ordinary exact 1.0 but composite query/order robustness low | query-only vs order-only failure not isolated | QUERY_ONLY / ORDER_ONLY / QUERY+ORDER factorial diagnostic |
-| COMPUTATION | T2 structural OOD can emerge | scope narrow; carry/other families not transferred | qualified non-arithmetic task before architecture changes |
-| GENERALIZATION | T2 G90 replicated across many seeds | timing variable and expensive after memorization | causal accelerator still open, but not current top priority |
-| RETENTION | LOW `1e-5` protects generalized T2 state vs HIGH `1e-3` under matched data | whether effect is just tiny parameter movement | intermediate/update-matched study after adaptive controller |
-| RECOVERY | after instability HIGH recovered G90 8/9 vs LOW 2/9 | no HIGH→LOW post-recovery switch arm | ARK-011 adaptive switch tournament |
-| TRANSFER | ARK-009 strict gate not qualified; no retention transfer fork | no clean non-arithmetic transfer receipt | repair diagnostic then rerun only if capability qualifies |
-| SCALE | Micro evidence only | unknown whether effect survives P35/V5 dynamics | blocked until transfer + causal-credit gates pass |
-| NOVELTY | program-local empirical discoveries recorded | no general new mechanism yet | continuous novelty audit |
+| DATA | canonical T2 split is commutation-free; ARK-014 binding uses complete fact-set split before query expansion with zero train/test and CONTROL/SEALED overlap | whether presentation-mixture narrowing destabilizes a learned invariance | ARK-015 canonical-only continuation after order-augmented acquisition |
+| REPRESENTATION | compact-vs-byte contrast negative at Micro; order augmentation, not architecture, repaired ARK-009/014 order brittleness | no evidence a representation change is the current first-order bottleneck | PARK until transfer/mechanism tests fail cleanly |
+| OBJECTIVE | answer-only CE can produce T2 structural OOD; curriculum/teacher acceleration screen was null | no validated accelerator of delayed generalization | PARK until a causal target is identified |
+| OPTIMIZATION | ARK-007R low-LR protection replicated; ARK-011 HIGH-recover→LOW-retain switch directly supported | LOW may work mainly by near-freezing applied parameter motion | ARK-016 movement-matched HIGH and 10x-low trust-region arms |
+| INTERNAL STATE | tens selectivity is a transition marker, not a validated precursor | no early internal predictor with causal/predictive value beyond behavior/time | observational only for now |
+| QUERY/ORDER INVARIANCE | ARK-014 isolated the old failure: canonical/query-only can be perfect while order-only is brittle; deterministic order augmentation qualified robust binding | retention of this learned invariance under a distribution shift is untested | ARK-015 |
+| COMPUTATION | T2 structural OOD replicated; forced-carry T3 screen did not acquire sustained G90 | cross-family arithmetic skill acquisition remains unreliable at this Micro setup | do not infer plasticity law from ARK-013; use robust binding for current transfer test |
+| GENERALIZATION | delayed T2 G90 replicated across many seeds | transition timing remains seed-variable and expensive | secondary priority behind transfer/mechanism credit |
+| RETENTION | same-task T2 LOW protection replicated; ARK-011 adaptive post-recovery switch: HIGH recollapse 3/6 vs SWITCH_LOW 0/6 on SEALED | cross-task/general retention and causal mechanism unresolved | ARK-015 transfer + ARK-016 mechanism red-team |
+| RECOVERY | HIGH recovered after instability 8/9 in ARK-010; ARK-011 then showed switching LOW after recovery reduces recurrence | exact universal switch threshold not identified; ARK-012 threshold ordering non-monotonic | treat state threshold as controller feature to test, not a fixed law |
+| TRANSFER | robust non-arithmetic binding is now acquirable (ARK-014), but HIGH and LOW both had 0/3 failures so LR transfer remains NOT_DEMONSTRATED | need an informative non-arithmetic retention event without artificial corruption | ARK-015 distribution-narrowing stress |
+| SCALE | all causal retention evidence remains Micro; Cymek has a separate real-V5 GPU proxy plan, still unexecuted | no evidence yet that the mechanism survives larger-model training dynamics | blocked on V7 transfer/mechanism results and explicit promotion gate |
+| NOVELTY | program-local empirical retention/recovery regularities exist; LR scheduling/data augmentation families themselves are known | whether there is a genuinely useful state/update control mechanism beyond known scheduling remains unresolved | novelty audit after ARK-016, not before |
 
 ## Ranked bottlenecks by expected information gain / cost
 
-1. **State-dependent LR controller.** From the same collapse checkpoint and same future batches compare: HIGH-only; LOW-only; HIGH until sustained recovery then LOW. Prediction: switched arm reacquires like HIGH and retains like LOW. This directly connects ARK-007R and ARK-010.
-2. **Transfer diagnostic repair.** Without new training, first isolate QUERY_ONLY and ORDER_ONLY on the ARK-009 task. If canonical capability survives pure query swaps but fails order permutations, diagnose order robustness rather than query conditioning. Then preregister a clean transfer task/fork.
-3. **Near-freezing vs consolidation.** LOW final relative displacement was ~0.008 vs HIGH ~0.379 in ARK-007R. Test whether retention tracks LR itself, integrated update norm, or displacement. Do not claim a consolidation mechanism before this is separated.
-4. **Transfer replication.** Only after a non-arithmetic capability qualifies should the LR-retention effect be tested outside T2.
-5. **Scale.** P35/V5-Core promotion remains downstream of transfer and mechanism-credit evidence.
+1. **Non-arithmetic retention transfer with event contrast — ARK-015.** ARK-014 solved robust acquisition but produced zero failures. ARK-015 removes order diversity during continuation while keeping semantics/answers fixed, testing whether LOW protects an acquired binding invariance under matched presentation-distribution narrowing.
+2. **Near-freezing vs useful control — ARK-016.** Compare LOW_REFERENCE, HIGH_UNCAPPED, HIGH capped to the matched LOW per-step movement, and HIGH capped at 10x LOW movement. This decides whether the next algorithm should be a literal LR state machine, an applied-update trust region, or neither.
+3. **Training-system instrumentation.** Regardless of intervention outcome, carry CONTROL/SEALED probe roles, raw/applied update norms, cumulative parameter path, milestone displacement, state transitions, data-regime IDs, and exact controller resume state into the next serious proxy run.
+4. **Scale / Cymek promotion.** Only after transfer + mechanism evidence. Arkenstone may recommend a challenger; Cymek owns production training and must independently qualify it.
 
 ## Current causal picture
 
-Observed state machine:
+Demonstrated at Micro T2:
 
 `ACQUIRE/GENERALIZE --(continued HIGH LR + some continuation trajectories)--> INSTABILITY`
 
-`GENERALIZED --(LOW LR)--> STABLE in ARK-007R`
+`GENERALIZED --(LOW LR)--> lower instability risk`
 
-`INSTABILITY --(HIGH LR)--> RECOVERY in 8/9 ARK-010 sources`
+`INSTABILITY --(HIGH LR)--> RECOVERY much more often than immediate LOW in ARK-010`
 
-`INSTABILITY --(LOW LR)--> RECOVERY in 2/9 ARK-010 sources`
+`RECOVERED --(switch LOW)--> lower recurrent instability than continue HIGH in ARK-011`
 
-Unexecuted prediction:
+Direct ARK-011 result:
 
-`INSTABILITY --HIGH until recovered--> RECOVERED --LOW--> STABLE`
+`HIGH_CONTINUE recurrent instability = 3/6`
 
-That final edge is the highest-value missing causal test. Architecture changes remain unjustified until this optimization-state model is falsified or exhausted.
+`SWITCH_LOW recurrent instability = 0/6`
+
+What is **not** demonstrated:
+
+`same mechanism transfers to non-arithmetic retention`
+
+`LOW is more than a near-freezing proxy`
+
+`the policy improves cross-task continual learning`
+
+`the policy survives larger Cymek/V5 or TPU training`
+
+Discovery V7 is designed to resolve the first two before any algorithm/infrastructure promotion decision.
