@@ -1,7 +1,7 @@
 """Canonical operator entry points for CYR-GPU-011.
 
 CYR-GPU-011 is a research bridge, not a production-training API change. This
-module scopes two compatibility controls around the V11 runner:
+module scopes compatibility controls around the V11 runner:
 
 1. Early runner call-sites redundantly supplied AdamW constants already frozen
    by Cymek. The optimizer shim accepts only the canonical constants and is
@@ -10,6 +10,9 @@ module scopes two compatibility controls around the V11 runner:
    36k/72k updates so they can, wall permitting, target the same 1,152,000 row
    presentations as ARK-002B batch64 x 18k. A production null is not called a
    representation divergence unless it reached the compact G90 exposure.
+3. The same six-minute finalization allowance used by the calibration resolver
+   is enforced before each stage's outer deadline, leaving time for final
+   candidate-free batteries/checkpoints while preserving the campaign wall.
 
 The compact bridge uses the exact ARK-002B data and 19-symbol vocabulary but
 keeps Cymek's canonical causal objective. Arkenstone additionally supervised a
@@ -23,6 +26,7 @@ semantics.
 from __future__ import annotations
 
 import math
+import time
 from contextlib import contextmanager
 from typing import Any, Iterator, Mapping
 
@@ -34,6 +38,7 @@ BUNDLE_NAME = _runner.BUNDLE_NAME
 production_tokenizer = _runner.production_tokenizer
 write_json = _runner.write_json
 read_json = _runner.read_json
+CYR11_ACQUISITION_FINALIZE_RESERVE_SECONDS = 360.0
 
 
 def _measurement_standard(receipt: Mapping[str, Any] | None) -> float:
@@ -125,8 +130,7 @@ def _project_rows(rec: Mapping[str, Any], budget_seconds: float) -> tuple[int, i
     basic_eval_examples = 64 + 85 + 100
     evals_per_update = batch / _core.CYR11_EVAL_EVERY_ROW_PRESENTATIONS
     seconds_per_update = 1.0 / ups + (basic_eval_examples / eps) * evals_per_update
-    # Reserve six minutes for structural batteries/checkpoints/Drive overhead.
-    usable = max(0.0, float(budget_seconds) - 360.0)
+    usable = max(0.0, float(budget_seconds) - CYR11_ACQUISITION_FINALIZE_RESERVE_SECONDS)
     projected_updates = min(target_updates, int(usable / max(seconds_per_update, 1e-9)))
     return projected_updates, projected_updates * batch
 
@@ -164,6 +168,7 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
         "schema": "anra-cyr-gpu011-resolved/v2", "experiment": _core.CYR11_ID,
         "wall_budget_minutes": _core.CYR11_WALL_MINUTES,
         "packaging_reserve_minutes": _core.CYR11_PACKAGING_RESERVE_MINUTES,
+        "acquisition_finalize_reserve_seconds": CYR11_ACQUISITION_FINALIZE_RESERVE_SECONDS,
         "compact_stage_cap_minutes": _core.CYR11_COMPACT_STAGE_CAP_MINUTES,
         "compact_batch_rows": int(compact_batch),
         "compact_target_updates": _target_updates(compact_batch),
@@ -198,12 +203,15 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
 
 @contextmanager
 def _semantic_exposure_scope() -> Iterator[None]:
-    """Allow smaller batches enough updates to target the ARK row-exposure box."""
+    """Target ARK semantic exposure while enforcing per-stage finalization time."""
     original = _runner.run_acquisition
 
     def exposure_matched_run(*args: Any, **kwargs: Any):
         batch = int(kwargs["batch_rows"])
         old_max = _core.CYR11_MAX_UPDATES
+        outer_deadline = float(kwargs["deadline"])
+        kwargs = dict(kwargs)
+        kwargs["deadline"] = max(time.monotonic(), outer_deadline - CYR11_ACQUISITION_FINALIZE_RESERVE_SECONDS)
         _core.CYR11_MAX_UPDATES = _target_updates(batch)
         try:
             return original(*args, **kwargs)
