@@ -1,84 +1,63 @@
 # Agent brief: CYMEK research + readiness handoff
 
-Branch: `cymek-500m-readiness`. Date: 2026-09-08. No training started.
+Branch: `cymek-500m-readiness`. No CYR-GPU-006 scientific training has run.
 
 ## CURRENT EXPERIMENT
-CYR-GPU-005 — shared-parent LR-retention fork campaign
-(`docs/cymek/experiments/CYR-GPU-005/`). CYR-GPU-001/002/003/004 are
-SUPERSEDED_BEFORE_EXECUTION (none ever ran on a GPU; 004 was killed by
-the 005 pre-execution audit after its fork contract proved broken).
-Runners live under `v5_experiments/cyr_gpu005.py` (pure core) and
-`anra_v5/cyr_gpu005_run.py` (torch orchestrator); the prior
-cyr_tournament/cyr_execute stacks remain for CYR-GPU-002 evidence.
+
+`CYR-GPU-006` is the current Colab GPU experiment. CYR-GPU-001 through CYR-GPU-005 are `SUPERSEDED_BEFORE_EXECUTION`; none is GPU scientific evidence.
+
+Executable freeze (Commit A):
+`125b25c19204cce1994deebbfc4957119f2ae31f`
+
+Preregistration commit (Commit B):
+`ede8aec71f903e13061064742fcd0229ee093ce5`
+
+The preregistration is `docs/cymek/experiments/CYR-GPU-006/PREREGISTRATION.json`. The notebook always reads that file from the branch, copies it outside the repo, checks out Commit A, verifies SHA256/file blob identities, and only then allows calibration.
+
+## SCIENTIFIC DESIGN
+
+- Real Cymek V5 only (`ModelSpec` + `v5_model.core.initialize`).
+- Frozen 24,576 tokenizer.
+- Three independent acquisition seeds: 707/808/909; every seed acquires once at HIGH LR.
+- Candidate-free G90: DEV_CONTROLLER complete exact with valid EOS stop >=0.90 for 3 consecutive evaluations.
+- Each qualified parent forks `HIGH_CONTINUE`, `LOW_CONTINUE`, `FIXED_TIME_HIGH_TO_LOW`, and `HYSTERETIC_HIGH_LOW` from identical model+optimizer bytes and identical future batch hashes.
+- Exposure is actual real tokens; hardware-only resolver measures training throughput and batched-generation throughput before scientific outcomes.
+- Arithmetic retention winner requires >=2 independent contract-valid parent experiments; one parent can never win.
+- Arkenstone-informed transfer is prospectively fixed: equal-age/equal-exposure `HYSTERETIC_HIGH_LOW` versus `LOW_CONTINUE`, both moved to HIGH LR on the same order-augmented registry-binding stream with fixed old-T2 replay.
+- Transfer keeps canonical/query-only/order-only/query+order metrics separate and requires >=2 independent parent pairs.
+- LOW protection is treated as same-task Micro evidence, not universal consolidation. ARK-012 leaves switch thresholds unresolved; ARK-013 rejects LR-only no-replay protection; ARK-014 establishes order augmentation as necessary for the chosen binding subject.
+
+## LIVE CROSS-BRANCH AUTHORITY
+
+- Arkenstone: `6acd9dcbdd28d00f387ffcd004253a813aca4b66`.
+- Discovery V6 bundle SHA256: `1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15`.
+- BRAMASTRA observed head: `415250f44179f3310e5dc55addb21722290604fa`; no new execution claim is inferred merely from its later documentation commit.
+- Current matrix: `docs/cymek/research/CROSS_BRANCH_EVIDENCE_AUDIT.md`.
 
 ## SOFTWARE
-- 500M campaign engine: bucket-pure microsteps, accumulation accounting,
-  trainer state machine, durable milestones + persistent mirror, mixture
-  scheduler, eval hooks. 50/50 entry tests.
-- XLA accumulation boundary FIXED this cycle: one gradient SUM collective
-  per logical update (the per-microstep reduce that scaled early
-  microstep gradients by powers of R is gone; AST-guarded, oracled,
-  negative-regressed).
-- CYR-GPU-005 fork contract enforced in code: ONE acquisition per seed,
-  byte-identical fork restorations (PARENT_EQUIVALENCE.json), shared
-  future stream with consumed-batch SHA equality, actual-token
-  targeting, one absolute campaign deadline.
 
-## EVIDENCE
-- GPU evidence: NONE YET (no CYR experiment has executed on a GPU).
-- Local: full suite green at the freeze (receipts
-  `artifacts/v5/cyr_gpu_005_test_receipt.json` and the refreshed closure
-  receipt, both bound to the preregistration commit); plumbing E2E runs
-  the whole campaign on TINY with the labeled PLUMBING_SMOKE_ONLY gate
-  override; static check 0 findings.
-- Audits (remote state wins): Arkenstone@fc3e689 — ARK-007R replicated
-  (LOW protects: 0/12 vs 9/12 collapse), ARK-010 recovery (HIGH 8/9 vs
-  LOW 2/9), ARK-009 transfer gate NOT qualified (order-reversal
-  confound), ARK-011 executed + Discovery-V6 receipts hash-valid
-  (14/14). BRAMASTRA@4655733 — chief D02 horizon audit;
-  discovery_dev_701 comparisons. Matrix:
-  `docs/cymek/research/CROSS_BRANCH_EVIDENCE_AUDIT.md` (update pending
-  next cycle for the new SHAs).
-- Literature check: plasticity framing supported; no external candidate
-  admitted (fashion bar not met).
+- Production XLA accumulation math is repaired: all accumulation microsteps remain local, followed by one gradient SUM collective at the logical update boundary, one clip and one optimizer step. CPU oracle evidence is local-only; real TPU remains unmeasured.
+- CYR full mode is CUDA-only and has no CPU fallback.
+- Cell 0 calibration/resolution is passed verbatim into Cell 1; the scientific runner does not silently re-resolve from outcomes.
+- Candidate-free generation is batched and included in prospective runtime cost.
+- Google Drive is the durable stage/evidence store. Complete stages are reused; ambiguous partial arms restart from the same frozen parent/tail.
+- Exceptions write `FAILURE.json` and package partial evidence before re-raising.
 
-## CURRENT HYPOTHESES (CYR-GPU-005, preregistered, UNEXECUTED)
-- H-primary: hysteretic HIGH↔LOW retains like LOW and re-acquires like
-  HIGH; beats both fixed arms on qualified parents.
-- H-fixed-time: switching HIGH→LOW at τ=0.5 of ACTUAL continuation
-  tokens captures LOW's protection — if it matches HYST, "state" is
-  mostly time.
-- H-null: all four arms indistinguishable — protects the 500M recipe.
-- Adjudication: near-freezing vs consolidation read from the mandatory
-  displacement/moment ledger, never assumed.
+## TEST / READINESS STATUS
 
-## GPU EXPERIMENT READY?
-YES — RUN_READINESS.json: ready=true. Notebook
-`notebooks/cymek_colab_gpu_research_v5.ipynb` (3 thin cells), prereg
-`docs/cymek/experiments/CYR-GPU-005/PREREGISTRATION.json` (hash-bound to
-the executable freeze; two-commit protocol with CELL 0 checkout+verify),
-section-39 evidence bundle, failure-proof packaging. Status:
-READY_FOR_OPERATOR_COLAB_GPU_RUN. Local validation this cycle: unit
-suites + TINY plumbing smoke only (no training runs on the operator
-machine; full mode fails closed without CUDA).
+Dedicated CYR preexecution CI at executable Commit A: PASS — 3/3 notebook code cells compiled and 25/25 deterministic CYR contract/transfer tests passed. Executable SHA256 values are frozen in the preregistration.
 
-## TPU STATUS
-IMPLEMENTED_PENDING_PRE500M_TPU. Zero TPU evidence. CPU oracles do NOT
-certify TPU. GPU results never count as TPU evidence. PRE500M only
-after CYR-GPU-005 execution + result audit + exact-SHA audit + Citadel
-independent audit.
+Broader production-contract CI on the same executable tree passed every substantive current-code test but failed the historical exact-head closure-receipt meta check because that receipt still points at the superseded CYR-GPU-005 tree. That receipt must be refreshed from the current tree-equivalent CI evidence before `RUN_READINESS=true` is written.
 
-## DATA STATUS
-DATA_NOT_READY (500M supply). CYR-GPU-005 uses rendered T2 synthetic
-worlds with a manifest bound to the exact rows (full-mode manifest SHA
-in the preregistration) — production corpus untouched.
+Current status: `PREREGISTERED_PENDING_FINAL_READINESS`. Do not run Cell 1 until `docs/cymek/experiments/CYR-GPU-006/RUN_READINESS.json` exists with `ready_for_operator_colab_gpu_run=true`.
 
-## 500M STATUS
-NOT AUTHORIZED (main_training_authorized=false; E1–E6 pending; see
-`artifacts/v5/launch_readiness.json`).
+## TPU / DATA / 500M
 
-## NEXT OPERATOR ACTION
-Open the Colab link (only valid because RUN_READINESS=true), choose GPU
-runtime, run CELL 0 → must print `CYR-GPU-005 PREEXECUTION GATE: PASS`
-→ CELL 1 → CELL 2, return CYMEK_GPU_RESEARCH_V5_RESULTS.zip. Do NOT run
-PRE500M. Do NOT build the 5B corpus.
+- TPU: `IMPLEMENTED_PENDING_PRE500M_TPU`; zero TPU evidence for CYR-GPU-006.
+- PRE500M: NOT RUN / NOT AUTHORIZED in this cycle.
+- Production data: `DATA_NOT_READY`; future 5B corpus remains untouched.
+- 500M campaign: NOT AUTHORIZED.
+
+## NEXT ACTION
+
+Finish final branch CI/closure-receipt refresh, write truthful `RUN_READINESS.json`, then operator opens `notebooks/cymek_colab_gpu_research_v6.ipynb`, selects a GPU runtime, runs Cell 0 only, and proceeds to Cells 1→2 only if Cell 0 prints `CYR-GPU-006 PREEXECUTION GATE: PASS`.
