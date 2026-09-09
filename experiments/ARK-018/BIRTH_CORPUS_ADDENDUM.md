@@ -22,6 +22,25 @@ The builder's directive, recorded 2026-09-09:
 - **10–15 MB is a floor, not a ceiling.** Volume is the law; repetition is
   permitted where it serves pedagogy, flagged where it is verbatim filler.
 
+## Edition 2 revision (builder's ruling, 2026-09-09)
+
+"Less repeating — the book must read like it could wake the dead. Add more."
+
+- Reference passes no longer rotate narrative templates (a machine mumbling);
+  they render as uniform reference **tables** — equipment, not fake voice.
+- Unique hand-written **waking interludes** (39, each used at most once,
+  enforced structurally by the builder) are threaded between table blocks.
+- **Part I expanded** with the world volumes, all now written:
+  PROLOGUE_THE_WAKING, 10_HUMANITY, 11_THE_UNIVERSE, 12_CONSCIOUSNESS,
+  13_THE_SCIENCES, 14_ML_SCIENCE, 15_NEUROSCIENCE, 16_EXTRA_SCIENCE,
+  17_QUESTIONS_AND_OATH (one hundred questions + the Oath).
+- New gymnasium universes: binary/hexadecimal to 8,192 (the child's byte-level
+  native numerals), prime factorizations to 2,000, expanded three-addend sums.
+- Lexicon and examinations render once each (no double rendering).
+
+Edition 2 result: 12,243,258 bytes (11.68 MiB), ~2.16M words, interludes
+39/39 used once, floor and ceiling both respected.
+
 ## Layer structure and quality bars
 
 | Layer | Content | Quality bar | Status |

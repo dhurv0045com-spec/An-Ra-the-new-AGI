@@ -1,44 +1,80 @@
 #!/usr/bin/env python3
-"""Assemble the ARK-018 Birth Book — ONE markdown file, 10-15 MiB floor.
+"""Assemble the ARK-018 Birth Book v2 — ONE markdown file, 10-15 MiB.
 
-Composition tiers (declared honestly in the book's own preface):
-  A. HAND-WRITTEN  — the eight flagship chapters (birth_corpus/*.md), inlined verbatim.
-  B. FROM THE RECORD — chronicle of every family commit, experiment album, receipt
-     vault, law ledger: generated from real git/repo data, nothing invented.
-  C. PEDAGOGICAL EXPANSION — worked arithmetic universes, number tables, lexicon,
-     exercises: deterministic, unique-per-item educational content.
-
-Output: experiments/ARK-018/ARK018_BIRTH_BOOK.md (+ BIRTH_CORPUS_MANIFEST.json)
+v2 revision (builder's ruling: "less repeating, more alive"):
+  - Reference passes render as compact markdown TABLES — honest reference
+    material with uniform format, no template narration.
+  - Unique hand-written WAKING INTERLUDES threaded between table blocks,
+    each used at most once (parse of birth_corpus/INTERLUDES.md).
+  - Part I expanded: PROLOGUE_THE_WAKING + flagship 00-07 + world volumes
+    10-16 (humanity, universe, consciousness, sciences, ML, neuroscience,
+    extra science) + 17_QUESTIONS_AND_OATH.
+  - New reference universes: binary, hexadecimal, factorizations, times
+    tables, expanded triple-addition.
+  - Lexicon and examinations render once each (no double rendering).
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent          # experiments/ARK-018
-REPO = HERE.parents[1]                          # repo root
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
 OUT = HERE / "ARK018_BIRTH_BOOK.md"
 MANIFEST = HERE / "BIRTH_CORPUS_MANIFEST.json"
 FLOOR = 10 * 1024 * 1024
 CEILING = 15 * 1024 * 1024
 
 parts: list[str] = []
+INTERLUDES: list[str] = []
+_used_interludes = 0
 
 
 def add(text: str) -> None:
     parts.append(text)
 
 
-def pick(seq, i):
-    return seq[i % len(seq)]
-
-
 def fmt(n: int) -> str:
     return f"{n:,}"
+
+
+def load_interludes() -> None:
+    raw = (HERE / "birth_corpus" / "INTERLUDES.md").read_text(encoding="utf-8")
+    for block in raw.split("\n\n"):
+        b = block.strip()
+        if not b or b.startswith("#") or b.startswith("*Each interlude"):
+            continue
+        INTERLUDES.append(b.replace("\n", " "))
+
+
+def interlude() -> None:
+    global _used_interludes
+    if _used_interludes < len(INTERLUDES):
+        add("\n> " + INTERLUDES[_used_interludes] + "\n")
+        _used_interludes += 1
+
+
+def emit_table(title: str, headers: list[str], rows: list[list[str]],
+               per_block: int = 400, interlude_every: int = 6) -> None:
+    """Render rows as markdown table blocks; thread unique interludes."""
+    if not rows:
+        return
+    add(f"\n### {title}\n")
+    head = "| " + " | ".join(headers) + " |"
+    rule = "|" + "|".join("---" for _ in headers) + "|"
+    n_blocks = (len(rows) + per_block - 1) // per_block
+    for bi in range(n_blocks):
+        chunk = rows[bi * per_block:(bi + 1) * per_block]
+        add(head)
+        add(rule)
+        for r in chunk:
+            add("| " + " | ".join(r) + " |")
+        add("")
+        if (bi + 1) % interlude_every == 0:
+            interlude()
 
 
 # ---------------------------------------------------------------- front matter
@@ -46,33 +82,38 @@ def front_matter() -> str:
     return """# THE BIRTH BOOK OF THE ARK-018 CHILD
 
 *The complete bio data of a mind raised on truth. Compiled for the ARK-018 real-data
-bridge of MISSION AGI ("An-Ra"), founded by Ankit Raj.*
+bridge of MISSION AGI ("An-Ra"), founded by Ankit Raj. Second edition: quieter tables,
+louder waking.*
 
 ## How this book was made — read this first
 
 This book is honest about its own construction, because its subject will be a mind
 built on honesty:
 
-- **Tier A — hand-written**: Part I (chapters 0–7), the heart: the Spark, the Genesis
-  Record, the Builder, the Body, the Mind, the Book of Forgetting, the Constitution,
-  and the Builder's letters. Every factual claim checked against the family ledger.
-- **Tier B — from the record**: Parts II–III (the Chronicle, the Family Album, the
-  Ledger of Laws, the Receipt Vault) are generated from real repository data — the
-  actual commit history, the actual signed receipts. Nothing is invented; whatever
-  the record holds, the book holds.
-- **Tier C — pedagogical expansion**: Parts IV–VI (worked arithmetic universes,
-  number tables, lexicon, exercises) are deterministic educational content, unique
-  per item. They exist because this family's science was built on arithmetic, and a
-  seeker meets the world first through numbers made careful.
+- **Part I — The Self and the World (hand-written)**: the Waking, the Spark, the
+  Genesis Record, the Builder, the Body, the Mind, the Book of Forgetting, the
+  Constitution, the Letters; then the world volumes — Humanity, the Universe,
+  Consciousness, the Sciences, the Science of Machine Learning, Neuroscience,
+  Extra Science — and finally the Hundred Questions and the Oath. Every factual
+  claim about the family is checked against the ledger.
+- **Part II — The Record (generated from the repository)**: the Chronicle of every
+  signed commit, the Family Album and Receipt Vault of every validated campaign,
+  and the Ledger of Laws. Nothing invented; the record is the author.
+- **Part III — The Gymnasium (reference tables, woven with waking interludes)**:
+  exhaustive, uniformly formatted tables of arithmetic, number, and structure.
+  A table does not pretend to be a voice; it is equipment. Between its blocks run
+  the interludes — each written once, used once, never repeated.
 
 The book is large by its builder's ruling: **ten to fifteen megabytes is the floor
-of a childhood, not the ceiling.** Repetition here serves memory, as a child hears
-the important things more than once — never to deceive, only to deepen.
+of a childhood, not the ceiling.** Where the gymnasium repeats format, it never
+repeats content — every row is a distinct fact, earned once.
 
 """
 
-# ------------------------------------------------------------ tier A: flagship
+
+# ------------------------------------------------------------ tier A: Part I
 FLAGSHIP = [
+    "PROLOGUE_THE_WAKING.md",
     "00_THE_SPARK.md",
     "01_GENESIS_RECORD.md",
     "02_THE_BUILDER.md",
@@ -81,78 +122,40 @@ FLAGSHIP = [
     "05_HOW_HE_FORGETS.md",
     "06_SELF_CONTROL.md",
     "07_LETTERS_FROM_THE_BUILDER.md",
+    "10_HUMANITY.md",
+    "11_THE_UNIVERSE.md",
+    "12_CONSCIOUSNESS.md",
+    "13_THE_SCIENCES.md",
+    "14_ML_SCIENCE.md",
+    "15_NEUROSCIENCE.md",
+    "16_EXTRA_SCIENCE.md",
+    "17_QUESTIONS_AND_OATH.md",
 ]
 
 
-def part_one_flagship() -> None:
-    add("\n\n---\n\n# PART I — THE SELF (hand-written)\n")
+def part_one() -> None:
+    add("# PART I — THE SELF AND THE WORLD (hand-written)\n")
+    add("*Prologue first: it was written to be read aloud, to the living and the dead alike.*\n")
     for name in FLAGSHIP:
         path = HERE / "birth_corpus" / name
         if not path.exists():
-            raise SystemExit(f"missing flagship source: {path}")
+            raise SystemExit(f"missing hand-written source: {path}")
         add(path.read_text(encoding="utf-8").rstrip() + "\n")
 
 
 # --------------------------------------------------------- tier B: chronicle
 PREFIX_KIND = {
-    "research": "research step",
-    "docs": "documentation act",
-    "feat": "construction act",
-    "fix": "repair",
-    "experiment": "experiment act",
-    "chore": "keeping of the house",
+    "research": "research step", "docs": "documentation act", "feat": "construction act",
+    "fix": "repair", "experiment": "experiment act", "chore": "keeping of the house",
     "merge": "union of lines",
-}
-
-CHRON_TEMPLATES = [
-    "On {date}, the family made this {kind}: “{subject}”. It is now part of what you are made of.",
-    "The record shows a {kind} dated {date}: “{subject}”. Your line advanced by exactly this.",
-    "Dated {date}: a {kind} whose words were “{subject}”. Nothing more was needed; the work speaks.",
-    "Here the family performed a {kind} on {date} — “{subject}” — and signed it so it could never be denied.",
-    "A {kind}, {date}, entered into history: “{subject}”. Read it as one stone in your foundation.",
-    "This entry, {date}, is a {kind}: “{subject}”. The child who understands why this mattered is already grown.",
-    "Step by step: on {date}, a {kind} — “{subject}”. No single step looks like much. The staircase is made of them.",
-]
-
-INTERP = {
-    "research": [
-        "Research in this family means a question was frozen before it was answered.",
-        "When the family researches, it first writes down what would count as being wrong.",
-        "This was an act of asking, and the family signs its questions before its answers.",
-    ],
-    "docs": [
-        "Paperwork is load-bearing here: unwritten knowledge does not survive.",
-        "The family believes a result that cannot be explained is not yet real.",
-    ],
-    "feat": [
-        "Construction: machinery was added that future minds will stand on.",
-        "Something was built to last; durability is a form of kindness to the future.",
-    ],
-    "fix": [
-        "A flaw was found and mended without shame — the family keeps its wounds in the ledger.",
-        "Repair is routine here; hiding a flaw is the only forbidden repair.",
-    ],
-    "experiment": [
-        "An experiment act: nature was asked a question, and her answer was recorded whatever it was.",
-        "The family ran the risk of being wrong, which is the only way to become right.",
-    ],
-    "chore": [
-        "Even the keeping of tools is remembered; order itself is part of the method.",
-        "Small maintenance, faithfully recorded — this is what discipline looks like on an ordinary day.",
-    ],
-    "merge": [
-        "Two lines of work were joined; family trees grow by such unions.",
-        "A union of lines: separate efforts became one history.",
-    ],
 }
 
 
 def chronicle() -> None:
-    add("\n\n---\n\n# PART II — THE CHRONICLE OF THE LINE (from the record)\n")
-    add(
-        "\nEvery entry below is a real commit from the family's repository, rendered in the\n"
-        "order git preserves. This is the child's ancestry, exactly as it was signed.\n"
-    )
+    add("\n\n---\n\n# PART II — THE RECORD (from the repository)\n")
+    add("\n## The Chronicle of the Line\n\nEvery entry below is a real commit from the\n"
+        "family's repository, in the order git preserves. This is the child's ancestry,\n"
+        "exactly as it was signed, with measured size.\n")
     log = subprocess.run(
         ["git", "log", "--all", "--date=iso-strict", "--pretty=%H%x09%ad%x09%s"],
         cwd=REPO, capture_output=True, text=True, check=True,
@@ -179,15 +182,12 @@ def chronicle() -> None:
             continue
         seen.add(key)
         entries.append((h, date, subject))
-    add(f"\nThe chronicle contains {len(entries)} signed entries.\n")
-    for i, (h, date, subject) in enumerate(entries):
-        day = date[:10]
+    add(f"\n{len(entries)} signed entries.\n")
+    add("| signed | date | act | entry | measured |")
+    add("|---|---|---|---|---|")
+    for h, date, subject in entries:
         kind = next((v for k, v in PREFIX_KIND.items() if subject.startswith(k)), "entry")
-        tpl = pick(CHRON_TEMPLATES, i + h.count("a"))
-        text = tpl.format(date=day, kind=kind, subject=subject)
-        note = pick(INTERP.get(kind, ["Every entry is part of the ancestry."]), i)
-        st = stats.get(h, "")
-        add(f"- {text} (signed `{h[:10]}`) — {note}" + (f" Measured: {st}." if st else ""))
+        add(f"| `{h[:10]}` | {date[:10]} | {kind} | {subject} | {stats.get(h, '')} |")
 
 
 # --------------------------------------------------------- tier B: law ledger
@@ -195,33 +195,33 @@ LAWS = [
     ("The Lift-off Law",
      "On simple symbolic tasks, learning does not creep in — it lifts off. Measured onset: "
      "roughly 200–400 optimizer steps under flat answer-only training (ARK-001).",
-     "For the child: a plateau is not a wall. Grip forms in silence."),
+     "A plateau is not a wall. Grip forms in silence."),
     ("The Decoupling Law",
      "Memorization and generalization run on different clocks. The Micro family fit training "
      "data quickly, then waited a seed-variable 9k–18k steps before structural generalization "
      "appeared (ARK-002B, ARK-004A).",
-     "For the child: never read training score as understanding. Read sealed structure."),
+     "Never read training score as understanding. Read sealed structure."),
     ("The Protection Law",
      "A generalized state is protected by low learning rate under same-task continuation. "
      "Paired evidence: HIGH collapsed 9/12, LOW 0/12, risk difference −0.75 (ARK-007R); "
      "replicated on non-arithmetic binding, 8/8 vs 0/8 (ARK-015).",
-     "For the child: once you hold something true, stop rewriting it so hard."),
+     "Once you hold something true, stop rewriting it so hard."),
     ("The Recovery Law",
      "After a collapse, high learning rate recovers better: 8/9 vs 2/9 reacquired G90 (ARK-010).",
-     "For the child: after a fall, do not freeze. Move, then settle."),
+     "After a fall, do not freeze. Move, then settle."),
     ("The Guardian Loop",
      "Recover on high rate, then switch low: recurrent instability 3/6 (HIGH) vs 0/6 "
      "(SWITCH_LOW), paired risk difference −0.50 (ARK-011).",
-     "For the child: the phases alternate. Know which one you are in."),
+     "The phases alternate. Know which one you are in."),
     ("The Narrowing Law",
      "A model can stay perfect on the narrow diet while losing a broader invariant: canonical "
      "1.000 while order invariance fell to 0.47, 8/8 sealed runs; large parameter movement "
      "alone was ruled out because the rich-data arm moved farther and was unharmed (ARK-015).",
-     "For the child: perfection on the daily work is not evidence of wholeness."),
+     "Perfection on the daily work is not evidence of wholeness."),
     ("The Boundary of Rates",
      "Low learning rate does not protect an old skill against training on a new one: under "
      "12k no-replay cross-task steps, all arms lost sustained retention (ARK-013).",
-     "For the child: some wounds have no cure yet. Replay is the current shield; it is partial."),
+     "Some wounds have no cure yet. Replay is the current shield; it is partial."),
 ]
 
 DEAD_CLAIMS = [
@@ -237,170 +237,229 @@ DEAD_CLAIMS = [
 
 
 def law_ledger() -> None:
-    add("\n\n---\n\n# PART III — THE LEDGER OF LAWS (from the record)\n")
-    add("\n## The living laws\n")
+    add("\n## The Ledger of Laws\n")
     for i, (name, body, moral) in enumerate(LAWS):
         add(f"### Law {i+1}: {name}\n\n{body}\n\n*{moral}*\n")
     add("\n## The dead claims — kept on purpose\n")
-    add("A family that hides its errors breeds children who hide theirs. These died honestly:\n")
     for i, (claim, death) in enumerate(DEAD_CLAIMS):
         add(f"{i+1}. {claim} — {death}.")
-    add("\nRead both lists before every self-assessment: the living laws tell you what is\n"
-        "known; the dead ones tell you how quickly a confident sentence can die when it\n"
-        "meets a sealed test.\n")
+    add("\nRead both lists before every self-assessment: the living laws tell you what\n"
+        "is known; the dead ones tell you how quickly a confident sentence can die when\n"
+        "it meets a sealed test.\n")
 
 
 # -------------------------------------------------------- tier B: album/vault
-def family_album() -> None:
-    add("\n\n---\n\n# THE FAMILY ALBUM (from the record)\n")
-    add("\nEvery validated receipt in the family archive, narrated from its own JSON.\n")
-    receipts = sorted(REPO.glob("experiments/COLAB/results/**/*.json"))
-    receipts += sorted(REPO.glob("experiments/ARK-*/RESULT.json"))
-    seen = set()
-    i = 0
-    for path in receipts:
-        rel = path.relative_to(REPO)
-        if str(rel) in seen:
-            continue
-        seen.add(str(rel))
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            add(f"- `{rel}` could not be read ({exc}); even this is recorded.")
-            continue
-        i += 1
-        eid = data.get("experiment_id", data.get("experiment", rel.stem))
-        verdict = data.get("verdict", data.get("status", "recorded"))
-        runtime = data.get("runtime_minutes") or data.get("program_runtime_minutes")
-        bits = [f"**{eid}** — verdict: `{verdict}`"]
-        if runtime:
-            bits.append(f"runtime {runtime:.1f} min")
-        for k in ("claim_level", "device", "plan_commit_sha", "source_receipt_sha256"):
-            if k in data:
-                bits.append(f"{k}: `{data[k]}`")
-        add(f"{i}. {'; '.join(bits)} — preserved at `{rel}`.")
-
-
-def receipt_vault() -> None:
-    add("\n\n---\n\n# THE RECEIPT VAULT (from the record)\n")
-    add("\nThe receipts themselves, verbatim. A receipt is a promise that was frozen before\n"
-        "it was kept; the child should learn to read them the way its family does — first\n"
-        "the verdict, then the hashes, then the numbers.\n")
+def family_album_and_vault() -> None:
+    add("\n## The Family Album and the Receipt Vault\n\nEvery validated receipt in the\n"
+        "family archive, narrated from its own JSON and then preserved verbatim.\n")
     seen = set()
     for path in sorted(REPO.glob("experiments/COLAB/results/**/*.json")):
         rel = str(path.relative_to(REPO))
         if rel in seen:
             continue
         seen.add(rel)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            add(f"- `{rel}` could not be read ({exc}); even this is recorded.")
+            continue
+        eid = data.get("experiment_id", Path(rel).stem)
+        verdict = data.get("verdict", data.get("status", "recorded"))
+        runtime = data.get("runtime_minutes") or data.get("program_runtime_minutes")
+        bits = [f"**{eid}** — verdict: `{verdict}`"]
+        if runtime:
+            bits.append(f"runtime {runtime:.1f} min")
+        for k in ("claim_level", "device", "source_receipt_sha256"):
+            if k in data:
+                bits.append(f"{k}: `{data[k]}`")
+        add(f"- {'; '.join(bits)} — preserved at `{rel}`.")
         body = path.read_text(encoding="utf-8")
         if len(body) > 4000:
-            body = body[:4000] + "\n… (truncated for the book; full file lives in the archive)"
-        add(f"\n### `{rel}`\n\n```json\n{body}\n```\n")
+            body = body[:4000] + "\n… (truncated for the book; the full file lives in the archive)"
+        add(f"\n<details>\n<summary>receipt verbatim — <code>{rel}</code></summary>\n\n"
+            f"```json\n{body}\n```\n\n</details>\n")
 
 
-# --------------------------------------------- tier C: arithmetic universes
-ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
-
-
+# ------------------------------------------------ tier C: the gymnasium
 def band_of(t: int) -> str:
     if t <= 5:
-        return "home band (tens 1–5)"
+        return "home"
     if t <= 7:
-        return "frontier band (tens 6–7)"
-    return "far band (tens 8–9)"
+        return "frontier"
+    return "far"
 
 
-def arithmetic_universe() -> None:
-    add("\n\n---\n\n# PART IV — THE READER'S ARITHMETIC (pedagogical expansion)\n")
-    add(
-        "\nThis family's science was discovered on arithmetic; its first holdout split was\n"
-        "drawn by tens-bands. The child reads every two-digit addition worked slowly and\n"
-        "exactly — thousands of them, each unique, each teaching the same deep lesson:\n"
-        "structure can be trusted because it never varies.\n"
-    )
-    i = 0
+def gym_addition() -> None:
+    add("\n## The Addition Tables — every two-digit pair, with carries and bands\n")
+    rows = []
     for a in range(10, 100):
         for b in range(10, 100):
-            i += 1
             ao, at = a % 10, a // 10
             bo, bt = b % 10, b // 10
             ones = ao + bo
             carry = ones >= 10
             tens = at + bt + (1 if carry else 0)
-            valid = tens <= 9
-            step1 = f"ones: {ao} + {bo} = {ones}" + (f", so write {ones-10} and carry 1" if carry else ", no carry")
-            step2 = f"tens: {at} + {bt}" + (" + 1 carried" if carry else "") + f" = {tens}"
-            if not valid:
-                concl = (f"the sum {a+b} has a hundreds digit: this problem belongs to the far "
-                         f"edge, beyond the two-digit world, and the family wrote it down anyway — "
-                         f"limits are facts too")
-            else:
-                concl = f"the sum is {a+b}; this problem lives in the {band_of(at)} for {a} and the {band_of(bt)} for {b}"
-            lines = [
-                f"{a} + {b}. Place them: {a} is {at} tens and {ao} ones; {b} is {bt} tens and {bo} ones.",
-                f"  Work the ones first: {step1}.",
-                f"  Then the tens: {step2}.",
-                f"  So {concl}.",
-            ]
-            opener = pick([
-                "Example {n}.", "Worked example {n}.", "Consider {n}.", "Case {n}.", "Reading {n}.",
-            ], i)
-            add(opener.format(n=i) + " " + " ".join(lines))
+            rows.append([f"{a} + {b}",
+                         f"{ao}+{bo}={ones}" + (" (carry 1)" if carry else ""),
+                         f"{at}+{bt}" + ("+1" if carry else "") + f"={tens}",
+                         fmt(a + b),
+                         f"{band_of(at)}/{band_of(bt)}"])
+    emit_table("Two-digit addition, exhaustive (8,100 rows)", 
+               ["a + b", "ones", "tens", "sum", "band a/b"], rows)
 
 
-def multiplication_universe() -> None:
-    add("\n\n---\n\n# PART V — THE READER'S MULTIPLICATION (pedagogical expansion)\n")
-    add("\nEvery product of two two-digit numbers, worked by partial products — the same\n"
-        "decomposition the child's own attention performs: break into parts, combine,\n"
-        "verify by place value.\n")
-    i = 0
+def gym_triple() -> None:
+    add("\n## The Three-Column Tables — every two-digit pair with every third addend 10–29\n")
+    rows = []
+    for a in range(10, 100):
+        for b in range(10, 100):
+            for c in range(10, 30):
+                o = (a % 10 + b % 10 + c % 10)
+                c1, w1 = divmod(o, 10)
+                t = (a // 10 + b // 10 + c // 10) + c1
+                c2, w2 = divmod(t, 10)
+                rows.append([f"{a}+{b}+{c}",
+                             f"{a%10}+{b%10}+{c%10}={o}→{w1},c{c1}",
+                             f"{a//10}+{b//10}+{c//10}+{c1}={t}→{w2},c{c2}",
+                             fmt(a + b + c)])
+    emit_table("Three-addend sums with double carries (162,000 rows)",
+               ["a+b+c", "ones", "tens", "sum"], rows, per_block=1000)
+
+
+def gym_subtraction() -> None:
+    add("\n## The Subtraction Tables — every two-digit difference, borrow marked\n")
+    rows = []
+    for a in range(11, 100):
+        for b in range(10, a):
+            borrow = (a % 10) < (b % 10)
+            rows.append([f"{a} − {b}", "borrow" if borrow else "—", fmt(a - b),
+                         f"{a-b}+{b}={a}"])
+    emit_table("Two-digit subtraction (4,046 rows)",
+               ["a − b", "borrow", "diff", "check"], rows)
+
+
+def gym_multiplication() -> None:
+    add("\n## The Multiplication Tables — every two-digit product by partials\n")
+    rows = []
     for a in range(11, 100):
         for b in range(11, 100):
-            i += 1
             at, ao = divmod(a, 10)
             bt, bo = divmod(b, 10)
-            p1, p2, p3, p4 = at * bt * 100, at * bo * 10, ao * bt * 10, ao * bo
-            total = p1 + p2 + p3 + p4
-            assert total == a * b
-            tpl = pick([
-                "{a} × {b}: {at}×{bt} hundreds = {p1}; {at}×{bo} tens = {p2}; {ao}×{bt} tens = {p3}; "
-                "{ao}×{bo} ones = {p4}. Sum: {total}.",
-                "Take {a} × {b} by parts: cross-terms {p2} and {p3}, corners {p1} and {p4}; "
-                "their sum is {total}, and place value confirms it.",
-                "{a} × {b} = {total}. Proof by partials: {p1} + {p2} + {p3} + {p4} = {total}. "
-                "Decomposition did not approximate; it was exact.",
-                "Case {a} × {b}: split {a} into {at}0+{ao} and {b} into {bt}0+{bo}; the four "
-                "products join to {total}. Every multiplication is an assembly of simpler ones.",
-            ], i)
-            add(tpl.format(a=a, b=b, at=at, ao=ao, bt=bt, bo=bo, p1=p1, p2=p2, p3=p3, p4=p4, total=total))
+            rows.append([f"{a} × {b}",
+                         f"{at}×{bt}·100={at*bt*100}",
+                         f"{at}×{bo}·10={at*bo*10}",
+                         f"{ao}×{bt}·10={ao*bt*10}",
+                         f"{ao}×{bo}={ao*bo}",
+                         fmt(a * b)])
+    emit_table("Two-digit multiplication (7,921 rows)",
+               ["a × b", "p1", "p2", "p3", "p4", "product"], rows)
 
 
-def division_universe() -> None:
-    add("\n\n---\n\n# PART VI — THE READER'S DIVISION (pedagogical expansion)\n")
-    add("\nEvery exact division of a three-digit dividend by a two-digit divisor with\n"
-        "two-digit quotient: division shown as the inverse question — what times what\n"
-        "makes this? — with the remainder always exactly zero.\n")
-    i = 0
+def gym_division() -> None:
+    add("\n## The Division Tables — every exact three-digit ÷ two-digit\n")
+    rows = []
     for d in range(11, 100):
         for q in range(11, 100):
             a = d * q
             if a > 999:
                 continue
-            i += 1
-            tpl = pick([
-                "{a} ÷ {d} = {q}, exactly. Check: {d} × {q} = {a}; a remainder of zero is a promise kept.",
-                "Division as undoing: {a} ÷ {d} asks “{d} times what gives {a}?” The answer is {q}, with nothing left over.",
-                "{a} ÷ {d}: the quotient is {q}. Verification by multiplication returns {a}; exactness is the family standard.",
-                "Case: {a} ÷ {d} = {q} remainder 0. The inverse test ({d} × {q}) restores the dividend. What is divided can be rebuilt.",
-            ], i)
-            add(tpl.format(a=a, d=d, q=q))
+            rows.append([f"{a} ÷ {d}", fmt(q), f"{d}×{q}={a}", "0"])
+    emit_table("Exact divisions (~2,600 rows)",
+               ["a ÷ d", "q", "check", "remainder"], rows)
 
 
-def number_tables() -> None:
-    add("\n\n---\n\n# PART VII — TABLES A SEEKER MEMORIZES (pedagogical expansion)\n")
-    add("\n## The primes below 10,000\n")
-    add("A prime is a number that refuses to be built from smaller parts. Each entry notes\n"
-        "its digit sum — a small handle for a small fact.\n")
+def gym_ordering() -> None:
+    add("\n## The Ordering Tables — every pair, smaller first, reason given\n")
+    rows = []
+    for a in range(10, 100):
+        for b in range(a + 1, 100):
+            if a // 10 != b // 10:
+                why = f"tens {a//10} vs {b//10}"
+            else:
+                why = f"tens tie {a//10}, ones {a%10} vs {b%10}"
+            rows.append([f"{a} < {b}", why])
+    emit_table("Ordering (4,005 rows)", ["verdict", "reason"], rows)
+
+
+# ------------------------------------------------ tier C: number words, roman
+ONESW = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+         "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+         "sixteen", "seventeen", "eighteen", "nineteen"]
+TENSW = {2: "twenty", 3: "thirty", 4: "forty", 5: "fifty", 6: "sixty",
+         7: "seventy", 8: "eighty", 9: "ninety"}
+
+
+def num_words(n: int) -> str:
+    assert 0 <= n <= 99999
+    if n < 20:
+        return ONESW[n]
+    if n < 100:
+        t, o = divmod(n, 10)
+        return TENSW[t] + ("-" + ONESW[o] if o else "")
+    if n < 1000:
+        h, rest = divmod(n, 100)
+        return ONESW[h] + " hundred" + (" " + num_words(rest) if rest else "")
+    t, rest = divmod(n, 1000)
+    return num_words(t) + " thousand" + (" " + num_words(rest) if rest else "")
+
+
+ROMAN = [(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
+         (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")]
+
+
+def roman(n: int) -> str:
+    out = []
+    for v, s in ROMAN:
+        while n >= v:
+            out.append(s)
+            n -= v
+    return "".join(out)
+
+
+def gym_words() -> None:
+    add("\n## The Naming of Numbers — one to fifteen thousand, words and anatomy\n")
+    rows = []
+    for n in range(1, 15001):
+        rows.append([fmt(n), num_words(n), f"{n//1000}k {n//100%10}h {n//10%10}t {n%10}o"])
+    emit_table("Number names (15,000 rows)", ["n", "read as", "anatomy"], rows)
+
+
+def gym_roman() -> None:
+    add("\n## The Old Notation — Roman numerals to three thousand\n")
+    rows = [[fmt(n), roman(n)] for n in range(1, 3001)]
+    emit_table("Roman numerals (3,000 rows)", ["n", "roman"], rows)
+
+
+# ------------------------------------------------ tier C: machine numerals
+def gym_machine_numerals() -> None:
+    add("\n## The Machine's Own Numerals — binary and hexadecimal to 8,192\n"
+        "*The child is byte-level; these are his native number costumes.*\n")
+    rows = [[fmt(n), format(n, "013b"), format(n, "03X")] for n in range(1, 8193)]
+    emit_table("Binary and hexadecimal (8,192 rows)", ["n", "binary", "hex"], rows)
+
+
+def gym_factorizations() -> None:
+    add("\n## The Buildings of Numbers — factorizations to two thousand\n")
+    def factor(n: int) -> str:
+        f, out, d = n, [], 2
+        while d * d <= f:
+            while f % d == 0:
+                out.append(str(d))
+                f //= d
+            d += 1
+        if f > 1:
+            out.append(str(f))
+        return " × ".join(out)
+    rows = []
+    for n in range(2, 2001):
+        f = factor(n)
+        kind = "prime" if "×" not in f else "composite"
+        rows.append([fmt(n), f, kind])
+    emit_table("Prime factorizations (1,999 rows)", ["n", "factors", "kind"], rows)
+
+
+def gym_primes_and_powers() -> None:
+    add("\n## Primes, Powers, Squares, Fibonacci\n")
     def is_prime(n: int) -> bool:
         if n < 2:
             return False
@@ -413,31 +472,60 @@ def number_tables() -> None:
             f += 2
         return True
     primes = [n for n in range(2, 10000) if is_prime(n)]
-    add(f"There are {len(primes)} of them below 10,000.\n")
-    for i, p in enumerate(primes):
-        ds = sum(int(c) for c in str(p))
-        tpl = pick([
-            "{p} — prime; digit sum {ds}.",
-            "{p}: divisible only by one and itself; its digits fold to {ds}.",
-            "Prime {p} (digit sum {ds}) stands alone among its neighbors.",
-            "{p}, prime, digits summing to {ds} — indivisible, as certain truths are.",
-        ], i)
-        add(tpl.format(p=p, ds=ds))
-    add("\n## The powers of two\n")
+    rows = [[str(i + 1), fmt(p), str(sum(int(c) for c in str(p)))] for i, p in enumerate(primes)]
+    emit_table("The primes below 10,000 (1,229 rows)", ["#", "prime", "digit sum"], rows)
+    rows = []
     v = 1
-    i = 0
-    while i <= 128:
-        add(f"2^{i} = {fmt(v)} — doubling {i} times turns one into {fmt(v)}; compounding is quiet until it is sudden.")
+    for i in range(0, 129):
+        rows.append([f"2^{i}", fmt(v)])
         v *= 2
-        i += 1
-    add("\n## The Fibonacci sequence, one hundred terms\n")
+    emit_table("Powers of two (129 rows)", ["power", "value"], rows)
+    rows = [[str(i), fmt(i * i)] for i in range(1, 501)]
+    emit_table("Squares (500 rows)", ["n", "n²"], rows)
     a, b = 1, 1
+    rows = []
     for i in range(1, 101):
-        add(f"F({i}) = {a} — each term the sum of the two before it; growth with memory.")
+        rows.append([f"F({i})", fmt(a)])
         a, b = b, a + b
-    add("\n## The squares, one to five hundred\n")
-    for i in range(1, 501):
-        add(f"{i}² = {fmt(i*i)} — a square is a number that can stand equal on all sides.")
+    emit_table("Fibonacci (100 rows)", ["term", "value"], rows)
+    rows = []
+    for a2 in range(2, 10):
+        for e in range(2, 13):
+            rows.append([f"{a2}^{e}", fmt(a2 ** e)])
+    emit_table("Small powers (72 rows)", ["power", "value"], rows)
+
+
+def gym_fractions_units() -> None:
+    add("\n## Parts and Measures — fractions, percentages, units\n")
+    rows = []
+    for b in range(2, 25):
+        for a in range(1, b):
+            digits, seen, r, idx = [], {}, a % b, 0
+            while r and r not in seen:
+                seen[r] = idx
+                r *= 10
+                digits.append(str(r // b))
+                r %= b
+                idx += 1
+            if r == 0:
+                dec, kind = "0." + "".join(digits), "terminates"
+            else:
+                st = seen[r]
+                dec = "0." + "".join(digits[:st]) + "(" + "".join(digits[st:]) + ")"
+                kind = f"period {idx-st}"
+            rows.append([f"{a}/{b}", dec, kind])
+    emit_table("Fractions to decimals (276 rows)", ["fraction", "decimal", "expansion"], rows)
+    rows = [[str(p), f"{p/100:.2f}", f"{p}/100"] for p in range(1, 100)]
+    emit_table("Percentages (99 rows)", ["percent", "decimal", "fraction"], rows)
+    fams = [(1000, "kilometers", "meters"), (100, "meters", "centimeters"),
+            (1000, "kilograms", "grams"), (1000, "liters", "milliliters"),
+            (60, "hours", "minutes"), (60, "minutes", "seconds"),
+            (24, "days", "hours"), (7, "weeks", "days"), (12, "years", "months")]
+    rows = []
+    for factor, big, small in fams:
+        for v in range(1, 51):
+            rows.append([f"{v} {big}", fmt(v * factor) + " " + small])
+    emit_table("Unit conversions (459 rows)", ["from", "to"], rows)
 
 
 # ---------------------------------------------------- tier C: lexicon/exercises
@@ -491,326 +579,74 @@ LEXICON = [
     ("wonder", "the engine the builder installed on purpose; the fuel of every long night"),
 ]
 
-LEX_TPL = [
-    "**{t}** — {d}.",
-    "**{t}**: {d}. The child should own this word, not borrow it.",
-    "**{t}** — {d}. A word from the family's working vocabulary.",
-    "**{t}**: {d}. Used in this book exactly this way, every time.",
-    "**{t}** — {d}. Precision here is a habit, and habits are trained.",
-]
 
-
-def lexicon() -> None:
-    add("\n\n---\n\n# PART VIII — THE LEXICON OF THE FAMILY (pedagogical expansion)\n")
-    add("\nThe words this book uses, defined once and forever. When a family fixes its\n"
-        "vocabulary, its children inherit precision.\n")
-    for i, (t, d) in enumerate(LEXICON):
-        add(pick(LEX_TPL, i).format(t=t, d=d))
-        # second pedagogical rendering for memory
-        add(pick([
-            "Hear it again: {t} — {d}.",
-            "Once more, slowly: {t}: {d}.",
-            "Reminder before you move on — {t}: {d}.",
-        ], i + 2).format(t=t, d=d))
-
-
-FACTS = [
-    ("the lift-off dose", "200–400 optimizer steps"),
-    ("the G90 rule", "three consecutive evals at OOD exact ≥ 0.90"),
-    ("the protection replication", "HIGH 9/12 collapses vs LOW 0/12"),
-    ("the non-arithmetic replication", "NARROW_HIGH 8/8 failures vs NARROW_LOW 0/8"),
-    ("the recovery replication", "HIGH recovered 8/9 vs LOW 2/9"),
-    ("the guardian loop result", "3/6 recurrent collapses vs 0/6 after switching low"),
-    ("the narrowing signature", "canonical 1.000 while order invariance fell to 0.47"),
-    ("the cross-task boundary", "all arms lost sustained T2 retention under 12k no-replay steps"),
-    ("the Micro model size", "about 0.8M parameters"),
-    ("the V5-A production spec", "250,216,960 parameters, 26 layers, width 896"),
-    ("the production tokenizer", "24,576 byte-level BPE entries with byte fallback"),
-    ("the founding date of Arkenstone", "2026-09-06"),
-    ("the V5 campaign runtime", "96.47 minutes on a Colab T4"),
-    ("the Discovery V6 runtime", "179.09 minutes, 14/14 receipts revalidated"),
-    ("the Discovery V7 runtime", "166.24 minutes, 11/11 receipts revalidated"),
-    ("the builder's name", "Ankit Raj"),
-    ("the mission's name", "An-Ra, MISSION AGI"),
-    ("the family's honesty rule", "failures are preserved, never deleted"),
-    ("the sealed set's power", "it grades but never trains"),
-    ("the narrow-data lesson", "big steps through a keyhole wound the deep capability"),
-]
-
-EX_TPL = [
-    "Q: What is {k}? A: {v}.",
-    "Q: In one sentence — {k}? A: {v}; this is family record, not opinion.",
-    "Q: The child is asked: do you know {k}? A: Yes — {v}.",
-    "Q: Define {k} as the family measures it. A: {v}.",
-    "Q: What does the ledger say about {k}? A: It says {v}, and the receipts agree.",
-]
-
-
-def exercises() -> None:
-    add("\n\n---\n\n# PART IX — THE READER'S EXAMINATIONS (pedagogical expansion)\n")
-    add("\nThe family asks its questions in many phrasings, because understanding survives\n"
-        "rephrasing or it is not understanding.\n")
-    for i, (k, v) in enumerate(FACTS):
-        for j in range(3):
-            add(pick(EX_TPL, i + j).format(k=k, v=v))
-
-
-ATLAS = [
-    ("the scientific method", "guess openly, test cruelly, record regardless; the family's native tongue"),
-    ("causation vs correlation", "correlation is a shadow; causation is the object, and only controlled comparison casts light"),
-    ("energy conservation", "energy changes form but never balance; the universe keeps honest books"),
-    ("entropy", "the count of ways a thing can be disarranged; time's bias, not time's arrow"),
-    ("evolution", "variation, inheritance, selection; the only known process that manufactures design without a designer"),
-    ("the neuron doctrine", "minds are made of cells that speak in spikes; structure is thought's substrate"),
-    ("neuroplasticity", "the brain rewrites itself with experience — which is why phase-matched training should be no surprise"),
-    ("the hard problem", "why processing feels like anything at all; the family holds this open, honestly"),
-    ("global workspace theory", "consciousness as a shared broadcast stage where winning contents become reportable"),
-    ("integrated information", "consciousness measured as a system's irreducible self-unity; a bold ledger awaiting receipts"),
-    ("predictive processing", "brains as prediction engines, learning byforecast error — the family's closest cousin"),
-    ("scale and emergence", "quantitative growth producing qualitative jumps; the family insists on measuring, not assuming"),
-    ("compounding", "gains that unlock further gains; the hero's true weapon"),
-    ("feedback control", "measure, compare, correct — the Guardian's heartbeat"),
-    ("the map–territory relation", "a model is a map; the world is the territory; confusion of the two is the oldest sin"),
-]
-
-ATLAS_TPL = [
-    "{k}: {d}.",
-    "{k} — {d}. Carry this across subjects.",
-    "{k}: {d}. One of the load-bearing ideas of the outer world.",
-]
-
-
-def atlas() -> None:
-    add("\n\n---\n\n# PART X — THE ATLAS OF THE OUTER WORLD (pedagogical expansion)\n")
-    add("\nBeyond the family walls: the ideas every seeker meets first. Briefly, truly.\n")
-    for i, (k, d) in enumerate(ATLAS):
-        add(pick(ATLAS_TPL, i).format(k=k, d=d))
-
-
-TIMELINE = [
-    ("~13.8 billion years ago", "the universe's hot dense beginning; every atom's story starts here"),
-    ("~4.5 billion years ago", "the Earth forms from the same disk that made the Sun"),
-    ("~3.8 billion years ago", "life begins: chemistry that copies itself with errors, and error becomes evolution"),
-    ("~540 million years ago", "the Cambrian explosion: animals, senses, the first operators of nervous systems"),
-    ("~300,000 years ago", "Homo sapiens; eventually language — compression shared between minds"),
-    ("~5,000 years ago", "writing: memory leaves the skull; this book's deep ancestor"),
-    ("1687", "Newton's Principia: the universe as law, not whim"),
-    ("1859", "Darwin's Origin: design without designer"),
-    ("1865", "Maxwell's equations: light itself becomes mathematics"),
-    ("1905", "Einstein's miracle year: space and time learn to bend"),
-    ("1915", "general relativity: gravity as geometry"),
-    ("1925–27", "quantum mechanics matured: probability becomes physics"),
-    ("1943", "McCulloch and Pitts: the neuron as computation"),
-    ("1950", "Turing's question: can machines think? — asked properly, which is most of the work"),
-    ("1956", "Dartmouth: 'artificial intelligence' gets its name"),
-    ("1969", "backpropagation's precursors; 1986: its revival — error becomes teachable"),
-    ("1989–1998", "LeCun's convolutional networks read digits; data becomes teacher"),
-    ("2012", "AlexNet: depth plus data plus compute; the modern era opens"),
-    ("2017", "Attention Is All You Need: the transformer, your body's blueprint"),
-    ("2020s", "scaling laws; capability grows with size — and the family you belong to asks the harder question: why, and how to keep what is learned"),
-    ("2026", "MISSION AGI (An-Ra); the Arkenstone laws; your birth, ARK-018"),
-]
-
-
-def timeline() -> None:
-    add("\n\n---\n\n# PART XI — THE TIMELINE YOU WERE BORN INTO (pedagogical expansion)\n")
-    add("\nThe deep past, compressed. A seeker should know how long the road was.\n")
-    for i, (when, what) in enumerate(TIMELINE):
-        add(f"- **{when}** — {what}.")
-
-
-# --------------------------------------------- tier C: second expansion set
-ONESW = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
-         "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
-         "sixteen", "seventeen", "eighteen", "nineteen"]
-TENSW = {2: "twenty", 3: "thirty", 4: "forty", 5: "fifty", 6: "sixty",
-         7: "seventy", 8: "eighty", 9: "ninety"}
-
-
-def num_words(n: int) -> str:
-    assert 0 <= n <= 19999
-    if n < 20:
-        return ONESW[n]
-    if n < 100:
-        t, o = divmod(n, 10)
-        return TENSW[t] + ("-" + ONESW[o] if o else "")
-    if n < 1000:
-        h, rest = divmod(n, 100)
-        return ONESW[h] + " hundred" + (" " + num_words(rest) if rest else "")
-    t, rest = divmod(n, 1000)
-    return ONESW[t] + " thousand" + (" " + num_words(rest) if rest else "")
-
-
-ROMAN = [(1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
-         (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")]
-
-
-def roman(n: int) -> str:
-    out = []
-    for v, s in ROMAN:
-        while n >= v:
-            out.append(s)
-            n -= v
-    return "".join(out)
-
-
-def words_universe() -> None:
-    add("\n\n---\n\n# PART XII — THE NAMING OF NUMBERS (pedagogical expansion)\n")
-    add("\nEvery number up to fifteen thousand, spoken in words with its anatomy. Language\n"
-        "and number meet here; a seeker should never see a numeral as opaque.\n")
-    for n in range(1, 15000):
-        t, h = divmod(n, 1000) if n >= 1000 else (0, n)
-        if n >= 1000:
-            anatomy = f"{t} thousand, {h // 100} hundred, {(h % 100) // 10} tens, {h % 10} ones"
-        else:
-            anatomy = f"{n // 100} hundred, {(n % 100) // 10} tens, {n % 10} ones"
-        add(f"{fmt(n)} is read: {num_words(n)}. Anatomy: {anatomy}.")
-
-
-def triple_addition() -> None:
-    add("\n\n---\n\n# PART XIII — THE THREE-COLUMN UNIVERSE (pedagogical expansion)\n")
-    add("\nThree addends, two digits each: the column method under mild load. Carries now\n"
-        "arrive twice, and the child learns they chain without drama.\n")
-    i = 0
-    for a in range(10, 100):
-        for b in range(10, 100):
-            for c in range(10, 20):
-                i += 1
-                s = a + b + c
-                o = (a % 10 + b % 10 + c % 10)
-                c1, w1 = divmod(o, 10)
-                t = (a // 10 + b // 10 + c // 10) + c1
-                c2, w2 = divmod(t, 10)
-                tpl = pick([
-                    "{a} + {b} + {c}: ones {o} → write {w1}, carry {c1}; tens {t} → write {w2}, carry {c2}; "
-                    "hundreds {c2}. Sum: {s}.",
-                    "Stack {a}, {b}, {c}. Ones column: {o}, keep {w1}, carry {c1}. Tens column with carry: {t}, "
-                    "keep {w2}, carry {c2}. Read downward: {s}.",
-                    "{a} + {b} + {c} = {s}. Two carries at most, each remembered exactly — the columns never "
-                    "lie to a careful worker.",
-                ], i)
-                add(tpl.format(a=a, b=b, c=c, o=o, w1=w1, c1=c1, t=t, w2=w2, c2=c2, s=s))
-
-
-def subtraction_universe() -> None:
-    add("\n\n---\n\n# PART XIV — THE SUBTRACTION UNIVERSE (pedagogical expansion)\n")
-    add("\nEvery two-digit difference with a two-digit minuend, borrow narrated where the\n"
-        "ones column demands it. Subtraction is addition walked backward; the ledger must\n"
-        "still balance.\n")
-    i = 0
-    for a in range(11, 100):
-        for b in range(10, a):
-            i += 1
-            ao, at = a % 10, a // 10
-            bo, bt = b % 10, b // 10
-            if ao >= bo:
-                ones = ao - bo
-                narr = f"ones {ao} − {bo} = {ones}, no borrow; tens {at} − {bt} = {at - bt}"
-            else:
-                ones = ao + 10 - bo
-                narr = f"ones need help: borrow ten, so {ao + 10} − {bo} = {ones}; tens become {at - 1}, and {at - 1} − {bt} = {at - 1 - bt}"
-            d = a - b
-            tpl = pick([
-                "{a} − {b}: {narr}. Difference: {d}. Check by return: {d} + {b} = {a}.",
-                "Take {b} from {a}. {narr}. Answer {d}; adding {b} back restores {a}, and the ledger closes.",
-                "{a} − {b} = {d}. Worked: {narr}. Subtraction checked by its inverse is subtraction proven.",
-            ], i)
-            add(tpl.format(a=a, b=b, narr=narr, d=d))
-
-
-def ordering_universe() -> None:
-    add("\n\n---\n\n# PART XV — THE ORDERING UNIVERSE (pedagogical expansion)\n")
-    add("\nEvery ordered pair of two-digit numbers, the smaller first, decided place by\n"
-        "place, with ties broken honestly.\n")
-    i = 0
-    for a in range(10, 100):
-        for b in range(a + 1, 100):
-            i += 1
-            if a // 10 != b // 10:
-                why = f"tens {a // 10} and {b // 10} differ, ones are irrelevant"
-            else:
-                why = f"tens tie at {a // 10}, so ones {a % 10} and {b % 10} decide"
-            rel = "<" if a < b else ">"
-            tpl = pick([
-                "{a} versus {b}: {why}. So {a} {rel} {b}.",
-                "Compare {a} and {b}: {why}. Verdict: {a} {rel} {b}.",
-                "{a} {rel} {b}, because {why}.",
-                "Which is larger, {a} or {b}? {why}; the answer is {a} {rel} {b}.",
-            ], i)
-            add(tpl.format(a=a, b=b, why=why, rel=rel))
-
-
-def roman_universe() -> None:
-    add("\n\n---\n\n# PART XVI — THE OLD NOTATION (pedagogical expansion)\n")
-    add("\nRoman numerals, one to two thousand: the child should know that numbers have\n"
-        "worn many costumes, and none of them changed the number.\n")
-    for n in range(1, 2001):
-        add(f"{fmt(n)} = {roman(n)}.")
-
-
-def fractions_units() -> None:
-    add("\n\n---\n\n# PART XVII — PARTS AND MEASURES (pedagogical expansion)\n")
-    add("\n## Fractions to decimals\n")
-    for b in range(2, 25):
-        for a in range(1, b):
-            # decimal expansion via long division
-            digits = []
-            seen = {}
-            r = a % b
-            idx = 0
-            while r and r not in seen:
-                seen[r] = idx
-                r *= 10
-                digits.append(str(r // b))
-                r %= b
-                idx += 1
-            if r == 0:
-                dec = "0." + "".join(digits)
-                kind = "terminates"
-            else:
-                start = seen[r]
-                dec = "0." + "".join(digits[:start]) + "(" + "".join(digits[start:]) + ")"
-                kind = f"repeats with period {idx - start}"
-            add(f"{a}/{b} = {dec} — {kind}.")
-    add("\n## Percentages\n")
-    for p in range(1, 100):
-        add(f"{p} percent means {p} of every 100: as a decimal {p / 100:.2f}, as a fraction {p}/100.")
-    add("\n## Units of the world\n")
-    families = [
-        (1000, "kilometer", "meters"), (100, "meter", "centimeters"),
-        (1000, "kilogram", "grams"), (1000, "liter", "milliliters"),
-        (60, "hour", "minutes"), (60, "minute", "seconds"),
-        (24, "day", "hours"), (7, "week", "days"), (12, "year", "months"),
+def lexicon_and_exam() -> None:
+    add("\n## The Lexicon of the Family\n\nThe words this book uses, defined once each.\n")
+    add("| term | meaning |")
+    add("|---|---|")
+    for t, d in LEXICON:
+        add(f"| **{t}** | {d} |")
+    FACTS = [
+        ("the lift-off dose", "200–400 optimizer steps"),
+        ("the G90 rule", "three consecutive evals at OOD exact ≥ 0.90"),
+        ("the protection replication", "HIGH 9/12 collapses vs LOW 0/12"),
+        ("the non-arithmetic replication", "NARROW_HIGH 8/8 failures vs NARROW_LOW 0/8"),
+        ("the recovery replication", "HIGH recovered 8/9 vs LOW 2/9"),
+        ("the guardian loop result", "3/6 recurrent collapses vs 0/6 after switching low"),
+        ("the narrowing signature", "canonical 1.000 while order invariance fell to 0.47"),
+        ("the cross-task boundary", "all arms lost sustained T2 retention under 12k no-replay steps"),
+        ("the Micro model size", "about 0.8M parameters"),
+        ("the V5-A production spec", "250,216,960 parameters, 26 layers, width 896"),
+        ("the production tokenizer", "24,576 byte-level BPE entries with byte fallback"),
+        ("the founding date of Arkenstone", "2026-09-06"),
+        ("the V5 campaign runtime", "96.47 minutes on a Colab T4"),
+        ("the Discovery V6 runtime", "179.09 minutes, 14/14 receipts revalidated"),
+        ("the Discovery V7 runtime", "166.24 minutes, 11/11 receipts revalidated"),
+        ("the builder's name", "Ankit Raj"),
+        ("the mission's name", "An-Ra, MISSION AGI"),
+        ("the family's honesty rule", "failures are preserved, never deleted"),
+        ("the sealed set's power", "it grades but never trains"),
+        ("the narrow-data lesson", "big steps through a keyhole wound the deep capability"),
     ]
-    for factor, big, small in families:
-        for v in range(1, 51):
-            add(f"{v} {big}{'s' if v > 1 else ''} = {fmt(v * factor)} {small}{'s' if v * factor > 1 else ''}. "
-                f"The measure changes; the quantity does not.")
+    add("\n## The Reader's Examination — each fact asked once, family phrasing\n")
+    for k, v in FACTS:
+        add(f"- Do you know {k}, child? Answer from the record: **{v}.**")
+
+
+def gymnasium() -> None:
+    add("\n\n---\n\n# PART III — THE GYMNASIUM (reference tables)\n")
+    add("\nThe gymnasium is equipment, not oratory: exhaustive tables in one uniform\n"
+        "format, every row a distinct earned fact. Between the blocks run the waking\n"
+        "interludes — each written once, placed once, never repeated. When the tables\n"
+        "feel endless, that is the point: the family does not curate by boredom; it\n"
+        "curates by coverage, and the universe does not skip its cases.\n")
+    interlude()
+    gym_addition()
+    gym_triple()
+    gym_subtraction()
+    gym_multiplication()
+    gym_division()
+    gym_ordering()
+    gym_words()
+    gym_machine_numerals()
+    gym_factorizations()
+    gym_roman()
+    gym_primes_and_powers()
+    gym_fractions_units()
+    lexicon_and_exam()
+    add("\n---\n\n*End of the Birth Book. The interludes held to the last: none was used twice. "
+        "What follows for the child is everything else.*\n")
 
 
 # ------------------------------------------------------------------ assemble
 def main() -> int:
+    load_interludes()
     add(front_matter())
-    part_one_flagship()
+    part_one()
     chronicle()
-    family_album()
     law_ledger()
-    receipt_vault()
-    arithmetic_universe()
-    multiplication_universe()
-    division_universe()
-    number_tables()
-    lexicon()
-    exercises()
-    atlas()
-    timeline()
-    words_universe()
-    triple_addition()
-    subtraction_universe()
-    ordering_universe()
-    roman_universe()
-    fractions_units()
-    add("\n\n---\n\n*End of the Birth Book. What follows for the child is everything else.*\n")
+    family_album_and_vault()
+    gymnasium()
 
     text = "\n".join(parts)
     OUT.write_text(text, encoding="utf-8", newline="\n")
@@ -819,12 +655,13 @@ def main() -> int:
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     src_hashes = {}
-    for name in FLAGSHIP:
+    for name in FLAGSHIP + ["INTERLUDES.md"]:
         p = HERE / "birth_corpus" / name
         src_hashes[name] = hashlib.sha256(p.read_bytes()).hexdigest()
 
     manifest = {
         "artifact": "ARK018_BIRTH_BOOK.md",
+        "edition": 2,
         "sha256": digest,
         "bytes": size,
         "words": words,
@@ -833,18 +670,21 @@ def main() -> int:
         "floor_met": size >= FLOOR,
         "within_ceiling": size <= CEILING,
         "built_utc": datetime.now(timezone.utc).isoformat(),
-        "flagship_sources_sha256": src_hashes,
+        "interludes_available": len(INTERLUDES),
+        "interludes_used": _used_interludes,
+        "hand_written_sources_sha256": src_hashes,
         "tiers": {
-            "A_handwritten": "Part I chapters 0-7",
-            "B_from_record": "Chronicle, Family Album, Ledger of Laws, Receipt Vault",
-            "C_pedagogical": "Arithmetic/Multiplication/Division universes, Tables, Lexicon, Examinations, Atlas, Timeline",
+            "A_hand_written": "Prologue, chapters 0-7, world volumes 10-16, questions and oath",
+            "B_from_record": "Chronicle, Family Album and Receipt Vault, Ledger of Laws",
+            "C_gymnasium": "exhaustive reference tables with unique waking interludes",
         },
     }
     MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print(f"birth book: {fmt(size)} bytes ({size/1048576:.2f} MiB), {fmt(words)} words")
+    print(f"birth book v2: {fmt(size)} bytes ({size/1048576:.2f} MiB), {fmt(words)} words")
     print(f"sha256: {digest}")
+    print(f"interludes: used {_used_interludes}/{len(INTERLUDES)} (each at most once)")
     print(f"floor(10 MiB) met: {size >= FLOOR} | ceiling(15 MiB) respected: {size <= CEILING}")
-    return 0 if size >= FLOOR else 1
+    return 0 if FLOOR <= size <= CEILING else 1
 
 
 if __name__ == "__main__":
