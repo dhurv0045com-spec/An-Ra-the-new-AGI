@@ -1,0 +1,124 @@
+{
+  "schema": "anra-cyr-gpu008-preregistration/v1",
+  "experiment": "CYR-GPU-008",
+  "status": "PREREGISTERED_PENDING_FINAL_READINESS",
+  "created_utc": "2026-09-09T10:23:00Z",
+  "executable_sha": "504fe13e735e71baa3a01898f42930486067e5be",
+  "supersession": {
+    "CYR-GPU-006": "hardware feasibility gate rejected frozen full campaign before science",
+    "CYR-GPU-007": "superseded before execution after final audit found compatibility final-decision recursion risk"
+  },
+  "executable_files": {
+    "v5_experiments/cyr_gpu008.py": "3bfdcd78821dd4f3cf067eb31290c08ba15a23a967e2cc91328cf4ab8cf2d356",
+    "anra_v5/cyr_gpu008_run.py": "bfe0dcc8eed09235b8ed7ea887d0178e45509e42ba99f9e09ec7c5411ea70c89",
+    "notebooks/cymek_colab_gpu_research_v8.ipynb": "a4681e303023784c30dde15106b900f4f6c5730d699a62c94288d3951be87712",
+    "tests/test_v5_cyr_gpu008.py": "ce80450fe4104ddfa33a5a799ba4aab54400514d67ca8a09308afd474cb4e551",
+    "v5_experiments/cyr_gpu007.py": "c36c41b8b2f1b1c44d8a12ef0fdb23551deba0fd52c1909132596fad7de95e01",
+    "anra_v5/cyr_gpu006_run.py": "65bb6bcd65f692148ccdae7711954fb193848af9484645baee223bed4801b71d",
+    "anra_v5/cyr_gpu006_run_final.py": "137dbd1224edd50b6473c2a5f0ec2f4c7c45183c0aad304f3b4917d86d7dd74f",
+    "anra_v5/cyr_gpu006_run_v2.py": "357ca256efe3487644b37ef773dcea4a54b8002514ce9e7a5db4a4aee2e38380",
+    "v5_experiments/cyr_gpu006.py": "3ded89b11ae467fdc5c8f249284a5b87220ce20f7f4a6e1a6c19a8e8204c0052",
+    "v5_experiments/cyr_gpu006_final.py": "e0e7f676525a2c6ab583eb8b83d10aebfaaee400dbdb6382309d887d5bce60d8",
+    "v5_experiments/cyr_gpu006_v2.py": "68293e44e81b3e99bc49d1891f2b38e92059616ab424d50c60a9b8ca4dae079a"
+  },
+  "dependency_blobs": {
+    "v5_contracts/model_spec.py": "cd5ef92a0d3bb208dc514f041f8e088a777ef8b1",
+    "v5_data/corpus_loading.py": "2c5e64656d9241d2c916549c9fb938e1df848ee0",
+    "v5_experiments/cyr_gpu005.py": "67cf09633115652896ae7ff2081166c19302a7e4",
+    "v5_experiments/cyr_tournament.py": "4600e3c4c4498221b7f3a73db389aff16a8d705e",
+    "v5_model/attention.py": "5b8f1f3abf302f6cfb0a549e8675c6d1d4f0202f",
+    "v5_model/block.py": "d1bae52a9683d273b7f0a0507e180d0dbb94843a",
+    "v5_model/config.py": "d7351b94f86fc9d3b4161c2c8e4dc72b271979f1",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_model/embedding.py": "ab3ca39022febecf2e49068d67cd19394504fcd3",
+    "v5_model/initialize.py": "5ef02a6250aff914cb4ac953a12640b654bf4ae9",
+    "v5_objectives/causal_lm.py": "4d0cc7c31679f99b44d34570e47e40f6778b7231",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "v5_training/production_backend.py": "84d2dfc7cad3f52fd3a9b3f7357fac4d70145cb6"
+  },
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "arkenstone": {
+    "head_sha": "6acd9dcbdd28d00f387ffcd004253a813aca4b66",
+    "discovery_v6_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+    "claim_limits": [
+      "same-task LOW protection demonstrated at Micro T2",
+      "exact switch threshold unresolved",
+      "LOW alone does not solve no-replay cross-task interference",
+      "non-arithmetic LR retention transfer remains unproven"
+    ]
+  },
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "vocabulary_size": 24576
+  },
+  "data": {
+    "generator": "t2-two-digit-addition",
+    "generator_version": "cyr-gpu005-t2/v1",
+    "data_manifest_sha256_full": "b7a4d5bef28b6d1c26fcc85dc7eecc3562607badbd78b45066f81ac846386ad9",
+    "split_seeds": {"train": 5001, "dev_controller": 6002, "dev_measurement": 6003, "sealed_reserved": 6004},
+    "world_counts": {"train": 500, "dev_controller": 96, "dev_measurement": 112, "sealed_reserved": 48}
+  },
+  "scientific_invariants": {
+    "parent_seed_order": [707, 808, 909],
+    "minimum_independent_parents_for_replication": 2,
+    "arms": ["HIGH_CONTINUE", "LOW_CONTINUE", "FIXED_TIME_HIGH_TO_LOW", "HYSTERETIC_HIGH_LOW"],
+    "acquisition_lr": 0.001,
+    "low_lr": 0.00001,
+    "candidate_free_g90_threshold": 0.9,
+    "g90_confirmations": 3,
+    "shared_parent_model_optimizer_bytes": true,
+    "matched_future_stream": true,
+    "actual_real_token_exposure": true,
+    "fixed_time_actual_token_control": true,
+    "sealed_post_decision_only": true
+  },
+  "hardware_tiers": [
+    {"tier": "FULL_3P_TRANSFER3", "parents": 3, "transfer_enabled": true, "transfer_target_parents": 3, "transfer_min_parents": 2, "acquisition_eval_interval_tokens": 250000, "continuation_eval_interval_tokens": 100000, "transfer_eval_interval_tokens": 100000, "claim_ceiling": "MULTI_PARENT_MULTI_TASK_GPU_DEVELOPMENT"},
+    {"tier": "CORE_2P_TRANSFER2", "parents": 2, "transfer_enabled": true, "transfer_target_parents": 2, "transfer_min_parents": 2, "acquisition_eval_interval_tokens": 400000, "continuation_eval_interval_tokens": 125000, "transfer_eval_interval_tokens": 125000, "claim_ceiling": "TWO_PARENT_MULTI_TASK_GPU_DEVELOPMENT"},
+    {"tier": "RETENTION_2P_ONLY", "parents": 2, "transfer_enabled": false, "transfer_target_parents": 0, "transfer_min_parents": 0, "acquisition_eval_interval_tokens": 400000, "continuation_eval_interval_tokens": 125000, "transfer_eval_interval_tokens": 125000, "claim_ceiling": "TWO_PARENT_SAME_TASK_RETENTION_ONLY"}
+  ],
+  "proxy_resolution": {
+    "non_tiny_priority": ["MIDI", "MICRO", "RESEARCH_SMALL"],
+    "tiny_last_resort": true,
+    "tiny_claim_ceiling": "TINY_PROXY_DEVELOPMENT_ONLY",
+    "tiny_research_candidate_possible": false,
+    "rule": "search all preregistered tiers on non-TINY proxies first; only then search TINY"
+  },
+  "dose_floors": {"acquisition_actual_real_tokens_per_parent": 2000000, "continuation_actual_real_tokens_per_arm": 500000, "transfer_actual_real_tokens_per_state_when_enabled": 500000},
+  "dose_targets": {"acquisition_actual_real_tokens_per_parent": 4000000, "continuation_actual_real_tokens_per_arm": 2000000, "transfer_actual_real_tokens_per_state_when_enabled": 1000000},
+  "resolver": {
+    "inputs_only": ["calibration PASS/OOM", "training_real_tokens_per_sec", "generation_examples_per_sec", "fixed wall budget"],
+    "outcome_inputs_forbidden": true,
+    "target_minutes": 135,
+    "hard_minutes": 170,
+    "packaging_reserve_minutes": 8,
+    "calibration_json_written_before_resolution": true
+  },
+  "transfer": {
+    "candidate": "HYSTERETIC_HIGH_LOW",
+    "comparator": "LOW_CONTINUE",
+    "mode": "REPLAY_1_IN_10_ROWS",
+    "minimum_independent_parent_pairs_when_enabled": 2,
+    "comparison": "equal-age/equal-exposure same-parent post-retention states moved to the same HIGH-LR order-augmented binding+replay stream"
+  },
+  "preexecution_evidence": {
+    "github_actions_run_id": 34339788181,
+    "result": "PASS",
+    "notebook_cells_compile": "3/3",
+    "deterministic_tests_passed": 22,
+    "deterministic_tests_failed": 0,
+    "compatibility_recursion_regression_tested": true,
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false
+  },
+  "safety": {
+    "full_mode_requires_cuda": true,
+    "drive_backed_stage_store": true,
+    "failure_evidence_packaged": true,
+    "timeboxed_or_incomplete_arms_cannot_promote": true,
+    "production_promotion_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false
+  }
+}
