@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from anra_v5.cyr_gpu011_entry import exposure_aware_final_decision
+import pytest
+
+from anra_v5.cyr_gpu011_entry import (
+    _compact_ark_render_batch,
+    exposure_aware_final_decision,
+    resolve_from_calibrations,
+)
+from v5_experiments import cyr_gpu011 as core
 
 
 def _receipt(*, g90_update, batch=64, exposure=1.0, measurement=0.95):
@@ -11,6 +18,14 @@ def _receipt(*, g90_update, batch=64, exposure=1.0, measurement=0.95):
         "reasoning_battery_final": {
             "STANDARD": {"complete_exact_with_valid_stop": measurement}
         },
+    }
+
+
+def _cal(regime: str, batch: int, ups: float, eps: float = 100.0):
+    return {
+        "status": "PASS", "regime": regime, "batch_rows": batch,
+        "training_updates_per_sec": ups, "training_real_tokens_per_sec": ups * batch * 8,
+        "semantic_rows_per_sec": ups * batch, "generation_examples_per_sec": eps,
     }
 
 
@@ -55,3 +70,48 @@ def test_replicated_label_requires_two_measurement_supported_production_g90s() -
     assert exposure_aware_final_decision(
         compact=compact, production_primary=p1, production_replication=p2_good
     )["verdict"] == "PRODUCTION_REPRESENTATION_G90_REPLICATED_DEVELOPMENT"
+
+
+def test_resolver_targets_same_semantic_box_for_every_batch_size() -> None:
+    calibrations = {
+        "COMPACT_B64": _cal("COMPACT", 64, 20.0),
+        "PRODUCTION_B64": _cal("PRODUCTION", 64, 0.40),
+        "PRODUCTION_B32": _cal("PRODUCTION", 32, 1.30),
+        "PRODUCTION_B16": _cal("PRODUCTION", 16, 2.20),
+    }
+    resolved = resolve_from_calibrations(calibrations)
+    assert resolved["compact_target_updates"] == 18_000
+    assert resolved["compact_target_updates"] * resolved["compact_batch_rows"] == core.CYR11_ARK_MAX_ROW_PRESENTATIONS
+    target = resolved["production_target_updates"] * resolved["production_batch_rows"]
+    assert target == core.CYR11_ARK_MAX_ROW_PRESENTATIONS
+    if resolved["production_batch_rows"] == 32:
+        assert resolved["production_target_updates"] == 36_000
+    if resolved["production_batch_rows"] == 16:
+        assert resolved["production_target_updates"] == 72_000
+
+
+def test_resolver_progresses_even_when_full_production_exposure_will_not_fit() -> None:
+    calibrations = {
+        "COMPACT_B64": _cal("COMPACT", 64, 10.0),
+        "PRODUCTION_B16": _cal("PRODUCTION", 16, 0.10, eps=20.0),
+    }
+    resolved = resolve_from_calibrations(calibrations)
+    assert resolved["production_available"] is True
+    assert resolved["production_target_updates"] == 72_000
+    assert 0 <= resolved["production_projected_ark_exposure_fraction"] < 1.0
+
+
+def test_compact_renderer_matches_arkenstone_answer_prefix_bos_semantics() -> None:
+    torch = pytest.importorskip("torch")
+    tok = core.CompactCharTokenizer()
+    row = {"prompt": "12 + 13 = ", "answer": "25"}
+    tokens, segments, eligible, counted = _compact_ark_render_batch(
+        tok, [row], torch=torch, device=torch.device("cpu"), special=tok.special
+    )
+    expected = [tok.bos_id, *tok.encode(row["prompt"]), tok.bos_id, *tok.encode(row["answer"]), tok.eos_id]
+    assert tokens[0, : len(expected)].tolist() == expected
+    prompt_len = 1 + len(tok.encode(row["prompt"]))
+    assert eligible[0, :prompt_len].tolist() == [False] * prompt_len
+    assert eligible[0, prompt_len:len(expected)].tolist() == [True] * (len(expected) - prompt_len)
+    assert counted["ark_answer_prefix_bos_supervised"] is True
+    assert int((segments >= 0).sum()) == len(expected)
