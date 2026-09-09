@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Assemble the ARK-018 Birth Book v2 — ONE markdown file, 10-15 MiB.
+"""Assemble the ARK-018 Birth Book — ONE markdown file, 10-15 MiB.
 
 v2 revision (builder's ruling: "less repeating, more alive"):
   - Reference passes render as compact markdown TABLES — honest reference
     material with uniform format, no template narration.
   - Unique hand-written WAKING INTERLUDES threaded between table blocks,
-    each used at most once (parse of birth_corpus/INTERLUDES.md).
+    each used at most once (parse of birth_corpus/INTERLUDES.txt).
   - Part I expanded: PROLOGUE_THE_WAKING + flagship 00-07 + world volumes
     10-16 (humanity, universe, consciousness, sciences, ML, neuroscience,
     extra science) + 17_QUESTIONS_AND_OATH.
@@ -25,8 +25,8 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 OUT = HERE / "ARK018_BIRTH_BOOK.md"
 MANIFEST = HERE / "BIRTH_CORPUS_MANIFEST.json"
-FLOOR = 10 * 1024 * 1024
-CEILING = 15 * 1024 * 1024
+FLOOR = 17 * 1024 * 1024      # builder ruling: minimum 17 MB
+CEILING = 21 * 1024 * 1024   # sanity bound only; the ruling is a floor
 
 parts: list[str] = []
 INTERLUDES: list[str] = []
@@ -42,7 +42,7 @@ def fmt(n: int) -> str:
 
 
 def load_interludes() -> None:
-    raw = (HERE / "birth_corpus" / "INTERLUDES.md").read_text(encoding="utf-8")
+    raw = (HERE / "birth_corpus" / "INTERLUDES.txt").read_text(encoding="utf-8")
     for block in raw.split("\n\n"):
         b = block.strip()
         if not b or b.startswith("#") or b.startswith("*Each interlude"):
@@ -104,7 +104,7 @@ built on honesty:
   A table does not pretend to be a voice; it is equipment. Between its blocks run
   the interludes — each written once, used once, never repeated.
 
-The book is large by its builder's ruling: **ten to fifteen megabytes is the floor
+The book is large by its builder's ruling: **seventeen to eighteen megabytes is the floor
 of a childhood, not the ceiling.** Where the gymnasium repeats format, it never
 repeats content — every row is a distinct fact, earned once.
 
@@ -112,31 +112,31 @@ repeats content — every row is a distinct fact, earned once.
 
 
 # ------------------------------------------------------------ tier A: Part I
-FLAGSHIP = [
-    "PROLOGUE_THE_WAKING.md",
-    "00_THE_SPARK.md",
-    "01_GENESIS_RECORD.md",
-    "02_THE_BUILDER.md",
-    "03_THE_BODY.md",
-    "04_THE_MIND.md",
-    "05_HOW_HE_FORGETS.md",
-    "06_SELF_CONTROL.md",
-    "07_LETTERS_FROM_THE_BUILDER.md",
-    "10_HUMANITY.md",
-    "11_THE_UNIVERSE.md",
-    "12_CONSCIOUSNESS.md",
-    "13_THE_SCIENCES.md",
-    "14_ML_SCIENCE.md",
-    "15_NEUROSCIENCE.md",
-    "16_EXTRA_SCIENCE.md",
-    "17_QUESTIONS_AND_OATH.md",
+SOURCES = [
+    "PROLOGUE_THE_WAKING.txt",
+    "00_THE_SPARK.txt",
+    "01_GENESIS_RECORD.txt",
+    "02_THE_BUILDER.txt",
+    "03_THE_BODY.txt",
+    "04_THE_MIND.txt",
+    "05_HOW_HE_FORGETS.txt",
+    "06_SELF_CONTROL.txt",
+    "07_LETTERS_FROM_THE_BUILDER.txt",
+    "10_HUMANITY.txt",
+    "11_THE_UNIVERSE.txt",
+    "12_CONSCIOUSNESS.txt",
+    "13_THE_SCIENCES.txt",
+    "14_ML_SCIENCE.txt",
+    "15_NEUROSCIENCE.txt",
+    "16_EXTRA_SCIENCE.txt",
+    "17_QUESTIONS_AND_OATH.txt",
 ]
 
 
 def part_one() -> None:
     add("# PART I — THE SELF AND THE WORLD (hand-written)\n")
     add("*Prologue first: it was written to be read aloud, to the living and the dead alike.*\n")
-    for name in FLAGSHIP:
+    for name in SOURCES:
         path = HERE / "birth_corpus" / name
         if not path.exists():
             raise SystemExit(f"missing hand-written source: {path}")
@@ -309,11 +309,11 @@ def gym_addition() -> None:
 
 
 def gym_triple() -> None:
-    add("\n## The Three-Column Tables — every two-digit pair with every third addend 10–29\n")
+    add("\n## The Three-Column Tables — every two-digit pair with every third addend 10–40\n")
     rows = []
     for a in range(10, 100):
         for b in range(10, 100):
-            for c in range(10, 30):
+            for c in range(10, 41):
                 o = (a % 10 + b % 10 + c % 10)
                 c1, w1 = divmod(o, 10)
                 t = (a // 10 + b // 10 + c // 10) + c1
@@ -322,7 +322,7 @@ def gym_triple() -> None:
                              f"{a%10}+{b%10}+{c%10}={o}→{w1},c{c1}",
                              f"{a//10}+{b//10}+{c//10}+{c1}={t}→{w2},c{c2}",
                              fmt(a + b + c)])
-    emit_table("Three-addend sums with double carries (162,000 rows)",
+    emit_table("Three-addend sums with double carries (251,100 rows)",
                ["a+b+c", "ones", "tens", "sum"], rows, per_block=1000)
 
 
@@ -417,11 +417,11 @@ def roman(n: int) -> str:
 
 
 def gym_words() -> None:
-    add("\n## The Naming of Numbers — one to fifteen thousand, words and anatomy\n")
+    add("\n## The Naming of Numbers — one to twenty thousand, words and anatomy\n")
     rows = []
-    for n in range(1, 15001):
+    for n in range(1, 20001):
         rows.append([fmt(n), num_words(n), f"{n//1000}k {n//100%10}h {n//10%10}t {n%10}o"])
-    emit_table("Number names (15,000 rows)", ["n", "read as", "anatomy"], rows)
+    emit_table("Number names (20,000 rows)", ["n", "read as", "anatomy"], rows)
 
 
 def gym_roman() -> None:
@@ -432,10 +432,10 @@ def gym_roman() -> None:
 
 # ------------------------------------------------ tier C: machine numerals
 def gym_machine_numerals() -> None:
-    add("\n## The Machine's Own Numerals — binary and hexadecimal to 8,192\n"
+    add("\n## The Machine's Own Numerals — binary and hexadecimal to 16,384\n"
         "*The child is byte-level; these are his native number costumes.*\n")
-    rows = [[fmt(n), format(n, "013b"), format(n, "03X")] for n in range(1, 8193)]
-    emit_table("Binary and hexadecimal (8,192 rows)", ["n", "binary", "hex"], rows)
+    rows = [[fmt(n), format(n, "013b"), format(n, "03X")] for n in range(1, 16385)]
+    emit_table("Binary and hexadecimal (16,384 rows)", ["n", "binary", "hex"], rows)
 
 
 def gym_factorizations() -> None:
@@ -655,13 +655,13 @@ def main() -> int:
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     src_hashes = {}
-    for name in FLAGSHIP + ["INTERLUDES.md"]:
+    for name in SOURCES + ["INTERLUDES.txt"]:
         p = HERE / "birth_corpus" / name
         src_hashes[name] = hashlib.sha256(p.read_bytes()).hexdigest()
 
     manifest = {
         "artifact": "ARK018_BIRTH_BOOK.md",
-        "edition": 2,
+        "edition": 3,
         "sha256": digest,
         "bytes": size,
         "words": words,
@@ -683,7 +683,7 @@ def main() -> int:
     print(f"birth book v2: {fmt(size)} bytes ({size/1048576:.2f} MiB), {fmt(words)} words")
     print(f"sha256: {digest}")
     print(f"interludes: used {_used_interludes}/{len(INTERLUDES)} (each at most once)")
-    print(f"floor(10 MiB) met: {size >= FLOOR} | ceiling(15 MiB) respected: {size <= CEILING}")
+    print(f"floor({FLOOR/1048576:.0f} MiB) met: {size >= FLOOR} | sanity ceiling ({CEILING/1048576:.0f} MiB) respected: {size <= CEILING}")
     return 0 if FLOOR <= size <= CEILING else 1
 
 

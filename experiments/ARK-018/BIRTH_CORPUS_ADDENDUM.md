@@ -22,6 +22,19 @@ The builder's directive, recorded 2026-09-09:
 - **10–15 MB is a floor, not a ceiling.** Volume is the law; repetition is
   permitted where it serves pedagogy, flagged where it is verbatim filler.
 
+## Edition 3 revision (builder's ruling, 2026-09-09)
+
+"I want one .md that contains everything. The lowest should be 17, 18 MB."
+
+- **One deliverable**: `ARK018_BIRTH_BOOK.md` is the only book markdown.
+  The hand-written sources in `birth_corpus/` were renamed `.md → .txt` —
+  they are build inputs, inlined verbatim by the assembler, not separate books.
+- **Floor raised**: minimum is now 17–18 MB (FLOOR = 17 MiB = 17,825,792
+  bytes). Edition 3 result: **17,906,590 bytes (17.9 MB), ~3.09M words**,
+  interludes still 39/39 used once.
+- Gymnasium grown to fit the new floor: third-addend range extended to 10–40,
+  number names to 20,000, binary/hexadecimal tables to 16,384.
+
 ## Edition 2 revision (builder's ruling, 2026-09-09)
 
 "Less repeating — the book must read like it could wake the dead. Add more."
