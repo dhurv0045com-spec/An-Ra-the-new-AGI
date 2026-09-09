@@ -53,7 +53,11 @@ def test_exact_ark002b_manifest_and_firewall() -> None:
     assert len(data["sealed_reserved"]) == 48
     assert data["train_test_canonical_overlap"] == 0
     train_pairs = {tuple(r["canonical_pair"]) for r in data["train"]}
-    eval_pairs = {tuple(r["canonical_pair"]) for role in ("dev_controller", "dev_measurement", "sealed_reserved") for r in data[role]}
+    eval_pairs = {
+        tuple(r["canonical_pair"])
+        for role in ("dev_controller", "dev_measurement", "sealed_reserved")
+        for r in data[role]
+    }
     assert train_pairs.isdisjoint(eval_pairs)
 
 
@@ -82,9 +86,15 @@ def test_reasoning_battery_is_structural_and_train_pair_clean_where_required() -
 
 
 def _cal(regime: str, batch: int, ups: float, eps: float = 100.0) -> dict:
-    return {"status": "PASS", "regime": regime, "batch_rows": batch,
-            "training_updates_per_sec": ups, "training_real_tokens_per_sec": ups * batch * 8,
-            "semantic_rows_per_sec": ups * batch, "generation_examples_per_sec": eps}
+    return {
+        "status": "PASS",
+        "regime": regime,
+        "batch_rows": batch,
+        "training_updates_per_sec": ups,
+        "training_real_tokens_per_sec": ups * batch * 8,
+        "semantic_rows_per_sec": ups * batch,
+        "generation_examples_per_sec": eps,
+    }
 
 
 def test_resolver_prefers_batch64_when_exposure_is_competitive() -> None:
@@ -138,7 +148,11 @@ def test_final_decision_requires_replication_for_replicated_label() -> None:
     p2 = {"g90_confirm_update": None, "ark_exposure_fraction": 0.5}
     assert core.final_decision(compact=compact, production_primary=p1, production_replication=None)["verdict"] == "PRODUCTION_REPRESENTATION_G90_SINGLE_SEED_DEVELOPMENT"
     assert core.final_decision(compact=compact, production_primary=p1, production_replication={"g90_confirm_update": 15_000})["verdict"] == "PRODUCTION_REPRESENTATION_G90_REPLICATED_DEVELOPMENT"
-    assert core.final_decision(compact=compact, production_primary={"g90_confirm_update": None, "ark_exposure_fraction": 0.9}, production_replication=p2)["verdict"] == "BRIDGE_DIVERGENCE_COMPACT_G90_PRODUCTION_NO_G90"
+    assert core.final_decision(
+        compact=compact,
+        production_primary={"g90_confirm_update": None, "ark_exposure_fraction": 0.9},
+        production_replication=p2,
+    )["verdict"] == "BRIDGE_DIVERGENCE_COMPACT_G90_PRODUCTION_NO_G90"
 
 
 def test_structural_flags_are_orthogonal_not_one_reasoning_score() -> None:
@@ -160,22 +174,32 @@ def test_structural_flags_are_orthogonal_not_one_reasoning_score() -> None:
 def test_live_cymek_compact_bridge_model_builds_exactly() -> None:
     torch = pytest.importorskip("torch")
     from v5_model.core import initialize
+
     spec = core.research_small_spec(19)
     model = initialize(spec, 123, torch_module=torch)
     assert sum(p.numel() for p in model.parameters()) == 987_392
 
 
-def test_optimizer_compat_is_semantic_noop_and_rejects_drift() -> None:
+def test_optimizer_compat_is_scoped_semantic_noop_and_rejects_drift() -> None:
     torch = pytest.importorskip("torch")
     import v5_training.optimizer as opt
-    from anra_v5.cyr_gpu011_optimizer_compat import install
+    from anra_v5.cyr_gpu011_optimizer_compat import canonical_optimizer_compat
     from v5_model.core import initialize
 
-    install()
+    original = opt.build_adamw_optimizer
     spec = core.research_small_spec(19)
     model = initialize(spec, 7, torch_module=torch)
-    optimizer = opt.build_adamw_optimizer(model, torch_module=torch, lr=1e-3,
-        betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1)
-    assert optimizer.param_groups
-    with pytest.raises(ValueError):
-        opt.build_adamw_optimizer(model, torch_module=torch, lr=1e-3, betas=(0.9, 0.999))
+    with canonical_optimizer_compat():
+        assert opt.build_adamw_optimizer is not original
+        optimizer = opt.build_adamw_optimizer(
+            model,
+            torch_module=torch,
+            lr=1e-3,
+            betas=(0.9, 0.95),
+            eps=1e-8,
+            weight_decay=0.1,
+        )
+        assert optimizer.param_groups
+        with pytest.raises(ValueError):
+            opt.build_adamw_optimizer(model, torch_module=torch, lr=1e-3, betas=(0.9, 0.999))
+    assert opt.build_adamw_optimizer is original
