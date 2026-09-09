@@ -1,0 +1,22 @@
+{
+  "experiment_id": "ARK-017-V2",
+  "status": "READY_FOR_OPERATOR_GPU_SMOKE",
+  "scientific_result_status": "NOT_EXECUTED",
+  "base_plan_commit_sha": "4d145288215c304310253a93881073d5d1a03800",
+  "v2_addendum_commit_sha": "2cd849d3be106bf1036cc13a3c2e004fdf843e1b",
+  "master_v8_plan_commit_sha": "6f0a38088e966494bb7caf2f3b49ea235c84f971",
+  "master_v8_v2_addendum_commit_sha": "8b5c6a895e5a17a8ab2f344cc9612cb376c10235",
+  "pinned_runner_commit_sha": "377c4743f8017e3455f576eafb75bb8ab9c50284",
+  "runner_path": "experiments/ARK-017/run_ark017_v2.py",
+  "runner_blob_sha": "ea8d595f605f2fc258561297978280b7d051921b",
+  "preexecution_audit_commit_sha": "39ec8db8bf8c181d248cf0adce29c30ceb55fb56",
+  "colab_launcher_commit_sha": "d3137c924d81e89e351258b66339de341a203c47",
+  "colab_path": "experiments/COLAB/arkenstone_ark017_v2.ipynb",
+  "gpu_smoke_required": true,
+  "gpu_smoke_passed": false,
+  "cuda_required": true,
+  "t4_target": true,
+  "safety_budget_minutes": 240,
+  "drive_partial_backup": true,
+  "claim_boundary": "readiness is not a scientific result; GPU smoke and campaign receipts remain required"
+}
