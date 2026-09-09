@@ -1,0 +1,159 @@
+{
+  "schema": "anra-cyr-gpu011-preregistration/v1",
+  "experiment": "CYR-GPU-011",
+  "status": "PREREGISTERED_PENDING_OPERATOR_EXECUTION",
+  "frozen": true,
+  "branch": "cymek-500m-readiness",
+  "executable_sha": "0a97257e2b38db6dfa85cc6e58da0697591dde6b",
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "executable_blobs": {
+    "v5_experiments/cyr_gpu011.py": "600140d388ce94a6dc08fa32cf84d37511889362",
+    "anra_v5/cyr_gpu011_run.py": "356523d9ee7fb0916c09c5806964892f9024dca7",
+    "anra_v5/cyr_gpu011_entry.py": "efe3b39fba1e777c71b388ec674cbd58d6c0e410",
+    "anra_v5/cyr_gpu011_optimizer_compat.py": "0cd0db7495fa1f5adc0c53c69eb0815202c08bac",
+    "notebooks/cymek_colab_gpu_research_v11.ipynb": "0e598fac62692d428bb02e1f0644925a4ec3b957",
+    ".github/workflows/cyr-gpu011.yml": "6de0bdc72ac69babcba2631a546b04fcc6a0c325",
+    "tests/test_v5_cyr_gpu011.py": "432c5561981e824dcf47031d474624efe452940a",
+    "tests/test_v5_cyr_gpu011_entry.py": "d50035eaca5e528a6279a2a18e2048a6c64d283a",
+    "tests/test_v5_cyr_gpu011_runtime.py": "3182605f5d1523ef6d4f8dca3f6596bae710e2d9",
+    "docs/cymek/experiments/CYR-GPU-011/ARK002B_TASK_MANIFEST.json": "6c46fdf90139526b00e9041af2d511ed0ac24270",
+    "docs/cymek/experiments/CYR-GPU-011/DESIGN_REASONING.md": "8a08e378dbea75cf8e4d13420030e9243ab9f8e8",
+    "docs/cymek/experiments/CYR-GPU-011/PLAN.md": "27b9d8647b1ad39c24d6cbd27152108d1bf5677f",
+    "docs/cymek/experiments/CYR-GPU-011/PREEXECUTION_AUDIT.md": "445d146de6b773944ece72b716111df36281364d",
+    "docs/cymek/experiments/CYR-GPU-011/README.md": "85918fa108607101cd4d87b8688a940863abd385",
+    "docs/cymek/experiments/CYR-GPU-011/THREATS.md": "1cb0c83e3cc482f436bb7b99b0e2741839c6b733"
+  },
+  "bound_dependencies": {
+    "anra_v5/cyr_gpu006_run.py": "f61f17e9e2bdbefd8edc98dd7a7598a8dea35934",
+    "v5_experiments/cyr_gpu005.py": "67cf09633115652896ae7ff2081166c19302a7e4",
+    "v5_experiments/cyr_gpu006.py": "f6511ca8506ee2105338e5828b5bf85c6e7d922f",
+    "v5_contracts/model_spec.py": "cd5ef92a0d3bb208dc514f041f8e088a777ef8b1",
+    "v5_data/corpus_loading.py": "2c5e64656d9241d2c916549c9fb938e1df848ee0",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_model/attention.py": "5b8f1f3abf302f6cfb0a549e8675c6d1d4f0202f",
+    "v5_model/block.py": "d1bae52a9683d273b7f0a0507e180d0dbb94843a",
+    "v5_model/config.py": "d7351b94f86fc9d3b4161c2c8e4dc72b271979f1",
+    "v5_model/embedding.py": "ab3ca39022febecf2e49068d67cd19394504fcd3",
+    "v5_model/initialize.py": "5ef02a6250aff914cb4ac953a12640b654bf4ae9",
+    "v5_objectives/causal_lm.py": "4d0cc7c31679f99b44d34570e47e40f6778b7231",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "v5_training/production_backend.py": "84d2dfc7cad3f52fd3a9b3f7357fac4d70145cb6"
+  },
+  "evidence_context": {
+    "arkenstone_live_audited_sha": "c16718a7841c3cc3eba2b4b2c0388a0e36c0b530",
+    "arkenstone_ark017_status": "UNEXECUTED_PLAN_IMPLEMENTATION_ONLY",
+    "arkenstone_ark018_status": "UNEXECUTED_IMPLEMENTED_CAMPAIGN_ONLY",
+    "prior_cyr_gpu009_result": "NO_CANDIDATE_FREE_G90_AT_2M_REAL_TOKENS_PER_TINY_PARENT",
+    "prior_cyr_gpu009_bundle_sha256": "dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216"
+  },
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "vocabulary_size": 24576,
+    "pad_id": 0,
+    "unk_id": 1,
+    "bos_id": 2,
+    "eos_id": 3
+  },
+  "data": {
+    "source": "ARK-002B frozen task manifest",
+    "split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+    "manifest_blob_sha": "6c46fdf90139526b00e9041af2d511ed0ac24270",
+    "train_rows": 500,
+    "test_rows": 197,
+    "dev_controller_rows": 64,
+    "dev_measurement_rows": 85,
+    "sealed_reserved_rows": 48,
+    "canonical_train_test_pair_overlap": 0
+  },
+  "models": {
+    "COMPACT_BRIDGE": {
+      "geometry": "4L-128w-Q4-KV2-head32-FFN512-context512",
+      "vocabulary_size": 19,
+      "parameters": 987392,
+      "architecture": "real Cymek V5",
+      "objective": "canonical Cymek causal objective; answer digits plus EOS supervised; BOS targets excluded"
+    },
+    "PRODUCTION_BRIDGE": {
+      "geometry": "4L-128w-Q4-KV2-head32-FFN512-context512",
+      "vocabulary_size": 24576,
+      "parameters": 4130688,
+      "architecture": "real Cymek V5",
+      "objective": "canonical Cymek causal objective"
+    }
+  },
+  "seeds": {
+    "compact": {"model": 3301, "order": 4701},
+    "production_primary": {"model": 3401, "order": 4701},
+    "production_replication": {"model": 3402, "order": 4702}
+  },
+  "optimizer": {
+    "learning_rate": 0.001,
+    "betas": [0.9, 0.95],
+    "epsilon": 1e-8,
+    "weight_decay": 0.1,
+    "gradient_clip_global_l2": 1.0,
+    "compatibility_guard": "redundant canonical constants only; scoped and restored"
+  },
+  "runtime": {
+    "required_runtime": "CUDA GPU",
+    "hard_wall_minutes": 175,
+    "packaging_reserve_minutes": 5,
+    "compact_stage_cap_minutes": 25,
+    "production_replication_launch_minimum_remaining_minutes": 40,
+    "progressive_no_all_or_nothing_feasibility_abort": true
+  },
+  "semantic_exposure": {
+    "ark_reference_batch_rows": 64,
+    "ark_reference_max_updates": 18000,
+    "ark_reference_max_row_presentations": 1152000,
+    "batch64_target_updates": 18000,
+    "batch32_target_updates": 36000,
+    "batch16_target_updates": 72000,
+    "evaluation_every_row_presentations": 12800,
+    "hardware_resolver_uses_training_and_generation_throughput": true
+  },
+  "capability_gates": {
+    "metric": "candidate-free complete exact with valid EOS",
+    "M99_train_probe": 0.99,
+    "G50_dev_controller": 0.5,
+    "G90_dev_controller": 0.9,
+    "consecutive_confirmations": 3,
+    "final_G90_requires_dev_measurement_STANDARD": 0.9
+  },
+  "structural_battery": [
+    "STANDARD",
+    "COMMUTED",
+    "LOCALITY",
+    "CARRY",
+    "TRIPLE_ADD",
+    "THREE_DIGIT",
+    "VERBAL_PRODUCTION_ONLY"
+  ],
+  "verdict_contract": {
+    "replicated": "PRODUCTION_REPRESENTATION_G90_REPLICATED_DEVELOPMENT",
+    "single_seed": "PRODUCTION_REPRESENTATION_G90_SINGLE_SEED_DEVELOPMENT",
+    "underexposed": "PRODUCTION_UNDEREXPOSED_RELATIVE_TO_COMPACT_G90",
+    "exposure_matched_divergence": "EXPOSURE_MATCHED_BRIDGE_DIVERGENCE_COMPACT_G90_PRODUCTION_NO_G90",
+    "near_reference_null": "NO_G90_AT_NEAR_ARK_REFERENCE_EXPOSURE",
+    "incomplete_exposure_null": "NO_G90_WITH_INCOMPLETE_EXPOSURE",
+    "production_without_compact": "PRODUCTION_G90_WITHOUT_COMPACT_G90"
+  },
+  "preexecution_evidence": {
+    "focused_v11_workflow_run_id": 34393235657,
+    "focused_v11_workflow_conclusion": "success",
+    "full_cymek_substantive_tests_passed": 568,
+    "full_cymek_tests_skipped": 1,
+    "full_cymek_subtests_passed": 40,
+    "full_cymek_only_failure": "stale exact-head closure receipt meta-test",
+    "scientific_gpu_execution_performed": false,
+    "heavy_local_scientific_training_performed": false
+  },
+  "claim_ceiling": {
+    "broad_reasoning_claim_authorized": false,
+    "production_promotion_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "tpu_certified": false
+  }
+}
