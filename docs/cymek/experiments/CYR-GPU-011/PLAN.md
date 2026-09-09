@@ -16,8 +16,8 @@ Determine whether the real Cymek V5 4L/128w architecture can enter the delayed m
 
 ## Primary questions
 
-1. **Architecture bridge:** under an Arkenstone-like compact task representation and semantic dose, does real Cymek V5 reach sustained candidate-free held-out G90?
-2. **Production-representation bridge:** under the same task and model geometry, does Cymek reach G90 with the frozen 24,576-token tokenizer/normal sequence semantics within the available wall and actual semantic exposure?
+1. **Architecture/task bridge:** under the exact ARK-002B data, compact 19-symbol representation, ARK-comparable semantic dose, but Cymek's real V5 architecture/objective, does held-out G90 emerge?
+2. **Production-representation bridge:** under the same task, V5 geometry and Cymek objective, does G90 emerge with the frozen 24,576-token tokenizer within the available wall and actual semantic exposure?
 3. **Structural characterization:** if held-out generalization emerges, which controlled transformations transfer with it?
 
 ## Data
@@ -51,15 +51,17 @@ HIGH LR = `1e-3` for this controlled development experiment.
 
 AdamW values are the canonical Cymek constants: betas `(0.9,0.95)`, eps `1e-8`, weight decay `0.1`, with Cymek's semantic parameter grouping and clip/backend behavior. Research compatibility code may accept these values redundantly but must reject any drift and restore the canonical API after use.
 
-## Compact sequence semantics
+## Compact objective boundary
 
-To make the compact bridge closer to ARK-002B, its sequence is:
+The compact bridge uses the same 19-symbol alphabet as ARK-002B but **does not pretend to reproduce Arkenstone's loss exactly**.
 
-`BOS + prompt + BOS(answer-prefix, supervised) + answer digits + EOS`
+Arkenstone's helper encoded an answer-prefix BOS and supervised that BOS. Cymek's canonical causal objective hard-excludes BOS targets. V11 therefore keeps normal Cymek rendering:
 
-The second BOS is a supervised answer-prefix token because that is what Arkenstone's `CompactVocab.encode(answer)` + loss mask implements. Candidate-free decoding may emit that BOS; decoding filters specials before answer comparison.
+`BOS + prompt + answer digits + EOS`
 
-The PRODUCTION_BRIDGE uses normal Cymek rendering semantics instead. This difference is part of the intended representation bridge.
+and supervises answer digits + EOS only. This is a deliberate residual difference. No production objective code is modified for the research experiment.
+
+The compact bridge should therefore be interpreted as: *real Cymek V5 on exact ARK data with compact representation and exposure*, not as an exact ARK reproduction.
 
 ## Semantic exposure
 
@@ -140,13 +142,15 @@ Threshold flags are reported separately. No aggregate reasoning score is allowed
 - neither qualifies under lower exposure → `NO_G90_WITH_INCOMPLETE_EXPOSURE`
 - production qualifies without compact → `PRODUCTION_G90_WITHOUT_COMPACT_G90`
 
+`EXPOSURE_MATCHED_BRIDGE_DIVERGENCE` implicates the compact-vs-production representation burden inside Cymek; it does not isolate vocabulary size, token segmentation, or embedding-parameter burden individually.
+
 ## Success / null / refutation
 
 **Strongest useful positive:** production primary + replication both qualify, with clean exposure and structural receipts. Still development evidence only.
 
-**Useful bridge positive:** compact qualifies. This proves Cymek V5 can enter the task's generalization regime under the compact representation; it does not prove exact ARK replication.
+**Useful bridge positive:** compact qualifies. This proves Cymek V5 can enter the task's generalization regime under compact representation; it does not prove exact ARK replication.
 
-**Useful negative:** compact receives near-full reference exposure and fails. This shifts attention toward V5 architecture/optimization/precision/init differences rather than dose alone.
+**Useful negative:** compact receives near-full reference exposure and fails. This shifts attention toward objective/architecture/optimization/precision/init differences rather than dose alone.
 
 **Non-result:** production null under less exposure than compact needed for G90. Report underexposed, not divergence.
 
