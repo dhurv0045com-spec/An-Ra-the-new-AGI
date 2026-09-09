@@ -1,0 +1,30 @@
+{
+  "experiment_id": "ARK-016",
+  "import_kind": "validated_summary_of_discovery_v7_receipt",
+  "source_bundle_sha256": "25c4ac0aa01478cb2067147a240a12b4e30516810dad465e619391ff8a6f7faf",
+  "source_receipt_sha256": "4251312d4aaec4308a33d2780babe393dd3941969eb12559af895c16995574bb",
+  "plan_commit_sha": "459b8cebb080a7e325378f6396a37963d8fc4ac1",
+  "master_plan_commit_sha": "cd058b9067c3fe2e001c70969a1966928d74c7df",
+  "runner_commit_sha": "4a8ffe84223fa64a7409b7d9936f2ff80d3828df",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "runtime_minutes": 48.426074488957724,
+  "acquisitions": {
+    "1919": {"status": "ACQUIRED", "control_g90_confirm": 10400},
+    "2020": {"status": "ACQUIRED", "control_g90_confirm": 17800},
+    "2121": {"status": "ACQUIRED", "control_g90_confirm": 15800}
+  },
+  "event_opportunities": 12,
+  "no_control_collapse": 11,
+  "sealed_qualified_recovery_forks": 1,
+  "independent_acquisition_seeds_in_forks": 1,
+  "single_fork": {
+    "LOW_REFERENCE": {"recollapsed": false, "RET90": 1.0, "cumulative_applied_path": 0.6949822869064519},
+    "HIGH_UNCAPPED": {"recollapsed": false, "RET90": 1.0, "cumulative_applied_path": 66.50643664365634},
+    "HIGH_CAP_1X": {"recollapsed": false, "RET90": 1.0, "cumulative_applied_path": 0.6949822869064519},
+    "HIGH_CAP_10X": {"recollapsed": false, "RET90": 1.0, "cumulative_applied_path": 6.949822869064519}
+  },
+  "mechanism_flags": [],
+  "verdict": "INCONCLUSIVE_LOW_EVENT_RATE",
+  "claim_level": "NOT_DEMONSTRATED_MECHANISM_CREDIT"
+}
