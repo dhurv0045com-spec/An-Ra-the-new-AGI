@@ -1,0 +1,50 @@
+name: CYR-GPU-007 preexecution contracts
+
+on:
+  pull_request:
+  push:
+    branches: [cymek-500m-readiness]
+
+permissions:
+  contents: read
+
+jobs:
+  preexecution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install lightweight validation deps
+        run: pip install pytest
+      - name: Compile CYR-GPU-007 executable and notebook cells
+        run: |
+          python -m py_compile \
+            v5_experiments/cyr_gpu007.py \
+            anra_v5/cyr_gpu007_run.py
+          python - <<'PY'
+          import ast, json
+          body=json.load(open('notebooks/cymek_colab_gpu_research_v7.ipynb', encoding='utf-8'))
+          cells=[''.join(c['source']) for c in body['cells'] if c['cell_type']=='code']
+          assert len(cells)==3
+          for cell in cells:
+              ast.parse(cell)
+          print('3/3 CYR-GPU-007 notebook cells compile')
+          PY
+      - name: Run deterministic CYR-GPU-007 and inherited scientific contracts
+        run: |
+          python -m pytest \
+            tests/test_v5_cyr_gpu007.py \
+            tests/test_v5_cyr_gpu006_final_core.py \
+            tests/test_v5_cyr_gpu006_final_transfer.py \
+            -q
+      - name: Emit executable SHA256 candidates
+        run: |
+          sha256sum \
+            v5_experiments/cyr_gpu007.py \
+            anra_v5/cyr_gpu007_run.py \
+            notebooks/cymek_colab_gpu_research_v7.ipynb \
+            tests/test_v5_cyr_gpu007.py
