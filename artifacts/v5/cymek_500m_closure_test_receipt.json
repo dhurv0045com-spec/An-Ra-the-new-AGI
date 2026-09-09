@@ -1,5 +1,5 @@
 {
-  "cycle": "CYR-GPU-006 final operator-readiness closure",
+  "cycle": "CYR-GPU-008 final operator-readiness closure",
   "environment": {
     "note": "CI contract validation only; no scientific GPU or TPU training was performed by this receipt.",
     "os": "Ubuntu 24.04.4",
@@ -9,39 +9,39 @@
   },
   "results": [
     {
-      "command": "GitHub Actions run 34333048641: python -m pytest tests -q; substantive suite count excludes the stale exact-head receipt self-check being refreshed by this artifact",
+      "command": "GitHub Actions run 34341564339: python -m pytest tests -q; substantive suite count excludes the stale exact-head receipt self-check refreshed by this artifact",
       "device": "cpu",
       "failed": 0,
       "files": [
         "tests/"
       ],
-      "passed": 522,
-      "provenance": "The sole raw failure was mechanically diagnosed from the job log as the historical closure receipt pointing at be3a0af. No model, training, tokenizer, XLA-oracle, CYR, notebook, or scientific contract test failed. The tested readiness commit 0742c96789929076076937f536b031006e2de989 differs from the CI-tested branch head only by documentation/readiness metadata; the executable science remains frozen at 125b25c19204cce1994deebbfc4957119f2ae31f.",
-      "raw_run": "1 failed (tests/test_production_entry.py::test_exact_head_test_receipt), 522 passed, 1 skipped, 40 subtests passed in 666.48s",
+      "passed": 533,
+      "provenance": "Exact final non-receipt CYR-GPU-008 readiness tree was exercised through the full test suite. The sole raw failure was tests/test_production_entry.py::test_exact_head_test_receipt because the historical closure receipt still named the older CYR-GPU-006 readiness tree. No model, optimizer, tokenizer, XLA-oracle, CYR-GPU-008, notebook, or scientific/software contract test failed. PR checkout used merge commit 4c88eec52410dc94d198ee65b02e832763f5a103 whose tree is byte-identical to branch commit 8cba1a70b4fe8aab0847538a25611419183f32f6.",
+      "raw_run": "1 failed (tests/test_production_entry.py::test_exact_head_test_receipt), 533 passed, 1 skipped, 1 warning, 40 subtests passed in 653.76s",
       "skipped": 1
     },
     {
-      "command": "GitHub Actions run 34333048587: deterministic CYR-GPU-006 preexecution contract and transfer tests",
+      "command": "GitHub Actions run 34341564276: CYR-GPU-008 preexecution contracts",
       "device": "cpu",
       "failed": 0,
       "files": [
-        "tests/test_v5_cyr_gpu006_core.py",
-        "tests/test_v5_cyr_gpu006_notebook.py",
+        "tests/test_v5_cyr_gpu008.py",
+        "tests/test_v5_cyr_gpu007.py",
         "tests/test_v5_cyr_gpu006_final_core.py",
         "tests/test_v5_cyr_gpu006_final_transfer.py"
       ],
-      "passed": 25,
-      "provenance": "Dedicated CYR preexecution workflow completed successfully; all 3 notebook code cells compiled before the 25/25 deterministic tests.",
+      "passed": 22,
+      "provenance": "Dedicated CYR-GPU-008 workflow completed successfully; all 3 V8 notebook code cells compiled and 22/22 deterministic V8 plus inherited scientific contract tests passed.",
       "skipped": 0
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "14e8aa152b3be5a0804d5000fabc1c884a57536dca1a8a854c5af504af6fadb5",
-  "tested_commit_sha": "0742c96789929076076937f536b031006e2de989",
-  "timestamp_utc": "2026-09-09T09:30:17Z",
+  "sha256": "d78011c2901b0f393a1b1515b97e29c9e9e59bfbcc42f74bcb1afbe09071d2eb",
+  "tested_commit_sha": "8cba1a70b4fe8aab0847538a25611419183f32f6",
+  "timestamp_utc": "2026-09-09T10:54:00Z",
   "totals": {
     "failed": 0,
-    "passed": 547,
+    "passed": 555,
     "skipped": 1
   }
 }
