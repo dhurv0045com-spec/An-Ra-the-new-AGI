@@ -1,0 +1,118 @@
+{
+  "bundle": {
+    "all_json_parsed": true,
+    "bytes": 31263,
+    "filename": "CYMEK_GPU_RESEARCH_V11_RESULTS.zip",
+    "json_files": [
+      "ARK002B_MANIFEST_RECEIPT.json",
+      "CALIBRATION.json",
+      "COMPACT_BRIDGE.json",
+      "DECISION.json",
+      "ENVIRONMENT.json",
+      "PREREGISTRATION.json",
+      "PRODUCTION_PRIMARY.json",
+      "PRODUCTION_REPLICATION.json",
+      "REASONING_BATTERY_MANIFEST.json",
+      "RESOLVED_PREREGISTRATION.json",
+      "SEALED.json",
+      "SESSION_MANIFEST.json"
+    ],
+    "sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5"
+  },
+  "compact_bridge": {
+    "actual_real_tokens": 7240576,
+    "ark_exposure_fraction": 0.4489444444444444,
+    "batch_rows": 64,
+    "carry_exact": 0.0,
+    "commuted_exact": 1.0,
+    "dev_controller_final_exact": 0.546875,
+    "dev_measurement_standard_exact": 0.5647058823529412,
+    "g50_confirm_update": 2200,
+    "g90_confirm_update": null,
+    "locality_both_exact": 0.6041666666666666,
+    "locality_relation_consistency": 0.8125,
+    "m99_confirm_update": 1400,
+    "parameters": 987392,
+    "row_presentations": 517184,
+    "standard_digit_accuracy": {
+      "ones_digit_exact": 0.8,
+      "tens_digit_exact": 0.5647058823529412,
+      "two_digit_examples": 85
+    },
+    "status": "TIMEBOX_NO_G90",
+    "three_digit_exact": 0.0,
+    "triple_add_exact": 0.375,
+    "updates": 8081
+  },
+  "execution": {
+    "cuda_available": true,
+    "gpu": "Tesla T4",
+    "status": "COMPLETE",
+    "torch": "2.11.0+cu128",
+    "vram_gib": 14.56317138671875,
+    "wall_minutes": 139.7296835065,
+    "wall_seconds": 8383.781010390001
+  },
+  "experiment": "CYR-GPU-011",
+  "frozen_executable_sha": "0a97257e2b38db6dfa85cc6e58da0697591dde6b",
+  "official_decision": {
+    "broad_reasoning_claim_authorized": false,
+    "compact_controller_and_measurement_g90": false,
+    "compact_final_ark_exposure_fraction": 0.4489444444444444,
+    "compact_g90_ark_exposure_fraction": null,
+    "compact_measurement_standard_final": 0.5647058823529412,
+    "exposure_matched_for_divergence": false,
+    "interpretation": "A representation-divergence label is allowed only when production received at least the semantic exposure at which compact qualified. G90 claims require sustained DEV_CONTROLLER performance and >=0.90 final DEV_MEASUREMENT STANDARD exact-with-EOS.",
+    "pre500m_authorized": false,
+    "production_primary_controller_and_measurement_g90": false,
+    "production_primary_final_ark_exposure_fraction": 1.0,
+    "production_primary_measurement_standard_final": 0.0,
+    "production_promotion_authorized": false,
+    "production_replication_controller_and_measurement_g90": false,
+    "production_replication_measurement_standard_final": 0.0,
+    "schema": "anra-cyr-gpu011-decision/v2",
+    "training_500m_authorized": false,
+    "verdict": "NO_G90_WITH_INCOMPLETE_EXPOSURE"
+  },
+  "postrun_audit": {
+    "compact_was_exposure_complete": false,
+    "pre500m_authorized": false,
+    "production_promotion_authorized": false,
+    "production_was_exposure_complete": true,
+    "raw_commutation_flag_accepted": false,
+    "reason": "The STANDARD holdout puts the first operand in unseen tens bands 6/7; COMMUTED reverses operand roles and therefore changes the OOD axis. COMMUTED=1.0 is not a clean invariance test.",
+    "result_interpretation": "Strong single-seed negative for the production representation at full ARK semantic exposure; partial but substantial compact generalization. No G90 and no broad reasoning claim.",
+    "training_500m_authorized": false
+  },
+  "production_primary": {
+    "actual_real_tokens": 9216000,
+    "ark_exposure_fraction": 1.0,
+    "batch_rows": 64,
+    "carry_exact": 0.0,
+    "commuted_exact": 0.023529411764705882,
+    "dev_controller_final_exact": 0.0,
+    "dev_measurement_standard_exact": 0.0,
+    "g50_confirm_update": null,
+    "g90_confirm_update": null,
+    "locality_relation_consistency": 0.0,
+    "m99_confirm_update": 2200,
+    "parameters": 4130688,
+    "row_presentations": 1152000,
+    "standard_digit_accuracy": {
+      "ones_digit_exact": 0.12941176470588237,
+      "tens_digit_exact": 0.0,
+      "two_digit_examples": 85
+    },
+    "status": "MAX_UPDATES_NO_G90",
+    "three_digit_exact": 0.0,
+    "triple_add_exact": 0.041666666666666664,
+    "updates": 18000,
+    "verbal_exact": 0.0625
+  },
+  "schema": "anra-cyr-gpu011-result-receipt/v1",
+  "sealed": {
+    "exact": 0.0,
+    "n": 48,
+    "status": "MEASURED_AFTER_DECISION"
+  }
+}
