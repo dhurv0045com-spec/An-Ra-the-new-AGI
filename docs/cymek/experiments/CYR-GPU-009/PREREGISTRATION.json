@@ -1,0 +1,120 @@
+{
+  "schema": "anra-cyr-gpu009-preregistration/v1",
+  "experiment": "CYR-GPU-009",
+  "status": "PREREGISTERED_PENDING_OPERATOR_EXECUTION",
+  "executable_sha": "4a1c0a5b245b7d2baf6ba36718522d54906aa7ed",
+  "executable_blobs": {
+    "v5_experiments/cyr_gpu009.py": "e5e23e28558939061dab21a709137fdc7c5e638e",
+    "anra_v5/cyr_gpu009_run.py": "955980ede9ee15eaabead52203b832a5b6d503c8",
+    "notebooks/cymek_colab_gpu_research_v9.ipynb": "f58c9ca0fb77ccfcbdee6c3bac4343b94191b5cc",
+    "tests/test_v5_cyr_gpu009.py": "ebd3deeeb9d44c3ad5684e3d70b93996f3eda284",
+    ".github/workflows/cyr-gpu009.yml": "43370f67397344c6e3a033b0c52f810e22344a78",
+    "anra_v5/cyr_gpu006_run.py": "f61f17e9e2bdbefd8edc98dd7a7598a8dea35934",
+    "anra_v5/cyr_gpu008_run.py": "d4ce32318cfb9fbefd6597001714d38f6901963b",
+    "v5_experiments/cyr_gpu006.py": "f6511ca8506ee2105338e5828b5bf85c6e7d922f",
+    "v5_contracts/model_spec.py": "cd5ef92a0d3bb208dc514f041f8e088a777ef8b1",
+    "v5_data/corpus_loading.py": "2c5e64656d9241d2c916549c9fb938e1df848ee0",
+    "v5_experiments/cyr_gpu005.py": "67cf09633115652896ae7ff2081166c19302a7e4",
+    "v5_experiments/cyr_tournament.py": "4600e3c4c4498221b7f3a73db389aff16a8d705e",
+    "v5_model/attention.py": "5b8f1f3abf302f6cfb0a549e8675c6d1d4f0202f",
+    "v5_model/block.py": "d1bae52a9683d273b7f0a0507e180d0dbb94843a",
+    "v5_model/config.py": "d7351b94f86fc9d3b4161c2c8e4dc72b271979f1",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_model/embedding.py": "ab3ca39022febecf2e49068d67cd19394504fcd3",
+    "v5_model/initialize.py": "5ef02a6250aff914cb4ac953a12640b654bf4ae9",
+    "v5_objectives/causal_lm.py": "4d0cc7c31679f99b44d34570e47e40f6778b7231",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "v5_training/production_backend.py": "84d2dfc7cad3f52fd3a9b3f7357fac4d70145cb6"
+  },
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "supersession": {
+    "CYR-GPU-008": "real operator CUDA calibration passed but V8 all-or-nothing resolver rejected the assigned GPU before any scientific training; V9 narrows scope and adopts progressive matched-unit scheduling"
+  },
+  "arkenstone": {
+    "head_sha": "5db97c4aaf3ecd1da78f32119f0d979238184dd7",
+    "technique_source": "experiments/COLAB/MASTER_DISCOVERY_V7_PLAN.md + run_discovery_v7.py",
+    "technique_used": "fixed global wall; sequential matched units; conservative launch gate; preserve completed/partial receipts; package in finally; do not require every possible campaign stage to be guaranteed before starting",
+    "scientific_prior": [
+      "ARK-007R supports strong LOW-vs-HIGH same-task retention protection at Micro T2",
+      "ARK-011 supports switching to LOW after recovered capability to reduce recurrent instability",
+      "ARK-012 leaves exact state/timing threshold unresolved",
+      "ARK-013 shows LOW alone does not solve cross-task no-replay interference",
+      "ARK-014 leaves non-arithmetic LR retention transfer unresolved"
+    ]
+  },
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "vocabulary_size": 24576
+  },
+  "data": {
+    "generator": "t2-two-digit-addition",
+    "generator_version": "cyr-gpu005-t2/v1",
+    "data_manifest_sha256_full": "b7a4d5bef28b6d1c26fcc85dc7eecc3562607badbd78b45066f81ac846386ad9",
+    "split_seeds": {
+      "train": 5001,
+      "dev_controller": 6002,
+      "dev_measurement": 6003,
+      "sealed_reserved": 6004
+    },
+    "world_counts": {
+      "train": 500,
+      "dev_controller": 96,
+      "dev_measurement": 112,
+      "sealed_reserved": 48
+    }
+  },
+  "scientific_contract": {
+    "question": "post-G90 same-parent LOW_CONTINUE versus HIGH_CONTINUE retention",
+    "parent_seeds": [707, 808],
+    "minimum_parents_for_replicated_verdict": 2,
+    "arms": ["HIGH_CONTINUE", "LOW_CONTINUE"],
+    "acquisition_target_actual_real_tokens": 2000000,
+    "continuation_target_actual_real_tokens_per_arm": 500000,
+    "acquisition_eval_interval_actual_tokens": 400000,
+    "continuation_eval_interval_actual_tokens": 125000,
+    "candidate_free_g90_threshold": 0.9,
+    "candidate_free_g90_confirmations": 3,
+    "same_parent_model_optimizer_bytes": true,
+    "same_future_minibatch_stream": true,
+    "arm_order_counterbalanced_by_parent": true,
+    "timeboxed_or_incomplete_pair_cannot_count_as_replication": true
+  },
+  "runtime_contract": {
+    "wall_budget_minutes": 165,
+    "packaging_reserve_minutes": 8,
+    "parent_launch_gate_minutes": 45,
+    "progressive_allocation": true,
+    "whole_campaign_feasibility_failure_removed": true,
+    "proxy_rule": "largest non-TINY that predicts full focused completion; otherwise fastest passing calibrated proxy, including TINY",
+    "slow_healthy_gpu_behavior": "run progressive campaign and package valid partial evidence instead of failing Cell 0"
+  },
+  "verdict_contract": {
+    "replicated_low_protection": "two valid matched parents; each LOW-HIGH RET90 >= 0.05; mean paired margin >= 0.10",
+    "single_complete_parent": "SINGLE_PARENT_DEVELOPMENT_SIGNAL only",
+    "no_complete_pair": "INCONCLUSIVE_NO_COMPLETE_MATCHED_PAIR",
+    "research_candidate_possible": false,
+    "production_promotion_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false
+  },
+  "preexecution_evidence": {
+    "github_actions_run_id": 34345023029,
+    "result": "PASS",
+    "executable_sha": "4a1c0a5b245b7d2baf6ba36718522d54906aa7ed",
+    "notebook_cells_compile": "3/3",
+    "focused_contract_suite": "PASS",
+    "operator_slow_gpu_calibration_regression": true,
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false
+  },
+  "safety": {
+    "full_mode_requires_cuda": true,
+    "drive_backed_output": true,
+    "failure_evidence_packaged": true,
+    "sealed_post_decision_only_when_time_remains": true,
+    "production_promotion_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false
+  }
+}
