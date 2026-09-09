@@ -15,9 +15,19 @@ CYR-GPU-009 established a useful fact: TINY could memorize the train probe but d
 
 V9 exposed roughly 15,632 × 16 = 250,112 rows (<22% of that box). The original V10 exposed at most 18,000 × 16 = 288,000 rows (25%). Therefore another V10 null would still leave semantic underdose as a live explanation.
 
-## Live Arkenstone evidence used
+## Live cross-branch evidence audit
 
-Arkenstone audited at `723bd8fd2310fc982d2907dc4af3c0d7aebaa16b`.
+The final prefreeze evidence review used these exact read-only heads:
+
+- Arkenstone: `c16718a7841c3cc3eba2b4b2c0388a0e36c0b530`
+- BRAMASTRA: `415250f44179f3310e5dc55addb21722290604fa`
+- canonical Cymek: `28bf57a0d299a2c13a99fe0046616c00a1b8530c`
+- Citadel: `1d27f9b0d770e30577de0a8671c909cb783b4ff1`
+- Triquetra: `f23f0af42d90847cf1d2c244160c8203d1995b33`
+
+Arkenstone had advanced eleven commits beyond the earlier V11 audit. The delta adds ARK-018 implementation/preexecution material; its experiment log still marks ARK-017 and ARK-018 as **not executed**, so it supplies no new outcome that changes V11. BRAMASTRA added a small two-seed matched-teaching D02 development comparison; its own chief review reports no reliable multi-step advantage and no accelerator/model-promotion implication. That result is orthogonal to V11's controlled arithmetic acquisition question, so it is recorded but does not change the plan.
+
+Evidence that does control V11 remains:
 
 - ARK-002B: exact commutation-free manifest, 500 train / 197 test. Seed 47 demonstrated sustained G90 around update 12k; seed 29 reached final OOD 0.924 but did not satisfy sustained G90 by 18k. Qualitative memorize-first → delayed-generalize behavior replicated, with large seed variance.
 - ARK-003: simple curriculum/teacher suffixes did not reliably accelerate the transition. This argues against spending the session on clever curriculum before reproducing acquisition.
@@ -25,8 +35,7 @@ Arkenstone audited at `723bd8fd2310fc982d2907dc4af3c0d7aebaa16b`.
 - ARK-013: LOW LR did not solve prolonged cross-task interference.
 - ARK-014/015: learned non-arithmetic invariance can depend strongly on data support; ARK-015 showed 8/8 narrow-HIGH failures versus 0/8 LOW and 0/8 augmented-HIGH. This motivates structural diagnostics but does not justify replacing the acquisition experiment.
 - ARK-016: mechanism attribution remained inconclusive due low event count.
-- ARK-017: preregistered/implemented but no result found; treated as **UNEXECUTED**, not evidence.
-- ARK-018: real-data/Birth-Book corpus and plan exist, but no training result found; treated as **UNEXECUTED**.
+- ARK-017 and ARK-018: implemented/preregistered work exists, but neither has an executed scientific result at the audited Arkenstone head; both remain **UNEXECUTED** evidence-wise.
 
 ## What the compact bridge controls—and what it does not
 
@@ -58,12 +67,14 @@ A production null is called representation divergence only if it receives **at l
 
 ## Capability and reasoning measurements
 
-Primary capability gate: candidate-free exact answer **with valid EOS stop**.
+Primary capability gate: candidate-free exact answer **with valid EOS stop**. The capability and structural generators use the same fixed eight-token generation cap, avoiding a hidden final-measurement advantage from a longer decode budget.
 
 A G90 claim requires:
 
 - three consecutive `DEV_CONTROLLER` evaluations >=0.90; and
 - final larger `DEV_MEASUREMENT/STANDARD` exact-with-EOS >=0.90.
+
+The final controller, final structural battery and post-decision sealed measurement preserve row-level candidate-free predictions plus canonical SHA-256 digests in the returned evidence bundle. Milestone/final checkpoint receipts preserve the model and optimizer byte hashes in addition to the durable Drive path. This makes a returned ZIP auditable without pretending the model tensors themselves are embedded in that ZIP.
 
 Structural diagnostics are measurement-only and never control training:
 
@@ -79,9 +90,9 @@ These remain separate flags. There is no aggregate "reasoning score" and no AGI 
 
 ## Compute allocation
 
-Hard wall: 175 minutes, 5-minute packaging reserve.
+Hard campaign wall: 175 minutes, including a 5-minute packaging reserve. Cell 0 performs only short environment/calibration/preflight work before the scientific campaign; it is not scientific training evidence.
 
-Compact bridge receives at most 25 minutes and stops early on qualified G90. The production bridge receives nearly all remaining compute. If the first production subject qualifies and >=40 minutes remain, a second independent production seed is launched. This is progressive use of the wall rather than an all-or-nothing feasibility gate.
+Compact bridge receives at most 25 minutes and stops early on controller G90 confirmation. The production bridge receives nearly all remaining compute. A second independent production seed launches only when the first subject has both sustained controller G90 and >=0.90 final DEV_MEASUREMENT/STANDARD, with >=40 minutes remaining. This is progressive use of the wall rather than an all-or-nothing feasibility gate.
 
 ## What changes our mind
 
