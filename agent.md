@@ -4,15 +4,16 @@ Branch: `cymek-500m-readiness`.
 
 ## CURRENT SCIENTIFIC STATE
 
-`CYR-GPU-011` has now **EXECUTED** on a Google Colab Tesla T4. Do not describe it as pending.
+`CYR-GPU-011` has **EXECUTED** on a Google Colab Tesla T4. Do not describe it as pending.
 
 Frozen executable: `0a97257e2b38db6dfa85cc6e58da0697591dde6b`.
 
-Raw bundle: `artifacts/v5/CYMEK_GPU_RESEARCH_V11_RESULTS.zip`.
+Source bundle SHA-256: `fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5`.
 
-Bundle SHA-256: `fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5`.
+The raw V11 ZIP is intentionally **not stored in git**. Preserve only the distilled scientific record:
 
-Post-run record: `docs/cymek/experiments/CYR-GPU-011/RESULT.md` and `artifacts/v5/cyr_gpu_011_result_receipt.json`.
+- reasoning + interpretation: `docs/cymek/experiments/CYR-GPU-011/RESULT.md`
+- compact structured result: `artifacts/v5/cyr_gpu_011_result_receipt.json`
 
 Official preregistered verdict: `NO_G90_WITH_INCOMPLETE_EXPOSURE`.
 
@@ -59,11 +60,11 @@ Interpretation: strong single-seed evidence that semantic dose alone is insuffic
 
 ## POST-RUN DIAGNOSTIC ERRATUM
 
-Do NOT treat raw `COMMUTATION_INVARIANCE=true` from the compact battery as demonstrated invariance.
+Do NOT treat the compact battery's `COMMUTATION_INVARIANCE=true` flag as demonstrated invariance.
 
 ARK-002B's OOD axis places the first operand in unseen tens bands 6/7; reversing operands changes that axis and moves the first-operand role toward the train-like band. Therefore compact STANDARD 56.47% versus COMMUTED 100% is evidence of operand-role/order asymmetry, not a clean symmetric commutation test.
 
-Raw receipts remain unchanged; the correction is interpretive and preserved in `RESULT.md`.
+The correction is preserved in `RESULT.md`.
 
 ## STRONGEST CURRENT HYPOTHESIS
 
@@ -88,9 +89,9 @@ If compact also fails at full exposure, shift attention toward Cymek-vs-Arkensto
 - CYR-GPU-001..005: superseded before scientific execution.
 - CYR-GPU-006/008: Cell-0 hardware-feasibility failures before scientific training; not ML evidence.
 - CYR-GPU-007: superseded before execution.
-- CYR-GPU-009: executed on T4; TINY memorized but no candidate-free held-out G90 at 2M real tokens per parent. Bundle SHA `dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216`.
+- CYR-GPU-009: executed on T4; TINY memorized but no candidate-free held-out G90 at 2M real tokens per parent. Source bundle SHA `dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216`.
 - CYR-GPU-010: superseded before execution after semantic-dose audit.
-- CYR-GPU-011: executed; result described above.
+- CYR-GPU-011: executed; distilled result described above. Raw ZIP not tracked in git.
 
 ## PRODUCTION / TPU BOUNDARY
 
