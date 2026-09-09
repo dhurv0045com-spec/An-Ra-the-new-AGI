@@ -2,15 +2,15 @@
 
 Status: **EXECUTED / COMPLETE** on Google Colab Tesla T4.
 
-Raw bundle: `artifacts/v5/CYMEK_GPU_RESEARCH_V11_RESULTS.zip`
+Source bundle SHA-256: `fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5`.
 
-Bundle SHA-256: `fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5`
+The raw ZIP is **intentionally not stored in git**. The repository keeps only the distilled scientific result, interpretation, and compact structured result receipt.
 
-Frozen executable: `0a97257e2b38db6dfa85cc6e58da0697591dde6b`
+Frozen executable: `0a97257e2b38db6dfa85cc6e58da0697591dde6b`.
 
 Wall time: **8383.78 s = 139.73 min**.
 
-The bundle contains 12 JSON evidence files; all parsed successfully. Candidate-free prediction receipts for final controller and SEALED outputs were independently re-hashed from their row payloads and matched their recorded SHA-256 values.
+The source bundle contained 12 JSON evidence files; all parsed successfully during the post-run audit. Candidate-free prediction receipts for final controller and SEALED outputs were independently re-hashed from their row payloads and matched their recorded SHA-256 values before the raw bundle was discarded from the repository.
 
 ## Official preregistered verdict
 
@@ -46,11 +46,11 @@ The compact subject therefore did more than memorize: train-probe capability bec
 
 ### Important post-run correction: COMMUTED is not a clean invariance test
 
-The raw battery reports `COMMUTED = 100%` and sets `COMMUTATION_INVARIANCE=true`. **Do not accept that label as evidence of commutation invariance.**
+The audited battery reported `COMMUTED = 100%` and set `COMMUTATION_INVARIANCE=true`. **Do not accept that label as evidence of commutation invariance.**
 
 ARK-002B's OOD axis places the first operand in unseen tens bands 6/7 while training uses first-operand tens bands 1..5. The COMMUTED probe reverses the operands, which changes that OOD role and often moves the first operand back toward the train-like band. Therefore STANDARD 56.47% versus COMMUTED 100% is better interpreted as **strong operand-role/order asymmetry** than as proven invariance.
 
-The raw receipt is preserved unchanged; this interpretation is an explicit post-run audit correction.
+This interpretation is an explicit post-run audit correction.
 
 ## Production bridge — memorization without structural generalization at full semantic dose
 
