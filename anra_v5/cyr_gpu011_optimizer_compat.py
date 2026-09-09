@@ -1,30 +1,22 @@
-"""Strict compatibility shim for the CYR-GPU-011 research runner.
+"""Scoped optimizer-API compatibility for CYR-GPU-011 research only.
 
-The V5 optimizer constructor deliberately freezes AdamW betas/epsilon/weight
-decay and exposes only ``lr``. Early CYR-GPU-011 code passed those frozen
-values explicitly. Rather than changing canonical production optimizer code,
-this research-only shim accepts the redundant keywords, verifies that they are
-exactly the V5 constants, and delegates to the canonical constructor.
+Cymek's canonical optimizer constructor deliberately freezes AdamW betas,
+epsilon and weight decay and therefore only exposes ``lr`` (plus the injectable
+``torch_module``). Early CYR-GPU-011 code redundantly passes the frozen values
+explicitly. This module accepts those keywords only while a scoped context is
+active, verifies that they equal the canonical V5 constants, delegates to the
+canonical constructor, then restores the original function immediately.
 
-The shim changes no optimizer semantics and refuses any non-canonical value.
+Nothing here changes production optimizer semantics or permits a non-canonical
+optimizer configuration.
 """
 from __future__ import annotations
 
-from typing import Any
-
-_INSTALLED = False
-_ORIGINAL = None
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 
-def install() -> None:
-    global _INSTALLED, _ORIGINAL
-    if _INSTALLED:
-        return
-    import v5_training.optimizer as module
-
-    original = module.build_adamw_optimizer
-    _ORIGINAL = original
-
+def _compatible_wrapper(module: Any, original: Any):
     def compatible_build_adamw_optimizer(
         model: Any,
         *,
@@ -42,12 +34,26 @@ def install() -> None:
             raise ValueError("CYR-GPU-011 refuses non-canonical AdamW weight decay")
         return original(model, lr=float(lr), torch_module=torch_module)
 
-    module.build_adamw_optimizer = compatible_build_adamw_optimizer
-    _INSTALLED = True
+    return compatible_build_adamw_optimizer
 
 
-def installed() -> bool:
-    return _INSTALLED
+@contextmanager
+def canonical_optimizer_compat() -> Iterator[None]:
+    """Temporarily accept redundant canonical AdamW keywords, then restore.
+
+    The guard is intentionally process-local and scoped. Nested use is safe:
+    only the outermost caller replaces/restores the function it observed.
+    """
+    import v5_training.optimizer as module
+
+    original = module.build_adamw_optimizer
+    wrapper = _compatible_wrapper(module, original)
+    module.build_adamw_optimizer = wrapper
+    try:
+        yield
+    finally:
+        if module.build_adamw_optimizer is wrapper:
+            module.build_adamw_optimizer = original
 
 
-__all__ = ["install", "installed"]
+__all__ = ["canonical_optimizer_compat"]
