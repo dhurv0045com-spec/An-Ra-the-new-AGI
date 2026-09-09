@@ -89,10 +89,10 @@ The resolver is outcome-blind. It selects the batch expected to maximize semanti
 
 ## Wall allocation
 
-Hard total wall: 175 minutes.
+Hard **scientific campaign** wall: 175 minutes. Cell 0 preflight/calibration occurs before the campaign and is expected to remain short; it is not counted as scientific training evidence.
 
 - packaging reserve: 5 minutes
-- COMPACT_BRIDGE: max 25 minutes; stops early on qualified G90
+- COMPACT_BRIDGE: max 25 minutes; stops early only on qualified G90
 - PRODUCTION_PRIMARY: receives remaining science wall
 - PRODUCTION_REPLICATION: starts only if primary qualifies and >=40 minutes remain
 
@@ -108,15 +108,16 @@ Fixed before outcomes:
 
 ## Candidate-free capability gates
 
-Evaluation cadence is every 12,800 semantic row presentations, matching 200 ARK batch64 updates in exposure units.
+Evaluation cadence is every 12,800 semantic row presentations, matching 200 ARK batch64 updates in exposure units. All capability and structural candidate-free generation uses a fixed eight-new-token cap.
 
 Milestones:
 
 - M99: train probe >=.99, sustained 3 evaluations
 - G50: DEV_CONTROLLER >=.50, sustained 3 evaluations
-- G90: DEV_CONTROLLER >=.90, sustained 3 evaluations
+- G90 controller confirmation: DEV_CONTROLLER >=.90, sustained 3 evaluations
+- G90 qualification: controller confirmation has occurred **and** contemporaneous DEV_MEASUREMENT/STANDARD exact-with-valid-EOS >=.90
 
-For a **qualified final G90 claim**, final DEV_MEASUREMENT/STANDARD exact-with-valid-EOS must also be >=.90.
+Controller confirmation is recorded as a transition event but does **not** stop training by itself. A bridge stops early only at qualified G90; otherwise it continues to its semantic-exposure or wall limit. Final decision logic rechecks measurement support defensively.
 
 ## Structural battery
 
@@ -131,6 +132,8 @@ Measurement-only; never changes training or stage selection.
 - VERBAL: unseen natural-language rendering; production tokenizer only
 
 Threshold flags are reported separately. No aggregate reasoning score is allowed.
+
+Final controller/structural/sealed candidate-free rows are preserved with canonical SHA-256 prediction receipts. Research checkpoints preserve model/optimizer byte SHA-256 values and counters along with their durable Drive paths; the returned ZIP contains the receipts, not duplicated tensor binaries.
 
 ## Primary verdict logic
 
@@ -148,7 +151,7 @@ Threshold flags are reported separately. No aggregate reasoning score is allowed
 
 **Strongest useful positive:** production primary + replication both qualify, with clean exposure and structural receipts. Still development evidence only.
 
-**Useful bridge positive:** compact qualifies. This proves Cymek V5 can enter the task's generalization regime under compact representation; it does not prove exact ARK replication.
+**Useful bridge positive:** compact qualifies. This shows Cymek V5 can enter the task's generalization regime under compact representation; it does not prove exact ARK replication.
 
 **Useful negative:** compact receives near-full reference exposure and fails. This shifts attention toward objective/architecture/optimization/precision/init differences rather than dose alone.
 
@@ -159,7 +162,7 @@ Threshold flags are reported separately. No aggregate reasoning score is allowed
 Abort/fail closed on:
 
 - no CUDA;
-- executable/prereg/hash mismatch;
+- executable/prereg/readiness/hash mismatch;
 - tokenizer identity drift;
 - ARK manifest split/blob drift;
 - data firewall violation;
