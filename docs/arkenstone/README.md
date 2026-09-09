@@ -43,9 +43,7 @@ Two protection mechanisms remain plausible:
 
 Large movement alone is not a sufficient explanation because AUGMENTED_HIGH moved farther than NARROW_HIGH while preserving robustness.
 
-## Current execution program — Discovery V8 V2
-
-The second-pass design review is now frozen before any V8 GPU result. The program is deliberately sequential:
+## Current execution program — Discovery V8
 
 ### 1. ARK-017 V2 — causal mechanism
 
@@ -61,13 +59,41 @@ Launcher:
 Pinned scientific runner commit:
 `377c4743f8017e3455f576eafb75bb8ab9c50284`
 
-### 2. ARK-018 V2 — ~1GB real-data continuation bridge
+### 2. ARK-018 V4 — science + Birth Book real-data causal gate
 
-The user supplies a real-text file on Google Drive. The corpus is streamed, full-hash-bound and split deterministically before training. A conventional ~20–25M decoder is pretrained with exact byte/token exposure accounting.
+The operator-selected Common Pile peS2o Parquet shard is expected at the frozen Google Drive path:
 
-After a controlled robust SKILL_A is acquired, the **primary retention stress is continued real-text learning**, not synthetic-only continuation. HIGH, LOW, capability-specific replay, distractor replay and at most one prospectively selected ARK-017 mechanism are compared while SEALED language NLL and capability robustness are measured together.
+`/content/drive/MyDrive/genisis-arkenstone/data_15.parquet`
 
-Status: **V2 PREREGISTERED; DATA NOT YET BOUND; NOT IMPLEMENTED/EXECUTED.**
+The spelling `genisis-arkenstone` is intentional. The file is **not considered bound until runtime**: the Colab preparation phase must stream-hash the complete Drive object and match upstream SHA256 `b397427cd5964b7cc2a41264ca8789a0c020f96d4e403b314900798711a2ead5` before tokenizer creation or any model update.
+
+The repository Birth Book is frozen at 17,906,590 bytes with SHA256 `8f17d092897f41df45100d227ecf7a2391ed5a5cfd3d3bcf373ad86c94b0c4f4`.
+
+ARK-018 V4 is a two-seed, four-arm causal experiment on a conventional ~20–25M decoder:
+
+- `SCIENCE_ONLY`;
+- `BIRTH_NATURAL_2PCT` — one Birth update in each 50-step half-cycle;
+- `BIRTH_REHEARSAL_10PCT` — ten Birth updates per 100;
+- `SCIENCE_REPLAY_10PCT_CONTROL` — a token-matched small scientific replay corpus at exactly the same cadence as the 10% Birth treatment.
+
+This separates Birth-specific content from generic repeated-small-corpus effects while keeping optimizer-update/token budgets matched. Measurements include scientific CONTROL/SEALED NLL, perplexity and token accuracy; frozen objective Birth content probes; narrow algorithmic OOD probes; exact milestone parameter displacement; projected science-vs-Birth gradient alignment; and controlled post-pretraining temporary-binding acquisition/retention. A deterministic SciQ subset is secondary when available.
+
+Durable Drive output root:
+
+`/content/drive/MyDrive/genisis-arkenstone/ARK018_SCIENCE_BIRTH_V1/`
+
+A complete study is allowed to span multiple Colab sessions. Preparation, checkpoints and partial receipts persist to Drive; re-running the notebook resumes instead of weakening the study by dropping arms or seeds.
+
+Status: **PREREGISTERED + IMPLEMENTED + PREEXECUTION AUDITED; READY FOR OPERATOR GPU SMOKE; DATA NOT YET RUNTIME-BOUND; NOT EXECUTED.**
+
+Launcher:
+`experiments/COLAB/arkenstone_ark018_science_birth_v4.ipynb`
+
+Pinned execution commit:
+`fb0420b7a46521a5f14d125564078ca1c6336d78`
+
+Audit:
+`experiments/ARK-018/PREEXECUTION_AUDIT_V4.md`
 
 ### 3. ARK-019 V2 — real-mixture Capability Guardian
 
@@ -81,6 +107,8 @@ Program documents:
 - `experiments/COLAB/DISCOVERY_V8_DESIGN_REVIEW_V2.md`
 - `experiments/ARK-017/PLAN_V2_ADDENDUM.md`
 - `experiments/ARK-018/PLAN_V2_ADDENDUM.md`
+- `experiments/ARK-018/SCIENCE_BIRTH_PERIODIC_MIXTURE_ADDENDUM.md`
+- `experiments/ARK-018/EXECUTION_V3_ADDENDUM.md`
 - `experiments/ARK-019/PLAN_V2_ADDENDUM.md`
 
 ## Training-infrastructure implication already justified
