@@ -1,13 +1,13 @@
 {
   "schema": "arkenstone-ledger-verification/v2",
-  "stamped_at_commit": "fc3e689d78e5a0039fe4e5dcfe84eafbbd4b8273",
+  "stamped_at_commit": "59e1b805b7d93b7f2e1e9d3ea66b34c4fabca9c8",
   "governed_file_hashes": {
-    "docs/arkenstone/EXPERIMENT_LOG.md": "33a30bd9f61a13439f69e695e8d67ec95612429c3750d04385c466e77adc7766",
-    "docs/arkenstone/MECHANISM_TOURNAMENT.md": "ad978667f2db21bf34a9814f7b8cb72c8aae8ea57f8e74f06adb1bcbb9a6f755",
-    "docs/arkenstone/NEGATIVE_RESULTS.md": "d86ce4836e013411e9f79ba884427da90e885528c232e42cbc948ba8ce5f87dc",
+    "docs/arkenstone/EXPERIMENT_LOG.md": "ab414c9e2e45cc5c1fc7cccc340e62fffa57af8ab2e24030e01954b2ca1d65d1",
+    "docs/arkenstone/MECHANISM_TOURNAMENT.md": "062d853f7f4cf69c1b61c82ef9f851a6e252b498b5e52ae75fbf31d029df227b",
+    "docs/arkenstone/NEGATIVE_RESULTS.md": "c47a9340b1370f90b05082a9a773e9b4b0d08162d6cd7eca61d9034bdb45b0eb",
     "docs/arkenstone/AGI_FEATURE_LEDGER.md": "770f2f35fd837226c4e7efb6f5dfe23b443591ddffaa548ba1f884f2b16d11ee",
-    "docs/arkenstone/NOVELTY_REGISTER.md": "1401e0f38f4f99901c44991495f5d370cef6b22d6060990b12caccc4aa19aaa0",
-    "docs/arkenstone/README.md": "5aad1e22feb09c560a5648f1c11c612e9a114cd7251d810d8b3b753a42ece4ca"
+    "docs/arkenstone/NOVELTY_REGISTER.md": "cd96dc682cc23515eab11e01f274d53ba6f1a32fb0d01bfcb961ad0fd1ee7bbc",
+    "docs/arkenstone/README.md": "1ccf3f7cb440841abe694d17f86e745df7f76a7a829f3071f9bcb49fe2c2b8f0"
   },
   "receipt_checks": [
     {
@@ -181,6 +181,16 @@
       "scheme": null
     },
     {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-015\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-016\\RESULT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
       "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\BINDING-V2-REDTEAM\\RECEIPT.json",
       "status": "NO_SELF_HASH",
       "scheme": null
@@ -279,13 +289,22 @@
       "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\v6\\RECEIPT_AUDIT.json",
       "status": "NO_SELF_HASH",
       "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\v7\\PROGRAM_SUMMARY.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\COLAB\\results\\v7\\RECEIPT_AUDIT.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
     }
   ],
   "drifted_since_last_check": [
     "docs/arkenstone/EXPERIMENT_LOG.md",
     "docs/arkenstone/MECHANISM_TOURNAMENT.md",
     "docs/arkenstone/NEGATIVE_RESULTS.md",
-    "docs/arkenstone/AGI_FEATURE_LEDGER.md",
     "docs/arkenstone/NOVELTY_REGISTER.md",
     "docs/arkenstone/README.md"
   ],
