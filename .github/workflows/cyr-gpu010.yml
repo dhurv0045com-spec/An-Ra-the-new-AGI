@@ -1,0 +1,39 @@
+name: CYR-GPU-010 preexecution contracts
+
+on:
+  pull_request:
+  push:
+    branches: [cymek-500m-readiness]
+
+permissions:
+  contents: read
+
+jobs:
+  preexecution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install lightweight validation deps
+        run: |
+          pip install pytest tokenizers numpy
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile CYR-GPU-010 executable and notebook cells
+        run: |
+          python -m py_compile v5_experiments/cyr_gpu010.py anra_v5/cyr_gpu010_run.py tests/test_v5_cyr_gpu010.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          nb = json.loads(Path('notebooks/cymek_colab_gpu_research_v10.ipynb').read_text())
+          cells = [c for c in nb['cells'] if c['cell_type'] == 'code']
+          assert len(cells) == 3
+          for i, cell in enumerate(cells):
+              compile(''.join(cell['source']), f'cell-{i}', 'exec')
+          print('3/3 notebook cells compile')
+          PY
+      - name: Run focused CYR-GPU-010 contracts
+        run: python -m pytest tests/test_v5_cyr_gpu010.py -q
