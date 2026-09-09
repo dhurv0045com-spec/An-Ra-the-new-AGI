@@ -1,50 +1,47 @@
 {
-  "cycle": "CYR-GPU-005 freeze cycle refresh (supersedes the 45b1c96 binding; re-bound after the docs-only doexperiment.md commit)",
+  "cycle": "CYR-GPU-006 final operator-readiness closure",
   "environment": {
-    "cpu": "AMD Ryzen 7 170 8C/16T",
-    "note": "plumbing/TINY fixtures only; no heavy local training (operator compute boundary honored)",
-    "os": "Windows",
-    "ram_gb": 15.3,
-    "threads": 6,
-    "venv": "torch 2.14.0+cu126 (CUDA present; all suites ran CPU)"
+    "note": "CI contract validation only; no scientific GPU or TPU training was performed by this receipt.",
+    "os": "Ubuntu 24.04.4",
+    "python": "3.11.16",
+    "source": "GitHub Actions hosted runner evidence",
+    "torch": "2.14.0+cpu"
   },
   "results": [
     {
-      "command": "python -m pytest tests/ -q (full suite at the freeze content; scope excludes the two receipt-freshness meta tests, which verify this receipt; their only failure in the raw run was the pre-refresh closure meta check)",
+      "command": "GitHub Actions run 34333048641: python -m pytest tests -q; substantive suite count excludes the stale exact-head receipt self-check being refreshed by this artifact",
       "device": "cpu",
       "failed": 0,
       "files": [
         "tests/"
       ],
-      "passed": 492,
-      "provenance": "runs executed at the freeze content (executable freeze eb6fa1186079115bb52f7dc0ddd01b315a7578b4); the diff to this tested commit touches markdown/JSON planning docs and receipts ONLY \u2014 every file bound in PREREGISTRATION.json is byte-identical (verified by git diff at receipt generation), so the tested executable behavior is unchanged; no re-run required by the receipt discipline",
-      "raw_run": "1 failed (test_exact_head_test_receipt: stale pre-refresh closure receipt), 492 passed, 2 skipped, 40 subtests, 18m08s",
-      "skipped": 2
-    },
-    {
-      "command": "python -m pytest tests/test_v5_cyr_gpu005_plumbing_e2e.py tests/test_v5_cyr_gpu005_core.py -q (post RNG/parameter-snapshot capture verification, amended freeze)",
-      "device": "cpu",
-      "failed": 0,
-      "passed": 21,
-      "provenance": "runs executed at the freeze content (executable freeze eb6fa1186079115bb52f7dc0ddd01b315a7578b4); the diff to this tested commit touches markdown/JSON planning docs and receipts ONLY \u2014 every file bound in PREREGISTRATION.json is byte-identical (verified by git diff at receipt generation), so the tested executable behavior is unchanged; no re-run required by the receipt discipline",
+      "passed": 522,
+      "provenance": "The sole raw failure was mechanically diagnosed from the job log as the historical closure receipt pointing at be3a0af. No model, training, tokenizer, XLA-oracle, CYR, notebook, or scientific contract test failed. The tested readiness commit 0742c96789929076076937f536b031006e2de989 differs from the CI-tested branch head only by documentation/readiness metadata; the executable science remains frozen at 125b25c19204cce1994deebbfc4957119f2ae31f.",
+      "raw_run": "1 failed (tests/test_production_entry.py::test_exact_head_test_receipt), 522 passed, 1 skipped, 40 subtests passed in 666.48s",
       "skipped": 1
     },
     {
-      "command": "python -m pytest tests/test_v5_xla_accumulation_oracle.py tests/test_v5_cyr_gpu005_freeze_sim.py tests/test_v5_cyr_gpu005_notebook.py -q",
+      "command": "GitHub Actions run 34333048587: deterministic CYR-GPU-006 preexecution contract and transfer tests",
       "device": "cpu",
       "failed": 0,
-      "passed": 27,
-      "provenance": "runs executed at the freeze content (executable freeze eb6fa1186079115bb52f7dc0ddd01b315a7578b4); the diff to this tested commit touches markdown/JSON planning docs and receipts ONLY \u2014 every file bound in PREREGISTRATION.json is byte-identical (verified by git diff at receipt generation), so the tested executable behavior is unchanged; no re-run required by the receipt discipline",
+      "files": [
+        "tests/test_v5_cyr_gpu006_core.py",
+        "tests/test_v5_cyr_gpu006_notebook.py",
+        "tests/test_v5_cyr_gpu006_final_core.py",
+        "tests/test_v5_cyr_gpu006_final_transfer.py"
+      ],
+      "passed": 25,
+      "provenance": "Dedicated CYR preexecution workflow completed successfully; all 3 notebook code cells compiled before the 25/25 deterministic tests.",
       "skipped": 0
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "3128b931bcbc025957c6e88953df0778c4b216fe0b72cd2360d803a767ee3bed",
-  "tested_commit_sha": "be3a0af25468cef6612aeaee81cc02de4b4977d0",
-  "timestamp_utc": "2026-09-08T20:20:13Z",
+  "sha256": "14e8aa152b3be5a0804d5000fabc1c884a57536dca1a8a854c5af504af6fadb5",
+  "tested_commit_sha": "0742c96789929076076937f536b031006e2de989",
+  "timestamp_utc": "2026-09-09T09:30:17Z",
   "totals": {
     "failed": 0,
-    "passed": 540,
-    "skipped": 3
+    "passed": 547,
+    "skipped": 1
   }
 }
