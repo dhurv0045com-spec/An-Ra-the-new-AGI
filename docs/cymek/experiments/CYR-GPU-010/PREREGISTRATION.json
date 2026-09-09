@@ -1,0 +1,169 @@
+{
+  "schema": "anra-cyr-gpu010-preregistration/v1",
+  "experiment": "CYR-GPU-010",
+  "status": "PREREGISTERED_PENDING_OPERATOR_EXECUTION",
+  "executable_sha": "4f6e04e870e7fad0af7311e2f57979203ca4aa85",
+  "executable_blobs": {
+    "v5_experiments/cyr_gpu010.py": "734ee7eab092b6e551099a82ab1e8054940c6f51",
+    "anra_v5/cyr_gpu010_run.py": "6b47ff5d074a99c95c7ab670698123553271b9a5",
+    "tests/test_v5_cyr_gpu010.py": "7dcb6bf6ae7299312cc7fa4256c8be0040a53630",
+    "notebooks/cymek_colab_gpu_research_v10.ipynb": "e8cd7646780a70da117d45bc28f828914ff51c43",
+    ".github/workflows/cyr-gpu010.yml": "11ce9f5fddf4af984b6e31905fc8b78a376436a0",
+    "docs/cymek/experiments/CYR-GPU-010/PLAN.md": "9c7bcb78208a399962433092a35c096573c35283",
+    "docs/cymek/experiments/CYR-GPU-010/DESIGN_REASONING.md": "fe0a71a6f9607d844e5d72a1f94d55aadd233914",
+    "docs/cymek/experiments/CYR-GPU-009/POSTRUN_AUDIT.md": "4737dd81ca7addd16fcf83f1baf1ca2eb62b8d9b",
+    "anra_v5/cyr_gpu006_run.py": "f61f17e9e2bdbefd8edc98dd7a7598a8dea35934",
+    "v5_experiments/cyr_gpu005.py": "67cf09633115652896ae7ff2081166c19302a7e4",
+    "v5_experiments/cyr_gpu006.py": "f6511ca8506ee2105338e5828b5bf85c6e7d922f",
+    "v5_contracts/model_spec.py": "cd5ef92a0d3bb208dc514f041f8e088a777ef8b1",
+    "v5_data/corpus_loading.py": "2c5e64656d9241d2c916549c9fb938e1df848ee0",
+    "v5_experiments/cyr_tournament.py": "4600e3c4c4498221b7f3a73db389aff16a8d705e",
+    "v5_model/attention.py": "5b8f1f3abf302f6cfb0a549e8675c6d1d4f0202f",
+    "v5_model/block.py": "d1bae52a9683d273b7f0a0507e180d0dbb94843a",
+    "v5_model/config.py": "d7351b94f86fc9d3b4161c2c8e4dc72b271979f1",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_model/embedding.py": "ab3ca39022febecf2e49068d67cd19394504fcd3",
+    "v5_model/initialize.py": "5ef02a6250aff914cb4ac953a12640b654bf4ae9",
+    "v5_objectives/causal_lm.py": "4d0cc7c31679f99b44d34570e47e40f6778b7231",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "v5_training/production_backend.py": "84d2dfc7cad3f52fd3a9b3f7357fac4d70145cb6"
+  },
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "prior_operator_result": {
+    "experiment": "CYR-GPU-009",
+    "bundle_sha256": "dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216",
+    "gpu": "Tesla T4",
+    "proxy": "TINY",
+    "parameters": 1647104,
+    "parents": [707, 808],
+    "actual_real_tokens_per_parent": 2000000,
+    "optimizer_updates_per_parent": 15632,
+    "finding": "both parents memorized the train probe but neither reached candidate-free held-out G90; no retention fork executed",
+    "scientific_consequence": "next experiment targets capability formation/generalization rather than post-G90 retention"
+  },
+  "arkenstone": {
+    "head_sha": "59e1b805b7d93b7f2e1e9d3ea66b34c4fabca9c8",
+    "ARK_002B": {
+      "status": "EXECUTED_REPLICATED_TASK_FAMILY_RESULT",
+      "finding": "4L/128w Micro reproduced memorize-first then delayed held-out generalization; fresh sustained G90 around 12k updates on seed47 while seed29 was still climbing at 18k",
+      "use_in_CYR010": "sets the 18k update scale-matched acquisition box and 200-update evaluation cadence"
+    },
+    "ARK_003": {
+      "status": "EXECUTED_NEGATIVE_SCREEN",
+      "finding": "simple curriculum and teacher/decomposition suffixes did not demonstrate faster G90; flat training was the only arm with meaningful OOD lift in the wall box",
+      "use_in_CYR010": "primary acquisition stays flat; no teacher/curriculum arm consumes the session"
+    },
+    "ARK_015": {
+      "status": "EXECUTED_DEMONSTRATED_MICRO_NONARITHMETIC_INVARIANCE_RETENTION",
+      "source_bundle_sha256": "25c4ac0aa01478cb2067147a240a12b4e30516810dad465e619391ff8a6f7faf",
+      "finding": "NARROW_HIGH failed 8/8 matched runs while NARROW_LOW and AUGMENTED_HIGH_REFERENCE failed 0/8",
+      "use_in_CYR010": "if G90 appears with time remaining, run a small matched HIGH-vs-invariant-support rendering stress; this stress is exploratory only"
+    },
+    "ARK_016": {
+      "status": "EXECUTED_INCONCLUSIVE_LOW_EVENT_RATE",
+      "finding": "only one sealed-qualified recovery fork; no mechanism flag demonstrated",
+      "use_in_CYR010": "do not spend this session on update-magnitude mechanism attribution"
+    },
+    "ARK_017": {
+      "status": "PREREGISTERED_UNEXECUTED_AT_FREEZE",
+      "finding": "no RESULT artifact exists at the audited head",
+      "use_in_CYR010": "no scientific claim imported"
+    }
+  },
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "vocabulary_size": 24576
+  },
+  "data": {
+    "generator": "t2-two-digit-addition",
+    "generator_version": "cyr-gpu005-t2/v1",
+    "data_manifest_sha256_full": "b7a4d5bef28b6d1c26fcc85dc7eecc3562607badbd78b45066f81ac846386ad9",
+    "split_seeds": {
+      "train": 5001,
+      "dev_controller": 6002,
+      "dev_measurement": 6003,
+      "sealed_reserved": 6004
+    },
+    "world_counts": {
+      "train": 500,
+      "dev_controller": 96,
+      "dev_measurement": 112,
+      "sealed_reserved": 48
+    },
+    "holdout_note": "STANDARD heldout axis is ordered first-operand tens band 6-7 versus train 1-5; commuted diagnostics are explicitly diagnostic because addition has commutative closure"
+  },
+  "primary_scientific_contract": {
+    "question": "does the real Cymek V5 4L/128w RESEARCH_SMALL proxy show a delayed memorize-to-heldout-generalization transition in the Arkenstone 9k-18k update regime?",
+    "preferred_proxy": "RESEARCH_SMALL",
+    "preferred_geometry": "4L/128w/Q4-KV2/head32/FFN512/context512 using real v5_model.core.initialize",
+    "fresh_seed": 3101,
+    "learning_rate": 0.001,
+    "batch_rows": 16,
+    "max_updates_research_small": 18000,
+    "candidate_free_eval_every_updates": 200,
+    "M99": "TRAIN_PROBE complete_exact_with_valid_stop >= 0.99",
+    "G50": "DEV_CONTROLLER complete_exact_with_valid_stop >= 0.50",
+    "G90_onset": "DEV_CONTROLLER complete_exact_with_valid_stop >= 0.90",
+    "G90_confirmation": "three consecutive DEV_CONTROLLER evaluations >= 0.90",
+    "milestone_checkpoints": ["M99", "G50", "G90", "ACQUISITION_FINAL"],
+    "teacher_or_curriculum_intervention": false
+  },
+  "hardware_resolution": {
+    "inputs_only": ["calibration PASS/OOM", "training_updates_per_sec", "training_real_tokens_per_sec", "generation_examples_per_sec", "fixed wall budget"],
+    "outcome_inputs_forbidden": true,
+    "wall_budget_minutes": 175,
+    "packaging_reserve_minutes": 5,
+    "preferred_rule": "use RESEARCH_SMALL for 18k updates when predicted acquisition+evaluation fits the science wall",
+    "fallback_rule": "if RESEARCH_SMALL does not fit, use TINY for a 36k-update long-dose diagnostic rather than fail Cell 0",
+    "fallback_claim_ceiling": "TINY_LONG_DOSE_DEVELOPMENT_ONLY"
+  },
+  "reasoning_battery": {
+    "gate_authority": "STANDARD only",
+    "STANDARD": "frozen DEV_MEASUREMENT T2; primary held-out capability measure",
+    "COMMUTED": "same held-out semantics with operands reversed; diagnostic only",
+    "LOCALITY": "paired one-digit no-carry counterfactual interventions; exact output-delta relation + both-exact",
+    "RENDERING": "unseen natural-language surface form; format robustness diagnostic",
+    "THREE_DIGIT": "deterministic no-carry three-digit additions; length/compositional extrapolation diagnostic",
+    "digit_accuracy": "tens/ones exact on two-digit STANDARD outputs",
+    "training_control_from_diagnostics": false
+  },
+  "post_G90_stress": {
+    "enabled_only_if": "G90 confirmed and hardware-only remaining-time rule affords >=1200 steps per arm",
+    "parent": "exact G90 model+optimizer checkpoint",
+    "arms": ["NARROW_HIGH", "SUPPORT_HIGH_1OF16"],
+    "common_learning_rate": 0.001,
+    "same_semantic_example_stream": true,
+    "SUPPORT_HIGH_1OF16": "exactly one row in each 16-row batch rendered with operands commuted; semantic IDs unchanged",
+    "steps_per_arm_bounds": [1200, 3000],
+    "claim": "exploratory single-parent invariance-support stress only; not a production gate and not an ARK-017 mechanism result"
+  },
+  "verdict_contract": {
+    "G90_WITH_COUNTERFACTUAL_LOCALITY": "sustained G90 plus final LOCALITY counterfactual relation consistency >= 0.80",
+    "G90_WITHOUT_STRONG_LOCALITY_EVIDENCE": "sustained G90 without the locality criterion",
+    "NO_SUSTAINED_G90_IN_BOX": "no sustained G90 by the fixed acquisition box",
+    "research_claim_boundary": "single-seed controlled-task development evidence; structural battery does not establish broad reasoning or AGI",
+    "production_promotion_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false
+  },
+  "preexecution_evidence": {
+    "github_actions_run_id": 34376821098,
+    "result": "PASS",
+    "executable_sha": "4f6e04e870e7fad0af7311e2f57979203ca4aa85",
+    "notebook_cells_compile": "3/3",
+    "focused_contract_suite": "PASS",
+    "operator_T4_calibration_regression_selects_RESEARCH_SMALL": true,
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false
+  },
+  "safety": {
+    "full_mode_requires_cuda": true,
+    "drive_backed_output": true,
+    "failure_evidence_packaged": true,
+    "sealed_measurement_post_decision_only": true,
+    "production_promotion_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false
+  }
+}
