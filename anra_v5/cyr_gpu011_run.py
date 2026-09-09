@@ -326,6 +326,7 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
     streaks = {"M99": 0, "G50": 0, "G90": 0}
     first_cross = {"M99": None, "G50": None, "G90": None}
     confirms = {"M99": None, "G50": None, "G90": None}
+    qualified_g90_update: int | None = None
 
     baseline_battery = reasoning_battery(model, tokenizer, battery, torch=torch, device=device,
                                          special=special, include_verbal=include_verbal)
@@ -369,16 +370,32 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
                 first_cross[key] = updates; reasons.append(key + "_ONSET")
             streaks[key] = streaks[key] + 1 if hit else 0
             if streaks[key] >= core.CYR11_CONFIRMATIONS and confirms[key] is None:
-                confirms[key] = updates; reasons.append(key + "_CONFIRMED")
+                confirms[key] = updates; reasons.append(key + "_CONTROLLER_CONFIRMED" if key == "G90" else key + "_CONFIRMED")
                 milestones[key] = _save_checkpoint(out, key, model=model, optimizer=optimizer,
                     torch=torch, counters={"label": label, "model_seed": model_seed,
                     "order_seed": order_seed, "updates": updates, "row_presentations": row_presentations,
-                    "actual_real_tokens": real_tokens, "stream_sha256": stream_sha})
+                    "actual_real_tokens": real_tokens, "stream_sha256": stream_sha,
+                    "measurement_standard": float(measurement["complete_exact_with_valid_stop"])})
+
+        measurement_standard = float(measurement["complete_exact_with_valid_stop"])
+        if (confirms["G90"] is not None and qualified_g90_update is None
+                and measurement_standard >= core.CYR11_G90):
+            qualified_g90_update = updates
+            reasons.append("G90_QUALIFIED")
+            milestones["G90_QUALIFIED"] = _save_checkpoint(out, "G90_QUALIFIED",
+                model=model, optimizer=optimizer, torch=torch,
+                counters={"label": label, "model_seed": model_seed, "order_seed": order_seed,
+                          "updates": updates, "row_presentations": row_presentations,
+                          "actual_real_tokens": real_tokens, "stream_sha256": stream_sha,
+                          "g90_controller_confirm_update": confirms["G90"],
+                          "measurement_standard": measurement_standard})
 
         entry: dict[str, Any] = {"update": updates, "row_presentations": row_presentations,
             "ark_reference_exposure_fraction": row_presentations / core.CYR11_ARK_MAX_ROW_PRESENTATIONS,
             "actual_real_tokens": real_tokens, "train_probe": probe,
             "dev_controller": controller, "dev_measurement": measurement,
+            "g90_controller_confirm_update": confirms["G90"],
+            "g90_qualified_update": qualified_g90_update,
             "milestone_events": reasons}
         periodic = row_presentations in {core.CYR11_EVAL_EVERY_ROW_PRESENTATIONS,
                                         5 * core.CYR11_EVAL_EVERY_ROW_PRESENTATIONS,
@@ -390,10 +407,12 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
                 device=device, special=special, include_verbal=include_verbal)
             entry["relative_displacement"] = _relative_displacement(model, initial_flat, torch=torch)
         trace.append(entry)
-        write_json(out / "progress.json", {"schema": "anra-cyr-gpu011-progress/v1", "label": label,
+        write_json(out / "progress.json", {"schema": "anra-cyr-gpu011-progress/v2", "label": label,
             "updates": updates, "row_presentations": row_presentations, "actual_real_tokens": real_tokens,
-            "first_cross": first_cross, "confirmed": confirms, "trace": trace, "milestones": milestones})
-        if confirms["G90"] is not None:
+            "first_cross": first_cross, "controller_confirmed": confirms,
+            "g90_qualified_update": qualified_g90_update,
+            "trace": trace, "milestones": milestones})
+        if qualified_g90_update is not None:
             break
 
     final_battery = reasoning_battery(model, tokenizer, battery, torch=torch, device=device,
@@ -408,17 +427,21 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
         counters={"label": label, "model_seed": model_seed, "order_seed": order_seed,
                   "updates": updates, "row_presentations": row_presentations,
                   "actual_real_tokens": real_tokens, "stream_sha256": stream_sha,
-                  "g90_confirm_update": confirms["G90"]})
-    status = "G90_CONFIRMED" if confirms["G90"] is not None else (
+                  "g90_controller_confirm_update": confirms["G90"],
+                  "g90_confirm_update": qualified_g90_update})
+    status = "G90_CONFIRMED" if qualified_g90_update is not None else (
         "MAX_UPDATES_NO_G90" if updates >= core.CYR11_MAX_UPDATES else "TIMEBOX_NO_G90")
-    receipt = {"schema": "anra-cyr-gpu011-acquisition/v2", "label": label, "status": status,
+    receipt = {"schema": "anra-cyr-gpu011-acquisition/v3", "label": label, "status": status,
         "model_seed": model_seed, "order_seed": order_seed, "batch_rows": batch_rows,
         "updates": updates, "row_presentations": row_presentations,
         "ark_reference_max_row_presentations": core.CYR11_ARK_MAX_ROW_PRESENTATIONS,
         "ark_exposure_fraction": row_presentations / core.CYR11_ARK_MAX_ROW_PRESENTATIONS,
-        "actual_real_tokens": real_tokens, "first_cross": first_cross, "confirmed": confirms,
+        "actual_real_tokens": real_tokens, "first_cross": first_cross,
+        "controller_confirmed": confirms,
         "m99_confirm_update": confirms["M99"], "g50_confirm_update": confirms["G50"],
-        "g90_confirm_update": confirms["G90"], "semantic_stream_sha256": stream_sha,
+        "g90_controller_confirm_update": confirms["G90"],
+        "g90_confirm_update": qualified_g90_update,
+        "semantic_stream_sha256": stream_sha,
         "trace": trace, "dev_controller_final": final_controller,
         "reasoning_battery_final": final_battery,
         "structural_flags_final": final_battery["structural_flags"],
