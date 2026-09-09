@@ -1,0 +1,26 @@
+{
+  "artifact": "ARK018_BIRTH_BOOK.md",
+  "sha256": "03c3560adc2ab97e6b2438a9103980e2604f2801b25e17a83d721a3a6e626623",
+  "bytes": 15397094,
+  "words": 3204004,
+  "floor_bytes": 10485760,
+  "ceiling_bytes": 15728640,
+  "floor_met": true,
+  "within_ceiling": true,
+  "built_utc": "2026-09-09T16:59:08.006359+00:00",
+  "flagship_sources_sha256": {
+    "00_THE_SPARK.md": "8d4c680746c57e868fc353fe9dc9c9a3818dda792f3f96708dd8dff869d2bff0",
+    "01_GENESIS_RECORD.md": "845f55e298514381ba73cf15d575dda7db0e361cd4328844fc9d5e25e4734ed1",
+    "02_THE_BUILDER.md": "f7a19bdf71a062f85c30057931fb1f3d51c4c49283c63cf8117cfd97630dd299",
+    "03_THE_BODY.md": "be264cb8cacc605ca8054dc7386bdef795984dde76f80b20cd84bc013ed7a7e4",
+    "04_THE_MIND.md": "d9ff00bd5f8d928f7f109d1b7e40d093b0c3330f99ebd440e821e0089a0a1620",
+    "05_HOW_HE_FORGETS.md": "b091682b77138cf33c60487f3683f06084e1d008c583ffe7b40215d015953916",
+    "06_SELF_CONTROL.md": "8561fe743f817db6e1b336632b314dd6a91eefa952570690121e3ea9f2f8981d",
+    "07_LETTERS_FROM_THE_BUILDER.md": "37d47e41c4d82ab24079066dad9af60a2f2e8ceff9a0b7932317b87981ef5195"
+  },
+  "tiers": {
+    "A_handwritten": "Part I chapters 0-7",
+    "B_from_record": "Chronicle, Family Album, Ledger of Laws, Receipt Vault",
+    "C_pedagogical": "Arithmetic/Multiplication/Division universes, Tables, Lexicon, Examinations, Atlas, Timeline"
+  }
+}
