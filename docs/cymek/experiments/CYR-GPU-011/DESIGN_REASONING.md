@@ -4,8 +4,8 @@
 
 Use one long Colab GPU session to isolate **capability formation** rather than retention. Run two ordered bridges on the real Cymek V5 4L/128w geometry:
 
-1. `COMPACT_BRIDGE`: exact ARK-002B data, 19-symbol arithmetic vocabulary, and ARK-002B's supervised answer-prefix BOS semantics.
-2. `PRODUCTION_BRIDGE`: the same task and V5 geometry with Cymek's frozen 24,576-token tokenizer and normal Cymek answer semantics.
+1. `COMPACT_BRIDGE`: exact ARK-002B data with the same 19-symbol arithmetic alphabet, but **Cymek's canonical causal objective**.
+2. `PRODUCTION_BRIDGE`: the same data, V5 geometry and objective with Cymek's frozen 24,576-token tokenizer.
 
 The comparison is controlled development evidence, not a broad reasoning or production claim.
 
@@ -33,23 +33,24 @@ Arkenstone audited at `723bd8fd2310fc982d2907dc4af3c0d7aebaa16b`.
 The compact bridge intentionally matches more of ARK-002B than V9/V10 did:
 
 - exact frozen ARK-002B examples;
-- exact 19-symbol vocabulary/special IDs;
-- answer-prefix BOS supervision used by Arkenstone;
+- exact 19-symbol vocabulary and special-token identities;
 - 4 layers / width 128;
 - LR 1e-3;
-- AdamW canonical values 0.9/0.95, eps 1e-8, wd 0.1;
+- AdamW scalar values 0.9/0.95, eps 1e-8, wd0.1;
 - candidate-free generation;
 - semantic exposure measured in row presentations.
 
-It is **not an exact ARK model reproduction**. Cymek retains its real V5 architecture and training semantics: GQA, QK normalization, Cymek parameter grouping/weight-decay exemptions, production backend/precision behavior, and its own initialization. Therefore:
+It is **not an exact ARK model/objective reproduction**. In particular, Arkenstone's helper encoded the answer with a BOS prefix and supervised that BOS, while Cymek's canonical causal objective always excludes BOS targets. V11 deliberately keeps the canonical Cymek objective rather than modifying production semantics to imitate Arkenstone. Cymek also retains its V5 GQA/QK-normalization architecture, initialization, semantic optimizer grouping, production backend and CUDA precision behavior.
 
-- compact G90 would show that real Cymek V5 can enter the delayed-generalization regime under a close task representation;
-- compact no-G90 at near-full exposure would implicate architecture/optimization/precision/init differences, but would not identify which one;
+Therefore:
+
+- compact G90 shows real Cymek V5 can enter the delayed-generalization regime under the same task/data and compact symbol representation;
+- compact no-G90 at near-full exposure shifts attention beyond dose toward objective/architecture/optimization/precision/init differences, but does not identify which one;
 - no outcome may be described as an exact replication of ARK-002B.
 
 ## Why a production bridge follows
 
-The production bridge restores the real frozen 24,576-token representation and normal Cymek answer semantics while keeping geometry/data/task fixed. It asks whether the practical Cymek representation materially changes acquisition difficulty.
+The production bridge changes **representation/tokenization** while keeping Cymek model geometry, causal objective, task and optimizer semantics fixed. It restores the frozen 24,576-token tokenizer and expands the embedding/output parameter burden from 987,392 total parameters to 4,130,688.
 
 Batch size is selected before outcomes from calibration. The target semantic box is always 1,152,000 rows: batch64→18k updates, batch32→36k, batch16→72k. The wall clock may prevent reaching that target; actual exposure is recorded.
 
@@ -80,16 +81,16 @@ These remain separate flags. There is no aggregate "reasoning score" and no AGI 
 
 Hard wall: 175 minutes, 5-minute packaging reserve.
 
-Compact bridge receives at most 25 minutes. It stops early on qualified G90. The production bridge receives the remaining science wall. If the first production subject qualifies and >=40 minutes remain, a second independent production seed is launched. This is progressive, Arkenstone-style use of the wall rather than an all-or-nothing feasibility gate.
+Compact bridge receives at most 25 minutes and stops early on qualified G90. The production bridge receives nearly all remaining compute. If the first production subject qualifies and >=40 minutes remain, a second independent production seed is launched. This is progressive use of the wall rather than an all-or-nothing feasibility gate.
 
 ## What changes our mind
 
 High-value outcomes:
 
-- **Compact G90 + production G90:** Cymek V5 can acquire the task under both representations; structural battery shows what transferred beyond the primary holdout.
-- **Compact G90 + exposure-matched production null:** real representation/tokenization/sequence semantics materially increase acquisition burden, though the exact mechanism remains unresolved.
+- **Compact G90 + production G90:** Cymek V5 can acquire the task under both representations; structural battery characterizes what transferred beyond the primary holdout.
+- **Compact G90 + exposure-matched production null:** the production representation materially increases acquisition burden, though vocabulary size/embedding burden/token segmentation are not individually isolated.
 - **Compact G90 + underexposed production null:** no representation conclusion; next action is more efficient production-representation exposure or a targeted representation study.
-- **No compact G90 near full ARK exposure:** the missing factor is deeper than semantic dose/tokenizer size; isolate V5 architecture/optimizer/precision/init differences before retention work.
+- **No compact G90 near full ARK exposure:** semantic dose and vocabulary alone are insufficient to reproduce ARK's transition; isolate objective/architecture/optimizer/precision/init differences before retention work.
 - **Production G90 without compact G90:** unexpected and valuable; repeat before mechanism claims.
 
 No CYR-GPU-011 result by itself authorizes PRE500M, 500M training, TPU claims, or production recipe changes.
