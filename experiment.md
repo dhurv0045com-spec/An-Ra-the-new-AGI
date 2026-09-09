@@ -162,6 +162,17 @@ compare normalization — canary semantics unchanged, PASS).
   not qualified, Discovery-V6 hash-valid), BRAMASTRA@4655733 (chief D02
   horizon audit, discovery_dev_701).
 
+## 2026-09-09 — CYR-GPU-006 repair / preregistration cycle
+
+- CYR-GPU-005 was re-audited after freeze and marked `SUPERSEDED_BEFORE_EXECUTION`; no GPU science exists for it. Fatal harness defects included CPU fallback in Cell 1, stopping after the first qualified parent, one-parent decision logic, discarded Cell-0 resolution, incomplete calibration, CUDA/CPU displacement mismatch, and incomplete failure/resume behavior.
+- CYR-GPU-006 executable freeze is Commit A `125b25c19204cce1994deebbfc4957119f2ae31f`. Dedicated GitHub Actions preexecution evidence on that exact head compiled all 3 notebook code cells and passed 25/25 deterministic CYR contract/transfer tests. Scientific GPU execution remains NONE.
+- Commit B `ede8aec71f903e13061064742fcd0229ee093ce5` added the hash-bound `PREREGISTRATION.json`. It freezes executable SHA256s, key transitive dependency Git blobs, tokenizer SHA256 `97e12db6…`, T2 rendered-manifest SHA256 `b7a4d5be…`, parent seeds 707/808/909, four matched retention arms, actual-token floors/targets, hardware-only wall resolver, and the Arkenstone authority SHA/bundle identity.
+- Live Arkenstone was re-audited at `6acd9dcbdd28d00f387ffcd004253a813aca4b66`. ARK-011 is now executed and supports same-task Micro-T2 adaptive protection (6 qualified recovery forks across 3 acquisitions; HIGH recurrent instability 3/6, SWITCH_LOW 0/6). ARK-012 returned `TIME_NOT_STATE_SCREEN`, so exact switch thresholds are not treated as discovered constants. ARK-013 showed LOW alone does not solve no-replay cross-task interference. ARK-014 showed canonical-only registry binding is order-brittle and that deterministic order augmentation repairs robust acquisition, while its HIGH/LOW retention screen was zero-event/inconclusive.
+- CYR-GPU-006 transfer was redesigned from those raw results: prospectively compare equal-age/equal-exposure `HYSTERETIC_HIGH_LOW` vs `LOW_CONTINUE` states from the same acquired parent; then move both to HIGH LR on the same order-augmented registry-binding stream with fixed 18:new + 2:old replay rows per logical batch. Receipts report actual replay token fractions; no claim that 10% by row is optimal.
+- Arithmetic retention still requires replicated matched-parent evidence; one parent can never produce a winner. Transfer requires at least two independent parent pairs and keeps canonical/query-only/order-only/query+order metrics orthogonal. A positive GPU result remains development evidence only and cannot authorize PRE500M, 500M, or a production scheduler change.
+- Production XLA accumulation ordering remains repaired locally: local microsteps accumulate first, then one gradient SUM at the logical update boundary. TPU status remains `IMPLEMENTED_PENDING_PRE500M_TPU`; no TPU run occurred.
+- Broader current-tree production CI passed all substantive model/training tests but still contained one historical exact-head closure-receipt meta failure because the old receipt describes the superseded CYR-GPU-005 tree. Final readiness remains blocked until that receipt is refreshed from current-tree CI evidence and `RUN_READINESS.json` is truthfully written.
+
 ## Planned / blocked (not run)
 - **P1** microstep memory vs width (needs >6 GB GPU).
 - **P4** PRE500M TPU certification (needs TPU hardware).
