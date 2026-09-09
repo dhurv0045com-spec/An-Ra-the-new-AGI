@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 
+from anra_v5 import cyr_gpu011_entry as entry
 from anra_v5.cyr_gpu011_entry import exposure_aware_final_decision, resolve_from_calibrations
 from anra_v5.cyr_gpu006_run import render_batch
 from v5_experiments import cyr_gpu011 as core
@@ -81,6 +84,7 @@ def test_resolver_targets_same_semantic_box_for_every_batch_size() -> None:
     assert resolved["compact_target_updates"] * resolved["compact_batch_rows"] == core.CYR11_ARK_MAX_ROW_PRESENTATIONS
     target = resolved["production_target_updates"] * resolved["production_batch_rows"]
     assert target == core.CYR11_ARK_MAX_ROW_PRESENTATIONS
+    assert resolved["acquisition_finalize_reserve_seconds"] == 360.0
     if resolved["production_batch_rows"] == 32:
         assert resolved["production_target_updates"] == 36_000
     if resolved["production_batch_rows"] == 16:
@@ -96,6 +100,27 @@ def test_resolver_progresses_even_when_full_production_exposure_will_not_fit() -
     assert resolved["production_available"] is True
     assert resolved["production_target_updates"] == 72_000
     assert 0 <= resolved["production_projected_ark_exposure_fraction"] < 1.0
+
+
+def test_semantic_scope_enforces_finalization_reserve_and_restores_max(monkeypatch) -> None:
+    captured = {}
+    original_max = core.CYR11_MAX_UPDATES
+
+    def fake_run(*_args, **kwargs):
+        captured.update(kwargs)
+        captured["max_updates_inside"] = core.CYR11_MAX_UPDATES
+        return {"ok": True}
+
+    monkeypatch.setattr(entry._runner, "run_acquisition", fake_run)
+    outer_deadline = time.monotonic() + 1_000.0
+    with entry._semantic_exposure_scope():
+        result = entry._runner.run_acquisition(batch_rows=32, deadline=outer_deadline)
+    assert result == {"ok": True}
+    assert captured["max_updates_inside"] == 36_000
+    assert captured["deadline"] <= outer_deadline - 359.0
+    assert captured["deadline"] >= outer_deadline - 361.0
+    assert core.CYR11_MAX_UPDATES == original_max
+    assert entry._runner.run_acquisition is fake_run
 
 
 def test_compact_bridge_keeps_canonical_cymek_single_bos_objective() -> None:
