@@ -1,0 +1,26 @@
+{
+  "bundle_filename": "ARKENSTONE_DISCOVERY_V7_RESULTS.zip",
+  "bundle_sha256": "25c4ac0aa01478cb2067147a240a12b4e30516810dad465e619391ff8a6f7faf",
+  "bundle_size_bytes": 231942,
+  "json_receipts": 11,
+  "receipt_hashes_valid": 11,
+  "all_receipts_valid": true,
+  "runner_commit_sha": "4a8ffe84223fa64a7409b7d9936f2ff80d3828df",
+  "master_plan_commit_sha": "cd058b9067c3fe2e001c70969a1966928d74c7df",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "program_runtime_minutes": 166.24236298004786,
+  "files": {
+    "ARK-015_PARTIAL.json": "a8d7f2897e6994c34e9a90f098bf31412c8fda7ad6fa7a988fd095aba8431dae",
+    "ARK-015_RESULT.json": "c6d4750b3ee338f3517a8f72d607f72e88c782ed173c45064e95240d80a289b4",
+    "ARK-015_TASK_MANIFEST.json": "afa4c6a6eae75aa577093d7fd887b60afae1315c91a1b3a4b8306d2c149fc3a5",
+    "ARK-016_CAP_TRACES.json": "58c1aea4fa6a12f02c529d117951170c18c7d1b0f69475ed88732128fe6709d5",
+    "ARK-016_PARTIAL.json": "f228eb4f3f4745cd4b7b7c3fa314780fe4477c53d38e3ae7c8291b40cf3f95c2",
+    "ARK-016_RESULT.json": "4251312d4aaec4308a33d2780babe393dd3941969eb12559af895c16995574bb",
+    "ARK-016_TASK_MANIFEST.json": "ea1c2e689ab299e39d3859859ab1364fbe9418d8ef75053c21bdfe1fab86fbba",
+    "DISCOVERY_V7_PROGRAM_PARTIAL.json": "8d6fab7a5827b4581561ed99c2ee675829bb19ffca6d67fcc8a7344136c19d1b",
+    "DISCOVERY_V7_PROGRAM_SUMMARY.json": "965dd2651a58a49bd10883a9aa57467cd4e7426ffb9a90e57a0ea4b8607f378a",
+    "DISCOVERY_V7_SMOKE_TEST.json": "4ac0a1924c70c770bc719a6ff98f8d4d63e031db22ab9c765f0c0e8ea6deda0d",
+    "TRAINING_DESIGN_DECISION.json": "5bcede1a50a6a8baa8e7eb06824f377b40061c3981bb11c31b9c2fc9501b5fc2"
+  }
+}
