@@ -12,9 +12,11 @@ CYR-GPU-009 and the superseded V10 design were semantically underexposed relativ
 
 ## Experiment order
 
-1. `COMPACT_BRIDGE` — real Cymek V5 4L/128w, 19-symbol arithmetic representation, ARK-style supervised answer-prefix BOS, max 25 minutes.
-2. `PRODUCTION_PRIMARY` — same V5 geometry with frozen 24,576-token tokenizer and normal Cymek rendering, receives the remaining science wall.
+1. `COMPACT_BRIDGE` — real Cymek V5 4L/128w, exact ARK data, 19-symbol arithmetic representation, **canonical Cymek causal objective**, max 25 minutes.
+2. `PRODUCTION_PRIMARY` — same V5 geometry/data/objective with frozen 24,576-token tokenizer, receives the remaining science wall.
 3. `PRODUCTION_REPLICATION` — only if primary reaches qualified G90 and at least 40 minutes remain.
+
+The compact stage is a bridge, not an exact ARK reproduction: ARK-002B supervised an answer-prefix BOS while Cymek's canonical objective excludes BOS targets. V11 deliberately keeps Cymek's objective rather than changing production semantics.
 
 Hardware calibration selects batch64/32/16 before outcomes. Target updates scale to preserve semantic dose: 18k/36k/72k respectively. A slower GPU does not trigger an all-or-nothing feasibility failure; the experiment records actual exposure and timeboxes honestly.
 
