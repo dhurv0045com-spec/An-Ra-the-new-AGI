@@ -1,0 +1,46 @@
+{
+  "schema": "anra-cyr-gpu009-run-readiness/v1",
+  "experiment": "CYR-GPU-009",
+  "status": "READY_FOR_OPERATOR_COLAB_GPU_RUN",
+  "ready": true,
+  "ready_for_operator_colab_gpu_run": true,
+  "executable_sha": "4a1c0a5b245b7d2baf6ba36718522d54906aa7ed",
+  "preregistration_commit_sha": "f358cc60d501a3bfbdec094fc9502ea6d7a6711a",
+  "dedicated_preexecution_ci": {
+    "run_id": 34345275155,
+    "result": "PASS",
+    "notebook_cells_compile": "3/3",
+    "focused_contracts": "PASS",
+    "slow_operator_gpu_regression": "PASS"
+  },
+  "previous_failure_closed": {
+    "CYR-GPU-008_error": "assigned GPU cannot afford even the frozen two-parent matched-fork minimum inside 170 minutes",
+    "CYR-GPU-009_behavior": "a healthy calibrated CUDA GPU is never rejected solely because the complete target campaign is predicted not to fit; the runner executes progressive matched units within the fixed wall and packages valid partial evidence",
+    "operator_observed_calibration_regression_tested": true
+  },
+  "scientific_scope": {
+    "parents": [707, 808],
+    "arms": ["HIGH_CONTINUE", "LOW_CONTINUE"],
+    "shared_parent_and_future_stream": true,
+    "candidate_free_g90": true,
+    "actual_token_accounting": true,
+    "replicated_claim_requires_two_complete_matched_parents": true,
+    "transfer_fixed_hysteretic_deferred": true
+  },
+  "runtime": {
+    "cuda_required": true,
+    "wall_budget_minutes": 165,
+    "packaging_reserve_minutes": 8,
+    "progressive_matched_unit_scheduling": true,
+    "google_drive_output": "/content/drive/MyDrive/CYMEK/CYR-GPU-009",
+    "bundle": "CYMEK_GPU_RESEARCH_V9_RESULTS.zip"
+  },
+  "claim_boundary": {
+    "gpu_scientific_execution_performed": false,
+    "tpu_execution_performed": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "production_promotion_authorized": false
+  },
+  "known_blockers": []
+}
