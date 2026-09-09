@@ -49,10 +49,22 @@ def _build_model(spec: Any, seed: int, *, torch: Any, device: Any):
 
 
 def _save_checkpoint(root: Path, name: str, *, model: Any, optimizer: Any,
-                     torch: Any, counters: Mapping[str, Any]) -> str:
+                     torch: Any, counters: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist a research checkpoint and surface its byte identities in receipts."""
     path = root / "checkpoints" / name
-    legacy._save_checkpoint(path, model=model, optimizer=optimizer, torch=torch, counters=counters)
-    return str(path)
+    receipt = legacy._save_checkpoint(
+        path, model=model, optimizer=optimizer, torch=torch, counters=counters
+    )
+    return {"path": str(path), **dict(receipt)}
+
+
+def _checkpoint_path(checkpoint: str | Path | Mapping[str, Any]) -> Path:
+    if isinstance(checkpoint, Mapping):
+        value = checkpoint.get("path")
+        if not value:
+            raise ValueError("checkpoint receipt has no path")
+        return Path(str(value))
+    return Path(checkpoint)
 
 
 def _flat_snapshot(model: Any, *, torch: Any) -> Any:
@@ -68,7 +80,8 @@ def _relative_displacement(model: Any, initial_flat: Any, *, torch: Any) -> dict
 
 def _generate_texts(model: Any, tokenizer: Any, rows: list[dict[str, Any]], *,
                     torch: Any, device: Any, special: Mapping[str, int],
-                    batch_size: int = 32, max_new_tokens: int = 12) -> list[dict[str, Any]]:
+                    batch_size: int = 32, max_new_tokens: int = 8) -> list[dict[str, Any]]:
+    """Candidate-free greedy generation with the same 8-token cap as the capability gate."""
     from v5_model.core import packed_layout
     bos, eos, pad = int(special["bos_id"]), int(special["eos_id"]), int(special["pad_id"])
     buckets: dict[int, list[tuple[dict[str, Any], list[int]]]] = {}
@@ -139,6 +152,13 @@ def _score_texts(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "numeric_mae": (sum(abs_errors) / len(abs_errors)) if abs_errors else None}
 
 
+def _prediction_receipt(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return auditable final predictions plus a canonical digest."""
+    body = [dict(row) for row in rows]
+    return {"schema": "anra-cyr-gpu011-predictions/v1", "count": len(body),
+            "sha256": hashlib.sha256(_canonical(body)).hexdigest(), "rows": body}
+
+
 def _score_locality(rows: list[dict[str, Any]]) -> dict[str, Any]:
     groups: dict[str, dict[str, dict[str, Any]]] = {}
     for row in rows:
@@ -178,12 +198,13 @@ def _digit_accuracy(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def reasoning_battery(model: Any, tokenizer: Any, battery: Mapping[str, Any], *,
                       torch: Any, device: Any, special: Mapping[str, int],
-                      include_verbal: bool) -> dict[str, Any]:
+                      include_verbal: bool, include_predictions: bool = False) -> dict[str, Any]:
     names = ["STANDARD", "COMMUTED", "LOCALITY", "CARRY", "TRIPLE_ADD", "THREE_DIGIT"]
     if include_verbal:
         names.append("VERBAL")
-    result: dict[str, Any] = {"schema": "anra-cyr-gpu011-reasoning-battery/v1",
-                              "manifest": battery["_manifest"], "verbal_evaluated": include_verbal}
+    result: dict[str, Any] = {"schema": "anra-cyr-gpu011-reasoning-battery/v2",
+                              "manifest": battery["_manifest"], "verbal_evaluated": include_verbal,
+                              "generation_max_new_tokens": 8}
     raw: dict[str, list[dict[str, Any]]] = {}
     for name in names:
         raw[name] = _generate_texts(model, tokenizer, list(battery[name]), torch=torch,
@@ -193,6 +214,10 @@ def reasoning_battery(model: Any, tokenizer: Any, battery: Mapping[str, Any], *,
     result["LOCALITY"]["structural"] = _score_locality(raw["LOCALITY"])
     if not include_verbal:
         result["VERBAL"] = {"status": "NOT_APPLICABLE_COMPACT_VOCAB"}
+    if include_predictions:
+        result["candidate_free_predictions"] = {
+            name: _prediction_receipt(raw[name]) for name in names
+        }
     result["structural_flags"] = core.structural_flags(result)
     result["claim_note"] = "Diagnostics probe controlled structural transfer; they are not broad reasoning or AGI claims."
     return result
@@ -372,7 +397,12 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
             break
 
     final_battery = reasoning_battery(model, tokenizer, battery, torch=torch, device=device,
-                                      special=special, include_verbal=include_verbal)
+                                      special=special, include_verbal=include_verbal,
+                                      include_predictions=True)
+    final_controller_rows = _generate_texts(model, tokenizer, controller_rows, torch=torch,
+                                            device=device, special=special)
+    final_controller = {**_score_texts(final_controller_rows),
+                        "prediction_receipt": _prediction_receipt(final_controller_rows)}
     final_displacement = _relative_displacement(model, initial_flat, torch=torch)
     final_checkpoint = _save_checkpoint(out, "FINAL", model=model, optimizer=optimizer, torch=torch,
         counters={"label": label, "model_seed": model_seed, "order_seed": order_seed,
@@ -381,7 +411,7 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
                   "g90_confirm_update": confirms["G90"]})
     status = "G90_CONFIRMED" if confirms["G90"] is not None else (
         "MAX_UPDATES_NO_G90" if updates >= core.CYR11_MAX_UPDATES else "TIMEBOX_NO_G90")
-    receipt = {"schema": "anra-cyr-gpu011-acquisition/v1", "label": label, "status": status,
+    receipt = {"schema": "anra-cyr-gpu011-acquisition/v2", "label": label, "status": status,
         "model_seed": model_seed, "order_seed": order_seed, "batch_rows": batch_rows,
         "updates": updates, "row_presentations": row_presentations,
         "ark_reference_max_row_presentations": core.CYR11_ARK_MAX_ROW_PRESENTATIONS,
@@ -389,7 +419,8 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
         "actual_real_tokens": real_tokens, "first_cross": first_cross, "confirmed": confirms,
         "m99_confirm_update": confirms["M99"], "g50_confirm_update": confirms["G50"],
         "g90_confirm_update": confirms["G90"], "semantic_stream_sha256": stream_sha,
-        "trace": trace, "reasoning_battery_final": final_battery,
+        "trace": trace, "dev_controller_final": final_controller,
+        "reasoning_battery_final": final_battery,
         "structural_flags_final": final_battery["structural_flags"],
         "relative_displacement_final": final_displacement,
         "milestone_checkpoints": milestones, "final_checkpoint": final_checkpoint}
@@ -397,16 +428,19 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
     return receipt
 
 
-def _measure_sealed(*, checkpoint: str, spec: Any, seed: int, tokenizer: Any,
-                    special: Mapping[str, int], rows: list[dict[str, Any]],
+def _measure_sealed(*, checkpoint: str | Path | Mapping[str, Any], spec: Any, seed: int,
+                    tokenizer: Any, special: Mapping[str, int], rows: list[dict[str, Any]],
                     torch: Any, device: Any) -> dict[str, Any]:
     from v5_training.optimizer import build_adamw_optimizer
     model = _build_model(spec, seed, torch=torch, device=device)
     optimizer = build_adamw_optimizer(model, torch_module=torch, lr=core.CYR11_HIGH_LR,
                                       betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1)
-    legacy._load_checkpoint(Path(checkpoint), model=model, optimizer=optimizer, torch=torch)
-    score = legacy.generate_rates_batched(model, tokenizer, rows, torch=torch, device=device, special=special)
-    return {"status": "MEASURED_AFTER_DECISION", "score": score}
+    checkpoint_path = _checkpoint_path(checkpoint)
+    legacy._load_checkpoint(checkpoint_path, model=model, optimizer=optimizer, torch=torch)
+    generated = _generate_texts(model, tokenizer, rows, torch=torch, device=device, special=special)
+    return {"status": "MEASURED_AFTER_DECISION", "score": _score_texts(generated),
+            "prediction_receipt": _prediction_receipt(generated),
+            "checkpoint": dict(checkpoint) if isinstance(checkpoint, Mapping) else {"path": str(checkpoint_path)}}
 
 
 def _package(out: Path, *, campaign: Mapping[str, Any], preregistration: Mapping[str, Any],
@@ -453,10 +487,11 @@ def run_campaign(*, repo: Path, out: Path, preregistration: Mapping[str, Any],
     started = time.monotonic()
     hard_deadline = started + float(resolved["wall_budget_minutes"]) * 60.0
     science_deadline = hard_deadline - float(resolved["packaging_reserve_minutes"]) * 60.0
-    campaign: dict[str, Any] = {"schema": "anra-cyr-gpu011-campaign/v1", "experiment": core.CYR11_ID,
+    campaign: dict[str, Any] = {"schema": "anra-cyr-gpu011-campaign/v2", "experiment": core.CYR11_ID,
         "status": "RUNNING", "environment": _environment(torch, device),
         "resolved": dict(resolved), "calibrations": dict(calibrations),
         "arkenstone_audited_sha": core.CYR11_ARKENSTONE_AUDIT_SHA,
+        "bramastra_audited_sha": core.CYR11_BRAMASTRA_AUDIT_SHA,
         "v9_bundle_sha256": core.CYR11_V9_BUNDLE_SHA256}
     failure = None
     try:
@@ -506,8 +541,12 @@ def run_campaign(*, repo: Path, out: Path, preregistration: Mapping[str, Any],
         campaign["production_primary"] = production_primary or {"status": "NOT_RUN_HARDWARE_OR_WALL"}
 
         remaining_minutes = max(0.0, (science_deadline - time.monotonic()) / 60.0)
-        if (production_primary and production_primary.get("g90_confirm_update") is not None
-                and remaining_minutes >= float(resolved["second_seed_launch_minutes"])):
+        primary_measurement = float((production_primary or {}).get("reasoning_battery_final", {})
+                                    .get("STANDARD", {}).get("complete_exact_with_valid_stop", 0.0))
+        primary_qualified = bool(production_primary
+                                 and production_primary.get("g90_confirm_update") is not None
+                                 and primary_measurement >= core.CYR11_G90)
+        if primary_qualified and remaining_minutes >= float(resolved["second_seed_launch_minutes"]):
             production_replication = run_acquisition(label="PRODUCTION_REPLICATION",
                 model_seed=core.CYR11_MODEL_SEEDS["production_replication"],
                 order_seed=core.CYR11_ORDER_SEEDS["production_replication"], spec=production_spec,
@@ -522,7 +561,7 @@ def run_campaign(*, repo: Path, out: Path, preregistration: Mapping[str, Any],
         campaign["decision"] = decision
         sealed: dict[str, Any] = {"status": "NOT_MEASURED"}
         if production_primary and production_primary.get("final_checkpoint") and time.monotonic() < hard_deadline - 20.0:
-            sealed = _measure_sealed(checkpoint=str(production_primary["final_checkpoint"]),
+            sealed = _measure_sealed(checkpoint=production_primary["final_checkpoint"],
                 spec=production_spec, seed=core.CYR11_MODEL_SEEDS["production_primary"],
                 tokenizer=prod_tok, special=prod_special, rows=list(data["sealed_reserved"]),
                 torch=torch, device=device)
