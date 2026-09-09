@@ -1,0 +1,39 @@
+{
+  "experiment_id": "ARK-015",
+  "import_kind": "validated_summary_of_discovery_v7_receipt",
+  "source_bundle_sha256": "25c4ac0aa01478cb2067147a240a12b4e30516810dad465e619391ff8a6f7faf",
+  "source_receipt_sha256": "c6d4750b3ee338f3517a8f72d607f72e88c782ed173c45064e95240d80a289b4",
+  "plan_commit_sha": "da56dfbbafc6951c8d1c17c86410187cd7472e74",
+  "master_plan_commit_sha": "cd058b9067c3fe2e001c70969a1966928d74c7df",
+  "runner_commit_sha": "4a8ffe84223fa64a7409b7d9936f2ff80d3828df",
+  "device": "cuda",
+  "torch": "2.11.0+cu128",
+  "runtime_minutes": 117.81625609795252,
+  "binding_manifest_sha256": "fbc8605dc1cfc19ac8692d2b2c6338fcb2af3e02b24907f3b5cca3571947fee3",
+  "acquisition_confirmation_steps": {"2301": 1400, "2402": 1600, "2503": 2200},
+  "primary": {
+    "acquisitions_qualified": 3,
+    "sealed_qualified_primary_pairs": 8,
+    "independent_acquisition_seeds": 3,
+    "NARROW_HIGH_failures": 8,
+    "NARROW_LOW_failures": 0,
+    "AUGMENTED_HIGH_REFERENCE_failures": 0,
+    "risk_difference_low_minus_high": -1.0,
+    "high_fail_low_stable": 8,
+    "reverse_discordance": 0,
+    "by_acquisition_seed": {
+      "2301": {"n": 3, "high_failures": 3, "low_failures": 0, "augmented_high_failures": 0},
+      "2402": {"n": 3, "high_failures": 3, "low_failures": 0, "augmented_high_failures": 0},
+      "2503": {"n": 2, "high_failures": 2, "low_failures": 0, "augmented_high_failures": 0}
+    }
+  },
+  "sealed_means_over_eight_triplets": {
+    "NARROW_HIGH": {"CANONICAL_FINAL": 1.0, "ORDER_ONLY_FINAL": 0.4683333333333333, "QUERY_ORDER_FINAL": 0.4683333333333333, "RET_QUALIFIED": 0.06458333333333334, "CUMULATIVE_PATH": 216.1350856507779},
+    "NARROW_LOW": {"CANONICAL_FINAL": 1.0, "ORDER_ONLY_FINAL": 0.9775, "QUERY_ORDER_FINAL": 0.9775, "RET_QUALIFIED": 1.0, "CUMULATIVE_PATH": 2.0203591598638013},
+    "AUGMENTED_HIGH_REFERENCE": {"CANONICAL_FINAL": 1.0, "ORDER_ONLY_FINAL": 1.0, "QUERY_ORDER_FINAL": 1.0, "RET_QUALIFIED": 1.0, "CUMULATIVE_PATH": 413.01403928617947}
+  },
+  "median_high_to_low_path_ratio": 112.71287193104612,
+  "verdict": "SUPPORTED_NONARITHMETIC_INVARIANCE_PROTECTION",
+  "stress_specificity_flag": "STRESS_SPECIFIC_TO_NARROWING",
+  "claim_level": "DEMONSTRATED_MICRO_NONARITHMETIC_INVARIANCE_RETENTION"
+}
