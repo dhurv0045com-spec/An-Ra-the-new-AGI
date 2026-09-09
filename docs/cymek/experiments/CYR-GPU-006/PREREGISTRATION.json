@@ -1,0 +1,182 @@
+{
+  "arkenstone": {
+    "claim_limits": [
+      "same-task LOW protection demonstrated at Micro T2",
+      "exact switch threshold unresolved",
+      "no-replay cross-task interference not solved by LOW",
+      "non-arithmetic LR transfer not demonstrated"
+    ],
+    "discovery_v6_bundle_sha256": "1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15",
+    "head_sha": "6acd9dcbdd28d00f387ffcd004253a813aca4b66"
+  },
+  "canonical_cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+  "created_utc": "2026-09-09T08:50:00Z",
+  "data": {
+    "data_manifest_sha256_full": "b7a4d5bef28b6d1c26fcc85dc7eecc3562607badbd78b45066f81ac846386ad9",
+    "generator": "t2-two-digit-addition",
+    "generator_version": "cyr-gpu005-t2/v1",
+    "holdout": "ordered first-operand tens band; train 1-5, eval 6-7; commutative closure declared and audited",
+    "split_seeds": {
+      "dev_controller": 6002,
+      "dev_measurement": 6003,
+      "sealed_reserved": 6004,
+      "train": 5001
+    },
+    "world_counts": {
+      "dev_controller": 96,
+      "dev_measurement": 112,
+      "sealed_reserved": 48,
+      "train": 500
+    }
+  },
+  "decision": {
+    "minimum_per_parent_support": 0.05,
+    "minimum_qualified_complete_parents": 2,
+    "production_promotion_authorized": false,
+    "research_candidate_requires": "HYSTERETIC_HIGH_LOW replicated retention winner AND replicated plasticity noninferior/advantage",
+    "ret90_mean_margin": 0.1,
+    "reversal_tolerance": 0
+  },
+  "dependency_blobs": {
+    "v5_contracts/model_spec.py": "cd5ef92a0d3bb208dc514f041f8e088a777ef8b1",
+    "v5_data/corpus_loading.py": "2c5e64656d9241d2c916549c9fb938e1df848ee0",
+    "v5_experiments/cyr_gpu005.py": "67cf09633115652896ae7ff2081166c19302a7e4",
+    "v5_experiments/cyr_tournament.py": "4600e3c4c4498221b7f3a73db389aff16a8d705e",
+    "v5_model/attention.py": "5b8f1f3abf302f6cfb0a549e8675c6d1d4f0202f",
+    "v5_model/block.py": "d1bae52a9683d273b7f0a0507e180d0dbb94843a",
+    "v5_model/config.py": "d7351b94f86fc9d3b4161c2c8e4dc72b271979f1",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_model/embedding.py": "ab3ca39022febecf2e49068d67cd19394504fcd3",
+    "v5_model/initialize.py": "5ef02a6250aff914cb4ac953a12640b654bf4ae9",
+    "v5_objectives/causal_lm.py": "4d0cc7c31679f99b44d34570e47e40f6778b7231",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "v5_training/production_backend.py": "84d2dfc7cad3f52fd3a9b3f7357fac4d70145cb6"
+  },
+  "dose_floors": {
+    "acquisition_actual_real_tokens_per_parent": 2000000,
+    "continuation_actual_real_tokens_per_arm": 500000,
+    "transfer_actual_real_tokens_per_state": 500000
+  },
+  "dose_targets": {
+    "acquisition_actual_real_tokens_per_parent": 4000000,
+    "continuation_actual_real_tokens_per_arm": 2000000,
+    "transfer_actual_real_tokens_per_state": 1000000
+  },
+  "executable_files": {
+    "anra_v5/cyr_gpu006_run.py": "65bb6bcd65f692148ccdae7711954fb193848af9484645baee223bed4801b71d",
+    "anra_v5/cyr_gpu006_run_final.py": "137dbd1224edd50b6473c2a5f0ec2f4c7c45183c0aad304f3b4917d86d7dd74f",
+    "anra_v5/cyr_gpu006_run_v2.py": "357ca256efe3487644b37ef773dcea4a54b8002514ce9e7a5db4a4aee2e38380",
+    "notebooks/cymek_colab_gpu_research_v6.ipynb": "fbe74b6e42d95aec0244a43272b77f2fd9a413b3909f266ce6e0744756e8a988",
+    "tests/test_v5_cyr_gpu006_core.py": "f320eaab742ce5c032584e64c3fe7854ad9480bf31e090d25494d967d647a820",
+    "tests/test_v5_cyr_gpu006_final_core.py": "e18d6441544370c3ec7f3fd43f99c06deda2ae1fba1b2f0769cb70e5b8f30f52",
+    "tests/test_v5_cyr_gpu006_final_transfer.py": "d2543d22b59a11c4d855aa78e11cbf6ca295bd54ceeac967b95bdd766a7e6ed2",
+    "tests/test_v5_cyr_gpu006_notebook.py": "a8e21dcd50c261418a48b8dc527657e2799d1d0e91a462be735976c4d7ab76e5",
+    "v5_experiments/cyr_gpu006.py": "3ded89b11ae467fdc5c8f249284a5b87220ce20f7f4a6e1a6c19a8e8204c0052",
+    "v5_experiments/cyr_gpu006_final.py": "e0e7f676525a2c6ab583eb8b83d10aebfaaee400dbdb6382309d887d5bce60d8",
+    "v5_experiments/cyr_gpu006_v2.py": "68293e44e81b3e99bc49d1891f2b38e92059616ab424d50c60a9b8ca4dae079a"
+  },
+  "executable_sha": "125b25c19204cce1994deebbfc4957119f2ae31f",
+  "executable_tree_sha": "2a0a0452afa5924ab7fe76d33bebea2e01f9eae1",
+  "experiment": "CYR-GPU-006",
+  "fixed_time": {
+    "switch_fraction_of_actual_continuation_tokens": 0.5
+  },
+  "g90": {
+    "confirmations": 3,
+    "metric": "DEV_CONTROLLER candidate-free complete_exact_with_valid_stop",
+    "threshold": 0.9
+  },
+  "hysteresis": {
+    "confirmations": 3,
+    "enter_retention": 0.9,
+    "reenter_plasticity": 0.5
+  },
+  "learning_rates": {
+    "HIGH": 0.001,
+    "LOW": 1e-05
+  },
+  "model_candidates": {
+    "MIDI": {
+      "parameters": 22424448,
+      "spec_sha256": "e07f9151efaf4a66d92b28f9032ae06bf219f1075f37f22bce11d4d36bbf7134"
+    },
+    "MICRO": {
+      "parameters": 8654592,
+      "spec_sha256": "5c3e1a4512619c75098d3a65f24f876dc2a6894da6d8d3f2f2e11b1351e2efc2"
+    },
+    "RESEARCH_SMALL": {
+      "parameters": 4130688,
+      "spec_sha256": "fa779c9cc3bbb26c5768bd86615de73e927ffa6284a08665631f3bb3d96f5535"
+    }
+  },
+  "parent_seeds": [
+    707,
+    808,
+    909
+  ],
+  "preexecution_evidence": {
+    "deterministic_contract_tests": {
+      "failed": 0,
+      "passed": 25
+    },
+    "github_actions_run_id": 34287522764,
+    "gpu_scientific_execution_performed": false,
+    "head_sha": "125b25c19204cce1994deebbfc4957119f2ae31f",
+    "notebook_cells_compile": "3/3",
+    "tpu_execution_performed": false,
+    "tree_sha": "2a0a0452afa5924ab7fe76d33bebea2e01f9eae1"
+  },
+  "retention_arms": [
+    "HIGH_CONTINUE",
+    "LOW_CONTINUE",
+    "FIXED_TIME_HIGH_TO_LOW",
+    "HYSTERETIC_HIGH_LOW"
+  ],
+  "safety": {
+    "full_mode_requires_cuda": true,
+    "google_drive_stage_store": true,
+    "partial_failure_evidence_packaged": true,
+    "pre500m_authorized": false,
+    "sealed_reserved_post_decision_only": true,
+    "timeboxed_arms_cannot_promote": true,
+    "tpu_execution_performed": false,
+    "training_500m_authorized": false
+  },
+  "schema": "anra-cyr-gpu006-preregistration/final-v1",
+  "status": "PREREGISTERED_BEFORE_OPERATOR_EXECUTION",
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+    "special_ids_authority": "loaded TokenizerIdentity + artifact added_tokens; runtime must agree",
+    "vocabulary_size": 24576
+  },
+  "transfer": {
+    "candidate": "HYSTERETIC_HIGH_LOW",
+    "claim": "equal-age/equal-exposure plasticity comparison; not universal consolidation proof",
+    "comparator": "LOW_CONTINUE",
+    "confirmations": 3,
+    "family": "registry",
+    "final_tolerance": 0.05,
+    "max_plasticity_slowdown": 0.25,
+    "minimum_independent_parent_pairs": 2,
+    "mode": "REPLAY_1_IN_10_ROWS",
+    "robust_thresholds": {
+      "canonical": 0.9,
+      "order_only": 0.85,
+      "query_order": 0.85
+    },
+    "source_min_t2_complete": 0.9,
+    "target_parent_pairs": 3
+  },
+  "wall_time": {
+    "hard_minutes": 170.0,
+    "outcome_inputs_forbidden": true,
+    "packaging_reserve_minutes": 8.0,
+    "resolver_inputs": [
+      "GPU fit",
+      "training_real_tokens_per_sec",
+      "generation_examples_per_sec"
+    ],
+    "target_minutes": 135.0
+  }
+}
