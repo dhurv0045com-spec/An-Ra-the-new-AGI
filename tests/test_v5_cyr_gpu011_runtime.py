@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pytest
 
@@ -77,5 +78,27 @@ def test_real_v5_compact_acquisition_executes_one_cpu_update(tmp_path, monkeypat
     assert receipt["row_presentations"] == 2
     assert receipt["actual_real_tokens"] > 0
     assert receipt["semantic_stream_sha256"]
-    assert receipt["final_checkpoint"]
     assert receipt["status"] in {"MAX_UPDATES_NO_G90", "G90_CONFIRMED"}
+
+    checkpoint = receipt["final_checkpoint"]
+    assert checkpoint["schema"] == "anra-cyr-research-checkpoint/v1"
+    assert len(checkpoint["model_sha256"]) == 64
+    assert len(checkpoint["optimizer_sha256"]) == 64
+    checkpoint_path = Path(checkpoint["path"])
+    assert (checkpoint_path / "model.bin").exists()
+    assert (checkpoint_path / "optimizer.bin").exists()
+    assert (checkpoint_path / "receipt.json").exists()
+    assert runner._checkpoint_path(checkpoint) == checkpoint_path
+
+    final_battery = receipt["reasoning_battery_final"]
+    assert final_battery["schema"] == "anra-cyr-gpu011-reasoning-battery/v2"
+    assert final_battery["generation_max_new_tokens"] == 8
+    standard_predictions = final_battery["candidate_free_predictions"]["STANDARD"]
+    assert standard_predictions["count"] == 1
+    assert len(standard_predictions["sha256"]) == 64
+    assert standard_predictions["rows"][0]["world_id"] == "s"
+
+    controller = receipt["dev_controller_final"]
+    assert controller["prediction_receipt"]["count"] == 1
+    assert len(controller["prediction_receipt"]["sha256"]) == 64
+    assert controller["prediction_receipt"]["rows"][0]["world_id"] == "dc"
