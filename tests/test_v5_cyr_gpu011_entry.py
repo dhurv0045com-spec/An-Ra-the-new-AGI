@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from anra_v5.cyr_gpu011_entry import (
-    _compact_ark_render_batch,
-    exposure_aware_final_decision,
-    resolve_from_calibrations,
-)
+from anra_v5.cyr_gpu011_entry import exposure_aware_final_decision, resolve_from_calibrations
+from anra_v5.cyr_gpu006_run import render_batch
 from v5_experiments import cyr_gpu011 as core
 
 
@@ -101,17 +98,17 @@ def test_resolver_progresses_even_when_full_production_exposure_will_not_fit() -
     assert 0 <= resolved["production_projected_ark_exposure_fraction"] < 1.0
 
 
-def test_compact_renderer_matches_arkenstone_answer_prefix_bos_semantics() -> None:
+def test_compact_bridge_keeps_canonical_cymek_single_bos_objective() -> None:
     torch = pytest.importorskip("torch")
     tok = core.CompactCharTokenizer()
     row = {"prompt": "12 + 13 = ", "answer": "25"}
-    tokens, segments, eligible, counted = _compact_ark_render_batch(
+    tokens, _segments, eligible, counted = render_batch(
         tok, [row], torch=torch, device=torch.device("cpu"), special=tok.special
     )
-    expected = [tok.bos_id, *tok.encode(row["prompt"]), tok.bos_id, *tok.encode(row["answer"]), tok.eos_id]
+    expected = [tok.bos_id, *tok.encode(row["prompt"]), *tok.encode(row["answer"]), tok.eos_id]
     assert tokens[0, : len(expected)].tolist() == expected
+    assert tokens[0].tolist().count(tok.bos_id) == 1
     prompt_len = 1 + len(tok.encode(row["prompt"]))
     assert eligible[0, :prompt_len].tolist() == [False] * prompt_len
     assert eligible[0, prompt_len:len(expected)].tolist() == [True] * (len(expected) - prompt_len)
-    assert counted["ark_answer_prefix_bos_supervised"] is True
-    assert int((segments >= 0).sum()) == len(expected)
+    assert counted["supervised_tokens"] == len(tok.encode(row["answer"])) + 1
