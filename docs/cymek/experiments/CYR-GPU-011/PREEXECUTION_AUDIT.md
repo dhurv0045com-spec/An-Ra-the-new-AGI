@@ -25,6 +25,7 @@ Status: executable candidate under validation. No scientific execution has occur
 | A17 | Returned ZIP exposed aggregate generation scores but not the final candidate-free rows | evidence auditability | final controller, final structural batteries, and sealed measurement now retain row-level generated outputs plus canonical prediction SHA-256 receipts |
 | A18 | Structural battery used a 12-token decode cap while the controller gate used 8 | scientific comparability | unified V11 candidate-free capability/structural generation to a fixed 8-token cap |
 | A19 | Replication could launch from controller G90 even when larger final measurement failed | compute/science | second production seed now launches only after sustained controller G90 **and** final STANDARD >=.90, with >=40 science minutes left |
+| A20 | Acquisition stopped immediately at controller G90, so measurement=.85 could terminate a subject before it had a chance to qualify | fatal science | controller G90 is now recorded separately; training stops early only when the larger DEV_MEASUREMENT score is also >=.90. A deterministic two-update regression forces controller-first/measurement-later and requires the second update |
 
 ## Cross-branch audit identity
 
@@ -86,7 +87,7 @@ These are documented residual factors. A compact null cannot identify which one 
 
 Training sees only the 500 frozen train rows. DEV_CONTROLLER may control G50/G90 timing. DEV_MEASUREMENT cannot alter optimization; it validates the final G90 claim and hosts structural diagnostics. SEALED_RESERVED is measured only after the scientific decision when wall time allows.
 
-The same eight-token candidate-free generation cap is used for controller qualification and structural/final prediction receipts. Final row-level predictions are retained for independent re-scoring; periodic traces remain aggregate to avoid unnecessary result bloat.
+A controller G90 confirmation is a recorded transition event, not by itself an early-stop authority. Early stop requires controller confirmation plus contemporaneous DEV_MEASUREMENT STANDARD >=.90. The same eight-token candidate-free generation cap is used for controller qualification and structural/final prediction receipts. Final row-level predictions are retained for independent re-scoring; periodic traces remain aggregate to avoid unnecessary result bloat.
 
 ## Runtime / evidence safety
 
@@ -112,7 +113,8 @@ Allowed evidence before Colab is deterministic only:
 - exposure-aware verdict tests;
 - scoped optimizer restoration/drift rejection;
 - final prediction-receipt/hash and checkpoint-receipt contracts;
-- one-update actual V5 CPU compact plumbing smoke.
+- one-update actual V5 CPU compact plumbing smoke;
+- two-update controller-first/measurement-later qualification smoke proving no premature G90 stop.
 
 This validation is not scientific training and is not GPU/TPU evidence.
 
