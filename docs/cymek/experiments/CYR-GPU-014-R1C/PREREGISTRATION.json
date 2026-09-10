@@ -1,11 +1,11 @@
 {
-  "schema": "anra-cyr-gpu014-r1c-preregistration/v2",
+  "schema": "anra-cyr-gpu014-r1c-preregistration/v3",
   "experiment": "CYR-GPU-014-R1C",
   "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION",
   "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
-  "scientific_executable_commit": "3f6afabd2b79742c8de5d999b4e6877ba784f212",
+  "scientific_executable_commit": "2a71cea10ebb7a231834b6b112c49e268e9631a5",
   "scientific_executable_blobs": {
-    "v5_experiments/cyr_gpu014_r1c.py": "338553b387d1ebb1725aaa079fe5fca97295ad8e",
+    "v5_experiments/cyr_gpu014_r1c.py": "1d7e76ebc4728ef9e4d21f46a40017cd5ffff327",
     "anra_v5/cyr_gpu014_r1c_run.py": "5bd880dea143e14348019b9c4f959c760a92f051",
     "tests/test_v5_cyr_gpu014_r1c.py": "998f45490c25763b1782992c728894153d9b4347",
     "docs/cymek/experiments/CYR-GPU-014-R1C/PLAN.md": "c45a24a50b5e6ef1ede9a380238fd45ad108bb2a",
@@ -26,7 +26,7 @@
     "r1b_verdict": "MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE",
     "r1b_seed_3611": {"19": 0.0, "1024": 0.0, "4096": 0.5058823529411764, "8192": 0.7176470588235294, "16384": 0.6470588235294118, "24576": 0.011764705882352941},
     "r1b_seed_3612": {"19": 0.0, "1024": 0.0, "4096": 0.49411764705882355, "8192": 0.0, "16384": 0.12941176470588237, "24576": 0.0},
-    "use": "Motivates and prospectively fixes MASK_4096 as primary. No R1/R1B scientific seed is reused."
+    "use": "Motivates and prospectively fixes MASK_4096 as primary. No prior scientific seed is reused."
   },
   "data": {
     "source": "exact CYR-GPU-011 copy of frozen ARK-002B T2 no-carry arithmetic",
@@ -53,15 +53,7 @@
     "objective": "answer + EOS causal CE using inherited Cymek V5 production backend semantics"
   },
   "intervention": {
-    "held_fixed": [
-      "physical 24576-row tied matrix and total parameter count",
-      "full initialization bytes within matched seed",
-      "active input IDs 0..18 and character segmentation",
-      "semantic-example order within matched seed",
-      "batch, optimizer, learning rate and objective",
-      "3000-update endpoint",
-      "unrestricted full-vocabulary functional evaluation"
-    ],
+    "held_fixed": ["physical 24576-row tied matrix and total parameter count", "full initialization bytes within matched seed", "active input IDs 0..18 and segmentation", "semantic-example order within matched seed", "batch/optimizer/LR/objective", "3000-update endpoint", "full-vocabulary functional evaluation"],
     "manipulated": "training-time output competition / inactive-class participation",
     "arms": {
       "FULL_24576": "full 24576-class training logits",
@@ -71,7 +63,7 @@
       "MASK_16384": "training CE candidates 0..16383",
       "OFFSET_EQ4096": "subtract log((24576-19)/(4096-19)) from inactive logits 19..24575 while retaining all rows in denominator/gradient"
     },
-    "interpretation_boundary": "Hard masking changes softmax normalizer competition plus output-row gradient participation. OFFSET_EQ4096 tests aggregate inactive partition mass while retaining inactive gradient flow."
+    "interpretation_boundary": "Hard masks alter normalizer competition plus output-row gradient participation; OFFSET_EQ4096 tests aggregate inactive partition mass with inactive gradient flow retained."
   },
   "replication": {
     "mandatory_matched_seeds": 4,
@@ -99,9 +91,9 @@
   },
   "primary_pair": ["MASK_4096", "FULL_24576"],
   "primary_endpoints": {
-    "functional_full_vocab": "DEV_MEASUREMENT complete_exact_with_valid_stop with all 24576 output classes",
-    "structural_active_only": "same examples with inference candidates restricted to IDs 0..18; diagnostic only",
-    "summaries": ["FORMATION_AUC from update 600 through 3000", "SUSTAINED_G50 first 3 consecutive >=0.50", "ENDPOINT_STANDARD", "PEAK_3EVAL_STANDARD"]
+    "functional_full_vocab": "DEV_MEASUREMENT complete_exact_with_valid_stop using all 24576 classes",
+    "structural_active_only": "same examples with inference candidates restricted to IDs 0..18; mechanism diagnostic only",
+    "summaries": ["FORMATION_AUC updates 600..3000", "SUSTAINED_G50 first 3 consecutive >=0.50", "ENDPOINT_STANDARD", "PEAK_3EVAL_STANDARD"]
   },
   "threshold_per_endpoint": {
     "paired_auc_gap_min": 0.20,
@@ -111,14 +103,7 @@
     "mask4096_sustained_g50_min_seeds": 2,
     "full24576_sustained_g50_max_seeds": 1
   },
-  "verdicts": [
-    "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED",
-    "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED",
-    "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
-    "MIXED_SOFTMAX_COMPETITION_EFFECT",
-    "INCONCLUSIVE_INCOMPLETE_FOUR_SEED_CAMPAIGN",
-    "INCONCLUSIVE_RUNTIME_FAILURE"
-  ],
+  "verdicts": ["SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED", "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED", "SOFTMAX_COMPETITION_NOT_SUFFICIENT", "MIXED_SOFTMAX_COMPETITION_EFFECT", "INCONCLUSIVE_INCOMPLETE_FOUR_SEED_CAMPAIGN", "INCONCLUSIVE_RUNTIME_FAILURE"],
   "dense_mechanism_receipts": {
     "probability_geometry": ["target probability", "active/inactive mass", "max inactive probability/logit", "target margins", "full/active entropy"],
     "representation": ["final hidden-state L2 statistics"],
@@ -132,18 +117,12 @@
     "packaging_reserve_minutes": 10.0,
     "runtime_safety_factor": 1.25,
     "protocol_fixed_independent_of_runtime": true,
-    "calibration_role": "estimate total time/session count only; never alter seeds, arms, exposures, diagnostics or thresholds",
-    "multi_session_policy": "At a controlled session wall, checkpoint current arm and package partial evidence. Next session resumes exact frozen campaign. No scientific verdict until all 24 arms complete.",
+    "calibration_role": "estimate total time/session count only; never alter science",
+    "multi_session_policy": "At session wall, checkpoint current arm and package partial evidence. Next session resumes exact frozen campaign. No verdict until all 24 arms complete.",
     "checkpoint_every_updates": 500,
     "exact_resume_smoke": "10 uninterrupted updates == 5 + save/load + 5 at model/optimizer hashes and counters",
     "completed_arm_reuse": "exact identity only",
     "failure_policy": "fail/partial-package closed; never silently weaken protocol"
   },
-  "authorization": {
-    "production_tokenizer_change": false,
-    "pre500m": false,
-    "training_500m": false,
-    "broad_reasoning_claim": false,
-    "agi_claim": false
-  }
+  "authorization": {"production_tokenizer_change": false, "pre500m": false, "training_500m": false, "broad_reasoning_claim": false, "agi_claim": false}
 }
