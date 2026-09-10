@@ -26,6 +26,12 @@ def test_padded_compact_keeps_active_ids_and_segmentation_exact() -> None:
         assert encoded == ids
 
 
+def test_inactive_large_vocab_predictions_are_fail_visible_not_silently_dropped() -> None:
+    tok = core.tokenizer_for(24_576)
+    assert tok.decode([tok.table["7"], 20_000, tok.table["4"]]) == "7<inactive:20000>4"
+    assert tok.decode([99_999]) == "<invalid:99999>"
+
+
 def test_only_vocab_dependent_parameter_term_changes() -> None:
     counts = core.parameter_receipts()
     assert counts["19"] == 987_392
