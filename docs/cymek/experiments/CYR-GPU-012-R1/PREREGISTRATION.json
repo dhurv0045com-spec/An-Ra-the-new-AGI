@@ -1,0 +1,126 @@
+{
+  "schema": "anra-cyr-gpu012-r1-preregistration/v1",
+  "experiment": "CYR-GPU-012-R1",
+  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION",
+  "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
+  "executable_sha": "1d837a2f3a934756e9659d40066fbbc3ec206299",
+  "executable_blobs": {
+    "v5_experiments/cyr_gpu012_r1.py": "62522072e3389326d5eea789e2f9a8d7d3e08048",
+    "anra_v5/cyr_gpu012_r1_run.py": "29b571d5d14cf4f7a3a4a9bbe0568a5ba2653685",
+    "tests/test_v5_cyr_gpu012_r1.py": "2dac3c4c573aab92c28bf45114b01e05a289a597",
+    "notebooks/cymek_colab_gpu_r1_representation.ipynb": "91680596027e1f21f0292120eb31a8d0010eeaba",
+    "v5_experiments/cyr_gpu011.py": "600140d388ce94a6dc08fa32cf84d37511889362",
+    "anra_v5/cyr_gpu011_run.py": "356523d9ee7fb0916c09c5806964892f9024dca7",
+    "anra_v5/cyr_gpu011_optimizer_compat.py": "0cd0db7495fa1f5adc0c53c69eb0815202c08bac",
+    "anra_v5/cyr_gpu006_run.py": "f61f17e9e2bdbefd8edc98dd7a7598a8dea35934",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "docs/cymek/experiments/CYR-GPU-011/ARK002B_TASK_MANIFEST.json": "6c46fdf90139526b00e9041af2d511ed0ac24270"
+  },
+  "science_plan_blobs": {
+    "docs/cymek/experiments/CYR-GPU-012-R1/PLAN.md": "823f58b18ef4242d1b686de9a8f8527bab728e75",
+    "docs/cymek/experiments/CYR-GPU-012-R1/DESIGN_REASONING.md": "c9f8bc21727b0c35f82c5375d8cf1c4936600f44"
+  },
+  "prior_evidence": {
+    "cyr_gpu_011_result": "COMPACT 56.47% STANDARD at 44.89% ARK exposure; production BPE 0% STANDARD and 0/48 SEALED at 100% exposure",
+    "cyr_gpu_011_bundle_sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5",
+    "ark018_final_bundle_sha256": "cea50622b1725eb12308c54355616e2188b7956761db46289c6da33c09c31f7c",
+    "ark018_role": "context only; not used in R1 primary decision"
+  },
+  "data": {
+    "source": "exact CYR-GPU-011 copy of frozen ARK-002B T2 no-carry arithmetic manifest",
+    "split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+    "manifest_blob_sha": "6c46fdf90139526b00e9041af2d511ed0ac24270",
+    "train_rows": 500,
+    "dev_controller_rows": 64,
+    "dev_measurement_rows": 85,
+    "sealed_reserved_rows": 48,
+    "sealed_note": "The CYR-GPU-011 holdout has already been consumed. R1 is an explicitly developmental causal follow-up; no new sealed-confirmation claim is made."
+  },
+  "causal_intervention": {
+    "held_fixed": [
+      "Cymek V5 RESEARCH_SMALL 4L/128w block geometry",
+      "active arithmetic token IDs 0..18",
+      "prompt and answer segmentation",
+      "exact semantic examples",
+      "batch size 64",
+      "8000 update / 512000 semantic-row endpoint",
+      "AdamW family and scalars",
+      "LR 1e-3",
+      "causal objective and answer/EOS semantics",
+      "model seed within each matched pair",
+      "example order seed within each matched pair",
+      "all non-embedding parameters at initialization",
+      "first 19 active embedding rows at initialization"
+    ],
+    "manipulated": "declared tied embedding/output vocabulary class count",
+    "primary_levels": [19, 24576],
+    "optional_level": 4096,
+    "interpretation_boundary": "Because input embedding and output projection are tied, R1 isolates their joint class-space burden, not embedding capacity and softmax competition separately."
+  },
+  "model": {
+    "family": "real Cymek V5 RESEARCH_SMALL",
+    "layers": 4,
+    "width": 128,
+    "query_heads": 4,
+    "kv_heads": 2,
+    "head_dimension": 32,
+    "ffn_width": 512,
+    "parameter_counts": {
+      "V19": 987392,
+      "V4096": 1509248,
+      "V24576": 4130688
+    },
+    "model_seeds": [3511, 3512],
+    "order_seeds": [5801, 5802]
+  },
+  "runtime": {
+    "hard_wall_minutes": 175.0,
+    "packaging_reserve_minutes": 5.0,
+    "fixed_batch_rows": 64,
+    "fixed_updates_per_arm": 8000,
+    "fixed_semantic_rows_per_arm": 512000,
+    "runtime_safety_factor": 1.35,
+    "hardware_resolution_uses_scientific_outcomes": false,
+    "resolver_policy": "calibrate V19/V4096/V24576 at batch64; run two complete primary pairs if conservatively projected to fit; otherwise one complete pair; fail closed if one pair cannot fit; optional V4096 never displaces a primary pair",
+    "completed_arm_reuse": "allowed only for exact identity + exact fixed endpoint; incompatible artifacts abort"
+  },
+  "primary_metric": {
+    "name": "DEV_MEASUREMENT/STANDARD complete_exact_with_valid_stop",
+    "endpoint_semantic_rows": 512000,
+    "candidate_free": true
+  },
+  "secondary_metrics": [
+    "DEV_CONTROLLER trajectory",
+    "train-probe M99/G50 timing",
+    "tens and ones digit exactness",
+    "locality counterfactual relation consistency",
+    "carry transfer",
+    "triple-add transfer",
+    "three-digit extrapolation",
+    "parameter displacement",
+    "matched initialization SHA-256 receipts"
+  ],
+  "decision_thresholds": {
+    "min_compact_signal": 0.45,
+    "strong_gap_v19_minus_v24576": 0.30,
+    "equivalent_absolute_gap": 0.10
+  },
+  "verdicts": [
+    "REPLICATED_OUTPUT_VOCAB_BURDEN_SUPPORTED_AT_512K_ROWS",
+    "REPLICATED_OUTPUT_VOCAB_BURDEN_NOT_PRIMARY_AT_512K_ROWS",
+    "SINGLE_SEED_OUTPUT_VOCAB_BURDEN_SUPPORTED_AT_512K_ROWS",
+    "SINGLE_SEED_OUTPUT_VOCAB_BURDEN_NOT_PRIMARY_AT_512K_ROWS",
+    "MIXED_OR_INTERMEDIATE_REPRESENTATION_EFFECT",
+    "INCONCLUSIVE_NO_COMPLETE_PRIMARY_PAIR",
+    "INCONCLUSIVE_RUNTIME_FAILURE"
+  ],
+  "historical_anchor_used_in_primary_verdict": false,
+  "authorization": {
+    "broad_reasoning_claim": false,
+    "agi_claim": false,
+    "production_tokenizer_change": false,
+    "pre500m": false,
+    "training_500m": false
+  }
+}
