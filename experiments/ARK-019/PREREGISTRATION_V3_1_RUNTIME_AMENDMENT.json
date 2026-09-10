@@ -1,0 +1,58 @@
+{
+  "schema": "arkenstone-ark019-v3.1-runtime-amendment/v1",
+  "experiment": "ARK-019-V3",
+  "amendment": "V3.1_RUNTIME_ONLY",
+  "status": "PREREGISTERED_AFTER_RUNTIME_CALIBRATION_BEFORE_COMPARATIVE_CONTINUATION_OUTCOMES",
+  "base_preregistration": "experiments/ARK-019/PREREGISTRATION_V3.json",
+  "base_executable_commit": "63dc47d9bdcd85e004c03aaf9a738c9682fcd8f0",
+  "amended_executable_commit": "ce9aafce0231fb3b4e1d4908ce0736e3a6dd3df7",
+  "amended_executable_blobs": {
+    "experiments/ARK-019/run_ark019_v31.py": "c328f71fd7891e94a1db0268d344742700ffb35e",
+    "tests/test_ark019_v31_runtime_amendment.py": "0b5c7787d1560c3e993b8b6c5ad4f7419a35e158",
+    "experiments/ARK-019/ark019_v3_core.py": "bb815ebf1c6c32c45c211a744e0a4d19099dd542",
+    "experiments/ARK-019/run_ark019_v3.py": "ef41096069714668b3b1e5c0e165904908ebc885",
+    "tests/test_ark019_v3.py": "c52d6857aa2933c28291d4d115205af927c37c5f"
+  },
+  "observed_preoutcome_runtime": {
+    "update_seconds": 0.5247120965999784,
+    "small_eval_seconds_approx": 0.50256029,
+    "conservative_projected_total_minutes": 209.68,
+    "original_wall_minutes": 175,
+    "original_gate_result": "FAIL_CLOSED_BEFORE_COMPARATIVE_CONTINUATION_ARMS"
+  },
+  "single_change": {
+    "field": "campaign_wall_minutes",
+    "old": 175,
+    "new": 240
+  },
+  "unchanged_runtime_controls": {
+    "packaging_reserve_minutes": 5,
+    "runtime_safety_factor": 1.30,
+    "full_campaign_must_fit_before_comparative_arms": true
+  },
+  "unchanged_science": {
+    "parent_seeds": [31801, 31902],
+    "skill_b_seeds": [319001, 319002],
+    "arms": ["PLASTIC_HIGH", "STATIC_REPLAY_1OF64", "GUARDIAN_REPLAY", "GUARDIAN_HYBRID"],
+    "matched_sets": 4,
+    "horizon_updates_per_arm": 1000,
+    "eval_every_updates": 100,
+    "checkpoint_every_updates": 300,
+    "high_lr": 0.0003,
+    "low_shadow_lr": 0.000003,
+    "guardian_state_machine": "UNCHANGED",
+    "replay_doses": "UNCHANGED",
+    "cap16x_definition": "UNCHANGED",
+    "decision_thresholds": "UNCHANGED"
+  },
+  "evidence_history": {
+    "runtime_failure_record": "experiments/ARK-019/PREEXECUTION_RUNTIME_FAILURE_001.md",
+    "runtime_amendment_record": "experiments/ARK-019/RUNTIME_AMENDMENT_V3_1.md",
+    "prior_generic_failure_is_archived_not_deleted": true
+  },
+  "claim_ceiling": "REAL_TEXT_PROXY_GUARDIAN_CANDIDATE_ONLY",
+  "production_scheduler_authorized": false,
+  "pre500m_authorized": false,
+  "training_500m_authorized": false,
+  "agi_authorized": false
+}
