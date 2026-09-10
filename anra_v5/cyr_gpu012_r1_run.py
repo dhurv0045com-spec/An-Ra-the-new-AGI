@@ -170,6 +170,9 @@ def _run_or_reuse_arm(*, out: Path, seed_index: int, vocab: int, data: Mapping[s
     if wrapper.exists():
         body = read_json(wrapper)
         if _valid_reuse(body, label=label, vocab=vocab, model_seed=model_seed, order_seed=order_seed):
+            init_receipt = body.get("matched_initialization")
+            if isinstance(init_receipt, Mapping):
+                build_receipts.append(dict(init_receipt))
             if progress:
                 progress(f"R1 reuse complete arm: {label}")
             return dict(body)
