@@ -56,4 +56,4 @@ Historical CYR-GPU-011 must remain separate evidence: its V19 subject reached 56
 
 ## Next experiment
 
-The highest-information follow-up is **R1B: replicated vocabulary-response curve + class-competition diagnostics**. It should map several vocabulary sizes around the observed intermediate optimum while preserving exact active tokenization and matched initialization, and directly record active-vs-inactive probability mass / margin and embedding-gradient partition. The goal is to distinguish a reproducible response curve from a one-seed resonance and to turn the qualitative class-space hypothesis into a measurable mechanism.
+The highest-information immediate follow-up is **R1B / CYR-GPU-013: a replicated early vocabulary-response curve** at V19/V1024/V4096/V8192/V16384/V24576 with fresh matched seeds and fixed active tokenization. If the intermediate advantage replicates, a subsequent mechanistic experiment should directly measure active-vs-inactive softmax probability mass, target margins, and gradient partition to determine whether class competition is actually causal rather than merely correlated.
