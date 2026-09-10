@@ -2,7 +2,7 @@
 
 **Status:** PREREGISTRATION CANDIDATE / NOT EXECUTED  
 **Target hardware:** Google Colab T4-class CUDA GPU  
-**Scientific campaign wall:** 360 minutes, with 10-minute packaging reserve  
+**Scientific campaign wall:** 420 minutes, with 10-minute packaging reserve  
 **Claim ceiling:** controlled developmental mechanism evidence only.
 
 ## Why this experiment exists
@@ -11,9 +11,9 @@ R1 and R1B established that changing the declared tied embedding/output class-sp
 
 The unresolved causal question is now narrower:
 
-> Is the capability-formation effect driven primarily by how many inactive output classes compete in the cross-entropy normalizer / how much probability mass they absorb, rather than by the physical size of the tied embedding matrix itself?
+> Is the capability-formation effect driven primarily by training-time inactive-class competition / softmax-normalizer geometry, rather than by the physical size of the tied embedding matrix itself?
 
-R1C keeps the **physical model identical at vocabulary 24,576 in every arm**. Only the training-logit treatment changes. Full-vocabulary candidate-free evaluation is always unmodified.
+R1C keeps the **physical model identical at vocabulary 24,576 in every arm**. Only the training-logit treatment changes. Full-vocabulary candidate-free evaluation is always reported. A separately labelled active-only diagnostic is also frozen prospectively so we can distinguish genuine structural formation from an output-calibration failure caused by inactive rows winning at inference.
 
 ## Fixed substrate
 
@@ -38,18 +38,18 @@ Fresh prospective matched seeds:
 - model seeds: `3711, 3712, 3713, 3714`;
 - order seeds: `6001, 6002, 6003, 6004`.
 
-Four complete matched curves are mandatory. No seed may be dropped after any scientific outcome is observed.
+Four complete matched curves are mandatory. No seed, arm, threshold, treatment dose, or endpoint may be dropped after any scientific outcome is observed.
 
 ## Training-logit arms
 
-All arms own the same 24,576-row tied matrix. The treatment is applied only while `model.training == True`; evaluation always uses the full unmodified 24,576 logits.
+All arms own the same 24,576-row tied matrix. The treatment is applied only during training; ordinary evaluation always uses the full unmodified 24,576 logits.
 
 1. `FULL_24576`
-   - normal production-style full softmax over all 24,576 logits.
+   - normal full softmax over all 24,576 logits.
 
 2. `MASK_19`
    - only logits `0..18` participate in training CE;
-   - logits `19..24575` are set to a numerically safe negative sentinel before CE.
+   - logits `19..24575` are replaced by a finite negative sentinel before CE.
 
 3. `MASK_4096` — **primary intervention**
    - logits `0..4095` participate in training CE;
@@ -63,32 +63,32 @@ All arms own the same 24,576-row tied matrix. The treatment is applied only whil
 
 6. `OFFSET_EQ4096`
    - all 24,576 logits remain in the denominator;
-   - inactive logits `19..24575` receive a fixed pre-registered subtraction
+   - inactive logits `19..24575` receive the fixed subtraction
      `log((24576-19)/(4096-19))` during training;
-   - this approximately equalizes the aggregate inactive partition contribution to a 4096-class system under equal-logit conditions while retaining gradient flow to every inactive row.
+   - under equal-logit conditions this approximately reduces total inactive partition mass to that of a 4096-class system while retaining gradient flow to every inactive row.
 
-The offset arm separates a **probability-mass / normalizer hypothesis** from a literal hard candidate-count hypothesis.
+The hard-mask arms manipulate candidate participation plus output-gradient competition. The offset arm asks whether aggregate inactive probability mass alone is sufficient.
 
 ## Why MASK_4096 is primary
 
-R1 produced V4096 = 1.00 at 512k rows, and R1B produced 0.5059 / 0.4941 in two fresh seeds at 128k rows. That makes 4096 the most stable previously observed intermediate condition rather than a post-hoc best arm from only one seed. V8192 and V16384 remain dose-response diagnostics.
+R1 produced V4096 = 1.00 at 512k rows, and R1B produced 0.5059 / 0.4941 in two fresh seeds at 128k rows. That makes 4096 the most stable previously observed intermediate condition rather than a post-hoc best arm from only one seed. V8192/V16384 remain dose-response diagnostics and cannot rescue a failed primary pair.
 
 ## Evaluation schedule
 
 Evaluate every 150 updates (9,600 semantic rows) and at the fixed 3,000-update endpoint.
 
-Primary candidate-free evaluation uses **full V24576 logits** and reports:
+Every scheduled evaluation reports:
 
-- DEV_CONTROLLER exact + valid EOS;
-- DEV_MEASUREMENT STANDARD exact + valid EOS;
-- train-probe exact;
-- error decomposition: active wrong token vs inactive-token prediction vs stop failure.
+- DEV_CONTROLLER full-vocabulary candidate-free exact + valid EOS;
+- DEV_MEASUREMENT full-vocabulary STANDARD exact + valid EOS;
+- TRAIN probe full-vocabulary exact;
+- **ACTIVE_ONLY_DIAGNOSTIC** on the same DEV_MEASUREMENT examples, restricting inference candidates to IDs `0..18`. This is a mechanism diagnostic, never the deployment/functionality score.
 
-Structural batteries remain secondary diagnostics and are not broad reasoning scores.
+Full structural batteries run at baseline, update 1500, and update 3000 only. They remain controlled diagnostics, not broad reasoning scores.
 
 ## Dense mechanism diagnostics
 
-At updates `0, 300, 600, 900, 1500, 2100, 3000`, evaluate a frozen diagnostic minibatch and record before any additional optimizer update:
+At updates `0, 300, 600, 900, 1500, 2100, 3000`, on a frozen TRAIN diagnostic minibatch, record:
 
 - target-token probability;
 - total active probability mass (`IDs 0..18`);
@@ -98,83 +98,87 @@ At updates `0, 300, 600, 900, 1500, 2100, 3000`, evaluate a frozen diagnostic mi
 - target-vs-best-inactive logit margin;
 - full-softmax entropy;
 - active-only entropy;
-- hidden-state final-position L2 statistics if exposed without changing training math;
+- final hidden-state L2 statistics;
 - gradient L2 for active embedding rows;
 - gradient L2 for participating inactive rows;
 - gradient L2 for excluded inactive rows;
 - gradient L2 for all non-embedding/core parameters;
-- cosine similarity of the **core gradient** under the arm's training loss versus counterfactual `FULL_24576` and `MASK_4096` losses on the same model state and same diagnostic batch.
+- core-gradient cosine under the arm's loss versus counterfactual `FULL_24576` and `MASK_4096` losses at exactly the same model state and batch.
 
-Counterfactual-gradient probes must snapshot/restore gradients and must not mutate optimizer state, RNG state, model parameters, or training counters. A pre-execution test verifies this.
+The diagnostic must mechanically verify that model and optimizer state are byte-identical before versus after the counterfactual probe. No diagnostic gradient may enter an optimizer step.
 
 ## Primary outcome metrics
 
-Because R1B showed that generalized states can emerge and then collapse, endpoint-only scoring is insufficient.
+R1B showed that generalized states can emerge and later collapse, so endpoint-only scoring is inadequate. For **both** the full-vocabulary functional metric and the active-only structural diagnostic, compute from updates 600..3000:
 
-For each arm/seed compute:
-
-1. `FORMATION_AUC`: mean DEV_MEASUREMENT STANDARD exact over all scheduled evaluations from update 600 through 3000.
-2. `SUSTAINED_G50`: first update of 3 consecutive scheduled evaluations with STANDARD >= 0.50; null if never reached.
-3. `ENDPOINT_STANDARD`: full-vocab STANDARD exact at update 3000.
+1. `FORMATION_AUC`: mean STANDARD exact across all scheduled evaluations.
+2. `SUSTAINED_G50`: first update of 3 consecutive evaluations with STANDARD >= 0.50.
+3. `ENDPOINT_STANDARD`: score at update 3000.
 4. `PEAK_3EVAL_STANDARD`: highest 3-evaluation moving average.
 
-### Primary causal comparison
+### Frozen primary causal pair
 
 `MASK_4096` versus `FULL_24576` on the same physical model and matched seed.
 
-`SOFTMAX_COMPETITION_CAUSALLY_SUPPORTED` requires all:
+The same paired threshold is evaluated separately on the structural and functional metrics:
 
-- at least 3/4 matched seeds have `FORMATION_AUC(MASK_4096) - FORMATION_AUC(FULL_24576) >= 0.20`;
+- at least 3/4 matched seeds have paired FORMATION_AUC gap >= 0.20;
 - mean paired AUC gap across all 4 seeds >= 0.25;
-- `MASK_4096` reaches `SUSTAINED_G50` in at least 2/4 seeds;
-- `FULL_24576` reaches `SUSTAINED_G50` in at most 1/4 seeds.
+- `MASK_4096` reaches sustained G50 in at least 2/4 seeds;
+- `FULL_24576` reaches sustained G50 in at most 1/4 seeds.
 
-`SOFTMAX_COMPETITION_NOT_SUFFICIENT` requires mean paired AUC gap < 0.10 and no material sustained-G50 advantage.
+Verdicts:
 
-Otherwise: `MIXED_SOFTMAX_COMPETITION_EFFECT`.
+- `SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED` if both structural and full-vocabulary tests pass;
+- `SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED` if the active-only structural test passes but the full-vocabulary functional test does not;
+- `SOFTMAX_COMPETITION_NOT_SUFFICIENT` if both mean paired AUC gaps are <0.10 with no material sustained-G50 advantage;
+- otherwise `MIXED_SOFTMAX_COMPETITION_EFFECT`.
 
-The primary verdict is frozen to this pair. MASK_8192/MASK_16384 cannot rescue a failed MASK_4096 primary verdict by post-hoc selection.
+This dual endpoint prevents a false negative where masking helps the network learn the arithmetic structure but untrained inactive output rows still win during unrestricted inference. It also prevents us from calling such a model functionally rescued when it is not.
 
 ## Secondary mechanistic decisions
 
-These do not alter the primary verdict.
+These cannot alter the primary verdict.
 
-### Dose response
+### Fixed-matrix dose response
 
-Report whether `MASK_19 -> MASK_4096 -> MASK_8192 -> MASK_16384 -> FULL_24576` yields a reproducible non-monotonic or monotonic formation curve when the physical matrix is fixed.
+Report whether `MASK_19 -> MASK_4096 -> MASK_8192 -> MASK_16384 -> FULL_24576` produces a reproducible response curve when parameter count and all initialization bytes are fixed.
 
-### Partition-mass rescue
+### Inactive-partition-mass rescue
 
-`INACTIVE_PARTITION_MASS_RESCUE_SUPPORTED` if OFFSET_EQ4096 improves FORMATION_AUC over FULL_24576 by >=0.20 in at least 3/4 seeds and its mean AUC lies within 0.15 of MASK_4096.
+For both structural and functional endpoints, flag partition-mass rescue if `OFFSET_EQ4096` improves AUC over FULL_24576 by >=0.20 in at least 3/4 seeds and its mean AUC lies within 0.15 of MASK_4096.
 
-If MASK_4096 works but OFFSET_EQ4096 does not, literal candidate participation / gradient-row competition is favored over a simple aggregate-mass explanation.
+If hard MASK_4096 works but OFFSET_EQ4096 does not, literal output-row participation / gradient competition is favored over a simple aggregate-mass explanation.
 
-### Training-vs-inference failure decomposition
+### Training-vs-inference decomposition
 
-If an arm has high active-only accuracy but poor full-vocab accuracy because inactive classes win at inference, label `OUTPUT_CALIBRATION_BOTTLENECK`. If both active-only and full-vocab accuracy remain poor, label `STRUCTURAL_FORMATION_BOTTLENECK`.
+If active-only capability is high but full-vocabulary capability is poor and inactive predictions dominate, label the failure `OUTPUT_CALIBRATION_BOTTLENECK`. If both are poor, label `STRUCTURAL_FORMATION_BOTTLENECK`.
 
 ## Runtime and durability
 
-This is intentionally larger than R1/R1B.
+This is intentionally much larger than R1/R1B:
 
 - 4 seeds × 6 arms × 3,000 updates = **72,000 optimizer updates**;
-- 4.608 million semantic row presentations;
-- expected T4 duration is several hours, not a short screen;
-- pre-outcome CUDA calibration measures representative training + full-vocab generation + diagnostic cost;
-- the full mandatory campaign must conservatively fit the 360-minute scientific wall before the first scientific update;
-- otherwise fail closed. Do not reduce seeds, arms, updates, diagnostics, or thresholds after seeing outcomes.
+- **4.608 million semantic row presentations**;
+- expected T4 runtime is several hours;
+- pre-outcome CUDA calibration measures training, full-vocabulary generation, and dense diagnostic cost;
+- the full fixed campaign must conservatively fit the **410-minute scientific portion** of the 420-minute wall before scientific updates begin;
+- otherwise the pre-execution gate fails. Scientific exposure is never reduced to fit hardware.
 
 Durability requirements:
 
 - Drive-backed per-arm checkpoint every 500 updates;
-- model, optimizer, update counter, semantic-stream identity, trace, treatment identity, torch CPU/CUDA RNG state;
-- exact resume from partial arms;
+- model, optimizer, update counter, real-token counter, exact semantic-stream identity, treatment identity, trace, diagnostic state, CPU RNG and CUDA RNG;
+- exact resume of interrupted arms;
 - completed-arm reuse only on exact identity match;
-- incompatible partial output aborts rather than overwrites;
-- pre-execution exact-resume smoke: uninterrupted 10 updates must match 5 + save/load + 5 at model/optimizer hash and metric level.
+- incompatible artifacts abort rather than overwrite;
+- pre-execution CUDA smoke requires 10 uninterrupted updates to be byte-identical at model/optimizer/counters to 5 + save/load + 5;
+- any timebox/failure packages partial evidence instead of silently discarding it.
 
 ## Evidence boundaries
 
-A positive R1C would demonstrate that manipulating training softmax competition on a **fixed 24,576-row tied model** is sufficient to alter capability formation on this controlled developmental task. It would still not establish a universal natural-language vocabulary rule, a production tokenizer change, broad reasoning, PRE500M/500M readiness, or AGI.
+A positive R1C would demonstrate that manipulating training-time output competition on a **fixed 24,576-row tied model** is sufficient to alter structural and/or functional capability formation on this controlled developmental task.
 
-A negative R1C is equally useful: it would push the causal search away from normalizer competition toward tied initialization/optimization geometry or other representation interactions.
+It would **not** establish a universal natural-language vocabulary rule, production tokenizer change, broad reasoning improvement, PRE500M/500M readiness, or AGI.
+
+A negative R1C is equally useful: it would push the causal search away from training-softmax competition toward tied initialization/optimization geometry or other representation interactions.
