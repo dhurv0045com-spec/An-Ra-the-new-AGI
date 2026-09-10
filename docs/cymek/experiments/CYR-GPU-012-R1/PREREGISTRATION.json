@@ -1,13 +1,13 @@
 {
-  "schema": "anra-cyr-gpu012-r1-preregistration/v2",
+  "schema": "anra-cyr-gpu012-r1-preregistration/v3",
   "experiment": "CYR-GPU-012-R1",
-  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION_FINAL_HARDENING",
+  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION_AFTER_PREEXECUTION_TEST_FIXTURE_REPAIR",
   "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
-  "executable_sha": "d6953af2b0af64439dd9fd9ac0b2bc4987ed9c97",
+  "executable_sha": "1fa417260416e31097c8166770c69d2d7d8af168",
   "executable_blobs": {
     "v5_experiments/cyr_gpu012_r1.py": "d043c46ccf30c781f39c69d13c9597465767e188",
     "anra_v5/cyr_gpu012_r1_run.py": "29b571d5d14cf4f7a3a4a9bbe0568a5ba2653685",
-    "tests/test_v5_cyr_gpu012_r1.py": "c1e66fa8869cca2466a5bfc7f2e7fd5a4f09b0f8",
+    "tests/test_v5_cyr_gpu012_r1.py": "584dec5afb8d67b5ee75759af1668c3d17c102d4",
     "notebooks/cymek_colab_gpu_r1_representation.ipynb": "91680596027e1f21f0292120eb31a8d0010eeaba",
     "v5_experiments/cyr_gpu011.py": "600140d388ce94a6dc08fa32cf84d37511889362",
     "anra_v5/cyr_gpu011_run.py": "356523d9ee7fb0916c09c5806964892f9024dca7",
@@ -21,7 +21,8 @@
     "docs/cymek/experiments/CYR-GPU-012-R1/PLAN.md": "823f58b18ef4242d1b686de9a8f8527bab728e75",
     "docs/cymek/experiments/CYR-GPU-012-R1/DESIGN_REASONING.md": "c9f8bc21727b0c35f82c5375d8cf1c4936600f44"
   },
-  "hardening_note": "Final pre-run hardening makes predictions of inactive output IDs >=19 explicit decode failures instead of silently dropping them. This prevents the V24576 arm from receiving accidental credit for an invalid output class.",
+  "preexecution_repair_note": "The first operator attempt stopped before CUDA calibration or any scientific model update because two synthetic runtime-resolver unit-test fixtures contradicted the resolver's own conservative 1.35x timing rule. Only those synthetic test throughputs were corrected: the two-seed fixture now actually fits two pairs and the one-seed fixture now fits exactly one pair. Scientific code, constants, data, endpoints, seeds, metrics, thresholds and intervention are unchanged.",
+  "hardening_note": "Predictions of inactive output IDs >=19 are explicit decode failures instead of silently disappearing, preventing the V24576 arm from receiving accidental credit for an invalid output class.",
   "prior_evidence": {
     "cyr_gpu_011_result": "COMPACT 56.47% STANDARD at 44.89% ARK exposure; production BPE 0% STANDARD and 0/48 SEALED at 100% exposure",
     "cyr_gpu_011_bundle_sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5",
