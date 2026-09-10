@@ -128,18 +128,23 @@ def _cal(ups: float = 100.0, eps: float = 1000.0, diag: float = 0.01):
     }
 
 
-def test_runtime_resolver_requires_every_arm_and_never_drops_seeds():
+def test_runtime_resolver_requires_every_arm_and_never_drops_protocol():
     c = {arm: _cal() for arm in core.ARMS}
     r = core.resolve_from_calibrations(c)
+    assert r["protocol_fixed_independent_of_runtime"] is True
     assert r["model_seeds"] == list(core.MODEL_SEEDS)
     assert r["arms"] == list(core.ARMS)
+    assert r["updates_per_arm"] == core.UPDATES
     broken = dict(c)
     broken.pop("MASK_4096")
     with pytest.raises(RuntimeError):
         core.resolve_from_calibrations(broken)
 
 
-def test_runtime_resolver_fails_closed_when_full_campaign_does_not_fit():
-    c = {arm: _cal(ups=0.5, eps=1.0, diag=100.0) for arm in core.ARMS}
-    with pytest.raises(RuntimeError):
-        core.resolve_from_calibrations(c)
+def test_slow_calibration_increases_sessions_instead_of_weakening_science():
+    fast = core.resolve_from_calibrations({arm: _cal() for arm in core.ARMS})
+    slow = core.resolve_from_calibrations({arm: _cal(ups=0.5, eps=1.0, diag=100.0) for arm in core.ARMS})
+    assert slow["estimated_sessions"] > fast["estimated_sessions"]
+    assert slow["arms"] == fast["arms"] == list(core.ARMS)
+    assert slow["model_seeds"] == fast["model_seeds"] == list(core.MODEL_SEEDS)
+    assert slow["updates_per_arm"] == fast["updates_per_arm"] == core.UPDATES
