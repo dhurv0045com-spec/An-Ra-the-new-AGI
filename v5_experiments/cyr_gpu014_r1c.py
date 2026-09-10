@@ -1,9 +1,9 @@
 """CYR-GPU-014 / R1C fixed-matrix softmax-competition mechanism experiment.
 
-Every scientific arm uses the same physical V24576 Cymek V5 model.  Only the
-training-logit treatment changes.  Full-vocabulary candidate-free evaluation
-is never masked, so a positive result can be attributed to training-time
-normalizer/competition changes rather than a smaller executable model.
+Every scientific arm uses the same physical V24576 Cymek V5 model. Only the
+training-logit treatment changes. Full-vocabulary candidate-free evaluation is
+always reported; an explicitly labelled active-only diagnostic separates
+structural formation from inactive-output calibration failure.
 """
 from __future__ import annotations
 
@@ -90,8 +90,6 @@ def apply_training_logits(logits: Any, arm: str, *, torch_module: Any) -> Any:
     if spec["kind"] == "hard_mask":
         k = int(spec["candidate_count"])
         if k < PHYSICAL_VOCAB:
-            # Use a large finite negative value rather than -inf so BF16/FP32 CE
-            # and diagnostic reductions remain finite on supported CUDA kernels.
             out[..., k:] = -1.0e4
         return out
     if spec["kind"] == "inactive_offset":
@@ -100,26 +98,26 @@ def apply_training_logits(logits: Any, arm: str, *, torch_module: Any) -> Any:
     raise AssertionError(spec)
 
 
-def _eval_points(trace: list[Mapping[str, Any]]) -> list[tuple[int, float]]:
+def _eval_points(trace: list[Mapping[str, Any]], metric_field: str) -> list[tuple[int, float]]:
     points: list[tuple[int, float]] = []
     for row in trace:
         update = int(row.get("update", -1))
         if update < 0:
             continue
-        metric = row.get("dev_measurement", {})
+        metric = row.get(metric_field, {})
         if "complete_exact_with_valid_stop" in metric:
             points.append((update, float(metric["complete_exact_with_valid_stop"])))
     points.sort()
     return points
 
 
-def formation_metrics(acquisition: Mapping[str, Any]) -> dict[str, Any]:
-    points = _eval_points(list(acquisition.get("trace", [])))
+def formation_metrics(acquisition: Mapping[str, Any], *, metric_field: str = "dev_measurement") -> dict[str, Any]:
+    points = _eval_points(list(acquisition.get("trace", [])), metric_field)
     if int(acquisition.get("updates", -1)) != UPDATES:
-        return {"complete": False}
+        return {"complete": False, "metric_field": metric_field}
     eligible = [(u, s) for u, s in points if 600 <= u <= UPDATES]
     if not eligible:
-        return {"complete": False}
+        return {"complete": False, "metric_field": metric_field}
     values = [s for _u, s in eligible]
     sustained = None
     for i in range(len(eligible) - 2):
@@ -127,26 +125,60 @@ def formation_metrics(acquisition: Mapping[str, Any]) -> dict[str, Any]:
         if all(s >= G50 for _u, s in tri):
             sustained = tri[0][0]
             break
-    peak3 = 0.0
-    if len(values) >= 3:
-        peak3 = max(sum(values[i:i + 3]) / 3.0 for i in range(len(values) - 2))
-    else:
-        peak3 = max(values)
-    endpoint = None
-    for u, s in points:
-        if u == UPDATES:
-            endpoint = s
-    if endpoint is None:
+    peak3 = max(
+        (sum(values[i:i + 3]) / 3.0 for i in range(max(1, len(values) - 2))),
+        default=max(values),
+    ) if len(values) >= 3 else max(values)
+    endpoint = next((s for u, s in points if u == UPDATES), None)
+    if endpoint is None and metric_field == "dev_measurement":
         endpoint = float(acquisition.get("reasoning_battery_final", {}).get("STANDARD", {}).get(
             "complete_exact_with_valid_stop", 0.0
         ))
+    if endpoint is None:
+        endpoint = 0.0
     return {
         "complete": True,
+        "metric_field": metric_field,
         "formation_auc": sum(values) / len(values),
         "sustained_g50_update": sustained,
         "endpoint_standard": endpoint,
         "peak_3eval_standard": peak3,
         "eval_count": len(values),
+    }
+
+
+def _paired_support(per_seed: list[dict[str, Any]], endpoint: str) -> dict[str, Any]:
+    gaps = [
+        float(r["arms"][PRIMARY_ARM][endpoint]["formation_auc"])
+        - float(r["arms"][REFERENCE_ARM][endpoint]["formation_auc"])
+        for r in per_seed
+    ]
+    primary_g50 = sum(
+        r["arms"][PRIMARY_ARM][endpoint]["sustained_g50_update"] is not None for r in per_seed
+    )
+    ref_g50 = sum(
+        r["arms"][REFERENCE_ARM][endpoint]["sustained_g50_update"] is not None for r in per_seed
+    )
+    mean_gap = sum(gaps) / max(1, len(gaps))
+    supported = (
+        len(per_seed) == len(MODEL_SEEDS)
+        and sum(g >= PRIMARY_SEED_GAP for g in gaps) >= 3
+        and mean_gap >= PRIMARY_MEAN_GAP
+        and primary_g50 >= 2
+        and ref_g50 <= 1
+    )
+    not_sufficient = (
+        len(per_seed) == len(MODEL_SEEDS)
+        and mean_gap < NOT_SUFFICIENT_MEAN_GAP
+        and primary_g50 <= ref_g50 + 1
+    )
+    return {
+        "gaps": gaps,
+        "mean_gap": mean_gap,
+        "mask4096_sustained_g50_seeds": primary_g50,
+        "full24576_sustained_g50_seeds": ref_g50,
+        "supported": supported,
+        "not_sufficient": not_sufficient,
     }
 
 
@@ -166,56 +198,52 @@ def decision(arms: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
                 complete = False
                 break
             acq = body.get("acquisition", body)
-            fm = formation_metrics(acq)
-            if not fm.get("complete"):
+            functional = formation_metrics(acq, metric_field="dev_measurement")
+            structural = formation_metrics(acq, metric_field="active_only_measurement_diagnostic")
+            if not functional.get("complete") or not structural.get("complete"):
                 complete = False
                 break
-            row["arms"][arm] = fm
+            row["arms"][arm] = {"functional_full_vocab": functional, "structural_active_only": structural}
         if complete:
-            primary = row["arms"][PRIMARY_ARM]
-            ref = row["arms"][REFERENCE_ARM]
-            row["primary_auc_gap"] = primary["formation_auc"] - ref["formation_auc"]
             per_seed.append(row)
 
     if len(per_seed) < len(MODEL_SEEDS):
         verdict = "INCONCLUSIVE_INCOMPLETE_FOUR_SEED_CAMPAIGN"
+        structural_test = functional_test = {"supported": False, "not_sufficient": False}
     else:
-        gaps = [float(r["primary_auc_gap"]) for r in per_seed]
-        primary_g50 = sum(r["arms"][PRIMARY_ARM]["sustained_g50_update"] is not None for r in per_seed)
-        ref_g50 = sum(r["arms"][REFERENCE_ARM]["sustained_g50_update"] is not None for r in per_seed)
-        support = (
-            sum(g >= PRIMARY_SEED_GAP for g in gaps) >= 3
-            and sum(gaps) / len(gaps) >= PRIMARY_MEAN_GAP
-            and primary_g50 >= 2
-            and ref_g50 <= 1
-        )
-        not_sufficient = (
-            sum(gaps) / len(gaps) < NOT_SUFFICIENT_MEAN_GAP
-            and primary_g50 <= ref_g50 + 1
-        )
-        if support:
-            verdict = "SOFTMAX_COMPETITION_CAUSALLY_SUPPORTED"
-        elif not_sufficient:
+        structural_test = _paired_support(per_seed, "structural_active_only")
+        functional_test = _paired_support(per_seed, "functional_full_vocab")
+        if structural_test["supported"] and functional_test["supported"]:
+            verdict = "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED"
+        elif structural_test["supported"]:
+            verdict = "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED"
+        elif structural_test["not_sufficient"] and functional_test["not_sufficient"]:
             verdict = "SOFTMAX_COMPETITION_NOT_SUFFICIENT"
         else:
             verdict = "MIXED_SOFTMAX_COMPETITION_EFFECT"
 
-    mass_rescue = False
+    mass_rescue: dict[str, Any] = {"functional": False, "structural": False}
     if len(per_seed) == len(MODEL_SEEDS):
-        offset_gaps = [
-            r["arms"]["OFFSET_EQ4096"]["formation_auc"] - r["arms"][REFERENCE_ARM]["formation_auc"]
-            for r in per_seed
-        ]
-        offset_close = [
-            abs(r["arms"]["OFFSET_EQ4096"]["formation_auc"] - r["arms"][PRIMARY_ARM]["formation_auc"])
-            for r in per_seed
-        ]
-        mass_rescue = sum(g >= 0.20 for g in offset_gaps) >= 3 and (sum(offset_close) / 4.0) <= 0.15
+        for endpoint, name in (("functional_full_vocab", "functional"), ("structural_active_only", "structural")):
+            offset_gaps = [
+                r["arms"]["OFFSET_EQ4096"][endpoint]["formation_auc"]
+                - r["arms"][REFERENCE_ARM][endpoint]["formation_auc"]
+                for r in per_seed
+            ]
+            offset_close = [
+                abs(r["arms"]["OFFSET_EQ4096"][endpoint]["formation_auc"]
+                    - r["arms"][PRIMARY_ARM][endpoint]["formation_auc"])
+                for r in per_seed
+            ]
+            mass_rescue[name] = sum(g >= 0.20 for g in offset_gaps) >= 3 and (sum(offset_close) / 4.0) <= 0.15
     return {
-        "schema": "anra-cyr-gpu014-r1c-decision/v1",
+        "schema": "anra-cyr-gpu014-r1c-decision/v2",
         "verdict": verdict,
         "per_seed": per_seed,
         "primary_pair": [PRIMARY_ARM, REFERENCE_ARM],
+        "structural_primary_test": structural_test,
+        "functional_primary_test": functional_test,
+        "inactive_partition_mass_rescue": mass_rescue,
         "primary_thresholds": {
             "seed_auc_gap": PRIMARY_SEED_GAP,
             "required_seed_wins": "3/4",
@@ -223,7 +251,6 @@ def decision(arms: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
             "mask4096_sustained_g50_min_seeds": 2,
             "full24576_sustained_g50_max_seeds": 1,
         },
-        "inactive_partition_mass_rescue_supported": mass_rescue,
         "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
         "production_tokenizer_change_authorized": False,
         "pre500m_authorized": False,
@@ -238,8 +265,8 @@ def estimate_arm_seconds(cal: Mapping[str, Any]) -> float:
     eps = max(float(cal["generation_examples_per_sec"]), 1e-9)
     diag = max(float(cal.get("diagnostic_seconds", 0.0)), 0.0)
     eval_count = UPDATES // EVAL_EVERY
-    basic_eval_examples = 64 + 85 + 100
-    # Full structural battery is intentionally sparse: baseline, 1500, final.
+    # Per eval: controller + full measurement + train probe + active-only measurement.
+    basic_eval_examples = 64 + 85 + 100 + 85
     structural_examples = 85 + 85 + 96 + 64 + 48 + 48
     raw = (
         UPDATES / ups
@@ -268,7 +295,7 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
             f"need {need/60:.1f} min, have {have/60:.1f} min"
         )
     return {
-        "schema": "anra-cyr-gpu014-r1c-resolved/v1",
+        "schema": "anra-cyr-gpu014-r1c-resolved/v2",
         "experiment": EXPERIMENT,
         "arms": list(ARMS),
         "model_seeds": list(MODEL_SEEDS),
