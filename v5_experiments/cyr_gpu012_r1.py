@@ -41,6 +41,11 @@ class PaddedCompactTokenizer:
     emitted by the tokenizer and exist only as extra tied embedding/output
     classes. That makes 19-vs-N a targeted output/embedding-burden intervention,
     while prompt/answer segmentation and active token IDs remain unchanged.
+
+    Decoding is intentionally fail-visible: if a large-vocabulary arm predicts
+    any inactive ID >=19, that ID is rendered as an explicit marker rather than
+    silently disappearing. This prevents an invalid large-softmax prediction
+    from being accidentally scored as the correct arithmetic string.
     """
 
     pad_id, bos_id, eos_id = 0, 1, 2
@@ -60,8 +65,18 @@ class PaddedCompactTokenizer:
             raise ValueError(f"R1 compact tokenizer cannot encode {exc.args[0]!r}") from exc
 
     def decode(self, ids: list[int]) -> str:
-        return "".join(self.inverse.get(int(i), "") for i in ids
-                       if int(i) not in (self.pad_id, self.bos_id, self.eos_id))
+        pieces: list[str] = []
+        for raw in ids:
+            idx = int(raw)
+            if idx in (self.pad_id, self.bos_id, self.eos_id):
+                continue
+            if idx in self.inverse:
+                pieces.append(self.inverse[idx])
+            elif 0 <= idx < self.vocabulary_size:
+                pieces.append(f"<inactive:{idx}>")
+            else:
+                pieces.append(f"<invalid:{idx}>")
+        return "".join(pieces)
 
     @property
     def special(self) -> dict[str, int]:
