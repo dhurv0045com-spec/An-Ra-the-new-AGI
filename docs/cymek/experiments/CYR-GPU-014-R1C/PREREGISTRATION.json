@@ -1,0 +1,151 @@
+{
+  "schema": "anra-cyr-gpu014-r1c-preregistration/v1",
+  "experiment": "CYR-GPU-014-R1C",
+  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION",
+  "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
+  "scientific_executable_commit": "652cbacf7d75a511f667d8cae1c39442275412b0",
+  "scientific_executable_blobs": {
+    "v5_experiments/cyr_gpu014_r1c.py": "dc1c226dd6bf032ee096a9ab726c9c94b62eb951",
+    "anra_v5/cyr_gpu014_r1c_run.py": "5bd880dea143e14348019b9c4f959c760a92f051",
+    "tests/test_v5_cyr_gpu014_r1c.py": "607412e4d4d10451cce7ea7cf9c6d37de9279af7",
+    "docs/cymek/experiments/CYR-GPU-014-R1C/PLAN.md": "6a2dcbe1cff3e2ee39deef5991081cfcd1dea8f9",
+    "v5_experiments/cyr_gpu012_r1.py": "d043c46ccf30c781f39c69d13c9597465767e188",
+    "v5_experiments/cyr_gpu011.py": "600140d388ce94a6dc08fa32cf84d37511889362",
+    "anra_v5/cyr_gpu011_run.py": "356523d9ee7fb0916c09c5806964892f9024dca7",
+    "anra_v5/cyr_gpu006_run.py": "f61f17e9e2bdbefd8edc98dd7a7598a8dea35934",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_training/production_backend.py": "84d2dfc7cad3f52fd3a9b3f7357fac4d70145cb6",
+    "v5_objectives/causal_lm.py": "4d0cc7c31679f99b44d34570e47e40f6778b7231",
+    "docs/cymek/experiments/CYR-GPU-011/ARK002B_TASK_MANIFEST.json": "6c46fdf90139526b00e9041af2d511ed0ac24270"
+  },
+  "prior_evidence": {
+    "r1_bundle_sha256": "a22b538396a3d0957a60a27f39b0cf3dd3b20874585b4c15a03207224f613d29",
+    "r1_verdict": "MIXED_OR_INTERMEDIATE_REPRESENTATION_EFFECT",
+    "r1_endpoint_standard": {"19": 0.12941176470588237, "4096": 1.0, "24576": 0.0},
+    "r1b_bundle_sha256": "7ffebfd49ad0bd8d81035e3cee56b23a5f31f34ba8af0f915408409e31b62792",
+    "r1b_verdict": "MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE",
+    "r1b_seed_3611": {"19": 0.0, "1024": 0.0, "4096": 0.5058823529411764, "8192": 0.7176470588235294, "16384": 0.6470588235294118, "24576": 0.011764705882352941},
+    "r1b_seed_3612": {"19": 0.0, "1024": 0.0, "4096": 0.49411764705882355, "8192": 0.0, "16384": 0.12941176470588237, "24576": 0.0},
+    "use": "Motivates and fixes MASK_4096 as the primary mechanism intervention. No R1/R1B seed is reused prospectively."
+  },
+  "data": {
+    "source": "exact CYR-GPU-011 copy of frozen ARK-002B T2 no-carry arithmetic",
+    "split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+    "manifest_blob_sha": "6c46fdf90139526b00e9041af2d511ed0ac24270",
+    "train_rows": 500,
+    "dev_controller_rows": 64,
+    "dev_measurement_rows": 85,
+    "sealed_rows": 48,
+    "sealed_policy": "Already consumed by prior bridge work; R1C is developmental and makes no fresh sealed claim."
+  },
+  "model_and_optimizer": {
+    "geometry": "Cymek V5 RESEARCH_SMALL: 4L, width128, Q4, KV2, FFN512",
+    "physical_vocabulary_all_arms": 24576,
+    "active_token_ids": "0..18",
+    "tied_input_output_embedding": true,
+    "batch_rows": 64,
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "betas": [0.9, 0.95],
+    "eps": 1e-8,
+    "weight_decay": 0.1,
+    "global_grad_clip": 1.0,
+    "objective": "answer + EOS causal CE using inherited Cymek V5 production backend semantics"
+  },
+  "causal_intervention": {
+    "held_fixed": [
+      "physical 24576-row tied matrix and total parameter count",
+      "all model initialization bytes within matched seed",
+      "active input token IDs 0..18",
+      "prompt/answer segmentation",
+      "semantic-example order within matched seed",
+      "batch size",
+      "optimizer family/scalars",
+      "learning rate",
+      "objective",
+      "3000-update endpoint",
+      "full-vocabulary functional evaluation"
+    ],
+    "manipulated": "training-time output competition / inactive-class participation",
+    "arms": {
+      "FULL_24576": "unmodified 24576-class training logits",
+      "MASK_19": "training CE candidates 0..18 only; physical matrix remains 24576",
+      "MASK_4096": "PRIMARY; training CE candidates 0..4095 only",
+      "MASK_8192": "training CE candidates 0..8191 only",
+      "MASK_16384": "training CE candidates 0..16383 only",
+      "OFFSET_EQ4096": "subtract log((24576-19)/(4096-19)) from inactive logits 19..24575 during training while retaining all rows in denominator and gradient flow"
+    },
+    "interpretation_boundary": "Hard masking changes normalizer competition and output-row gradient participation. OFFSET_EQ4096 tests whether aggregate inactive partition mass alone explains rescue."
+  },
+  "replication": {
+    "mandatory_matched_seeds": 4,
+    "model_seeds": [3711, 3712, 3713, 3714],
+    "order_seeds": [6001, 6002, 6003, 6004],
+    "arms_per_seed": 6,
+    "arm_order": [
+      ["FULL_24576", "MASK_19", "MASK_4096", "MASK_8192", "MASK_16384", "OFFSET_EQ4096"],
+      ["OFFSET_EQ4096", "MASK_16384", "MASK_8192", "MASK_4096", "MASK_19", "FULL_24576"],
+      ["MASK_4096", "FULL_24576", "MASK_16384", "MASK_19", "OFFSET_EQ4096", "MASK_8192"],
+      ["OFFSET_EQ4096", "MASK_8192", "MASK_19", "MASK_16384", "FULL_24576", "MASK_4096"]
+    ],
+    "posthoc_seed_or_arm_selection_allowed": false
+  },
+  "exposure": {
+    "updates_per_arm": 3000,
+    "batch_rows": 64,
+    "semantic_row_presentations_per_arm": 192000,
+    "total_mandatory_optimizer_updates": 72000,
+    "total_mandatory_semantic_row_presentations": 4608000,
+    "early_stopping": false,
+    "eval_every_updates": 150,
+    "dense_diagnostic_updates": [0, 300, 600, 900, 1500, 2100, 3000],
+    "full_structural_battery_updates": [0, 1500, 3000]
+  },
+  "primary_pair": ["MASK_4096", "FULL_24576"],
+  "primary_metrics": {
+    "functional_full_vocab": "DEV_MEASUREMENT candidate-free complete_exact_with_valid_stop using all 24576 output classes",
+    "structural_active_only": "same DEV_MEASUREMENT examples with inference candidates restricted to IDs 0..18; mechanism diagnostic only",
+    "summary": ["FORMATION_AUC updates 600..3000", "SUSTAINED_G50 = first 3 consecutive >=0.50", "ENDPOINT_STANDARD", "PEAK_3EVAL_STANDARD"]
+  },
+  "primary_threshold_per_endpoint": {
+    "paired_auc_gap_min_in_seed": 0.20,
+    "required_seed_wins": 3,
+    "mandatory_seed_count": 4,
+    "mean_paired_auc_gap_min": 0.25,
+    "mask4096_sustained_g50_min_seeds": 2,
+    "full24576_sustained_g50_max_seeds": 1
+  },
+  "verdicts": [
+    "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED",
+    "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED",
+    "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "MIXED_SOFTMAX_COMPETITION_EFFECT",
+    "INCONCLUSIVE_INCOMPLETE_FOUR_SEED_CAMPAIGN",
+    "INCONCLUSIVE_RUNTIME_FAILURE"
+  ],
+  "secondary_mechanism_metrics": {
+    "probability_geometry": ["target probability", "active mass", "inactive mass", "max inactive probability/logit", "target margins", "full entropy", "active-only entropy"],
+    "representation": ["final hidden-state L2 statistics"],
+    "gradient_partition": ["active embedding L2", "participating inactive embedding L2", "excluded inactive embedding L2", "core gradient L2"],
+    "counterfactual_gradients": ["core cosine vs FULL_24576", "core cosine vs MASK_4096"],
+    "partition_mass_rescue_rule": "OFFSET_EQ4096 AUC gap >=0.20 in >=3/4 seeds and mean AUC within 0.15 of MASK_4096, reported separately for structural and functional endpoints"
+  },
+  "runtime_and_durability": {
+    "hard_wall_minutes": 420.0,
+    "packaging_reserve_minutes": 10.0,
+    "runtime_safety_factor": 1.25,
+    "preoutcome_calibration": "all six treatments at fixed batch64; includes optimizer steps, full-vocab generation and dense diagnostic timing",
+    "fit_policy": "all 24 mandatory arms must conservatively fit the 410-minute scientific wall before scientific execution; otherwise fail closed",
+    "checkpoint_every_updates": 500,
+    "exact_resume_smoke": "10 uninterrupted updates must equal 5 + save/load + 5 at model/optimizer hashes and counters",
+    "completed_arm_reuse": "only exact experiment/arm/seed/order/stream/treatment/endpoint identity",
+    "failure_policy": "package partial evidence; never silently reduce seeds, arms, exposure, thresholds, or diagnostics"
+  },
+  "authorization": {
+    "production_tokenizer_change": false,
+    "pre500m": false,
+    "training_500m": false,
+    "broad_reasoning_claim": false,
+    "agi_claim": false
+  }
+}
