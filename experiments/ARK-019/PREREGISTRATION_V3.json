@@ -1,0 +1,98 @@
+{
+  "schema": "arkenstone-ark019-v3-preregistration/v1",
+  "experiment": "ARK-019-V3",
+  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION",
+  "claim_ceiling": "REAL_TEXT_PROXY_GUARDIAN_CANDIDATE_ONLY",
+  "prior_evidence": {
+    "ark017_v2_bundle_sha256": "c648d3fde569ca66fb34b54e56c09589a020a71bb5f7dcb88e476c224292d32c",
+    "ark017_v2_verdict": "BOTH_LEVERS_SUFFICIENT",
+    "ark018_v4_bundle_sha256": "cea50622b1725eb12308c54355616e2188b7956761db46289c6da33c09c31f7c"
+  },
+  "design_commits": {
+    "v3_addendum": "b3641d98a310981516aa5c93b6ad13abc032c781",
+    "execution_clarifications": "d44bf550d00e0c5dbe9587c717835234dbf01a7f",
+    "horizon_amendment": "28babe021a9b8fbc4c2e23c140e31313d50cec97"
+  },
+  "executable_commit": "63dc47d9bdcd85e004c03aaf9a738c9682fcd8f0",
+  "executable_blobs": {
+    "experiments/ARK-019/ark019_v3_core.py": "bb815ebf1c6c32c45c211a744e0a4d19099dd542",
+    "experiments/ARK-019/run_ark019_v3.py": "ef41096069714668b3b1e5c0e165904908ebc885",
+    "tests/test_ark019_v3.py": "c52d6857aa2933c28291d4d115205af927c37c5f",
+    "experiments/ARK-018/ark018_v3_common.py": "05b1c6a7832749740420b5b540c3214ef4c84492",
+    "experiments/ARK-018/ark018_v3_binding_fast.py": "7492c697eccc5d87528094acf1b2e6164e47b1e1"
+  },
+  "launcher": {
+    "path": "experiments/COLAB/arkenstone_ark019_v3.ipynb",
+    "blob_sha": "1585da6d72270102ddd884527cef694a806bc16d",
+    "pinned_executable_commit": "63dc47d9bdcd85e004c03aaf9a738c9682fcd8f0"
+  },
+  "substrate": {
+    "drive_root": "/content/drive/MyDrive/genisis-arkenstone/ARK018_SCIENCE_BIRTH_V1",
+    "science_sha256": "b397427cd5964b7cc2a41264ca8789a0c020f96d4e403b314900798711a2ead5",
+    "pretraining_arm": "SCIENCE_ONLY",
+    "pretraining_seeds": [31801, 31902],
+    "required_final_step": 8000,
+    "tokenizer_and_cache_hashes": "runtime-bound to ARK-018 prepared receipt"
+  },
+  "skills": {
+    "selected_single_token_words": 24,
+    "skill_a": "first 12 selected token IDs; declarative means template",
+    "skill_b": "last 12 selected token IDs; disjoint table-arrow template",
+    "factsets": {"train": 400, "control": 50, "sealed": 50},
+    "parent_gate": "3 consecutive CONTROL robust qualifications plus one SEALED robust qualification"
+  },
+  "matched_design": {
+    "parent_seeds": [31801, 31902],
+    "skill_b_order_seeds": [319001, 319002],
+    "mandatory_matched_sets": 4,
+    "arms": ["PLASTIC_HIGH", "STATIC_REPLAY_1OF64", "GUARDIAN_REPLAY", "GUARDIAN_HYBRID"],
+    "horizon_updates_per_arm": 1000,
+    "eval_every_updates": 100,
+    "full_checkpoint_every_updates": 300,
+    "high_lr": 0.0003,
+    "low_shadow_lr": 0.000003
+  },
+  "update_contract": {
+    "sequence_slots": 32,
+    "default_real_text_slots": 28,
+    "skill_b_slots": 4,
+    "replay_replaces_real_text_only": true,
+    "slot_normalized_loss": true,
+    "replay_1of64": "one SKILL_A non-identity replay slot every even update",
+    "replay_1of32": "one SKILL_A non-identity replay slot every update"
+  },
+  "guardian": {
+    "states": ["PLASTIC", "SPARSE64", "REPLAY32", "EMERGENCY_CAP16X", "CONSOLIDATE"],
+    "warning": "ORDER_ONLY or QUERY_ORDER below 0.90 for two consecutive CONTROL evaluations",
+    "formal_failure": "canonical below 0.90 or ORDER_ONLY/QUERY_ORDER below 0.85",
+    "healthy_exit": "3 consecutive CONTROL evaluations with canonical >=0.95 and ORDER_ONLY/QUERY_ORDER >=0.90",
+    "emergency_cap": "16x median full applied delta from 32-step matched LOW shadow; optimizer moments left unchanged"
+  },
+  "runtime": {
+    "target": "Colab T4 CUDA",
+    "campaign_wall_minutes": 175,
+    "packaging_reserve_minutes": 5,
+    "safety_factor": 1.30,
+    "fail_closed_if_full_four_set_design_does_not_fit": true,
+    "runtime_may_not_reduce_horizon_seeds_or_arms": true
+  },
+  "preexecution_gates": [
+    "frozen executable checkout and blob verification",
+    "py_compile runner/core/inherited ARK-018 modules",
+    "7 pure state-machine tests pass",
+    "CUDA available",
+    "ARK-018 prepared cache and both SCIENCE_ONLY checkpoints present",
+    "runtime identity validation of science/tokenizer/cache/checkpoints",
+    "both SKILL_A parents qualify",
+    "10-update exact-resume smoke passes",
+    "full fixed campaign fits conservative runtime projection"
+  ],
+  "authorization": {
+    "production_scheduler": false,
+    "production_tokenizer": false,
+    "pre500m": false,
+    "training_500m": false,
+    "broad_continual_learning": false,
+    "agi": false
+  }
+}
