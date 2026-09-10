@@ -7,19 +7,25 @@ import pytest
 from v5_experiments import cyr_gpu014_r1c as core
 
 
-def _acq(value: float, *, updates: int = core.UPDATES) -> dict:
+def _acq(full: float, active: float | None = None, *, updates: int = core.UPDATES) -> dict:
+    if active is None:
+        active = full
     trace = []
     for u in range(core.EVAL_EVERY, core.UPDATES + 1, core.EVAL_EVERY):
-        trace.append({"update": u, "dev_measurement": {"complete_exact_with_valid_stop": value}})
+        trace.append({
+            "update": u,
+            "dev_measurement": {"complete_exact_with_valid_stop": full},
+            "active_only_measurement_diagnostic": {"complete_exact_with_valid_stop": active},
+        })
     return {
         "updates": updates,
         "trace": trace,
-        "reasoning_battery_final": {"STANDARD": {"complete_exact_with_valid_stop": value}},
+        "reasoning_battery_final": {"STANDARD": {"complete_exact_with_valid_stop": full}},
     }
 
 
-def _arm(value: float) -> dict:
-    return {"acquisition": _acq(value)}
+def _arm(full: float, active: float | None = None) -> dict:
+    return {"acquisition": _acq(full, active)}
 
 
 def test_treatment_specs_are_frozen_and_offset_matches_formula():
@@ -61,6 +67,8 @@ def test_formation_metrics_require_fixed_endpoint_and_detect_sustained_g50():
     assert m["formation_auc"] == pytest.approx(0.55)
     assert m["sustained_g50_update"] == 600
     assert m["endpoint_standard"] == pytest.approx(0.55)
+    active = core.formation_metrics(a, metric_field="active_only_measurement_diagnostic")
+    assert active["formation_auc"] == pytest.approx(0.55)
     assert core.formation_metrics(_acq(0.55, updates=2999))["complete"] is False
 
 
@@ -74,22 +82,40 @@ def test_primary_decision_cannot_be_rescued_by_secondary_arms():
     assert d["verdict"] == "SOFTMAX_COMPETITION_NOT_SUFFICIENT"
 
 
-def test_primary_supported_requires_replicated_mask4096_advantage():
+def test_primary_supported_functional_and_structural():
     arms = {}
     for i in range(4):
         for arm in core.ARMS:
             if arm == "MASK_4096":
-                value = 0.75
+                full = active = 0.75
             elif arm == "FULL_24576":
-                value = 0.05
+                full = active = 0.05
             elif arm == "OFFSET_EQ4096":
-                value = 0.70
+                full = active = 0.70
             else:
-                value = 0.30
-            arms[core.arm_label(i, arm)] = _arm(value)
+                full = active = 0.30
+            arms[core.arm_label(i, arm)] = _arm(full, active)
     d = core.decision(arms)
-    assert d["verdict"] == "SOFTMAX_COMPETITION_CAUSALLY_SUPPORTED"
-    assert d["inactive_partition_mass_rescue_supported"] is True
+    assert d["verdict"] == "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED"
+    assert d["inactive_partition_mass_rescue"]["functional"] is True
+    assert d["inactive_partition_mass_rescue"]["structural"] is True
+
+
+def test_structural_rescue_can_be_output_calibration_limited():
+    arms = {}
+    for i in range(4):
+        for arm in core.ARMS:
+            if arm == "MASK_4096":
+                full, active = 0.10, 0.75
+            elif arm == "FULL_24576":
+                full, active = 0.05, 0.05
+            else:
+                full = active = 0.20
+            arms[core.arm_label(i, arm)] = _arm(full, active)
+    d = core.decision(arms)
+    assert d["verdict"] == "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED"
+    assert d["structural_primary_test"]["supported"] is True
+    assert d["functional_primary_test"]["supported"] is False
 
 
 def _cal(ups: float = 100.0, eps: float = 1000.0, diag: float = 0.01):
