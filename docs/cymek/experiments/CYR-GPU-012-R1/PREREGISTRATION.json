@@ -1,13 +1,13 @@
 {
-  "schema": "anra-cyr-gpu012-r1-preregistration/v1",
+  "schema": "anra-cyr-gpu012-r1-preregistration/v2",
   "experiment": "CYR-GPU-012-R1",
-  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION",
+  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION_FINAL_HARDENING",
   "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
-  "executable_sha": "1d837a2f3a934756e9659d40066fbbc3ec206299",
+  "executable_sha": "d6953af2b0af64439dd9fd9ac0b2bc4987ed9c97",
   "executable_blobs": {
-    "v5_experiments/cyr_gpu012_r1.py": "62522072e3389326d5eea789e2f9a8d7d3e08048",
+    "v5_experiments/cyr_gpu012_r1.py": "d043c46ccf30c781f39c69d13c9597465767e188",
     "anra_v5/cyr_gpu012_r1_run.py": "29b571d5d14cf4f7a3a4a9bbe0568a5ba2653685",
-    "tests/test_v5_cyr_gpu012_r1.py": "2dac3c4c573aab92c28bf45114b01e05a289a597",
+    "tests/test_v5_cyr_gpu012_r1.py": "c1e66fa8869cca2466a5bfc7f2e7fd5a4f09b0f8",
     "notebooks/cymek_colab_gpu_r1_representation.ipynb": "91680596027e1f21f0292120eb31a8d0010eeaba",
     "v5_experiments/cyr_gpu011.py": "600140d388ce94a6dc08fa32cf84d37511889362",
     "anra_v5/cyr_gpu011_run.py": "356523d9ee7fb0916c09c5806964892f9024dca7",
@@ -21,6 +21,7 @@
     "docs/cymek/experiments/CYR-GPU-012-R1/PLAN.md": "823f58b18ef4242d1b686de9a8f8527bab728e75",
     "docs/cymek/experiments/CYR-GPU-012-R1/DESIGN_REASONING.md": "c9f8bc21727b0c35f82c5375d8cf1c4936600f44"
   },
+  "hardening_note": "Final pre-run hardening makes predictions of inactive output IDs >=19 explicit decode failures instead of silently dropping them. This prevents the V24576 arm from receiving accidental credit for an invalid output class.",
   "prior_evidence": {
     "cyr_gpu_011_result": "COMPACT 56.47% STANDARD at 44.89% ARK exposure; production BPE 0% STANDARD and 0/48 SEALED at 100% exposure",
     "cyr_gpu_011_bundle_sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5",
@@ -99,7 +100,8 @@
     "triple-add transfer",
     "three-digit extrapolation",
     "parameter displacement",
-    "matched initialization SHA-256 receipts"
+    "matched initialization SHA-256 receipts",
+    "inactive-output decode violations rendered fail-visible"
   ],
   "decision_thresholds": {
     "min_compact_signal": 0.45,
