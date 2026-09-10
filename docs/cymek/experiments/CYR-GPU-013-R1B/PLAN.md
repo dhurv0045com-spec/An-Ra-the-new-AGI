@@ -1,6 +1,6 @@
 # CYR-GPU-013 / R1B — REPLICATED VOCABULARY RESPONSE CURVE
 
-**Status:** PREREGISTRATION CANDIDATE / NOT EXECUTED  
+**Status:** PREREGISTERED + IMPLEMENTED + STATICALLY AUDITED / READY FOR OPERATOR COLAB CUDA PREEXECUTION GATE / NOT EXECUTED  
 **Target hardware:** Colab T4-class CUDA GPU  
 **Campaign wall:** 175 minutes with 5-minute packaging reserve  
 **Claim ceiling:** controlled developmental representation-mechanism evidence only.
