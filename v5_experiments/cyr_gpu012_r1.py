@@ -30,7 +30,7 @@ ORDER_SEEDS = (5801, 5802)
 MIN_COMPACT_SIGNAL = 0.45
 STRONG_GAP = 0.30
 EQUIVALENT_GAP = 0.10
-RUNTIME_SAFETY_FACTOR = 1.25
+RUNTIME_SAFETY_FACTOR = 1.35
 MIN_FINALIZE_SECONDS = 120.0
 
 
@@ -89,10 +89,18 @@ def _estimate_arm_seconds(cal: Mapping[str, Any]) -> float:
     ups = max(float(cal["training_updates_per_sec"]), 1e-9)
     eps = max(float(cal["generation_examples_per_sec"]), 1e-9)
     # At batch64 the inherited acquisition runner evaluates every 200 updates.
+    # Besides controller/measurement/probe generation, it can run the full
+    # structural battery at three fixed periodic points plus up to four
+    # M99/G50 onset/confirmation events. Budget all seven conservatively.
     eval_count = SCREEN_UPDATES // 200
     basic_eval_examples = 64 + 85 + 100
-    final_examples = 64 + 85 + 85 + 96 + 64 + 48 + 48
-    raw = SCREEN_UPDATES / ups + eval_count * basic_eval_examples / eps + final_examples / eps
+    structural_examples = 85 + 85 + 96 + 64 + 48 + 48
+    max_extra_structural_batteries = 7
+    final_examples = structural_examples + 64
+    raw = (SCREEN_UPDATES / ups
+           + eval_count * basic_eval_examples / eps
+           + max_extra_structural_batteries * structural_examples / eps
+           + final_examples / eps)
     return raw * RUNTIME_SAFETY_FACTOR + MIN_FINALIZE_SECONDS
 
 
