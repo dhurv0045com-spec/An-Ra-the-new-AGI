@@ -102,6 +102,7 @@ def _package(out: Path, campaign: Mapping[str, Any], preregistration: Mapping[st
         "MATCHED_INIT_RECEIPTS.json": campaign.get("matched_init_receipts", []),
         "ARMS.json": campaign.get("arms", {}),
         "DECISION.json": campaign.get("decision", {}),
+        "OPTIONAL_THIRD_CURVE.json": campaign.get("optional_third_curve", {}),
     }
     if failure is not None:
         payload["FAILURE.json"] = dict(failure)
@@ -109,6 +110,30 @@ def _package(out: Path, campaign: Mapping[str, Any], preregistration: Mapping[st
         for name, body in payload.items():
             zf.writestr(name, json.dumps(body, indent=2, sort_keys=True, default=str))
     return {"path": str(bundle), "sha256": _sha256(bundle), "entries": sorted(payload)}
+
+
+def _run_curve(*, out: Path, seed_index: int, data: Mapping[str, Any], battery: Mapping[str, Any],
+               resolved: Mapping[str, Any], torch: Any, device: Any, deadline: float,
+               build_receipts: list[dict[str, Any]], progress: Callable[[str], None] | None) -> dict[str, dict[str, Any]]:
+    curve: dict[str, dict[str, Any]] = {}
+    order = core.ARM_ORDERS[seed_index]
+    if progress:
+        progress(f"R1B starting complete curve seed_index={seed_index + 1} order={order}")
+    for vocab in order:
+        arm = r1run._run_or_reuse_arm(
+            out=out,
+            seed_index=seed_index,
+            vocab=vocab,
+            data=data,
+            battery=battery,
+            torch=torch,
+            device=device,
+            deadline=deadline,
+            build_receipts=build_receipts,
+            progress=progress,
+        )
+        curve[core.arm_label(seed_index, vocab)] = arm
+    return curve
 
 
 def run_campaign(*, repo: Path, out: Path, preregistration: Mapping[str, Any],
@@ -138,6 +163,7 @@ def run_campaign(*, repo: Path, out: Path, preregistration: Mapping[str, Any],
         "calibrations": dict(calibrations),
         "arms": {},
         "matched_init_receipts": [],
+        "optional_third_curve": {"status": "NOT_REQUESTED_BY_RESOLVER"},
         "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
     }
     failure: dict[str, Any] | None = None
@@ -160,47 +186,61 @@ def run_campaign(*, repo: Path, out: Path, preregistration: Mapping[str, Any],
         }
 
         curves_to_run = int(resolved["curves_to_run"])
+        curve_estimate = float(resolved["estimated_curve_seconds"])
         with _patched_r1_globals():
-            for seed_index in range(curves_to_run):
-                curve_order = core.ARM_ORDERS[seed_index]
-                need = sum(float(resolved["estimated_arm_seconds"][f"V{v}"]) for v in curve_order)
+            # Two curves are the frozen primary experiment. Either both finish or the campaign fails.
+            for seed_index in (0, 1):
                 remaining = science_deadline - time.monotonic()
-                if remaining < need:
-                    if seed_index < 2:
-                        raise RuntimeError(
-                            f"mandatory R1B curve {seed_index + 1} no longer fits safely: "
-                            f"need={need:.1f}s remaining={remaining:.1f}s"
-                        )
-                    if progress:
-                        progress("R1B optional third curve skipped by wall protection")
-                    break
-                if progress:
-                    progress(f"R1B starting complete curve seed_index={seed_index + 1} order={curve_order}")
-                for vocab in curve_order:
-                    arm = r1run._run_or_reuse_arm(
-                        out=out,
-                        seed_index=seed_index,
-                        vocab=vocab,
-                        data=data,
-                        battery=battery,
-                        torch=torch,
-                        device=device,
-                        deadline=science_deadline - core.MIN_FINALIZE_SECONDS,
-                        build_receipts=campaign["matched_init_receipts"],
-                        progress=progress,
+                if remaining < curve_estimate:
+                    raise RuntimeError(
+                        f"mandatory R1B curve {seed_index + 1} no longer fits safely: "
+                        f"need={curve_estimate:.1f}s remaining={remaining:.1f}s"
                     )
-                    campaign["arms"][core.arm_label(seed_index, vocab)] = arm
+                curve = _run_curve(
+                    out=out, seed_index=seed_index, data=data, battery=battery,
+                    resolved=resolved, torch=torch, device=device,
+                    deadline=science_deadline - core.MIN_FINALIZE_SECONDS,
+                    build_receipts=campaign["matched_init_receipts"], progress=progress,
+                )
+                campaign["arms"].update(curve)
+                _write_json(out / "partial_campaign.json", campaign)
+
+            # Third curve is optional. It can add evidence but can never invalidate the two-curve primary result.
+            if curves_to_run >= 3:
+                remaining = science_deadline - time.monotonic()
+                if remaining < curve_estimate:
+                    campaign["optional_third_curve"] = {
+                        "status": "SKIPPED_WALL_PROTECTION",
+                        "estimated_seconds_needed": curve_estimate,
+                        "remaining_seconds": max(0.0, remaining),
+                    }
+                else:
+                    try:
+                        curve = _run_curve(
+                            out=out, seed_index=2, data=data, battery=battery,
+                            resolved=resolved, torch=torch, device=device,
+                            deadline=science_deadline - core.MIN_FINALIZE_SECONDS,
+                            build_receipts=campaign["matched_init_receipts"], progress=progress,
+                        )
+                        campaign["arms"].update(curve)
+                        campaign["optional_third_curve"] = {"status": "COMPLETE"}
+                    except Exception as exc:
+                        campaign["optional_third_curve"] = {
+                            "status": "FAILED_WITHOUT_INVALIDATING_PRIMARY",
+                            "exception": type(exc).__name__,
+                            "message": str(exc),
+                        }
                     _write_json(out / "partial_campaign.json", campaign)
 
         complete_curves = 0
-        for i in range(curves_to_run):
+        for i in range(3):
             if all(core.arm_label(i, v) in campaign["arms"] for v in core.VOCABS):
                 complete_curves += 1
         campaign["complete_curves"] = complete_curves
         campaign["decision"] = core.decision(campaign["arms"], complete_curves)
-        campaign["status"] = "COMPLETE" if complete_curves >= 2 else "INCOMPLETE"
         if complete_curves < 2:
             raise RuntimeError("R1B ended without two complete mandatory curves")
+        campaign["status"] = "COMPLETE"
     except Exception as exc:
         failure = {
             "schema": "anra-cyr-gpu013-r1b-failure/v1",
