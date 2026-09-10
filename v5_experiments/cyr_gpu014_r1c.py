@@ -37,7 +37,9 @@ ARM_ORDERS = (
 )
 PRIMARY_ARM = "MASK_4096"
 REFERENCE_ARM = "FULL_24576"
-WALL_MINUTES = 420.0
+# R1C is intentionally too large to weaken merely to fit one fragile Colab session.
+# A session is bounded; exact Drive checkpoints continue the frozen campaign unchanged.
+WALL_MINUTES = 330.0
 PACKAGING_RESERVE_MINUTES = 10.0
 RUNTIME_SAFETY_FACTOR = 1.25
 MIN_FINALIZE_SECONDS = 180.0
@@ -125,10 +127,7 @@ def formation_metrics(acquisition: Mapping[str, Any], *, metric_field: str = "de
         if all(s >= G50 for _u, s in tri):
             sustained = tri[0][0]
             break
-    peak3 = max(
-        (sum(values[i:i + 3]) / 3.0 for i in range(max(1, len(values) - 2))),
-        default=max(values),
-    ) if len(values) >= 3 else max(values)
+    peak3 = max(sum(values[i:i + 3]) / 3.0 for i in range(len(values) - 2)) if len(values) >= 3 else max(values)
     endpoint = next((s for u, s in points if u == UPDATES), None)
     if endpoint is None and metric_field == "dev_measurement":
         endpoint = float(acquisition.get("reasoning_battery_final", {}).get("STANDARD", {}).get(
@@ -153,12 +152,8 @@ def _paired_support(per_seed: list[dict[str, Any]], endpoint: str) -> dict[str, 
         - float(r["arms"][REFERENCE_ARM][endpoint]["formation_auc"])
         for r in per_seed
     ]
-    primary_g50 = sum(
-        r["arms"][PRIMARY_ARM][endpoint]["sustained_g50_update"] is not None for r in per_seed
-    )
-    ref_g50 = sum(
-        r["arms"][REFERENCE_ARM][endpoint]["sustained_g50_update"] is not None for r in per_seed
-    )
+    primary_g50 = sum(r["arms"][PRIMARY_ARM][endpoint]["sustained_g50_update"] is not None for r in per_seed)
+    ref_g50 = sum(r["arms"][REFERENCE_ARM][endpoint]["sustained_g50_update"] is not None for r in per_seed)
     mean_gap = sum(gaps) / max(1, len(gaps))
     supported = (
         len(per_seed) == len(MODEL_SEEDS)
@@ -185,12 +180,7 @@ def _paired_support(per_seed: list[dict[str, Any]], endpoint: str) -> dict[str, 
 def decision(arms: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     per_seed: list[dict[str, Any]] = []
     for i in range(len(MODEL_SEEDS)):
-        row: dict[str, Any] = {
-            "seed_index": i + 1,
-            "model_seed": MODEL_SEEDS[i],
-            "order_seed": ORDER_SEEDS[i],
-            "arms": {},
-        }
+        row: dict[str, Any] = {"seed_index": i + 1, "model_seed": MODEL_SEEDS[i], "order_seed": ORDER_SEEDS[i], "arms": {}}
         complete = True
         for arm in ARMS:
             body = arms.get(arm_label(i, arm))
@@ -226,13 +216,11 @@ def decision(arms: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
     if len(per_seed) == len(MODEL_SEEDS):
         for endpoint, name in (("functional_full_vocab", "functional"), ("structural_active_only", "structural")):
             offset_gaps = [
-                r["arms"]["OFFSET_EQ4096"][endpoint]["formation_auc"]
-                - r["arms"][REFERENCE_ARM][endpoint]["formation_auc"]
+                r["arms"]["OFFSET_EQ4096"][endpoint]["formation_auc"] - r["arms"][REFERENCE_ARM][endpoint]["formation_auc"]
                 for r in per_seed
             ]
             offset_close = [
-                abs(r["arms"]["OFFSET_EQ4096"][endpoint]["formation_auc"]
-                    - r["arms"][PRIMARY_ARM][endpoint]["formation_auc"])
+                abs(r["arms"]["OFFSET_EQ4096"][endpoint]["formation_auc"] - r["arms"][PRIMARY_ARM][endpoint]["formation_auc"])
                 for r in per_seed
             ]
             mass_rescue[name] = sum(g >= 0.20 for g in offset_gaps) >= 3 and (sum(offset_close) / 4.0) <= 0.15
@@ -265,15 +253,9 @@ def estimate_arm_seconds(cal: Mapping[str, Any]) -> float:
     eps = max(float(cal["generation_examples_per_sec"]), 1e-9)
     diag = max(float(cal.get("diagnostic_seconds", 0.0)), 0.0)
     eval_count = UPDATES // EVAL_EVERY
-    # Per eval: controller + full measurement + train probe + active-only measurement.
     basic_eval_examples = 64 + 85 + 100 + 85
     structural_examples = 85 + 85 + 96 + 64 + 48 + 48
-    raw = (
-        UPDATES / ups
-        + eval_count * basic_eval_examples / eps
-        + 3 * structural_examples / eps
-        + len(DIAGNOSTIC_UPDATES) * diag
-    )
+    raw = UPDATES / ups + eval_count * basic_eval_examples / eps + 3 * structural_examples / eps + len(DIAGNOSTIC_UPDATES) * diag
     return raw * RUNTIME_SAFETY_FACTOR + MIN_FINALIZE_SECONDS
 
 
@@ -287,16 +269,13 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
             raise RuntimeError(f"R1C batch drift in calibration for {arm}")
         estimates[arm] = estimate_arm_seconds(rec)
     one_curve = sum(estimates.values())
-    need = len(MODEL_SEEDS) * one_curve
-    have = (WALL_MINUTES - PACKAGING_RESERVE_MINUTES) * 60.0
-    if need > have:
-        raise RuntimeError(
-            f"R1C four complete six-arm curves do not conservatively fit: "
-            f"need {need/60:.1f} min, have {have/60:.1f} min"
-        )
+    total = len(MODEL_SEEDS) * one_curve
+    science_per_session = (WALL_MINUTES - PACKAGING_RESERVE_MINUTES) * 60.0
+    sessions = max(1, int(math.ceil(total / max(science_per_session, 1.0))))
     return {
-        "schema": "anra-cyr-gpu014-r1c-resolved/v2",
+        "schema": "anra-cyr-gpu014-r1c-resolved/v3",
         "experiment": EXPERIMENT,
+        "protocol_fixed_independent_of_runtime": True,
         "arms": list(ARMS),
         "model_seeds": list(MODEL_SEEDS),
         "order_seeds": list(ORDER_SEEDS),
@@ -307,10 +286,12 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
         "diagnostic_updates": list(DIAGNOSTIC_UPDATES),
         "estimated_arm_seconds": estimates,
         "estimated_curve_seconds": one_curve,
-        "estimated_campaign_seconds": need,
-        "wall_minutes": WALL_MINUTES,
+        "estimated_total_campaign_seconds": total,
+        "estimated_sessions": sessions,
+        "session_wall_minutes": WALL_MINUTES,
         "packaging_reserve_minutes": PACKAGING_RESERVE_MINUTES,
         "runtime_safety_factor": RUNTIME_SAFETY_FACTOR,
+        "runtime_policy": "Never reduce protocol to fit one session. Run until session wall, checkpoint exactly, then continue same frozen campaign in a later session.",
         "pre500m_authorized": False,
         "training_500m_authorized": False,
     }
