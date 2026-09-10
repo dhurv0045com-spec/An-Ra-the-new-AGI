@@ -47,8 +47,11 @@ def test_fixed_screen_is_exactly_512k_semantic_rows() -> None:
 
 
 def test_resolver_prefers_two_replicated_primary_pairs_when_safe() -> None:
+    # These synthetic throughputs are deliberately fast enough that two full
+    # V19/V24576 matched pairs fit inside the conservative 170-minute science
+    # window after the resolver's 1.35x safety factor and finalize reserves.
     r = core.resolve_from_calibrations({
-        "V19": _cal(19, 8.0), "V4096": _cal(4096, 4.0), "V24576": _cal(24576, 3.0)
+        "V19": _cal(19, 8.0), "V4096": _cal(4096, 8.0), "V24576": _cal(24576, 8.0)
     })
     assert r["seeds_to_run"] == 2
     assert r["batch_rows"] == 64
@@ -56,8 +59,10 @@ def test_resolver_prefers_two_replicated_primary_pairs_when_safe() -> None:
 
 
 def test_resolver_falls_back_to_one_seed_not_lower_exposure() -> None:
+    # One complete primary pair fits, but two do not. The correct response is
+    # one full matched pair at 8k updates per arm, never a reduced-dose pair.
     r = core.resolve_from_calibrations({
-        "V19": _cal(19, 2.0), "V4096": _cal(4096, 1.0), "V24576": _cal(24576, 1.5)
+        "V19": _cal(19, 6.0), "V4096": _cal(4096, 4.0), "V24576": _cal(24576, 4.0)
     })
     assert r["seeds_to_run"] == 1
     assert r["screen_updates"] == 8_000
