@@ -1,7 +1,7 @@
 # ARKENSTONE — CURRENT STATE
 
 **Branch:** `Arkenstone`  
-**Updated:** 2026-09-10  
+**Updated:** 2026-09-11  
 **Purpose:** one-file operational handoff for continuing Arkenstone without reconstructing the program from multiple branches.
 
 ## Mission
@@ -21,7 +21,8 @@ Cross-program loop:
 ### Capability formation
 
 - ARK-002B: delayed memorize→generalize transition replicated at Micro T2; memorization does not imply immediate structural generalization.
-- Cross-branch CYR-GPU-011 on `cymek-500m-readiness`: same Cymek V5 4L/128w geometry showed a major representation-dependent acquisition divergence. Compact 19-symbol representation reached 56.47% held-out STANDARD at 44.89% of reference exposure, while production 24,576-token representation reached train M99 but remained 0% STANDARD and 0/48 SEALED at 100% reference semantic exposure. This identifies representation/capability formation as a major cross-program bottleneck, but does not isolate whether vocabulary size, segmentation, atomization, tied-output burden or another correlated factor is causal.
+- Cross-branch CYR-GPU-011 on `cymek-500m-readiness`: compact 19-symbol representation reached 56.47% held-out STANDARD at 44.89% reference exposure while production 24,576-token representation reached train M99 but 0% STANDARD and 0/48 SEALED at full reference exposure.
+- Cross-branch CYR-GPU-012/R1 is now executed: at the fixed 512k-row endpoint one fresh matched seed produced V19 = 12.94% STANDARD, V4096 = 100%, V24576 = 0%. This demonstrates a large non-monotonic class-space effect in one prospective seed, not a universal 4096-token optimum. R1B is the replication/response-curve follow-up on `cymek-500m-readiness`.
 
 ### Retention / recovery
 
@@ -34,100 +35,93 @@ Cross-program loop:
 ### Invariance / distribution narrowing
 
 - ARK-015: under canonical-only continuation, NARROW_HIGH lost robust order/query invariance 8/8, NARROW_LOW 0/8, AUGMENTED_HIGH_REFERENCE 0/8. Canonical exact stayed 1.0 while broader invariance collapsed under narrowed HIGH training.
-- Large parameter movement alone is therefore insufficient as the explanation; continued capability-supporting data can protect under HIGH plasticity.
-- ARK-016 did not isolate update-cap/trust-region mechanism because event rate was too low.
+- ARK-017 V2 is now **EXECUTED and audited**. Across 6 matched sets, NARROW_HIGH failed 4/6; LOW, HIGH_CAP1X, HIGH+exact 1/16 noncanonical replay, CAP+replay and augmented-HIGH all failed 0/6. Primary verdict: `BOTH_LEVERS_SUFFICIENT`.
+- ARK-017 secondary efficiency screen: CAP4X 0/3, CAP16X 0/3, replay1/32 0/3, replay1/64 0/3. These are strong tuning clues but secondary one-order screens, not universal thresholds.
+- The simple hypothesis `retention = small total parameter movement` is falsified: sparse replay preserved the invariant despite cumulative movement larger than failing HIGH. The better supported picture is an interaction between optimization plasticity and whether current data continues to constrain capability-relevant directions.
 
 ### Real-text / plasticity
 
-- ARK-018 V4 is now **EXECUTED and independently audited**. Final bundle SHA256: `cea50622b1725eb12308c54355616e2188b7956761db46289c6da33c09c31f7c`.
+- ARK-018 V4 is **EXECUTED and independently audited**. Final bundle SHA256: `cea50622b1725eb12308c54355616e2188b7956761db46289c6da33c09c31f7c`.
 - Both seeds × all four arms completed at 8000 updates; 40/40 receipt hashes and 39/39 manifest-covered files independently validated.
 - 10% Birth rehearsal strongly reduced Birth NLL but did not meet the preregistered Birth-content internalization threshold versus matched 10% scientific replay: deltas `+0.000` and `+0.067`, where `+0.10` was required in both seeds.
 - 10% Birth increased SEALED science NLL by about 3.68% and 3.91% relative to matched 10% scientific replay.
 - Secondary temporary-binding acquisition was 1200 / >1500 steps after Birth-10%, versus 300 / 300 after matched 10% science replay. Treat this as a replicated narrow plasticity screen, not a universal law.
-- Exact evidence record: `experiments/ARK-018/FINAL_RESULT_AUDIT.md`.
 
 ## Current causal model
 
-The best supported picture is not “LOW is best” and not “movement is bad.” It is:
+The best supported picture is now:
 
 ```text
 CAPABILITY ABSENT
   → enough plasticity/update strength is required for acquisition or recovery
+  → representation/output geometry can strongly alter whether capability forms at all
 
 CAPABILITY PRESENT
   → excessive plasticity under narrowed support can erode broader invariance
-  → lower plasticity can protect
-  → continued invariant-supporting data can also protect even at HIGH
+  → lower effective update magnitude can protect
+  → sparse continued invariant-support data can independently protect while permitting large movement
 
 NEW CAPABILITY ARRIVES
-  → old-capability support/replay is probably required
-  → protection must not destroy future acquisition speed
+  → a useful controller should remain HIGH/plastic by default
+  → detect declining old-capability margin on CONTROL
+  → inject sparse targeted support before formal failure
+  → escalate replay and only then apply a temporary movement cap if failure persists
+  → de-escalate after recovery so future learning remains fast
 ```
 
-ARK-018 adds a new warning: optimizing strongly for one repeated corpus can change the substrate in a way that appears to reduce later new-skill acquisition, even when ordinary token prediction on that corpus improves dramatically.
+ARK-018 adds the warning that heavy repeated specialization can damage later new-skill acquisition even when token prediction on the specialized corpus improves.
 
 ## Immediate Arkenstone execution priority
 
-### 1. ARK-017 V2 — run unchanged
+### 1. ARK-019 V3 — run the R2-informed Guardian trial
 
-**Status:** PREREGISTERED + IMPLEMENTED + STATICALLY AUDITED / NOT EXECUTED.
+**Status:** PREREGISTERED + IMPLEMENTED + STATIC AUDIT PASS / READY FOR OPERATOR CUDA PREFLIGHT / NOT EXECUTED.
 
-Question: is ARK-015 protection caused by applied update magnitude, continued invariant-support data, or their interaction?
+R3 uses the completed ARK-018 `SCIENCE_ONLY` real-text checkpoints for seeds 31801 and 31902, freshly acquires disjoint SKILL_A parents, then creates 4 mandatory matched sets using two SKILL_B order streams.
 
-Primary arms already frozen:
+Primary arms:
 
-- HIGH;
-- LOW;
-- HIGH_CAP1X;
-- HIGH + exact-noncanonical 1/16 replay;
-- CAP + replay;
-- AUGMENTED_HIGH_REFERENCE.
+- `PLASTIC_HIGH` — no protection;
+- `STATIC_REPLAY_1OF64` — static sparse-support reference;
+- `GUARDIAN_REPLAY` — PLASTIC → 1/64 on margin warning → 1/32 on formal failure → de-escalate after recovery;
+- `GUARDIAN_HYBRID` — same, with temporary CAP16X only when failure persists despite 1/32 replay.
 
-Do not redesign after ARK-018. ARK-018 changes downstream interpretation, not the prospective ARK-017 causal contrast.
+Fixed horizon is 1000 updates per arm, CONTROL evaluation every 100, 4 matched sets, no post-outcome arm/seed/horizon reduction. CAP16X is calibrated prospectively from a 32-step LOW shadow for each matched set. SEALED never controls the policy.
 
-Launcher: `experiments/COLAB/arkenstone_ark017_v2.ipynb`  
-Pinned scientific runner commit: `377c4743f8017e3455f576eafb75bb8ab9c50284`
+Launcher: `experiments/COLAB/arkenstone_ark019_v3.ipynb`  
+Frozen scientific executable: `63dc47d9bdcd85e004c03aaf9a738c9682fcd8f0`  
+Readiness: `experiments/ARK-019/RUN_READINESS_V3.json`.
 
-### 2. ARK-019 V2 — revise only after ARK-017 evidence
+### 2. Cross-branch R1B representation replication
 
-ARK-018 is no longer a blocker. ARK-017 remains the causal-mechanism blocker.
+R1B lives on `cymek-500m-readiness`, not Arkenstone. It maps fresh matched response curves over vocabulary class-space sizes 19/1024/4096/8192/16384/24576 to test whether R1's intermediate-class-space advantage replicates.
 
-The Guardian trial must now satisfy two conjunctive requirements:
-
-1. preserve SKILL_A under continued real-text + SKILL_B learning;
-2. avoid materially slowing SKILL_B/new-skill acquisition.
-
-A controller that protects old skill by effectively freezing the network fails the continual-learning objective.
-
-### 3. Cross-branch R1 representation experiment
-
-R1 lives on `cymek-500m-readiness`, not Arkenstone. Treat it as read-only external evidence. Its purpose is to isolate the CYR-GPU-011 representation divergence before large production training.
-
-Do not merge production R1 code into Arkenstone merely for convenience; preserve causal and branch authority boundaries.
+Arkenstone should consume that result read-only for the capability-formation causal graph.
 
 ## Claim boundaries
 
-**DEMONSTRATED:** narrow Micro delayed generalization, state-dependent retention/recovery effects, non-arithmetic invariance narrowing/protection, ARK-018 corpus-specific token-level assimilation and science-cost tradeoff.
+**DEMONSTRATED:** narrow Micro delayed generalization; state-dependent retention/recovery effects; non-arithmetic invariance narrowing/protection; two independently sufficient Micro retention levers (applied-update control and sparse invariant support); ARK-018 corpus-specific token-level assimilation and science-cost tradeoff; one-seed R1 non-monotonic class-space effect.
 
-**SUPPORTED / unresolved mechanism:** stability–plasticity × data-support interaction; ARK-018 heavy-corpus plasticity slowdown.
+**SUPPORTED / next proxy:** dynamic sparse-support Guardian with emergency movement cap; representation/optimization response curve.
 
-**NOT DEMONSTRATED:** universal LOW-LR law, universal Guardian, broad continual learning, broad reasoning gain from Birth data, production-scale transfer, AGI, identity or consciousness.
+**NOT DEMONSTRATED:** universal 1/64 replay law, universal CAP16X law, a successful Guardian, broad continual learning, production-scale transfer, universal 4096-vocab optimum, AGI, identity or consciousness.
 
 ## What not to do next
 
-Do not launch a new architecture soup experiment. Do not silently install LOW LR as the global scheduler. Do not use ARK-018 Birth NLL as evidence of reasoning. Do not alter ARK-017 after seeing later evidence unless explicitly declaring a new experiment. Do not authorize PRE500M/500M from Arkenstone.
+Do not install LOW LR globally. Do not freeze the network to preserve capabilities. Do not promote 1/64 or CAP16X directly from the secondary R2 screen. Do not use Birth NLL as reasoning evidence. Do not alter R3 thresholds, seeds, arms or horizon after seeing its outcomes. Do not authorize PRE500M/500M from Arkenstone.
 
 ## Minimal agent startup sequence
 
 Read, in order:
 
 1. `docs/arkenstone/CURRENT_STATE.md`
-2. `experiments/ARK-018/FINAL_RESULT_AUDIT.md`
-3. `experiments/ARK-017/PLAN.md`
-4. `experiments/ARK-017/PLAN_V2_ADDENDUM.md`
-5. `experiments/ARK-017/RUN_READINESS_V2.json`
-6. `docs/arkenstone/EXPERIMENT_LOG.md`
-7. `docs/arkenstone/MECHANISM_TOURNAMENT.md`
-8. `docs/arkenstone/COGNITION_BOTTLENECK_GRAPH.md`
+2. `experiments/ARK-017/RESULT_V2.md`
+3. `experiments/ARK-018/FINAL_RESULT_AUDIT.md`
+4. `experiments/ARK-019/PLAN_V3_R2_INFORMED_ADDENDUM.md`
+5. `experiments/ARK-019/EXECUTION_V3_CLARIFICATIONS.md`
+6. `experiments/ARK-019/PREEXECUTION_V3_HORIZON_AMENDMENT.md`
+7. `experiments/ARK-019/PREREGISTRATION_V3.json`
+8. `experiments/ARK-019/RUN_READINESS_V3.json`
+9. `docs/arkenstone/EXPERIMENT_LOG.md`
 
-Then either execute ARK-017 V2 or, if execution is unavailable, work only on predeclared analysis/infrastructure that cannot contaminate its prospective outcome.
+Then execute ARK-019 V3 unchanged, or if GPU execution is unavailable work only on analysis/infrastructure that cannot contaminate its prospective outcome.
