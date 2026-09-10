@@ -1,0 +1,106 @@
+{
+  "schema": "anra-cyr-gpu013-r1b-preregistration/v1",
+  "experiment": "CYR-GPU-013-R1B",
+  "status": "PREREGISTERED_BEFORE_SCIENTIFIC_EXECUTION",
+  "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
+  "executable_sha": "0f56c5e1451391f565d679e1d646ccfc26d96e9f",
+  "executable_blobs": {
+    "v5_experiments/cyr_gpu013_r1b.py": "9f78b719e1caf44ee0a0d12f972d53e91e307d9d",
+    "anra_v5/cyr_gpu013_r1b_run.py": "65f0e26df0567a47073499afca8a9fd6d3c58a31",
+    "tests/test_v5_cyr_gpu013_r1b.py": "a160ac5c4e7d822af0aa118071641ee354a15da8",
+    "notebooks/cymek_colab_gpu_r1b_response_curve.ipynb": "2e770b15adc5a53d3c2d337998d3e88f08f312e9",
+    "v5_experiments/cyr_gpu012_r1.py": "d043c46ccf30c781f39c69d13c9597465767e188",
+    "anra_v5/cyr_gpu012_r1_run.py": "29b571d5d14cf4f7a3a4a9bbe0568a5ba2653685",
+    "v5_experiments/cyr_gpu011.py": "600140d388ce94a6dc08fa32cf84d37511889362",
+    "anra_v5/cyr_gpu011_run.py": "356523d9ee7fb0916c09c5806964892f9024dca7",
+    "anra_v5/cyr_gpu011_optimizer_compat.py": "0cd0db7495fa1f5adc0c53c69eb0815202c08bac",
+    "anra_v5/cyr_gpu006_run.py": "f61f17e9e2bdbefd8edc98dd7a7598a8dea35934",
+    "v5_model/core.py": "7cf64b6f557a0556c074e5f61adfc86702f4c725",
+    "v5_training/optimizer.py": "7f0e004cd89b89aa28736c00016d0dced48e1232",
+    "docs/cymek/experiments/CYR-GPU-011/ARK002B_TASK_MANIFEST.json": "6c46fdf90139526b00e9041af2d511ed0ac24270"
+  },
+  "science_plan_blob_sha": "cba405206624cd89e9050371811bbe6b9f4be360",
+  "prior_evidence": {
+    "r1_bundle_sha256": "a22b538396a3d0957a60a27f39b0cf3dd3b20874585b4c15a03207224f613d29",
+    "r1_official_verdict": "MIXED_OR_INTERMEDIATE_REPRESENTATION_EFFECT",
+    "r1_seed1_standard": {
+      "19": 0.12941176470588237,
+      "4096": 1.0,
+      "24576": 0.0
+    },
+    "r1_role": "motivates response curve only; R1 outcomes are not reused as prospective R1B replication seeds"
+  },
+  "data": {
+    "source": "exact CYR-GPU-011 copy of frozen ARK-002B T2 no-carry arithmetic manifest",
+    "split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+    "manifest_blob_sha": "6c46fdf90139526b00e9041af2d511ed0ac24270",
+    "train_rows": 500,
+    "dev_controller_rows": 64,
+    "dev_measurement_rows": 85,
+    "sealed_note": "Prior holdout was already consumed; R1B is developmental and makes no new sealed-confirmation claim."
+  },
+  "causal_intervention": {
+    "held_fixed": [
+      "Cymek V5 RESEARCH_SMALL 4L/128w block geometry",
+      "active arithmetic token IDs 0..18",
+      "prompt and answer segmentation",
+      "semantic examples and within-seed example order",
+      "batch size 64",
+      "2000-update / 128000-row endpoint",
+      "AdamW family/scalars and LR 1e-3",
+      "answer/EOS semantics",
+      "model seed within matched curve",
+      "all non-embedding initialization",
+      "first 19 active embedding rows"
+    ],
+    "manipulated": "declared tied embedding/output vocabulary class count",
+    "levels": [19, 1024, 4096, 8192, 16384, 24576],
+    "interpretation_boundary": "Because Cymek ties input embedding and output weights, class-space size jointly changes tied embedding/output burden; R1B maps the response curve but does not separately identify embedding capacity from softmax competition."
+  },
+  "replication": {
+    "mandatory_complete_curves": 2,
+    "optional_third_curve": true,
+    "model_seeds": [3611, 3612, 3613],
+    "order_seeds": [5901, 5902, 5903],
+    "arm_order_policy": "seed1 ascending, seed2 descending, seed3 fixed interleaved rotation",
+    "posthoc_seed_selection_allowed": false
+  },
+  "runtime": {
+    "hard_wall_minutes": 175.0,
+    "packaging_reserve_minutes": 5.0,
+    "fixed_batch_rows": 64,
+    "fixed_updates_per_arm": 2000,
+    "fixed_semantic_rows_per_arm": 128000,
+    "runtime_safety_factor": 1.35,
+    "resolver_policy": "calibrate all six levels at batch64 before outcomes; fail closed if two complete curves do not conservatively fit; run third curve only if all of it fits; never lower exposure or drop a vocabulary level",
+    "completed_arm_reuse": "exact-identity completed arms only; incompatible artifacts abort",
+    "optional_third_curve_failure": "cannot invalidate two completed mandatory curves"
+  },
+  "primary_metric": {
+    "name": "DEV_MEASUREMENT/STANDARD complete_exact_with_valid_stop",
+    "endpoint_semantic_rows": 128000,
+    "candidate_free": true
+  },
+  "primary_decision": {
+    "intermediate_levels": [1024, 4096, 8192, 16384],
+    "extremes": [19, 24576],
+    "min_intermediate_signal": 0.60,
+    "strong_gap": 0.30,
+    "equivalent_gap": 0.10,
+    "support_rule": "both mandatory seeds: max(intermediate)>=0.60 AND max(intermediate)-max(extremes)>=0.30",
+    "verdicts": [
+      "REPLICATED_INTERMEDIATE_CLASS_SPACE_ADVANTAGE",
+      "NO_REPLICATED_INTERMEDIATE_ADVANTAGE",
+      "MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE",
+      "INCONCLUSIVE_NO_TWO_COMPLETE_CURVES",
+      "INCONCLUSIVE_RUNTIME_FAILURE"
+    ]
+  },
+  "authorization": {
+    "production_tokenizer_change": false,
+    "pre500m": false,
+    "training_500m": false,
+    "broad_reasoning_claim": false,
+    "agi_claim": false
+  }
+}
