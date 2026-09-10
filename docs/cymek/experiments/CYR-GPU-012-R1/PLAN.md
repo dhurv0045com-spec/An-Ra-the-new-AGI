@@ -31,7 +31,7 @@ Fresh model seeds: `3511`, `3512`.
 Fresh order seeds: `5801`, `5802`.  
 Primary endpoint never changes to make a run fit.
 
-Cell 0 calibrates V19, V4096 and V24576 at fixed batch 64 before scientific outcomes. The resolver uses only throughput/generation speed and a 1.25 safety factor:
+Cell 0 calibrates V19, V4096 and V24576 at fixed batch 64 before scientific outcomes. The resolver uses only throughput/generation speed and a 1.35 safety factor. Its runtime projection includes every fixed controller/measurement/probe evaluation, conservative allowance for all periodic/milestone structural batteries, final evaluation, and finalization reserve:
 
 - if two complete V19-vs-V24576 pairs fit the 175-minute wall, run both seeds;
 - otherwise run one complete pair;
