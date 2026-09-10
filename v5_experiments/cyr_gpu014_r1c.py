@@ -287,6 +287,7 @@ def resolve_from_calibrations(calibrations: Mapping[str, Mapping[str, Any]]) -> 
         "estimated_arm_seconds": estimates,
         "estimated_curve_seconds": one_curve,
         "estimated_total_campaign_seconds": total,
+        "estimated_campaign_seconds": total,
         "estimated_sessions": sessions,
         "session_wall_minutes": WALL_MINUTES,
         "packaging_reserve_minutes": PACKAGING_RESERVE_MINUTES,
