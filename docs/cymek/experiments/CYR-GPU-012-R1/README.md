@@ -1,14 +1,19 @@
 # CYR-GPU-012 / R1
 
-**R1 is the current highest-priority Cymek experiment.** It is designed to isolate whether the large tied embedding/output class space is sufficient to suppress the early structural capability formation seen in CYR-GPU-011.
+**Status: EXECUTED / COMPLETE.**
 
-Operator flow after readiness is green:
+R1 isolated the effect of tied embedding/output class-space size while preserving the same active arithmetic token IDs, semantic data stream, Cymek V5 block geometry, batch, optimizer family/scalars, model/order seed, shared non-embedding initialization, and first 19 embedding rows.
 
-1. Open `notebooks/cymek_colab_gpu_r1_representation.ipynb` in Google Colab with a T4-class CUDA GPU.
-2. Run Cell 0. Continue only after `R1 PREEXECUTION GATE: PASS`.
-3. Run Cell 1. Results/arm files are stored under `MyDrive/CYMEK/CYR-GPU-012-R1`; completed arms are safely reused on rerun.
-4. Run Cell 2 and return `CYMEK_R1_REPRESENTATION_CAUSAL_RESULTS.zip`.
+Final bundle SHA-256: `a22b538396a3d0957a60a27f39b0cf3dd3b20874585b4c15a03207224f613d29`.
 
-Scientific design: fixed batch64, fixed 8,000 updates / 512,000 semantic rows per arm, exact same active character token IDs, exact same examples/order, and copied shared initialization. Primary comparison is V19 versus V24576; two seeds run only if hardware calibration predicts they fit under the **175-minute hard wall**. V4096 is optional and never displaces primary replication.
+At the fixed 8,000-update / 512,000-row endpoint on the executed seed:
 
-No result from R1 directly authorizes PRE500M/500M or a production tokenizer change. Read `PLAN.md` and `DESIGN_REASONING.md` before interpretation.
+- V19: 12.94% STANDARD exact;
+- V4096: **100.00% STANDARD exact**;
+- V24576: 0.00% STANDARD exact.
+
+Official preregistered verdict: `MIXED_OR_INTERMEDIATE_REPRESENTATION_EFFECT`.
+
+The strongest scientific interpretation is a large, apparently non-monotonic representation/optimization effect. This is one-seed developmental evidence, not proof that 4096 is universally optimal and not authorization for a production tokenizer change, PRE500M, 500M training, broad reasoning, or AGI claims.
+
+Read `RESULT.md` for the complete evidence boundary. The next recommended experiment is R1B: a replicated vocabulary-response curve with direct active/inactive-class competition diagnostics.
