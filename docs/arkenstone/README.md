@@ -83,3 +83,7 @@ Arkenstone may inspect Cymek and other branches read-only and hand off research 
 ## Program rules
 
 Loss is a diagnostic, never proof of cognition. Execution artifacts beat prose. Failures are preserved. Reproductions are labeled reproductions. Every claim gets a novelty class. Historical preregistration and receipts are immutable. Sealed outcomes cannot become tuning feedback. Branch authority remains explicit.
+
+---
+
+stamped-at-commit: eb528c98c5b7cbc2cbc51f220231f496d8ce5423
