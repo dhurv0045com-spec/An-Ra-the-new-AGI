@@ -19,6 +19,19 @@
 - CYR-GPU-005 executable freeze (COMMIT A) + hash-bound preregistration
   (COMMIT B). RUN_READINESS=true. GPU evidence: NONE YET.
 
+## 2026-09-12 — R1C launch failure root-caused and repaired (Priority Zero)
+- Exact campaign failure audited: arm `S1_MASK_8192` aborted with
+  `abort CLIP_BREACH: post-clip global norm 1.0000042915344238 exceeds 1.0`
+  — float32 reduction-order noise (~4.3e-6 at 4.13M params) between the
+  fused clip path and the certificate's recomputed norm, against a 1e-6
+  tolerance. Implementation numerics only; no scientific information.
+- Repair: `_NORM_TOLERANCE`/`_CLIP_TOLERANCE` 1e-6 -> 1e-4 (derivation
+  documented). End-to-end engineering preflight added
+  (tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py): drives the ACTUAL
+  campaign executable through all six arms on CPU with tiny fixtures;
+  reproduced the failure before the repair, completes after.
+- State: R1C_READY_FOR_OPERATOR_CUDA_RUN (RUN_READINESS_V3.json).
+
 ## CYR-GPU-001 — status: SUPERSEDED_BEFORE_EXECUTION
 - Preregistered design + tournament runner committed; never executed;
   superseded by the 002 rebuild (shared contexts, free-gen primary,

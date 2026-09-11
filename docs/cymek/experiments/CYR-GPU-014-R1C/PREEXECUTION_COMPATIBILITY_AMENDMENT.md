@@ -43,3 +43,28 @@ Future R1C execution must use compatibility executable `b9e4689bdcfa24a3c7d50b2f
 `python -m anra_v5.cyr_gpu014_r1c_run_v2 ...`
 
 The original preregistration remains the scientific protocol authority, with this amendment attached as the executable-compatibility receipt.
+
+
+## Amendment 2 (2026-09-12): campaign-launch CLIP_BREACH numerics repair
+
+**Root cause (reproduced from code on CPU, 6-arm driver):** the scientific
+campaign died on arm `S1_MASK_8192` with
+`abort CLIP_BREACH: post-clip global norm 1.0000042915344238 exceeds 1.0`.
+The clip path (fused `clip_grad_norm_`) and the update certificate
+(`_global_norm`, per-tensor `vector_norm` summed sequentially) are two
+different float32 reduction orders over ~4.13M parameters; they disagree by
+O(eps * sqrt(N) * ||g||) (observed 4.3e-6). The certification tolerance was
+1e-6 — tighter than float32 reduction noise at this scale — so a
+knife-edge arm aborted the whole campaign. No scientific constant, arm,
+seed, or threshold is involved.
+
+**Repair:** `_NORM_TOLERANCE` (production_backend.py) and `_CLIP_TOLERANCE`
+(step.py) raised from 1e-6 to 1e-4 with the derivation in comments. A real
+clip failure (missing/incorrect clip) lands orders of magnitude above this
+and still aborts.
+
+**Evidence:** the committed end-to-end engineering preflight
+(`tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py`) now drives the ACTUAL
+campaign executable through all six arms (engineering fixtures: 2 updates,
+1 seed, CPU) and completes; before the repair it reproduced the exact
+operator failure at the same arm.

@@ -1,0 +1,93 @@
+{
+  "schema": "anra-cyr-gpu014-r1c-run-readiness/v3",
+  "experiment": "CYR-GPU-014-R1C",
+  "status": "R1C_READY_FOR_OPERATOR_CUDA_RUN",
+  "scientific_result_status": "NOT_EXECUTED",
+  "ready_for_operator_colab_gpu_run": true,
+  "original_scientific_executable_commit": "2a71cea10ebb7a231834b6b112c49e268e9631a5",
+  "frozen_compatibility_executable_commit": "b9e4689bdcfa24a3c7d50b2f337c4e702de0bb8a",
+  "compatibility_amendment_path": "docs/cymek/experiments/CYR-GPU-014-R1C/PREEXECUTION_COMPATIBILITY_AMENDMENT.md",
+  "compatibility_wrapper_path": "anra_v5/cyr_gpu014_r1c_run_v2.py",
+  "compatibility_wrapper_blob_sha": "1078f0527f9e0c5ba6a94be6659209c0ab71a1cb",
+  "compatibility_test_path": "tests/test_v5_cyr_gpu014_r1c_compat.py",
+  "compatibility_test_blob_sha": "7e82aec3b79ed27478efe48a36c3ca68bb962648",
+  "original_runner_blob_sha": "5bd880dea143e14348019b9c4f959c760a92f051",
+  "repair_scope": "optimizer constructor API only",
+  "repair_equivalence": {
+    "learning_rate": "unchanged CYR11_HIGH_LR",
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.1,
+    "scientific_protocol_changed": false
+  },
+  "pre_repair_failure_evidence": {
+    "exception": "TypeError",
+    "message": "build_adamw_optimizer() got an unexpected keyword argument 'betas'",
+    "stage": "exact_resume_smoke before first optimizer construction completed",
+    "exact_resume_smoke_json_present": false,
+    "calibration_json_present": false,
+    "resolved_json_present": false,
+    "matched_init_preflight_json_present": false,
+    "preexecution_gate_json_present": false,
+    "scientific_arm_started": false
+  },
+  "fixed_science_unchanged": {
+    "physical_vocabulary_all_arms": 24576,
+    "active_token_ids": "0..18",
+    "arms": [
+      "FULL_24576",
+      "MASK_19",
+      "MASK_4096",
+      "MASK_8192",
+      "MASK_16384",
+      "OFFSET_EQ4096"
+    ],
+    "model_seeds": [
+      3711,
+      3712,
+      3713,
+      3714
+    ],
+    "order_seeds": [
+      6001,
+      6002,
+      6003,
+      6004
+    ],
+    "updates_per_arm": 3000,
+    "batch_rows": 64,
+    "mandatory_arms": 24,
+    "total_optimizer_updates": 72000
+  },
+  "operator_invocation": "python -m anra_v5.cyr_gpu014_r1c_run_v2",
+  "output_root": "/content/drive/MyDrive/CYMEK/CYR-GPU-014-R1C",
+  "final_bundle": "CYMEK_R1C_SOFTMAX_MECHANISM_RESULTS.zip",
+  "partial_bundle": "CYMEK_R1C_SOFTMAX_MECHANISM_PARTIAL.zip",
+  "pre500m_authorized": false,
+  "training_500m_authorized": false,
+  "agi_claim_authorized": false,
+  "readiness_state": "R1C_READY_FOR_OPERATOR_CUDA_RUN",
+  "repairs": [
+    {
+      "repair": "optimizer constructor API (betas/eps/weight_decay)",
+      "commit": "b9e4689bdcfa24a3c7d50b2f337c4e702de0bb8a",
+      "amendment": "Amendment 1"
+    },
+    {
+      "repair": "CLIP_BREACH float32 reduction-order tolerance (1e-6 -> 1e-4)",
+      "root_cause": "post-clip norm 1.0000042915 exceeded 1.0+1e-6 on arm S1_MASK_8192; two float32 reduction orders disagree by ~4.3e-6 at 4.13M params",
+      "amendment": "Amendment 2",
+      "regression_test": "tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py::test_run_campaign_driver_end_to_end"
+    }
+  ],
+  "exact_campaign_failure": {
+    "exception": "ValueError",
+    "message": "abort CLIP_BREACH: post-clip global norm 1.0000042915344238 exceeds 1.0",
+    "arm": "S1_MASK_8192",
+    "audited": true,
+    "scientific_information_content": "none (implementation numerics)"
+  }
+}

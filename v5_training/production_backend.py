@@ -81,7 +81,11 @@ def precision_receipt(*, runtime: str, torch_module: Any = None) -> dict[str, ob
         "loss_scaler": None,
         "status": "CERTIFIED_LOCAL",
     }
-_NORM_TOLERANCE = 1e-6
+# Float32 reduction-order budget: the clip path (fused foreach-norm) and the
+# certificate (per-tensor vector_norm, sequential sum) disagree by up to
+# O(eps * sqrt(N) * ||g||) ~ 2.4e-4 at 4M+ parameters; observed 4.3e-6 on the
+# R1C MASK_8192 arm. A real clip failure aborts orders of magnitude above this.
+_NORM_TOLERANCE = 1e-4
 
 
 class StaleOptimizerOwnership(ValueError):
