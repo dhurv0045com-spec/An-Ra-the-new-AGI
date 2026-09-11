@@ -1,0 +1,98 @@
+{
+  "schema": "arkenstone-ark020-v3-preregistration/v1",
+  "experiment": "ARK-020-V3",
+  "registered_utc": "2026-09-12",
+  "frozen_before_implementation_execution": true,
+  "preserved_immutable": ["experiments/ARK-020/", "experiments/ARK-020-V2/"],
+  "scientific_question": "Can one real-text-pretrained model sequentially acquire relational binding (x2), two-hop in-context composition, and inverse retrieval while retaining earlier capabilities and real-text competence, with adaptive capability-specific protection more efficient than permanent rehearsal?",
+  "substrate": {
+    "ark018_root": "/content/drive/MyDrive/genisis-arkenstone/ARK018_SCIENCE_BIRTH_V1",
+    "science_sha256": "b397427cd5964b7cc2a41264ca8789a0c020f96d4e403b314900798711a2ead5",
+    "model": "Ark018GPT (10 blocks, width 384, 6 heads, vocab 8192, context 256, tied head)",
+    "batch_slots": 32,
+    "drive_output_root": "/content/drive/MyDrive/genisis-arkenstone/ARK020_V3_CONTINUAL"
+  },
+  "skills": {
+    "A": {"family": "relational_binding", "split_seed": 524218, "chance_in_factset": 0.3333},
+    "B": {"family": "relational_binding_2nd", "split_seed": 524219, "chance_in_factset": 0.3333},
+    "C": {"family": "two_hop_composition", "split_seed": 524220, "chance": 0.3333,
+          "independent_block_orders": true,
+          "positional_shortcut_rate_measured": 0.3377,
+          "positional_shortcut_rate_tied_v2_renderer": 1.0,
+          "composition_oracle_rate": 1.0},
+    "D": {"family": "inverse_retrieval", "split_seed": 524221, "chance_in_factset": 0.3333,
+          "facts_presented_forward": "owner holds object",
+          "query": "object", "answer": "owner",
+          "query_answer_pair_never_presented": true}
+  },
+  "token_selection": {"n_required": 48, "thresholds": [256, 128, 64, 32, 16, 8], "overlap_forbidden": true},
+  "parent_stage": {"seeds": [31801, 31902], "a_slots": 16, "real_slots": 16, "max_updates": 2600,
+                   "eval_every": 50, "streak": 3, "science_control_relative_nll_max": 0.15,
+                   "validation_required": true, "reuse_v4_parents_when_identity_matched": true},
+  "dose_stage_b": {"candidates": [8, 12, 16], "pilot_order_seeds": [419001, 419002],
+                   "max_updates": 2000, "confirm_deadline": 1800,
+                   "selection_rule": "smallest candidate passing both parent pilots",
+                   "inherit_v4_dose_selection_when_present": true,
+                   "failure_verdict": "INCONCLUSIVE_NO_VIABLE_SKILL_B_DOSE"},
+  "phases": [
+    {"skill": "B", "updates": 2000, "task_slots": "dose_selected", "order_seeds": [429001, 429002]},
+    {"skill": "C", "updates": 1500, "task_slots": 12, "order_seeds": [429003, 429004]},
+    {"skill": "D", "updates": 1500, "task_slots": 12, "order_seeds": [429005, 429006]}
+  ],
+  "phase_seed_binding": "B/C/D seeds bound into arm and checkpoint identity; each phase streams only with its own seed",
+  "matched_sets": {"parent_seeds": [31801, 31902], "b_order_seeds": [429001, 429002], "sets": 4},
+  "thresholds": {
+    "qualified": {"canonical": 0.90, "order_only": 0.85, "third": 0.85},
+    "healthy": {"canonical": 0.95, "order_only": 0.90, "third": 0.90},
+    "warning_margin_below": 0.95, "degradation_rate_per_100_updates": -0.03,
+    "confirmation_streak": 3, "healthy_deescalate_streak": 4,
+    "post_phase_sparse_floor_updates": 200, "emergency_replay32_failure_streak": 2,
+    "recovery_window_updates": 400
+  },
+  "arms": ["PLASTIC_HIGH", "STATIC_REPLAY_1OF64", "STATIC_REPLAY_1OF32", "STATIC_CAP16X",
+           "GUARDIAN_REACTIVE", "GUARDIAN_PREDICTIVE", "GUARDIAN_HYBRID"],
+  "controller_rules": {
+    "sealed_inputs_forbidden": true,
+    "replay_allocation": "risk-based lowest robust-min first, deterministic tiebreak, max 2 slots/update, replaces real-text only",
+    "static_rotation": "deterministic round-robin over old qualified capabilities",
+    "reactive_trigger": "formal CONTROL failure",
+    "predictive_trigger": "robust_min < 0.95 OR degradation <= -0.03/100 over last 3 CONTROL observations",
+    "cap_calibration": "per matched set, 16x median full-delta over 32 LOW-LR shadow steps"
+  },
+  "evaluation": {"control_every": 25, "measure_every": 100, "checkpoint_every": 200},
+  "metrics_policy": {
+    "phase_relative_confirmation_is_primary": true, "global_steps_recorded_not_compared": true,
+    "acquisition_rule": "per phase: median guardian phase-relative confirmation <= 1.5 x median PLASTIC_HIGH phase-relative confirmation, medians across matched sets",
+    "prevention": "never formally unqualified during later phases",
+    "recovery": "unqualified but HEALTHY within 400 updates",
+    "retention": "sealed area + final sealed qualification"
+  },
+  "verdict_rules": {
+    "formation_gate": "PLASTIC_HIGH qualifies each new skill in >= 3/4 sets else INCONCLUSIVE_FORMATION_INSTABILITY_PHASE_X",
+    "interference_gate": "plastic sets with >=1 old-capability CONTROL failure >= 2/4 OR static_1of32 area advantage >= 0.15 else INCONCLUSIVE_LOW_INTERFERENCE",
+    "guardian_success_requires": {"final_sealed_all_capabilities_qualified_sets": 3,
+      "mean_sealed_area_within_of_best_static": 0.10, "median_phase_relative_confirmation_ratio_max": 1.5,
+      "science_sealed_nll_relative_max_per_set": 0.05, "mean_protection_duty_max": 0.60,
+      "mean_replay_fraction_max": 0.05, "total_replay_slots_leq": "STATIC_REPLAY_1OF32 total"},
+    "verdicts": {"success": "GUARDIAN_MULTI_SKILL_CANDIDATE",
+                 "quality_only": "GUARDIAN_SUPPORTED_NOT_EFFICIENT",
+                 "failure": "GUARDIAN_NOT_SUPPORTED_MULTI_SKILL"},
+    "flags": ["PREVENTION_SIGNAL", "RECOVERY_SIGNAL", "PREDICTIVE_ADDS_VALUE"],
+    "cost_slope_reported": "k=1,2,3"
+  },
+  "durability": {
+    "exact_resume_smoke": "PRODUCTION exact_resume_smoke executed in tests and as a campaign gate; 12 independently hashed state classes: model, optimizer, scaler, cpu_rng, cuda_rng, registry, controller, counters, phase_identity (all three phase seeds), confirmations, telemetry, semantic_stream",
+    "overall_pass_requires_every_field": true,
+    "corruption_fail_closed": true,
+    "session_wall_minutes": 225, "packaging_reserve_minutes": 10, "runtime_safety_factor": 1.30,
+    "lock": "CAMPAIGN_LOCK.json (experiment, executable commit, session uuid, timestamp, host); ACTIVE/STALE/MALFORMED; ACTIVE never silently overridden",
+    "resume_scan": "cell 0 mounts Drive BEFORE scan; verifies schema/version/seeds/arm/task_hash/parent_hash/dose against ENTRY_RECEIPT and DOSE_SELECTION; PARTIAL_IDENTITY_CHECK where unverifiable; SAFE ACTION in {START NEW CAMPAIGN, RESUME, WAIT — ACTIVE WRITER LOCK EXISTS, STOP — CHECKPOINT IDENTITY FAILURE, STOP — CAMPAIGN VERSION MISMATCH, STOP — DRIVE UNAVAILABLE}"
+  },
+  "packages": {"partial_zip": "ARKENSTONE_ARK020_V3_CONTINUAL_PARTIAL.zip",
+               "final_zip": "ARKENSTONE_ARK020_V3_CONTINUAL_RESULTS.zip"},
+  "claim_ceiling": "controlled real-text-proxy evidence for a multi-capability continual-learning controller candidate; two-hop composition and inverse retrieval are proxies, never 'reasoning demonstrated'; no PRE500M/500M, no AGI or consciousness claims",
+  "authorization_flags": {"production_scheduler_authorized": false, "pre500m_authorized": false,
+                          "training_500m_authorized": false,
+                          "broad_continual_learning_claim_authorized": false,
+                          "agi_claim_authorized": false}
+}
