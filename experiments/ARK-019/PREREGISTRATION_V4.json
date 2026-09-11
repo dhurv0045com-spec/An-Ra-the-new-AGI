@@ -1,0 +1,118 @@
+{
+  "schema": "arkenstone-ark019-v4-preregistration/v1",
+  "experiment": "ARK-019-V4",
+  "status": "PREREGISTERED_BEFORE_V4_SCIENTIFIC_EXECUTION",
+  "claim_ceiling": "REAL_TEXT_PROXY_GUARDIAN_CANDIDATE_ONLY",
+  "prior_evidence": {
+    "ark019_v3_bundle_sha256": "fcc14c5378318b8c447c2735768b72920334d8c9292b445372fd17d3d2b554d8",
+    "ark019_v3_official_verdict": "CONTROLLER_NOT_SUPPORTED",
+    "v3_interpretation": "strong interference/recovery evidence; new-skill channel underpowered"
+  },
+  "source_substrate": {
+    "ark018_drive_root": "/content/drive/MyDrive/genisis-arkenstone/ARK018_SCIENCE_BIRTH_V1",
+    "science_sha256": "b397427cd5964b7cc2a41264ca8789a0c020f96d4e403b314900798711a2ead5",
+    "source_arm": "SCIENCE_ONLY",
+    "source_seeds": [31801, 31902],
+    "required_step": 8000
+  },
+  "parent_stage": {
+    "skill_a_slots": 16,
+    "real_text_slots": 16,
+    "max_updates": 2600,
+    "eval_every": 50,
+    "confirmation_streak": 3,
+    "science_control_relative_nll_max": 0.15,
+    "validation_must_qualify": true,
+    "main_control_and_sealed_not_used_for_parent_selection": true
+  },
+  "split_contract": {
+    "factsets_train": 400,
+    "factsets_parent_or_dose_control": 50,
+    "factsets_main_control": 50,
+    "factsets_validation": 50,
+    "factsets_sealed": 50,
+    "sealed_controls_training": false
+  },
+  "dose_stage": {
+    "candidates_skill_b_slots": [8, 12, 16],
+    "pilot_parent_seeds": [31801, 31902],
+    "pilot_order_seeds": [419001, 419002],
+    "max_updates": 2000,
+    "confirmation_deadline": 1800,
+    "eval_every": 50,
+    "confirmation_streak": 3,
+    "selection_rule": "smallest candidate passing both parent pilots and validation",
+    "if_none_pass": "INCONCLUSIVE_NO_VIABLE_SKILL_B_DOSE"
+  },
+  "main_stage": {
+    "parent_seeds": [31801, 31902],
+    "order_seeds": [429001, 429002],
+    "matched_sets": 4,
+    "arms": [
+      "PLASTIC_HIGH",
+      "STATIC_REPLAY_1OF64",
+      "STATIC_REPLAY_1OF32",
+      "STATIC_CAP16X",
+      "GUARDIAN_REPLAY",
+      "GUARDIAN_HYBRID"
+    ],
+    "updates_per_arm": 2000,
+    "high_lr": 0.0003,
+    "low_shadow_lr": 0.000003,
+    "batch_slots": 32,
+    "skill_b_slots": "selected prospectively by dose stage and then frozen across all arms",
+    "replay_displaces": "real_text_only"
+  },
+  "controller": {
+    "skill_a_control_every": 25,
+    "skill_b_control_every": 50,
+    "sealed_measure_every": 100,
+    "checkpoint_every": 200,
+    "warning": "one CONTROL observation with robust-min below 0.95 while PLASTIC",
+    "formal_failure": "canonical below 0.90 or order/query below 0.85",
+    "replay32": "one SKILL_A nonidentity replay slot every update",
+    "sparse64": "one SKILL_A nonidentity replay slot every second update",
+    "hybrid_cap_trigger": "two consecutive 25-update failures while already in REPLAY32",
+    "healthy_deescalation": "four consecutive CONTROL observations canonical>=0.95 and order/query>=0.90",
+    "post_b_sparse_window_updates": 200
+  },
+  "cap_calibration": {
+    "shadow_steps": 32,
+    "shadow_lr": 0.000003,
+    "cap": "16x median full applied delta from matched LOW shadow",
+    "optimizer_moments_preserved": true
+  },
+  "decision": {
+    "plastic_high_main_b_min_success_sets": 3,
+    "guardian_final_a_min_qualified_sets": 3,
+    "guardian_a_area_tolerance_vs_static_replay32": 0.10,
+    "guardian_b_min_success_sets": 3,
+    "guardian_b_median_confirmation_ratio_vs_high_max": 1.5,
+    "guardian_final_b_mean_robust_gap_vs_high_max": 0.05,
+    "science_sealed_nll_relative_vs_high_each_max": 0.05,
+    "mean_protection_duty_max": 0.60,
+    "mean_replay_slot_cost_max": 0.05,
+    "positive_verdict": "GUARDIAN_CONTINUAL_PROXY_CANDIDATE",
+    "main_b_failure_verdict": "INCONCLUSIVE_MAIN_B_FORMATION_INSTABILITY"
+  },
+  "secondary_flags": {
+    "prevention_signal": "no formal A CONTROL failure in >=3/4 matched sets",
+    "recovery_signal": "four healthy A CONTROL observations reached within 200 updates of first failure in >=3/4 matched sets"
+  },
+  "runtime": {
+    "target": "Colab T4 CUDA",
+    "session_wall_minutes": 225,
+    "packaging_reserve_minutes": 10,
+    "safety_factor": 1.30,
+    "multi_session_exact_resume": true,
+    "runtime_may_change_protocol": false
+  },
+  "authorization": {
+    "production_scheduler": false,
+    "production_tokenizer": false,
+    "pre500m": false,
+    "training_500m": false,
+    "broad_continual_learning": false,
+    "agi": false
+  }
+}
