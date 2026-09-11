@@ -10,8 +10,9 @@
   "plan_path": "docs/cymek/experiments/CYR-GPU-014-R1C/PLAN.md",
   "plan_blob_sha_at_executable": "c45a24a50b5e6ef1ede9a380238fd45ad108bb2a",
   "preexecution_audit_path": "docs/cymek/experiments/CYR-GPU-014-R1C/PREEXECUTION_AUDIT.md",
-  "launcher_path": "notebooks/cymek_colab_gpu_r1c_softmax_mechanism.ipynb",
-  "launcher_blob_sha": "0c417b76d26bcb7f5f9a869d7d7d762dbc2837e2",
+  "launcher_path": "notebooks/cymek_colab_gpu_r1c_softmax_mechanism_v2.ipynb",
+  "launcher_blob_sha": "df2b10be2258880a1fb8c05519532714e1a57b19",
+  "launcher_operational_amendment": "2026-09-12: original launcher executed anra_v5/cyr_gpu014_r1c_run.py by file path, causing ModuleNotFoundError: anra_v5 before preflight. Launcher v2 invokes the identical frozen runner with python -m anra_v5.cyr_gpu014_r1c_run from repository root. Scientific executable, preregistration, data, seeds, arms, thresholds and horizon are unchanged.",
   "scientific_blobs": {
     "v5_experiments/cyr_gpu014_r1c.py": "1d7e76ebc4728ef9e4d21f46a40017cd5ffff327",
     "anra_v5/cyr_gpu014_r1c_run.py": "5bd880dea143e14348019b9c4f959c760a92f051",
