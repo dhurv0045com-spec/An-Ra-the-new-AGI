@@ -1,0 +1,93 @@
+{
+  "schema": "arkenstone-ark019-v4-run-readiness/v1",
+  "experiment": "ARK-019-V4",
+  "status": "READY_FOR_OPERATOR_COLAB_CUDA_PREFLIGHT",
+  "scientific_result_status": "NOT_EXECUTED",
+  "ready_for_operator_colab_gpu_run": true,
+  "frozen_scientific_executable_commit": "8e858c614d764335100dfd41dda6f8e0d0c877a7",
+  "prior_r3_bundle_sha256": "fcc14c5378318b8c447c2735768b72920334d8c9292b445372fd17d3d2b554d8",
+  "prior_r3_official_verdict": "CONTROLLER_NOT_SUPPORTED",
+  "plan_path": "experiments/ARK-019/PLAN_V4.md",
+  "plan_blob_sha": "a63ede220585fbd90004fd2aff4c6c31b37ea0ce",
+  "preregistration_path": "experiments/ARK-019/PREREGISTRATION_V4.json",
+  "preregistration_blob_sha": "02dd7b3d08931fa31b97ed681164b14011a18bd4",
+  "preexecution_audit_path": "experiments/ARK-019/PREEXECUTION_AUDIT_V4.md",
+  "preexecution_audit_blob_sha": "c1c4ba4b5fc1c7a74a50de84b449e6566c533102",
+  "launcher_path": "experiments/COLAB/arkenstone_ark019_v4.ipynb",
+  "launcher_blob_sha": "5ae85f4844054cba97726bf083b5cecd401d04a8",
+  "scientific_blobs": {
+    "experiments/ARK-019/ark019_v4_core.py": "18133fd31e16de20e633ca86f5b88cb817b97371",
+    "experiments/ARK-019/run_ark019_v4.py": "4adb1558e92270f596df8bccdb0b11478b9097d8",
+    "tests/test_ark019_v4.py": "4a972076f187035dfaae1353e3d77c65443afc48",
+    "experiments/ARK-019/run_ark019_v3.py": "ef41096069714668b3b1e5c0e165904908ebc885",
+    "experiments/ARK-018/ark018_v3_common.py": "05b1c6a7832749740420b5b540c3214ef4c84492",
+    "experiments/ARK-018/ark018_v3_binding_fast.py": "7492c697eccc5d87528094acf1b2e6164e47b1e1"
+  },
+  "static_contract_evidence": {
+    "dedicated_workflow": "ARK-019 V4 contracts",
+    "workflow_run_id": 34557714024,
+    "conclusion": "success",
+    "note": "An unrelated repository-wide ESOES workflow failed because its environment omitted NumPy/PyTorch; this is not treated as V4 contract evidence."
+  },
+  "fixed_parent_stage": {
+    "source_seeds": [31801, 31902],
+    "skill_a_slots": 16,
+    "real_text_slots": 16,
+    "max_updates": 2600,
+    "control_every": 50,
+    "science_control_relative_nll_max": 0.15,
+    "confirmation_streak": 3,
+    "validation_required": true
+  },
+  "fixed_dose_stage": {
+    "skill_b_slot_candidates": [8, 12, 16],
+    "pilot_order_seeds": [419001, 419002],
+    "max_updates": 2000,
+    "confirmation_deadline": 1800,
+    "selection_rule": "smallest dose passing both parent pilots and validation",
+    "failure_verdict": "INCONCLUSIVE_NO_VIABLE_SKILL_B_DOSE"
+  },
+  "fixed_main_stage": {
+    "parent_seeds": [31801, 31902],
+    "order_seeds": [429001, 429002],
+    "matched_sets": 4,
+    "arms": [
+      "PLASTIC_HIGH",
+      "STATIC_REPLAY_1OF64",
+      "STATIC_REPLAY_1OF32",
+      "STATIC_CAP16X",
+      "GUARDIAN_REPLAY",
+      "GUARDIAN_HYBRID"
+    ],
+    "updates_per_arm": 2000,
+    "skill_a_control_every": 25,
+    "skill_b_control_every": 50,
+    "sealed_and_science_measure_every": 100,
+    "checkpoint_every": 200,
+    "session_wall_minutes": 225,
+    "packaging_reserve_minutes": 10,
+    "runtime_safety_factor": 1.30,
+    "multi_session_exact_resume": true
+  },
+  "required_operator_gates": [
+    "live readiness and preregistration bind to frozen executable",
+    "all frozen Git blob hashes match",
+    "py_compile passes",
+    "V4 pure contracts pass",
+    "CUDA/T4 available",
+    "ARK-018 prepared cache and both SCIENCE_ONLY checkpoints exist and identities match",
+    "both science-preserving SKILL_A parents qualify",
+    "prospective SKILL_B dose gate passes or campaign stops before main comparison",
+    "10-update exact-resume CUDA smoke passes",
+    "runtime calibration records session estimate without protocol change"
+  ],
+  "output_root": "/content/drive/MyDrive/genisis-arkenstone/ARK019_GUARDIAN_V4",
+  "partial_bundle": "ARKENSTONE_ARK019_V4_GUARDIAN_PARTIAL.zip",
+  "final_bundle": "ARKENSTONE_ARK019_V4_GUARDIAN_RESULTS.zip",
+  "failure_policy": "Fail closed or emit exact-resumable partial session; never reduce seeds, arms, horizon, dose candidates, thresholds or evaluation cadence after outcome observation.",
+  "production_scheduler_authorized": false,
+  "pre500m_authorized": false,
+  "training_500m_authorized": false,
+  "broad_continual_learning_claim_authorized": false,
+  "agi_claim_authorized": false
+}
