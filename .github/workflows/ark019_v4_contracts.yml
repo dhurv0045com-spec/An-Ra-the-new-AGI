@@ -1,0 +1,32 @@
+name: ARK-019 V4 contracts
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/ARK-019/ark019_v4_core.py'
+      - 'experiments/ARK-019/run_ark019_v4.py'
+      - 'experiments/ARK-019/PREREGISTRATION_V4.json'
+      - 'experiments/ARK-019/PLAN_V4.md'
+      - 'tests/test_ark019_v4.py'
+      - '.github/workflows/ark019_v4_contracts.yml'
+  push:
+    branches: [Arkenstone, arkenstone-r3v4]
+    paths:
+      - 'experiments/ARK-019/ark019_v4_core.py'
+      - 'experiments/ARK-019/run_ark019_v4.py'
+      - 'tests/test_ark019_v4.py'
+      - '.github/workflows/ark019_v4_contracts.yml'
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -q pytest numpy
+      - name: Compile V4 executable
+        run: python -m py_compile experiments/ARK-019/ark019_v4_core.py experiments/ARK-019/run_ark019_v4.py
+      - name: Run V4 pure contracts
+        run: python -m pytest tests/test_ark019_v4.py -q
