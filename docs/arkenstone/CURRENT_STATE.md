@@ -147,6 +147,19 @@ Launcher: `experiments/COLAB/arkenstone_ark019_v4.ipynb`
 
 Dedicated `ARK-019 V4 contracts` CI passed on the frozen executable. A separate broad ESOES workflow failed because its environment omitted NumPy/PyTorch; that unrelated dependency failure is not represented as green evidence.
 
+### ARK-020 V2 — scientific repair of ARK-020 (designed behind V4)
+
+**Status:** PREREGISTERED (`db44e05`, before implementation) + IMPLEMENTED + 36/36 tests
+PASS (including real V4 integration contracts and a full CPU integration smoke) +
+red-team audit PASS / READY FOR OPERATOR COLAB CUDA RUN / NOT EXECUTED.
+
+The V1 pre-execution audit confirmed five blocking defects (integration-boundary shapes,
+information-theoretically-impossible skill C, unused phase seeds, global-step
+confirmation bias, resume overclaim). V2 repairs all five, replaces skill C with a
+two-hop composition task (TASK_VALIDITY_ANALYSIS.md), and records the externally-audited
+V4 result in FINAL_RESULT_AUDIT_V4.md with explicit provenance. V1 remains immutable.
+Launcher: `experiments/COLAB/arkenstone_ark020_v2.ipynb` (cell 0 = read-only resume scan).
+
 ### ARK-020 — multi-skill continual cognition generalization (designed behind V4)
 
 **Status:** PREREGISTERED (`e2e6e09`, before implementation) + IMPLEMENTED + 29/29 pure

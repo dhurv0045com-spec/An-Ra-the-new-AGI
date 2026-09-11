@@ -1,0 +1,64 @@
+{
+  "schema": "arkenstone-ark020-v2-run-readiness/v1",
+  "experiment": "ARK-020-V2",
+  "status": "READY_FOR_OPERATOR_COLAB_CUDA_RUN",
+  "scientific_result_status": "NOT_EXECUTED",
+  "ready_for_operator_colab_gpu_run": true,
+  "preregistration_commit": "db44e05",
+  "implementation_commit": "see git log ARK-020-V2",
+  "frozen_before_implementation": true,
+  "v1_preserved": "experiments/ARK-020/ (immutable)",
+  "v4_evidence_record": "experiments/ARK-019/FINAL_RESULT_AUDIT_V4.md",
+  "hard_stop_conditions_checklist": {
+    "no_known_integration_contract_failure": true,
+    "C_logically_inferable": true,
+    "all_phase_seeds_actually_used": true,
+    "phase_relative_confirmation_implemented": true,
+    "preregistration_matches_code": true,
+    "cpu_integration_smoke_passes": true,
+    "pure_tests_pass": true,
+    "checkpoint_exact_resume_coverage_truthful": true,
+    "controller_cannot_access_sealed": true,
+    "drive_resume_fail_closed": true,
+    "v4_evidence_properly_represented": true,
+    "preexecution_red_team_passes": true,
+    "no_known_fatal_scientific_confound": true
+  },
+  "test_results": {
+    "suite": "tests/test_ark020_v2.py",
+    "total": 36,
+    "pass": 36,
+    "fail": 0,
+    "layers": ["pure", "skill-c-validity", "phase-seeds", "integration-contracts-real-v4", "checkpoint-roundtrip", "fail-closed", "golden-decide-13-scenarios", "cpu-integration-smoke"]
+  },
+  "v1_defects_confirmed": 5,
+  "v1_defects_false_suspicions": 0,
+  "design": {
+    "skills": ["A relational_binding", "B relational_binding_2nd", "C two_hop_composition", "D inverse_retrieval"],
+    "arms": 7,
+    "matched_sets": 4,
+    "phases": {"B": 2000, "C": 1500, "D": 1500},
+    "phase_order_seeds": {"B": [429001, 429002], "C": [429003, 429004], "D": [429005, 429006]},
+    "task_slots": {"B": "dose_selected", "C": 12, "D": 12},
+    "guardian": "per-capability PLASTIC/SPARSE64/REPLAY32/EMERGENCY_CAP16X with de-escalation + 200-update post-phase floor",
+    "predictive_trigger": "robust_min < 0.95 OR degradation <= -0.03/100 over last 3 CONTROL observations",
+    "acquisition_metric": "median phase-relative confirmation <= 1.5x plastic median, per phase"
+  },
+  "runtime": {
+    "estimated_gpu_hours": "9-16",
+    "estimated_sessions_225min": "3-5",
+    "authority": "in-run RUNTIME_CALIBRATION.json; protocol cannot change from estimates"
+  },
+  "output": {
+    "drive_root": "/content/drive/MyDrive/genisis-arkenstone/ARK020_V2_CONTINUAL",
+    "partial_zip": "ARKENSTONE_ARK020_V2_CONTINUAL_PARTIAL.zip",
+    "final_zip": "ARKENSTONE_ARK020_V2_CONTINUAL_RESULTS.zip"
+  },
+  "launcher": "experiments/COLAB/arkenstone_ark020_v2.ipynb",
+  "failure_policy": "Fail closed or emit exact-resumable partial session; never reduce seeds, arms, phases, horizons, thresholds or evaluation cadence after outcome observation.",
+  "claim_ceiling": "controlled real-text-proxy evidence for a multi-capability continual-learning controller candidate",
+  "authorization_flags": {"production_scheduler_authorized": false, "pre500m_authorized": false,
+                          "training_500m_authorized": false,
+                          "broad_continual_learning_claim_authorized": false,
+                          "agi_claim_authorized": false}
+}
