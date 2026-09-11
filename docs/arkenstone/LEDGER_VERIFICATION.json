@@ -1,13 +1,13 @@
 {
   "schema": "arkenstone-ledger-verification/v2",
-  "stamped_at_commit": "59a85a614265e35905bdb2453a5f54f48e95b8a7",
+  "stamped_at_commit": "ca08b7fb2361de13969c9b91c6d8ee6356985a6c",
   "governed_file_hashes": {
-    "docs/arkenstone/EXPERIMENT_LOG.md": "03e0c41140c0e9c7da8c03fb87a0d06492d1d021319b69aca71d540e36160267",
+    "docs/arkenstone/EXPERIMENT_LOG.md": "c9db754fe2b3671ef33bed982706a526c8671299f13dee60197fcff647c9c6cc",
     "docs/arkenstone/MECHANISM_TOURNAMENT.md": "062d853f7f4cf69c1b61c82ef9f851a6e252b498b5e52ae75fbf31d029df227b",
     "docs/arkenstone/NEGATIVE_RESULTS.md": "c47a9340b1370f90b05082a9a773e9b4b0d08162d6cd7eca61d9034bdb45b0eb",
     "docs/arkenstone/AGI_FEATURE_LEDGER.md": "770f2f35fd837226c4e7efb6f5dfe23b443591ddffaa548ba1f884f2b16d11ee",
     "docs/arkenstone/NOVELTY_REGISTER.md": "cd96dc682cc23515eab11e01f274d53ba6f1a32fb0d01bfcb961ad0fd1ee7bbc",
-    "docs/arkenstone/README.md": "292e449f88fcb5d648ab960564dfeb8b9041243796b864b0c2374c109ffbe46c"
+    "docs/arkenstone/README.md": "706d69547144c3ba62ff9d45c4e5e1b278123362720a3faa53a80cfba746cb9d"
   },
   "receipt_checks": [
     {
@@ -241,6 +241,36 @@
       "scheme": null
     },
     {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-020-V2\\PREREGISTRATION.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-020-V2\\RUN_READINESS_V2.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-020-V3\\PREREGISTRATION.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-020-V3\\RUN_READINESS.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-020-V4\\PREREGISTRATION.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
+      "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\ARK-020-V4\\RUN_READINESS.json",
+      "status": "NO_SELF_HASH",
+      "scheme": null
+    },
+    {
       "file": "C:\\Users\\ankit\\.zcode\\workspace\\default\\Arkenstone\\experiments\\BINDING-V2-REDTEAM\\RECEIPT.json",
       "status": "NO_SELF_HASH",
       "scheme": null
@@ -352,7 +382,6 @@
     }
   ],
   "drifted_since_last_check": [
-    "docs/arkenstone/EXPERIMENT_LOG.md",
     "docs/arkenstone/README.md"
   ],
   "problems": [],
