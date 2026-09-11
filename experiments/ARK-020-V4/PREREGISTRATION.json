@@ -1,0 +1,49 @@
+{
+  "schema": "arkenstone-ark020-v4-preregistration/v1",
+  "experiment": "ARK-020-V4",
+  "frozen_before_implementation_execution": true,
+  "preserved_immutable": ["experiments/ARK-020/", "experiments/ARK-020-V2/", "experiments/ARK-020-V3/"],
+  "scientific_question": "unchanged from V3: sequential multi-capability acquisition (A/B binding, C two-hop composition, D inverse retrieval) with retention, real-text preservation, and adaptive protection more efficient than permanent rehearsal",
+  "inherits_v3": "tasks, splits, seeds, phases (2000/1500/1500), task slots (dose/12/12), thresholds, controller, arms, gates, metrics policy, claim ceiling",
+  "v4_repairs": [
+    "CLI scan contract (tested subprocess, @@SCAN_JSON@@ marker, fail-closed notebook)",
+    "PARENT_IDENTITIES dual hash receipt (source vs acquired parent); scan checks ACQUIRED",
+    "DOSE_SELECTION_IMPORTED.json local provenance; resume never depends on another experiment's directory",
+    "zero-write historical reuse via v4_local_output_root (mission option C redirect)",
+    "capability lifecycle + retention_failure_events (acquisition is not forgetting)",
+    "SPARSE64 cadence semantics (every 2nd update per capability; realized exposure reported)",
+    "timebox closure fix (no nested del)",
+    "explicit-device exact-resume smoke including lifecycle and scheduler state"
+  ],
+  "matched_sets": {"parent_seeds": [31801, 31902], "b_order_seeds": [429001, 429002]},
+  "phase_order_seeds": {"B": [429001, 429002], "C": [429003, 429004], "D": [429005, 429006]},
+  "phases": [{"skill": "B", "updates": 2000}, {"skill": "C", "updates": 1500}, {"skill": "D", "updates": 1500}],
+  "thresholds": {
+    "qualified": {"canonical": 0.90, "order_only": 0.85, "third": 0.85},
+    "healthy": {"canonical": 0.95, "order_only": 0.90, "third": 0.90},
+    "warning_margin_below": 0.95, "degradation_rate_per_100_updates": -0.03,
+    "confirmation_streak": 3, "healthy_deescalate_streak": 4,
+    "post_phase_sparse_floor_updates": 200, "emergency_replay32_failure_streak": 2,
+    "recovery_window_updates": 400, "max_replay_slots_per_update": 2
+  },
+  "arms": ["PLASTIC_HIGH", "STATIC_REPLAY_1OF64", "STATIC_REPLAY_1OF32", "STATIC_CAP16X",
+           "GUARDIAN_REACTIVE", "GUARDIAN_PREDICTIVE", "GUARDIAN_HYBRID"],
+  "verdict_rules": {
+    "formation_gate": "PLASTIC_HIGH qualifies each new skill in >=3/4 sets on CONTROL else INCONCLUSIVE_FORMATION_INSTABILITY_PHASE_X",
+    "interference_gate": ">=2/4 plastic sets show >=1 TRUE prior-capability retention failure OR static-vs-plastic retained-area gap >=0.15; the currently-acquiring skill never counts",
+    "guardian_success": "final sealed ALL capabilities qualified >=3/4 sets; area within 0.10 of best static; median phase-relative confirmation <=1.5x plastic median per phase; science NLL <=5%/set; duty <0.60; replay fraction <0.05; total replay <= STATIC_1OF32",
+    "verdicts": {"success": "GUARDIAN_MULTI_SKILL_CANDIDATE",
+                 "quality_only": "GUARDIAN_SUPPORTED_NOT_EFFICIENT",
+                 "failure": "GUARDIAN_NOT_SUPPORTED_MULTI_SKILL"},
+    "flags": ["PREVENTION_SIGNAL", "RECOVERY_SIGNAL", "PREDICTIVE_ADDS_VALUE"],
+    "cost_slope_reported": "k=1,2,3"
+  },
+  "drive_output_root": "/content/drive/MyDrive/genisis-arkenstone/ARK020_V4_CONTINUAL",
+  "packages": {"partial": "ARKENSTONE_ARK020_V4_CONTINUAL_PARTIAL.zip",
+               "final": "ARKENSTONE_ARK020_V4_CONTINUAL_RESULTS.zip"},
+  "claim_ceiling": "controlled real-text-proxy evidence for a multi-capability continual-learning controller candidate; composition/inverse-retrieval are proxies, never 'reasoning demonstrated'",
+  "authorization_flags": {"production_scheduler_authorized": false, "pre500m_authorized": false,
+                          "training_500m_authorized": false,
+                          "broad_continual_learning_claim_authorized": false,
+                          "agi_claim_authorized": false}
+}
