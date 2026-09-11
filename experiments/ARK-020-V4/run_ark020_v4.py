@@ -652,7 +652,12 @@ def exact_resume_smoke(parent_state, dose_b, bufs, tt, tasks, d) -> dict:
     uses the REAL save_checkpoint/load_checkpoint with the REAL identity binding, and
     reconstruction rebuilds the full working state from the loaded payload.
     """
-    p = OUT / "EXACT_RESUME_SMOKE_V3.json"
+    # CUDA determinism: SDPA backward is nondeterministic by default on GPU, which
+    # breaks exact-resume equality. Enforce deterministic kernels for the smoke
+    # (the campaign runs under setup(), but the smoke must be self-sufficient).
+    from ark018_v3_common import setup_reproducibility
+    setup_reproducibility()
+    p = OUT / "EXACT_RESUME_SMOKE_V4.json"
     if p.exists():
         return json.loads(p.read_text())
     seeds = {"B": C.PHASE_ORDER_SEEDS["B"][0], "C": C.PHASE_ORDER_SEEDS["C"][0],
