@@ -15,6 +15,7 @@ drafts with explicit dependency gates.** No AGI/pre-500M authorization anywhere.
 | 7 | **ARK-026** realer-language adaptation | natural-language capability under Guardian | contamination-resistant dataset build | 10–20 h | DESIGN_READY |
 | 8 | **ARK-029** gradient-direction intervention | is replay = gradient-direction repair? | V4 diagnostics baseline | 6–10 h | DESIGN_READY |
 | 9 | **ARK-024** task-ID-free Guardian | protection without manual skill labels | V4 + probes | 10–16 h | SPECULATIVE |
+| 8 | **ARK-027** order generalization | is the Guardian benefit robust to skill ORDER (A→B→C→D vs A→C→B→D etc.)? | V4 result + interference matrix | 12–18 h | DESIGN_READY (drafted below) |
 | 10 | **ARK-030** memory compression | protection per byte of memory | ARK-021+023 results | 8–14 h | SPECULATIVE |
 
 **Why the mission's ordering changes:** ARK-025 is demoted below 021/022 only because its
