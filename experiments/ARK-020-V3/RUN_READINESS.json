@@ -1,0 +1,101 @@
+{
+  "schema": "arkenstone-ark020-v3-run-readiness/v1",
+  "experiment": "ARK-020-V3",
+  "status": "READY_FOR_OPERATOR_COLAB_CUDA_RUN",
+  "scientific_result_status": "NOT_EXECUTED",
+  "ready_for_operator_colab_gpu_run": true,
+  "pinned_executable_commit": "13a50c2e2df57607e998c0c1d886c68cfcb57a65",
+  "blob_shas": {
+    "preregistration": "04c382d5d383c1b9b5f8e5007ce377f5bd8eb1de",
+    "core": "3815dbc995cac2017970914547e3136b0af6e6c4",
+    "runner": "8cb25437227475f1dbb1f2547e6170e0b84030ad",
+    "tests": "29eb21faf8ba68f38211cbf69784de30ffc42be5",
+    "plan": "73721a7764d26a6fd539db433dd7c9c79bb44549",
+    "task_validity": "64798a1320bfe6a37c1d4640637924d27ae04e96",
+    "red_team": "00d098e60a3fa5e4896375053488c5b7c500afdc",
+    "preexecution_audit": "1db0cf26c3b30a2a178537c22cb193fb43c63d6f",
+    "launcher": "pinned to the commit that contains this file (written after freeze)"
+  },
+  "preserved_immutable": [
+    "experiments/ARK-020/",
+    "experiments/ARK-020-V2/"
+  ],
+  "v4_evidence_record": "experiments/ARK-019/FINAL_RESULT_AUDIT_V4.md",
+  "test_results": {
+    "suite": "tests/test_ark020_v3.py",
+    "total": 27,
+    "pass": 27,
+    "fail": 0,
+    "layers": [
+      "pure",
+      "c-adversarial-validity",
+      "d-true-inverse",
+      "phase-seed-streams",
+      "v4-integration-contracts",
+      "checkpoint-fail-closed",
+      "golden-decisions",
+      "operator-scan",
+      "PRODUCTION-exact-resume-smoke-executed",
+      "no-vacuous"
+    ]
+  },
+  "exact_resume_evidence": {
+    "executed_on": "CPU (production geometry)",
+    "status": "PASS",
+    "fields": [
+      "model",
+      "optimizer",
+      "scaler",
+      "cpu_rng",
+      "cuda_rng",
+      "registry",
+      "controller",
+      "counters",
+      "phase_identity",
+      "confirmations",
+      "telemetry",
+      "semantic_stream"
+    ],
+    "cuda_note": "cuda_rng hashed only on CUDA devices; on CPU the field is marked cpu-device. The CUDA preexecution gate re-runs the same production smoke with CUDA state."
+  },
+  "c_validity": {
+    "positional_shortcut_rate": 0.3377,
+    "tied_v2_renderer_rate": 1.0,
+    "composition_oracle_rate": 1.0,
+    "n": 3000
+  },
+  "d_validity": {
+    "facts_forward": true,
+    "query_answer_pair_never_presented": true,
+    "pre_reversal_mutation_detected": true
+  },
+  "runtime": {
+    "estimated_gpu_hours": "9-16",
+    "estimated_sessions_225min": "3-5",
+    "authority": "in-run RUNTIME_CALIBRATION.json; protocol cannot change from estimates"
+  },
+  "output": {
+    "drive_root": "/content/drive/MyDrive/genisis-arkenstone/ARK020_V3_CONTINUAL",
+    "partial_zip": "ARKENSTONE_ARK020_V3_CONTINUAL_PARTIAL.zip",
+    "final_zip": "ARKENSTONE_ARK020_V3_CONTINUAL_RESULTS.zip"
+  },
+  "launcher": "experiments/COLAB/arkenstone_ark020_v3.ipynb",
+  "expected_receipts": [
+    "ENTRY_RECEIPT.json",
+    "PREEXECUTION_GATE.json",
+    "EXACT_RESUME_SMOKE_V3.json",
+    "RUNTIME_CALIBRATION.json",
+    "SESSION_STATE.json",
+    "ARK-020_V3_RESULT.json",
+    "ZIP_MANIFEST.json",
+    "*.sha256"
+  ],
+  "claim_ceiling": "controlled real-text-proxy evidence for a multi-capability continual-learning controller candidate; composition/inverse-retrieval are proxies",
+  "authorization_flags": {
+    "production_scheduler_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "broad_continual_learning_claim_authorized": false,
+    "agi_claim_authorized": false
+  }
+}
