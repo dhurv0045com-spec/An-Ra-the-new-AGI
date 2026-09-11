@@ -110,6 +110,13 @@ NEW CAPABILITY ARRIVES
 
 **Status:** PREREGISTERED + IMPLEMENTED + DEDICATED STATIC CONTRACT PASS / READY FOR OPERATOR COLAB CUDA PREFLIGHT / NOT EXECUTED.
 
+**Audit note (2026-09-12, ARK-020 mission):** a mission brief referred to a believed V4
+result `GUARDIAN_CONTINUAL_PROXY_CANDIDATE`. Independent repository verification found
+**no executed V4 result anywhere on the live branch** — `RUN_READINESS_V4.json` still
+records `scientific_result_status: NOT_EXECUTED`. The believed result is treated as
+unverified; nothing downstream may cite it until an operator bundle is returned and
+independently audited.
+
 V4 is the direct repair of V3.1, not an outcome-driven rerun.
 
 Stage A builds two science-preserving SKILL_A parents from the ARK-018 `SCIENCE_ONLY` checkpoints using a 16 real-text / 16 SKILL_A slot mixture. Parent qualification requires robust A plus science CONTROL NLL no more than 15% worse than the original source, followed by validation qualification.
@@ -139,6 +146,28 @@ Readiness: `experiments/ARK-019/RUN_READINESS_V4.json`
 Launcher: `experiments/COLAB/arkenstone_ark019_v4.ipynb`
 
 Dedicated `ARK-019 V4 contracts` CI passed on the frozen executable. A separate broad ESOES workflow failed because its environment omitted NumPy/PyTorch; that unrelated dependency failure is not represented as green evidence.
+
+### ARK-020 — multi-skill continual cognition generalization (designed behind V4)
+
+**Status:** PREREGISTERED (`e2e6e09`, before implementation) + IMPLEMENTED + 29/29 pure
+tests PASS + static pre-execution audit PASS / READY FOR OPERATOR COLAB CUDA RUN /
+NOT EXECUTED.
+
+ARK-020 generalizes the Guardian question from A→B to a four-skill sequential battery
+(A/B binding families, C successor-rule induction with never-trained sealed keys,
+D inverse retrieval) under 7 arms including a preregistered REACTIVE vs PREDICTIVE vs
+HYBRID controller comparison, a capability registry, risk-allocated replay (max 2
+slots/update) with an efficiency gate against STATIC_REPLAY_1OF32, prevention/recovery/
+retention reported separately, a protection-cost slope measurement (k = 1→2→3), and a
+formation-first gate set that structurally prevents the V3.1 misattribution. It reuses
+V4 parents/dose machinery and inherits V4's DOSE_SELECTION when present, so it can run
+immediately after V4 on the same Drive substrate. It does NOT depend on any V4 outcome.
+
+Plan: `experiments/ARK-020/PLAN.md` · Preregistration: `experiments/ARK-020/PREREGISTRATION.json` ·
+Audit: `experiments/ARK-020/PREEXECUTION_AUDIT.md` · Readiness: `experiments/ARK-020/RUN_READINESS.json` ·
+Core: `experiments/ARK-020/ark020_core.py` · Runner: `experiments/ARK-020/run_ark020.py` ·
+Tests: `tests/test_ark020.py` · Launcher: `experiments/COLAB/arkenstone_ark020.ipynb` ·
+Novelty: `docs/arkenstone/NOVELTY_AUDIT_ARK020.md` · Synthesis: `docs/arkenstone/CONTROLLER_SYNTHESIS.md`
 
 ## Claim boundaries
 

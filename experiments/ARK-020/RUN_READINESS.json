@@ -1,0 +1,52 @@
+{
+  "schema": "arkenstone-ark020-run-readiness/v1",
+  "experiment": "ARK-020",
+  "status": "READY_FOR_OPERATOR_COLAB_CUDA_RUN",
+  "scientific_result_status": "NOT_EXECUTED",
+  "ready_for_operator_colab_gpu_run": true,
+  "design_time_head": "e2e6e09",
+  "plan_path": "experiments/ARK-020/PLAN.md",
+  "design_reasoning_path": "experiments/ARK-020/DESIGN_REASONING.md",
+  "preregistration_path": "experiments/ARK-020/PREREGISTRATION.json",
+  "preexecution_audit_path": "experiments/ARK-020/PREEXECUTION_AUDIT.md",
+  "core_path": "experiments/ARK-020/ark020_core.py",
+  "runner_path": "experiments/ARK-020/run_ark020.py",
+  "tests_path": "tests/test_ark020.py",
+  "tests_status": "29/29 PASS (pure, torch-free)",
+  "launcher_path": "experiments/COLAB/arkenstone_ark020.ipynb",
+  "preregistration_commit": "e2e6e09",
+  "evidence_basis": {
+    "ark_017_r2": "BOTH_LEVERS_SUFFICIENT (audited)",
+    "ark_019_v31": "CONTROLLER_NOT_SUPPORTED / new-skill-formation bottleneck (audited)",
+    "ark_019_v4": "NOT_EXECUTED_IN_REPOSITORY_AT_DESIGN_TIME - believed result not used",
+    "ark_018_v4": "audited; substrate reused unchanged"
+  },
+  "fixed_structure": {
+    "skills": ["A relational_binding", "B relational_binding_2nd", "C rule_induction_cycle", "D inverse_retrieval"],
+    "arms": 7,
+    "matched_sets": 4,
+    "continuation_updates_per_arm": 5000,
+    "phases": {"B": 2000, "C": 1500, "D": 1500},
+    "control_every": 25, "measure_every": 100, "checkpoint_every": 200,
+    "session_wall_minutes": 225, "packaging_reserve_minutes": 10, "runtime_safety_factor": 1.30
+  },
+  "required_operator_gates": [
+    "substrate and ARK-018 SCIENCE_ONLY checkpoint identities match",
+    "48-token gate passes with disjoint skill vocabularies",
+    "parents qualify through the joint science gate",
+    "B dose selection passes (V4 inheritance or fresh pilot)",
+    "exact-resume smoke passes (10 == 5 + save + reload + 5)",
+    "runtime calibration recorded without protocol change",
+    "matched-set execution with PARTIAL receipts per session"
+  ],
+  "output_root": "/content/drive/MyDrive/genisis-arkenstone/ARK020_CONTINUAL_V1",
+  "partial_bundle": "ARKENSTONE_ARK020_CONTINUAL_PARTIAL.zip",
+  "final_bundle": "ARKENSTONE_ARK020_CONTINUAL_RESULTS.zip",
+  "failure_policy": "Fail closed or emit exact-resumable partial session; never reduce seeds, arms, phases, horizons, thresholds or evaluation cadence after outcome observation.",
+  "fallback_policy": "2-matched-set reduction only via PROSPECTIVE addendum committed before any outcome data exists",
+  "production_scheduler_authorized": false,
+  "pre500m_authorized": false,
+  "training_500m_authorized": false,
+  "broad_continual_learning_claim_authorized": false,
+  "agi_claim_authorized": false
+}

@@ -86,4 +86,4 @@ Loss is a diagnostic, never proof of cognition. Execution artifacts beat prose. 
 
 ---
 
-stamped-at-commit: eb528c98c5b7cbc2cbc51f220231f496d8ce5423
+stamped-at-commit: 59a85a614265e35905bdb2453a5f54f48e95b8a7
