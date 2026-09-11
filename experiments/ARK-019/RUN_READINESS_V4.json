@@ -14,7 +14,8 @@
   "preexecution_audit_path": "experiments/ARK-019/PREEXECUTION_AUDIT_V4.md",
   "preexecution_audit_blob_sha": "c1c4ba4b5fc1c7a74a50de84b449e6566c533102",
   "launcher_path": "experiments/COLAB/arkenstone_ark019_v4.ipynb",
-  "launcher_blob_sha": "5ae85f4844054cba97726bf083b5cecd401d04a8",
+  "launcher_blob_sha": "077596962a572fa8640f6804d7c83e2b8b2cc13c",
+  "launcher_operational_amendment": "2026-09-11: Cell 0/1 now perform read-only Drive resume-state visibility and shared-Drive concurrency warnings. Frozen scientific executable, arms, seeds, horizons, thresholds and data are unchanged.",
   "scientific_blobs": {
     "experiments/ARK-019/ark019_v4_core.py": "18133fd31e16de20e633ca86f5b88cb817b97371",
     "experiments/ARK-019/run_ark019_v4.py": "4adb1558e92270f596df8bccdb0b11478b9097d8",
