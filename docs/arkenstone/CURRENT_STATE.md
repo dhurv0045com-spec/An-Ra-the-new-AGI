@@ -147,6 +147,15 @@ Launcher: `experiments/COLAB/arkenstone_ark019_v4.ipynb`
 
 Dedicated `ARK-019 V4 contracts` CI passed on the frozen executable. A separate broad ESOES workflow failed because its environment omitted NumPy/PyTorch; that unrelated dependency failure is not represented as green evidence.
 
+### ARK-020 V3 — correctness repair and operator freeze (current V3 build)
+
+**Status:** PREREGISTERED + IMPLEMENTED + 27/27 tests (incl. the PRODUCTION exact-resume
+smoke executed directly) + red-team clean / READY FOR OPERATOR COLAB CUDA RUN / NOT EXECUTED.
+Executable frozen at `13a50c2` with blob SHAs in RUN_READINESS_V3. All four independently
+confirmed V2 blockers repaired; C validity measured (positional shortcut 0.3377 ~ chance,
+composition oracle 1.0); D genuinely inverse. V1/V2 immutable. Launcher:
+`experiments/COLAB/arkenstone_ark020_v3.ipynb` (cell 0: mount Drive BEFORE the scan).
+
 ### ARK-020 V2 — scientific repair of ARK-020 (designed behind V4)
 
 **Status:** PREREGISTERED (`db44e05`, before implementation) + IMPLEMENTED + 36/36 tests
