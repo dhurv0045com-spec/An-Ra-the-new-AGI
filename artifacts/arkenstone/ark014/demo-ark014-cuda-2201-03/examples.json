@@ -1,0 +1,5721 @@
+{
+  "schema": "arkenstone-ark014-demo/v1",
+  "run_id": "ark014-cuda-2201-03",
+  "run_status": "EXECUTED_OR_PARTIAL_BUDGETED",
+  "protocol_scale": "PREREGISTERED_FROZEN",
+  "verdict": "ROBUST_BINDING_ACQUIRED_BUT_TRANSFER_INCONCLUSIVE",
+  "task_manifest_sha256": "cd107b498810304bc717d410a12f2641beeb8d5cb17f687f2bf0f41ec558eba4",
+  "baseline_checkpoint": {
+    "filename": "CANONICAL_TRAIN_final.pt",
+    "sha256": "8eb1bf849debf81bd0c1dd900e40df09cb85830930722e610fe8bc4abe3db9ab",
+    "parameter_sha256": "8375b36c562ca7f578737f10f9f1490c11d3b7338adadb16778800b96e305708",
+    "step": 24000
+  },
+  "candidate_checkpoint": {
+    "filename": "ORDER_AUGMENTED_qualified.pt",
+    "sha256": "b0ddfb197bce0e51c46430f1dd69365d5c20551ee7cfd2106f453453172c2b96",
+    "parameter_sha256": "632e04d2ccbe3a9abb83b1c3b2c5d7de24ee5c3aed2c519317b4968fe0eec40b",
+    "step": 2000
+  },
+  "demo_selection_rule": "BIND_SEALED fact-sets ranked by sha256(canonical signature); smallest 12; frozen, outcome-independent",
+  "aggregate": {
+    "BIND_CONTROL/CANONICAL": {
+      "baseline": {
+        "exact": 1.0,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9866666666666667,
+        "denominator": 150
+      }
+    },
+    "BIND_CONTROL/ORDER_ONLY": {
+      "baseline": {
+        "exact": 0.38,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9866666666666667,
+        "denominator": 150
+      }
+    },
+    "BIND_CONTROL/QUERY_ONLY": {
+      "baseline": {
+        "exact": 1.0,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9866666666666667,
+        "denominator": 150
+      }
+    },
+    "BIND_CONTROL/QUERY_ORDER": {
+      "baseline": {
+        "exact": 0.38,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9866666666666667,
+        "denominator": 150
+      }
+    },
+    "BIND_SEALED/CANONICAL": {
+      "baseline": {
+        "exact": 1.0,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9866666666666667,
+        "denominator": 150
+      }
+    },
+    "BIND_SEALED/ORDER_ONLY": {
+      "baseline": {
+        "exact": 0.2866666666666667,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9933333333333333,
+        "denominator": 150
+      }
+    },
+    "BIND_SEALED/QUERY_ONLY": {
+      "baseline": {
+        "exact": 1.0,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9866666666666667,
+        "denominator": 150
+      }
+    },
+    "BIND_SEALED/QUERY_ORDER": {
+      "baseline": {
+        "exact": 0.2866666666666667,
+        "denominator": 150
+      },
+      "candidate": {
+        "exact": 0.9933333333333333,
+        "denominator": 150
+      }
+    }
+  },
+  "examples": [
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "2=2+3=0+4=4/2=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "2=2+3=0+4=4/3=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "2=2+3=0+4=4/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "4=4+3=0+2=2/2=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "4=4+3=0+2=2/3=",
+      "ground_truth": "0",
+      "baseline_prediction": "4",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=4+3=0+2=2/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "2",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "2=2+3=0+4=4/3=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "2=2+3=0+4=4/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "2=2+3=0+4=4/2=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=4+3=0+2=2/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "2",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "4=4+3=0+2=2/2=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "4=4+3=0+2=2/3=",
+      "ground_truth": "0",
+      "baseline_prediction": "4",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=3+2=5+5=4/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "0=3+2=5+5=4/2=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=3+2=5+5=4/5=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=4+2=5+0=3/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "4",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "5=4+2=5+0=3/2=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=4+2=5+0=3/5=",
+      "ground_truth": "4",
+      "baseline_prediction": "3",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "0=3+2=5+5=4/2=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=3+2=5+5=4/5=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=3+2=5+5=4/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=4+2=5+0=3/5=",
+      "ground_truth": "4",
+      "baseline_prediction": "3",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=4+2=5+0=3/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "4",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "5=4+2=5+0=3/2=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=4+4=5+5=1/0=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "0=4+4=5+5=1/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=4+4=5+5=1/5=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=1+4=5+0=4/0=",
+      "ground_truth": "4",
+      "baseline_prediction": "1",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "5=1+4=5+0=4/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=1+4=5+0=4/5=",
+      "ground_truth": "1",
+      "baseline_prediction": "4",
+      "candidate_prediction": "1",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "0=4+4=5+5=1/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=4+4=5+5=1/5=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=4+4=5+5=1/0=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=1+4=5+0=4/5=",
+      "ground_truth": "1",
+      "baseline_prediction": "4",
+      "candidate_prediction": "1",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=1+4=5+0=4/0=",
+      "ground_truth": "4",
+      "baseline_prediction": "1",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          4
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          1
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "5=1+4=5+0=4/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "2=1+3=4+5=5/2=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "2=1+3=4+5=5/3=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "2=1+3=4+5=5/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "5=5+3=4+2=1/2=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "5=5+3=4+2=1/3=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=5+3=4+2=1/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "1",
+      "candidate_prediction": "5",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "2=1+3=4+5=5/3=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "2=1+3=4+5=5/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "2=1+3=4+5=5/2=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=5+3=4+2=1/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "1",
+      "candidate_prediction": "5",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "5=5+3=4+2=1/2=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "5=5+3=4+2=1/3=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=2+4=5+5=0/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "0=2+4=5+5=0/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=2+4=5+5=0/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=0+4=5+0=2/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "0",
+      "candidate_prediction": "2",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "5=0+4=5+0=2/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=0+4=5+0=2/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "2",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "0=2+4=5+5=0/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=2+4=5+5=0/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=2+4=5+5=0/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=0+4=5+0=2/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "2",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=0+4=5+0=2/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "0",
+      "candidate_prediction": "2",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "5=0+4=5+0=2/4=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "1=2+3=5+4=1/1=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "1=2+3=5+4=1/3=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "1=2+3=5+4=1/4=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "4=1+3=5+1=2/1=",
+      "ground_truth": "2",
+      "baseline_prediction": "1",
+      "candidate_prediction": "2",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "4=1+3=5+1=2/3=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=1+3=5+1=2/4=",
+      "ground_truth": "1",
+      "baseline_prediction": "2",
+      "candidate_prediction": "1",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "1=2+3=5+4=1/3=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "1=2+3=5+4=1/4=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "1=2+3=5+4=1/1=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=1+3=5+1=2/4=",
+      "ground_truth": "1",
+      "baseline_prediction": "2",
+      "candidate_prediction": "1",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "4=1+3=5+1=2/1=",
+      "ground_truth": "2",
+      "baseline_prediction": "1",
+      "candidate_prediction": "2",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          2
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          1
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "4=1+3=5+1=2/3=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "1=0+2=4+4=3/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": false
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "1=0+2=4+4=3/2=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "1=0+2=4+4=3/4=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "4=3+2=4+1=0/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "3",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "4=3+2=4+1=0/2=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=3+2=4+1=0/4=",
+      "ground_truth": "3",
+      "baseline_prediction": "0",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "1=0+2=4+4=3/2=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "1=0+2=4+4=3/4=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "1=0+2=4+4=3/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": false
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=3+2=4+1=0/4=",
+      "ground_truth": "3",
+      "baseline_prediction": "0",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "4=3+2=4+1=0/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "3",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          3
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "4=3+2=4+1=0/2=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=2+1=4+2=0/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "0=2+1=4+2=0/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "0=2+1=4+2=0/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": false
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "2=0+1=4+0=2/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "0",
+      "candidate_prediction": "2",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "2=0+1=4+0=2/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "0",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "2=0+1=4+0=2/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "0=2+1=4+2=0/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "0=2+1=4+2=0/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": false
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=2+1=4+2=0/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "2",
+      "candidate_prediction": "2",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "2=0+1=4+0=2/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "2=0+1=4+0=2/0=",
+      "ground_truth": "2",
+      "baseline_prediction": "0",
+      "candidate_prediction": "2",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "2=0+1=4+0=2/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "0",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=0+3=1+5=3/0=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "0=0+3=1+5=3/3=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=0+3=1+5=3/5=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=3+3=1+0=0/0=",
+      "ground_truth": "0",
+      "baseline_prediction": "3",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "5=3+3=1+0=0/3=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=3+3=1+0=0/5=",
+      "ground_truth": "3",
+      "baseline_prediction": "0",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 3,
+      "prompt": "0=0+3=1+5=3/3=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=0+3=1+5=3/5=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=0+3=1+5=3/0=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=3+3=1+0=0/5=",
+      "ground_truth": "3",
+      "baseline_prediction": "0",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=3+3=1+0=0/0=",
+      "ground_truth": "0",
+      "baseline_prediction": "3",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          3
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 3,
+      "prompt": "5=3+3=1+0=0/3=",
+      "ground_truth": "1",
+      "baseline_prediction": "1",
+      "candidate_prediction": "1",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "1=4+2=0+5=5/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "1=4+2=0+5=5/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "1=4+2=0+5=5/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "5=5+2=0+1=4/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "5",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "5=5+2=0+1=4/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=5+2=0+1=4/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "4",
+      "candidate_prediction": "5",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 2,
+      "prompt": "1=4+2=0+5=5/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "1=4+2=0+5=5/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "1=4+2=0+5=5/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=5+2=0+1=4/5=",
+      "ground_truth": "5",
+      "baseline_prediction": "4",
+      "candidate_prediction": "5",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "5=5+2=0+1=4/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "5",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          5
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          1,
+          4
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 2,
+      "prompt": "5=5+2=0+1=4/2=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=3+1=0+4=4/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "0=3+1=0+4=4/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "0=3+1=0+4=4/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "4=4+1=0+0=3/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "4",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "4=4+1=0+0=3/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "4",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=4+1=0+0=3/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "3",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "0=3+1=0+4=4/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 4,
+      "prompt": "0=3+1=0+4=4/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=3+1=0+4=4/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "3",
+      "candidate_prediction": "3",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 4,
+      "prompt": "4=4+1=0+0=3/4=",
+      "ground_truth": "4",
+      "baseline_prediction": "3",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "4=4+1=0+0=3/0=",
+      "ground_truth": "3",
+      "baseline_prediction": "4",
+      "candidate_prediction": "3",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "shown_facts": [
+        [
+          4,
+          4
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "4=4+1=0+0=3/1=",
+      "ground_truth": "0",
+      "baseline_prediction": "4",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=5+1=4+5=0/0=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "0=5+1=4+5=0/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "CANONICAL",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=5+1=4+5=0/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=0+1=4+0=5/0=",
+      "ground_truth": "5",
+      "baseline_prediction": "0",
+      "candidate_prediction": "5",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "5=0+1=4+0=5/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "0",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "ORDER_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=0+1=4+0=5/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "5",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 1,
+      "prompt": "0=5+1=4+5=0/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "4",
+      "candidate_prediction": "4",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 5,
+      "prompt": "0=5+1=4+5=0/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "0",
+      "candidate_prediction": "0",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ONLY",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "reordered_shown": false,
+      "query": 0,
+      "prompt": "0=5+1=4+5=0/0=",
+      "ground_truth": "5",
+      "baseline_prediction": "5",
+      "candidate_prediction": "5",
+      "baseline_correct": true,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 5,
+      "prompt": "5=0+1=4+0=5/5=",
+      "ground_truth": "0",
+      "baseline_prediction": "5",
+      "candidate_prediction": "0",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 0,
+      "prompt": "5=0+1=4+0=5/0=",
+      "ground_truth": "5",
+      "baseline_prediction": "0",
+      "candidate_prediction": "5",
+      "baseline_correct": false,
+      "candidate_correct": true
+    },
+    {
+      "diagnostic": "QUERY_ORDER",
+      "canonical_facts": [
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          0
+        ]
+      ],
+      "shown_facts": [
+        [
+          5,
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "reordered_shown": true,
+      "query": 1,
+      "prompt": "5=0+1=4+0=5/1=",
+      "ground_truth": "4",
+      "baseline_prediction": "0",
+      "candidate_prediction": "4",
+      "baseline_correct": false,
+      "candidate_correct": true
+    }
+  ]
+}
