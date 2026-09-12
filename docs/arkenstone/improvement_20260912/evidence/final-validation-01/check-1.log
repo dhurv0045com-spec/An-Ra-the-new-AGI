@@ -1,0 +1,48 @@
+test_ark012_complete_and_protection (test_discovery_v6_campaigns.CampaignTests.test_ark012_complete_and_protection) ... ok
+test_ark012_preserves_completed_schedule (test_discovery_v6_campaigns.CampaignTests.test_ark012_preserves_completed_schedule) ... 
+=== ARK-012 source seed=909 order=2702 ===
+ok
+test_ark013_preserves_completed_arm (test_discovery_v6_campaigns.CampaignTests.test_ark013_preserves_completed_arm) ... 
+=== ARK-013 acquire T2 seed=1717 ===
+
+--- ARK-013 seed=1717 T3 order=6801 ---
+ok
+test_ark013_requires_final_area_agreement_and_horizon (test_discovery_v6_campaigns.CampaignTests.test_ark013_requires_final_area_agreement_and_horizon) ... ok
+test_campaign_entry_reserves_preserve_skipped_opportunities (test_discovery_v6_campaigns.CampaignTests.test_campaign_entry_reserves_preserve_skipped_opportunities) ... ok
+test_no_recovery_and_pooled_ordering_are_not_threshold_support (test_discovery_v6_campaigns.CampaignTests.test_no_recovery_and_pooled_ordering_are_not_threshold_support) ... ok
+test_partial_and_duplicate_evidence_cannot_be_promoted (test_discovery_v6_campaigns.CampaignTests.test_partial_and_duplicate_evidence_cannot_be_promoted) ... ok
+test_t3_manifest_deterministic_firewall (test_discovery_v6_campaigns.CampaignTests.test_t3_manifest_deterministic_firewall) ... ok
+test_vectorized_indices (test_discovery_v6_campaigns.CampaignTests.test_vectorized_indices) ... ok
+test_vice_versa_pareto_gain_and_area_only_regression (test_discovery_v6_campaigns.CampaignTests.test_vice_versa_pareto_gain_and_area_only_regression) ... ok
+test_archive_excludes_other_runs (test_discovery_v6_runtime.RuntimeTest.test_archive_excludes_other_runs) ... saved: C:\Users\ankit\AppData\Local\Temp\tmpl2uhaelj\a\A.json
+saved: C:\Users\ankit\AppData\Local\Temp\tmpl2uhaelj\b\B.json
+RESULT ZIP: C:\Users\ankit\AppData\Local\Temp\tmpl2uhaelj\a\ARKENSTONE_DISCOVERY_V6_RESULTS.zip
+ok
+test_cuda_initialization_failure_can_still_write_receipt (test_discovery_v6_runtime.RuntimeTest.test_cuda_initialization_failure_can_still_write_receipt) ... saved: C:\Users\ankit\AppData\Local\Temp\tmp_49gdbfd\no-cuda\FAILURE_RECEIPT.json
+FAILED: RuntimeError: no GPU
+RESULT ZIP: C:\Users\ankit\AppData\Local\Temp\tmp_49gdbfd\no-cuda\ARKENSTONE_DISCOVERY_V6_RESULTS.zip
+ok
+test_existing_run_is_never_reused (test_discovery_v6_runtime.RuntimeTest.test_existing_run_is_never_reused) ... ok
+test_failed_atomic_replace_keeps_prior_receipt (test_discovery_v6_runtime.RuntimeTest.test_failed_atomic_replace_keeps_prior_receipt) ... ok
+test_failure_and_keyboard_interrupt_still_package_receipt (test_discovery_v6_runtime.RuntimeTest.test_failure_and_keyboard_interrupt_still_package_receipt) ... saved: C:\Users\ankit\AppData\Local\Temp\tmpvt0i895o\failure0\FAILURE_RECEIPT.json
+FAILED: RuntimeError: injected
+RESULT ZIP: C:\Users\ankit\AppData\Local\Temp\tmpvt0i895o\failure0\ARKENSTONE_DISCOVERY_V6_RESULTS.zip
+saved: C:\Users\ankit\AppData\Local\Temp\tmpvt0i895o\failure1\FAILURE_RECEIPT.json
+FAILED: KeyboardInterrupt: 
+RESULT ZIP: C:\Users\ankit\AppData\Local\Temp\tmpvt0i895o\failure1\ARKENSTONE_DISCOVERY_V6_RESULTS.zip
+ok
+test_invalid_trajectories_fail_closed (test_discovery_v6_runtime.RuntimeTest.test_invalid_trajectories_fail_closed) ... ok
+test_nonpositive_budget_rejected_before_directory_creation (test_discovery_v6_runtime.RuntimeTest.test_nonpositive_budget_rejected_before_directory_creation) ... ok
+test_receipts_keep_revisions_bind_shared_source_and_detect_tampering (test_discovery_v6_runtime.RuntimeTest.test_receipts_keep_revisions_bind_shared_source_and_detect_tampering) ... saved: C:\Users\ankit\AppData\Local\Temp\tmp8bdwlu7n\run\PARTIAL.json
+saved: C:\Users\ankit\AppData\Local\Temp\tmp8bdwlu7n\run\PARTIAL.json
+ok
+test_recurrent_drop_excludes_initial_unrecovered_period (test_discovery_v6_runtime.RuntimeTest.test_recurrent_drop_excludes_initial_unrecovered_period) ... ok
+test_runtime_imports_have_no_output_directory_side_effect (test_discovery_v6_runtime.RuntimeTest.test_runtime_imports_have_no_output_directory_side_effect) ... ok
+test_sampler_preserves_multiple_legacy_streams (test_discovery_v6_runtime.RuntimeTest.test_sampler_preserves_multiple_legacy_streams) ... ok
+test_shared_training_boundary_enforces_budget (test_discovery_v6_runtime.RuntimeTest.test_shared_training_boundary_enforces_budget) ... ok
+test_wall_clock_changes_cannot_extend_budget (test_discovery_v6_runtime.RuntimeTest.test_wall_clock_changes_cannot_extend_budget) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 1.815s
+
+OK

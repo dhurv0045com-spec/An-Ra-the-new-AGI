@@ -13,6 +13,7 @@ from discovery_v6_common import (
     RunContext,
     bind_ark11_runtime,
     detect_sustained,
+    ensure_budget,
     flat_params,
     load_ark11,
     order_sha256,
@@ -30,10 +31,30 @@ SCHEDULES = [
     ("SWITCH_90", 0.90),
     ("SWITCH_95", 0.95),
 ]
+SCHEDULE_NAMES = {name for name, _ in SCHEDULES}
+FIXED_HORIZON = 8000
+
+
+def _complete_source(row: dict) -> bool:
+    if (row.get("acquisition_seed"), row.get("continuation_seed")) not in SOURCES:
+        return False
+    schedules = row.get("schedules")
+    if row.get("status") != "EXECUTED" or not isinstance(schedules, dict):
+        return False
+    if set(schedules) != SCHEDULE_NAMES:
+        return False
+    for arm in schedules.values():
+        if not isinstance(arm, dict) or arm.get("completed_steps") != FIXED_HORIZON:
+            return False
+        metrics = arm.get("sealed_metrics")
+        if not isinstance(metrics, dict) or not all(k in metrics for k in ("AREA", "FINAL")):
+            return False
+    return True
 
 
 def _run_schedule(ark11, *, snapshot, indices, offset, train, control, sealed,
-                  name: str, threshold: float | None, steps: int = 8000) -> dict:
+                  name: str, threshold: float | None, steps: int = 8000,
+                  ctx: RunContext | None = None) -> dict:
     if offset + steps > len(indices):
         raise RuntimeError(f"{name}: continuation stream too short")
 
@@ -48,6 +69,8 @@ def _run_schedule(ark11, *, snapshot, indices, offset, train, control, sealed,
     supervised_tokens = 0
 
     for step in range(1, steps + 1):
+        if ctx is not None:
+            ensure_budget(ctx)
         rows = [train[i] for i in indices[offset + step - 1]]
         loss, count = ark11.loss_and_positions(model, vocab, rows, ark11.dev())
         if not torch.isfinite(loss):
@@ -90,6 +113,7 @@ def _run_schedule(ark11, *, snapshot, indices, offset, train, control, sealed,
         "switch_onset_step": switch_onset,
         "switch_confirmation_step": switch_confirm,
         "supervised_tokens": supervised_tokens,
+        "completed_steps": steps,
         "control_metrics": trajectory_metrics(trajectory, "control_exact"),
         "sealed_metrics": trajectory_metrics(trajectory, "sealed_exact"),
         "trajectory": trajectory,
@@ -97,8 +121,12 @@ def _run_schedule(ark11, *, snapshot, indices, offset, train, control, sealed,
 
 
 def _summarize(rows: list[dict]) -> dict:
-    executed = [r for r in rows if r.get("status") == "EXECUTED"]
+    candidates = [r for r in rows if _complete_source(r)]
+    identities = [(r["acquisition_seed"], r["continuation_seed"]) for r in candidates]
+    executed = [r for r, identity in zip(candidates, identities) if identities.count(identity) == 1]
     summary = {"event_sources_executed": len(executed), "selected_event_design": True}
+    summary["rule_status"] = "CONSERVATIVE_OPERATIONAL_INTERPRETATION_NOT_NEW_PREREGISTRATION"
+    summary["excluded_rows"] = len(rows) - len(executed)
     means = {}
     for name, _ in SCHEDULES:
         vals = [r["schedules"][name]["sealed_metrics"]["AREA"] for r in executed if name in r.get("schedules", {})]
@@ -115,13 +143,47 @@ def _summarize(rows: list[dict]) -> dict:
         summary["verdict"] = "INCONCLUSIVE_PARTIAL_SCHEDULES"
         return summary
 
-    ordered = means["SWITCH_75"] <= means["SWITCH_85"] <= means["SWITCH_90"] <= means["SWITCH_95"]
-    late_gain = max(means["SWITCH_90"], means["SWITCH_95"]) >= means["LOW_IMMEDIATE"] + 0.05
-    if ordered and late_gain:
+    ordered_sources = []
+    late_gain_sources = []
+    late_not_more_unstable = []
+    for row in executed:
+        arms = row["schedules"]
+        switch_arms = [arms[f"SWITCH_{bar}"] for bar in (75, 85, 90, 95)]
+        ordered_sources.append(all(
+            switch_arms[i]["sealed_metrics"]["AREA"]
+            <= switch_arms[i + 1]["sealed_metrics"]["AREA"] for i in range(3)
+        ))
+        late_gain_sources.append(
+            max(a["sealed_metrics"]["AREA"] for a in switch_arms[2:])
+            > arms["LOW_IMMEDIATE"]["sealed_metrics"]["AREA"]
+        )
+        # The same late-switch arm must both gain over LOW_IMMEDIATE and
+        # avoid recurrent sealed instability. HIGH_CONTINUE collapse alone is
+        # not evidence of protection.
+        protected_late_gain = any(
+            a["sealed_metrics"]["AREA"] > arms["LOW_IMMEDIATE"]["sealed_metrics"]["AREA"]
+            and a["sealed_metrics"].get("G90_CONFIRM") is not None
+            and a["sealed_metrics"].get("DROP90_CONFIRM") is None
+            for a in switch_arms[2:]
+        )
+        late_not_more_unstable.append(protected_late_gain)
+
+    def dominates(candidate: str) -> bool:
+        comparisons = [
+            (row["schedules"][candidate]["sealed_metrics"]["AREA"],
+             row["schedules"][other]["sealed_metrics"]["AREA"])
+            for row in executed for other in needed if other != candidate
+        ]
+        return all(left >= right for left, right in comparisons) and any(left > right for left, right in comparisons)
+
+    summary["state_ordered_by_source"] = ordered_sources
+    summary["late_gain_over_immediate_by_source"] = late_gain_sources
+    summary["late_not_more_unstable_than_high_by_source"] = late_not_more_unstable
+    if all(ordered_sources) and all(late_gain_sources) and all(late_not_more_unstable):
         verdict = "STATE_THRESHOLD_SUPPORTED_SCREEN"
-    elif means["LOW_IMMEDIATE"] >= max(means[k] for k in needed if k != "LOW_IMMEDIATE") + 0.02:
+    elif dominates("LOW_IMMEDIATE"):
         verdict = "LOW_ALWAYS_BEST_SCREEN"
-    elif means["HIGH_CONTINUE"] >= max(means[k] for k in needed if k != "HIGH_CONTINUE") + 0.02:
+    elif dominates("HIGH_CONTINUE"):
         verdict = "HIGH_ALWAYS_BEST_SCREEN"
     else:
         verdict = "TIME_NOT_STATE_SCREEN"
@@ -131,8 +193,12 @@ def _summarize(rows: list[dict]) -> dict:
 
 def run_campaign(ctx: RunContext) -> dict:
     writer = ReceiptWriter(ctx, experiment_id="ARK-012", plan_sha=PLAN_SHA, runner_path=RUNNER_PATH)
+    if ctx.minutes_left < 35:
+        payload = {"status": "BUDGET_BLOCKED", "results": [{"acquisition_seed": a, "continuation_seed": o, "status": "BUDGET_BLOCKED"} for a, o in SOURCES], "summary": {"event_sources_executed": 0, "verdict": "BUDGET_BLOCKED"}}
+        writer.save("ARK-012_RESULT.json", payload)
+        return payload
     ark11 = load_ark11()
-    bind_ark11_runtime(ark11, ctx.device, ctx.head)
+    bind_ark11_runtime(ark11, ctx.device, ctx.head, ctx=ctx)
 
     manifest = ark11.load_manifest()
     train = [(p, a) for p, a in manifest["train"]]
@@ -188,6 +254,18 @@ def run_campaign(ctx: RunContext) -> dict:
 
         offset = int(collapse["confirmation_absolute_step"])
         schedules = {}
+        event = {
+            "acquisition_seed": acq_seed,
+            "continuation_seed": order_seed,
+            "continuation_order_sha256": order_hash,
+            "status": "SCHEDULES_PARTIAL",
+            "selection_note": "historical high-instability source; selected-event mechanistic screen only",
+            "acquisition_control_g90_onset": acq["onset_step"],
+            "acquisition_control_g90_confirm": acq["confirmation_step"],
+            "collapse": {k: v for k, v in collapse.items() if k != "snapshot"},
+            "schedules": schedules,
+        }
+        results.append(event)
         for name, threshold in SCHEDULES:
             schedules[name] = _run_schedule(
                 ark11,
@@ -199,21 +277,11 @@ def run_campaign(ctx: RunContext) -> dict:
                 sealed=sealed,
                 name=name,
                 threshold=threshold,
-                steps=8000,
+                steps=FIXED_HORIZON,
+                ctx=ctx,
             )
-
-        event = {
-            "acquisition_seed": acq_seed,
-            "continuation_seed": order_seed,
-            "continuation_order_sha256": order_hash,
-            "status": "EXECUTED",
-            "selection_note": "historical high-instability source; selected-event mechanistic screen only",
-            "acquisition_control_g90_onset": acq["onset_step"],
-            "acquisition_control_g90_confirm": acq["confirmation_step"],
-            "collapse": {k: v for k, v in collapse.items() if k != "snapshot"},
-            "schedules": schedules,
-        }
-        results.append(event)
+            writer.save("ARK-012_PARTIAL.json", {"results": results})
+        event["status"] = "EXECUTED"
         writer.save("ARK-012_PARTIAL.json", {"results": results})
 
     payload = {

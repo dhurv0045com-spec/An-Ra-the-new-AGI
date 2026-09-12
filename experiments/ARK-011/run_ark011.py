@@ -25,7 +25,6 @@ PLAN_SHA = "1d5fc08000614e740b7c93d87e8d233c903bcddf"
 ADDENDUM_SHA = "70fa2764fc0df79d4bf4b0b16e6620bc87278aa9"
 CANONICAL_T2_SHA = "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236"
 RESULTS_DIR = Path("/content/arkenstone_ark011_results")
-RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_BUDGET_MINUTES = 180
 SESSION_START = time.time()
 DEVICE: torch.device | None = None
@@ -125,6 +124,7 @@ def save_json(name: str, payload: dict) -> Path:
     body = dict(out)
     body.pop("receipt_sha256", None)
     out["receipt_sha256"] = sha_json(body)
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     path = RESULTS_DIR / name
     path.write_text(json.dumps(out, indent=2, default=str) + "\n", encoding="utf-8")
     print("saved:", path, flush=True)
@@ -232,7 +232,7 @@ def detect_sustained(evals: list[tuple[int, float]], bar: float, consecutive: in
 
 def generate_continuation_indices(order_seed: int, n_batches: int, batch_size: int, pool_size: int):
     rng = torch.Generator().manual_seed(order_seed)
-    return [torch.randint(0, pool_size, (batch_size,), generator=rng).tolist() for _ in range(n_batches)]
+    return torch.randint(0, pool_size, (n_batches, batch_size), generator=rng).tolist()
 
 
 def order_sha256(indices) -> str:
@@ -244,7 +244,7 @@ def load_fork(snapshot: dict, lr: float):
     model = Micro(vocab.size, 128).to(dev())
     model.load_state_dict({k: v.to(dev()) for k, v in snapshot["model"].items()})
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=0.1)
-    optimizer.load_state_dict(snapshot["optimizer"])
+    optimizer.load_state_dict(copy.deepcopy(snapshot["optimizer"]))
     for state in optimizer.state.values():
         for key, value in list(state.items()):
             if torch.is_tensor(value):

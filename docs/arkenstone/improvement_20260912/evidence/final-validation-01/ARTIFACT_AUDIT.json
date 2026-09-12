@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "receipt_paths_checked": [
+    "PREFLIGHT.json",
+    "revisions\\PREFLIGHT-794212154373416ca211a5ebbc56db72.json"
+  ],
+  "final_source_files_checked": 14,
+  "zip_crc": "PASS",
+  "tests_passed": 50,
+  "sampler_median_speedup": 2.851205207228739,
+  "receipt_sha256": "df5d4245b5a100ebba65ed452b13259b57b0e7ed5d0383d31c25c2a576768c79"
+}

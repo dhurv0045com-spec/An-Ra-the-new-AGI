@@ -15,6 +15,7 @@ from discovery_v6_common import (
     RunContext,
     bind_ark11_runtime,
     detect_sustained,
+    ensure_budget,
     flat_params,
     load_ark11,
     order_sha256,
@@ -27,6 +28,24 @@ ADDENDUM_SHA = "8d086a501ef579574947b506fec6e0c71bd80711"
 RUNNER_PATH = Path(__file__)
 ACQ_SEEDS = [1717, 1818]
 ORDER_SEEDS = [6801, 6802]
+ARM_NAMES = {"FIXED_HIGH", "FIXED_LOW", "ADAPTIVE_HIGH_LOW"}
+FIXED_HORIZON = 12000
+
+
+def _complete_triplet(row: dict) -> bool:
+    if row.get("acquisition_seed") not in ACQ_SEEDS or row.get("order_seed") not in ORDER_SEEDS:
+        return False
+    arms = row.get("arms")
+    if row.get("status") != "TRIPLET_EXECUTED" or not isinstance(arms, dict) or set(arms) != ARM_NAMES:
+        return False
+    for arm in arms.values():
+        if not isinstance(arm, dict) or arm.get("completed_steps") != FIXED_HORIZON:
+            return False
+        for key in ("t3_control_metrics", "t3_sealed_metrics", "t2_control_metrics", "t2_sealed_metrics"):
+            metrics = arm.get(key)
+            if not isinstance(metrics, dict) or not all(k in metrics for k in ("AREA", "FINAL")):
+                return False
+    return True
 
 
 def _pair_from_prompt(prompt: str) -> tuple[int, int]:
@@ -126,7 +145,8 @@ def build_t3carry_manifest() -> tuple[list[tuple[str, str]], list[tuple[str, str
 
 
 def _run_arm(ark11, *, snapshot, t3_indices, t3_train, t3_control, t3_sealed,
-             t2_control, t2_sealed, arm: str, steps: int = 12000) -> dict:
+             t2_control, t2_sealed, arm: str, steps: int = 12000,
+             ctx: RunContext | None = None) -> dict:
     initial_lr = 1e-5 if arm == "FIXED_LOW" else 1e-3
     vocab, model, optimizer = ark11.load_fork(snapshot, initial_lr)
     reference = flat_params(model).detach().clone()
@@ -138,6 +158,8 @@ def _run_arm(ark11, *, snapshot, t3_indices, t3_train, t3_control, t3_sealed,
     supervised_tokens = 0
 
     for step in range(1, steps + 1):
+        if ctx is not None:
+            ensure_budget(ctx)
         rows = [t3_train[i] for i in t3_indices[step - 1]]
         loss, count = ark11.loss_and_positions(model, vocab, rows, ark11.dev())
         if not torch.isfinite(loss):
@@ -187,12 +209,19 @@ def _run_arm(ark11, *, snapshot, t3_indices, t3_train, t3_control, t3_sealed,
         "t2_control_metrics": trajectory_metrics(trajectory, "t2_control_exact"),
         "t2_sealed_metrics": trajectory_metrics(trajectory, "t2_sealed_exact"),
         "trajectory": trajectory,
+        "completed_steps": steps,
     }
 
 
 def _summarize(results: list[dict]) -> dict:
-    triplets = [r for r in results if r.get("status") == "TRIPLET_EXECUTED"]
-    summary = {"matched_triplets": len(triplets)}
+    candidates = [r for r in results if _complete_triplet(r)]
+    identities = [(r["acquisition_seed"], r["order_seed"]) for r in candidates]
+    triplets = [r for r, identity in zip(candidates, identities) if identities.count(identity) == 1]
+    summary = {
+        "matched_triplets": len(triplets),
+        "excluded_rows": len(results) - len(triplets),
+        "rule_status": "CONSERVATIVE_FINAL_AND_AREA_AGREEMENT_NOT_NEW_PREREGISTRATION",
+    }
     if not triplets:
         summary["verdict"] = "INCONCLUSIVE_NO_MATCHED_TRIPLETS"
         return summary
@@ -205,39 +234,43 @@ def _summarize(results: list[dict]) -> dict:
     seeds_high_acquired = sorted({r["acquisition_seed"] for r in high_acquired})
     summary["fixed_high_t3_acquired_seeds"] = seeds_high_acquired
 
-    low_cost_votes = 0
-    for r in triplets:
-        hi = r["arms"]["FIXED_HIGH"]
-        lo = r["arms"]["FIXED_LOW"]
-        if (
-            lo["t3_sealed_metrics"]["FINAL"] <= hi["t3_sealed_metrics"]["FINAL"] - 0.10
-            and lo["t2_sealed_metrics"]["FINAL"] >= hi["t2_sealed_metrics"]["FINAL"] + 0.10
-        ):
-            low_cost_votes += 1
-    summary["plasticity_cost_votes"] = low_cost_votes
-    summary["plasticity_cost_demonstrated"] = low_cost_votes >= (len(triplets) // 2 + 1)
+    summary["plasticity_cost_paired_deltas"] = [
+        {
+            "acquisition_seed": r["acquisition_seed"],
+            "order_seed": r["order_seed"],
+            "t3_final_low_minus_high": r["arms"]["FIXED_LOW"]["t3_sealed_metrics"]["FINAL"] - r["arms"]["FIXED_HIGH"]["t3_sealed_metrics"]["FINAL"],
+            "t2_final_low_minus_high": r["arms"]["FIXED_LOW"]["t2_sealed_metrics"]["FINAL"] - r["arms"]["FIXED_HIGH"]["t2_sealed_metrics"]["FINAL"],
+        }
+        for r in triplets
+    ]
+    summary["plasticity_cost_classification"] = "UNRESOLVED_MATERIALITY_NOT_QUANTIFIED_IN_PLAN"
 
     adaptive_wins = []
     for r in triplets:
         hi = r["arms"]["FIXED_HIGH"]
         ad = r["arms"]["ADAPTIVE_HIGH_LOW"]
-        final_rule = (
-            ad["t3_sealed_metrics"]["FINAL"] >= hi["t3_sealed_metrics"]["FINAL"] - 0.05
-            and ad["t2_sealed_metrics"]["FINAL"] >= hi["t2_sealed_metrics"]["FINAL"] + 0.10
-        )
-        area_rule = (
-            ad["t3_sealed_metrics"]["AREA"] >= hi["t3_sealed_metrics"]["AREA"] - 0.05
-            and ad["t2_sealed_metrics"]["AREA"] >= hi["t2_sealed_metrics"]["AREA"] + 0.10
-        )
-        if final_rule or area_rule:
+        # Conservative implementation interpretation of the frozen wording:
+        # final and area must agree in the same direction. This is not a new
+        # preregistered law.
+        final_a = (ad["t3_sealed_metrics"]["FINAL"] >= hi["t3_sealed_metrics"]["FINAL"] - 0.05
+                   and ad["t2_sealed_metrics"]["FINAL"] >= hi["t2_sealed_metrics"]["FINAL"] + 0.10)
+        area_a = (ad["t3_sealed_metrics"]["AREA"] >= hi["t3_sealed_metrics"]["AREA"] - 0.05
+                  and ad["t2_sealed_metrics"]["AREA"] >= hi["t2_sealed_metrics"]["AREA"] + 0.10)
+        final_b = (ad["t3_sealed_metrics"]["FINAL"] >= hi["t3_sealed_metrics"]["FINAL"] + 0.10
+                   and ad["t2_sealed_metrics"]["FINAL"] >= hi["t2_sealed_metrics"]["FINAL"] - 0.05)
+        area_b = (ad["t3_sealed_metrics"]["AREA"] >= hi["t3_sealed_metrics"]["AREA"] + 0.10
+                  and ad["t2_sealed_metrics"]["AREA"] >= hi["t2_sealed_metrics"]["AREA"] - 0.05)
+        if (final_a and area_a) or (final_b and area_b):
             adaptive_wins.append((r["acquisition_seed"], r["order_seed"]))
     summary["adaptive_pareto_win_triplets"] = adaptive_wins
     summary["adaptive_pareto_seeds"] = sorted({s for s, _ in adaptive_wins})
 
-    if not high_acquired:
+    if len(triplets) == len(ACQ_SEEDS) * len(ORDER_SEEDS) and not high_acquired:
         verdict = "INCONCLUSIVE_NEW_SKILL_NOT_ACQUIRED"
     elif len(adaptive_wins) >= 2 and len({s for s, _ in adaptive_wins}) >= 2:
         verdict = "ADAPTIVE_PARETO_IMPROVEMENT"
+    elif len(triplets) < len(ACQ_SEEDS) * len(ORDER_SEEDS):
+        verdict = "INCONCLUSIVE_PARTIAL_TRIPLETS"
     else:
         verdict = "ADAPTIVE_NO_BENEFIT"
     summary["verdict"] = verdict
@@ -252,8 +285,12 @@ def run_campaign(ctx: RunContext) -> dict:
         runner_path=RUNNER_PATH,
         extra_plan_shas={"preexecution_addendum_commit_sha": ADDENDUM_SHA},
     )
+    if ctx.minutes_left < 50:
+        payload = {"status": "BUDGET_BLOCKED", "acquisitions": [{"seed": s, "status": "BUDGET_BLOCKED"} for s in ACQ_SEEDS], "results": [{"acquisition_seed": s, "order_seed": o, "status": "BUDGET_BLOCKED"} for s in ACQ_SEEDS for o in ORDER_SEEDS], "summary": {"matched_triplets": 0, "verdict": "BUDGET_BLOCKED"}}
+        writer.save("ARK-013_RESULT.json", payload)
+        return payload
     ark11 = load_ark11()
-    bind_ark11_runtime(ark11, ctx.device, ctx.head)
+    bind_ark11_runtime(ark11, ctx.device, ctx.head, ctx=ctx)
 
     t2_manifest = ark11.load_manifest()
     t2_train = [(p, a) for p, a in t2_manifest["train"]]
@@ -295,6 +332,14 @@ def run_campaign(ctx: RunContext) -> dict:
             print(f"\n--- ARK-013 seed={seed} T3 order={order_seed} ---", flush=True)
             indices = ark11.generate_continuation_indices(order_seed, 12000, 64, len(t3_train))
             arms = {}
+            triplet = {
+                "acquisition_seed": seed,
+                "order_seed": order_seed,
+                "order_sha256": order_sha256(indices),
+                "status": "ARMS_PARTIAL",
+                "arms": arms,
+            }
+            results.append(triplet)
             for arm in ["FIXED_HIGH", "FIXED_LOW", "ADAPTIVE_HIGH_LOW"]:
                 arms[arm] = _run_arm(
                     ark11,
@@ -306,15 +351,11 @@ def run_campaign(ctx: RunContext) -> dict:
                     t2_control=t2_control,
                     t2_sealed=t2_sealed,
                     arm=arm,
-                    steps=12000,
+                    steps=FIXED_HORIZON,
+                    ctx=ctx,
                 )
-            results.append({
-                "acquisition_seed": seed,
-                "order_seed": order_seed,
-                "order_sha256": order_sha256(indices),
-                "status": "TRIPLET_EXECUTED",
-                "arms": arms,
-            })
+                writer.save("ARK-013_PARTIAL.json", {"acquisitions": acquisitions, "results": results})
+            triplet["status"] = "TRIPLET_EXECUTED"
             writer.save("ARK-013_PARTIAL.json", {"acquisitions": acquisitions, "results": results})
 
     payload = {
