@@ -1,0 +1,29 @@
+{
+  "schema": "citadel-data-readiness/v1",
+  "overall_verdict": "FAIL",
+  "failed_gates": [
+    "DATA_NOT_READY: no materialized production corpus",
+    "PRODUCTION_ENTRY_POINT: MISSING",
+    "TOKENIZER_ARTIFACT: unfrozen",
+    "MIXTURE_ENFORCEMENT: not wired at consumption time",
+    "EVALUATION_HARNESS: not wired at token milestones",
+    "NEAR_DEDUP: not exercised on real corpora",
+    "CONTAMINATION_SCAN: not exercised against real benchmark suites"
+  ],
+  "passed_gates": [
+    "foundry_pipeline: normalize/dedup/near-dedup/tokenize/account",
+    "source_registry: immutable identity with lifecycle states",
+    "acquisition_manifests: reproducible download resolution",
+    "packing: multi-segment stream-fill with exact ledger",
+    "contamination_scan: n-gram overlap available",
+    "near_duplicate_detection: MinHash LSH + Jaccard",
+    "exact_dedup: content-hash clustering",
+    "checkpoint_transactions: staging/atomic/manifest/fence",
+    "data_readiness_gate: 17/17 unit tests passing"
+  ],
+  "cognition_families_ready": 0,
+  "cognition_families_total": 9,
+  "data_volume_verdict": "DATA_VOLUME_NOT_CURRENT_BOTTLENECK",
+  "consumable_unique_fraction": 0.351,
+  "one_recommended_experiment": "cognition mixture ablation 5% vs 15% vs 30% on tiered arithmetic corpus"
+}
