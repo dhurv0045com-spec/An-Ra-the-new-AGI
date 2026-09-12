@@ -165,10 +165,10 @@ class TestFailClosedResumeScan(unittest.TestCase):
 
     def test_missing_required_checkpoint_field_stops(self):
         with tempfile.TemporaryDirectory() as td, mock.patch.object(R, "OUT", Path(td)):
-            self._write_checkpoint(Path(td), missing="parent_sha")
+            self._write_checkpoint(Path(td), missing="cap16x")
             info = R.resume_scan(drive_ok=True)
         self.assertEqual(info["SAFE_ACTION"], "STOP — CHECKPOINT IDENTITY FAILURE")
-        self.assertTrue(any("parent_sha" in e for e in info["HARDENED_ERRORS"]))
+        self.assertTrue(any("cap16x" in e for e in info["HARDENED_ERRORS"]))
 
     def test_orphan_partial_without_checkpoint_stops(self):
         with tempfile.TemporaryDirectory() as td, mock.patch.object(R, "OUT", Path(td)):
