@@ -16,7 +16,7 @@ The build was prepared in a separate `BRAMASTRA` worktree because the original c
 | Learned inquiry | Exploratory improvement in two seeds' point estimates; uncertainty/strong-baseline limits remain | D01 results; execute W04 for delayed-information mechanisms |
 | Consolidation | Unstable; not accepted as durable improvement | Family regressions; W06 required |
 | Canonical integrated architecture | Specified; W01 contracts accepted | W01–W11 dependency plan; environment/model integration remains unfinished |
-| **B2 integrated build (B00–B12)** | **Implemented, unit-tested, tiny-fixture smoke passed incl. fresh-process resume; DATA_NOT_READY; not scientifically qualified** | [Handoff](reports/B2/HANDOFF.md); [smoke ledger](reports/B2/SESSION_LEDGER.json) |
+| **B2 integrated build (B00–B12 + B2.1 upgrade)** | **Implemented, unit-tested, tiny-fixture smoke passed incl. fresh-process resume; controller/replay/collection wired into the training loop with evidence-aligned refinements from the Arkenstone/Cymek experiments; smoke budget nearly exhausted (193/200 updates); DATA_NOT_READY; not scientifically qualified** | [Handoff](reports/B2/HANDOFF.md); [smoke ledger](reports/B2/SESSION_LEDGER.json) |
 | Real TPU runtime | Not validated for this prototype | W07 and live hardware/quota record |
 | Autonomous method/code improvement | Not implemented | Later isolated experiment after inquiry/retention evidence |
 

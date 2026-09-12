@@ -1,0 +1,4 @@
+{"example_id": "c1", "prompt_events": [["goal", {"question": "8+1?"}]], "answer": "9", "family": "arithmetic"}
+{"example_id": "c2", "prompt_events": [["goal", {"question": "2+7?"}]], "answer": "9", "family": "arithmetic"}
+{"example_id": "c3", "prompt_events": [["goal", {"question": "6+3?"}]], "answer": "9", "family": "arithmetic"}
+{"example_id": "c4", "prompt_events": [["goal", {"question": "4+5?"}]], "answer": "9", "family": "arithmetic"}

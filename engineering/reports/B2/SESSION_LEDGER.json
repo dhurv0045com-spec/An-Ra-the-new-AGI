@@ -1,6 +1,6 @@
 {
-  "cpu_learned_smoke_seconds": 66.0,
-  "cpu_optimizer_updates": 65,
+  "cpu_learned_smoke_seconds": 111.23399999999674,
+  "cpu_optimizer_updates": 193,
   "gpu_optimizer_updates": 0,
   "gpu_sessions": 0,
   "gpu_wall_seconds": 0.0,
@@ -60,6 +60,206 @@
       "seconds": 20.0,
       "updates": 19,
       "what": "final full-suite parallel verification: B11 train 8 + resume 4 (CLI-recorded), B05 probe 4, B04 3"
+    },
+    {
+      "at_unix": 1789251439.443446,
+      "device": "cpu",
+      "evidence": "7fbba3a89d79e8a27aa5ccb7b9c826057b9908d18e6b0ae37f18c3834a4d4bf0",
+      "seconds": 1.469,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789251461.098342,
+      "device": "cpu",
+      "evidence": "29ba2aefc2674e0c06795c3673e37a052d9156721b865d145bbadd3b494c3d60",
+      "seconds": 1.531,
+      "updates": 8,
+      "what": "train smoke run-smoke"
+    },
+    {
+      "at_unix": 1789251466.2192738,
+      "device": "cpu",
+      "evidence": "e6e0ba23bdf11005e89df319b1c8039f066394caf9d4f9666a2652fee8ffa9a2",
+      "seconds": 1.453,
+      "updates": 4,
+      "what": "fresh-process resume run-smoke"
+    },
+    {
+      "at_unix": 1789251575.872466,
+      "device": "cpu",
+      "evidence": "e9d0b68e5b35e0c6b3b6fe1e400facd481662835aee3e481c9da0a4ac6368ec7",
+      "seconds": 1.343,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789251598.0906177,
+      "device": "cpu",
+      "evidence": "5bd0a2d31c86fb33f4cefbc5ae57d2c08cd6c9524ea1a0ca570d7cfc68c871dc",
+      "seconds": 1.328,
+      "updates": 8,
+      "what": "train smoke run-smoke"
+    },
+    {
+      "at_unix": 1789251602.501014,
+      "device": "cpu",
+      "evidence": "cb0d8b3b6c6e4f6e7363f61c3f1b03a72c44359a1fd17f888df8156873a04e23",
+      "seconds": 1.828,
+      "updates": 4,
+      "what": "fresh-process resume run-smoke"
+    },
+    {
+      "at_unix": 1789251649.1049798,
+      "device": "cpu",
+      "evidence": "6431cea98917a48473afe164ef4a19b4d64723cc10cdd7c377c079db25abc44e",
+      "seconds": 1.594,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789251763.7809472,
+      "device": "cpu",
+      "evidence": "e738e22857d894ca973c97e8f5e491a6c02f3597ddd4b8db6907898040839b30",
+      "seconds": 1.469,
+      "updates": 6,
+      "what": "train smoke run-controller"
+    },
+    {
+      "at_unix": 1789251773.1605806,
+      "device": "cpu",
+      "evidence": "f8ca444ae2bbbed9d549a67ab5f9e2dc641270e323158dbc270db94ba3c1c0d2",
+      "seconds": 1.516,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789251784.2113292,
+      "device": "cpu",
+      "evidence": "2512c587ece4489095f283ed6366f6212aca0a2a372f0d5367b62f698866fa8f",
+      "seconds": 1.313,
+      "updates": 4,
+      "what": "train smoke run-replay"
+    },
+    {
+      "at_unix": 1789251792.8580341,
+      "device": "cpu",
+      "evidence": "0ccdf5a22b9f10e0afbac0fe5f74f2ec4620c03a85c40230e95370f5bef438bb",
+      "seconds": 1.656,
+      "updates": 8,
+      "what": "train smoke run-smoke"
+    },
+    {
+      "at_unix": 1789251799.9885974,
+      "device": "cpu",
+      "evidence": "3ff2475a68a6794c725d6752f359bce72c70709292a3f1b80b76c9fc0dfca7cd",
+      "seconds": 1.719,
+      "updates": 4,
+      "what": "fresh-process resume run-smoke"
+    },
+    {
+      "at_unix": 1789251839.864824,
+      "device": "cpu",
+      "evidence": "4994d5b859577932cbfbcd37c2c4b16edcdce5e79e55d76167a1c326fb83637a",
+      "seconds": 1.797,
+      "updates": 6,
+      "what": "train smoke run-controller"
+    },
+    {
+      "at_unix": 1789251849.0927088,
+      "device": "cpu",
+      "evidence": "f504d61bc29d4a315861cf7391e96ea859e39306daceffdf898d483c7a98b1ce",
+      "seconds": 1.312,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789251862.9416885,
+      "device": "cpu",
+      "evidence": "640a4e9e13be80af969a02bd1a53e9ee05a9f2a25af08dca3890ade223d09361",
+      "seconds": 1.453,
+      "updates": 4,
+      "what": "train smoke run-replay"
+    },
+    {
+      "at_unix": 1789251919.9765456,
+      "device": "cpu",
+      "evidence": "da7eb7c97ddaea18de4936b41bb00b3179919a47a89f85c5c343f077e6f162fb",
+      "seconds": 1.39,
+      "updates": 6,
+      "what": "train smoke run-controller"
+    },
+    {
+      "at_unix": 1789251931.571388,
+      "device": "cpu",
+      "evidence": "15c51286819c3db03857f1613a550a1bb8cd7f9436cf4f7a90c2b4e81881362c",
+      "seconds": 1.297,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789251942.6551435,
+      "device": "cpu",
+      "evidence": "b9731a5a924772bbf0a976d19e400387f359698dd4a73e9d8e8670999b3eacbd",
+      "seconds": 1.344,
+      "updates": 4,
+      "what": "train smoke run-replay"
+    },
+    {
+      "at_unix": 1789251952.948443,
+      "device": "cpu",
+      "evidence": "aba0478ea6589c9199a6115bfc5fe2043ba112ee76a9dc35e41838de7e75c78b",
+      "seconds": 1.375,
+      "updates": 8,
+      "what": "train smoke run-smoke"
+    },
+    {
+      "at_unix": 1789251957.241729,
+      "device": "cpu",
+      "evidence": "cafe1823f92911da501ca3f47e0eac412993f71522efb76be3dcad0f1cd3e9cf",
+      "seconds": 1.328,
+      "updates": 4,
+      "what": "fresh-process resume run-smoke"
+    },
+    {
+      "at_unix": 1789252110.1442113,
+      "device": "cpu",
+      "evidence": "340513f9f3b95f5574f57630ae33e55833d9172b9bcca7511c2248b02025d772",
+      "seconds": 3.812,
+      "updates": 4,
+      "what": "train smoke run-pair"
+    },
+    {
+      "at_unix": 1789252110.4531605,
+      "device": "cpu",
+      "evidence": "08ce77b2450c948a6170986058e6f5ca1d24144cffda891e186d67e2755d1f9f",
+      "seconds": 4.141,
+      "updates": 8,
+      "what": "train smoke run-smoke"
+    },
+    {
+      "at_unix": 1789252112.285945,
+      "device": "cpu",
+      "evidence": "cd001a159e30fc3ba06ac17b70dce2d18f307fa003cb54827f5012da8a14f559",
+      "seconds": 2.735,
+      "updates": 6,
+      "what": "train smoke run-controller"
+    },
+    {
+      "at_unix": 1789252125.4604692,
+      "device": "cpu",
+      "evidence": "751f7f4f131164fcea3dfcfd8361206774f0fb9764f3ab7a8575282094b57d62",
+      "seconds": 2.547,
+      "updates": 4,
+      "what": "fresh-process resume run-smoke"
+    },
+    {
+      "at_unix": 1789252134.6377,
+      "device": "cpu",
+      "evidence": "655a370ac51b9ca70d1d0361f3b8869bf27f3685c75e9b68ff7e586c00b1db58",
+      "seconds": 2.484,
+      "updates": 4,
+      "what": "train smoke run-replay"
     }
   ],
   "limits": {

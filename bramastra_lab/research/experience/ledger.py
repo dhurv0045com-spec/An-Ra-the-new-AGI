@@ -97,18 +97,46 @@ class EpisodeReceipt:
 
 
 class ExperienceLedger:
-    """Append-only JSONL ledger with a verification hash chain."""
+    """Append-only JSONL ledger with a verification hash chain.
+
+    Publication is idempotent: re-appending the byte-identical receipt
+    returns the existing entry identity without duplicating it, while the
+    same episode id with different content is rejected (W11: conflicting
+    content under one identity can never silently coexist).
+    """
 
     def __init__(self, path: str) -> None:
         self.path = path
         self._head: str | None = None
         self._count = 0
+        self._episodes: dict[str, tuple[str, str]] | None = None  # episode_id -> (receipt identity, entry identity)
         parent = os.path.dirname(os.path.abspath(path))
         os.makedirs(parent, exist_ok=True)
+
+    def _episode_index(self) -> dict[str, tuple[str, str]]:
+        """episode_id -> (receipt content identity, last entry identity)."""
+        if self._episodes is None:
+            self._episodes = {}
+            head = None
+            for entry_identity, receipt in self.read_all():
+                self._episodes[receipt.episode_id] = (
+                    content_identity(receipt.to_dict()), entry_identity)
+                head = entry_identity
+            self._head = head
+        return self._episodes
 
     def append(self, receipt: EpisodeReceipt) -> str:
         """Append one receipt; returns its chained entry identity."""
         receipt.to_dict()  # validation
+        index = self._episode_index()
+        receipt_identity = content_identity(receipt.to_dict())
+        if receipt.episode_id in index:
+            known_receipt_identity, known_entry_identity = index[receipt.episode_id]
+            if known_receipt_identity == receipt_identity:
+                return known_entry_identity
+            raise LedgerError(
+                f"episode {receipt.episode_id!r} already exists with different "
+                "content; conflicting content under one identity is rejected")
         entry = {"prev_head": self._head, "receipt": receipt.to_dict()}
         entry_identity = content_identity(entry)
         with open(self.path, "a", encoding="utf-8") as handle:
@@ -116,6 +144,7 @@ class ExperienceLedger:
                                     sort_keys=True) + "\n")
         self._head = entry_identity
         self._count += 1
+        self._episodes[receipt.episode_id] = (receipt_identity, entry_identity)
         return entry_identity
 
     def _iter_entries(self) -> Iterator[dict[str, Any]]:

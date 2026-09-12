@@ -26,7 +26,7 @@ from bramastra_lab.research.experience.codec import (
 
 PROVENANCE_FIELDS = frozenset({
     "kind", "episode_id", "task_semantic_id", "split", "source", "collection_policy",
-    "pair_group_id", "packed_rows",
+    "pair_group_id", "packed_rows", "family",
 })
 FORBIDDEN_PROVENANCE_FIELDS = frozenset({
     "answer", "label", "gold", "target", "reward", "prediction", "probability",
@@ -214,6 +214,31 @@ class CollocatedBatch:
     @property
     def sequence_length(self) -> int:
         return self.input_ids.shape[1]
+
+
+def bucketed_batches(rows: list[SequenceRow], *, batch_size: int,
+                     bucket_width: int = 16) -> list[list[SequenceRow]]:
+    """Deterministic length-bucketed batching (Cymek V5 bucket-cursor lesson).
+
+    Rows are grouped by rounded token length, then batched within buckets, so
+    padded capacity waste shrinks without changing any row's supervision.
+    Ordering is a stable sort by (bucket, original position), so the same row
+    list always yields the same batches. The supervised target set is
+    verified unchanged against the input rows.
+    """
+    if batch_size <= 0:
+        raise SequenceError("batch_size must be positive")
+    if bucket_width <= 0:
+        raise SequenceError("bucket_width must be positive")
+    keyed = sorted(
+        enumerate(rows),
+        key=lambda pair: ((len(pair[1].tokens) + bucket_width - 1) // bucket_width, pair[0]))
+    batches = [[row for _, row in keyed[index:index + batch_size]]
+               for index in range(0, len(keyed), batch_size)]
+    expected_targets = sum(row.target_count for row in rows)
+    if sum(row.target_count for batch in batches for row in batch) != expected_targets:
+        raise SequenceError("bucketing changed the supervised target set")
+    return batches
 
 
 def collocate(rows: list[SequenceRow], *, max_seq: int) -> CollocatedBatch:

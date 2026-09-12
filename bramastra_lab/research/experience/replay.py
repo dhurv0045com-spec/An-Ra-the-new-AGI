@@ -28,13 +28,22 @@ class ReplayBatch:
 
 
 class ReplayEngine:
-    """Cyclic stratified sampler over ledger receipts with exact counters."""
+    """Cyclic stratified sampler over ledger receipts with exact counters.
+
+    The engine binds an explicit ``dataset_identity`` (typically the ledger
+    content identity). A saved replay state can only be restored against the
+    same identity: changed dataset contents, family weights or replay policy
+    force a new identity and can never silently reuse old cursors (W11).
+    """
 
     def __init__(self, entries: Sequence[EpisodeReceipt], *, family_weights: Mapping[str, float],
-                 batch_size: int, seed: int,
+                 batch_size: int, seed: int, dataset_identity: str,
                  allowed_quality: Sequence[str] = ("accepted",)) -> None:
         if batch_size <= 0:
             raise ReplayStateError("batch_size must be positive")
+        if not isinstance(dataset_identity, str) or not dataset_identity:
+            raise ReplayStateError("dataset_identity must be a nonempty string")
+        self.dataset_identity = dataset_identity
         self.batch_size = batch_size
         self.seed = seed
         self.allowed_quality = tuple(allowed_quality)
@@ -42,11 +51,23 @@ class ReplayEngine:
         for family, weight in self.family_weights.items():
             if not isinstance(weight, (int, float)) or weight <= 0:
                 raise ReplayStateError(f"family weight for {family!r} must be positive")
+        seen_content: set[str] = set()
         self._pools: dict[str, list[EpisodeReceipt]] = {}
         for receipt in entries:
             if receipt.quality not in self.allowed_quality:
                 continue
+            if receipt.episode_content_identity in seen_content:
+                continue  # overlapping manifests must not inflate unique supply
+            seen_content.add(receipt.episode_content_identity)
             self._pools.setdefault(receipt.family, []).append(receipt)
+        from bramastra_lab.research.contracts.core import content_identity
+
+        self.identity = content_identity({
+            "dataset_identity": dataset_identity,
+            "family_weights": dict(sorted(self.family_weights.items())),
+            "batch_size": batch_size, "seed": seed,
+            "allowed_quality": list(self.allowed_quality),
+        })
         self._orders: dict[str, list[int]] = {}
         self._cursors: dict[str, int] = {}
         self._epochs: dict[str, int] = {}
@@ -146,6 +167,7 @@ class ReplayEngine:
 
     def state(self) -> dict[str, Any]:
         return {
+            "replay_identity": self.identity,
             "cursors": dict(self._cursors), "epochs": dict(self._epochs),
             "consumed_total": self.consumed_total,
             "consumed_by_family": dict(self.consumed_by_family),
@@ -154,6 +176,11 @@ class ReplayEngine:
         }
 
     def restore(self, state: Mapping[str, Any]) -> None:
+        if state.get("replay_identity") != self.identity:
+            raise ReplayStateError(
+                "replay state identity does not match this engine; changed dataset "
+                "contents, weights or replay policy require a new replay identity "
+                "and cannot silently reuse old cursors")
         for family, cursor in state["cursors"].items():
             if family not in self._pools:
                 raise ReplayStateError(f"restored cursor names unknown family {family!r}")

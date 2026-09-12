@@ -51,6 +51,7 @@ class Example:
     source: str
     line_number: int
     trainable: bool
+    family: str = "default"
 
     def public_input(self) -> Any:
         """The public, learnable input; answers are not part of it."""
@@ -74,6 +75,7 @@ class Example:
             "split": self.split,
             "semantic_identity": self.semantic_identity,
             "group_id": self.group_id,
+            "family": self.family,
             "source": self.source,
         }
 
@@ -223,7 +225,7 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
 
         for line_number, record in _load_jsonl(absolute):
             unknown_example = set(record) - {"example_id", "text", "prompt_events", "answer",
-                                             "group"}
+                                             "group", "family"}
             if unknown_example:
                 raise DatasetError(
                     f"{path}:{line_number} has unknown fields: {sorted(unknown_example)}")
@@ -251,6 +253,9 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
             group_id = record.get("group")
             if group_id is not None and (not isinstance(group_id, str) or not group_id):
                 raise DatasetError(f"{path}:{line_number} group must be a nonempty string or null")
+            family = record.get("family", "default")
+            if not isinstance(family, str) or not family:
+                raise DatasetError(f"{path}:{line_number} family must be a nonempty string")
             semantic = content_identity(_semantic_content(kind, record))
             prior = seen_semantic.get(semantic)
             if prior is not None and prior != split:
@@ -264,7 +269,8 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
                 example_id=example_id, kind=kind, split=split, content=dict(record),
                 semantic_identity=semantic, content_identity=content_identity(record),
                 group_id=group_id,
-                source=f"{path}:{line_number}", line_number=line_number, trainable=trainable))
+                source=f"{path}:{line_number}", line_number=line_number, trainable=trainable,
+                family=family))
 
     if not examples:
         raise DatasetError("manifest references contain no examples", status=DATA_NOT_READY)

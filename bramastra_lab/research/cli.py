@@ -77,6 +77,17 @@ def build_parser() -> argparse.ArgumentParser:
                           help="which prepared split to score (never the sealed pool)")
     evaluate.add_argument("--out", required=True, help="output report JSON path")
 
+    collect = subparsers.add_parser(
+        "collect", help="run real environment episodes and append experience receipts")
+    collect.add_argument("--environments", required=True,
+                         help="comma-separated: switch-world,inventory-world,program-lab")
+    collect.add_argument("--ledger", required=True, help="experience ledger JSONL path")
+    collect.add_argument("--episodes", type=int, default=1,
+                         help="episodes per environment")
+    collect.add_argument("--policy", default="fixed", choices=["fixed", "failed-baseline"])
+    collect.add_argument("--budget", type=int, default=6, help="action budget per episode")
+    collect.add_argument("--seed", type=int, default=0)
+
     package = subparsers.add_parser(
         "package", help="write the operator handoff manifest for a finished run")
     package.add_argument("--run-dir", required=True, help="existing run directory")
@@ -158,6 +169,14 @@ def cmd_package(args: argparse.Namespace) -> int:
     return package(run_dir=args.run_dir, out_path=args.out)
 
 
+def cmd_collect(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.commands import collect
+
+    return collect(environments=args.environments, ledger_path=args.ledger,
+                   episodes=args.episodes, policy=args.policy, budget=args.budget,
+                   seed=args.seed)
+
+
 HANDLERS = {
     "inspect": cmd_inspect,
     "prepare-data": cmd_prepare_data,
@@ -166,6 +185,7 @@ HANDLERS = {
     "infer": cmd_infer,
     "evaluate": cmd_evaluate,
     "package": cmd_package,
+    "collect": cmd_collect,
 }
 
 

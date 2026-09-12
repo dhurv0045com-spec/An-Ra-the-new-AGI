@@ -1,4 +1,6 @@
-"""B06 focused tests: plasticity-controller state machine.
+"""B06 focused tests: plasticity-controller state machine (incl. B2.1
+evidence-aligned refinements: qualification-gated protection, collapse
+confirmation, sustained recovery).
 
 All tests are deterministic state transitions over crafted traces; no model,
 no data and no optimizer are involved.
@@ -21,16 +23,18 @@ def controller_config(**overrides) -> ControllerSection:
            "formation_threshold": 0.9, "reacquire_threshold": 0.6,
            "stabilize_window": 3, "cooldown_updates": 10, "max_transitions": 8,
            "max_metrics_age_updates": 8, "stabilize_lr_multiplier": 0.25,
-           "expand_lr_multiplier": 1.0, "reacquire_lr_multiplier": 1.0}
+           "expand_lr_multiplier": 1.0, "reacquire_lr_multiplier": 1.0,
+           "collapse_confirmation_evaluations": 2, "recovery_confirmation_evaluations": 2}
     raw.update(overrides)
     return ControllerSection.from_dict(raw)
 
 
 def metrics(family_scores, at_update=100, displacement=0.5, pool="controller-pool-a",
-            improvements=None):
+            improvements=None, relative=None):
     return ControllerMetrics(pool_id=pool, at_update=at_update,
                              family_scores=dict(family_scores),
                              parameter_displacement=displacement,
+                             relative_parameter_displacement=relative,
                              score_improvements=improvements or {})
 
 
@@ -82,18 +86,56 @@ class DisabledAndFixedModesTests(unittest.TestCase):
 
 
 class FormationPathTests(unittest.TestCase):
-    def test_expand_sets_acquiring_family_and_protects_existing(self) -> None:
+    def test_expand_tracks_qualifying_family_without_protection(self) -> None:
+        """Protection is earned at qualification, not at introduction."""
         state = ControllerState()
         next_state, decision = transition(
             state, metrics({"f_new": 0.2, "f_old": 0.95}), controller_config(),
             current_update=100, family_request="f_new")
         self.assertEqual(next_state.state, "EXPAND")
         self.assertEqual(next_state.acquiring_family, "f_new")
-        self.assertIn("f_old", next_state.protected_families)
+        self.assertNotIn("f_new", next_state.protected_families)
+        self.assertEqual(next_state.protected_families, ())
         self.assertEqual(decision.lr_multiplier, 1.0)
         self.assertTrue(decision.checkpoint_requested)
         self.assertEqual(decision.replay_mixture,
                          {"acquisition": 0.75, "protected_replay": 0.25})
+
+    def test_qualification_promotes_acquiring_family_to_protection(self) -> None:
+        config = controller_config()
+        state, _ = transition(ControllerState(),
+                              metrics({"f1": 0.2}, at_update=0, displacement=0.1),
+                              config, current_update=0, family_request="f1")
+        for update in (10, 11, 12):
+            state, _ = transition(
+                state, metrics({"f1": 0.95}, at_update=update, displacement=0.1),
+                config, current_update=update)
+        self.assertEqual(state.state, "STABILIZE")
+        self.assertIn("f1", state.protected_families)  # earned at qualification
+        self.assertNotIn("f1", state.qualifying_families)
+        # Introducing f2 keeps f1 protected and f2 unqualified.
+        state, _ = transition(
+            state, metrics({"f1": 0.95, "f2": 0.2}, at_update=100, displacement=0.1),
+            config, current_update=100, family_request="f2")
+        self.assertEqual(state.acquiring_family, "f2")
+        self.assertIn("f1", state.protected_families)
+        self.assertNotIn("f2", state.protected_families)
+        # A missing protected metric holds; a missing qualifying metric does not.
+        held, decision = transition(
+            state, metrics({"f2": 0.9}, at_update=101, displacement=0.1),
+            config, current_update=101)
+        self.assertEqual(held.state, "HOLD")
+        self.assertIn("missing_protected_metric", decision.reason)
+        released, decision = transition(
+            held, metrics({"f1": 0.95, "f2": 0.2}, at_update=102, displacement=0.1),
+            config, current_update=102)
+        self.assertNotEqual(released.state, "HOLD")
+        self.assertIn("hold_released", decision.reason)
+        no_pass, _ = transition(
+            released, metrics({"f1": 0.95}, at_update=103, displacement=0.1),
+            config, current_update=103)
+        self.assertEqual(no_pass.state, "EXPAND")
+        self.assertEqual(no_pass.consecutive_passes, 0)  # missing acquiring: no pass, no hold
 
     def test_formation_requires_window_and_plasticity_evidence(self) -> None:
         config = controller_config()
@@ -125,6 +167,18 @@ class FormationPathTests(unittest.TestCase):
         self.assertEqual(state.state, "STABILIZE")
         self.assertAlmostEqual(decision.lr_multiplier, 0.25)
 
+    def test_relative_displacement_counts_as_plasticity_evidence(self) -> None:
+        config = controller_config()
+        state, _ = transition(ControllerState(),
+                              metrics({"f_new": 0.95, "f_old": 0.95}, at_update=0,
+                                      displacement=0.0, relative=0.0),
+                              config, current_update=0, family_request="f_new")
+        state, _ = transition(
+            state, metrics({"f_new": 0.95, "f_old": 0.95}, at_update=10,
+                           displacement=0.0, relative=0.05),
+            config, current_update=10)
+        self.assertEqual(state.consecutive_passes, 1)
+
     def test_threshold_equality_counts_as_pass(self) -> None:
         config = controller_config()
         state, _ = transition(ControllerState(),
@@ -149,73 +203,127 @@ class FormationPathTests(unittest.TestCase):
 
 
 class PreservationTests(unittest.TestCase):
-    def trained_state(self, config) -> tuple[ControllerState, int]:
+    def qualified_two_family_state(self, config) -> tuple[ControllerState, int]:
+        """f1 qualified (protected), f2 introduced (acquiring, unqualified)."""
         state, _ = transition(ControllerState(),
-                              metrics({"f1": 0.2, "f_old": 0.95}), config,
-                              current_update=0, family_request="f1")
-        update = 20
+                              metrics({"f1": 0.2}, at_update=0, displacement=0.1),
+                              config, current_update=0, family_request="f1")
+        update = 10
         for index in range(3):
             state, _ = transition(
-                state, metrics({"f1": 0.95, "f_old": 0.95}, at_update=update,
-                               displacement=0.1),
+                state, metrics({"f1": 0.95}, at_update=update, displacement=0.1),
                 config, current_update=update)
-            update += 20
+            update += 1
         self.assertEqual(state.state, "STABILIZE")
+        self.assertIn("f1", state.protected_families)
+        update = 100
+        state, _ = transition(
+            state, metrics({"f1": 0.95, "f2": 0.2}, at_update=update, displacement=0.1),
+            config, current_update=update, family_request="f2")
+        self.assertEqual(state.state, "EXPAND")
+        self.assertEqual(state.acquiring_family, "f2")
         return state, update
 
-    def test_protected_collapse_triggers_reacquire_without_lowering_lr(self) -> None:
+    def test_confirmed_protected_collapse_triggers_reacquire_without_lowering_lr(self) -> None:
         config = controller_config()
-        state, update = self.trained_state(config)
+        state, update = self.qualified_two_family_state(config)
+        # First dipping evaluation arms the pending collapse only; the
+        # boundary then continues normal EXPAND formation handling.
         state, decision = transition(
-            state, metrics({"f1": 0.95, "f_old": 0.3}, at_update=update + 20,
+            state, metrics({"f1": 0.3, "f2": 0.95}, at_update=update + 1,
                            displacement=0.1),
-            config, current_update=update + 20)
+            config, current_update=update + 1)
+        self.assertEqual(state.state, "EXPAND")
+        self.assertEqual(state.pending_collapse.get("f1"), 1)
+        self.assertEqual(decision.reason, "acquiring_formation_in_progress")
+        # Second consecutive dipping evaluation confirms the collapse.
+        state, decision = transition(
+            state, metrics({"f1": 0.3, "f2": 0.95}, at_update=update + 2,
+                           displacement=0.1),
+            config, current_update=update + 2)
         self.assertEqual(state.state, "REACQUIRE")
         # ARK-010: a collapse must never automatically force a lower LR.
         self.assertAlmostEqual(decision.lr_multiplier, 1.0)
         self.assertIn("protected_family_below_threshold", decision.reason)
 
-    def test_reacquire_exits_with_hysteresis(self) -> None:
+    def test_single_dipping_evaluation_does_not_hand_over(self) -> None:
         config = controller_config()
-        state, update = self.trained_state(config)
-        state, _ = transition(state,
-                              metrics({"f1": 0.95, "f_old": 0.3}, at_update=update + 20,
-                                      displacement=0.1),
-                              config, current_update=update + 20)
-        self.assertEqual(state.state, "REACQUIRE")
-        # Still below the exit threshold: remain.
-        state, decision = transition(
-            state, metrics({"f1": 0.95, "f_old": 0.5}, at_update=update + 40,
+        state, update = self.qualified_two_family_state(config)
+        state, _ = transition(
+            state, metrics({"f1": 0.3, "f2": 0.95}, at_update=update + 1,
                            displacement=0.1),
-            config, current_update=update + 40)
-        self.assertEqual(state.state, "REACQUIRE")
-        # At the exit threshold (= enter + hysteresis) it recovers.
-        state, decision = transition(
-            state, metrics({"f1": 0.95, "f_old": 0.65}, at_update=update + 60,
+            config, current_update=update + 1)
+        self.assertEqual(state.state, "EXPAND")
+        # Recovery above the exit threshold resets the pending collapse.
+        state, _ = transition(
+            state, metrics({"f1": 0.95, "f2": 0.95}, at_update=update + 2,
                            displacement=0.1),
-            config, current_update=update + 60)
+            config, current_update=update + 2)
+        self.assertEqual(state.state, "EXPAND")
+        self.assertEqual(state.pending_collapse, {})
+
+    def test_reacquire_exit_requires_sustained_recovery(self) -> None:
+        config = controller_config()
+        state, update = self.qualified_two_family_state(config)
+        state, _ = transition(
+            state, metrics({"f1": 0.3, "f2": 0.95}, at_update=update + 1,
+                           displacement=0.1),
+            config, current_update=update + 1)
+        state, _ = transition(
+            state, metrics({"f1": 0.3, "f2": 0.95}, at_update=update + 2,
+                           displacement=0.1),
+            config, current_update=update + 2)
+        self.assertEqual(state.state, "REACQUIRE")
+        # One recovered evaluation is not enough.
+        state, decision = transition(
+            state, metrics({"f1": 0.95, "f2": 0.95}, at_update=update + 3,
+                           displacement=0.1),
+            config, current_update=update + 3)
+        self.assertEqual(state.state, "REACQUIRE")
+        self.assertEqual(state.consecutive_recovery_passes, 1)
+        # Second consecutive recovered evaluation confirms sustained recovery.
+        state, decision = transition(
+            state, metrics({"f1": 0.95, "f2": 0.95}, at_update=update + 4,
+                           displacement=0.1),
+            config, current_update=update + 4)
         self.assertEqual(state.state, "STABILIZE")
         self.assertIn("protected_families_recovered", decision.reason)
 
     def test_missing_protected_metric_holds(self) -> None:
         config = controller_config()
-        state, update = self.trained_state(config)
+        state, update = self.qualified_two_family_state(config)
         state, decision = transition(
-            state, metrics({"f1": 0.95}, at_update=update + 20, displacement=0.1),
-            config, current_update=update + 20)
+            state, metrics({"f2": 0.95}, at_update=update + 1, displacement=0.1),
+            config, current_update=update + 1)
         self.assertEqual(state.state, "HOLD")
         self.assertTrue(decision.pause_updates)
         self.assertIn("missing_protected_metric", decision.reason)
 
     def test_overall_mean_cannot_override_protected_failure(self) -> None:
         config = controller_config()
-        state, update = self.trained_state(config)
+        state, update = self.qualified_two_family_state(config)
         # Mean across families is high, but the protected family collapsed.
         state, decision = transition(
-            state, metrics({"f1": 0.98, "f_old": 0.1, "filler": 0.99},
-                           at_update=update + 20, displacement=0.1),
-            config, current_update=update + 20)
+            state, metrics({"f1": 0.1, "f2": 0.99, "filler": 0.99},
+                           at_update=update + 1, displacement=0.1),
+            config, current_update=update + 1)
+        state, decision = transition(
+            state, metrics({"f1": 0.1, "f2": 0.99, "filler": 0.99},
+                           at_update=update + 2, displacement=0.1),
+            config, current_update=update + 2)
         self.assertEqual(state.state, "REACQUIRE")
+
+    def test_unmeasured_families_are_not_protected(self) -> None:
+        """A family the controller never qualified cannot trigger REACQUIRE."""
+        config = controller_config()
+        state, update = self.qualified_two_family_state(config)
+        state, decision = transition(
+            state, metrics({"f1": 0.95, "f2": 0.95, "stranger": 0.0},
+                           at_update=update + 1, displacement=0.1),
+            config, current_update=update + 1)
+        self.assertEqual(state.state, "EXPAND")
+        self.assertNotIn("stranger", state.protected_families)
+        self.assertEqual(state.pending_collapse, {})
 
 
 class StalenessAndCooldownTests(unittest.TestCase):
@@ -296,6 +404,9 @@ class TransitionBudgetTests(unittest.TestCase):
         self.assertEqual(state.state, "EXPAND")  # unchanged
         self.assertTrue(decision.proposed_only)
         self.assertEqual(decision.reason, "proposed_stabilize")
+        # The proposal is visible in history: a no-event regime is never silent.
+        self.assertEqual(state.history[-1].status, "proposed")
+        self.assertEqual(state.history[-1].reason, "proposed_stabilize")
 
     def test_history_persists_and_is_bounded(self) -> None:
         config = controller_config()

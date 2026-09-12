@@ -7,7 +7,7 @@ invalid head geometry and unsafe feature combinations reject loudly.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 import math
 from typing import Any, Mapping
 
@@ -140,6 +140,7 @@ class TrainingSection:
     pair_loss_weight: float = 0.0
     pair_margin: float = 1.0
     pair_score_normalization: str = "eligible_token_mean"
+    length_bucketing: bool = False
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "TrainingSection":
@@ -147,7 +148,8 @@ class TrainingSection:
             raw,
             frozenset({"seed", "learning_rate", "weight_decay", "grad_accum_steps", "max_updates",
                        "warmup_updates", "clip_norm", "logit_treatment", "effective_vocab",
-                       "pair_loss_weight", "pair_margin", "pair_score_normalization"}),
+                       "pair_loss_weight", "pair_margin", "pair_score_normalization",
+                       "length_bucketing"}),
             "training section")
         kwargs: dict[str, Any] = {}
         if "seed" in values:
@@ -191,6 +193,10 @@ class TrainingSection:
                 raise ConfigError("training.pair_score_normalization must be one of "
                                   f"{sorted(PAIR_SCORE_NORMALIZATIONS)}")
             kwargs["pair_score_normalization"] = values["pair_score_normalization"]
+        if "length_bucketing" in values:
+            if not isinstance(values["length_bucketing"], bool):
+                raise ConfigError("training.length_bucketing must be a boolean")
+            kwargs["length_bucketing"] = values["length_bucketing"]
         section = cls(**kwargs)
         section.validate(vocab=None)
         return section
@@ -225,6 +231,9 @@ class ControllerSection:
     max_transitions: int = 32
     max_metrics_age_updates: int = 8
     exit_hysteresis: float = 0.05
+    controller_eval_every: int = 4
+    collapse_confirmation_evaluations: int = 2
+    recovery_confirmation_evaluations: int = 2
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "ControllerSection":
@@ -233,7 +242,8 @@ class ControllerSection:
             frozenset({"mode", "controller_pool_id", "formation_threshold", "reacquire_threshold",
                        "stabilize_window", "stabilize_lr_multiplier", "expand_lr_multiplier",
                        "reacquire_lr_multiplier", "cooldown_updates", "max_transitions",
-                       "max_metrics_age_updates", "exit_hysteresis"}),
+                       "max_metrics_age_updates", "exit_hysteresis", "controller_eval_every",
+                       "collapse_confirmation_evaluations", "recovery_confirmation_evaluations"}),
             "controller section")
         kwargs: dict[str, Any] = {}
         if "mode" in values:
@@ -253,7 +263,9 @@ class ControllerSection:
         for key in ("stabilize_lr_multiplier", "expand_lr_multiplier", "reacquire_lr_multiplier"):
             if key in values:
                 kwargs[key] = _finite_number(values[key], f"controller.{key}", strictly_positive=True)
-        for key in ("stabilize_window", "cooldown_updates", "max_transitions", "max_metrics_age_updates"):
+        for key in ("stabilize_window", "cooldown_updates", "max_transitions",
+                    "max_metrics_age_updates", "controller_eval_every",
+                    "collapse_confirmation_evaluations", "recovery_confirmation_evaluations"):
             if key in values:
                 kwargs[key] = _positive_int(values[key], f"controller.{key}")
         section = cls(**kwargs)
@@ -328,6 +340,63 @@ class FeatureSection:
 
 
 @dataclass(frozen=True)
+class ReplaySection:
+    """Experience-replay configuration (B2.1). Default is disabled.
+
+    ``ledger_path`` is resolved against the prepared-data directory. When
+    enabled, training mixes in replay batches drawn from the experience
+    ledger at the declared proportion; the exact consumed counters and any
+    shortfall are recorded in the run report.
+    """
+
+    enabled: bool = False
+    proportion: float = 0.25
+    family_weights: Mapping[str, float] = field(default_factory=dict)
+    ledger_path: str = "episodes.jsonl"
+
+    @classmethod
+    def from_dict(cls, raw: Mapping[str, Any]) -> "ReplaySection":
+        values = _strict_section(
+            raw, frozenset({"enabled", "proportion", "family_weights", "ledger_path"}),
+            "replay section")
+        kwargs: dict[str, Any] = {}
+        if "enabled" in values:
+            if not isinstance(values["enabled"], bool):
+                raise ConfigError("replay.enabled must be a boolean")
+            kwargs["enabled"] = values["enabled"]
+        if "proportion" in values:
+            kwargs["proportion"] = _finite_number(values["proportion"], "replay.proportion",
+                                                  minimum=0.0)
+        if "family_weights" in values:
+            weights = values["family_weights"]
+            if not isinstance(weights, Mapping):
+                raise ConfigError("replay.family_weights must be an object")
+            for family, weight in weights.items():
+                if not isinstance(family, str) or not family:
+                    raise ConfigError("replay.family_weights keys must be nonempty strings")
+                _finite_number(weight, f"replay.family_weights.{family}", strictly_positive=True)
+            kwargs["family_weights"] = dict(weights)
+        if "ledger_path" in values:
+            if not isinstance(values["ledger_path"], str) or not values["ledger_path"]:
+                raise ConfigError("replay.ledger_path must be a nonempty string")
+            kwargs["ledger_path"] = values["ledger_path"]
+        section = cls(**kwargs)
+        section.validate()
+        return section
+
+    def validate(self) -> None:
+        if self.enabled and not 0.0 < self.proportion <= 1.0:
+            raise ConfigError("replay.proportion must lie in (0, 1] when replay is enabled")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "enabled": self.enabled, "proportion": self.proportion,
+            "family_weights": dict(self.family_weights),
+            "ledger_path": self.ledger_path,
+        }
+
+
+@dataclass(frozen=True)
 class BuildConfig:
     """Resolved, validated integrated-build configuration."""
 
@@ -336,6 +405,7 @@ class BuildConfig:
     training: TrainingSection | None = None
     controller: ControllerSection | None = None
     features: FeatureSection | None = None
+    replay: ReplaySection | None = None
 
     def __post_init__(self) -> None:
         if self.schema != "bramastra-build-config/v1":
@@ -352,12 +422,16 @@ class BuildConfig:
         if self.features is None:
             object.__setattr__(self, "features", FeatureSection())
         self.features.validate()
+        if self.replay is None:
+            object.__setattr__(self, "replay", ReplaySection())
+        self.replay.validate()
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "BuildConfig":
         if not isinstance(raw, Mapping):
             raise ConfigError("build config must be an object")
-        unknown = set(raw) - {"schema", "model", "training", "controller", "features"}
+        unknown = set(raw) - {"schema", "model", "training", "controller", "features",
+                              "replay"}
         if unknown:
             raise ConfigError(f"build config has unknown fields: {sorted(unknown)}")
         schema = raw.get("schema", "bramastra-build-config/v1")
@@ -369,6 +443,7 @@ class BuildConfig:
             training=TrainingSection.from_dict(raw.get("training", {})),
             controller=ControllerSection.from_dict(raw.get("controller", {})),
             features=FeatureSection.from_dict(raw.get("features", {})),
+            replay=ReplaySection.from_dict(raw.get("replay", {})),
         )
 
     @classmethod
@@ -378,6 +453,7 @@ class BuildConfig:
             "training": section_overrides.get("training", {}),
             "controller": section_overrides.get("controller", {}),
             "features": section_overrides.get("features", {}),
+            "replay": section_overrides.get("replay", {}),
         })
 
     def to_dict(self) -> dict[str, Any]:
@@ -387,6 +463,7 @@ class BuildConfig:
             "training": self.training.to_dict(),
             "controller": self.controller.to_dict(),
             "features": self.features.to_dict(),
+            "replay": self.replay.to_dict(),
         }
 
     def identity(self) -> str:

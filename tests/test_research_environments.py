@@ -184,5 +184,22 @@ class InferenceTests(unittest.TestCase):
                                  [False])
 
 
+class AccountingTests(unittest.TestCase):
+    def test_episode_summary_reports_actions_separately(self) -> None:
+        from bramastra_lab.research.environments.base import episode_summary
+
+        environment = SwitchWorld(budget=6, seed=1)
+        environment.reset(episode_id="acct")
+        environment.step({"kind": "read", "switch": "Z"})  # invalid
+        environment.step({"kind": "read", "switch": "A"})  # inquiry
+        environment.step({"kind": "submit"})               # submission
+        summary = episode_summary(environment, success=False)
+        self.assertEqual(summary["budget_unit"], "action")
+        self.assertEqual(summary["invalid_actions"], 1)
+        self.assertEqual(summary["inquiries"], 1)
+        self.assertEqual(summary["submissions"], 1)
+        self.assertEqual(summary["total_actions"], 3)
+
+
 if __name__ == "__main__":
     unittest.main()

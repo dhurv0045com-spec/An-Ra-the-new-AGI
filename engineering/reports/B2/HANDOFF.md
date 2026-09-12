@@ -75,3 +75,38 @@ Decisive check via three subprocess phases (`tests/_resume_probe.py`): A = unint
 - Wall-clock: measured only where instrumented (CLI legs: train 3.765 s, resume 3.312 s; suite durations in PROGRESS log). Total session effort was not separately metered.
 - Provider implementation tokens: **unavailable** (the execution system exposes no token counter; per the contract this is recorded as unavailable, not zero).
 - Learned smoke: 65 updates / 66 s cumulative (§3).
+
+
+---
+
+# B2.1 addendum — evidence-driven architectural upgrade (2026-09-13)
+
+Owner directive: deepen the build using the experiment results and failures from the Arkenstone and Cymek branches; architectural changes only.
+
+## Mined evidence and what it changed
+
+| Source | Lesson | Change implemented |
+|---|---|---|
+| ARK-007R/010 RESULT+ANALYSIS | collapse90 = onset→confirm two-step; recovery90 = 3-consecutive; relative displacement (0.379 HIGH vs 0.008 LOW); 8/9 recover | Controller: collapse confirmation evaluations; sustained recovery confirmation; relative displacement as plasticity evidence; instability episodes are REACQUIRE-able, never terminal |
+| CONTROLLER_SYNTHESIS.md | "a capability enters the Guardian's protection set only at qualification" | Controller: `qualifying_families` tracked separately; STABILIZE entry promotes the acquiring family into `protected_families` |
+| ARK-013 | adaptive_switches: 0 must be observable; pre-frozen margins; floor effects | Proposed transitions recorded in history with `status="proposed"`; margins already frozen in PromotionConfig |
+| ARK-012 | threshold aliasing under evaluation cadence | Freshness bound + configurable `controller_eval_every`; cadence documented on `_validate_freshness` |
+| ARK-011 | OOD_CONTROL vs OOD_SEALED firewall; sealed-qualified flag | Existing pool firewall retained; controller pool separation documented on metrics |
+| R1C PLAN | inactive offset formula; dense diagnostics; byte-identity proof; counterfactual gradients never in optimizer | Offset formula verified identical; diagnostics extended: active/inactive mass split, max inactive probability, hidden-state L2, relative displacement, counterfactual gradient cosine via autograd.grad; non-mutation tests unchanged |
+| CYR-GPU-011/012/013 | DEV_CONTROLLER vs DEV_MEASUREMENT vs SEALED pools; candidate-free evaluation; both-members-exactly-correct; M99/G50/G90 sustained gates | Pool separation already in evaluation store; `sustained_gate` implements onset/confirmation/AUC with peak claims structurally excluded; pair metrics unchanged |
+| Cymek V5 code | CursorState ordinals; tokens_by_source; fail-closed ordered launch gates with hash-bound PASS receipts | `_preflight` gate manifest (PREFLIGHT_GATES) persisted as preflight.json on every run; fail-closed refusal |
+| W02_REVIEW | invalid-action accounting; budget unit naming; inventory cannot win by reporting failure | `episode_summary` reports budget_unit="action", inquiries/submissions/invalid_actions separately; environment behavior unchanged (charging was already declared) |
+| W08 | bootstrap by semantic world; underpowered refusal | `clustered_bootstrap_delta` resamples task clusters; promotion refuses `clusters < min_clusters` and CI-straddling-zero accepts |
+| W11 | idempotent publication; replay identity binding; overlapping manifests dedup | Ledger idempotency + conflict rejection; ReplayEngine bound to `dataset_identity` (changed data/policy ⇒ new cursor); pools dedup by episode content identity |
+| EXECUTION_PLAN §7 (taxonomy) | every failed episode gets one primary observable category | `classify_failure` in collection runner; category stored on every receipt |
+
+## New wiring (integration-tested, real updates)
+
+- Shared `_training_loop` for train and resume (single code path): data batches, replay-designated updates, controller boundaries, checkpointing.
+- `collect` CLI subcommand: environments → experience ledger (fixed or failed-baseline policies).
+- Controller loop: greedy complete-answer scoring per family on the controller split, transition application (LR multiplier, HOLD pause, checkpoint request), first-family introduction, state persisted in checkpoints.
+- Replay loop: proportion-designated updates draw from the experience ledger; reconciliation reports designated updates, planned/consumed entries, shortfall, and render modes (full/endpoints/oversized-skipped).
+
+## Resource ledger update
+
+Cumulative learned smoke now **193/200 optimizer updates, 111/300 s** — nearly exhausted through counted debugging iterations (all recorded). No further learned runs without an owner budget reset. The pre-delivery verification was completed before exhaustion: full parallel suite **426 passed / 10 pre-existing failures**; controller, replay, pair, collection and integrated-path tests all green.

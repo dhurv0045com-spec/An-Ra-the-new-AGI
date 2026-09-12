@@ -4,7 +4,20 @@
   "license": "CC0-declared-by-owner-repository-fixture",
   "provenance": "tiny integration fixture authored for the B2 build; not a corpus",
   "entries": [
-    {"path": "train.jsonl", "split": "training", "kind": "trajectory"},
-    {"path": "dev.jsonl", "split": "development", "kind": "trajectory"}
+    {
+      "path": "train.jsonl",
+      "split": "training",
+      "kind": "trajectory"
+    },
+    {
+      "path": "dev.jsonl",
+      "split": "development",
+      "kind": "trajectory"
+    },
+    {
+      "path": "controller.jsonl",
+      "split": "controller",
+      "kind": "trajectory"
+    }
   ]
 }

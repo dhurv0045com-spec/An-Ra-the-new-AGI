@@ -94,6 +94,130 @@ class PrepareDataTests(unittest.TestCase):
 
 
 @unittest.skipUnless(LEARNED_CHECKS, LEARNED_REASON)
+class IntegratedLoopWiringTests(unittest.TestCase):
+    """B2.1 wiring: controller, replay, pair objective — real updates."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def _prepare(self, config_path):
+        prepared = os.path.join(self.tmp.name, "prepared")
+        result = run_cli("prepare-data", "--manifest", os.path.join(FIXTURES, "manifest.json"),
+                         "--out", prepared, "--config", config_path)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return prepared
+
+    def test_controller_wired_into_training(self) -> None:
+        with self.tmp:
+            config = json.loads(json.dumps(SMOKE_CONFIG))
+            config["controller"] = {
+                "mode": "evidence_driven", "controller_pool_id": "controller",
+                "formation_threshold": 0.95, "stabilize_window": 2,
+                "controller_eval_every": 2, "cooldown_updates": 1,
+                "collapse_confirmation_evaluations": 2,
+                "recovery_confirmation_evaluations": 2}
+            config["training"]["max_updates"] = 6
+            config_path = os.path.join(self.tmp.name, "config.json")
+            with open(config_path, "w", encoding="utf-8") as handle:
+                json.dump(config, handle)
+            prepared = self._prepare(config_path)
+            run_dir = os.path.join(self.tmp.name, "run-controller")
+            trained = run_cli("train", "--config", config_path, "--data", prepared,
+                              "--run-dir", run_dir, "--max-updates", "6", "--smoke",
+                              learned=True)
+            self.assertEqual(trained.returncode, 0, trained.stderr)
+            # Preflight recorded and fully passed.
+            preflight = json.loads(open(os.path.join(run_dir, "preflight.json"),
+                                        encoding="utf-8").read())
+            self.assertTrue(preflight["ready"])
+            self.assertIn("controller_split",
+                          [g["id"] for g in preflight["gates"]])
+            # Controller boundaries were evaluated and recorded.
+            events = [json.loads(line) for line in
+                      open(os.path.join(run_dir, "events.jsonl"), encoding="utf-8")]
+            boundaries = [event for event in events if event["event"] == "controller_boundary"]
+            self.assertGreaterEqual(len(boundaries), 2)
+            self.assertEqual(boundaries[0]["decision"]["state"], "EXPAND")
+            # Controller state persisted into the final checkpoint.
+            from bramastra_lab.research.config import BuildConfig
+            from bramastra_lab.research.runtime import checkpoint as ckpt
+
+            payload, _ = ckpt.load_checkpoint(run_dir)
+            self.assertIsNotNone(payload["controller_state"])
+            restored = payload["controller_state"]
+            self.assertTrue(restored["acquiring_family"])
+            self.assertEqual(restored["state"], "EXPAND")
+
+    def test_replay_wired_into_training(self) -> None:
+        with self.tmp:
+            config = json.loads(json.dumps(SMOKE_CONFIG))
+            config["replay"] = {"enabled": True, "proportion": 0.5,
+                                "family_weights": {"switch-world": 1.0,
+                                                   "inventory-world": 1.0,
+                                                   "program-lab": 1.0}}
+            config["training"]["max_updates"] = 4
+            config_path = os.path.join(self.tmp.name, "config.json")
+            with open(config_path, "w", encoding="utf-8") as handle:
+                json.dump(config, handle)
+            prepared = self._prepare(config_path)
+            collected = run_cli("collect", "--environments", "switch-world,inventory-world",
+                                "--ledger", os.path.join(prepared, "episodes.jsonl"),
+                                "--episodes", "2", "--policy", "fixed",
+                                "--budget", "6", "--seed", "5")
+            self.assertEqual(collected.returncode, 0, collected.stderr)
+            collection = json.loads(collected.stdout)
+            self.assertEqual(collection["episodes"], 4)
+            run_dir = os.path.join(self.tmp.name, "run-replay")
+            trained = run_cli("train", "--config", config_path, "--data", prepared,
+                              "--run-dir", run_dir, "--max-updates", "4", "--smoke",
+                              learned=True)
+            self.assertEqual(trained.returncode, 0, trained.stderr)
+            report = json.loads(trained.stdout)
+            reconciliation = report["replay_reconciliation"]
+            self.assertEqual(reconciliation["designated_updates"], 2)
+            self.assertGreaterEqual(reconciliation["executed_replay_batches"], 1)
+            self.assertTrue(reconciliation["planned"] >= reconciliation["consumed"])
+
+    def test_pair_loss_wired_into_training(self) -> None:
+        with self.tmp:
+            config = json.loads(json.dumps(SMOKE_CONFIG))
+            config["training"]["pair_loss_weight"] = 0.5
+            config["training"]["max_updates"] = 4
+            config_path = os.path.join(self.tmp.name, "config.json")
+            with open(config_path, "w", encoding="utf-8") as handle:
+                json.dump(config, handle)
+            prepared = self._prepare(config_path)
+            run_dir = os.path.join(self.tmp.name, "run-pair")
+            trained = run_cli("train", "--config", config_path, "--data", prepared,
+                              "--run-dir", run_dir, "--max-updates", "4", "--smoke",
+                              learned=True)
+            self.assertEqual(trained.returncode, 0, trained.stderr)
+            report = json.loads(trained.stdout)
+            self.assertEqual(report["updates"], 4)
+
+    def test_collection_records_failure_categories(self) -> None:
+        with self.tmp:
+            collected = run_cli("collect", "--environments", "program-lab",
+                                "--ledger", os.path.join(self.tmp.name, "episodes.jsonl"),
+                                "--episodes", "1", "--policy", "failed-baseline",
+                                "--budget", "6", "--seed", "3")
+            self.assertEqual(collected.returncode, 0, collected.stderr)
+            report = json.loads(collected.stdout)
+            self.assertEqual(report["episodes"], 1)
+            self.assertEqual(report["successes"], 0)
+            self.assertGreater(len(report["failures_by_category"]), 0)
+            from bramastra_lab.research.experience.ledger import ExperienceLedger
+
+            ledger = ExperienceLedger(os.path.join(self.tmp.name, "episodes.jsonl"))
+            entries = ledger.read_all()
+            self.assertEqual(len(entries), 1)
+            receipt = entries[0][1]
+            self.assertEqual(receipt.success, False)
+            self.assertEqual(receipt.notes["failure_category"], "wrong_world_prediction")
+
+
+@unittest.skipUnless(LEARNED_CHECKS, LEARNED_REASON)
 class IntegratedSmokePathTests(unittest.TestCase):
     """The full integrated path with the real trainer (learned smoke)."""
 
@@ -166,8 +290,9 @@ class IntegratedSmokePathTests(unittest.TestCase):
                               "--data", os.path.join(tmp, "x"),
                               "--run-dir", os.path.join(tmp, "run"), learned=True)
             self.assertEqual(trained.returncode, 2)
-            # The data check fires first and refuses loudly either way.
-            self.assertIn("no prepared.json", trained.stderr)
+            # Fail-closed preflight reports every failing gate at once.
+            self.assertIn("preflight failed", trained.stderr)
+            self.assertIn("prepared_data", trained.stderr)
 
 
 if __name__ == "__main__":

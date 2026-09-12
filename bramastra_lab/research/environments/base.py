@@ -40,6 +40,9 @@ class BaseEnvironment(ABC):
         self._step_id = 0
         self._remaining = budget
         self._terminated = False
+        self._inquiries = 0
+        self._submissions = 0
+        self._invalid_actions = 0
         self._inquiry_cost_total = 0.0
         self._submission_cost_total = 0.0
         self._rng = random.Random(seed)
@@ -88,6 +91,9 @@ class BaseEnvironment(ABC):
         self._step_id = 0
         self._remaining = self.budget
         self._terminated = False
+        self._inquiries = 0
+        self._submissions = 0
+        self._invalid_actions = 0
         self._inquiry_cost_total = 0.0
         self._submission_cost_total = 0.0
         self._reset_hidden()
@@ -123,17 +129,20 @@ class BaseEnvironment(ABC):
         if not is_valid:
             feedback = {"kind": "invalid_action", "reason": "not in legal candidate set"}
             cost = 1.0
+            self._invalid_actions += 1
             self._inquiry_cost_total += cost
         else:
             submission = self._is_submission(action)
             feedback, success = self._apply_action(action)
             cost = SUBMIT_COST if submission else INQUIRY_COST
             if submission:
+                self._submissions += 1
                 self._submission_cost_total += cost
                 self._terminated = True
                 feedback = {**feedback, "submitted_answer": feedback.get("submitted_answer"),
                             "success": success}
             else:
+                self._inquiries += 1
                 self._inquiry_cost_total += cost
         self._step_id += 1
         self._remaining = max(0, self._remaining - int(cost))
@@ -160,10 +169,23 @@ def _matches_candidate(action: Mapping[str, Any], candidate: Mapping[str, Any]) 
 
 
 def episode_summary(environment: BaseEnvironment, success: bool) -> dict[str, Any]:
-    """Cost accounting with submission cost separated from inquiries."""
+    """Cost accounting with submission cost separated from inquiries.
+
+    The budget unit is an *action*: every action, including the final
+    submission and any invalid action, consumes one unit. Inquiries,
+    submissions and invalid actions are reported separately so budget
+    comparisons across environments are never silently mismatched (W02
+    review correction).
+    """
     return {
         "environment": environment.name,
         "charging_rule": environment.charging_rule,
+        "budget_unit": "action",
+        "inquiries": environment._inquiries,
+        "submissions": environment._submissions,
+        "invalid_actions": environment._invalid_actions,
+        "total_actions": environment._inquiries + environment._submissions
+                         + environment._invalid_actions,
         "inquiry_cost_total": environment.inquiry_cost_total,
         "submission_cost_total": environment.submission_cost_total,
         "budget_start": environment.budget,

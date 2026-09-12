@@ -207,6 +207,106 @@ def brier_score(outcomes: Sequence[RawOutcome]) -> dict[str, Any] | None:
     return {"brier": total / len(scored), "count": len(scored)}
 
 
+# --- formation gates and clustered uncertainty (B2.1) ------------------------
+
+def sustained_gate(evaluations: Sequence[tuple[int, float]], *, threshold: float,
+                   consecutive: int = 3) -> dict[str, Any]:
+    """Preregistered sustained-threshold semantics over an evaluation series.
+
+    ``evaluations`` are ``(update, score)`` pairs in evaluation order. The
+    gate counts only as the FIRST of ``consecutive`` evaluations at or above
+    the bar: ``onset_update`` is the first evaluation of the streak and
+    ``confirmed_update`` the one where the streak reaches the required
+    length. Peak or single-evaluation claims are structurally excluded —
+    ``max_score`` is recorded for auditing only and is never a claim.
+    """
+    if consecutive < 1:
+        raise EvaluationError("consecutive must be at least 1")
+    if not evaluations:
+        raise EvaluationError("sustained_gate requires at least one evaluation")
+    streak = 0
+    onset: int | None = None
+    confirmed: int | None = None
+    for update, score in evaluations:
+        if score >= threshold:
+            streak += 1
+            if streak == 1:
+                onset = int(update)
+            if streak >= consecutive and confirmed is None:
+                confirmed = int(update)
+                break
+        else:
+            streak = 0
+            onset = None
+    return {
+        "threshold": threshold,
+        "consecutive": consecutive,
+        "onset_update": onset,
+        "confirmed_update": confirmed,
+        "sustained_confirmed": confirmed is not None,
+        "formation_auc": sum(score for _, score in evaluations) / len(evaluations),
+        "max_score_for_audit_only": max(score for _, score in evaluations),
+        "peak_claims_forbidden": True,
+    }
+
+
+def clustered_bootstrap_delta(reference_outcomes: Sequence[RawOutcome],
+                              candidate_outcomes: Sequence[RawOutcome], *,
+                              iterations: int = 1000, seed: int = 0,
+                              confidence_level: float = 0.95) -> dict[str, Any]:
+    """Bootstrap the paired complete-answer delta by semantic world cluster.
+
+    Resamples clusters (``task_semantic_id``), never individual rows, so all
+    evaluations of one world move together (W08: correlated rows are not
+    independent evidence). Reference and candidate outcomes must pair on
+    task ids; unmatched tasks reject.
+    """
+    import random as _random
+
+    if iterations < 1:
+        raise EvaluationError("iterations must be at least 1")
+    if not 0.0 < confidence_level < 1.0:
+        raise EvaluationError("confidence_level must lie in (0, 1)")
+    ref: dict[str, list[int]] = {}
+    cand: dict[str, list[int]] = {}
+    for outcome in reference_outcomes:
+        ref.setdefault(outcome.task_semantic_id, []).append(
+            1 if outcome.complete_answer_correct() else 0)
+    for outcome in candidate_outcomes:
+        cand.setdefault(outcome.task_semantic_id, []).append(
+            1 if outcome.complete_answer_correct() else 0)
+    unmatched = sorted(set(ref) ^ set(cand))
+    if unmatched:
+        raise EvaluationError(
+            f"reference/candidate tasks do not pair: {unmatched[:4]}")
+    cluster_deltas: dict[str, float] = {}
+    for task in ref:
+        r = sum(ref[task]) / len(ref[task])
+        c = sum(cand[task]) / len(cand[task])
+        cluster_deltas[task] = c - r
+    tasks = sorted(cluster_deltas)
+    rng = _random.Random(seed)
+    sampled: list[float] = []
+    for _ in range(iterations):
+        draw = [tasks[rng.randrange(len(tasks))] for _ in tasks]
+        sampled.append(sum(cluster_deltas[task] for task in draw) / len(tasks))
+    sampled.sort()
+    alpha = (1.0 - confidence_level) / 2.0
+    low = sampled[max(0, int(alpha * iterations))]
+    high = sampled[min(iterations - 1, int((1 - alpha) * iterations))]
+    point = sum(cluster_deltas.values()) / len(tasks)
+    return {
+        "delta": point,
+        "ci_low": low,
+        "ci_high": high,
+        "confidence_level": confidence_level,
+        "clusters": len(tasks),
+        "iterations": iterations,
+        "unit": "semantic world cluster",
+        "ci_includes_zero": low <= 0.0 <= high,
+    }
+
+
 @dataclass(frozen=True)
 class PromotionConfig:
     """Configured promotion margins; thresholds are frozen before evaluation."""
@@ -215,6 +315,7 @@ class PromotionConfig:
     regression_margin: float = 0.02
     min_pairs_for_goal_check: int = 8
     both_correct_floor: float = 0.5
+    min_clusters: int = 2
 
     def to_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -227,9 +328,12 @@ def decide_promotion(*, reference_metrics: Mapping[str, Any],
                      paired: Mapping[str, Any] | None,
                      config: PromotionConfig,
                      evidence_complete: bool,
-                     sealed_fresh: bool | None = None) -> dict[str, Any]:
+                     sealed_fresh: bool | None = None,
+                     clustered_uncertainty: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Frozen-margin promotion decision; insufficient evidence defaults to
-    no_promotion. A family regression can never be hidden by the aggregate."""
+    no_promotion. A family regression can never be hidden by the aggregate.
+    Underpowered evidence (too few clusters, or a confidence interval that
+    straddles zero) can never produce a confident accept."""
     reasons: list[str] = []
     if not evidence_complete:
         reasons.append("evidence_incomplete")
@@ -251,6 +355,14 @@ def decide_promotion(*, reference_metrics: Mapping[str, Any],
         reasons.append("both_correct_floor_not_met")
     if sealed_fresh is False:
         reasons.append("sealed_pool_reuse_detected")
+    if clustered_uncertainty is not None:
+        if clustered_uncertainty.get("clusters", 0) < config.min_clusters:
+            reasons.append(
+                f"underpowered: {clustered_uncertainty['clusters']} clusters < "
+                f"{config.min_clusters}")
+        elif clustered_uncertainty.get("ci_includes_zero") \
+                and cand_rate - ref_rate >= config.primary_margin:
+            reasons.append("bootstrap_ci_includes_zero")
     decision = "accept" if not reasons else (
         "diagnose" if len(reasons) == 1 and reasons[0] == "insufficient_pairs_for_goal_check"
         else "no_promotion")

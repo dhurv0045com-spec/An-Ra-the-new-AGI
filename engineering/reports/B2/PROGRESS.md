@@ -39,3 +39,18 @@ Authoritative: [SESSION_LEDGER.json](SESSION_LEDGER.json) (limits from the build
 ## Blockers
 
 - Real-corpus training remains `DATA_NOT_READY` (operator must supply a local manifest). Accelerator certification and scientific qualification remain future work; no capability claims are made.
+
+## B2.1 architectural upgrade (2026-09-13, second owner directive: "make it more better... architectural not hacks... read the experiment results")
+
+Evidence mined before design: ARK-007R/010 RESULT+ANALYSIS (paired collapse/recovery, relative displacement ~0.379 HIGH vs ~0.008 LOW), R1C preregistration (offset formula log((V-|A|)/(K-|A|)) — matches implementation; dense diagnostics; dual functional/structural endpoints; onset→confirm gates), Cymek V5 code (CursorState ordinals, tokens_by_source exact counters, fail-closed launch gates with hash-bound PASS receipts), W02_REVIEW (budget-unit naming, invalid-action accounting, "dictionary without answer key is not proof"), W08 (cluster bootstrap; underpowered refusal), W11 (idempotent publication, replay identity binding, dedup), CONTROLLER_SYNTHESIS (protection earned at qualification), ARK-012/013 (cadence aliasing, no-event telemetry, floor effects).
+
+Architectural changes (all with validation + tests, no shortcuts):
+1. Controller: protection earned at qualification (STABILIZE promotes acquiring family to protected); collapse requires onset→confirmation across `collapse_confirmation_evaluations` consecutive fresh evals; REACQUIRE exit requires sustained recovery across `recovery_confirmation_evaluations`; relative displacement accepted as plasticity evidence; proposed transitions recorded in history with status; confirmed preservation collapse bypasses cooldown (confirmation is the anti-chatter mechanism).
+2. Evaluation: `sustained_gate` (preregistered onset/confirmation/AUC semantics, peak claims structurally excluded) and `clustered_bootstrap_delta` (resamples semantic-world clusters, W08); promotion refuses underpowered evidence (`min_clusters`) and CI-straddling-zero accepts.
+3. Ledger/replay: idempotent publication (identical receipt no-op; conflicting content rejected), replay identity bound to ledger content — changed dataset/policy forces a new cursor, dedup by episode content identity.
+4. Collection: `research/collection/runner.py` closes the loop environments → receipts (public transcript, budget unit "action", failure taxonomy per SYSTEM_ARCHITECTURE §7) → replay; `collect` CLI subcommand.
+5. Train/resume: shared `_training_loop` (no duplicated paths), fail-closed `_preflight` gate manifest persisted as preflight.json, controller evaluation boundaries wired (multiplier, HOLD pause, checkpoint requests, auto-introduction of a single first family), replay mixing with declared proportion, exact counters, shortfall and render-mode accounting (full/endpoints/oversized-skipped — never silent truncation).
+6. Diagnostics: active/inactive probability-mass split, hidden-state L2, relative displacement, counterfactual gradient cosine (R1C dense-diagnostics list).
+7. Config: `replay` section (enabled/proportion/family_weights/ledger_path), `training.length_bucketing`, controller cadence/confirmation fields; manifest examples carry optional `family`.
+
+Learned smoke after B2.1: ledger at **193/200 updates, 111/300 s** — the budget is nearly exhausted through counted debugging iterations; no further learned runs without an owner reset. All acceptance checks were re-verified before exhaustion: full parallel suite 426 passed / 10 pre-existing failures; controller, replay, pair and integrated paths green.

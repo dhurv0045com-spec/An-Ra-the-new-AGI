@@ -97,10 +97,10 @@ class ReplayTests(unittest.TestCase):
     def test_deterministic_and_resume_matches(self) -> None:
         entries = self.build_entries()
         reference = ReplayEngine(entries, family_weights={"arithmetic": 1.0, "logic": 1.0},
-                                 batch_size=2, seed=7)
+                                 batch_size=2, seed=7, dataset_identity="ledger-1")
         first = [reference.sample() for _ in range(3)]
         resumed = ReplayEngine(entries, family_weights={"arithmetic": 1.0, "logic": 1.0},
-                               batch_size=2, seed=7)
+                               batch_size=2, seed=7, dataset_identity="ledger-1")
         resumed.sample()
         resumed.restore(resumed.state())
         rest = [resumed.sample() for _ in range(2)]
@@ -111,7 +111,7 @@ class ReplayTests(unittest.TestCase):
     def test_within_epoch_no_duplicates(self) -> None:
         entries = self.build_entries()
         engine = ReplayEngine(entries, family_weights={"arithmetic": 1.0, "logic": 1.0},
-                              batch_size=2, seed=3)
+                              batch_size=2, seed=3, dataset_identity="ledger-1")
         seen: list[str] = []
         for _ in range(4):  # 8 accepted entries, batch 2 -> one full epoch
             batch = engine.sample()
@@ -122,7 +122,7 @@ class ReplayTests(unittest.TestCase):
     def test_shortfall_is_explicit(self) -> None:
         entries = self.build_entries()[:2]
         engine = ReplayEngine(entries, family_weights={"arithmetic": 1.0},
-                              batch_size=2, seed=1)
+                              batch_size=2, seed=1, dataset_identity="ledger-1")
         batch = engine.sample(count=5)
         self.assertEqual(len(batch.entries), 2)
         self.assertEqual(batch.shortfall, 3)
@@ -130,7 +130,7 @@ class ReplayTests(unittest.TestCase):
     def test_quality_filter_excludes_rejected(self) -> None:
         entries = self.build_entries()
         engine = ReplayEngine(entries, family_weights={"arithmetic": 1.0, "logic": 1.0},
-                              batch_size=8, seed=2)
+                              batch_size=8, seed=2, dataset_identity="ledger-1")
         batch = engine.sample()
         ids = {entry.episode_id for entry in batch.entries}
         self.assertNotIn("ep-8", ids)
@@ -138,7 +138,7 @@ class ReplayTests(unittest.TestCase):
     def test_exact_counters_and_reconciliation(self) -> None:
         entries = self.build_entries()
         engine = ReplayEngine(entries, family_weights={"arithmetic": 1.0, "logic": 1.0},
-                              batch_size=4, seed=5)
+                              batch_size=4, seed=5, dataset_identity="ledger-1")
         engine.declare_planned(8)
         for _ in range(2):
             engine.sample()
@@ -156,11 +156,36 @@ class ReplayTests(unittest.TestCase):
     def test_unknown_family_in_restored_state_rejects(self) -> None:
         entries = self.build_entries()
         engine = ReplayEngine(entries, family_weights={"arithmetic": 1.0},
-                              batch_size=2, seed=5)
+                              batch_size=2, seed=5, dataset_identity="ledger-1")
         with self.assertRaises(ReplayStateError):
-            engine.restore({"cursors": {"ghost": 1}, "epochs": {"arithmetic": 0},
+            engine.restore({"replay_identity": "other", "cursors": {"ghost": 1}, "epochs": {"arithmetic": 0},
                             "consumed_total": 0, "consumed_by_family": {},
                             "planned_total": 0, "orders": {"arithmetic": [0, 1]}})
+
+
+class LedgerIdempotencyTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = os.path.join(self.tmp.name, "ledger.jsonl")
+
+    def test_identical_receipt_is_idempotent(self) -> None:
+        ledger = ExperienceLedger(self.path)
+        first = ledger.append(receipt(1))
+        again = ledger.append(receipt(1))
+        self.assertEqual(first, again)
+        self.assertEqual(len(ledger.read_all()), 1)
+        # A fresh instance over the same file is also idempotent.
+        reopened = ExperienceLedger(self.path)
+        self.assertEqual(reopened.append(receipt(1)), first)
+        self.assertEqual(len(reopened.read_all()), 1)
+
+    def test_conflicting_content_under_same_episode_id_rejects(self) -> None:
+        ledger = ExperienceLedger(self.path)
+        ledger.append(receipt(1, costs=(1.0,)))
+        with self.assertRaises(LedgerError) as caught:
+            ledger.append(receipt(1, costs=(2.0,)))
+        self.assertIn("different content", str(caught.exception))
 
 
 if __name__ == "__main__":

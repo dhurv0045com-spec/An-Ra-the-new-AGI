@@ -251,5 +251,34 @@ class PackingIsolationTests(unittest.TestCase):
         torch.testing.assert_close(alone[0, :size], together[0, :size])
 
 
+class BucketedBatchingTests(unittest.TestCase):
+    def test_bucketing_reduces_padding_and_keeps_targets(self) -> None:
+        from bramastra_lab.research.experience.sequences import bucketed_batches
+
+        rows = [build_language_row("x" * length, provenance=BASE_PROVENANCE,
+                                   max_tokens=64)
+                for length in (4, 5, 6, 30, 31, 32)]
+        plain = collocate(rows, max_seq=64)
+        batches = bucketed_batches(rows, batch_size=2, bucket_width=8)
+        self.assertEqual(len(batches), 3)
+        targets = sum(collocate(batch, max_seq=64).target_count for batch in batches)
+        self.assertEqual(targets, sum(row.target_count for row in rows))
+        bucketed = [collocate(batch, max_seq=64) for batch in batches]
+        # Two short rows and two long rows now share batches: less padding.
+        short_padding = (~bucketed[0].padding_mask).sum().item()
+        self.assertLessEqual(short_padding, (~plain.padding_mask).sum().item())
+
+    def test_bucketing_is_deterministic(self) -> None:
+        from bramastra_lab.research.experience.sequences import bucketed_batches
+
+        rows = [build_language_row("x" * (index + 3), provenance=BASE_PROVENANCE,
+                                   max_tokens=64) for index in range(5)]
+        first = [[row.tokens for row in batch] for batch in
+                 bucketed_batches(rows, batch_size=2)]
+        second = [[row.tokens for row in batch] for batch in
+                  bucketed_batches(rows, batch_size=2)]
+        self.assertEqual(first, second)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -19,9 +19,9 @@ from bramastra_lab.research.evaluation.store import StoreError
 
 def outcome(outcome_id: str, *, prediction="4", stopped=True, label="4", family="math",
             pool="measurement", cost=1.0, pair=None, role=None, confidence=None,
-            split="development"):
+            split="development", task_semantic_id=None):
     return RawOutcome(outcome_id=outcome_id, pool=pool, split=split, family=family,
-                      task_semantic_id=f"task-{outcome_id}", prediction=prediction,
+                      task_semantic_id=task_semantic_id or f"task-{outcome_id}", prediction=prediction,
                       stopped_on_eos=stopped, label=label, cost=cost,
                       pair_group_id=pair, role=role, confidence=confidence)
 
@@ -167,6 +167,92 @@ class BrierTests(unittest.TestCase):
 
     def test_brier_absent_without_confidence(self) -> None:
         self.assertIsNone(brier_score([outcome("a")]))
+
+
+class SustainedGateTests(unittest.TestCase):
+    def test_gate_requires_consecutive_confirmation(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import sustained_gate
+
+        series = [(100, 0.95), (150, 0.5), (200, 0.96), (250, 0.97), (300, 0.98)]
+        gate = sustained_gate(series, threshold=0.9, consecutive=3)
+        self.assertEqual(gate["onset_update"], 200)
+        self.assertEqual(gate["confirmed_update"], 300)
+        self.assertTrue(gate["sustained_confirmed"])
+        self.assertTrue(gate["peak_claims_forbidden"])
+        self.assertEqual(gate["max_score_for_audit_only"], 0.98)
+
+    def test_streak_interrupted_by_dip_resets(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import sustained_gate
+
+        series = [(100, 0.95), (150, 0.95), (200, 0.5), (250, 0.95), (300, 0.95),
+                  (350, 0.95)]
+        gate = sustained_gate(series, threshold=0.9, consecutive=3)
+        self.assertEqual(gate["onset_update"], 250)
+        self.assertEqual(gate["confirmed_update"], 350)
+
+    def test_run_ending_before_confirmation_is_not_confirmed(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import sustained_gate
+
+        gate = sustained_gate([(100, 0.95), (150, 0.96)], threshold=0.9, consecutive=3)
+        self.assertFalse(gate["sustained_confirmed"])
+        self.assertIsNone(gate["confirmed_update"])
+        # Formation AUC is the integral, not the peak.
+        self.assertAlmostEqual(gate["formation_auc"], 0.955)
+
+    def test_empty_series_rejects(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import sustained_gate
+
+        with self.assertRaises(EvaluationError):
+            sustained_gate([], threshold=0.9)
+
+
+class ClusteredBootstrapTests(unittest.TestCase):
+    @staticmethod
+    def build_paired_worlds(n_clusters=4, items_per=4, *, ref_correct=True,
+                            cand_correct=True):
+        refs, cands = [], []
+        for cluster in range(n_clusters):
+            for item in range(items_per):
+                task = f"task-{cluster}"
+                refs.append(outcome(f"r{cluster}-{item}", label="4" if ref_correct else "5",
+                                    prediction="4" if ref_correct else "6", task_semantic_id=task))
+                cands.append(outcome(f"c{cluster}-{item}", label="4" if cand_correct else "5",
+                                     prediction="4" if cand_correct else "6", task_semantic_id=task))
+        return refs, cands
+
+    def test_delta_and_clusters(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import clustered_bootstrap_delta
+
+        refs, cands = self.build_paired_worlds(ref_correct=False, cand_correct=True)
+        report = clustered_bootstrap_delta(refs, cands, iterations=200, seed=1)
+        self.assertEqual(report["clusters"], 4)
+        self.assertAlmostEqual(report["delta"], 1.0)
+        self.assertFalse(report["ci_includes_zero"])
+
+    def test_unmatched_tasks_reject(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import clustered_bootstrap_delta
+
+        refs, cands = self.build_paired_worlds()
+        extra = [outcome("extra", task_semantic_id="task-other")]
+        with self.assertRaises(EvaluationError):
+            clustered_bootstrap_delta(refs, cands + extra)
+
+    def test_underpowered_promotion_is_refused(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import PromotionConfig
+
+        refs, cands = self.build_paired_worlds(n_clusters=1, ref_correct=False,
+                                               cand_correct=True)
+        reference_metrics = {"complete_answer_rate": 0.0}
+        candidate_metrics = {"complete_answer_rate": 1.0}
+        fam = {"math": {"complete_answer_rate": 1.0, "count": 4}}
+        uncertainty = {"clusters": 1, "ci_includes_zero": False}
+        decision = decide_promotion(
+            reference_metrics=reference_metrics, candidate_metrics=candidate_metrics,
+            reference_family=fam, candidate_family=fam, paired=None,
+            config=PromotionConfig(), evidence_complete=True,
+            clustered_uncertainty=uncertainty)
+        self.assertEqual(decision["decision"], "no_promotion")
+        self.assertTrue(any(r.startswith("underpowered") for r in decision["reasons"]))
 
 
 class StoreTests(unittest.TestCase):

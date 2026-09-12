@@ -1,8 +1,8 @@
-{"example_id": "t1", "prompt_events": [["goal", {"question": "2+2?"}]], "answer": "4"}
-{"example_id": "t2", "prompt_events": [["goal", {"question": "3+3?"}]], "answer": "6"}
-{"example_id": "t3", "prompt_events": [["goal", {"question": "1+1?"}]], "answer": "2"}
-{"example_id": "g1a", "prompt_events": [["goal", {"question": "5+1?"}]], "answer": "6", "group": "swap-1"}
-{"example_id": "g1b", "prompt_events": [["goal", {"question": "1+4?"}]], "answer": "5", "group": "swap-1"}
-{"example_id": "g2a", "prompt_events": [["goal", {"question": "4+4?"}]], "answer": "8", "group": "swap-2"}
-{"example_id": "g2b", "prompt_events": [["goal", {"question": "2+6?"}]], "answer": "8", "group": "swap-2"}
-{"example_id": "t4", "prompt_events": [["goal", {"question": "2+5?"}]], "answer": "7"}
+{"example_id": "t1", "prompt_events": [["goal", {"question": "2+2?"}]], "answer": "4", "family": "arithmetic"}
+{"example_id": "t2", "prompt_events": [["goal", {"question": "3+3?"}]], "answer": "6", "family": "arithmetic"}
+{"example_id": "t3", "prompt_events": [["goal", {"question": "1+1?"}]], "answer": "2", "family": "arithmetic"}
+{"example_id": "g1a", "prompt_events": [["goal", {"question": "5+1?"}]], "answer": "6", "group": "swap-1", "family": "arithmetic"}
+{"example_id": "g1b", "prompt_events": [["goal", {"question": "1+4?"}]], "answer": "5", "group": "swap-1", "family": "arithmetic"}
+{"example_id": "g2a", "prompt_events": [["goal", {"question": "4+4?"}]], "answer": "8", "group": "swap-2", "family": "arithmetic"}
+{"example_id": "g2b", "prompt_events": [["goal", {"question": "2+6?"}]], "answer": "8", "group": "swap-2", "family": "arithmetic"}
+{"example_id": "t4", "prompt_events": [["goal", {"question": "2+5?"}]], "answer": "7", "family": "arithmetic"}

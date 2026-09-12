@@ -1,4 +1,4 @@
-{"example_id": "d1", "prompt_events": [["goal", {"question": "6+2?"}]], "answer": "8"}
-{"example_id": "d2", "prompt_events": [["goal", {"question": "3+5?"}]], "answer": "8"}
-{"example_id": "d3", "prompt_events": [["goal", {"question": "7+1?"}]], "answer": "8"}
-{"example_id": "d4", "prompt_events": [["goal", {"question": "6+1?"}]], "answer": "7"}
+{"example_id": "d1", "prompt_events": [["goal", {"question": "6+2?"}]], "answer": "8", "family": "arithmetic"}
+{"example_id": "d2", "prompt_events": [["goal", {"question": "3+5?"}]], "answer": "8", "family": "arithmetic"}
+{"example_id": "d3", "prompt_events": [["goal", {"question": "7+1?"}]], "answer": "8", "family": "arithmetic"}
+{"example_id": "d4", "prompt_events": [["goal", {"question": "6+1?"}]], "answer": "7", "family": "arithmetic"}

@@ -334,12 +334,13 @@ class TrainerDiagnostics:
         self.schema = schema
         self.diagnostic_pair_input = diagnostic_pair_input
         self.track_displacement = track_displacement
+        self.last_telemetry: dict[str, Any] = {}
 
     @torch.no_grad()
     def _forward_metrics(self) -> dict[str, Any]:
         batch = self.diagnostic_batch
         output = self.model(batch.input_ids, batch.padding_mask,
-                            segment_ids=batch.segment_ids)
+                            segment_ids=batch.segment_ids, return_hidden=True)
         logits = output.logits.float()
         probabilities = torch.softmax(logits, dim=-1)
         supervised = batch.loss_mask
@@ -353,12 +354,34 @@ class TrainerDiagnostics:
         entropy = -(target_positions.clamp_min(1e-12).log()
                     * target_positions).sum(dim=-1)
         finite = torch.isfinite(target_prob)
-        return {
+        telemetry = {
             "diagnostic_target_prob_mean": float(target_prob[finite].mean().item()) if bool(finite.any()) else 0.0,
             "diagnostic_wrong_max_mean": float(wrong_max[finite].mean().item()) if bool(finite.any()) else 0.0,
             "diagnostic_margin_mean": float((target_prob - wrong_max)[finite].mean().item()) if bool(finite.any()) else 0.0,
             "diagnostic_entropy_mean": float(entropy[finite].mean().item()) if bool(finite.any()) else 0.0,
         }
+        # Active/inactive competition split over supervised positions: with a
+        # declared schema the participating classes are "active"; without one,
+        # the full vocabulary is active and inactive mass is zero by definition
+        # (R1C dense diagnostics, dense-mechanism list).
+        if self.schema is not None and self.schema.participating:
+            active_ids = torch.tensor(sorted(self.schema.participating), dtype=torch.long,
+                                      device=probabilities.device)
+            active_mass = target_positions[:, active_ids].sum(dim=-1)
+            inactive_mass = 1.0 - active_mass
+            inactive_probs = target_positions.clone()
+            inactive_probs[:, active_ids] = 0.0
+            max_inactive_prob = inactive_probs.max(dim=-1).values
+            telemetry.update({
+                "diagnostic_active_mass_mean": float(active_mass[finite].mean().item()) if bool(finite.any()) else 0.0,
+                "diagnostic_inactive_mass_mean": float(inactive_mass[finite].mean().item()) if bool(finite.any()) else 0.0,
+                "diagnostic_max_inactive_prob_mean": float(max_inactive_prob[finite].mean().item()) if bool(finite.any()) else 0.0,
+            })
+        hidden_norms = output.hidden.float().pow(2).sum(dim=-1).sqrt() \
+            if output.hidden is not None else None
+        if hidden_norms is not None:
+            telemetry["diagnostic_hidden_l2_mean"] = float(hidden_norms.mean().item())
+        return telemetry
 
     def collect(self, *, snapshot: dict[str, torch.Tensor] | None = None) -> dict[str, Any]:
         telemetry = self._forward_metrics()
@@ -377,18 +400,29 @@ class TrainerDiagnostics:
             squared = sum(
                 float((parameter.detach() - snapshot[name]).float().pow(2).sum().item())
                 for name, parameter in self.model.named_parameters() if name in snapshot)
-            telemetry["parameter_displacement_l2"] = squared ** 0.5
+            displacement = squared ** 0.5
+            telemetry["parameter_displacement_l2"] = displacement
+            reference_norm = sum(
+                float(snapshot[name].float().pow(2).sum().item())
+                for name in snapshot)
+            if reference_norm > 0.0:
+                # Relative displacement (ARK-007R: ~0.008 LOW vs ~0.379 HIGH);
+                # near-freezing must be visible as near-zero relative movement.
+                telemetry["parameter_displacement_relative"] = \
+                    displacement / (reference_norm ** 0.5)
         if self.diagnostic_pair_input is not None and self.schema is not None:
-            loss_pair = self._counterfactual_grad_norm()
-            if loss_pair is not None:
-                telemetry["counterfactual_grad_norm"] = loss_pair
+            cosine = self._counterfactual_gradient_cosine()
+            if cosine is not None:
+                telemetry["counterfactual_gradient_cosine"] = cosine
+        self.last_telemetry = telemetry
         return telemetry
 
-    def _counterfactual_grad_norm(self) -> float | None:
-        """Gradient norm of the pair loss on the diagnostic batch only.
+    def _counterfactual_gradient_cosine(self) -> float | None:
+        """Cosine between the pair-loss gradient and the full-loss gradient.
 
-        Uses ``torch.autograd.grad`` so the training gradient buffers are
-        never modified. This is a diagnostic, never a training signal.
+        Both are computed with ``torch.autograd.grad`` on the same frozen
+        model state and diagnostic batch, so neither enters an optimizer step
+        (R1C: prove what the treatment does to update direction).
         """
         pair_input = self.diagnostic_pair_input
         was_mode = self.model.training
@@ -405,13 +439,27 @@ class TrainerDiagnostics:
                 swapped_output.logits, pair_input.swapped.labels,
                 pair_input.swapped.loss_mask)
             loss_pair, _ = pair_margin_loss(swapped_scores, own_scores, 1.0)
+            parameters = [parameter for parameter in self.model.parameters()
+                          if parameter.requires_grad]
             grads = torch.autograd.grad(
-                loss_pair, [parameter for parameter in self.model.parameters()
-                            if parameter.requires_grad],
-                allow_unused=True, materialize_grads=False)
-            values = [grad.norm(dtype=torch.float32) for grad in grads if grad is not None]
-            if not values:
+                loss_pair, parameters, allow_unused=True, materialize_grads=False)
+
+            batch = self.diagnostic_batch
+            output = self.model(batch.input_ids, batch.padding_mask,
+                                segment_ids=batch.segment_ids)
+            report = answer_eos_loss_sum(output.logits, batch.labels, batch.loss_mask)
+            full_grads = torch.autograd.grad(
+                report.total, parameters, allow_unused=True, materialize_grads=False)
+
+            def flatten(tensors):
+                return torch.cat([tensor.detach().reshape(-1).float()
+                                  for tensor in tensors if tensor is not None])
+            pair_flat, full_flat = flatten(grads), flatten(full_grads)
+            if pair_flat.numel() == 0 or full_flat.numel() == 0:
                 return None
-            return float(torch.norm(torch.stack(values)).item())
+            denominator = pair_flat.norm() * full_flat.norm()
+            if float(denominator.item()) <= 0.0:
+                return None
+            return float((pair_flat @ full_flat / denominator).item())
         finally:
             self.model.train(was_mode)
