@@ -76,3 +76,17 @@ Date: 2026-09-12. Worktree: `codex/arkenstone-improvements` at
 - Tiny diagnostic-scale end-to-end campaign on CPU (30 acquisition steps,
   20 retention steps) exercising receipts, checkpoints, budget-blocked retention
   and the demo against the produced run directory
+
+## Post-run architectural cleanup (static only)
+
+A second pass, executed with **no local CPU/GPU compute** per owner instruction,
+removed the hacks identified in self-review: the impure `_materially_improves`
+(now returns `(met, deltas)`), the duplicate `run_ark001` module load in
+`demo.py`, the local sha/duplicate `_git_head` helpers (shared runtime imports
+now), the unused `sha_json`/`json` imports, the fragile bytecode hash in
+`AUGMENTATION_SPEC`, double computation of the permutation index (single
+`augment_facts_with_index`), asymmetric interrupted-arm evidence (all exceptions
+now write an explicit `INCOMPLETE_*` receipt), redundant writer/task
+construction in `main()`, and the JSON-string snapshot diff in the preflight
+(replaced by structural `_snapshot_equal`). Verified by `py_compile` and
+inspection only; the test suites above must be re-run before the next run.

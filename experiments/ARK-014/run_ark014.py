@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import sys
 import time
 import traceback
@@ -32,8 +31,9 @@ sys.path.insert(0, str(REPO / "experiments" / "COLAB"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from discovery_v6_common import (  # noqa: E402
-    BudgetExhausted, ReceiptWriter, RunContext, bind_ark11_runtime, detect_sustained,
-    ensure_budget, generate_indices, load_ark11, order_sha256, parameter_sha, sha_json,
+    BudgetExhausted, ReceiptWriter, RunContext, bind_ark11_runtime, cpu_tree, detect_sustained,
+    ensure_budget, file_sha256, generate_indices, git_head, load_ark11, order_sha256,
+    parameter_sha,
 )
 import ark014_binding as binding  # noqa: E402
 
@@ -142,6 +142,19 @@ def qualification_decision(control_indicator_evals: list[tuple[int, float]]):
     return detect_sustained(control_indicator_evals, 0.5, binding.QUALIFICATION_CONSECUTIVE)
 
 
+def _snapshot_equal(a, b) -> bool:
+    """Structural equality of runtime snapshots, nested tensors included."""
+    if isinstance(a, dict):
+        return (isinstance(b, dict) and a.keys() == b.keys()
+                and all(_snapshot_equal(a[k], b[k]) for k in a))
+    if isinstance(a, (list, tuple)):
+        return (isinstance(b, type(a)) and len(a) == len(b)
+                and all(_snapshot_equal(x, y) for x, y in zip(a, b)))
+    if torch.is_tensor(a):
+        return torch.is_tensor(b) and torch.equal(a, b)
+    return a == b
+
+
 def _rows_as_pairs(rows) -> list[tuple[str, str]]:
     return [(row["prompt"], row["answer"]) for row in rows]
 
@@ -160,10 +173,9 @@ def _augmented_rows(regime, meta, idx, optimizer_step, acq_seed, augmentation_ha
         example_id = int(i)
         item = meta[example_id]
         if regime == "ORDER_AUGMENTED":
-            facts = binding.augment_facts(item["facts"], acq_seed, optimizer_step, pos, example_id)
+            facts, perm_index = binding.augment_facts_with_index(
+                item["facts"], acq_seed, optimizer_step, pos, example_id)
             if augmentation_hasher is not None:
-                perm_index = binding.augmentation_permutation_index(
-                    acq_seed, optimizer_step, pos, example_id)
                 augmentation_hasher.update(
                     f"{acq_seed},{optimizer_step},{pos},{example_id},{perm_index}\n".encode("utf-8"))
                 perm_counts[perm_index] = perm_counts.get(perm_index, 0) + 1
@@ -192,7 +204,7 @@ def _save_checkpoint(ark11, model, optimizer, path: Path, step: int, arm: str,
     torch.save(payload, path)
     return {
         "filename": path.name,
-        "sha256": _file_sha256(path),
+        "sha256": file_sha256(path),
         "parameter_sha256": payload["parameter_sha256"],
         "step": int(step),
     }
@@ -207,10 +219,6 @@ def _cpu_optimizer_state(optimizer):
             for k, v in value.items()
         }
     return out
-
-
-def _file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def acquire_arm(ark11, *, regime, task, meta, device, ctx, writer, checkpoints_dir,
@@ -299,8 +307,13 @@ def acquire_arm(ark11, *, regime, task, meta, device, ctx, writer, checkpoints_d
     except BudgetExhausted:
         status = "INCOMPLETE_BUDGET_STOP"
         raise
+    except (Exception, KeyboardInterrupt):
+        status = "INCOMPLETE_EXCEPTION"
+        raise
     finally:
-        if status == "INCOMPLETE_BUDGET_STOP":
+        if status in ("INCOMPLETE_BUDGET_STOP", "INCOMPLETE_EXCEPTION"):
+            # Any interrupted arm preserves its partial evidence under an
+            # explicit incomplete status; summarize() never counts these.
             checkpoint = _save_checkpoint(
                 ark11, model, optimizer,
                 checkpoints_dir / f"{regime}_incomplete.pt", supervised_positions // BATCH_SIZE,
@@ -530,9 +543,10 @@ def _repair_criterion(aug, canon, aug_q, canon_q) -> dict:
                 "augmented_confirmation_step": aug.get("qualification_confirmation_step"),
                 "canonical_status": (canon or {}).get("status")}
     if aug_q and canon_q:
-        return {"met": bool(aug.get("material_improvement_deltas")) and _materially_improves(dict(aug), dict(canon)),
+        met, deltas = _materially_improves(aug, canon)
+        return {"met": met,
                 "basis": "both regimes qualified; frozen material-improvement rule consulted",
-                "deltas": aug.get("material_improvement_deltas")}
+                "deltas": deltas}
     return {"met": False,
             "basis": ("ORDER_AUGMENTED did not qualify on BIND_CONTROL"
                       if not aug_q else "both regimes qualified but the rule was not met"),
@@ -601,7 +615,7 @@ def _verdict(aug_q, canon_q, aug, canon, matched, high_failures, low_failures,
     if aug_q and not canon_q:
         repaired = True
     elif aug_q and canon_q:
-        repaired = _materially_improves(aug, canon)
+        repaired = _materially_improves(aug, canon)[0]
     else:
         # Only CANONICAL_TRAIN qualified: the order-augmentation hypothesis is
         # not supported, regardless of retention outcomes.
@@ -622,22 +636,23 @@ def _verdict(aug_q, canon_q, aug, canon, matched, high_failures, low_failures,
     return "ROBUST_BINDING_ACQUIRED_BUT_TRANSFER_INCONCLUSIVE"
 
 
-def _materially_improves(aug, canon) -> bool:
-    """Frozen rule; raw deltas reported in the payload by the caller."""
+def _materially_improves(aug, canon) -> tuple[bool, dict]:
+    """Frozen rule (pure): mean over each arm's last window evals of the
+    BIND_CONTROL ORDER_ONLY and QUERY_ORDER trajectories; ORDER_AUGMENTED must
+    exceed CANONICAL_TRAIN by >= delta on both. Returns (met, raw deltas)."""
 
     def tail_mean(arm, key):
         vals = [float(x[key]) for x in arm.get("trajectory", [])][-MATERIAL_IMPROVEMENT_WINDOW:]
         return sum(vals) / len(vals) if vals else float("nan")
 
     deltas = {}
-    ok = True
+    met = True
     for diagnostic in ("ORDER_ONLY", "QUERY_ORDER"):
         d = tail_mean(aug, f"control_{diagnostic}") - tail_mean(canon, f"control_{diagnostic}")
         deltas[diagnostic] = d
         if not (d >= MATERIAL_IMPROVEMENT_DELTA):
-            ok = False
-    aug["material_improvement_deltas"] = deltas
-    return ok
+            met = False
+    return met, deltas
 
 
 def preflight(ark11, ctx: RunContext, task) -> dict:
@@ -649,8 +664,10 @@ def preflight(ark11, ctx: RunContext, task) -> dict:
     model = ark11.Micro(vocab.size, 128).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, betas=(0.9, 0.95),
                                   eps=1e-8, weight_decay=0.1)
+    probe_rng = torch.Generator().manual_seed(4242)
     rows = _augmented_rows("ORDER_AUGMENTED", meta,
-                           torch.randint(0, len(meta), (8,)).tolist(), 1, 1, None, {})
+                           torch.randint(0, len(meta), (8,), generator=probe_rng).tolist(),
+                           1, 1, None, {})
     loss, count = ark11.loss_and_positions(model, vocab, rows, device)
     assert torch.isfinite(loss)
     optimizer.zero_grad(set_to_none=True)
@@ -660,7 +677,7 @@ def preflight(ark11, ctx: RunContext, task) -> dict:
     assert int(count.item()) == 3 * len(rows), "supervised positions must be answer-BOS+digit+EOS"
 
     snapshot = ark11.snapshot_state(model, optimizer)
-    original = json.dumps({"model": {k: v.tolist() for k, v in snapshot["model"].items()}})
+    original = cpu_tree(snapshot)
     # Identical semantic batch and identical augmentation for both forks:
     idx = torch.randint(0, len(meta), (8,), generator=torch.Generator().manual_seed(5150)).tolist()
     fork_rows = _augmented_rows("ORDER_AUGMENTED", meta, idx, 1, 1, None, {})
@@ -673,17 +690,19 @@ def preflight(ark11, ctx: RunContext, task) -> dict:
         torch.nn.utils.clip_grad_norm_(fork_model.parameters(), 1.0)
         fork_optimizer.step()
         fork_hashes.append(parameter_sha(fork_model))
-        assert json.dumps({"model": {k: v.tolist() for k, v in snapshot["model"].items()}}) == original
+        assert _snapshot_equal(snapshot, original), "fork mutated its source snapshot"
     assert fork_hashes[0] == fork_hashes[1], "matched fork updates diverged"
 
     # Augmentation purity: no torch RNG consumption, deterministic, in-range.
     state_before = torch.get_rng_state().clone()
     seen = set()
     for probe in range(200):
-        f = binding.augment_facts(meta[probe % len(meta)]["facts"], 2201, probe, probe % 64, probe)
-        seen.add(binding.augmentation_permutation_index(2201, probe, probe % 64, probe))
-        assert tuple(sorted(f)) == tuple(sorted(meta[probe % len(meta)]["facts"]))
-        assert binding.augment_facts(meta[probe % len(meta)]["facts"], 2201, probe, probe % 64, probe) == f
+        item = meta[probe % len(meta)]
+        f, index = binding.augment_facts_with_index(item["facts"], 2201, probe, probe % 64, probe)
+        seen.add(index)
+        assert tuple(sorted(f)) == tuple(sorted(item["facts"]))
+        assert binding.augment_facts_with_index(
+            item["facts"], 2201, probe, probe % 64, probe) == (f, index)
     assert len(seen) == 6, "augmentation must cover all six permutations"
     assert torch.equal(state_before, torch.get_rng_state()), "augmentation consumed torch RNG"
 
@@ -719,11 +738,7 @@ def run_campaign(ctx: RunContext, *, max_steps: int = MAX_ACQUISITION_STEPS,
     bind_ark11_runtime(ark11, ctx.device, ctx.head, ctx=ctx)
     task = binding.build_binding_task()
     meta = _row_meta(task)
-    writer = ReceiptWriter(
-        ctx, experiment_id="ARK-014", plan_sha=PLAN_COMMIT_SHA, runner_path=RUNNER_PATH,
-        extra_plan_shas={"ark014_plan_commit_sha": PLAN_COMMIT_SHA},
-        extra_source_paths=[Path(__file__).resolve().parent / "ark014_binding.py"],
-    )
+    writer = _receipt_writer(ctx, "ARK-014")
     checkpoints = ctx.output_dir / CHECKPOINT_DIRNAME
 
     if ctx.minutes_left < ENTRY_RESERVE_MINUTES and protocol_scale == "PREREGISTERED_FROZEN":
@@ -828,7 +843,6 @@ def run_campaign(ctx: RunContext, *, max_steps: int = MAX_ACQUISITION_STEPS,
             "summary": summary,
         })
         raise
-    return payload
 
 
 def _public(arms):
@@ -844,9 +858,9 @@ def _snapshot_from_checkpoint(ark11, ctx, acquisitions, regime, checkpoints):
     """Fork the retention phase from the recorded qualified checkpoint."""
     arm = next(a for a in acquisitions if a.get("regime") == regime)
     path = checkpoints / arm["checkpoint"]["filename"]
-    payload = torch.load(path, map_location=ctx.device, weights_only=False)
-    if hashlib.sha256(path.read_bytes()).hexdigest() != arm["checkpoint"]["sha256"]:
+    if file_sha256(path) != arm["checkpoint"]["sha256"]:
         raise RuntimeError("qualified checkpoint changed since acquisition")
+    payload = torch.load(path, map_location=ctx.device, weights_only=False)
     vocab = ark11.CompactVocab()
     model = ark11.Micro(vocab.size, 128).to(ctx.device)
     model.load_state_dict(payload["model"])
@@ -878,6 +892,14 @@ def _compute_box(ctx: RunContext, throttle: GpuThrottle | None = None) -> dict:
     }
 
 
+def _receipt_writer(ctx: RunContext, experiment_id: str) -> ReceiptWriter:
+    return ReceiptWriter(
+        ctx, experiment_id=experiment_id, plan_sha=PLAN_COMMIT_SHA, runner_path=RUNNER_PATH,
+        extra_plan_shas={"ark014_plan_commit_sha": PLAN_COMMIT_SHA},
+        extra_source_paths=[RUNNER_PATH.parent / "ark014_binding.py"],
+    )
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cpu")
@@ -893,42 +915,37 @@ def main(argv=None) -> int:
     if args.device == "cuda" and not torch.cuda.is_available():
         parser.error("--device cuda requested but CUDA is not available")
 
-    ctx = RunContext(torch.device(args.device), _git_head(), time.time(), args.budget_minutes,
+    ctx = RunContext(torch.device(args.device), git_head(), time.time(), args.budget_minutes,
                      args.output_dir)
-    ark11 = load_ark11()
-    bind_ark11_runtime(ark11, ctx.device, ctx.head, ctx=ctx)
-    task = binding.build_binding_task()
-    writer = ReceiptWriter(
-        ctx, experiment_id="ARK-014_PREFLIGHT" if args.preflight_only else "ARK-014",
-        plan_sha=PLAN_COMMIT_SHA, runner_path=RUNNER_PATH,
-        extra_plan_shas={"ark014_plan_commit_sha": PLAN_COMMIT_SHA},
-        extra_source_paths=[Path(__file__).resolve().parent / "ark014_binding.py"],
-    )
     result = 1
     try:
         if args.preflight_only:
+            ark11 = load_ark11()
+            bind_ark11_runtime(ark11, ctx.device, ctx.head, ctx=ctx)
+            task = binding.build_binding_task()
+            writer = _receipt_writer(ctx, "ARK-014_PREFLIGHT")
             writer.save("ARK-014_TASK_MANIFEST.json", task["manifest"])
             writer.save("ARK-014_PREFLIGHT.json", preflight(ark11, ctx, task))
         else:
+            # The campaign owns its receipts, task construction and failure
+            # packaging; this entry point only wraps it with the final ZIP.
             run_campaign(ctx, max_steps=args.max_steps, retention_steps=args.retention_steps,
                          max_gpu_duty=args.max_gpu_duty)
         result = 0
     except (Exception, KeyboardInterrupt) as exc:
-        writer.save("FAILURE_RECEIPT.json", {
-            "status": "BUDGET_EXHAUSTED" if isinstance(exc, BudgetExhausted) else "FAILED",
-            "exception_type": type(exc).__name__, "exception": str(exc),
-            "traceback": traceback.format_exc(),
-        })
+        try:
+            _receipt_writer(ctx, "ARK-014").save("FAILURE_RECEIPT.json", {
+                "status": "BUDGET_EXHAUSTED" if isinstance(exc, BudgetExhausted) else "FAILED",
+                "exception_type": type(exc).__name__, "exception": str(exc),
+                "traceback": traceback.format_exc(),
+            })
+        except Exception as receipt_exc:
+            print(f"failure receipt could not be written: {receipt_exc!r}", flush=True)
         print(f"FAILED: {type(exc).__name__}: {exc}", flush=True)
     finally:
         from discovery_v6_common import package_all
         package_all(download=False, ctx=ctx)
     return result
-
-
-def _git_head() -> str:
-    import subprocess
-    return subprocess.check_output(["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True).strip()
 
 
 if __name__ == "__main__":

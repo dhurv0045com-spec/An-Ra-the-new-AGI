@@ -351,23 +351,34 @@ def augmentation_permutation_index(acq_seed: int, optimizer_step: int,
     return h % len(_PERM6)
 
 
-def augment_facts(facts, acq_seed: int, optimizer_step: int,
-                  batch_position: int, example_id: int):
-    """Deterministic fact-order augmentation preserving query/answer semantics."""
+def augment_facts_with_index(facts, acq_seed: int, optimizer_step: int,
+                             batch_position: int, example_id: int) -> tuple[tuple, int]:
+    """Deterministic fact-order augmentation; returns (permuted facts, index).
+
+    Single computation of the permutation index so callers that both apply and
+    record the augmentation cannot observe two different derivations.
+    """
     facts = tuple(facts)
     if len(facts) != 3:
         raise ValueError("augmentation is defined for three-fact fact-sets")
     index = augmentation_permutation_index(acq_seed, optimizer_step, batch_position, example_id)
     perm = _PERM6[index]
-    return tuple(facts[perm[i]] for i in range(3))
+    return tuple(facts[perm[i]] for i in range(3)), index
+
+
+def augment_facts(facts, acq_seed: int, optimizer_step: int,
+                  batch_position: int, example_id: int) -> tuple:
+    """Deterministic fact-order augmentation preserving query/answer semantics."""
+    return augment_facts_with_index(facts, acq_seed, optimizer_step,
+                                    batch_position, example_id)[0]
 
 
 AUGMENTATION_SPEC = {
     "name": "splitmix64-fold-mod6",
     "inputs": ["acquisition_seed", "optimizer_step", "batch_position", "example_id"],
     "permutations_of_three": [list(p) for p in _PERM6],
-    "code_sha256": hashlib.sha256(
-        (augment_facts.__code__.co_code + augmentation_permutation_index.__code__.co_code)
-    ).hexdigest(),
+    # Code identity is carried by the runner receipt's source_sha256 for this
+    # module; no bytecode-derived hash is used (it would drift with the
+    # interpreter, not with semantics).
     "answer_semantics": "reorders fact presentation only; query and answer unchanged",
 }

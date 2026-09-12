@@ -35,7 +35,8 @@ sys.path.insert(0, str(REPO / "experiments" / "ARK-001"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ark014_binding as binding  # noqa: E402
-from run_ark001 import CompactVocab, Micro  # noqa: E402
+from discovery_v6_common import file_sha256  # noqa: E402
+from run_ark001 import CompactVocab, Micro, greedy_exact  # noqa: E402
 
 DEMO_FACTSET_COUNT = 12
 RESULT_FILE = "ARK-014_RESULT.json"
@@ -46,10 +47,6 @@ AGREE_TOLERANCE = 1e-9
 
 class DemoRefused(RuntimeError):
     """The run directory cannot support an honest before/after report."""
-
-
-def _file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _hash_rank_key(signature_json: list) -> str:
@@ -89,10 +86,10 @@ def verify_task_identity(run_dir: Path) -> dict:
     return task
 
 
-def load_model_from_checkpoint(ark_module, path: Path, recorded: dict, device) -> tuple:
+def load_model_from_checkpoint(path: Path, recorded: dict, device) -> tuple:
     if not path.exists():
         raise DemoRefused(f"checkpoint file missing: {path}")
-    actual_sha = _file_sha256(path)
+    actual_sha = file_sha256(path)
     if recorded.get("sha256") != actual_sha:
         raise DemoRefused(
             f"checkpoint hash mismatch for {path.name}: receipt {recorded.get('sha256')} != file {actual_sha}")
@@ -150,13 +147,13 @@ def _arm_receipt(arm: dict) -> dict:
     return arm.get("checkpoint", {})
 
 
-def evaluate_arm(ark_module, arm: dict, task, device, checkpoints_dir: Path) -> dict:
+def evaluate_arm(arm: dict, task, device, checkpoints_dir: Path) -> dict:
     """Recompute all diagnostics for one acquisition arm from its checkpoint."""
     checkpoint_info = _arm_receipt(arm)
     if not checkpoint_info:
         raise DemoRefused(f"arm {arm.get('regime')} has no recorded checkpoint")
     path = checkpoints_dir / checkpoint_info["filename"]
-    vocab, model, payload = load_model_from_checkpoint(ark_module, path, checkpoint_info, device)
+    vocab, model, payload = load_model_from_checkpoint(path, checkpoint_info, device)
     if int(payload.get("step", -1)) != int(checkpoint_info.get("step", -2)):
         raise DemoRefused(f"checkpoint step mismatch for {path.name}")
 
@@ -174,7 +171,7 @@ def evaluate_arm(ark_module, arm: dict, task, device, checkpoints_dir: Path) -> 
     # on one full group; disagreement would mean the demo's numbers are not the
     # runtime's numbers.
     probe_rows = binding._diagnostic_rows_grouped(task, "BIND_SEALED", "CANONICAL")
-    exact_hist, _ = ark_module.greedy_exact(model, vocab, probe_rows, device)
+    exact_hist, _ = greedy_exact(model, vocab, probe_rows, device)
     demo_hist = exact_rate(greedy_rows(model, vocab, probe_rows, device), probe_rows)
     if abs(exact_hist - demo_hist) > AGREE_TOLERANCE:
         raise DemoRefused("demo decoder disagrees with the runtime evaluator")
@@ -388,7 +385,6 @@ def main(argv=None) -> int:
                   "the report will say so prominently.", flush=True)
         checkpoints_dir = run_dir / CHECKPOINT_DIRNAME
         device = torch.device(args.device)
-        ark_module = _load_ark_module()
 
         arms = {a.get("regime"): a for a in run.get("acquisitions", [])}
         baseline_arm = arms.get("CANONICAL_TRAIN")
@@ -396,9 +392,9 @@ def main(argv=None) -> int:
         if not baseline_arm or not candidate_arm:
             raise DemoRefused("run receipt does not contain both acquisition arms")
         verified = []
-        baseline = evaluate_arm(ark_module, baseline_arm, task, device, checkpoints_dir)
+        baseline = evaluate_arm(baseline_arm, task, device, checkpoints_dir)
         verified.append(baseline_arm["checkpoint"]["sha256"])
-        candidate = evaluate_arm(ark_module, candidate_arm, task, device, checkpoints_dir)
+        candidate = evaluate_arm(candidate_arm, task, device, checkpoints_dir)
         verified.append(candidate_arm["checkpoint"]["sha256"])
 
         examples = build_example_records(task, baseline, candidate, device)
@@ -446,16 +442,6 @@ def main(argv=None) -> int:
             f"DEMO REFUSED: {exc}\nNo before/after comparison was fabricated.\n", encoding="utf-8")
         print(f"DEMO REFUSED: {exc}", flush=True)
         return 2
-
-
-def _load_ark_module():
-    import importlib.util
-    path = REPO / "experiments" / "ARK-001" / "run_ark001.py"
-    spec = importlib.util.spec_from_file_location("ark014_demo_ark001", path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
 
 
 if __name__ == "__main__":

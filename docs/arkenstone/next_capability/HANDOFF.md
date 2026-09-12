@@ -17,13 +17,27 @@ Date: 2026-09-13. Packet: ARK-NEXT-001. Executor: primary agent (no delegation).
   (`sources/experiments/ARK-014/*.py` + `source_sha256` in every receipt):
   - executed `run_ark014.py`: `afe41a52e3ce3c9e84f255c7fa6ccfde104104d8d86e3c520f56e0bbd73a5c7d`
   - executed `ark014_binding.py`: `ca2c230f8b4386feeb28b08678c30ed2d51758d7f56eb7b7b6603a6906f40263`
-  - final committed `run_ark014.py`:
-    `fc367328f1a19130b6203ca7681a059c8a44485e5878dbff8a049e06f6a1d306`
-  - the post-run delta to the runner is reporting-only (it adds the explicit
-    `order_robustness_repaired` summary field and the demo's display of it; no training,
-    data, controller or threshold code changed). `ark014_binding.py` is byte-identical to the
-    executed version. For run `ark014-cuda-2201-03` the criterion is derivable from the
-    receipt's `summary.regime_qualification` and is restated in §5.
+- The committed source evolved after the run in two review passes, both disclosed here:
+  1. Commit 1 (with the run): added the explicit `order_robustness_repaired` summary field and
+     the demo's display of it — reporting only.
+  2. Commit 2 (architectural cleanup, static-only, no compute executed): removed the redundant
+     writer/task construction in `main()`, the duplicate `run_ark001` module load and local
+     sha helper in `demo.py`, the unused `sha_json`/`json` imports, the fragile bytecode hash
+     in `AUGMENTATION_SPEC`, and the input mutation in `_materially_improves` (now pure);
+     unified interrupted-arm evidence (any exception now writes an explicit
+     `INCOMPLETE_*` receipt, not only budget exhaustion); replaced the JSON-based
+     snapshot-diff in the preflight with full structural snapshot equality. Permutation
+     indices, prompts, streams, thresholds and training math are unchanged — the executed
+     binding's augmentation derivation (`ca2c230f…`) computes byte-identical results.
+  - Final committed identities (commit 2):
+    `run_ark014.py` `5850bed96260a224eb0234af5b9bd32d8229864f91d4bb3874147a756fa4377e`,
+    `ark014_binding.py` `bddafe447c0ee7b2d875121aaa0233302cf28ccae07ed2a2b887c421d4c371f8`,
+    `demo.py` `f5e0befef1535c11078dbb27bee62ee32dc9309185ec33426be6462e9c6172c4`.
+  - Verification status of commit 2: compile-checked and statically reviewed only; per owner
+    instruction no local CPU/GPU execution occurred in this pass. The 35 focused tests and the
+    runtime suites must be re-run on the next compute-authorized session before any new run.
+  - For run `ark014-cuda-2201-03` the repair criterion is derivable from the receipt's
+    `summary.regime_qualification` and is restated in §5.
 
 ## 2. Owned paths
 

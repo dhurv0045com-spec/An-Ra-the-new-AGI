@@ -3,7 +3,6 @@ mismatched evidence, and rejection of unsupported success badges."""
 import copy
 import importlib.util
 import json
-import shutil
 import sys
 import tempfile
 import time
