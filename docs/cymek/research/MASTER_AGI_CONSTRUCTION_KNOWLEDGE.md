@@ -1,7 +1,8 @@
 # AN-RA MASTER AGI CONSTRUCTION KNOWLEDGE
 
 **Status:** CROSS-BRANCH SYNTHESIS / RESEARCH AUTHORITY MAP / NOT A CLAIM OF AGI  
-**Synthesis date:** 2026-09-10  
+**Synthesis date:** 2026-09-13 (supersedes the 2026-09-10 synthesis; audited against primary artifacts on all 14 live branches)  
+**Machine-readable evidence:** [`docs/research/EXPERIMENT_EVIDENCE_LEDGER.json`](../../research/EXPERIMENT_EVIDENCE_LEDGER.json) · human ledger: [`EXPERIMENT_EVIDENCE_LEDGER.md`](../../research/EXPERIMENT_EVIDENCE_LEDGER.md) · negatives: [`NEGATIVE_RESULTS_LEDGER.md`](../../research/NEGATIVE_RESULTS_LEDGER.md) · causal graph: [`CAUSAL_KNOWLEDGE_GRAPH.md`](../../research/CAUSAL_KNOWLEDGE_GRAPH.md) · decisions: [`NEXT_PHASE_DECISION_MEMO.md`](../../research/NEXT_PHASE_DECISION_MEMO.md)  
 **Purpose:** give a human or autonomous research agent one file that explains what An-Ra currently knows about building a stronger general-learning Core, what construction is justified now, what is only a hypothesis, what failed, what remains unknown, and what evidence must exist before scaling.
 
 > **Two-sentence definition of this file:** This is the shortest honest path from all current An-Ra evidence to a buildable research system: a conventional neural Core trained on auditable data, measured with causal/anti-shortcut evaluations, and surrounded by a fail-closed training, verification, retention, diagnosis, and promotion loop. It does **not** say we know how to build “perfect AGI”; it says exactly which pieces are demonstrated, which are implemented but unexecuted, which are speculative, and which experiment should change the design next.
@@ -10,17 +11,39 @@
 
 ## 0. Evidence snapshot and authority
 
-This synthesis was built from the live heads of the five requested branches, not from memory or old prose:
+This synthesis was audited against the live heads of all fourteen origin branches on 2026-09-13, plus git-forensics over unreachable history. Raw artifact receipts and post-run audits outrank prose; per-experiment provenance lives in the evidence ledger.
 
-| Branch | Live head used | Role in this synthesis | Highest-value Markdown evidence |
+| Branch | Live head (2026-09-13) | Role | Highest-value evidence |
 |---|---|---|---|
-| `cymek` | `28bf57a0d299a2c13a99fe0046616c00a1b8530c` | production Core/training contracts | `blueprint/V5_TRAINING_SPEC_v1.0.md`, `V5_MASTER_BLUEPRINT.md`, `IMPLEMENTATION_BLUEPRINT.md`, `BENCHMARK.md` |
-| `citadel` | `1d27f9b0d770e30577de0a8671c909cb783b4ff1` | independent evidence audit, negative results, TPU experiments, 500M gate | `docs/citadel/EVIDENCE_LEDGER.md`, `NEGATIVE_RESULTS.md`, `EXPERIMENTS_BRIEF.md`, `BOTTLENECK_RANKING.md`, `experiments/T1D/RESULTS.md`, `500M/PRODUCTION_PATH_AUDIT.md`, `500M/CYMEK_REQUIRED_CHANGES.md` |
-| `triquetra` | `f23f0af42d90847cf1d2c244160c8203d1995b33` | causal diagnosis / binding / self-model instrument research | `AN_RA_PROGRAM.md` |
-| `cymek-500m-readiness` | `ba582b4dea3b3fae13d8b0ca6a2f87ff7243c7d0` | latest Cymek integration and real-GPU acquisition evidence | `docs/cymek/research/CROSS_BRANCH_EVIDENCE_AUDIT.md`, `docs/cymek/experiments/CYR-GPU-011/RESULT.md`, `DESIGN_REASONING.md` |
-| `Arkenstone` | `c6acca77582069a4c1e0f50ef86cfb50b4637fae` | independent discovery, retention/recovery/invariance mechanisms | `docs/arkenstone/EXPERIMENT_LOG.md`, `MECHANISM_TOURNAMENT.md`, `COGNITION_BOTTLENECK_GRAPH.md`, `AGI_FEATURE_LEDGER.md` |
+| `cymek-500m-readiness` | `f2c27a6` | Cymek V5 production core + controlled GPU campaigns | `docs/cymek/experiments/CYR-GPU-011..014-R1C/*`, `docs/cymek/research/*` |
+| `Arkenstone` | `4ae9e3b` | Discovery program (ARK-001…022, Guardian/continual line) | `docs/arkenstone/CURRENT_STATE.md`, `experiments/ARK-017/RESULT_V2.md`, `experiments/ARK-018/FINAL_RESULT_AUDIT.md`, `experiments/ARK-019/FINAL_RESULT_AUDIT_V3.md` |
+| `arkenstone-ark020-v4` | `65d1ef3` | ARK-020 V4 execution branch + durability amendments A1.1–A1.3 (no results) | `experiments/ARK-020-V4/ENGINEERING_AMENDMENT_A1.md` |
+| `codex/arkenstone-improvements` | `1511321` | Runtime integrity + independent ARK-014 replication with raw receipts | `artifacts/arkenstone/ark014/ark014-cuda-2201-03/ARK-014_RESULT.json` |
+| `arkenstone-astra` | `ccb84fb` | BRAMASTRA + research-environments code (no results) | — |
+| `BRAMASTRA` | `02b94d3` | Discovery/binding lab + its own cross-branch audit | `docs/bramastra/RESULTS.md`, `docs/bramastra/EVIDENCE.md`, `artifacts/bramastra/*` |
+| `triquetra` | `f23f0af` | Cognition laboratory (V4-substrate diagnostics); WAITING_FOR_STRONGER_CHECKPOINT | `AN_RA_PROGRAM.md`, `output/*` |
+| `citadel` | `1d27f9b` | Independent auditor: T1-series, scorer tournament, 500M path audit, negatives registry | `docs/citadel/EVIDENCE_LEDGER.md`, `NEGATIVE_RESULTS.md`, `experiments/T1D/RESULTS.md`, `500M/PRODUCTION_PATH_AUDIT.md` |
+| `esoes` | `85f44b7` | TPU-era V5 blueprint + founding negative + mechanism canaries (D-024…D-028) | `docs/esoes/EVIDENCE_AND_CONTEXT.md` |
+| `core-exp` | `51124de` | Historical V4-era self-model/policy line (unre-audited) + milestone 0001 | commit `20d8841` / tag `milestone/0001-honest-loop` |
+| `core-frozen-v4` | `f72f193` | Frozen inference-only V4 core (32,768-token tokenizer) | README |
+| `main` | `b620f1c` | Frozen V4 research system (2026-08-15) | — |
+| `iterate500` / `iterate900` | `b438420` / `6fbd2c0` | Historical TPU/SFT engineering lineages | — |
+| *(deleted)* `senora` | unreachable `30a8fa7` | Entire P35-CMS-1 + CAD program survives ONLY in unreachable commits | EVIDENCE_GAPS.md |
 
-**Authority rule:** raw execution artifacts and their post-run audits beat older prose; newer documentation without execution does not create a scientific result. `cymek` remains the production authority, while Citadel, Triquetra, Arkenstone and `cymek-500m-readiness` provide evidence and challenger designs unless a result is explicitly promoted through the Cymek gate.
+**History warning:** the repository has two disconnected shards; the cymek-500m-readiness/Arkenstone shard is rooted at a parentless squash `28bf57a` (2026-09-05) and the local branch `cymek` (`4abeaeb`) is the only bridge to pre-2026-09-05 history. Commit `6653b4ce` (the R1C audited executable chain head) is an ancestor of **no** live branch and is **not served by GitHub** — the R1C launcher currently binds it and cannot launch from a fresh clone until rebound.
+
+### 0.1 Corrections to the 2026-09-10 synthesis (changelog)
+
+1. **ARK-017 V2 is EXECUTED** (was "implemented/not executed"): verdict `BOTH_LEVERS_SUFFICIENT` — HIGH failed 4/6; LOW, CAP1X, exact-noncanonical 1/16 replay, CAP+replay and augmented-HIGH each 0/6; secondary one-order screens CAP4X/CAP16X/replay-1/32/replay-1/64 all 0/3.
+2. **ARK-018 V4 is EXECUTED and audited**: Birth-content internalization threshold **NOT MET** (+0.000/+0.067 vs required +0.10, both seeds); SEALED science NLL +3.68%/+3.91% vs matched science replay; replicated temporary-binding acquisition slowdown (1200/>1500 vs 300/300 steps).
+3. **ARK-019 V3.1 is EXECUTED**: official verdict **`CONTROLLER_NOT_SUPPORTED`** — the required new capability never formed in any arm (new-skill-formation bottleneck); PLASTIC_HIGH destroyed old skill 4/4 (robust-min ≈0.005), STATIC_REPLAY_1OF64 ≈0.882, Guardian variants ≈0.963 (recovery, not prevention); CAP16X never triggered. ARK-019 V4 carries a **transcribed, externally audited** `GUARDIAN_CONTINUAL_PROXY_CANDIDATE` result whose raw bundle is NOT in the repository (byte re-audit required before it becomes DEMONSTRATED).
+4. **ARK-020 V4 remains NOT EXECUTED** in-repo (V1→V4 repair chain: 5 defects → 4 blockers → 7 blockers, 39/39 tests, A1.1–A1.3 durability amendments whose own audit found the repo readiness claim stronger than the executable evidence). The mission-brief belief in a completed V4 result was independently audited as absent.
+5. **CYR-GPU-013/R1B is EXECUTED** (was "ready, not executed"): replicated six-level class-space response curve, verdict `MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE`.
+6. **CYR-GPU-012/R1 and 013/R1B change the representation question**: with active token IDs fixed, declared tied class-space size alone moves held-out formation (V4096 100% vs V24576 0% at 512k rows; intermediate 4096–16384 region strongest across two fresh seeds). The effect is non-monotonic and seed-sensitive; `smaller vocabulary is better` and `more parameters are better` are both falsified.
+7. **CYR-GPU-014/R1C is frozen and twice engineering-repaired** (optimizer-constructor TypeError; CLIP_BREACH float32 reduction-order 1.0000042915 > 1.0 at 1e-6 tolerance), status `R1C_READY_FOR_OPERATOR_CUDA_RUN`, scientific `NOT_EXECUTED` — **and its launcher pins a commit absent from origin (launch-blocking; see EVIDENCE_GAPS).**
+8. **BRAMASTRA is live again** (2026-09-12): EOS contract experiment (0/32→32/32 ×2 seeds), query-blind binding null (48.4% ≈ 50% query-blind baseline), discovery-controller null, D02 depth-two null, plus its own independent cross-branch audit (which corrected T1C prose 0/500 → raw 0/1,000).
+
+**Authority rule:** raw execution artifacts and their post-run audits beat older prose; newer documentation without execution does not create a scientific result. `cymek-500m-readiness` carries the production Core contracts; Citadel, Triquetra, Arkenstone, BRAMASTRA and the codex branch provide evidence and challenger designs unless a result is explicitly promoted through the Cymek gate.
 
 ### Evidence labels used here
 
@@ -136,20 +159,20 @@ This separation is one of the strongest pieces of the project and should survive
 
 Cymek’s current tokenizer contract is byte-level BPE with byte fallback, 24,576 entries, reserved `PAD=0, UNK=1, BOS=2, EOS=3`, zero expected UNKs, and no destructive normalization, case folding, whitespace rewrite, prefix-space insertion, or dropout. The original local tokenizer tournament put 24k between 16k and 32k in compression/parameter cost, but that result was only a planning prior because the local corpus was not representative.
 
-### 2.2 New CYR-GPU-011 evidence changes priority
+### 2.2 The representation evidence chain (CYR-GPU-011 → 012 → 013 → 014)
 
-The latest completed Cymek-readiness experiment makes representation impossible to treat as a minor implementation choice:
+The latest completed Cymek-readiness experiments make representation impossible to treat as a minor implementation choice:
 
-- **COMPACT_BRIDGE**, real Cymek V5 4L/128w with the exact 19-symbol arithmetic representation, received only **44.89%** of the ARK-002B semantic exposure box yet reached M99 at update 1,400, sustained G50, and ended at **56.47% held-out STANDARD exact-with-valid-EOS**. Maximum controller exact was **59.38%**.
-- **PRODUCTION_BRIDGE**, same V5 geometry, same task data, same Cymek causal objective, but frozen 24,576-token production representation, received **100%** of the ARK semantic exposure box: 1,152,000 row presentations / 18,000 updates. It reached train M99 but remained **0% held-out STANDARD**, **0/48 SEALED**, and never reached G50 or G90.
+- **CYR-GPU-011 (DEMONSTRATED):** **COMPACT_BRIDGE**, real Cymek V5 4L/128w with the exact 19-symbol arithmetic representation, received only **44.89%** of the ARK-002B semantic exposure box yet reached M99 at update 1,400, sustained G50, and ended at **56.47%** held-out STANDARD exact-with-valid-EOS (maximum controller exact 59.38%). **PRODUCTION_BRIDGE**, same V5 geometry/task/objective with the frozen 24,576-token production representation, received **100%** of the exposure box (1,152,000 rows / 18,000 updates): train M99 but **0% held-out STANDARD**, **0/48 SEALED**, never G50 or G90.
+- **CYR-GPU-012/R1 (DEMONSTRATED):** with the active arithmetic token IDs, segmentation, data, geometry, optimizer and seeds fixed, changing only the **declared tied embedding/output class-space size** produced V19 **12.94%** / **V4096 100%** / V24576 **0%** at the 512k-row endpoint. Non-monotonic; parameter displacement does not explain capability (V4096 moved farther than V19).
+- **CYR-GPU-013/R1B (SUPPORTED, R1):** two fresh matched seeds × six levels at 128k rows: V19/V1024/V24576 ≈ 0; V4096 0.506/0.494 (most stable); V8192 0.718/0.0 and V16384 0.647/0.129 (seed-sensitive). Verdict `MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE`: the intermediate 4096–16384 region is the reproducible developmental regime; the exact optimum is not identified.
+- **CYR-GPU-014/R1C (IMPLEMENTED_NOT_EXECUTED):** the causal follow-up — keep the physical 24,576-row matrix in every arm and manipulate only training-time softmax participation (MASK_19/4096/8192/16384, OFFSET_EQ4096 vs FULL_24576; 4 seeds × 6 arms). It is frozen, twice engineering-repaired (optimizer-constructor API; CLIP_BREACH float32 reduction-order tolerance), and **launch-blocking**: the operator notebook pins commit `6653b4ce`, which exists on no branch and is not served by GitHub.
 
-This is **DEMONSTRATED as a condition-specific divergence**, not as proof that “24k BPE is bad.” Compact-vs-production changes vocabulary size, segmentation, number atomization, embedding/output burden and correlated representation geometry together; the next causal study must factor these apart.
+Falsified simple stories: `smaller vocabulary → better capability` and `more classes/parameters → better capability`. A post-run audit also downgraded CYR-011's `COMMUTED=100%` flag: reversing operands changed the OOD tens-band role, so it is operand-role asymmetry evidence, not proven commutation invariance.
 
 ### 2.3 Construction decision
 
-Do **not** replace the general-language tokenizer with a 19-symbol arithmetic alphabet. Keep a general byte-fallback tokenizer for language, but elevate representation to a primary experimental axis before an expensive scale run: vocabulary size, numeric/symbol segmentation, tied-output burden, and tokenization must be compared under matched model geometry, objective, semantic examples, and compute.
-
-**Highest-information immediate closure:** extend/recreate only the CYR-GPU-011 compact bridge to the full 1,152,000 semantic-row exposure box. If compact reaches G90 while production stays at its already-observed 0%, representation becomes the dominant causal target; if compact also fails, isolate objective/initialization/optimizer/architecture differences next.
+Do **not** replace the general-language tokenizer with a 19-symbol arithmetic alphabet, and do **not** change the production tokenizer yet. Keep a general byte-fallback tokenizer for language. Representation is now the primary experimental axis before any expensive scale run: the single highest-information pending experiment is **R1C**, which partitions inactive-softmax competition from tied-matrix size while preserving full-vocabulary evaluation. If R1C shows the MASK_4096 arm rescues formation on the fixed 24,576 matrix, a softmax-partition mechanism (e.g. inactive-row exclusion/regularization or untied low-rank output) becomes a justified production-representation change candidate; if not, the search moves to tied initialization/optimization geometry. A positive R1B-style intermediate result alone does **not** authorize a production vocabulary change.
 
 ---
 
@@ -306,13 +329,13 @@ T1D ran six arms across roughly 3.7–7.4M parameter models and 2–8M token bud
 
 Teacher primitives did move: held-out teacher microtask accuracy reached **51.5%** in the teacher arm while composed T2+ behavior stayed near zero. That is evidence for **primitive learning without compositional transfer**, not evidence that teacher data is useless.
 
-### 7.2 CYR-GPU-009 and CYR-GPU-011 refined the diagnosis
+### 7.2 CYR-GPU-009/011/012/013 refined the diagnosis
 
-CYR-GPU-009’s TINY model could saturate train probes but never reached candidate-free G90 under ~250k semantic row presentations; later audit showed it received <22% of the ARK-002B positive-reference semantic exposure and was underdosed for a strong negative conclusion.
+CYR-GPU-009's TINY model could saturate train probes but never reached candidate-free G90 under ~250k semantic row presentations; the later audit showed it received <22% of the ARK-002B positive-reference semantic exposure and was underdosed for a strong negative conclusion (CYR-GPU-010, which would have repeated that dose, was superseded pre-execution).
 
-CYR-GPU-011 corrected the exposure confound. It showed that **production representation can memorize but still produce 0% held-out exact even at the full 1,152,000-row reference box**, while compact representation entered a qualitatively different partially generalizing regime by 44.89% exposure.
+CYR-GPU-011 corrected the exposure confound and showed that **production representation can memorize but still produce 0% held-out exact even at the full 1,152,000-row reference box**, while compact representation entered a qualitatively different partially generalizing regime by 44.89% exposure. CYR-GPU-012/013 then isolated the surprising core: the effect tracks the **declared tied class-space size** (non-monotonically, seed-sensitively), not compact-vs-production tokenization per se.
 
-**Current Cymek priority:** solve capability formation/representation before spending the primary compute budget on sophisticated retention controllers. Retention science matters, but there must first be a reliable acquired state to retain.
+**Current Cymek priority:** execute the R1C softmax-competition mechanism dissection (after rebinding its launcher to a pushed commit) before spending the primary compute budget on sophisticated retention controllers or scale. Retention science matters, but there must first be a reliable acquired state to retain.
 
 ---
 
@@ -475,20 +498,20 @@ These percentages are **not “percent to AGI” and not probability of success*
 
 | Subsystem | Evidence maturity | Why |
 |---|---:|---|
-| experiment integrity / receipts / fail-closed contracts | **90%** | strong hashes, canaries, preregistration, negative-result preservation; still not full production custody at scale |
-| causal evaluation methodology | **85%** | rich decomposition, anti-shortcut, sealed/fresh design; scorer policy remains unresolved |
-| checkpoint/resume/durability mechanics | **80%** | strong local + TPU canaries; full remote production campaign not demonstrated |
+| experiment integrity / receipts / fail-closed contracts | **90%** | strong hashes, canaries, preregistration, negative-result preservation; receipt meta-checks currently STALE-BY-DESIGN after the R1C constant consolidation; launcher-provenance gap found by audit |
+| causal evaluation methodology | **85%** | rich decomposition, anti-shortcut, sealed/fresh design; scorer policy remains unresolved (`production_scoring_mode: null`) |
+| checkpoint/resume/durability mechanics | **80%** | strong local + TPU canaries; ARK-020-V4 A1 amendments show resume edge cases still surface on real hardware |
 | Core architecture mechanics | **65%** | conventional design + local QK/init/precision evidence; exact V5 learning benefit unproven |
 | data governance / provenance design | **70%** | strong contracts and implementation; production-quality 5B corpus not yet qualified |
 | actual production corpus readiness | **20%** | pipeline exists, but complete campaign supply/qualification is not demonstrated |
-| representation/tokenizer scientific understanding | **35%** | CYR-011 exposed a major divergence but causal factor is not isolated |
-| objective design | **45%** | CE mechanics + EOS contract solid; query-conditioned/compositional objective pressure unresolved |
-| capability formation/generalization | **45%** | replicated Micro transitions exist; Cymek production representation currently fails controlled heldout lift-off |
-| retention/recovery under same-skill stress | **75% Micro / ~20% production-transfer** | replicated Micro T2 + non-arithmetic narrowing effects; mechanism and scale transfer unresolved |
-| multi-skill continual learning | **20%** | ARK-013 failed to qualify new skill; Guardian not executed |
-| causal self-diagnosis / learned self-model | **15%** | instrumentation improved, but major positive self-model claim was invalidated |
-| real-text representation/retention transfer | **10%** | ARK-018 implemented but not executed |
-| target-scale 500M/5B scientific readiness | **20%** | engineering path advanced, but capability/data/representation gates remain open |
+| representation/tokenizer scientific understanding | **55%** | non-monotonic class-space effect isolated (R1, R1 replicated directionally in R1B) but seed-sensitive and mechanism untested (R1C pending) |
+| objective design | **45%** | CE mechanics + EOS contract solid cross-program; query-conditioned/compositional objective pressure unresolved |
+| capability formation/generalization | **55%** | delayed transition replicated; class-space response curve mapped at development scale; production-representation lift-off still unsolved |
+| retention/recovery under same-skill stress | **75% Micro / ~20% production-transfer** | replicated Micro T2 levers + ARK-017 both-levers result; mechanism and scale transfer unresolved |
+| multi-skill continual learning | **15%** | ARK-019 V3.1 controller NOT supported (formation bottleneck); V4 candidate result transcribed-only; ARK-020 unexecuted |
+| causal self-diagnosis / learned self-model | **15%** | instrumentation improved, but major positive self-model claim was invalidated and no qualified subject exists |
+| real-text representation/retention transfer | **45%** | ARK-018 V4 executed and audited (internalization threshold not met; plasticity cost replicated); ARK-019 used its parents |
+| target-scale 500M/5B scientific readiness | **20–25%** | engineering path advanced ~236 commits since the citadel audit, but capability/data/representation gates remain open |
 | demonstrated AGI | **0%** | no current result supports a general AGI claim |
 
 A rough weighted program maturity for **doing credible AGI research** is much higher than the maturity of the AGI capability itself. The repository is becoming good at falsifying itself; the neural Core is still far from demonstrating broad continual general intelligence.
@@ -518,6 +541,13 @@ A rough weighted program maturity for **doing credible AGI research** is much hi
 | CYR-011 production exposure | 100% | full ARK reference semantic dose |
 | CYR-011 production heldout STANDARD | 0% | memorization without structural heldout generalization |
 | CYR-011 production SEALED | 0/48 = 0% | same negative on reserved measurement |
+| CYR-012/R1 class-space endpoint (512k rows) | V19 12.94% / V4096 100% / V24576 0% | declared class-space size alone moves formation; non-monotonic |
+| CYR-013/R1B response curve (128k rows, 2 seeds) | V4096 0.506/0.494; V8192 0.718/0.0; V16384 0.647/0.129; extremes ≈ 0 | intermediate regime reproducible, amplitude seed-sensitive |
+| ARK-017 V2 primary screen | HIGH 4/6 fail; LOW/CAP1X/replay-1/16/joint/augmented 0/6 | both retention levers independently sufficient |
+| ARK-018 V4 Birth internalization | +0.000 / +0.067 vs required +0.10 | preregistered threshold NOT MET (2 seeds) |
+| ARK-018 V4 binding-acquisition slowdown | 1200 / >1500 vs 300 / 300 steps | replicated narrow plasticity cost of Birth-10% |
+| ARK-019 V3.1 old-skill robust-min | PLASTIC_HIGH ≈0.005; STATIC 1/64 ≈0.882; Guardian ≈0.963 | plastic continuation destroys; replay protects; Guardian recovers |
+| BRAMASTRA EOS experiment | 0/32 → 32/32 (both seeds) | EOS supervision mechanically required |
 
 ---
 
@@ -543,9 +573,13 @@ A rough weighted program maturity for **doing credible AGI research** is much hi
 | CYR-GPU-009 | semantic exposure <22% of ARK reference | **valid narrow null, insufficient for strong acquisition conclusion** |
 | CYR-GPU-010 | batch-16 design would still underdose semantic rows | **superseded before execution** |
 | CYR-GPU-011 production representation | M99 but 0% heldout at full ARK exposure | **current major scientific bottleneck** |
-| ARK-017 | causal mechanism test not run | **IMPLEMENTED / NOT EXECUTED** |
-| ARK-018 | real-text science+Birth study not run | **IMPLEMENTED / NOT EXECUTED** |
-| ARK-019 | closed-loop Guardian | **blocked / not implemented or executed** |
+| CYR-GPU-012/013 | monotonic vocab stories falsified (V4096 100% > V19 12.94% > V24576 0%; intermediate regime seed-sensitive) | **DEMONSTRATED non-monotonic class-space effect** |
+| CYR-GPU-014-R1C engineering | optimizer-constructor TypeError; CLIP_BREACH float32 reduction-order abort | **repaired with regression tests; scientific run NOT_EXECUTED; launcher pins an origin-absent commit (launch-blocking)** |
+| ARK-017 V2 | both retention levers independently sufficient (HIGH 4/6 fail; LOW/CAP1X/replay/joint/augmented 0/6) | **DEMONSTRATED mechanism dissection** |
+| ARK-018 V4 | Birth internalization threshold NOT MET (+0.000/+0.067 vs +0.10); science NLL +3.7–3.9%; binding-acquisition slowdown replicated | **DEMONSTRATED negative on primary; real-text transfer partially answered** |
+| ARK-019 V3.1 | `CONTROLLER_NOT_SUPPORTED`; new skill never formed in any arm; PLASTIC_HIGH destroyed old skill 4/4 | **DEMONSTRATED: formation gates continual learning, Guardians recover but did not prevent** |
+| ARK-019 V4 | transcribed external `GUARDIAN_CONTINUAL_PROXY_CANDIDATE` (old 4/4 + new 4/4 under Guardian arms) | **SUPPORTED-ONLY: raw bundle absent from repo; byte re-audit required** |
+| ARK-020 V1→V4 | five + four + seven blockers repaired across versions; 39/39 tests; A1 durability amendments | **IMPLEMENTED / NOT EXECUTED in-repo; external Drive results inaccessible** |
 
 Failures are not waste; they remove bad explanations. But a failed experiment with a confound does not justify a universal negative claim.
 
@@ -553,45 +587,37 @@ Failures are not waste; they remove bad explanations. But a failed experiment wi
 
 # PART VII — WHAT TO BUILD NEXT, IN ORDER
 
-## Gate A — close Cymek capability formation
+## Gate A — run the R1C softmax-competition dissection (supersedes the old compact-exposure closure)
 
-**Do first:** complete the compact CYR-GPU-011 bridge to 1,152,000 semantic row presentations with corrected structural probes. This is cheaper and more informative than another full campaign because production already completed the reference exposure and stayed at zero heldout.
-
-Decision:
+The old Gate A (extend the compact bridge to full exposure) was overtaken by events: R1 and R1B already mapped the class-space response curve with fresh seeds. The open question is now causal, and CYR-GPU-014-R1C is the designed discriminator:
 
 ```text
-compact reaches G90
-    → representation burden becomes primary target
-    → run representation factorial
-compact does not reach G90 at full exposure
-    → isolate objective / init / optimizer / architecture differences
+R1C MASK_4096 rescues formation on the fixed 24,576 matrix
+    → softmax-partition/competition is causal
+    → production-representation change candidates: inactive-row exclusion,
+      output regularization, or controlled untied low-rank output
+R1C MASK arms fail like FULL_24576
+    → the effect lives in tied initialization/optimization geometry
+    → design the next dissection there
 ```
 
-## Gate B — isolate representation rather than changing everything
+**Blocking defect first:** rebind the R1C launcher to a commit that exists on origin (live `f2c27a6` carries byte-identical repair content and the identical RUN_READINESS_V4 blob); the current launcher checkout of `6653b4ce` cannot succeed from a fresh clone.
 
-Prospective factorial should keep model geometry, semantic examples, objective, optimizer and exposure fixed while separately testing:
+## Gate B — only then touch the production tokenizer
 
-```text
-vocabulary size
-BPE segmentation / number-symbol atomization
-embedding/output parameter burden
-tied vs controlled output burden if justified
-byte/character fallback behavior
-```
+Any production vocabulary/representation change must wait for R1C's mechanism verdict plus a replication class (R1B gave directional R1 replication; R1C adds 4 matched seeds per arm). Do not infer a general-language tokenizer rule from arithmetic alone.
 
-Do not infer a general-language tokenizer from arithmetic alone.
+## Gate C — mechanism credit: ANSWERED (ARK-017 V2)
 
-## Gate C — run ARK-017 mechanism credit
+ARK-017 V2 executed: **BOTH_LEVERS_SUFFICIENT** — lowered applied update magnitude (CAP1X) and sparse treatment-exact invariant-support replay each protected 6/6, as did their combination and augmented-HIGH; unprotected NARROW_HIGH failed 4/6; "retention = small total parameter movement" is falsified. Remaining open: which lever is *necessary* in which regime, dose universality (secondary screens were single-order), and scale transfer.
 
-ARK-017 is designed to distinguish update magnitude from sparse invariant-support replay and their interaction using a known high-event failure generator. It should run before claiming why LOW or augmentation protects capability.
+## Gate D — real-text substrate: ANSWERED at first order (ARK-018 V4)
 
-## Gate D — run ARK-018 real-data bridge
+ARK-018 V4 executed and audited: a ~20–25M model trained on peS2o with periodic Birth-Book exposure assimilated the Birth distribution strongly but did **not** meet the preregistered Birth-content internalization threshold (+0.000/+0.067 vs required +0.10), cost ~3.7–3.9% SEALED science NLL vs matched science replay, and slowed later temporary-binding acquisition (1200/>1500 vs 300/300 steps). Birth content learning is not evidence of identity, consciousness, reasoning or AGI. Its SCIENCE_ONLY checkpoints are now the standing real-text parents.
 
-ARK-018 is implemented and preregistered to train a ~20–25M conventional decoder primarily on the exact peS2o scientific shard with periodic Birth Book vs token-matched small-science control exposures. Its result can establish content internalization and real-text substrate behavior; **Birth content learning is not evidence of identity, consciousness, reasoning or AGI**.
+## Gate E — continual-learning controller: formation-gated, evidence mixed
 
-## Gate E — only then test a closed-loop Capability Guardian
-
-If a protection mechanism survives ARK-017 and behaves on a real-text-trained substrate, ARK-019 can ask whether a controller preserves SKILL_A while SKILL_B and real-text learning continue. The controller must beat static LOW and static protection while retaining new-skill plasticity; otherwise it is merely a complicated freeze mechanism.
+ARK-019 V3.1 executed: `CONTROLLER_NOT_SUPPORTED` because the new skill never formed in any arm (4 binding slots/update was underpowered); the controller *recovered* old-skill health via replay escalation (~0.963) but did not demonstrate prevention. ARK-019 V4 (dose-qualified, science-preserving parents) carries only a **transcribed external** `GUARDIAN_CONTINUAL_PROXY_CANDIDATE`. Do not treat either as a production controller recommendation. The honest sequence is: commit + byte-audit the V4 bundle (or rerun), then ARK-020's four-skill efficiency-gated battery.
 
 ## Gate F — PRE500M / 500M only after scientific and data gates
 
@@ -609,43 +635,47 @@ M102 / multi-seed replication when required
 explicit PRE500M green decision
 ```
 
-Only then is a 500M-token campaign a useful scale experiment rather than an expensive attempt to make an unresolved small-scale problem larger.
+Citadel's production-path audit (at pin `28bf57a`, 2026-09-06) found the corpus and top-level entry MISSING and tokenizer/schedule/evaluation AMBIGUOUS; cymek-500m-readiness has advanced substantially since, but the data gate is still external and no scientific result yet authorizes scale.
 
 ---
 
 # PART VIII — CURRENT BEST AGI RESEARCH HYPOTHESES
 
-## H1 — representation burden can change whether structural capability emerges
+## H1 — representation/class-space can change whether structural capability emerges
 
-**Status: SUPPORTED / causal factor unresolved.** CYR-011 is the strongest evidence: compact partially generalized under <45% reference exposure while production stayed at 0% under 100%. The causal unit is not yet “vocabulary size”; it is the bundle of representation changes.
+**Status: SUPPORTED with the effect partially isolated; mechanism untested.** CYR-011 demonstrated the condition-level divergence; CYR-012 demonstrated class-space size alone (active IDs fixed) can move held-out formation dramatically; CYR-013 replicated the non-monotonic intermediate-regime ordering across two fresh seeds. The remaining mechanism question (training-time inactive softmax competition vs tied-matrix geometry) is exactly what R1C tests.
 
 ## H2 — capability emergence can be delayed far beyond memorization
 
-**Status: DEMONSTRATED at Micro symbolic scale.** ARK-002B replicated the qualitative memorize-first → delayed-generalize transition with large seed variance. This means stopping immediately after train saturation can miss a later structural transition.
+**Status: DEMONSTRATED at Micro symbolic scale.** ARK-002B replicated the qualitative memorize-first → delayed-generalize transition with large seed variance (rho 0.00 between M99 and G90 timing). This means stopping immediately after train saturation can miss a later structural transition.
 
 ## H3 — acquired capability can narrow without canonical accuracy falling
 
-**Status: DEMONSTRATED at controlled Micro non-arithmetic scale.** ARK-015 retained canonical exact while order/query-order invariance eroded under narrow high-plasticity continuation.
+**Status: DEMONSTRATED at controlled Micro non-arithmetic scale.** ARK-015 retained canonical exact at 1.0 while order/query-order invariance eroded under narrow high-plasticity continuation.
 
 ## H4 — retention is an interaction between plasticity and ongoing support
 
-**Status: strongest current mechanism hypothesis, not fully isolated.** LOW protected; continued augmentation at HIGH also protected despite much larger path length. ARK-017 is the causal-credit experiment.
+**Status: STRONGEST CURRENT MECHANISM PICTURE; levers shown independently sufficient (ARK-017 V2: `BOTH_LEVERS_SUFFICIENT`); single necessary-mechanism attribution still open.** LOW protected; CAP1X protected; sparse treatment-exact replay protected; total parameter movement does not explain outcomes. Dose universality and scale transfer remain unresolved.
 
 ## H5 — acquisition/recovery and retention need different control regimes
 
-**Status: SUPPORTED at Micro T2.** HIGH helps recover absent capability, LOW protects present capability, and HIGH→LOW after recovery reduces recurrence. Exact state thresholds and scale transfer are unresolved.
+**Status: SUPPORTED at Micro T2.** HIGH helps recover absent capability (8/9), LOW protects present capability (0/12), and HIGH→LOW after recovery reduces recurrence (0/6). Exact state thresholds were not identifiable (ARK-012) and scale transfer is unresolved.
 
 ## H6 — query-conditioned addressing is a real missing operation, but current weak-substrate evidence cannot justify a learned self-model
 
-**Status: SUPPORTED as a bottleneck hypothesis / self-model NOT_DEMONSTRATED.** Triquetra measured chance-level query ranking and strong recency effects, while its self-model basis failed qualification.
+**Status: SUPPORTED as a bottleneck hypothesis / self-model NOT_DEMONSTRATED.** Triquetra measured chance-level query ranking and strong recency effects (replicated), BRAMASTRA independently showed aggregate binding accuracy is fully explained by query-blind copying, and the X1 self-model PASS was invalidated by a trivial-baseline audit.
 
 ## H7 — primitives do not automatically compose
 
-**Status: SUPPORTED.** T1D teacher primitives learned to ~51.5% while full arithmetic composition stayed near floor. Training should measure composition explicitly rather than assuming it emerges from microtask mastery.
+**Status: SUPPORTED.** T1D teacher primitives learned to ~51.5% held-out while full arithmetic composition stayed near floor.
 
 ## H8 — better data/measurement should be tested before exotic architecture
 
-**Status: STRONG INFERENCE.** No current evidence shows MoE, recurrence, SSM, latent thought or neural long-term memory is the binding bottleneck. Adding them before resolving representation, objective, data support and capability formation would reduce interpretability.
+**Status: STRONG INFERENCE.** No current evidence shows MoE, recurrence, SSM, latent thought or neural long-term memory is the binding bottleneck. Adding them before resolving representation mechanism, objective, data support and capability formation would reduce interpretability.
+
+## H9 — new-skill formation gates every continual-learning verdict
+
+**Status: DEMONSTRATED (formation-first lesson).** ARK-013 (T3 never acquired) and ARK-019 V3.1 (SKILL_B never formed, so the official controller verdict was `CONTROLLER_NOT_SUPPORTED` interpreted as a formation bottleneck) both show that controller comparisons are meaningless before the unprotected reference can acquire. V4/ARK-020 encode this as prospective dose selection and formation-first gates.
 
 ---
 
@@ -691,6 +721,6 @@ If an agent reads only this section, it should act as follows:
 
 ## Final state
 
-The project’s strongest result is **not “we have AGI.”** The strongest position is that An-Ra now has a fairly rigorous experimental framework plus several real, narrow discoveries: delayed generalization after memorization, state-dependent acquisition/recovery/retention behavior, non-arithmetic invariance narrowing, and a newly exposed representation-dependent capability-formation gap in real Cymek V5.
+The project's strongest result is **not "we have AGI."** The strongest positions after the 2026-09-13 audit are: a rigorous experimental framework that repeatedly catches its own false greens; several real narrow discoveries (delayed generalization after memorization; state-dependent acquisition/recovery/retention behavior; non-arithmetic invariance narrowing; two independently sufficient retention levers; a non-monotonic class-space formation effect); an executed real-text substrate result (ARK-018); and an executed controller result that is honestly negative at formation level (ARK-019 V3.1).
 
-The next breakthrough is most likely to come from **causally isolating why representation changes lift-off, then combining that with a tested stability–plasticity/data-support mechanism on a real-data-trained substrate**. If those effects survive fresh replication and scale, only then should they become part of the production Core or training controller.
+The next breakthrough is most likely to come from **the R1C softmax-competition dissection**, which converts the class-space discovery from correlation to mechanism — provided its launcher provenance defect is repaired first. The second-most valuable action is committing and byte-auditing the ARK-019 V4 raw bundle (or rerunning it), because the entire Guardian question currently rests on a transcription.

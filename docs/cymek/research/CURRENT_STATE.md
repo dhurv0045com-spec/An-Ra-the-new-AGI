@@ -5,11 +5,13 @@
 
 Read in this order:
 
-1. `MASTER_AGI_CONSTRUCTION_KNOWLEDGE.md` — cross-branch construction synthesis.
-2. `ARK018_FINAL_AUDIT.md` — completed ARK-018 evidence.
+1. `MASTER_AGI_CONSTRUCTION_KNOWLEDGE.md` — cross-branch construction synthesis (refreshed 2026-09-13).
+2. `../../research/EXPERIMENT_EVIDENCE_LEDGER.md` — canonical per-experiment evidence ledger (machine copy `.json`).
 3. `../experiments/CYR-GPU-011/RESULT.md` — production-vs-compact capability-formation evidence.
 4. `../experiments/CYR-GPU-012-R1/RESULT.md` — completed controlled R1 class-space experiment.
-5. `../experiments/CYR-GPU-013-R1B/PLAN.md` — next representation experiment, now implemented and operator-gated.
+5. `../experiments/CYR-GPU-013-R1B/RESULT.md` — **EXECUTED** replicated response curve (`MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE`).
+6. `../experiments/CYR-GPU-014-R1C/RUN_READINESS_V4.json` — softmax-mechanism dissection, engineering-ready, **scientific NOT_EXECUTED; launcher pins origin-absent commit `6653b4ce` (launch-blocking, see `../../research/EVIDENCE_GAPS.md`)**.
+7. Arkenstone: `experiments/ARK-017/RESULT_V2.md` (BOTH_LEVERS_SUFFICIENT), `experiments/ARK-018/FINAL_RESULT_AUDIT.md`, `experiments/ARK-019/FINAL_RESULT_AUDIT_V3.md` (CONTROLLER_NOT_SUPPORTED) and `FINAL_RESULT_AUDIT_V4.md` (transcribed candidate — raw bundle not in repo).
 
 ## Current scientific state
 
@@ -23,11 +25,11 @@ Read in this order:
 
 ## Current priorities
 
-**R2 / ARK-017 V2:** execute the already-frozen mechanism dissection to identify whether protection comes from applied update magnitude, sparse invariant-support replay, or their interaction.
+**R2 / ARK-017 V2:** EXECUTED (see Arkenstone `experiments/ARK-017/RESULT_V2.md`): `BOTH_LEVERS_SUFFICIENT` — protection can come from lowered applied update magnitude or from sparse invariant-support replay, independently; "small total movement" is falsified. Dose universality and scale transfer remain open.
 
-**R1B / CYR-GPU-013:** while R2 consumes a longer GPU session, R1B is ready as an independent high-information representation follow-up. It maps the fixed active-token class-space response curve at V19/V1024/V4096/V8192/V16384/V24576 with two mandatory fresh matched seeds and an optional third only if pre-outcome T4 calibration says the whole curve fits. Every arm uses batch64 and exactly 2,000 updates / 128,000 semantic rows. The campaign fails closed if two complete curves cannot fit the 175-minute envelope.
+**R1C / CYR-GPU-014:** the active Cymek experiment. Frozen 6-arm × 4-seed softmax-competition dissection on the fixed 24,576 matrix. Engineering-ready after two repaired failures (optimizer constructor; CLIP_BREACH float32 tolerance). **Before operator launch: rebind the launcher from `6653b4ce` (absent from origin) to the pushed equivalent.**
 
-R1B's primary question is no longer whether V24576 is worse than V19; R1 already showed a stronger surprise. The question is whether an **intermediate class-space advantage replicates** and where the high-vocabulary collapse begins. A positive R1B result should be followed by a separate mechanistic experiment that directly partitions active/inactive softmax probability and gradient burden before any production tokenizer change.
+**Real-text / Guardian line:** ARK-019 V3.1 executed (`CONTROLLER_NOT_SUPPORTED`, formation bottleneck); ARK-019 V4 result exists only as a transcription of an external audit — commit and byte-audit the raw bundle (or rerun) before treating the Guardian question as answered; then ARK-020 V4.
 
 ## Readiness interpretation
 
