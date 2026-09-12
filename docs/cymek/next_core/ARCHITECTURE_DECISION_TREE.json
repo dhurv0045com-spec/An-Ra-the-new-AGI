@@ -1,0 +1,66 @@
+{
+  "schema": "anra.next-core-architecture-tree/v1",
+  "generated": "2026-09-13",
+  "written_before_outcomes": true,
+  "root": "Q-R1C",
+  "nodes": {
+    "Q-R1C": {
+      "question": "EXEC-R1C verdict (frozen CYR-GPU-014-R1C decision rule)?",
+      "branches": [
+        {"if": "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED", "then": "Q-TRANSFER", "world": "A"},
+        {"if": "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED or MIXED", "then": "Q-TRANSFER", "world": "B"},
+        {"if": "SOFTMAX_COMPETITION_NOT_SUFFICIENT", "then": "WORLD-C-GEOMETRY", "world": "C"}
+      ]
+    },
+    "Q-TRANSFER": {
+      "question": "Does CS-TRANSFER-001 confirm the class-space/output-space effect beyond arithmetic-micro (8L/256w + production-tokenizer task)?",
+      "branches": [
+        {"if": "gap >= 0.30 in >=2/3 seed-pairs on production-tokenizer task", "then": "DECIDE-OUTPUT-SPACE", "note": "vocabulary/output-head fields unblock with the World-A/B mechanism attached"},
+        {"if": "0.10 < gap < 0.30", "then": "Q-NATURAL-TEXT-MINI-PROBE", "note": "cheap natural-text mini-probe before any tokenizer move"},
+        {"if": "gap <= 0.10 on both tasks", "then": "KEEP-DEFAULT-OUTPUT-SPACE", "note": "K03 fires; effect stays micro-scoped science; Candidate A permanent"}
+      ]
+    },
+    "WORLD-C-GEOMETRY": {
+      "question": "Does the World-C dissection (inactive-row init/freeze/scale at fixed matrix) reproduce the R1/R1B effect?",
+      "branches": [
+        {"if": "yes, with mechanism isolation", "then": "DECIDE-OUTPUT-SPACE", "note": "geometry intervention unblocks output head with its own function-preservation test"},
+        {"if": "no", "then": "KEEP-DEFAULT-OUTPUT-SPACE", "note": "class-space effect declared seed/regime-specific (R1B seed sensitivity anticipated this); Candidate A permanent"}
+      ]
+    },
+    "Q-NATURAL-TEXT-MINI-PROBE": {
+      "question": "Natural-text class-space mini-probe difference >= 0.05?",
+      "branches": [
+        {"if": "yes", "then": "DECIDE-OUTPUT-SPACE"},
+        {"if": "no", "then": "KEEP-DEFAULT-OUTPUT-SPACE", "note": "K04 fires"}
+      ]
+    },
+    "DECIDE-OUTPUT-SPACE": {
+      "question": "Which output-space design does the mechanism nominate (simplest first)?",
+      "branches": [
+        {"if": "partition treatment sufficient (World A)", "then": "ADOPT-TRAINING-TREATMENT", "note": "physical matrix retained; treatment enters the training contract with dual structural/functional reporting permanent"},
+        {"if": "matrix size itself binds (World C geometry)", "then": "ADOPT-GEOMETRY-CHANGE", "note": "requires function-preservation test + new parameter receipt + checkpoint compatibility verdict INCOMPATIBLE/PARTIALLY_MIGRATABLE"}
+      ]
+    },
+    "Q-GUARDIAN": {
+      "question": "GRD-VALID-001: does the audited/rerun Guardian beat static replay on retention-at-dose with task-ID-hidden features?",
+      "branches": [
+        {"if": "yes in >=3/4 matched sets", "then": "KEEP-EXTERNAL-CONTROLLER-CANDIDATE", "note": "controller stays external; ARK-021 unblocks"},
+        {"if": "no", "then": "DO-NOT-INVEST-IN-INTERNALIZATION", "note": "K02 fires; static replay + dose question (U05) remain"}
+      ]
+    },
+    "Q-CITADEL-EVALUATION": {
+      "question": "Does Citadel evaluation readiness reach READY (regenerated surfaces + certified scorer path)?",
+      "branches": [
+        {"if": "NOT_READY (current state)", "then": "NO-COGNITION-PROMOTION", "note": "the architecture cannot receive cognition promotion regardless of training loss"},
+        {"if": "READY", "then": "PROMOTION-PATH-OPEN", "note": "candidate-free primary + sealed firewall remain mandatory regardless"}
+      ]
+    },
+    "KEEP-DEFAULT-OUTPUT-SPACE": {"terminal": "Candidate A (V5.1) permanent until a new isolated bottleneck has evidence"},
+    "ADOPT-TRAINING-TREATMENT": {"terminal": "V5.1 + evidence-locked output treatment (still V5.1; training contract change, not a block change)"},
+    "ADOPT-GEOMETRY-CHANGE": {"terminal": "V5.2-class geometry revision per function-preservation + compatibility verdict"},
+    "KEEP-EXTERNAL-CONTROLLER-CANDIDATE": {"terminal": "external controller promoted to default training infrastructure; Core unchanged"},
+    "DO-NOT-INVEST-IN-INTERNALIZATION": {"terminal": "no internalization; ARK-021-style research continues externally"},
+    "NO-COGNITION-PROMOTION": {"terminal": "capability promotion blocked at the evaluation gate"},
+    "PROMOTION-PATH-OPEN": {"terminal": "promotion gate proceeds per Citadel authority"}
+  }
+}

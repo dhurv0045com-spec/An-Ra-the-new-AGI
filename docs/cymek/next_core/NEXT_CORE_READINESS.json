@@ -1,0 +1,31 @@
+{
+  "schema": "anra.next-core-readiness/v1",
+  "generated": "2026-09-13",
+  "branch": "cymek-next-core-architecture",
+  "verdict": "READY_FOR_CANARY",
+  "verdict_scope": "development-scale canary of the V5.1 contract layer ONLY",
+  "gates": {
+    "architecture_specification": {"state": "SATISFIED", "note": "NEXT_CORE_SPEC.json complete; every field has a legal status"},
+    "reference_implementation": {"state": "SATISFIED", "note": "v5_next contract layer + reference builder; 12/12 CPU fixture tests pass (parameter inventory, tied identity, QK scales, causal prefix invariance, segment isolation, deterministic init, finite fwd/bwd, optimizer ownership, checkpoint round trip, EOS lock, treatment gating, canonical-path purity)"},
+    "compute_model_validation": {"state": "SATISFIED", "note": "tools/next_core_compute_model.py reproduces 250,216,960 exactly; 8/8 tests pass"},
+    "spec_validator": {"state": "SATISFIED", "note": "tools/validate_next_core_spec.py PASS"},
+    "output_space_resolution": {"state": "OPEN", "note": "EXEC-R1C NOT_EXECUTED; output head/vocabulary stay BLOCKED; canary must run the canonical path only"},
+    "corpus_readiness": {"state": "FAILING", "note": "production corpus MISSING; tiered arithmetic surface retired (CITADEL-DATA-001); canary uses synthetic screened fixtures only"},
+    "evaluation_readiness": {"state": "FAILING", "note": "Citadel readiness NOT_READY; cognition promotion impossible regardless of canary outcome"},
+    "schedule_execution": {"state": "OPEN", "note": "canonical WSD never executed end-to-end; not required for a canary"},
+    "scale_authorization": {"state": "NOT_JUSTIFIED", "note": "READY_FOR_500M is not issued and cannot be issued under the conditional gate in SCALING_PLAN.md"}
+  },
+  "canary_definition": {
+    "what": "instantiate V5.1 contract geometry at development scale (byte-6M or ~40M rung), train through the production path on screened synthetic fixtures, verify receipt/eval/checkpoint contracts end to end",
+    "what_it_does_not_authorize": ["500M scheduling", "production corpus claims", "cognition promotion", "output-space adoption", "any AGI/superiority claim"]
+  },
+  "blockers_to_ready_for_500m": [
+    "EXEC-R1C executed + interpreted (U01)",
+    "CS-TRANSFER-001 executed + output-space consequence adopted per tree (U03)",
+    "production corpus materialized + attack-screened (U08)",
+    "canonical WSD executed once end-to-end",
+    "multi-seed formation demonstrated at ~97M rung on the production representation",
+    "Citadel PRE500M green"
+  ],
+  "fail_closed": "any SATISFIED state above is re-verified, not assumed, at gate evaluation time"
+}
