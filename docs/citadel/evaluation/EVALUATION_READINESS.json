@@ -1,0 +1,126 @@
+{
+  "schema": "citadel-eval-readiness/v1",
+  "id": "CITADEL-EVAL-001",
+  "branch": "eval-integrity-001",
+  "date": "2026-09-13",
+  "scope": "Independent evaluation integrity & anti-shortcut audit of every evaluation surface in the An-Ra project",
+  "evidence_sources": [
+    "docs/citadel/evaluation/EVALUATION_INVENTORY.md",
+    "docs/citadel/evaluation/SHORTCUT_ATTACKS.md",
+    "docs/citadel/evaluation/CAUSAL_VALIDITY.md",
+    "docs/citadel/evaluation/EVALUATION_FIREWALL_AUDIT.md",
+    "docs/citadel/evaluation/eval_attack_results.json",
+    "tools/citadel_eval_attack.py (re-runnable: python tools/citadel_eval_attack.py --n 300)"
+  ],
+  "surfaces": [
+    {
+      "id": "t1d_tiered_arithmetic",
+      "name": "Citadel T1D tiered arithmetic exact-match",
+      "classification": "SHORTCUT_COMPROMISED + LEAKAGE_COMPROMISED",
+      "preregistered": true,
+      "key_evidence": {
+        "latest_position_accuracy_per_tier": [1.0, 1.0, 1.0, 1.0, 1.0],
+        "eos_termination_unsupervised": "15000/15000 generations ended MAX_TOKENS",
+        "cross_split_contamination": "173 dev + 357 test texts verbatim in train",
+        "train_exact_duplication": 0.135
+      },
+      "blockers": ["EOS supervision", "latest-position shortcut", "cross-split dedup"]
+    },
+    {
+      "id": "e0_cognition_dev_certificate",
+      "name": "Cymek E0 cognitive benchmark (T0 certificate)",
+      "classification": "PROVISIONALLY_VALID",
+      "preregistered": true,
+      "key_evidence": {
+        "cases": 368,
+        "heuristic_baselines": 12,
+        "false_greens_caught_and_repaired": 2,
+        "causal_contrast_pairs": true,
+        "sealed_fixture_exists": false
+      },
+      "blockers": ["no sealed T2 fixture", "no train-side cognition generators (0/9 families)"]
+    },
+    {
+      "id": "triquetra_binding",
+      "name": "Triquetra entity-value factorial + query-value evidence",
+      "classification": "PROVISIONALLY_VALID",
+      "preregistered": true,
+      "key_evidence": {
+        "query_conditioned_signal": "absent (raw rank 0.2500 = chance)",
+        "query_blind_policy": "62/64 fresh worlds returned same answer",
+        "absence_claim_survives": true
+      },
+      "blockers": ["no train-side analogues for eval generators"]
+    },
+    {
+      "id": "pre50m_smoke",
+      "name": "Cymek PRE50M production smoke certification",
+      "classification": "VALIDATED",
+      "preregistered": true,
+      "key_evidence": {
+        "mechanical_checks": "finite loss, parameter mutation, checkpoint/reload, token accounting, writer fence",
+        "fixed_defects": ["audit-row carry registration", "resume-proof budget funding"]
+      },
+      "blockers": []
+    },
+    {
+      "id": "pre500m_decision",
+      "name": "Citadel PRE500M production readiness decision",
+      "classification": "NOT_EXECUTED",
+      "preregistered": true,
+      "key_evidence": {
+        "decision_builder": "fail-closed, tested",
+        "current_state": "BLOCKED (DATA_NOT_READY + entry point MISSING + tokenizer unfrozen)"
+      },
+      "blockers": ["execution requires unblocking the 500M campaign preconditions"]
+    },
+    {
+      "id": "data_readiness_gate",
+      "name": "Citadel data readiness gate (CITADEL-DATA-001)",
+      "classification": "PROVISIONALLY_VALID",
+      "preregistered": false,
+      "key_evidence": {
+        "gates": 12,
+        "tests": "17/17 passing",
+        "caveat": "tested on synthetic fixtures; not yet exercised on a real materialized corpus"
+      },
+      "blockers": ["real-corpus exercise pending"]
+    }
+  ],
+  "firewall": {
+    "training_reads_sealed_labels": "PASS (structurally enforced; no import path)",
+    "diagnosis_reads_sealed_labels": "PASS (type-enforced on Cymek side; process-level caveat)",
+    "curriculum_reads_sealed_labels": "PASS (namespace isolation; cross-split text overlap found by data gate, not template check)",
+    "promotion_consumes_immutable_receipts": "PASS (signature + hash chain; never exercised by a real promotion)",
+    "results_modify_thresholds": "NO EVIDENCE FOUND (git history searched)",
+    "generator_drift": "AMBIGUOUS (version recorded; no hash lock; RUNTIME_AMENDMENT_001 mitigates)",
+    "metadata_answer_leakage": "PARTIAL (model_view excludes gold; tiered text contains answer by design)"
+  },
+  "causal_validity": {
+    "t1d_arithmetic": "UNTESTED (no causal twins in T1D arms)",
+    "e0_cognition": "VALIDATED (sensitivity + specificity, dev tier only)",
+    "triquetra": "VALIDATED for absence claims (floor-limited specificity)",
+    "corpus_operation_swap_sensitivity": [null, 0.9133, 1.0, 1.0, 1.0],
+    "gold_machine_consistency": "PASS (reference solver 1.000 on all 5 tiers)"
+  },
+  "summary_counts": {
+    "VALIDATED": 1,
+    "PROVISIONALLY_VALID": 3,
+    "SHORTCUT_COMPROMISED": 1,
+    "LEAKAGE_COMPROMISED": 1,
+    "UNDERPOWERED": 0,
+    "NOT_EXECUTED": 1,
+    "INVALID": 0,
+    "total_surfaces": 7
+  },
+  "verdict": "NOT_READY",
+  "verdict_reason": "The strongest shortcut in the project (latest_position = 1.000 on every tier) is mechanically re-confirmed by tools/citadel_eval_attack.py against real corpus rows; EOS termination is unsupervised; cross-split contamination is confirmed. No evaluation surface currently supports a production cognition claim.",
+  "required_fixes_before_next_checkpoint_promotion": [
+    "Supervise EOS in training targets (T1E PLAN E1, already designed)",
+    "Shuffle fact positions / break the latest-position shortcut in training data",
+    "Add cross-split text dedup (eliminate 173 dev + 357 test contamination docs)",
+    "Freeze a production tokenizer artifact (Cymek B3)",
+    "Create sealed evaluation fixtures (not just development certificates)",
+    "Token-match all contrast arms (D-vs-B 8M-vs-4M confound)"
+  ]
+}
