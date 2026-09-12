@@ -1,9 +1,9 @@
 """Cross-environment ARK-020 test bootstrap.
 
-Keeps the inherited V4 suite semantically identical while installing the A1.2
-engineering device-consistency overlay before test modules execute. This makes the
+Keeps the inherited V4 suite semantically identical while installing only the A1.2
+engineering device-consistency helper before test modules execute. This makes the
 explicit-CPU exact-resume regression behave the same on CPU CI and CUDA-equipped
-Colab hosts.
+Colab hosts, without changing executable-identity hook ordering in durability tests.
 """
 from __future__ import annotations
 
@@ -22,4 +22,4 @@ for p in (str(V4_DIR), str(ARK019_DIR), str(ARK018_DIR), str(ROOT)):
 import ark020_v4_device_guard as DEVICE_GUARD  # noqa: E402
 import run_ark020_v4 as R  # noqa: E402
 
-DEVICE_GUARD.install(R)
+DEVICE_GUARD.install_advance_only(R)
