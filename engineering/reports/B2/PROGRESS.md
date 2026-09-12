@@ -4,7 +4,7 @@ Updated: 2026-09-13. Integrator: BRAMASTRA implementation lead (owner-authorized
 
 ## Session state
 
-- Branch `BRAMASTRA` in worktree `C:\Users\ankit\Downloads\An-Ra-the-new-AGI-1\bramastra-build-worktree`; session start `02b94d3` (clean, up to date with origin). All work committed on `BRAMASTRA`; no force-push.
+- Branch `BRAMASTRA` in worktree `C:\Users\ankit\Downloads\An-Ra-the-new-AGI-1\bramastra-build-worktree`; session start `02b94d3` (clean, up to date with origin). **Build commit `d9e4c38`, pushed to `origin/BRAMASTRA` as a normal fast-forward (`02b94d3..d9e4c38`); no force-push.** No force-push.
 - Completed: **B00–B12 all DONE.** Packet-by-packet evidence in [HANDOFF.md](HANDOFF.md).
 - Learned smoke (owner authorized 2026-09-13 "you can use local gpu or cpu if needed but check their specs not overpower them"): cumulative **65/200 optimizer updates, 66/300 CPU seconds** in [SESSION_LEDGER.json](SESSION_LEDGER.json). Hardware checked before use: AMD Ryzen 7 8C/16T, 16 GB RAM, RTX 4050 6 GB (GPU unusable by the installed CPU-only torch; optional GPU session not spent). Fresh-process resume verification ran first per the reserve rule.
 - Final verification: `python -m pytest tests -q -n 8 --dist loadgroup` with `BRAMASTRA_LEARNED_CHECKS=1` → **404 passed / 10 failed**, all 10 failures pre-existing at pristine `02b94d3` (historical e1/e2/v5 receipt suites; verified via a temporary detached baseline worktree, since removed). Zero B2 failures.
