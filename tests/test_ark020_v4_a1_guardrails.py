@@ -108,7 +108,18 @@ class TestCompletedArmImmutability(unittest.TestCase):
             ad.mkdir(parents=True)
             parent = {"model": {"w": torch.tensor([1.0])}}
             parent_sha = R.V3.state_hash(parent["model"])
-            rp.write_text(json.dumps({"status": "COMPLETE", "parent_sha": parent_sha}))
+            R.savej(rp, {
+                "schema": "arkenstone-ark020-v4-arm/v1",
+                "status": "COMPLETE",
+                "parent_seed": ps,
+                "b_order_seed": bs,
+                "c_order_seed": 429003,
+                "d_order_seed": 429005,
+                "arm": arm,
+                "dose_b": 8,
+                "cap16x": 1.0,
+                "parent_sha": parent_sha,
+            })
             torch.save({"phase_idx": 0, "phase": "B", "phase_step": 2000}, cp)
             with mock.patch.object(A1, "migrate_boundary_checkpoint",
                                    side_effect=AssertionError("must not migrate completed arm")):
