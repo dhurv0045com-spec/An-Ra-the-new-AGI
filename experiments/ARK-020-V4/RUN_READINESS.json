@@ -1,50 +1,49 @@
 {
-  "schema": "arkenstone-ark020-v4-run-readiness/v1",
+  "schema": "arkenstone-ark020-v4-run-readiness/v2",
   "experiment": "ARK-020-V4",
-  "status": "READY_FOR_OPERATOR_COLAB_CUDA_RUN",
+  "engineering_amendment": "ARK-020-V4-DURABILITY-A1",
+  "status": "DO_NOT_RUN",
   "scientific_result_status": "NOT_EXECUTED",
-  "pinned_executable_commit": "b0d345d5430411db33b45548fe2405b9953bc9e2",
-  "note": "executable files byte-identical to the freeze commit ac21c3c1; the pinned commit adds only documentation and this readiness file",
-  "blob_shas": {
-    "preregistration": "66f97bd9f5bf",
-    "core": "b07c7ac5d49b",
-    "runner": "341039b7f4a1",
-    "tests": "f72ace937116",
-    "plan": "193b715526d0",
-    "red_team": "e5952f1489b3",
-    "preexecution_audit": "19a769702c5a",
-    "task_validity": "64798a1320bf",
-    "design_reasoning": "8a3de259a763",
-    "full_shas_in_git": "see git rev-parse HEAD:<path>"
+  "supersedes_readiness_claim": {
+    "status": "READY_FOR_OPERATOR_COLAB_CUDA_RUN",
+    "reason": "Fresh live audit found phase-boundary resume and fail-open partial-identity defects not covered by the prior evidence."
   },
-  "gates": {
-    "CLI scan contract": "PASS (real subprocess, unknown-arg rejection)",
-    "acquired-parent identity": "PASS (scan fails on source hash, passes on acquired)",
-    "local dose provenance": "PASS (DOSE_SELECTION_IMPORTED.json)",
-    "zero historical V4 mutations": "PASS (v4_local_output_root redirect + assertion)",
-    "lifecycle retention accounting": "PASS (cases 1-3)",
-    "interference gate regression": "PASS",
-    "SPARSE64 exposure semantics": "PASS (320 slots / 640 updates)",
-    "STATIC 1OF64/1OF32 semantics": "PASS (320 / 640)",
-    "forced timebox": "PASS (RESUME.pt + PARTIAL.json + SessionTimebox)",
-    "phase-boundary resume": "PASS",
-    "hard interruption": "PASS (bare RESUME.pt -> RESUME; PARTIAL w/o checkpoint != exact resume)",
-    "exact-resume": "PASS (production smoke on CPU, all state classes; CUDA gate at run time)",
-    "cross-module contracts": "PASS", "task C validity": "PASS", "task D validity": "PASS",
-    "SEALED firewall": "PASS", "golden decisions": "PASS", "red-team": "PASS"
+  "live_audit_start_head": "4ae9e3b6dc806d6ada7b7b2f05d32271d072d543",
+  "frozen_scientific_runner_commit": "f4244e2fea135cd768a5b5de5890e7117406c9c2",
+  "a1_validation": {
+    "implementation": "IMPLEMENTED",
+    "regression_tests": "PENDING_EXECUTION",
+    "inherited_v4_suite": "PENDING_REEXECUTION",
+    "hardened_cli": "PENDING_EXECUTION",
+    "cpu_durability_smoke": "PENDING_EXECUTION",
+    "cuda_preexecution": "OPERATOR_ONLY_NOT_EXECUTED"
   },
-  "test_results": {"suite": "tests/test_ark020_v4.py", "total": 39, "pass": 39, "fail": 0},
-  "output": {
-    "drive_root": "/content/drive/MyDrive/genisis-arkenstone/ARK020_V4_CONTINUAL",
-    "partial_zip": "ARKENSTONE_ARK020_V4_CONTINUAL_PARTIAL.zip",
-    "final_zip": "ARKENSTONE_ARK020_V4_CONTINUAL_RESULTS.zip"
+  "confirmed_live_defects": {
+    "phase_boundary_resume": "CONFIRMED: exact B/C phase-end Guardian resume can reference unbound gstep in frozen runner",
+    "partial_identity_policy": "CONFIRMED: PARTIAL_IDENTITY_CHECK was promoted to RESUME",
+    "missing_checkpoint_fields": "CONFIRMED: MISSING required fields were not a fail condition",
+    "exact_resume_controller_coverage": "CONFIRMED: frozen production smoke hashes controller/registry but does not exercise meaningful transitions",
+    "readiness_provenance": "CONFIRMED: prior readiness pin/blob claims predate later runner and notebook changes"
   },
-  "launcher": "experiments/COLAB/arkenstone_ark020_v4.ipynb",
-  "runtime": {"estimated_gpu_hours": "9-16", "estimated_sessions_225min": "3-5",
-              "authority": "in-run RUNTIME_CALIBRATION.json; estimates cannot change the frozen protocol"},
+  "a1_repairs": [
+    "hardened operator wrapper preserves frozen scientific V4",
+    "atomic exact phase-boundary migration with identity verification",
+    "fail-closed second resume scan",
+    "immutable executable identity receipt",
+    "controller/registry/replay transition checkpoint smoke composed with production exact-resume smoke"
+  ],
+  "operator_entrypoint": "experiments/ARK-020-V4/run_ark020_v4_hardened.py",
+  "tests": [
+    "tests/test_ark020_v4.py",
+    "tests/test_ark020_v4_durability.py"
+  ],
   "claim_ceiling": "controlled real-text-proxy evidence for a multi-capability continual-learning controller candidate",
-  "authorization_flags": {"production_scheduler_authorized": false, "pre500m_authorized": false,
-                          "training_500m_authorized": false,
-                          "broad_continual_learning_claim_authorized": false,
-                          "agi_claim_authorized": false}
+  "authorization_flags": {
+    "operator_cuda_run_authorized": false,
+    "production_scheduler_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "broad_continual_learning_claim_authorized": false,
+    "agi_claim_authorized": false
+  }
 }
