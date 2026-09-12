@@ -7,13 +7,16 @@ on:
       - 'experiments/COLAB/arkenstone_ark020_v4*.ipynb'
       - 'tests/test_ark020_v4.py'
       - 'tests/test_ark020_v4_durability.py'
+      - 'tests/test_ark020_v4_a1_guardrails.py'
       - '.github/workflows/ark020_v4_durability.yml'
   push:
     branches: [Arkenstone]
     paths:
       - 'experiments/ARK-020-V4/**'
+      - 'experiments/COLAB/arkenstone_ark020_v4*.ipynb'
       - 'tests/test_ark020_v4.py'
       - 'tests/test_ark020_v4_durability.py'
+      - 'tests/test_ark020_v4_a1_guardrails.py'
       - '.github/workflows/ark020_v4_durability.yml'
 
 jobs:
@@ -36,10 +39,12 @@ jobs:
             experiments/ARK-020-V4/ark020_v4_core.py \
             experiments/ARK-020-V4/run_ark020_v4.py \
             experiments/ARK-020-V4/ark020_v4_durability.py \
+            experiments/ARK-020-V4/ark020_v4_a1_guardrails.py \
             experiments/ARK-020-V4/run_ark020_v4_hardened.py \
             tests/test_ark020_v4.py \
-            tests/test_ark020_v4_durability.py
+            tests/test_ark020_v4_durability.py \
+            tests/test_ark020_v4_a1_guardrails.py
       - name: Run A1 durability regressions
-        run: python -m pytest tests/test_ark020_v4_durability.py -q
+        run: python -m pytest tests/test_ark020_v4_durability.py tests/test_ark020_v4_a1_guardrails.py -q
       - name: Re-run inherited V4 suite
         run: python -m pytest tests/test_ark020_v4.py -q
