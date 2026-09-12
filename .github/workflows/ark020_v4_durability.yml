@@ -1,0 +1,45 @@
+name: ARK-020 V4 durability
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/ARK-020-V4/**'
+      - 'experiments/COLAB/arkenstone_ark020_v4*.ipynb'
+      - 'tests/test_ark020_v4.py'
+      - 'tests/test_ark020_v4_durability.py'
+      - '.github/workflows/ark020_v4_durability.yml'
+  push:
+    branches: [Arkenstone]
+    paths:
+      - 'experiments/ARK-020-V4/**'
+      - 'tests/test_ark020_v4.py'
+      - 'tests/test_ark020_v4_durability.py'
+      - '.github/workflows/ark020_v4_durability.yml'
+
+jobs:
+  durability-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU test dependencies
+        run: |
+          python -m pip install -q --upgrade pip
+          python -m pip install -q pytest numpy
+          python -m pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile operator path
+        run: |
+          python -m py_compile \
+            experiments/ARK-020-V4/ark020_v4_core.py \
+            experiments/ARK-020-V4/run_ark020_v4.py \
+            experiments/ARK-020-V4/ark020_v4_durability.py \
+            experiments/ARK-020-V4/run_ark020_v4_hardened.py \
+            tests/test_ark020_v4.py \
+            tests/test_ark020_v4_durability.py
+      - name: Run A1 durability regressions
+        run: python -m pytest tests/test_ark020_v4_durability.py -q
+      - name: Re-run inherited V4 suite
+        run: python -m pytest tests/test_ark020_v4.py -q
