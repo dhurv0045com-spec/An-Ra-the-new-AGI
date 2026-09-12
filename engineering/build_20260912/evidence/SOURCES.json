@@ -1,0 +1,81 @@
+{
+  "schema": "bramastra-build-evidence/v1",
+  "review_date": "2026-09-12",
+  "records": [
+    {
+      "source_commit": "9c09d9d682ce3b2cd60f8e5573c84e04922ec8a8",
+      "source_path": "experiments/ARK-007R/RESULT.json",
+      "snapshot": "arkenstone__experiments__ARK-007R__RESULT.json",
+      "sha256": "d11e7d9b1c8cab9e2a89ead3585cd5636f7ce5a2503ed394dc98f230ef91a743",
+      "bytes": 7024
+    },
+    {
+      "source_commit": "9c09d9d682ce3b2cd60f8e5573c84e04922ec8a8",
+      "source_path": "experiments/ARK-007R/ANALYSIS.md",
+      "snapshot": "arkenstone__experiments__ARK-007R__ANALYSIS.md",
+      "sha256": "502dc8aa2b33202e4c9f834a0627abdbc836a70b56e1b0c73c4d3e8c92899ebb",
+      "bytes": 2033
+    },
+    {
+      "source_commit": "9c09d9d682ce3b2cd60f8e5573c84e04922ec8a8",
+      "source_path": "experiments/ARK-010/RESULT.json",
+      "snapshot": "arkenstone__experiments__ARK-010__RESULT.json",
+      "sha256": "03b59296b9d7926ba83f66042e164e553adf2b27f1d2950cef21318e6b64933b",
+      "bytes": 3609
+    },
+    {
+      "source_commit": "9c09d9d682ce3b2cd60f8e5573c84e04922ec8a8",
+      "source_path": "docs/arkenstone/improvement_20260912/HANDOFF.md",
+      "snapshot": "arkenstone__docs__arkenstone__improvement_20260912__HANDOFF.md",
+      "sha256": "98197b255bb0a26661c298699d3b1b19bccbf2372e4f095cc153e91f496e380c",
+      "bytes": 7484
+    },
+    {
+      "source_commit": "b850861545f79e219b55d6403f81e74f92f1592e",
+      "source_path": "docs/cymek/experiments/CYR-GPU-011/RESULT.md",
+      "snapshot": "cymek__docs__cymek__experiments__CYR-GPU-011__RESULT.md",
+      "sha256": "d0fe1505c0acec869e6635bad198f747c5af06fe31c9376f07cccf4b5d4e80a0",
+      "bytes": 7049
+    },
+    {
+      "source_commit": "b850861545f79e219b55d6403f81e74f92f1592e",
+      "source_path": "artifacts/v5/cyr_gpu_011_result_receipt.json",
+      "snapshot": "cymek__artifacts__v5__cyr_gpu_011_result_receipt.json",
+      "sha256": "54eeeb1237a3356652364e4c29a0637d0100d7ccba57a17ceed114faa74a34ca",
+      "bytes": 4490
+    },
+    {
+      "source_commit": "b850861545f79e219b55d6403f81e74f92f1592e",
+      "source_path": "docs/cymek/experiments/CYR-GPU-012-R1/RESULT.md",
+      "snapshot": "cymek__docs__cymek__experiments__CYR-GPU-012-R1__RESULT.md",
+      "sha256": "bb3554d30fccc7b8224dad0115c89124a7a28a894860e4015095a2ba7eadbc6d",
+      "bytes": 4685
+    },
+    {
+      "source_commit": "b850861545f79e219b55d6403f81e74f92f1592e",
+      "source_path": "docs/cymek/experiments/CYR-GPU-013-R1B/RESULT.md",
+      "snapshot": "cymek__docs__cymek__experiments__CYR-GPU-013-R1B__RESULT.md",
+      "sha256": "ab6364e0b7495ee6275f2728f7565c991838118659b45f085c347b35f96db4bc",
+      "bytes": 3507
+    },
+    {
+      "source_commit": "b850861545f79e219b55d6403f81e74f92f1592e",
+      "source_path": "docs/cymek/experiments/CYR-GPU-014-R1C/PLAN.md",
+      "snapshot": "cymek__docs__cymek__experiments__CYR-GPU-014-R1C__PLAN.md",
+      "sha256": "4819d05432c64ce7ea48c6dde089989cba36de08557e016ef2c0bcdf18a5af03",
+      "bytes": 9204
+    },
+    {
+      "source_commit": "b850861545f79e219b55d6403f81e74f92f1592e",
+      "source_path": "docs/cymek/experiments/EXPERIMENT_LOG.md",
+      "snapshot": "cymek__docs__cymek__experiments__EXPERIMENT_LOG.md",
+      "sha256": "4b1a2eecfccdd141bbdde424621f9077d941ef8f3518ad929a62f761c5f38327",
+      "bytes": 3034
+    }
+  ],
+  "limits": [
+    "Cymek R1/R1B are committed result reports; raw remote ZIPs were not independently available in this review.",
+    "Historical screen remote ref no longer exists on server; cached ref not treated as new evidence.",
+    "Snapshots are references, not code imported into BRAMASTRA."
+  ]
+}

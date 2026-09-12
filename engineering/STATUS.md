@@ -1,8 +1,10 @@
 # Current engineering state
 
-Updated: 2026-09-09. This is the dispatch entry point. Update from actual evidence, not intention.
+Updated: 2026-09-12. This is the dispatch entry point. Update from actual evidence, not intention.
 
-Owner direction: finish the paper; further experiments will be run later. [The manuscript](../BRAMASTRA_PAPER.md) is complete as a research design and preliminary report. Work orders remain specifications for later execution, not active training authorization. No experimental agent is running.
+Owner direction: build and execute the integrated system, with only bounded local smoke work; larger experiments remain for later. The active [B2 execution packet](build_20260912/README.md) incorporates refreshed Arkenstone/Cymek evidence and supersedes the paper-only pause. The chief has completed the evidence audit, architecture revision, machine-readable build contract and external-agent handoff. B00–B12 implementation is assigned to the owner's external implementation agent, not already completed here. [The manuscript](../BRAMASTRA_PAPER.md) remains a research design/preliminary report. No experimental agent is running.
+
+The build was prepared in a separate `BRAMASTRA` worktree because the original checkout is now on an Arkenstone branch. Resolve Git worktrees before editing. The W01–W11 table below records historical packages; B00–B12 is the current integrated execution order.
 
 ## Current state
 

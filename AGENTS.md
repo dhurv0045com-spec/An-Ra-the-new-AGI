@@ -8,6 +8,8 @@ The chief engineer owns architecture, algorithms, data contracts, experiment des
 
 Start at [engineering/README.md](engineering/README.md), then [engineering/STATUS.md](engineering/STATUS.md). Read the assigned work order, its required specifications, and relevant local instructions before editing. The work order is the assignment; this conversation is not required context.
 
+The active owner-directed build is [B2 integrated execution](engineering/build_20260912/README.md). It supersedes the paper-only pause. Implement its B00–B12 backlog through the completion contract, preserving the stated cumulative local smoke limits. External research branches are evidence references, not code to merge wholesale.
+
 ## Working boundaries
 
 - Work on BRAMASTRA. Historical branches are not prerequisites or authorities for new design. Do not change `.codex-worktrees`, nested repositories, unrelated source trees or user changes.

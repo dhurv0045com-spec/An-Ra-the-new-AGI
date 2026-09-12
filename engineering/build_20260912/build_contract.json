@@ -1,0 +1,74 @@
+{
+  "schema": "bramastra-integrated-build-contract/v1",
+  "status": "SPECIFICATION_NOT_YET_IMPLEMENTED",
+  "target_branch": "BRAMASTRA",
+  "baseline_commit": "415250f",
+  "core_initialization": "random",
+  "implementation_token_request": 100000000,
+  "implementation_token_usage": "unavailable",
+  "training_token_budget": null,
+  "profiles": {
+    "tiny": {
+      "vocab": 260,
+      "layers": 2,
+      "width": 64,
+      "heads": 4,
+      "ffn": 176,
+      "max_seq": 128
+    },
+    "development": {
+      "vocab": 260,
+      "layers": 8,
+      "width": 256,
+      "heads": 4,
+      "ffn": 704,
+      "max_seq": 256
+    },
+    "future_capacity": {
+      "vocab": 260,
+      "layers": 12,
+      "width": 512,
+      "heads": 8,
+      "ffn": 1408,
+      "max_seq": 512
+    }
+  },
+  "defaults": {
+    "logit_treatment": "full",
+    "pair_loss_weight": 0.0,
+    "plasticity_controller": "disabled",
+    "retrieval_enabled": false,
+    "planner": "none",
+    "primary_generation": "full_vocabulary",
+    "require_eos": true,
+    "automatic_training_launch": false
+  },
+  "resource_limits": {
+    "cpu_learned_smoke_seconds": 300,
+    "cpu_optimizer_updates": 200,
+    "gpu_sessions": 1,
+    "gpu_wall_seconds": 600,
+    "gpu_optimizer_updates": 200,
+    "scope": "cumulative across agents and retries",
+    "paid_compute": false,
+    "tpu_training": false,
+    "corpus_downloads": false
+  },
+  "required_cli": [
+    "inspect",
+    "prepare-data",
+    "train",
+    "resume",
+    "infer",
+    "evaluate",
+    "package"
+  ],
+  "readiness_dimensions": [
+    "implementation",
+    "cpu_smoke",
+    "gpu_smoke",
+    "real_data_supply",
+    "target_device",
+    "scientific_qualification"
+  ]
+}

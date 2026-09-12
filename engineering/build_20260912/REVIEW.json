@@ -1,0 +1,27 @@
+{
+  "schema": "bramastra-build-review/v1",
+  "date": "2026-09-12",
+  "review_scope": "chief design plus Luna read-only evidence/integration audit",
+  "evidence_snapshot_hashes": {
+    "checked": 10,
+    "status": "PASS"
+  },
+  "local_document_links": "PASS",
+  "json_contract": "PARSED_AND_CHECKED",
+  "base_decoder_parameters": {
+    "tiny": 117312,
+    "development": 6493440,
+    "future_capacity": 38681088
+  },
+  "validation_method": "standard-library document/hash/config checks; parameter formula inspected in bramastra_lab/model.py",
+  "training_runs": 0,
+  "model_instantiations": 0,
+  "build_implementation_status": "NOT_YET_IMPLEMENTED; external executor owns B00-B12",
+  "review_corrections": [
+    "separate fixture integration from missing production corpus",
+    "reserve smoke budget for fresh-process resume",
+    "separate optional implementation/testing/enabling/qualification",
+    "report provider usage unavailable rather than invent token counts",
+    "B2 decoder reuse supersedes separate W03 event-encoder prerequisite"
+  ]
+}

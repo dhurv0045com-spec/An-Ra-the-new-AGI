@@ -6,6 +6,8 @@
 
 **Status:** Complete design manuscript; integrated-system experiments pending.
 
+**Implementation update, 12 September 2026:** the [B2 build packet](engineering/build_20260912/README.md) is the current execution authority, informed by refreshed cross-branch results. The historical study below is unchanged.
+
 **Evidence baseline:** repository commit `6525332`. This manuscript does not report an achieved AGI system.
 
 ## Abstract

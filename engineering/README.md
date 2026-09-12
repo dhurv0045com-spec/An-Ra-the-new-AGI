@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Active assignment:** [B2 integrated build](build_20260912/README.md), revised from the latest Arkenstone and Cymek evidence. External implementation agents should start there and execute B00–B12. The paper remains historical design context.
+
 The complete [BRAMASTRA research paper](../BRAMASTRA_PAPER.md) presents the architecture, formal learning objectives, preliminary evidence and deferred experimental program in manuscript form.
 
 This directory makes the owner's AGI research program executable by independent agents. The chief designs the system and judges evidence; agents implement and test bounded packages. The [AGI blueprint](../AGI_BLUEPRINT.md) describes the broader research hypothesis. These engineering specifications define the active BRAMASTRA implementation program and supersede its older branch-integration recommendations.
