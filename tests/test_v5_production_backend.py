@@ -13,6 +13,7 @@ import torch
 from v5_contracts.model_spec import ModelSpec
 from v5_model.core import initialize
 from v5_training.checkpoint import CheckpointStore
+from v5_training.step import CLIP_NORM_TOLERANCE, GRAD_CLIP_GLOBAL_L2
 from v5_training.optimizer import build_adamw_optimizer
 from v5_training.production_backend import (
     PackedBatch,
@@ -134,7 +135,9 @@ class ProductionBackendTest(unittest.TestCase):
         self.assertTrue(report.loss_finite)
         self.assertTrue(report.grad_finite)
         self.assertGreaterEqual(report.grad_norm_post_clip, 0.0)
-        self.assertLessEqual(report.grad_norm_post_clip, 1.0 + 1e-6)
+        self.assertLessEqual(
+            report.grad_norm_post_clip,
+            GRAD_CLIP_GLOBAL_L2 + CLIP_NORM_TOLERANCE)
         receipt = backend.last_receipt
         self.assertIsNotNone(receipt)
         self.assertTrue(receipt["parameter_sha256_changed"])

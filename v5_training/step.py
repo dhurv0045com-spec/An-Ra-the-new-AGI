@@ -21,12 +21,19 @@ from .state import TrainingState
 
 STEP_SCHEMA = "anra-v5-step-receipt/v1"
 GRAD_CLIP_GLOBAL_L2 = 1.0
+# Single source of truth for the post-clip norm certification bound.
+# Float32 reduction-order budget: the clip path (fused foreach-norm) and
+# the certificate (per-tensor vector_norm, sequential sum) are two
+# different summation orders and disagree by O(eps * sqrt(N) * ||g||)
+# (~2.4e-4 worst case at 4M+ parameters; observed 4.3e-6 on the R1C
+# MASK_8192 arm). A real clip failure aborts orders of magnitude above
+# this. Imported by production_backend and the contract tests — never
+# re-hardcoded.
+CLIP_NORM_TOLERANCE = 1e-4
 # A real backend measures the post-clip norm in fp32; elementwise rounding of
 # the clip scale leaves ~1e-7 noise, so the certification bound is 1.0 plus
 # measurement noise.  A genuine clip bypass produces norms far beyond this.
-# Same float32 reduction-order budget as production_backend._NORM_TOLERANCE
-# (the replica-global certificate recomputes the norm after collective+scale).
-_CLIP_TOLERANCE = 1e-4
+
 
 
 def _canonical_json(value: object) -> bytes:
@@ -55,7 +62,7 @@ def certify_update(
         raise ValueError("abort NONFINITE_GRADIENT: update may not advance state")
     if not isinstance(grad_norm_post_clip, float) or not math.isfinite(grad_norm_post_clip):
         raise ValueError("abort NONFINITE_GRADIENT: post-clip norm must be a finite float")
-    if grad_norm_post_clip < 0.0 or grad_norm_post_clip > GRAD_CLIP_GLOBAL_L2 + _CLIP_TOLERANCE:
+    if grad_norm_post_clip < 0.0 or grad_norm_post_clip > GRAD_CLIP_GLOBAL_L2 + CLIP_NORM_TOLERANCE:
         raise ValueError("abort CLIP_BREACH: post-clip replica-global norm exceeds 1.0")
     if not tied_preserved:
         raise ValueError("abort TIED_WEIGHT_BROKEN: embedding/output storage identity lost")
@@ -86,6 +93,7 @@ def certify_update(
 
 
 __all__ = [
+    "CLIP_NORM_TOLERANCE",
     "GRAD_CLIP_GLOBAL_L2",
     "STEP_SCHEMA",
     "certify_update",

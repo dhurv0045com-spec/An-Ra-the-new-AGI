@@ -35,13 +35,13 @@ from typing import Any, Mapping
 from .optimizer import validate_parameter_ownership
 from .schedule import lr_at, schedule_receipt
 from .state import CURSOR_SCHEMA, CursorState
+from .step import CLIP_NORM_TOLERANCE, GRAD_CLIP_GLOBAL_L2
 from .trainer import BackendReport
 from v5_model.core import packed_layout
 from v5_objectives.causal_lm import causal_lm_loss
 
 
 BACKEND_SCHEMA = "anra-v5-production-backend-receipt/v1"
-GRAD_CLIP_GLOBAL_L2 = 1.0
 
 EXECUTABLE_RUNTIMES = ("cpu", "cuda")
 
@@ -81,11 +81,7 @@ def precision_receipt(*, runtime: str, torch_module: Any = None) -> dict[str, ob
         "loss_scaler": None,
         "status": "CERTIFIED_LOCAL",
     }
-# Float32 reduction-order budget: the clip path (fused foreach-norm) and the
-# certificate (per-tensor vector_norm, sequential sum) disagree by up to
-# O(eps * sqrt(N) * ||g||) ~ 2.4e-4 at 4M+ parameters; observed 4.3e-6 on the
-# R1C MASK_8192 arm. A real clip failure aborts orders of magnitude above this.
-_NORM_TOLERANCE = 1e-4
+
 
 
 class StaleOptimizerOwnership(ValueError):
@@ -265,7 +261,7 @@ def certify_real_update(
         raise ValueError("abort NONFINITE_LOSS")
     if not math.isfinite(grad_norm_pre_clip) or not math.isfinite(grad_norm_post_clip):
         raise ValueError("abort NONFINITE_GRADIENT")
-    if grad_norm_post_clip > GRAD_CLIP_GLOBAL_L2 + _NORM_TOLERANCE:
+    if grad_norm_post_clip > GRAD_CLIP_GLOBAL_L2 + CLIP_NORM_TOLERANCE:
         raise ValueError(
             f"abort CLIP_BREACH: post-clip global norm {grad_norm_post_clip} exceeds 1.0"
         )
@@ -704,6 +700,7 @@ def restore_production(
 
 __all__ = [
     "BACKEND_SCHEMA",
+    "CLIP_NORM_TOLERANCE",
     "GRAD_CLIP_GLOBAL_L2",
     "PackedBatch",
     "ProductionTrainingBackend",
