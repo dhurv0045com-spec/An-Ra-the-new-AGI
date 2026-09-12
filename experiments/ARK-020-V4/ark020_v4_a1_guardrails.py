@@ -135,12 +135,15 @@ def install(R) -> None:
 
     def run_set_arm(ps, bs, arm, dose_b, parent_state, cap16, bufs, tt, tasks, d, deadline,
                     session_log=print):
-        # Completed arms are immutable results; do not migrate a stale checkpoint if
-        # RESULT.json already proves the arm completed.
+        # Completed arms are immutable results. Crucially, do NOT invoke A1's boundary
+        # migrator on a stale RESUME.pt after RESULT.json already proves completion.
         _ad, rp, _cp, _pp = R.arm_paths(ps, bs, arm)
         if rp.exists():
-            return prior_run_set_arm(ps, bs, arm, dose_b, parent_state, cap16, bufs, tt,
-                                     tasks, d, deadline, session_log=session_log)
+            r = json.loads(rp.read_text())
+            parent_sha = R.V3.state_hash(parent_state["model"])
+            if r.get("status") == "COMPLETE" and r.get("parent_sha") == parent_sha:
+                return r
+            raise RuntimeError(f"incompatible ARK-020 V4 arm result {rp}")
         return prior_run_set_arm(ps, bs, arm, dose_b, parent_state, cap16, bufs, tt,
                                  tasks, d, deadline, session_log=session_log)
 
