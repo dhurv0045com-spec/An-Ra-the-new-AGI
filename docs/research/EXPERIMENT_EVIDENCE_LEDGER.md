@@ -13,12 +13,12 @@ Evidence rules used (binding):
 
 ---
 
-## 1. Status counts (78 ledger entries; validated by `tools/validate_evidence_ledger.py`)
+## 1. Status counts (81 ledger entries; validated by `tools/validate_evidence_ledger.py`; re-frozen 2026-09-13 during Phase 2)
 
 | Status | Count |
 |---|---:|
-| DEMONSTRATED | 22 |
-| SUPPORTED | 15 |
+| DEMONSTRATED | 24 |
+| SUPPORTED | 16 |
 | INCONCLUSIVE | 13 |
 | SUPERSEDED | 8 |
 | CONTRADICTED | 9 |
@@ -26,6 +26,8 @@ Evidence rules used (binding):
 | IMPLEMENTED_NOT_EXECUTED | 3 |
 | INVALIDATED | 2 |
 | SPECULATIVE | 1 |
+
+(Phase-2 additions: CITADEL-DATA-001 (executed corpus audit), CITADEL-EVAL-001 (evaluation integrity audit, new `eval-integrity-001` branch), BRM-B00-B12-build (engineering). Heads moved since the first freeze: BRAMASTRA → `f25fc96`, citadel → `e96c9a9`, codex → `516c280`; cymek-500m-readiness unchanged at `f2c27a6`.)
 
 (`IN_PROGRESS`: 0. Several entries carry dual character — e.g. `CYR-GPU-014-R1C` is engineering-ready and scientifically `NOT_EXECUTED`; the JSON records both. Status counts include engineering-canary entries classified DEMONSTRATED-as-engineering, e.g. the closure cycle, Discovery bundles, and the TPU runtime line.)
 

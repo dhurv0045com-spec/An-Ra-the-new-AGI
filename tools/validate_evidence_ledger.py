@@ -34,7 +34,7 @@ KNOWN_BRANCHES = [
     "origin/arkenstone-astra", "origin/citadel", "origin/codex/arkenstone-improvements",
     "origin/core-exp", "origin/core-frozen-v4", "origin/cymek-500m-readiness",
     "origin/esoes", "origin/iterate500", "origin/iterate900", "origin/main",
-    "origin/triquetra",
+    "origin/triquetra", "origin/eval-integrity-001",
 ]
 
 
