@@ -14,10 +14,12 @@ sys.path.insert(0, str(HERE))
 
 import ark020_v4_durability as A1  # noqa: E402
 import ark020_v4_a1_guardrails as A1_GUARDRAILS  # noqa: E402
+import ark020_v4_device_guard as A12_DEVICE_GUARD  # noqa: E402
 import run_ark020_v4 as R  # noqa: E402
 
 A1.install(R)
 A1_GUARDRAILS.install(R)
+A12_DEVICE_GUARD.install(R)
 
 
 if __name__ == "__main__":
