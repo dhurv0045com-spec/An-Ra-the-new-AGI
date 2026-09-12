@@ -1,0 +1,71 @@
+{
+  "schema": "anra.next-experiment-decision-tree/v1",
+  "generated": "2026-09-13",
+  "phase": 2,
+  "usage": "an agent facing 'what do we run next' walks this tree from the root using only current evidence states; no strategy may be invented after seeing outcomes",
+  "root": "ROOT",
+  "nodes": {
+    "ROOT": {
+      "question": "Is the Phase-1 evidence ledger current (no unexecuted ready experiment with unresolved provenance)?",
+      "branches": [
+        {"if": "R1C launcher still binds an origin-absent commit", "then": "ACTION-REBIND-R1C-LAUNCHER", "note": "amendment only; frozen science untouched"},
+        {"if": "launcher provenance clean", "then": "Q-GUARDIAN-BUNDLE"}
+      ]
+    },
+    "Q-GUARDIAN-BUNDLE": {
+      "question": "Can the ARK-019 V4 raw bundle be recovered and byte-audited (zero GPU)?",
+      "branches": [
+        {"if": "yes and audit passes", "then": "Q-R1C-STATUS", "note": "U02 resolved positive; AD21 unlocks conditionally; update belief B17 to SUPPORTED"},
+        {"if": "yes and audit fails", "then": "Q-R1C-STATUS", "note": "U02 resolved negative; K02 partially fires; B17 -> CONTRADICTED unless rerun"},
+        {"if": "no (bundle lost/unavailable)", "then": "Q-COMPUTE-BUDGET", "note": "queue GRD-VALID-001 Stage 1 rerun behind the science spine"}
+      ]
+    },
+    "Q-R1C-STATUS": {
+      "question": "Has EXEC-R1C (frozen R1C) executed and been interpreted?",
+      "branches": [
+        {"if": "no", "then": "ACTION-RUN-R1C"},
+        {"if": "yes", "then": "Q-R1C-VERDICT"}
+      ]
+    },
+    "Q-R1C-VERDICT": {
+      "question": "Which frozen R1C verdict fired?",
+      "branches": [
+        {"if": "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED", "then": "WORLD-A"},
+        {"if": "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED", "then": "WORLD-B"},
+        {"if": "SOFTMAX_COMPETITION_NOT_SUFFICIENT", "then": "WORLD-C"},
+        {"if": "MIXED_SOFTMAX_COMPETITION_EFFECT", "then": "WORLD-B", "note": "treat as partial"}
+      ]
+    },
+    "WORLD-A": {
+      "label": "output competition dominant",
+      "belief_updates": {"B05": "SUPPORTED", "B04": "STRONGLY_SUPPORTED"},
+      "decision_updates": {"AD16": "designable candidate mechanism", "AD15": "designable (partition vs untied)", "AD13": "still blocked on transfer"},
+      "next_experiment": "CS-TRANSFER-001 with mechanism arm (A2 = MASK partition at 8L/256w)",
+      "unnecessary_now": ["any broader vocabulary sweep", "tied-geometry dissection as first choice"]
+    },
+    "WORLD-B": {
+      "label": "partial / calibration-limited effect",
+      "belief_updates": {"B05": "WEAKLY_SUPPORTED", "B04": "SUPPORTED"},
+      "decision_updates": {"AD16": "PROVISIONAL with calibration caveat", "AD15": "still blocked"},
+      "next_experiment": "CS-TRANSFER-001 with BOTH mechanism and tied-geometry diagnostic arms",
+      "unnecessary_now": ["production tokenizer change"]
+    },
+    "WORLD-C": {
+      "label": "output competition insufficient",
+      "belief_updates": {"B05": "CONTRADICTED"},
+      "decision_updates": {"AD16": "REJECTED for this scope (K01 fires)", "AD15": "blocked on tied-geometry dissection"},
+      "next_experiment": "CS-TRANSFER-001 with tied-geometry dissection arm (untied low-rank output vs tied, matched params)",
+      "unnecessary_now": ["any output-space intervention design", "MASK-based production proposals"]
+    },
+    "Q-COMPUTE-BUDGET": {
+      "question": "Is operator GPU compute available this cycle?",
+      "branches": [
+        {"if": "yes", "then": "ACTION-RUN-R1C", "note": "science spine first; Guardian rerun queues behind it"},
+        {"if": "no", "then": "ACTION-ZERO-GPU-PACKAGE", "note": "V4 bundle recovery, C0 scorer design, corpus regeneration design, SENORA/history object export — all zero-GPU"}
+      ]
+    },
+    "ACTION-REBIND-R1C-LAUNCHER": {"action": "apply launcher provenance amendment per NEXT_3_EXPERIMENTS.md EXP-1; then go to Q-GUARDIAN-BUNDLE"},
+    "ACTION-RUN-R1C": {"action": "execute frozen CYR-GPU-014-R1C unchanged through its (rebound) launcher; ~22 T4-h across sessions; then Q-R1C-VERDICT"},
+    "ACTION-ZERO-GPU-PACKAGE": {"action": "execute the zero-GPU package: V4 bundle recovery + audit; CIT-C0 extended scorer screen design; regenerated arithmetic corpus spec passing tools/audit_tiered_corpus.py; export unreachable history (SENORA, CYR-006 smoke, CYR-005 frozen executable) to a kept ref; then Q-GUARDIAN-BUNDLE"}
+  }
+}
