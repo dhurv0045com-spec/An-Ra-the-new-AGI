@@ -36,6 +36,38 @@ OVERALL VERDICT: FAIL
 Current state per source family: **DECLARED** (not MATERIALIZED)
 Target state for 500M launch: **RUNNABLE**
 
+## CONFIRMED CROSS-SPLIT CONTAMINATION (audited 2026-09-06)
+
+Mechanically verified with `git cat-file` quality:
+- **173 dev documents appear verbatim in training** (exact text match)
+- **357 test documents appear verbatim in training** (exact text match)
+- Examples: `3 * 5 -> 15`, `14/2=7`, `16/8=2`
+- Cause: band isolation prevents operand-range overlap within a tier but
+  does NOT prevent the same rendered expression from appearing across
+  different templates that happen to produce identical text
+- Impact: evaluation numbers may be inflated by memorization
+- Fix: dedup across all splits before packing (exact-clusters/v1 already
+  exists in v5_data.pack but was not applied across splits in this corpus)
+
+## CONFIRMED SHORTCUT VULNERABILITY (audited 2026-09-06)
+
+**Latest-position heuristic scores 1.000 on every tier.** The answer is
+ALWAYS the last number in the rendered text. A model that copies the last
+number achieves perfect score without doing any arithmetic. This is
+the single most dangerous shortcut in the entire corpus.
+
+## CONFIRMED EXACT DUPLICATION (audited 2026-09-06)
+
+**2,024 exact duplicate documents out of 15,000 sampled** = 13.5%
+duplication rate in the training set. These are wasted compute.
+
+## CONFIRMED SUPPLY SHORTFALL
+
+Full TRAIN_N: 6.42M rows → ~19.2M chars → ~2.1M BPE tokens (estimated).
+500M campaign demand: 500M tokens. **Supply/demand ratio: 0.004x**.
+The tiered arithmetic corpus is an experiment instrument, not a
+500M-token production corpus.
+
 ## One data experiment before 500M
 **Cognition mixture ablation (5% vs 15% vs 30%)** on the tiered arithmetic corpus.
 This is cheap (2-8M tokens), uses existing data, and directly tests whether
