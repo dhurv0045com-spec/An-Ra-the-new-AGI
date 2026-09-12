@@ -1,8 +1,10 @@
 {
   "schema": "bramastra-integrated-build-contract/v1",
-  "status": "SPECIFICATION_NOT_YET_IMPLEMENTED",
+  "status": "IMPLEMENTED_CPU_SMOKE_PASSED_DATA_NOT_READY",
+  "status_note": "Updated by the B2 implementation lead 2026-09-13 after B00-B12. Implementation and unit tests complete; bounded CPU learned smoke executed (65/200 updates, 66/300s cumulative); no GPU smoke (installed torch is CPU-only; GPU session optional and unused); no qualified production corpus supplied, so real-data readiness remains DATA_NOT_READY. scientifically_qualified=false for every optional mechanism.",
   "target_branch": "BRAMASTRA",
   "baseline_commit": "415250f",
+  "implementation_head_at_handoff": "see engineering/reports/B2/HANDOFF.md",
   "core_initialization": "random",
   "implementation_token_request": 100000000,
   "implementation_token_usage": "unavailable",

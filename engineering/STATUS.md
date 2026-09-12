@@ -1,8 +1,8 @@
 # Current engineering state
 
-Updated: 2026-09-12. This is the dispatch entry point. Update from actual evidence, not intention.
+Updated: 2026-09-13. This is the dispatch entry point. Update from actual evidence, not intention.
 
-Owner direction: build and execute the integrated system, with only bounded local smoke work; larger experiments remain for later. The active [B2 execution packet](build_20260912/README.md) incorporates refreshed Arkenstone/Cymek evidence and supersedes the paper-only pause. The chief has completed the evidence audit, architecture revision, machine-readable build contract and external-agent handoff. B00–B12 implementation is assigned to the owner's external implementation agent, not already completed here. [The manuscript](../BRAMASTRA_PAPER.md) remains a research design/preliminary report. No experimental agent is running.
+Owner direction: build and execute the integrated system, with only bounded local smoke work; larger experiments remain for later. The active [B2 execution packet](build_20260912/README.md) incorporates refreshed Arkenstone/Cymek evidence and supersedes the paper-only pause. **B00–B12 implementation is now complete on branch `BRAMASTRA`**: the integrated learner, public codec, data path, trainer, atomic checkpoints with fresh-process resume, plasticity controller, ledger/replay, environments, evaluation, planning and the full CLI are implemented and tested (all new `tests/test_research_*.py` suites pass; the integrated command path prepare→train→resume→infer→evaluate→package was executed end to end on tiny fixtures, including a verified fresh-process resume). Bounded CPU learned smoke consumed 65/200 updates and 66/300 seconds (see `reports/B2/SESSION_LEDGER.json`); no GPU smoke ran (the installed torch is CPU-only; the optional GPU session was not used). No qualified production corpus exists, so real-data readiness is `DATA_NOT_READY` and every optional mechanism remains scientifically unqualified. See [the B2 handoff](reports/B2/HANDOFF.md). [The manuscript](../BRAMASTRA_PAPER.md) remains a research design/preliminary report. No experimental agent is running.
 
 The build was prepared in a separate `BRAMASTRA` worktree because the original checkout is now on an Arkenstone branch. Resolve Git worktrees before editing. The W01–W11 table below records historical packages; B00–B12 is the current integrated execution order.
 
@@ -16,6 +16,7 @@ The build was prepared in a separate `BRAMASTRA` worktree because the original c
 | Learned inquiry | Exploratory improvement in two seeds' point estimates; uncertainty/strong-baseline limits remain | D01 results; execute W04 for delayed-information mechanisms |
 | Consolidation | Unstable; not accepted as durable improvement | Family regressions; W06 required |
 | Canonical integrated architecture | Specified; W01 contracts accepted | W01–W11 dependency plan; environment/model integration remains unfinished |
+| **B2 integrated build (B00–B12)** | **Implemented, unit-tested, tiny-fixture smoke passed incl. fresh-process resume; DATA_NOT_READY; not scientifically qualified** | [Handoff](reports/B2/HANDOFF.md); [smoke ledger](reports/B2/SESSION_LEDGER.json) |
 | Real TPU runtime | Not validated for this prototype | W07 and live hardware/quota record |
 | Autonomous method/code improvement | Not implemented | Later isolated experiment after inquiry/retention evidence |
 

@@ -1,0 +1,10 @@
+{
+  "schema": "bramastra-dataset-manifest/v1",
+  "name": "b2-tiny-fixture",
+  "license": "CC0-declared-by-owner-repository-fixture",
+  "provenance": "tiny integration fixture authored for the B2 build; not a corpus",
+  "entries": [
+    {"path": "train.jsonl", "split": "training", "kind": "trajectory"},
+    {"path": "dev.jsonl", "split": "development", "kind": "trajectory"}
+  ]
+}

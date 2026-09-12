@@ -8,6 +8,8 @@
 
 **Implementation update, 12 September 2026:** the [B2 build packet](engineering/build_20260912/README.md) is the current execution authority, informed by refreshed cross-branch results. The historical study below is unchanged.
 
+**Implementation update, 13 September 2026:** the B00–B12 integrated build is implemented and unit-tested on branch `BRAMASTRA`; the command path prepare→train→resume→infer→evaluate→package runs end to end on tiny fixtures, including a verified fresh-process resume. This establishes operability only: no qualified production corpus has been supplied (`DATA_NOT_READY`), no accelerator has been certified, and no optional mechanism (pair grounding, logit treatments, plasticity controller, retrieval, planning) is scientifically qualified. Nothing here constitutes evidence of AGI or of a transfer advantage. See [the B2 handoff](engineering/reports/B2/HANDOFF.md).
+
 **Evidence baseline:** repository commit `6525332`. This manuscript does not report an achieved AGI system.
 
 ## Abstract

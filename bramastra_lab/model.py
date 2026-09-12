@@ -94,7 +94,8 @@ class CausalSelfAttention(nn.Module):
             persistent=False,
         )
 
-    def forward(self, inputs: Tensor, padding_mask: Tensor | None) -> Tensor:
+    def forward(self, inputs: Tensor, padding_mask: Tensor | None,
+                attention_mask: Tensor | None) -> Tensor:
         batch, length, width = inputs.shape
         query, key, value = self.qkv(inputs).chunk(3, dim=-1)
 
@@ -109,6 +110,11 @@ class CausalSelfAttention(nn.Module):
         allowed = self.causal_mask[:length, :length][None, None, :, :]
         if padding_mask is not None:
             allowed = allowed & padding_mask[:, None, None, :]
+        if attention_mask is not None:
+            if attention_mask.shape[0] != batch or attention_mask.shape[1] != length \
+                    or attention_mask.shape[2] != length:
+                raise ValueError("attention_mask must have shape [batch, length, length]")
+            allowed = allowed & attention_mask[:, None, :, :]
 
         # Softmax is deliberately reduced in FP32. Multiplication and normalization
         # after masking also keep a fully padded row finite on accelerator graphs.
@@ -141,8 +147,9 @@ class DecoderBlock(nn.Module):
         self.ffn_norm = RMSNorm(config.width, config.rms_norm_eps)
         self.feed_forward = SwiGLU(config)
 
-    def forward(self, inputs: Tensor, padding_mask: Tensor | None) -> Tensor:
-        inputs = inputs + self.attention(self.attention_norm(inputs), padding_mask)
+    def forward(self, inputs: Tensor, padding_mask: Tensor | None,
+                attention_mask: Tensor | None = None) -> Tensor:
+        inputs = inputs + self.attention(self.attention_norm(inputs), padding_mask, attention_mask)
         return inputs + self.feed_forward(self.ffn_norm(inputs))
 
 
@@ -183,7 +190,16 @@ class TransformerDecoder(nn.Module):
             nn.init.normal_(block.attention.output.weight, mean=0.0, std=residual_std)
             nn.init.normal_(block.feed_forward.down.weight, mean=0.0, std=residual_std)
 
-    def forward(self, tokens: Tensor, padding_mask: Tensor | None = None) -> Tensor:
+    def forward_hidden(self, tokens: Tensor, padding_mask: Tensor | None = None,
+                       attention_mask: Tensor | None = None) -> Tensor:
+        """Return the final normalized hidden states for validated inputs.
+
+        ``padding_mask`` masks padded key positions. ``attention_mask`` is an
+        optional additive [batch, length, length] boolean validity mask (True
+        = allowed) used for packed rows so positions cannot attend across
+        protected episode boundaries; it only ever removes keys, never adds
+        them.
+        """
         if not isinstance(tokens, Tensor):
             raise TypeError("tokens must be a torch.Tensor")
         if tokens.ndim != 2:
@@ -215,9 +231,13 @@ class TransformerDecoder(nn.Module):
 
         hidden = self.embedding(tokens)
         for block in self.blocks:
-            hidden = block(hidden, padding_mask)
-        hidden = self.final_norm(hidden)
-        return F.linear(hidden, self.embedding.weight)
+            hidden = block(hidden, padding_mask, attention_mask)
+        return self.final_norm(hidden)
+
+    def forward(self, tokens: Tensor, padding_mask: Tensor | None = None,
+                attention_mask: Tensor | None = None) -> Tensor:
+        return F.linear(self.forward_hidden(tokens, padding_mask, attention_mask),
+                        self.embedding.weight)
 
 
 # The experiment-facing name keeps receipts readable while TransformerDecoder

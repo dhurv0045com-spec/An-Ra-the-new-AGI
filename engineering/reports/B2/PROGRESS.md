@@ -1,0 +1,41 @@
+# B2 integrated build progress — FINAL
+
+Updated: 2026-09-13. Integrator: BRAMASTRA implementation lead (owner-authorized external agent).
+
+## Session state
+
+- Branch `BRAMASTRA` in worktree `C:\Users\ankit\Downloads\An-Ra-the-new-AGI-1\bramastra-build-worktree`; session start `02b94d3` (clean, up to date with origin). All work committed on `BRAMASTRA`; no force-push.
+- Completed: **B00–B12 all DONE.** Packet-by-packet evidence in [HANDOFF.md](HANDOFF.md).
+- Learned smoke (owner authorized 2026-09-13 "you can use local gpu or cpu if needed but check their specs not overpower them"): cumulative **65/200 optimizer updates, 66/300 CPU seconds** in [SESSION_LEDGER.json](SESSION_LEDGER.json). Hardware checked before use: AMD Ryzen 7 8C/16T, 16 GB RAM, RTX 4050 6 GB (GPU unusable by the installed CPU-only torch; optional GPU session not spent). Fresh-process resume verification ran first per the reserve rule.
+- Final verification: `python -m pytest tests -q -n 8 --dist loadgroup` with `BRAMASTRA_LEARNED_CHECKS=1` → **404 passed / 10 failed**, all 10 failures pre-existing at pristine `02b94d3` (historical e1/e2/v5 receipt suites; verified via a temporary detached baseline worktree, since removed). Zero B2 failures.
+- Defects found and fixed during execution (all re-tested): `ModelSection.from_dict` missing profile pass-through; collocate shift off-by-one; pack provenance allowlist; sampler tuple-seeding + in-request re-wrap; Windows fence release (open-handle delete) and directory fsync; clip-certificate semantics (post-clip check); CLI `__main__`/module `CommandError` split (moved to `research/errors.py`); prepared-identity determinism (created_unix excluded); double-checkpoint at update boundaries; `--expect-parent` semantics (resume-from identity); `_resume_probe` PYTHONPATH; ledger path depth; ledger double-count correction (45→65 exact).
+
+## Packet ledger (final)
+
+| Packet | Status | Evidence |
+|---|---|---|
+| B00 | DONE | Branch/evidence audit below |
+| B01 | DONE | config + wrapper + CLI; 35 tests |
+| B02 | DONE | codec + sequences + isolation; 24 tests |
+| B03 | DONE | manifest + splits + group sampler; 13 tests |
+| B04 | DONE | objectives + treatments + schedules + trainer; 22 tests (4 learned, executed 2026-09-13) |
+| B05 | DONE | atomic checkpoints + fresh-process resume (probe `agrees: true`); 15 tests + probe |
+| B06 | DONE | plasticity controller; 19 tests |
+| B07 | DONE | ledger + replay; 11 tests |
+| B08 | DONE | environments + oracles + inference; 14 tests |
+| B09 | DONE | evaluation + promotion; 20 tests |
+| B10 | DONE | bounded planning + collection; 12 tests |
+| B11 | DONE | integrated path end-to-end on tiny fixtures; 7 tests; ledger live |
+| B12 | DONE | STATUS/paper/contract updates, this handoff, commits, push |
+
+## Evidence verification (B00)
+
+All 10 snapshots in `engineering/build_20260912/evidence/` re-hashed: SHA-256 and byte counts match `evidence/SOURCES.json` (10/10 OK). Source commits `9c09d9d6…` (Arkenstone) and `b8508615…` (Cymek) present as objects. No snapshot modified.
+
+## Resource ledger
+
+Authoritative: [SESSION_LEDGER.json](SESSION_LEDGER.json) (limits from the build packet; cumulative across agents/retries; debugging runs counted). Provider implementation tokens: unavailable (no counter exposed). GPU: 0 sessions used.
+
+## Blockers
+
+- Real-corpus training remains `DATA_NOT_READY` (operator must supply a local manifest). Accelerator certification and scientific qualification remain future work; no capability claims are made.

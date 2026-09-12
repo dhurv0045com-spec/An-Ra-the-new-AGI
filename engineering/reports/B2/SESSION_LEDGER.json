@@ -1,0 +1,78 @@
+{
+  "cpu_learned_smoke_seconds": 66.0,
+  "cpu_optimizer_updates": 65,
+  "gpu_optimizer_updates": 0,
+  "gpu_sessions": 0,
+  "gpu_wall_seconds": 0.0,
+  "history": [
+    {
+      "at_unix": 1789248480.348797,
+      "device": "cpu",
+      "evidence": "agrees=true, checksums exact",
+      "seconds": 8.0,
+      "updates": 4,
+      "what": "fresh-process resume probe, standalone successful run"
+    },
+    {
+      "at_unix": 0,
+      "device": "cpu",
+      "evidence": "counts exact per test bodies; seconds upper bound",
+      "seconds": 15.0,
+      "updates": 15,
+      "what": "pytest batch#1 learned phases: B04 tests 3, B05 probe 4, B11 integration train-crash 8"
+    },
+    {
+      "at_unix": 0,
+      "device": "cpu",
+      "evidence": "counts exact",
+      "seconds": 2.0,
+      "updates": 2,
+      "what": "standalone B04 accumulated-vs-reference rerun (2 updates)"
+    },
+    {
+      "at_unix": 0,
+      "device": "cpu",
+      "evidence": "counts exact",
+      "seconds": 1.0,
+      "updates": 1,
+      "what": "standalone B04 treatment-training rerun (1 update)"
+    },
+    {
+      "at_unix": 0,
+      "device": "cpu",
+      "evidence": "counts exact",
+      "seconds": 4.0,
+      "updates": 8,
+      "what": "standalone B11 integration run: train 8 updates, resume refused (expect-parent check before training)"
+    },
+    {
+      "at_unix": 0,
+      "device": "cpu",
+      "evidence": "CLI legs exact seconds in history below kept; probe upper bound",
+      "seconds": 16.0,
+      "updates": 16,
+      "what": "integration+checkpoint rerun: B11 train 8 + resume 4 (CLI-recorded exactly), B05 probe 4"
+    },
+    {
+      "at_unix": 0,
+      "device": "cpu",
+      "evidence": "upper bound for non-CLI phases",
+      "seconds": 20.0,
+      "updates": 19,
+      "what": "final full-suite parallel verification: B11 train 8 + resume 4 (CLI-recorded), B05 probe 4, B04 3"
+    }
+  ],
+  "limits": {
+    "cpu_learned_smoke_seconds": 300,
+    "cpu_optimizer_updates": 200,
+    "gpu_optimizer_updates": 200,
+    "gpu_sessions": 1,
+    "gpu_wall_seconds": 600
+  },
+  "note": "Update counts are exact per executed test/command bodies. Non-CLI seconds are conservative upper bounds; step-level timing was not instrumented for unit-test phases. CLI train/resume legs recorded exact wall seconds (3.765s + 3.312s).",
+  "reserved_for_resume": {
+    "cpu_learned_smoke_seconds": 120,
+    "cpu_optimizer_updates": 40
+  },
+  "schema": "bramastra-smoke-ledger/v1"
+}
