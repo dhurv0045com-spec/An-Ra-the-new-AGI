@@ -5,18 +5,22 @@ on:
     paths:
       - 'experiments/ARK-020-V4/**'
       - 'experiments/COLAB/arkenstone_ark020_v4*.ipynb'
+      - 'tests/conftest.py'
       - 'tests/test_ark020_v4.py'
       - 'tests/test_ark020_v4_durability.py'
       - 'tests/test_ark020_v4_a1_guardrails.py'
+      - 'tests/test_ark020_v4_a13_template_guard.py'
       - '.github/workflows/ark020_v4_durability.yml'
   push:
     branches: [Arkenstone]
     paths:
       - 'experiments/ARK-020-V4/**'
       - 'experiments/COLAB/arkenstone_ark020_v4*.ipynb'
+      - 'tests/conftest.py'
       - 'tests/test_ark020_v4.py'
       - 'tests/test_ark020_v4_durability.py'
       - 'tests/test_ark020_v4_a1_guardrails.py'
+      - 'tests/test_ark020_v4_a13_template_guard.py'
       - '.github/workflows/ark020_v4_durability.yml'
 
 jobs:
@@ -40,11 +44,15 @@ jobs:
             experiments/ARK-020-V4/run_ark020_v4.py \
             experiments/ARK-020-V4/ark020_v4_durability.py \
             experiments/ARK-020-V4/ark020_v4_a1_guardrails.py \
+            experiments/ARK-020-V4/ark020_v4_device_guard.py \
+            experiments/ARK-020-V4/ark020_v4_template_guard.py \
             experiments/ARK-020-V4/run_ark020_v4_hardened.py \
+            tests/conftest.py \
             tests/test_ark020_v4.py \
             tests/test_ark020_v4_durability.py \
-            tests/test_ark020_v4_a1_guardrails.py
+            tests/test_ark020_v4_a1_guardrails.py \
+            tests/test_ark020_v4_a13_template_guard.py
       - name: Run A1 durability regressions
-        run: python -m pytest tests/test_ark020_v4_durability.py tests/test_ark020_v4_a1_guardrails.py -q
+        run: python -m pytest tests/test_ark020_v4_durability.py tests/test_ark020_v4_a1_guardrails.py tests/test_ark020_v4_a13_template_guard.py -q
       - name: Re-run inherited V4 suite
         run: python -m pytest tests/test_ark020_v4.py -q
