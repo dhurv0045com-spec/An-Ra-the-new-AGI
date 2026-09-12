@@ -30,7 +30,12 @@
   (tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py): drives the ACTUAL
   campaign executable through all six arms on CPU with tiny fixtures;
   reproduced the failure before the repair, completes after.
-- State: R1C_READY_FOR_OPERATOR_CUDA_RUN (RUN_READINESS_V3.json).
+- State: R1C_READY_FOR_OPERATOR_CUDA_RUN (RUN_READINESS_V4.json; executable
+  6653b4ce — v3's binding predated the tolerance repair and is superseded).
+- Constants single-sourced (CLIP_NORM_TOLERANCE in v5_training/step.py);
+  v5_training code changed after the test receipts' tested commits, so the
+  exact-head receipt meta-checks are STALE-BY-DESIGN until the next full
+  suite run refreshes them (documented, not hidden — repo precedent).
 
 ## CYR-GPU-001 — status: SUPERSEDED_BEFORE_EXECUTION
 - Preregistered design + tournament runner committed; never executed;

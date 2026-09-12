@@ -68,3 +68,12 @@ and still aborts.
 campaign executable through all six arms (engineering fixtures: 2 updates,
 1 seed, CPU) and completes; before the repair it reproduced the exact
 operator failure at the same arm.
+
+
+## Amendment 2 addendum: executable binding correction
+
+The v3 notebook bound compatibility executable `b9e4689`, which predates the
+CLIP_BREACH tolerance repair — an operator run from v3 would have re-hit the
+same abort. Notebook v4 and `RUN_READINESS_V4.json` bind `6653b4ce3a7e61b8fdffd3236c62c67622084dec`
+(wrapper + tolerance repair + single-sourced constants). Notebook v3 is
+superseded; do not launch from it.
