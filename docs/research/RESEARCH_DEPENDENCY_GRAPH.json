@@ -1,0 +1,75 @@
+{
+  "schema": "anra.research-dependency-graph/v1",
+  "generated": "2026-09-13",
+  "phase": 2,
+  "node_types": ["UNRESOLVED_RESULT", "DECISION", "GATE", "EXPERIMENT", "TERMINAL"],
+  "nodes": [
+    {"id": "N-R1C", "type": "EXPERIMENT", "label": "CYR-GPU-014-R1C execution (frozen; launcher rebind first)", "status": "NOT_EXECUTED"},
+    {"id": "N-V4BUNDLE", "type": "UNRESOLVED_RESULT", "label": "ARK-019 V4 raw bundle recovery + byte audit", "status": "OPEN"},
+    {"id": "N-CTRANSFER", "type": "EXPERIMENT", "label": "CS-TRANSFER-001 class-space transfer probe (8L/256w + production-tokenizer task)", "status": "PROPOSED"},
+    {"id": "N-ARK020", "type": "EXPERIMENT", "label": "ARK-020 V4 four-skill continual battery", "status": "READY_NOT_EXECUTED"},
+    {"id": "N-REPR-DECISION", "type": "DECISION", "label": "representation / output-space mechanism selected", "status": "BLOCKED"},
+    {"id": "N-VOCAB-DECISION", "type": "DECISION", "label": "production vocabulary size + numeric atomization", "status": "BLOCKED"},
+    {"id": "N-OUTPUTHEAD-DECISION", "type": "DECISION", "label": "tied vs controlled output head / softmax partition treatment", "status": "BLOCKED"},
+    {"id": "N-GUARDIAN-VALIDITY", "type": "UNRESOLVED_RESULT", "label": "Guardian vs static replay validity (prevention + efficiency)", "status": "OPEN"},
+    {"id": "N-ARK021", "type": "EXPERIMENT", "label": "ARK-021 retention-vs-reacquisition", "status": "DEVELOPMENT_READY"},
+    {"id": "N-INTERNALIZATION", "type": "DECISION", "label": "internalize protection/controller into Core", "status": "BLOCKED"},
+    {"id": "N-CORPUS", "type": "GATE", "label": "production 5B corpus materialized + qualified", "status": "BLOCKED_BY_EXTERNAL"},
+    {"id": "N-ARITH-CORPUS", "type": "GATE", "label": "arithmetic/cognition generator surface regenerated (passes shortcut + contamination screens)", "status": "BLOCKED (CITADEL-DATA-001: shortcut 1.000/tier, 530 leaks, 13.5% dup, 0.004x supply)"},
+    {"id": "N-ENTRY-POINT", "type": "GATE", "label": "top-level production entry point wired + canonical schedule executed once", "status": "OPEN"},
+    {"id": "N-500M-AUTH", "type": "GATE", "label": "PRE500M green decision", "status": "BLOCKED"},
+    {"id": "N-SUBJECT-QUAL", "type": "GATE", "label": "a checkpoint qualifies as research subject (readiness v2)", "status": "OPEN"},
+    {"id": "N-SCORER", "type": "GATE", "label": "certified scoring mode exists (production_scoring_mode != null)", "status": "BLOCKED"},
+    {"id": "N-MECH-INSTRUMENTATION", "type": "DECISION", "label": "mechanism studies / diagnosis on real models", "status": "BLOCKED"},
+    {"id": "N-CORE500", "type": "TERMINAL", "label": "500M Core specification", "status": "PENDING"},
+    {"id": "N-E3", "type": "EXPERIMENT", "label": "E3 cognition-mixture screens", "status": "BLOCKED_UPSTREAM"},
+    {"id": "N-C0", "type": "EXPERIMENT", "label": "CIT-C0 extended scorer screen (untried policy families)", "status": "PROPOSED"}
+  ],
+  "edges": [
+    {"from": "N-R1C", "to": "N-REPR-DECISION", "relation": "discriminates", "note": "MASK arms vs FULL decide softmax-competition vs tied-geometry"},
+    {"from": "N-REPR-DECISION", "to": "N-OUTPUTHEAD-DECISION", "relation": "informs"},
+    {"from": "N-REPR-DECISION", "to": "N-VOCAB-DECISION", "relation": "informs", "note": "only if mechanism is partition-based does vocabulary size stay a free parameter"},
+    {"from": "N-CTRANSFER", "to": "N-VOCAB-DECISION", "relation": "discriminates", "note": "transfer beyond arithmetic micro-task"},
+    {"from": "N-OUTPUTHEAD-DECISION", "to": "N-CORE500", "relation": "feeds"},
+    {"from": "N-VOCAB-DECISION", "to": "N-CORE500", "relation": "feeds"},
+    {"from": "N-CORPUS", "to": "N-500M-AUTH", "relation": "required_for"},
+    {"from": "N-ENTRY-POINT", "to": "N-500M-AUTH", "relation": "required_for"},
+    {"from": "N-REPR-DECISION", "to": "N-500M-AUTH", "relation": "required_for", "note": "capability formation must be demonstrated on the production representation"},
+    {"from": "N-500M-AUTH", "to": "N-CORE500", "relation": "authorizes"},
+    {"from": "N-V4BUNDLE", "to": "N-GUARDIAN-VALIDITY", "relation": "discriminates", "note": "byte audit or controlled rerun"},
+    {"from": "N-GUARDIAN-VALIDITY", "to": "N-ARK020", "relation": "informs", "note": "ARK-020 execution does NOT strictly depend on V4 outcome, but its interpretation does"},
+    {"from": "N-ARK020", "to": "N-GUARDIAN-VALIDITY", "relation": "strengthens_or_reverses"},
+    {"from": "N-GUARDIAN-VALIDITY", "to": "N-ARK021", "relation": "prerequisite", "note": "ARK-021 retention-vs-reacquisition presumes a working protection context"},
+    {"from": "N-ARK021", "to": "N-INTERNALIZATION", "relation": "feeds"},
+    {"from": "N-GUARDIAN-VALIDITY", "to": "N-INTERNALIZATION", "relation": "required_for"},
+    {"from": "N-ARITH-CORPUS", "to": "N-CTRANSFER", "relation": "required_for", "note": "production-tokenizer task arm needs a clean surface"},
+    {"from": "N-ARITH-CORPUS", "to": "N-CORE500", "relation": "required_for"},
+    {"from": "N-SUBJECT-QUAL", "to": "N-MECH-INSTRUMENTATION", "relation": "required_for"},
+    {"from": "N-SCORER", "to": "N-MECH-INSTRUMENTATION", "relation": "required_for", "note": "assisted comparisons blocked; candidate-free primary unaffected"},
+    {"from": "N-C0", "to": "N-SCORER", "relation": "discriminates"},
+    {"from": "N-CORPUS", "to": "N-E3", "relation": "required_for"},
+    {"from": "N-REPR-DECISION", "to": "N-E3", "relation": "required_for", "note": "E3 requires e2 winner identity"}
+  ],
+  "critical_paths": [
+    {
+      "name": "representation-critical-path",
+      "chain": ["N-R1C", "N-REPR-DECISION", "N-OUTPUTHEAD-DECISION", "N-VOCAB-DECISION", "N-CORE500"],
+      "note": "longest evidence chain gating the Core spec; every element is cheap except R1C itself (~22 T4-hours)"
+    },
+    {
+      "name": "continual-learning-critical-path",
+      "chain": ["N-V4BUNDLE", "N-GUARDIAN-VALIDITY", "N-ARK021", "N-INTERNALIZATION"],
+      "note": "first step costs zero GPU if the bundle exists on operator Drive"
+    },
+    {
+      "name": "scale-critical-path",
+      "chain": ["N-CORPUS", "N-ENTRY-POINT", "N-500M-AUTH", "N-CORE500"],
+      "note": "corpus is external-blocked; entry point is engineering; both independent of the science chain until N-REPR-DECISION joins at N-500M-AUTH"
+    },
+    {
+      "name": "measurement-critical-path",
+      "chain": ["N-C0", "N-SCORER", "N-MECH-INSTRUMENTATION"],
+      "note": "unblocks assisted cognition comparisons; independent of GPU campaigns"
+    }
+  ]
+}
