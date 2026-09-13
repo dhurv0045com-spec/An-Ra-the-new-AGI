@@ -2,9 +2,10 @@
 
 Thin extension of :mod:`anra_v5.v51_canary_run`. V1 already qualified the
 production model/data/optimizer/checkpoint spine. V2 changes only exposure,
-adds deterministic sampler epochs, stronger resume-trace accounting, explicit
-EOS diagnostics, and a one-shot sealed-test firewall. Canonical output remains
-tied full softmax after R1C's SOFTMAX_COMPETITION_NOT_SUFFICIENT verdict.
+adds deterministic sampler epochs, durable resume-trace accounting, explicit
+EOS diagnostics, isolated preflight, and a one-shot sealed-test firewall.
+Canonical output remains tied full softmax after R1C's
+SOFTMAX_COMPETITION_NOT_SUFFICIENT verdict.
 """
 from __future__ import annotations
 
@@ -157,13 +158,66 @@ def _stream_layout(pack: dict[str, Any], prereg: dict[str, Any], target_updates:
             "epoch_window_counts": lengths}
 
 
+def _existing_training_trace() -> list[dict[str, Any]]:
+    path = RECEIPTS / "TRAINING.json"
+    if not path.is_file():
+        return []
+    return list(json.loads(path.read_text(encoding="utf-8")).get("trace", []))
+
+
+def _merge_trace(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged = {int(row["update"]): row for row in old}
+    for row in new:
+        u = int(row["update"])
+        if u in merged and merged[u] != row:
+            raise SystemExit(f"FAIL_CLOSED: conflicting training trace at update {u}")
+        merged[u] = row
+    out = [merged[k] for k in sorted(merged)]
+    if out and [int(r["update"]) for r in out] != list(range(1, int(out[-1]["update"]) + 1)):
+        raise SystemExit("FAIL_CLOSED: training trace contains a gap")
+    return out
+
+
+def _training_receipt(trace: list[dict[str, Any]], *, wsd_receipt: dict,
+                      status: str, metrics: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": "anra-v51-canary-v2-training/v1",
+        "status": status,
+        "rung": "A",
+        "target_updates": int(load_prereg()["training"]["target_updates"]),
+        "trace": trace,
+        "metrics": metrics,
+        "wsd_receipt": wsd_receipt,
+        "all_lr_match": all(float(r["lr_expected"]) == float(r["lr_actual"])
+                            for r in trace),
+        "epoch_transitions": [
+            {"update": r["update"], "epoch": r["epoch"]}
+            for i, r in enumerate(trace)
+            if i == 0 or int(r["epoch"]) != int(trace[i - 1]["epoch"])
+        ],
+        "frozen_schedule_domain_check": {
+            "note": "frozen 5B lr_at verified on its real domain; V2 uses the same WSD shape interface",
+            "probe_points": {str(t): base.lr_at(cumulative_tokens=t)
+                             for t in (0, 25_000_000, 49_999_999, 50_000_000,
+                                       4_499_999_999, 4_999_999_999)},
+        },
+    }
+
+
 def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
-                  checkpoint_every: int, store, wsd_receipt: dict) -> dict[str, Any]:
-    """Run V2 through the same production transaction, with sampler epochs."""
+                  checkpoint_every: int, store, wsd_receipt: dict,
+                  trace_prefix: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Run V2 through the production transaction with durable resume trace."""
     cfg = flat_config(prereg)
     target = int(prereg["training"]["target_updates"])
     layout = _stream_layout(pack, prereg, target)
     per_epoch = int(layout["windows_per_epoch"])
+    prefix = list(trace_prefix or [])
+    expected_prefix = list(range(1, int(state.global_update) + 1))
+    if [int(r["update"]) for r in prefix] != expected_prefix:
+        raise SystemExit(
+            "FAIL_CLOSED RESUME: durable training trace does not match restored checkpoint update"
+        )
     cache: dict[int, list[Any]] = {}
 
     def stream(epoch: int):
@@ -219,14 +273,32 @@ def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
             "grad_norm_post_clip": float(report.grad_norm_post_clip),
             "consumed_real_tokens": int(backend.last_receipt["consumed_real_tokens"]),
         }
+        trace_rows.append(row)
+
         if checkpoint_every and state.global_update % checkpoint_every == 0:
+            # Write the scientific trace BEFORE checkpoint publication. If the
+            # checkpoint publication then fails, resume trims the trace back to
+            # the last durable checkpoint. If publication succeeds, every
+            # resumable checkpoint is guaranteed to have a trace through the
+            # same update. Preflight has a different lineage and never writes
+            # this scientific receipt.
+            if state.lineage_id == LINEAGE_ID:
+                durable = _merge_trace(prefix, trace_rows)
+                partial_metrics = {
+                    "start_update": start_update,
+                    "durable_through_update": int(state.global_update),
+                    "updates_this_invocation": len(trace_rows),
+                    **layout,
+                }
+                base.write_receipt("TRAINING", _training_receipt(
+                    durable, wsd_receipt=wsd_receipt,
+                    status="IN_PROGRESS", metrics=partial_metrics))
             published = store.publish(
                 state=state,
                 payloads=base.production_payloads(backend, state=state),
                 expected_parent_sha256=parent_sha)
             parent_sha = published
             row["checkpoint_sha256"] = published
-        trace_rows.append(row)
 
     wall = time.time() - t0
     metrics = {
@@ -245,26 +317,6 @@ def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
 
 
 base.train_updates = train_updates
-
-
-def _existing_training_trace() -> list[dict[str, Any]]:
-    path = RECEIPTS / "TRAINING.json"
-    if not path.is_file():
-        return []
-    return list(json.loads(path.read_text(encoding="utf-8")).get("trace", []))
-
-
-def _merge_trace(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    merged = {int(row["update"]): row for row in old}
-    for row in new:
-        u = int(row["update"])
-        if u in merged and merged[u] != row:
-            raise SystemExit(f"FAIL_CLOSED: conflicting training trace at update {u}")
-        merged[u] = row
-    out = [merged[k] for k in sorted(merged)]
-    if out and [int(r["update"]) for r in out] != list(range(1, int(out[-1]["update"]) + 1)):
-        raise SystemExit("FAIL_CLOSED: training trace contains a gap")
-    return out
 
 
 def mode_run(args: argparse.Namespace) -> int:
@@ -349,32 +401,27 @@ def mode_run(args: argparse.Namespace) -> int:
         return 0
 
     old_trace = _existing_training_trace()
+    # A receipt can be ahead of the last checkpoint if publication failed after
+    # the pre-publication trace write. Trim such rows and replay them. The
+    # opposite condition (checkpoint ahead of receipt) is forbidden because it
+    # would make the scientific execution history incomplete.
+    old_trace = [r for r in old_trace if int(r["update"]) <= int(state.global_update)]
+    expected_old = list(range(1, int(state.global_update) + 1))
+    if [int(r["update"]) for r in old_trace] != expected_old:
+        if int(state.global_update) != 0:
+            raise SystemExit(
+                "FAIL_CLOSED RESUME: checkpoint exists without a complete durable training trace"
+            )
+        old_trace = []
+
     result = train_updates(
         backend=backend, state=state, pack=pack, prereg=prereg, rung="A",
         updates=remaining, checkpoint_every=int(args.checkpoint_every),
-        store=store, wsd_receipt=plan)
+        store=store, wsd_receipt=plan, trace_prefix=old_trace)
     full_trace = _merge_trace(old_trace, result["trace"])
-    base.write_receipt("TRAINING", {
-        "schema": "anra-v51-canary-v2-training/v1",
-        "rung": "A",
-        "target_updates": target,
-        "trace": full_trace,
-        "metrics": result["metrics"],
-        "wsd_receipt": plan,
-        "all_lr_match": all(float(r["lr_expected"]) == float(r["lr_actual"])
-                            for r in full_trace),
-        "epoch_transitions": [
-            {"update": r["update"], "epoch": r["epoch"]}
-            for i, r in enumerate(full_trace)
-            if i == 0 or int(r["epoch"]) != int(full_trace[i - 1]["epoch"])
-        ],
-        "frozen_schedule_domain_check": {
-            "note": "frozen 5B lr_at verified on its real domain; V2 uses the same WSD shape interface",
-            "probe_points": {str(t): base.lr_at(cumulative_tokens=t)
-                             for t in (0, 25_000_000, 49_999_999, 50_000_000,
-                                       4_499_999_999, 4_999_999_999)},
-        },
-    })
+    base.write_receipt("TRAINING", _training_receipt(
+        full_trace, wsd_receipt=plan,
+        status="COMPLETE_ENDPOINT", metrics=result["metrics"]))
     print(json.dumps({"mode": "run", "rung": "A",
                       "state_sha256": result["state"].sha256(),
                       "trace_rows_total": len(full_trace),
@@ -590,6 +637,24 @@ def mode_finalize(args: argparse.Namespace) -> int:
         }, indent=1))
         return 1
 
+    # Freeze the repeatable development result before opening the sealed split.
+    # If this fails, the sealed marker is still absent and finalization is safe
+    # to retry without burning the sealed result.
+    dev = evaluate_split(backend, pack["tokenizer"], dev_rows)
+    formation = formation_gates(prereg, dev)
+    base.write_receipt("EVALUATION", {
+        "schema": "anra-v51-canary-v2-evaluation/v1",
+        "split": "development",
+        "split_sha256": dev_hash,
+        "rung": "A",
+        "checkpoint_sha256": latest,
+        "global_update": int(state.global_update),
+        "per_family": dev,
+        "overall_exact_with_valid_eos": _weighted_exact(dev),
+        "worst_family": min(dev, key=lambda f: dev[f]["exact_with_valid_eos"]),
+        "frozen_before_sealed_consumption": True,
+    })
+
     CANARY_ROOT.mkdir(parents=True, exist_ok=True)
     SEALED_LOCK.write_text(json.dumps({
         "schema": "anra-v51-canary-v2-sealed-consumption/v1",
@@ -598,13 +663,13 @@ def mode_finalize(args: argparse.Namespace) -> int:
         "executable_commit": base.source_commit(),
         "checkpoint_sha256": latest,
         "sealed_split_sha256": sealed_hash,
+        "development_split_sha256": dev_hash,
+        "development_result_sha256": _canonical_sha(dev),
     }, indent=1), encoding="utf-8")
 
     # From this point the sealed split is considered consumed even if the
     # process crashes. A retry must not silently look at it again.
     sealed = evaluate_split(backend, pack["tokenizer"], sealed_rows)
-    dev = evaluate_split(backend, pack["tokenizer"], dev_rows)
-    formation = formation_gates(prereg, dev)
     mechanical = {
         **presealed,
         "eos_contract_exercised": all("eos_stop_rate" in f for f in dev.values()),
@@ -651,17 +716,12 @@ def mode_finalize(args: argparse.Namespace) -> int:
 
 
 def mode_preflight(args: argparse.Namespace) -> int:
-    """Run the real one-update preflight without contaminating scientific state.
-
-    V1's preflight intentionally publishes a checkpoint. For V2 that checkpoint
-    must never become update 1 of the scientific lineage. We therefore execute
-    it against a temporary local CheckpointStore/receipt root and copy only the
-    engineering receipt into the scientific receipt directory after success.
-    """
+    """Run the real one-update preflight without contaminating scientific state."""
     saved_state_root = base.STATE_ROOT
     saved_receipts = base.RECEIPTS
     saved_lineage = base.LINEAGE_ID
     preflight_payload: dict[str, Any] = {}
+    rc = 1
     try:
         with tempfile.TemporaryDirectory(prefix="v51-canary-v2-preflight-") as td:
             temp_root = Path(td)
@@ -681,25 +741,14 @@ def mode_preflight(args: argparse.Namespace) -> int:
         return int(rc)
     if not preflight_payload:
         raise SystemExit("FAIL_CLOSED PREFLIGHT: isolated preflight emitted no receipt")
-
-    # Never expose the temporary checkpoint as a scientific-parent candidate.
     preflight_payload.pop("checkpoint_sha256", None)
     preflight_payload["schema"] = "anra-v51-canary-v2-preflight/v1"
     preflight_payload["isolated_state_root"] = True
     preflight_payload["isolated_lineage"] = "v51-canary-v2-preflight"
     preflight_payload["scientific_lineage"] = LINEAGE_ID
     preflight_payload["scientific_state_untouched"] = True
-    base.write_receipt("PREFLIGHT", preflight_payload)
-
-    # Prove that the preflight itself did not publish into the scientific store.
     scientific_store = base.CheckpointStore(STATE_ROOT, LINEAGE_ID)
-    if scientific_store.latest_sha256() is not None:
-        # Existing scientific state is allowed only if it pre-dated preflight;
-        # callers must scan/verify it separately. The receipt therefore records
-        # non-ownership rather than deleting or mutating it.
-        preflight_payload["scientific_state_preexisted"] = True
-    else:
-        preflight_payload["scientific_state_preexisted"] = False
+    preflight_payload["scientific_state_preexisted"] = scientific_store.latest_sha256() is not None
     base.write_receipt("PREFLIGHT", preflight_payload)
     print(json.dumps(preflight_payload, indent=1))
     return 0
