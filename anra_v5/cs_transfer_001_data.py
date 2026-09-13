@@ -1,14 +1,21 @@
 """CS-TRANSFER-001 deterministic shared-token data plane.
 
-The experiment compares physical V=4,096 vs V=24,576 models.  The primary
+The experiment compares physical V=4,096 vs V=24,576 models. The primary
 causal requirement is stronger than ordinary semantic matching: paired arms
-must consume byte-identical integer token sequences.  We therefore render a
+must consume byte-identical integer token sequences. We therefore render a
 fresh V5.1 canary surface with the frozen production tokenizer, retain only
 examples whose prompt+answer content lies wholly inside IDs 4..4095, and
 freeze the selected token rows before training.
 
-Selection is outcome-blind and hash-ranked.  Original latent-world split
+Selection is outcome-blind and hash-ranked. Original latent-world split
 membership is preserved; no world can migrate between train/dev/sealed.
+
+AMENDMENT 1: the original preregistration used ``\nAnswer:`` plus a leading
+space. Static audit of the committed production-tokenizer probe showed
+``Answer`` maps to ID 18224, which makes that delimiter incompatible with the
+shared <4096 surface. Before any scientific outcome, Amendment 1 replaced the
+delimiter with newline only (observed token ID 202) and removed the leading
+answer space. All other scientific variables are unchanged.
 """
 from __future__ import annotations
 
@@ -24,8 +31,8 @@ from anra_v5.v51_canary_data import (
     contamination_screen,
 )
 
-PROMPT_SUFFIX = "\nAnswer:"
-ANSWER_PREFIX = " "
+PROMPT_SUFFIX = "\n"
+ANSWER_PREFIX = ""
 COMMON_VOCAB = 4096
 MAX_CONTENT_ID = COMMON_VOCAB - 1
 MAX_ANSWER_TOKENS = 24
@@ -68,8 +75,6 @@ def _tokenize(tokenizer, row: Example) -> TokenRow | None:
     content = prompt_ids + answer_ids
     if not prompt_ids or not answer_ids:
         return None
-    # Content must be representable by BOTH physical vocabularies.  Reject all
-    # reserved IDs as content so the training/evaluation boundary is explicit.
     if any(token < 4 or token > MAX_CONTENT_ID for token in content):
         return None
     if len(answer_ids) > MAX_ANSWER_TOKENS:
@@ -100,12 +105,7 @@ def _selected_examples(rows: list[TokenRow]) -> list[Example]:
 
 
 def _family_shortcuts(rows: list[TokenRow]) -> dict[str, dict[str, float]]:
-    """Simple outcome-blind heuristic audit on the selected surface.
-
-    These are not claimed exhaustive.  They catch the shortcuts most likely to
-    be induced by low-ID filtering: a dominant answer, fixed abstention, first
-    prompt color, last prompt word, or answer-length collapse.
-    """
+    """Simple outcome-blind heuristic audit on the selected surface."""
     colors = (
         "crimson", "blue", "green", "amber", "violet", "scarlet",
         "teal", "coral", "ivory", "jade", "indigo", "rose",
@@ -140,7 +140,6 @@ def _family_shortcuts(rows: list[TokenRow]) -> dict[str, dict[str, float]]:
             "fixed_none": fixed_none,
             "last_prompt_word": last_word / len(fam),
             "first_color_in_prompt": first_color / len(fam),
-            # length is diagnostic only; it is not itself an answer predictor.
             "modal_answer_token_length_fraction": answer_len_mode / len(fam),
         }
     return result
@@ -160,12 +159,7 @@ def _predictive_shortcut_max(shortcuts: dict[str, dict[str, float]]) -> float:
 
 def build_shared_surface(*, tokenizer, seed: int, candidate_worlds_per_family: int,
                          select_counts: dict[str, int] | None = None) -> dict[str, Any]:
-    """Build and validate the shared low-ID surface.
-
-    Raises on insufficient eligible rows, low acceptance, contamination, or a
-    trivial predictive shortcut >= 0.35.  The caller should persist the receipt
-    and exact selected token rows before launching any GPU arm.
-    """
+    """Build and validate the shared low-ID surface."""
     counts = dict(SELECT_COUNTS if select_counts is None else select_counts)
     if set(counts) != {"training", "development", "sealed"}:
         raise ValueError("select_counts must define training/development/sealed")
