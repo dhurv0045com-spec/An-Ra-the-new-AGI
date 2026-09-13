@@ -14,7 +14,7 @@ Never reuse Canary-v2, R1C, ARK, or another CS-TRANSFER root.
 
 1. Checkout the exact frozen `CS_TRANSFER_001_EXECUTABLE_COMMIT` in detached HEAD state.
 2. Verify critical Git blob hashes.
-3. Run `python tools/validate_cs_transfer_001.py`.
+3. Run `python -m tools.validate_cs_transfer_001` from the repository root. **Do not** invoke the validator as `python tools/validate_cs_transfer_001.py`: when executed by file path, Python sets `sys.path[0]` to `tools/`, so the validator's package import `tools.next_core_compute_model` may fail in a clean Colab runtime even though the code and blobs are correct.
 4. Run the dedicated CS-TRANSFER CPU qualification tests plus the relevant production backend/checkpoint tests.
 5. Mount Drive and set `CS_TRANSFER_001_ROOT` to the dedicated root **before importing the runner**.
 6. Run `python -m anra_v5.cs_transfer_001_run_v3 --mode protocol` and preserve the effective protocol SHA.
