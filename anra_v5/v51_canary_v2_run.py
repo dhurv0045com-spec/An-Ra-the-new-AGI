@@ -1,23 +1,10 @@
 """V5.1 Canary-v2: extended-exposure formation qualification.
 
-This is deliberately a thin extension of :mod:`anra_v5.v51_canary_run`.
-V1 already qualified the production model/data/optimizer/checkpoint spine; V2
-changes only the preregistered exposure regime and adds stronger sealed-test
-and multi-epoch accounting.  The canonical output path remains tied full
-softmax after R1C's ``SOFTMAX_COMPETITION_NOT_SUFFICIENT`` verdict.
-
-Operator entry point::
-
-    python -m anra_v5.v51_canary_v2_run --mode prepare
-    python -m anra_v5.v51_canary_v2_run --mode preflight --cuda
-    python -m anra_v5.v51_canary_v2_run --mode scan
-    python -m anra_v5.v51_canary_v2_run --mode run --cuda
-    python -m anra_v5.v51_canary_v2_run --mode evaluate --cuda
-    python -m anra_v5.v51_canary_v2_run --mode finalize --cuda
-
-Persistent state is isolated under ``V51_CANARY_V2_ROOT``.  The default is a
-repo-local fixture path; the Colab launcher binds it to a dedicated Drive
-folder before importing this module.
+Thin extension of :mod:`anra_v5.v51_canary_run`. V1 already qualified the
+production model/data/optimizer/checkpoint spine. V2 changes only exposure,
+adds deterministic sampler epochs, stronger resume-trace accounting, explicit
+EOS diagnostics, and a one-shot sealed-test firewall. Canonical output remains
+tied full softmax after R1C's SOFTMAX_COMPETITION_NOT_SUFFICIENT verdict.
 """
 from __future__ import annotations
 
@@ -32,18 +19,16 @@ from typing import Any
 from anra_v5 import v51_canary_run as base
 
 REPO = Path(__file__).resolve().parents[1]
-CANARY_ROOT = Path(
-    os.environ.get("V51_CANARY_V2_ROOT", str(REPO / "experiments" / "V5_1_CANARY_V2"))
-)
+CANARY_ROOT = Path(os.environ.get(
+    "V51_CANARY_V2_ROOT", str(REPO / "experiments" / "V5_1_CANARY_V2")
+))
 RECEIPTS = CANARY_ROOT / "receipts"
 STATE_ROOT = CANARY_ROOT / "state"
 LINEAGE_ID = "v51-canary-v2"
 PREREG_PATH = REPO / "experiments" / "V5_1_CANARY_V2" / "PREREGISTRATION.json"
 SEALED_LOCK = CANARY_ROOT / "SEALED_CONSUMPTION.json"
 
-# Rebind the proven V1 machinery to the isolated V2 state root.  Functions in
-# the V1 module resolve these globals at call time, so this does not fork the
-# production backend implementation.
+# Rebind the already-qualified V1 machinery to an isolated V2 persistence root.
 base.CANARY_ROOT = CANARY_ROOT
 base.RECEIPTS = RECEIPTS
 base.STATE_ROOT = STATE_ROOT
@@ -51,9 +36,9 @@ base.LINEAGE_ID = LINEAGE_ID
 
 
 def _canonical_sha(value: object) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(
+        value, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")).hexdigest()
 
 
 def load_prereg() -> dict[str, Any]:
@@ -82,7 +67,6 @@ def _prereg_rung(prereg: dict[str, Any], rung: str) -> dict[str, Any]:
     return prereg["model"]
 
 
-# Make every reused V1 helper consume the frozen V2 scientific inputs.
 base.load_prereg = load_prereg
 base.flat_config = flat_config
 base._prereg_rung = _prereg_rung
@@ -138,9 +122,8 @@ def mode_prepare(args: argparse.Namespace) -> int:
         "split_sizes": receipt["split_sizes"],
         "split_hashes": receipt["split_hashes"],
         "clean": True,
-        "max_shortcut": max(
-            float(v) for scores in pack["shortcuts"].values() for v in scores.values()
-        ),
+        "max_shortcut": max(float(v) for scores in pack["shortcuts"].values()
+                            for v in scores.values()),
     }, indent=1))
     return 0
 
@@ -154,19 +137,16 @@ def _epoch_stream(pack: dict[str, Any], *, seed: int, epoch: int, tokens_per_upd
 
 def _stream_layout(pack: dict[str, Any], prereg: dict[str, Any], target_updates: int) -> dict[str, Any]:
     cfg = flat_config(prereg)
-    first = _epoch_stream(
-        pack, seed=cfg["seed"], epoch=0, tokens_per_update=cfg["tokens_per_update"]
-    )
+    first = _epoch_stream(pack, seed=cfg["seed"], epoch=0,
+                          tokens_per_update=cfg["tokens_per_update"])
     if not first:
         raise SystemExit("FAIL_CLOSED DATA: zero complete update windows in epoch 0")
     per_epoch = len(first)
     epochs_needed = (target_updates + per_epoch - 1) // per_epoch
-    lengths = []
+    lengths: list[int] = []
     for epoch in range(epochs_needed):
-        n = len(_epoch_stream(
-            pack, seed=cfg["seed"], epoch=epoch,
-            tokens_per_update=cfg["tokens_per_update"],
-        ))
+        n = len(_epoch_stream(pack, seed=cfg["seed"], epoch=epoch,
+                              tokens_per_update=cfg["tokens_per_update"]))
         lengths.append(n)
         if n != per_epoch:
             raise SystemExit(
@@ -178,13 +158,7 @@ def _stream_layout(pack: dict[str, Any], prereg: dict[str, Any], target_updates:
 
 def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
                   checkpoint_every: int, store, wsd_receipt: dict) -> dict[str, Any]:
-    """Production training with deterministic sampler epochs.
-
-    The only V2 execution change versus V1 is the mapping from global update to
-    ``(epoch, update-within-epoch)``.  Every update still goes through the same
-    ``batch_from_window -> ProductionTrainingBackend.step -> certify_update``
-    transaction and the same CheckpointStore.
-    """
+    """Run V2 through the same production transaction, with sampler epochs."""
     cfg = flat_config(prereg)
     target = int(prereg["training"]["target_updates"])
     layout = _stream_layout(pack, prereg, target)
@@ -195,15 +169,13 @@ def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
         if epoch not in cache:
             cache[epoch] = _epoch_stream(
                 pack, seed=cfg["seed"], epoch=epoch,
-                tokens_per_update=cfg["tokens_per_update"],
-            )
+                tokens_per_update=cfg["tokens_per_update"])
         return cache[epoch]
 
     trace_rows: list[dict[str, Any]] = []
     start_update = int(state.global_update)
     parent_sha = store.latest_sha256()
     t0 = time.time()
-
     for offset in range(updates):
         update_index = start_update + offset
         if update_index >= target:
@@ -212,25 +184,21 @@ def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
         epoch_update = update_index % per_epoch
         window = stream(epoch)[epoch_update]
         batch = base.batch_from_window(
-            window,
-            pack_manifest_sha256=pack["pack_manifest_sha256"],
-            update_ordinal=update_index,
-        )
+            window, pack_manifest_sha256=pack["pack_manifest_sha256"],
+            update_ordinal=update_index)
         pre_tokens = int(state.schedule_tokens)
         report = backend.step(state, batch)
         after = state.advance(
             tokens_by_source=report.tokens_by_source,
             cursor=report.cursor,
             rng_state_sha256=report.rng_state_sha256,
-            parent_checkpoint_sha256=parent_sha,
-        )
+            parent_checkpoint_sha256=parent_sha)
         base.certify_update(
             before=state, after=after,
             tokens_by_source=report.tokens_by_source,
             loss_finite=report.loss_finite, grad_finite=report.grad_finite,
             grad_norm_post_clip=report.grad_norm_post_clip,
-            tied_preserved=report.tied_preserved,
-        )
+            tied_preserved=report.tied_preserved)
         state = after
         expected_lr = float(base.canary_lr_at(wsd_receipt)(cumulative_tokens=pre_tokens))
         actual_lr = float(backend.optimizer.param_groups[0]["lr"])
@@ -254,8 +222,7 @@ def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
             published = store.publish(
                 state=state,
                 payloads=base.production_payloads(backend, state=state),
-                expected_parent_sha256=parent_sha,
-            )
+                expected_parent_sha256=parent_sha)
             parent_sha = published
             row["checkpoint_sha256"] = published
         trace_rows.append(row)
@@ -267,8 +234,7 @@ def train_updates(*, backend, state, pack, prereg, rung: str, updates: int,
         "final_update": int(state.global_update),
         "wall_seconds": round(wall, 3),
         "tokens_per_second": round(
-            sum(r["consumed_real_tokens"] for r in trace_rows) / max(1e-9, wall), 1
-        ),
+            sum(r["consumed_real_tokens"] for r in trace_rows) / max(1e-9, wall), 1),
         "final_loss": trace_rows[-1]["loss"] if trace_rows else None,
         "final_grad_norm_post_clip": trace_rows[-1]["grad_norm_post_clip"] if trace_rows else None,
         **layout,
@@ -284,8 +250,7 @@ def _existing_training_trace() -> list[dict[str, Any]]:
     path = RECEIPTS / "TRAINING.json"
     if not path.is_file():
         return []
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    return list(payload.get("trace", []))
+    return list(json.loads(path.read_text(encoding="utf-8")).get("trace", []))
 
 
 def _merge_trace(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -335,13 +300,11 @@ def mode_run(args: argparse.Namespace) -> int:
     device = torch.device("cuda") if args.cuda else None
     backend, expected_params = base.make_backend(
         rung="A", device=device, bfloat16=False,
-        schedule=base.canary_lr_at(plan), seed=prereg["seed"],
-    )
+        schedule=base.canary_lr_at(plan), seed=prereg["seed"])
     instantiated = sum(int(p.numel()) for p in backend.model.parameters())
     if instantiated != int(prereg["model"]["parameter_count"]):
         raise SystemExit(
-            f"FAIL_CLOSED MODEL: instantiated {instantiated} != prereg {prereg['model']['parameter_count']}"
-        )
+            f"FAIL_CLOSED MODEL: instantiated {instantiated} != prereg {prereg['model']['parameter_count']}")
     if int(expected_params["total"]) != instantiated:
         raise SystemExit("FAIL_CLOSED MODEL: analytic and instantiated parameter counts disagree")
 
@@ -365,10 +328,8 @@ def mode_run(args: argparse.Namespace) -> int:
             tokenizer_artifact_sha=pack["tokenizer_receipt"]["artifact_sha256"],
             data_receipt_sha=data_identity,
             canary_config_sha=_canonical_sha({**prereg, "rung": "A"}),
-            wsd_sha=plan["sha256"],
-        ),
-        rng_state_sha256="0" * 64,
-    )
+            wsd_sha=plan["sha256"]),
+        rng_state_sha256="0" * 64)
     if scan["action"] == "RESUME":
         restored_state, payloads = store.restore(scan["checkpoint"])
         if restored_state.identities != state.identities:
@@ -390,8 +351,7 @@ def mode_run(args: argparse.Namespace) -> int:
     result = train_updates(
         backend=backend, state=state, pack=pack, prereg=prereg, rung="A",
         updates=remaining, checkpoint_every=int(args.checkpoint_every),
-        store=store, wsd_receipt=plan,
-    )
+        store=store, wsd_receipt=plan)
     full_trace = _merge_trace(old_trace, result["trace"])
     base.write_receipt("TRAINING", {
         "schema": "anra-v51-canary-v2-training/v1",
@@ -400,7 +360,8 @@ def mode_run(args: argparse.Namespace) -> int:
         "trace": full_trace,
         "metrics": result["metrics"],
         "wsd_receipt": plan,
-        "all_lr_match": all(float(r["lr_expected"]) == float(r["lr_actual"]) for r in full_trace),
+        "all_lr_match": all(float(r["lr_expected"]) == float(r["lr_actual"])
+                            for r in full_trace),
         "epoch_transitions": [
             {"update": r["update"], "epoch": r["epoch"]}
             for i, r in enumerate(full_trace)
@@ -425,7 +386,7 @@ def mode_resume(args: argparse.Namespace) -> int:
 
 
 def evaluate_split(backend, tokenizer, rows, *, max_answer_tokens: int = 12) -> dict[str, Any]:
-    """Candidate-free generation plus explicit EOS-collapse diagnostics."""
+    """Candidate-free generation plus explicit answer-vs-EOS diagnostics."""
     import torch
     from v5_model.core import packed_layout
 
@@ -497,39 +458,78 @@ def _weighted_exact(scores: dict[str, Any]) -> float:
     total_n = sum(int(v["n"]) for v in scores.values())
     if total_n <= 0:
         return 0.0
-    successes = sum(float(v["exact_with_valid_eos"]) * int(v["n"]) for v in scores.values())
+    successes = sum(float(v["exact_with_valid_eos"]) * int(v["n"])
+                    for v in scores.values())
     return successes / total_n
 
 
 def formation_gates(prereg: dict[str, Any], dev: dict[str, Any]) -> dict[str, bool]:
     t = prereg["evaluation"]["v1_thresholds_retained_without_change"]
     return {
-        "identity_acquisition_dev": float(dev.get("identity", {}).get("exact_with_valid_eos", 0.0)) >= float(t["identity_dev_min"]),
-        "binding_acquisition_dev": float(dev.get("binding", {}).get("exact_with_valid_eos", 0.0)) >= float(t["binding_dev_min"]),
+        "identity_acquisition_dev": float(dev.get("identity", {}).get(
+            "exact_with_valid_eos", 0.0)) >= float(t["identity_dev_min"]),
+        "binding_acquisition_dev": float(dev.get("binding", {}).get(
+            "exact_with_valid_eos", 0.0)) >= float(t["binding_dev_min"]),
         "dev_transfer": _weighted_exact(dev) >= float(t["dev_overall_min"]),
         "formation_positive": any(
             float(v["exact_with_valid_eos"]) >= float(t["formation_min_any_family"])
-            for v in dev.values()
-        ),
+            for v in dev.values()),
     }
 
 
+def _build_eval_backend(args: argparse.Namespace):
+    import torch
+    prereg = load_prereg()
+    cfg = flat_config(prereg)
+    pack = base.build_pack(seed=cfg["seed"], worlds_per_family=cfg["worlds_per_family"])
+    if args.cuda and not torch.cuda.is_available():
+        raise SystemExit("FAIL_CLOSED HARDWARE: CUDA requested but unavailable")
+    device = torch.device("cuda") if args.cuda else None
+    plan = base.canary_wsd_receipt(token_budget=cfg["token_budget"])
+    backend, expected_params = base.make_backend(
+        rung="A", device=device, bfloat16=False,
+        schedule=base.canary_lr_at(plan), seed=prereg["seed"])
+    store = base.CheckpointStore(STATE_ROOT, LINEAGE_ID)
+    latest = store.latest_sha256()
+    if latest is None:
+        raise SystemExit("FAIL_CLOSED CHECKPOINT: no checkpoint exists")
+    state, payloads = store.restore(latest)
+    if state.identities.source_commit != base.source_commit():
+        raise SystemExit("FAIL_CLOSED IDENTITY: checkpoint executable differs from current executable")
+    if state.identities.pack_manifest_sha256 != pack["pack_manifest_sha256"]:
+        raise SystemExit("FAIL_CLOSED IDENTITY: checkpoint pack differs from regenerated V2 pack")
+    base.restore_production(backend, payloads=payloads)
+    return prereg, cfg, pack, backend, expected_params, store, latest, state
+
+
 def mode_evaluate(args: argparse.Namespace) -> int:
-    # Reuse V1's restore/eval path with V2 roots/prereg/evaluator.  Development
-    # only; sealed rows are not touched here.
-    return base.mode_evaluate(args)
+    prereg, _, pack, backend, _, _, latest, state = _build_eval_backend(args)
+    rows, split_hash = base._generate_eval_rows("development", prereg)
+    scores = evaluate_split(backend, pack["tokenizer"], rows)
+    receipt = {
+        "schema": "anra-v51-canary-v2-evaluation/v1",
+        "split": "development",
+        "split_sha256": split_hash,
+        "rung": "A",
+        "checkpoint_sha256": latest,
+        "global_update": int(state.global_update),
+        "per_family": scores,
+        "overall_exact_with_valid_eos": _weighted_exact(scores),
+        "worst_family": min(scores, key=lambda f: scores[f]["exact_with_valid_eos"]),
+    }
+    base.write_receipt("EVALUATION", receipt)
+    print(json.dumps(receipt, indent=1))
+    return 0
 
 
 def _load_receipt(name: str) -> dict[str, Any]:
-    p = RECEIPTS / f"{name}.json"
-    if not p.is_file():
-        raise SystemExit(f"FAIL_CLOSED: required receipt missing: {p}")
-    return json.loads(p.read_text(encoding="utf-8"))
+    path = RECEIPTS / f"{name}.json"
+    if not path.is_file():
+        raise SystemExit(f"FAIL_CLOSED: required receipt missing: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def mode_finalize(args: argparse.Namespace) -> int:
-    import torch
-
     prereg = load_prereg()
     _prereg_rung(prereg, args.rung)
     final_path = RECEIPTS / "FINALIZATION.json"
@@ -546,47 +546,48 @@ def mode_finalize(args: argparse.Namespace) -> int:
         }, indent=1))
         return 1
 
-    cfg = flat_config(prereg)
-    pack = base.build_pack(seed=cfg["seed"], worlds_per_family=cfg["worlds_per_family"])
-    plan = base.canary_wsd_receipt(token_budget=cfg["token_budget"])
-    if args.cuda and not torch.cuda.is_available():
-        raise SystemExit("FAIL_CLOSED HARDWARE: CUDA requested but unavailable")
-    device = torch.device("cuda") if args.cuda else None
-    backend, expected_params = base.make_backend(
-        rung="A", device=device, bfloat16=False,
-        schedule=base.canary_lr_at(plan), seed=prereg["seed"],
-    )
-    store = base.CheckpointStore(STATE_ROOT, LINEAGE_ID)
-    latest = store.latest_sha256()
-    if latest is None:
-        raise SystemExit("FAIL_CLOSED CHECKPOINT: no checkpoint exists")
-    state, payloads = store.restore(latest)
-    base.restore_production(backend, payloads=payloads)
-
+    prereg, cfg, pack, backend, expected_params, _, latest, state = _build_eval_backend(args)
     target = int(prereg["training"]["target_updates"])
-    endpoint_ok = (
-        int(state.global_update) == target
-        and int(state.cumulative_tokens) == int(prereg["training"]["token_budget"])
-    )
+    endpoint_ok = int(state.global_update) == target and int(state.cumulative_tokens) == int(
+        prereg["training"]["token_budget"])
     training = _load_receipt("TRAINING")
     data = _load_receipt("DATA")
     trace = list(training.get("trace", []))
     trace_updates = [int(r["update"]) for r in trace]
     trace_complete = trace_updates == list(range(1, target + 1))
     lr_match = trace_complete and all(
-        float(r["lr_expected"]) == float(r["lr_actual"]) for r in trace
-    )
+        float(r["lr_expected"]) == float(r["lr_actual"]) for r in trace)
     threshold = float(prereg["dataset"]["screening"]["shortcut_fail_threshold"])
     shortcut_bad = _shortcut_violations(data.get("shortcut_baselines_dev", {}), threshold)
     data_clean = bool(data.get("contamination_screen", {}).get("clean", False)) and not shortcut_bad
     instantiated = sum(int(p.numel()) for p in backend.model.parameters())
-    params_ok = (
-        instantiated == int(prereg["model"]["parameter_count"])
-        and int(expected_params["total"]) == instantiated
-    )
-
-    sealed_rows, sealed_hash = base._generate_eval_rows("sealed", prereg)
+    params_ok = instantiated == int(prereg["model"]["parameter_count"]) and int(
+        expected_params["total"]) == instantiated
     dev_rows, dev_hash = base._generate_eval_rows("development", prereg)
+    sealed_rows, sealed_hash = base._generate_eval_rows("sealed", prereg)
+    split_identity_ok = (
+        data.get("split_hashes", {}).get("development") == dev_hash
+        and data.get("split_hashes", {}).get("sealed") == sealed_hash
+        and int(data.get("v2_fresh_seed", -1)) == int(prereg["seed"])
+    )
+    presealed = {
+        "fixed_endpoint_reached": endpoint_ok,
+        "parameter_accounting_exact": params_ok,
+        "data_integrity_and_shortcuts": data_clean,
+        "data_split_identity_matches": split_identity_ok,
+        "training_trace_complete": trace_complete,
+        "wsd_expected_equals_actual": lr_match,
+        "no_wsd_rewarm": lr_match,
+        "canonical_full_softmax": prereg["model"]["output_path"] == "tied full softmax, canonical only",
+        "checkpoint_identity_valid": state.identities.source_commit == base.source_commit(),
+    }
+    if not all(presealed.values()):
+        print(json.dumps({
+            "action": "FAIL_CLOSED",
+            "reason": "mechanical gate failed BEFORE sealed consumption",
+            "gates": presealed,
+        }, indent=1))
+        return 1
 
     CANARY_ROOT.mkdir(parents=True, exist_ok=True)
     SEALED_LOCK.write_text(json.dumps({
@@ -599,19 +600,12 @@ def mode_finalize(args: argparse.Namespace) -> int:
     }, indent=1), encoding="utf-8")
 
     # From this point the sealed split is considered consumed even if the
-    # process crashes.  A retry must not silently look at it again.
+    # process crashes. A retry must not silently look at it again.
     sealed = evaluate_split(backend, pack["tokenizer"], sealed_rows)
     dev = evaluate_split(backend, pack["tokenizer"], dev_rows)
     formation = formation_gates(prereg, dev)
     mechanical = {
-        "fixed_endpoint_reached": endpoint_ok,
-        "parameter_accounting_exact": params_ok,
-        "data_integrity_and_shortcuts": data_clean,
-        "training_trace_complete": trace_complete,
-        "wsd_expected_equals_actual": lr_match,
-        "no_wsd_rewarm": lr_match,
-        "canonical_full_softmax": prereg["model"]["output_path"] == "tied full softmax, canonical only",
-        "checkpoint_identity_valid": state.identities.source_commit == base.source_commit(),
+        **presealed,
         "eos_contract_exercised": all("eos_stop_rate" in f for f in dev.values()),
     }
     if not all(mechanical.values()):
@@ -685,8 +679,6 @@ def main() -> int:
     if args.mode == "prepare":
         return mode_prepare(args)
     if args.mode == "preflight":
-        # V1 preflight is the already-qualified production path, now rebound to
-        # the V2 prereg/root.  It remains a one-update engineering smoke.
         return base.mode_preflight(args)
     if args.mode == "scan":
         return mode_scan(args)
