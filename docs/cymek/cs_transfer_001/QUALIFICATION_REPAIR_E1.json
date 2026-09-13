@@ -1,0 +1,13 @@
+{
+  "schema": "anra-cs-transfer-001-qualification-repair/v1",
+  "status": "PREEXECUTION_OPERATOR_QUALIFICATION_ONLY",
+  "scientific_commit": "a916d1c8d2637abb86d16b1c78e418c95461f3c7",
+  "repair_commit": "acd1d51421466eafe208c71a4f7be70c229d2a53",
+  "repaired_test_path": "tests/test_cs_transfer_001.py",
+  "repaired_test_blob_sha1": "1a17fe9d29c48273d8c92e6320edf577bff6f19b",
+  "trigger": "synthetic low-ID CPU qualification fixture demanded more selected rows than were guaranteed by its candidate pool at the frozen 15% acceptance floor",
+  "scientific_files_changed": false,
+  "gpu_outcomes_observed_before_repair": false,
+  "drive_mounted_before_failure": false,
+  "required_operator_semantics": "temporarily substitute only the pinned repaired test file for CPU qualification, then restore the frozen scientific worktree and require git status --porcelain to be empty before Drive preparation or CUDA execution"
+}
