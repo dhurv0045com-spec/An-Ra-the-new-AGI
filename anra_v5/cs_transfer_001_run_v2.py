@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import time
 from typing import Any
 
@@ -26,6 +27,80 @@ def _assert_trace_matches_state(trace: list[dict[str, Any]], update: int) -> Non
             f"FAIL_CLOSED RESUME: durable trace {observed[-3:] if observed else []} "
             f"does not cover checkpoint 1..{update}"
         )
+
+
+def _endpoint_parameter_diagnostics(backend, *, pair_index: int, arm: str) -> dict[str, Any]:
+    """Measure preregistered secondary displacement diagnostics.
+
+    This runs only after the fixed endpoint and cannot control training.  The
+    matched update-zero model is regenerated from the frozen seed/constructor;
+    common embedding rows and all non-embedding tensors therefore have an
+    exact paired reference.  For the full arm, extra-row current/delta norms
+    quantify how much the rows that do not exist in V4096 participated.
+    """
+    import torch
+
+    p = r.load_prereg()
+    seed = int(p["matching"]["model_seeds"][pair_index])
+    pair = r.build_matched_pair(seed=seed, torch_module=torch)
+    initial, _ = r.select_arm(pair, arm)
+    current = dict(backend.model.named_parameters())
+    start = dict(initial.named_parameters())
+    if set(current) != set(start):
+        raise SystemExit("FAIL_CLOSED DIAGNOSTIC: endpoint/init parameter names differ")
+
+    shared_embed_delta_sq = 0.0
+    shared_embed_init_sq = 0.0
+    nonembed_delta_sq = 0.0
+    nonembed_init_sq = 0.0
+    extra_current_sq = 0.0
+    extra_init_sq = 0.0
+    extra_delta_sq = 0.0
+
+    for name, cur in current.items():
+        ini = start[name]
+        if name.endswith("embedding.weight"):
+            cur_common = cur[:4096].detach().float().cpu()
+            ini_common = ini[:4096].detach().float().cpu()
+            shared_embed_delta_sq += float(torch.sum((cur_common - ini_common) ** 2).item())
+            shared_embed_init_sq += float(torch.sum(ini_common ** 2).item())
+            if arm == "PHYS_24576":
+                cur_extra = cur[4096:].detach().float().cpu()
+                ini_extra = ini[4096:].detach().float().cpu()
+                extra_current_sq += float(torch.sum(cur_extra ** 2).item())
+                extra_init_sq += float(torch.sum(ini_extra ** 2).item())
+                extra_delta_sq += float(torch.sum((cur_extra - ini_extra) ** 2).item())
+        else:
+            cur_cpu = cur.detach().float().cpu()
+            ini_cpu = ini.detach().float().cpu()
+            nonembed_delta_sq += float(torch.sum((cur_cpu - ini_cpu) ** 2).item())
+            nonembed_init_sq += float(torch.sum(ini_cpu ** 2).item())
+
+    def norm(x: float) -> float:
+        return math.sqrt(max(0.0, x))
+
+    shared_delta = norm(shared_embed_delta_sq)
+    nonembed_delta = norm(nonembed_delta_sq)
+    return {
+        "schema": "anra-cs-transfer-001-parameter-diagnostics/v1",
+        "shared_embedding_rows": 4096,
+        "shared_embedding_l2_delta_from_init": shared_delta,
+        "shared_embedding_init_l2": norm(shared_embed_init_sq),
+        "shared_embedding_relative_l2_delta": (
+            shared_delta / max(1e-30, norm(shared_embed_init_sq))
+        ),
+        "non_embedding_l2_delta_from_init": nonembed_delta,
+        "non_embedding_init_l2": norm(nonembed_init_sq),
+        "non_embedding_relative_l2_delta": (
+            nonembed_delta / max(1e-30, norm(nonembed_init_sq))
+        ),
+        "extra_rows": (24576 - 4096) if arm == "PHYS_24576" else 0,
+        "extra_rows_current_l2": norm(extra_current_sq) if arm == "PHYS_24576" else None,
+        "extra_rows_init_l2": norm(extra_init_sq) if arm == "PHYS_24576" else None,
+        "extra_rows_l2_delta_from_init": norm(extra_delta_sq) if arm == "PHYS_24576" else None,
+        "post_endpoint_only": True,
+        "controls_training": False,
+    }
 
 
 def run_arm(*, pair_index: int, arm: str, cuda: bool) -> dict[str, Any]:
@@ -181,6 +256,9 @@ def run_arm(*, pair_index: int, arm: str, cuda: bool) -> dict[str, Any]:
 
     r._persist_training(arm_dir, trace, "COMPLETE_ENDPOINT")
     r._persist_dev(arm_dir, dev_trace)
+    parameter_diagnostics = _endpoint_parameter_diagnostics(
+        backend, pair_index=pair_index, arm=arm,
+    )
     r._write_receipt("ARM_RESULT", {
         "schema": "anra-cs-transfer-001-arm-result/v2",
         "pair_index": pair_index,
@@ -191,6 +269,7 @@ def run_arm(*, pair_index: int, arm: str, cuda: bool) -> dict[str, Any]:
         "cumulative_tokens": int(state.cumulative_tokens),
         "checkpoint_sha256": store.latest_sha256(),
         "development_trace_updates": observed_dev,
+        "parameter_diagnostics": parameter_diagnostics,
         "wall_seconds_this_invocation": round(time.time() - t0, 3),
         "status": "COMPLETE",
         "runner_revision": "v2",
@@ -202,6 +281,7 @@ def run_arm(*, pair_index: int, arm: str, cuda: bool) -> dict[str, Any]:
         "global_update": int(state.global_update),
         "checkpoint": store.latest_sha256(),
         "development_trace_updates": observed_dev,
+        "parameter_diagnostics": parameter_diagnostics,
     }
 
 
