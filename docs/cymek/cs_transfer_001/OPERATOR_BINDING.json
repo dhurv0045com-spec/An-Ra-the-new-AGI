@@ -1,0 +1,14 @@
+{
+  "schema": "anra-cs-transfer-001-operator-binding/v1",
+  "experiment": "CS-TRANSFER-001",
+  "scientific_executable_commit": "a916d1c8d2637abb86d16b1c78e418c95461f3c7",
+  "canonical_runner": "anra_v5.cs_transfer_001_run_v3",
+  "operator_notebook": "notebooks/cymek_colab_cs_transfer_001_t4.ipynb",
+  "operator_notebook_blob_sha1": "ceef4457e28db316d18cc3d7e5d27db43361b4f3",
+  "notebook_contract_test": "tests/test_cs_transfer_001_notebook.py",
+  "notebook_contract_test_blob_sha1": "ace2f721abdd17a315a164caf58ecc3da10f1fe9",
+  "drive_root": "/content/drive/MyDrive/CYMEK/CS_TRANSFER_001",
+  "hardware": "NVIDIA T4 CUDA",
+  "branch_role": "post-freeze operator commits may change this branch head; the notebook must always detach scientific_executable_commit before qualification or execution",
+  "claim_ceiling": "controlled development-scale causal class-space evidence only; no PRE500M/250M/500M/cognition/AGI authorization"
+}
