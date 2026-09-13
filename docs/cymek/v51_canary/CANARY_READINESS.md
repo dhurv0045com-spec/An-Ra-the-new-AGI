@@ -29,3 +29,9 @@ Issued once by `receipts/FINALIZATION.json` after the substantive Rung-A executi
 **Designed, NOT executed — canary-v2:** extend to ~3 epochs (1.47M tokens / 360 updates) crossing the delayed-generalization region; fresh preregistration; identity/state_order EOS diagnostics; optional LR-1e-3 arm. `READY_FOR_500M` remains structurally impossible.
 
 **Determinism:** two independent full executions produced **bitwise-identical model.bin** (`f9afe368…`); execution 1 is superseded solely for a trace-labeling defect (LR rows mislabeled post-update — the applied LR sequence was correct) and a verdict-mapping defect, both documented in the readiness JSON.
+
+## R1C post-run evidence update
+
+After this canary was designed, `CYR-GPU-014-R1C` completed all 24/24 arms with final verdict `SOFTMAX_COMPETITION_NOT_SUFFICIENT` (bundle SHA-256 `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`). Its preregistered `MASK_4096 - FULL_24576` formation-AUC gaps were negative in all four matched seeds (mean `-0.110381`).
+
+This **does not change or invalidate** the canary verdict above. It reinforces the canary's original output-space boundary: the default path should remain canonical full softmax and EXPERIMENT_ONLY masking must not be promoted as a fix for formation failure. It also does **not** establish physical 24,576 as optimal; physical vocabulary/output geometry remains an open transfer question. See [`R1C_POSTRUN_UPDATE.md`](R1C_POSTRUN_UPDATE.md).
