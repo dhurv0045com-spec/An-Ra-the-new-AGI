@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -649,6 +650,61 @@ def mode_finalize(args: argparse.Namespace) -> int:
     return 0
 
 
+def mode_preflight(args: argparse.Namespace) -> int:
+    """Run the real one-update preflight without contaminating scientific state.
+
+    V1's preflight intentionally publishes a checkpoint. For V2 that checkpoint
+    must never become update 1 of the scientific lineage. We therefore execute
+    it against a temporary local CheckpointStore/receipt root and copy only the
+    engineering receipt into the scientific receipt directory after success.
+    """
+    saved_state_root = base.STATE_ROOT
+    saved_receipts = base.RECEIPTS
+    saved_lineage = base.LINEAGE_ID
+    preflight_payload: dict[str, Any] = {}
+    try:
+        with tempfile.TemporaryDirectory(prefix="v51-canary-v2-preflight-") as td:
+            temp_root = Path(td)
+            base.STATE_ROOT = temp_root / "state"
+            base.RECEIPTS = temp_root / "receipts"
+            base.LINEAGE_ID = "v51-canary-v2-preflight"
+            rc = base.mode_preflight(args)
+            receipt_path = base.RECEIPTS / "PREFLIGHT.json"
+            if rc == 0 and receipt_path.is_file():
+                preflight_payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    finally:
+        base.STATE_ROOT = saved_state_root
+        base.RECEIPTS = saved_receipts
+        base.LINEAGE_ID = saved_lineage
+
+    if rc != 0:
+        return int(rc)
+    if not preflight_payload:
+        raise SystemExit("FAIL_CLOSED PREFLIGHT: isolated preflight emitted no receipt")
+
+    # Never expose the temporary checkpoint as a scientific-parent candidate.
+    preflight_payload.pop("checkpoint_sha256", None)
+    preflight_payload["schema"] = "anra-v51-canary-v2-preflight/v1"
+    preflight_payload["isolated_state_root"] = True
+    preflight_payload["isolated_lineage"] = "v51-canary-v2-preflight"
+    preflight_payload["scientific_lineage"] = LINEAGE_ID
+    preflight_payload["scientific_state_untouched"] = True
+    base.write_receipt("PREFLIGHT", preflight_payload)
+
+    # Prove that the preflight itself did not publish into the scientific store.
+    scientific_store = base.CheckpointStore(STATE_ROOT, LINEAGE_ID)
+    if scientific_store.latest_sha256() is not None:
+        # Existing scientific state is allowed only if it pre-dated preflight;
+        # callers must scan/verify it separately. The receipt therefore records
+        # non-ownership rather than deleting or mutating it.
+        preflight_payload["scientific_state_preexisted"] = True
+    else:
+        preflight_payload["scientific_state_preexisted"] = False
+    base.write_receipt("PREFLIGHT", preflight_payload)
+    print(json.dumps(preflight_payload, indent=1))
+    return 0
+
+
 def mode_scan(args: argparse.Namespace) -> int:
     store = base.CheckpointStore(STATE_ROOT, LINEAGE_ID)
     payload = base._scan(store)
@@ -679,7 +735,7 @@ def main() -> int:
     if args.mode == "prepare":
         return mode_prepare(args)
     if args.mode == "preflight":
-        return base.mode_preflight(args)
+        return mode_preflight(args)
     if args.mode == "scan":
         return mode_scan(args)
     if args.mode == "run":
