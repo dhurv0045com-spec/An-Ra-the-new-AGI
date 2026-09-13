@@ -1,8 +1,8 @@
-# REQUIRED EXPERIMENTS (minimum decisive set; NOT executed)
+# REQUIRED EXPERIMENTS (minimum decisive set)
 
-The minimum experiments required to freeze the unresolved architecture fields. Ranked independently by decision value. Full preregistration-grade specs for EXP-1/2/3 live in `docs/research/NEXT_3_EXPERIMENTS.md` (Phase 2); the architecture-specific fields are restated here. Nothing here is authorized to execute.
+The minimum experiments required to freeze unresolved architecture fields. Ranked independently by decision value. Full preregistration-grade specs for EXP-1/2/3 live in `docs/research/NEXT_3_EXPERIMENTS.md` (Phase 2); the architecture-specific fields are restated here.
 
-## R1 — EXEC-R1C (rank 1; unblocks output head + vocabulary mechanism)
+## R1 — EXEC-R1C (rank 1; **EXECUTED / COMPLETE**)
 
 | Field | Value |
 |---|---|
@@ -15,23 +15,23 @@ The minimum experiments required to freeze the unresolved architecture fields. R
 | MATCHING | seeds, streams, init bytes, batch, optimizer fixed (frozen prereg) |
 | SEEDS | model 3711–3714; order 6001–6004 |
 | PRIMARY | FORMATION_AUC paired gaps + sustained G50 (structural AND functional) |
-| SEALED | per frozen plan |
-| THRESHOLD | preregistered 4-verdict taxonomy (unchanged) |
-| STOP | multi-session exact-resume; no outcome-based stopping |
-| GPU HOURS | ~22 |
-| UNLOCKS | NEXT_CORE_SPEC: output_head (D8), vocabulary mechanism half (D7); K01/K02 tree branches |
+| RESULT | `SOFTMAX_COMPETITION_NOT_SUFFICIENT`; `MASK_4096-FULL_24576` AUC gaps = `[-0.139792, -0.242215, -0.019377, -0.040138]`, mean `-0.110381`; MASK_4096 sustained G50 1/4, FULL 0/4 |
+| BUNDLE | SHA-256 `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e` |
+| CONSEQUENCE | masked-output Candidate B is not promoted; inactive-softmax competition is not a sufficient explanation; physical vocabulary/output geometry remains unresolved |
 
-## R2 — CS-TRANSFER-001 (rank 2; unblocks vocabulary/tokenizer transfer)
+R1C closes the softmax-competition sufficiency question but **does not** authorize a tokenizer/vocabulary change, PRE500M, or 500M training. It also does not prove FULL_24576 optimal because the physical matrix size was fixed in all arms.
+
+## R2 — CS-TRANSFER-001 (now the highest-value unresolved representation test)
 
 | Field | Value |
 |---|---|
-| HYPOTHESIS | class-space formation gap persists at 8× scale and on production-tokenizer numbers |
+| HYPOTHESIS | the physical class-space formation gap persists at larger scale and/or on production-tokenizer rendering |
 | NULL | gap ≤ 0.10 on both tasks (K03) |
 | MODEL | 8L/256w dense decoder (V5 block contracts) |
 | DATA | regenerated attack-screened arithmetic surface (task A); clean production-tokenizer numeric-rendering rows (task B) |
-| TREATMENTS | V4096 vs V24576 (A1); mechanism or geometry arm per R1C world (A2/A2'); production-tokenizer output-space pair (A3) |
+| TREATMENTS | **actual physical V4096 vs V24576** as the primary pair; justified intermediate physical-class controls only if preregistered |
 | CONTROLS | matched seeds/init/streams; query-blind + copy baselines; contamination screens |
-| MATCHING | everything but declared class space / task |
+| MATCHING | everything but declared physical class space / task |
 | SEEDS | 3 matched pairs per task (fail-closed wall) |
 | PRIMARY | INTERMEDIATE_GAP on held-out exact-with-valid-EOS at fixed endpoint |
 | SEALED | generator-time hash-bound sealed rows, consumed once |
@@ -39,6 +39,8 @@ The minimum experiments required to freeze the unresolved architecture fields. R
 | STOP | fixed endpoint; wall calibration pre-outcome |
 | GPU HOURS | ~12–16 |
 | UNLOCKS | vocabulary_size (D7), numeric representation (D14-adjacent), scale question (D9 half) |
+
+R1C specifically argues against using a masked-softmax proxy as the decisive R2 treatment. R2 must alter the actual physical tied embedding/output geometry if it is to test transfer of the earlier class-space result.
 
 ## R3 — GRD-VALID-001 (rank 3; unblocks continual-learning interface decisions)
 
