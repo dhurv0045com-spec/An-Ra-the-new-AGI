@@ -1,0 +1,36 @@
+{
+  "schema": "anra-cs-transfer-001-amendment/v1",
+  "amendment": 1,
+  "status": "PROSPECTIVE_PREEXECUTION",
+  "reason": "Static tokenizer audit after the initial preregistration found that the literal prompt suffix '\nAnswer:' is not representable in the common <4096 token space under the frozen production tokenizer: the committed encoding audit maps the token 'Answer' in an answer-format probe to ID 18224. Because the eligibility filter requires every content token ID <4096, the original delimiter would make the intended shared-token surface impossible or severely degenerate before any model outcome exists.",
+  "evidence": {
+    "file": "artifacts/e1/local_tournament/encoding-24576.json",
+    "probe_id": "answer-01",
+    "observed_answer_token_id": 18224,
+    "newline_token_id_observed": 202
+  },
+  "change": {
+    "prompt_suffix_before": "\nAnswer:",
+    "prompt_suffix_after": "\n",
+    "answer_prefix_before": " ",
+    "answer_prefix_after": "",
+    "rationale": "Use only a newline boundary, which is directly observed as low ID 202 in multiple committed tokenizer probes. Answer content remains eligibility-filtered by the same <4096 rule. Removing the leading-space prefix avoids introducing an unnecessary context-dependent merged token before the answer."
+  },
+  "unchanged": [
+    "physical V4096 vs V24576 treatment",
+    "8L/256w geometry",
+    "four matched seed pairs",
+    "shared byte-identical initialization",
+    "fresh data seed and generator",
+    "low-ID <4096 eligibility rule",
+    "selected row counts",
+    "480-update endpoint",
+    "optimizer/objective/schedule",
+    "development checkpoints",
+    "primary/co-primary metrics",
+    "decision thresholds",
+    "sealed firewall",
+    "claim ceiling"
+  ],
+  "outcomes_observed_before_amendment": false
+}
