@@ -49,20 +49,46 @@ def test_matched_initialization_shared_bytes_are_exact():
             assert torch.equal(s[name], f[name][:4096])
         else:
             assert torch.equal(s[name], f[name])
-    # The large arm really has extra trainable rows, not a masked proxy.
     assert f["embedding.weight"].shape[0] == 24576
     assert s["embedding.weight"].shape[0] == 4096
 
 
+def test_naive_same_seed_would_be_confounded_but_matched_constructor_is_not():
+    """Guard the reason this experiment has a dedicated pair constructor.
+
+    A different embedding shape consumes a different number of RNG draws, so
+    simply passing the same seed to both constructors is not enough.  At least
+    one later shared tensor must differ under the naïve construction; the
+    matched constructor then makes every shared tensor exact.
+    """
+    torch = pytest.importorskip("torch")
+    from v5_model.core import initialize
+
+    naive_small = initialize(model_mod.spec_for(4096), seed=4811, torch_module=torch)
+    naive_full = initialize(model_mod.spec_for(24576), seed=4811, torch_module=torch)
+    ns = dict(naive_small.named_parameters())
+    nf = dict(naive_full.named_parameters())
+    shared_non_embedding = [n for n in ns if not n.endswith("embedding.weight")]
+    assert any(not torch.equal(ns[n], nf[n]) for n in shared_non_embedding)
+
+    matched_small, matched_full, _ = model_mod.build_matched_pair(seed=4811, torch_module=torch)
+    ms = dict(matched_small.named_parameters())
+    mf = dict(matched_full.named_parameters())
+    assert all(torch.equal(ms[n], mf[n]) for n in shared_non_embedding)
+    assert torch.equal(ms["embedding.weight"], mf["embedding.weight"][:4096])
+
+
 def test_shared_surface_is_deterministic_and_low_id():
+    # Use enough deterministic rows that shortcut-baseline assertions test the
+    # generator rather than four-example sampling noise.
     tok = _LowIdTokenizer()
-    counts = {"training": 12, "development": 4, "sealed": 4}
+    counts = {"training": 60, "development": 30, "sealed": 30}
     a = data_mod.build_shared_surface(
-        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=30,
+        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=300,
         select_counts=counts,
     )
     b = data_mod.build_shared_surface(
-        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=30,
+        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=300,
         select_counts=counts,
     )
     assert a["manifest_sha256"] == b["manifest_sha256"]
@@ -90,6 +116,17 @@ def test_low_id_filter_rejects_out_of_range_tokens():
             candidate_worlds_per_family=20,
             select_counts={"training": 2, "development": 1, "sealed": 1},
         )
+
+
+def test_serialized_token_rows_roundtrip_exactly():
+    tok = _LowIdTokenizer()
+    surface = data_mod.build_shared_surface(
+        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=100,
+        select_counts={"training": 10, "development": 10, "sealed": 10},
+    )
+    for split, rows in surface["rows"].items():
+        restored = data_mod.deserialize_rows(data_mod.serialize_rows(rows))
+        assert restored == rows, split
 
 
 def test_sealed_is_generated_selected_and_hash_bound_before_training():
