@@ -1,0 +1,66 @@
+{
+  "schema": "anra-cyr-gpu014-r1c-final-result-summary/v1",
+  "experiment": "CYR-GPU-014-R1C",
+  "status": "COMPLETE",
+  "completed_arm_count": 24,
+  "design": {
+    "model_seeds": [3711, 3712, 3713, 3714],
+    "order_seeds": [6001, 6002, 6003, 6004],
+    "arms": ["FULL_24576", "MASK_19", "MASK_4096", "MASK_8192", "MASK_16384", "OFFSET_EQ4096"],
+    "updates_per_arm": 3000,
+    "total_optimizer_updates": 72000,
+    "physical_vocab_all_arms": 24576
+  },
+  "provenance": {
+    "bundle_name": "CYMEK_R1C_SOFTMAX_MECHANISM_RESULTS.zip",
+    "bundle_sha256": "2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e",
+    "decision_sha256": "abfe0ca730e0b2a50e5d1004c2fe7d061dcd2162e4e5271c1dac0db0b985e389",
+    "campaign_sha256": "d05a11d4a52affc44db85b0194fa05237a7fd5eeda2e54d189ae9659f1554dd0",
+    "preregistration_sha256": "8b75c26d3ba906288ed4674e910da7e89c61013b8ea7b6933e04a9bbc09a2345",
+    "data_receipt_sha256": "c5df9c7eda11b9f72e5e1d1a457895033ae5cebc2106abead48fdb6baabaeeb9",
+    "data_split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+    "source_blob_sha": "6c46fdf90139526b00e9041af2d511ed0ac24270"
+  },
+  "environment": {
+    "device": "cuda",
+    "gpu_name": "Tesla T4",
+    "torch": "2.11.0+cu128",
+    "deterministic_algorithms": true,
+    "tf32_allowed": false,
+    "vram_gib": 14.56317138671875
+  },
+  "decision": {
+    "verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "claim_ceiling": "CONTROLLED_DEVELOPMENT_MECHANISM_ONLY",
+    "primary_pair": ["MASK_4096", "FULL_24576"],
+    "paired_formation_auc_gaps": [-0.1397923875432526, -0.24221453287197228, -0.019377162629757805, -0.04013840830449827],
+    "mean_gap": -0.11038062283737024,
+    "mask4096_sustained_g50_seeds": 1,
+    "full24576_sustained_g50_seeds": 0,
+    "functional_supported": false,
+    "structural_supported": false,
+    "inactive_partition_mass_rescue_functional": false,
+    "inactive_partition_mass_rescue_structural": false
+  },
+  "functional_arm_summary": {
+    "FULL_24576": {"mean_formation_auc": 0.21003460207612456, "mean_endpoint": 0.29705882352941176, "mean_peak_3eval": 0.41274509803921566, "sustained_g50_seeds": 0},
+    "MASK_16384": {"mean_formation_auc": 0.18131487889273356, "mean_endpoint": 0.21764705882352942, "mean_peak_3eval": 0.29117647058823526, "sustained_g50_seeds": 1},
+    "MASK_19": {"mean_formation_auc": 0.15121107266435987, "mean_endpoint": 0.07058823529411765, "mean_peak_3eval": 0.23529411764705882, "sustained_g50_seeds": 0},
+    "MASK_8192": {"mean_formation_auc": 0.14065743944636677, "mean_endpoint": 0.3264705882352941, "mean_peak_3eval": 0.3176470588235294, "sustained_g50_seeds": 2},
+    "MASK_4096": {"mean_formation_auc": 0.09965397923875433, "mean_endpoint": 0.1411764705882353, "mean_peak_3eval": 0.18333333333333335, "sustained_g50_seeds": 1},
+    "OFFSET_EQ4096": {"mean_formation_auc": 0.08442906574394464, "mean_endpoint": 0.07647058823529412, "mean_peak_3eval": 0.1588235294117647, "sustained_g50_seeds": 0}
+  },
+  "interpretation": {
+    "falsified": "inactive-softmax competition alone is sufficient to explain the earlier physical class-space formation effect",
+    "not_falsified": "physical class-space size can affect formation",
+    "not_demonstrated": "FULL_24576 is optimal",
+    "next_decisive_test": "CS-TRANSFER-001 using actual physical V4096 versus V24576 geometry on clean transfer surfaces"
+  },
+  "authorizations": {
+    "production_tokenizer_change": false,
+    "pre500m": false,
+    "training_500m": false,
+    "broad_reasoning_claim": false,
+    "agi_claim": false
+  }
+}
