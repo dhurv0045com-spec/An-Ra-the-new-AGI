@@ -1,5 +1,7 @@
 # BRAMASTRA — An-Ra research from first principles
 
+**Next milestone: [K8 experiment.md](experiment.md)** — one owner-run, 7–8-hour Kaggle campaign on two T4 GPUs covering learned cognition, tool transfer, gated architecture reuse and recursive method selection. The [current agent prompt](engineering/experiments/K8_20260913/AGENT_PROMPT.md) assigns notebook/data/runtime preparation; the experiment has not run.
+
 **Current assignment:** [M00–M24, including cognition and recursive improvement](engineering/cognition_rsi_20260913/README.md). The [latest branch review](engineering/reports/B2_2_CHIEF_20260913/REVIEW.md) checks `acfa249`; the [current implementation-agent prompt](engineering/cognition_rsi_20260913/AGENT_PROMPT.md) invokes both design packets and the remaining repair gate.
 
 **Agents start at [AGENTS.md](AGENTS.md), then [engineering headquarters](engineering/README.md) and [current status](engineering/STATUS.md).** The chief owns architecture, algorithms and experiments; execution agents receive substantial [work orders](engineering/work_orders/README.md) with interfaces, dependencies, file ownership and acceptance evidence. The active system is designed directly for BRAMASTRA.

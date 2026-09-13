@@ -2,6 +2,16 @@
 
 Updated: 2026-09-13. This is the dispatch entry point. Update from actual evidence, not intention.
 
+## Current milestone: K8 notebook and campaign readiness
+
+The owner now requests multiple experiments within one 7–8-hour Kaggle session on two T4 GPUs, including cognition, tools, architecture change and RSI. [experiment.md](../experiment.md) is the active experiment design; [I01–I06](experiments/K8_20260913/READINESS.md) is the next implementation assignment. [campaign.json](experiments/K8_20260913/campaign.json) bounds all phases to480 elapsed minutes/960 provisioned GPU-minutes. The owner will launch the notebook; no experiment has run in this review.
+
+Latest inspected push is **edee727**. It adds F1–F6 corrections and substantial M01–M07/M12/M19–M24 modules, with an honest [agent handoff](reports/COGNITION_RSI_20260913/HANDOFF.md) distinguishing fixture behavior from learned capability. The chief ran62 selected tests successfully, but source review confirms missing CUDA train/restore routing, canonical multi-objective consumption and learned executive/proposer callers. Notebook integration is not complete; E0 must prove actual GPU gradients and fresh-process resume before E1–E5.
+
+The new allocation supersedes the earlier no-accelerator direction only for K8 after the owner's launch. Keep the old CPU ledger at206 updates/177.234 seconds; no local learned work or global budget reset is authorized. Build the generated task dataset, supervisor, notebook and result export first. Use the [current agent prompt](experiments/K8_20260913/AGENT_PROMPT.md).
+
+## Previous design/review state (historical context)
+
 Owner direction: the complete learner must include cognition, learning, meta-learning and recursive improvement. **Active assignment: M00–M24**, combining the [master program](master_program_20260913/README.md) and [cognition/RSI extension](cognition_rsi_20260913/README.md). M00 includes the [latest chief findings F1–F6](reports/B2_2_CHIEF_20260913/REVIEW.md) on `acfa249`. Continue independent contracts and provisional implementation under the dependency gates; learned promotion remains a chief decision. The cognitive/RSI extensions are designed, not learned capabilities.
 
 The core still trains answer tokens and optional pairs; action/value heads lack training targets, the planner lacks typed recursive outcome valuation, memory is absent from the canonical input path, and collection stops at the ledger. The master assigns those connections; the extension adds beliefs, executive operations, subgoals, verified abstractions, meta-episodes and model-origin method proposals. Latest reviewed implementation is `acfa249`; original master design was committed as `bab6ca5`.

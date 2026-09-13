@@ -1,5 +1,7 @@
 # Current prompt for the BRAMASTRA implementation lead
 
+**New owner allocation and dispatch:** use the [K8 notebook prompt](../experiments/K8_20260913/AGENT_PROMPT.md) and root [experiment.md](../../experiment.md). The older no-accelerator instruction below is superseded only for the single owner-launched480-minute two-T4 campaign. Local training remains unallocated. This prompt is the historical full-build context.
+
 Continue BRAMASTRA as the implementation lead for the complete **M00–M24** program. The goal includes learned cognition, acquisition/retention, meta-learning and eventual recursive improvement of the learner's own learning method. Do not substitute a text-only answer model or external-agent coding activity for those capabilities.
 
 Resolve branch/worktree/status and inspect new pushes without overwriting user work. The latest chief-reviewed agent implementation is `acfa249`. Read AGENTS, engineering/STATUS, all of `engineering/master_program_20260913/`, then all of `engineering/cognition_rsi_20260913/`. These files are the assignment, including architecture, equations, data structures, training stages, dependencies, ownership, acceptance checks and claim boundaries. The cognition/RSI extension overrides stale dispatch/resource instructions in older packets.

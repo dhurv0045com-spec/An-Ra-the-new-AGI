@@ -1,0 +1,232 @@
+{
+  "schema": "bramastra-k8-campaign-design/v1",
+  "status": "specified_not_executed_notebook_implementation_required",
+  "source_review": "edee72726706e0f8f46ec98bb3c979ebc2930233",
+  "owner_authorization": {
+    "scope": "One future owner-launched Kaggle campaign; build notebook now",
+    "sessions": 1,
+    "device_request": "2 x NVIDIA T4; live hardware and account allowance must be verified",
+    "max_wall_minutes": 480,
+    "max_provisioned_gpu_minutes": 960,
+    "stop_new_training_minute": 450,
+    "local_optimizer_updates_authorized": 0,
+    "old_local_cpu_ledger_updates": 206,
+    "old_local_ledger_unchanged": true
+  },
+  "entry_point_target": "python -m bramastra_lab.research.campaigns.k8",
+  "notebook_target": "notebooks/bramastra_k8.ipynb",
+  "worker_count": 2,
+  "distributed_training": false,
+  "seeds": [
+    1701,
+    1702
+  ],
+  "model": {
+    "vocab": 260,
+    "layers": 8,
+    "width": 256,
+    "heads": 4,
+    "ffn": 704,
+    "max_seq": 512,
+    "base_plus_action_value_parameters": 6493952,
+    "initialization": "random; paired clones per seed",
+    "pretrained_weights": false,
+    "architecture_extra_scalar_parameters": 2
+  },
+  "optimizer": {
+    "name": "AdamW",
+    "lr": 0.0003,
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "eps": 1e-8,
+    "weight_decay": 0.01,
+    "clip_norm": 1,
+    "warmup_fraction": 0.05,
+    "final_lr_fraction": 0.1,
+    "precision_candidate": "fp16_autocast_with_grad_scaler"
+  },
+  "e1_arms": {
+    "A": {
+      "token": 1,
+      "world": 0,
+      "action": 0,
+      "value": 0,
+      "pair": 0
+    },
+    "B": {
+      "token": 1,
+      "world": 0.5,
+      "action": 0.5,
+      "value": 0.1,
+      "pair": 0.1
+    }
+  },
+  "e0": {
+    "max_updates_per_worker": 128,
+    "resume_comparison_updates_per_worker": 6,
+    "confirmation_clusters_candidates": [
+      128,
+      64,
+      32
+    ],
+    "minimum_confirmation_clusters": 32,
+    "common_updates_formula": "min(4000,floor(0.75*slot_seconds/worst_measured_update_seconds))",
+    "minimum_updates": {
+      "E1": 200,
+      "E3": 80,
+      "E4": 80
+    },
+    "freeze_before_training": [
+      "source_identity",
+      "data_identity",
+      "confirmation_case_ids",
+      "per_phase_update_targets",
+      "hardware",
+      "precision",
+      "batch_and_accumulation",
+      "all_treatment_settings"
+    ]
+  },
+  "e1_slots": [
+    {
+      "slot": 1,
+      "minutes": 60,
+      "gpu0": {
+        "arm": "A",
+        "seed": 1701
+      },
+      "gpu1": {
+        "arm": "B",
+        "seed": 1701
+      }
+    },
+    {
+      "slot": 2,
+      "minutes": 60,
+      "gpu0": {
+        "arm": "B",
+        "seed": 1702
+      },
+      "gpu1": {
+        "arm": "A",
+        "seed": 1702
+      }
+    }
+  ],
+  "e5": {
+    "methods": [
+      "M0",
+      "M1",
+      "M2"
+    ],
+    "blocks": [
+      {
+        "id": "archive_P0",
+        "wall_minutes": 45,
+        "tasks_per_worker": 12,
+        "methods_per_task": 3,
+        "trial_seconds": 45,
+        "proposer_training_minutes": 8,
+        "overhead_minutes": 10
+      },
+      {
+        "id": "P0_self_selected_successor",
+        "wall_minutes": 45,
+        "tasks_per_worker": 12,
+        "methods_per_task": 3,
+        "trial_seconds": 45,
+        "proposer_training_minutes": 8,
+        "successor_training_minutes_each": 4,
+        "successors": [
+          "P1_model_selected_method",
+          "P_fixed_M0"
+        ],
+        "overhead_minutes": 10
+      },
+      {
+        "id": "fresh_confirmation",
+        "wall_minutes": 45,
+        "tasks_per_worker": 6,
+        "methods_per_task": 3,
+        "trial_seconds": 90,
+        "proposer_training_minutes": 0,
+        "overhead_minutes": 18
+      }
+    ],
+    "confirmation_choice_policies": [
+      "P1",
+      "P_fixed",
+      "P0",
+      "fixed_M0",
+      "deterministic_random"
+    ],
+    "archive_snapshots_before_choices": true,
+    "canonical_parent_publication": false
+  },
+  "phases": [
+    {
+      "id": "E0",
+      "title": "CUDA, gradients, resume and pilot",
+      "start_minute": 0,
+      "end_minute": 30,
+      "max_wall_minutes": 30,
+      "max_provisioned_gpu_minutes": 60
+    },
+    {
+      "id": "E1",
+      "title": "Paired from-scratch formation",
+      "start_minute": 30,
+      "end_minute": 150,
+      "max_wall_minutes": 120,
+      "max_provisioned_gpu_minutes": 240
+    },
+    {
+      "id": "E2",
+      "title": "Frozen cognitive evaluation",
+      "start_minute": 150,
+      "end_minute": 195,
+      "max_wall_minutes": 45,
+      "max_provisioned_gpu_minutes": 90
+    },
+    {
+      "id": "E3",
+      "title": "Tool acquisition and retention",
+      "start_minute": 195,
+      "end_minute": 255,
+      "max_wall_minutes": 60,
+      "max_provisioned_gpu_minutes": 120
+    },
+    {
+      "id": "E4",
+      "title": "Gated shared-block architecture",
+      "start_minute": 255,
+      "end_minute": 315,
+      "max_wall_minutes": 60,
+      "max_provisioned_gpu_minutes": 120
+    },
+    {
+      "id": "E5",
+      "title": "Measured recursive method selection",
+      "start_minute": 315,
+      "end_minute": 450,
+      "max_wall_minutes": 135,
+      "max_provisioned_gpu_minutes": 270
+    },
+    {
+      "id": "E6",
+      "title": "Verification and export",
+      "start_minute": 450,
+      "end_minute": 480,
+      "max_wall_minutes": 30,
+      "max_provisioned_gpu_minutes": 60
+    }
+  ],
+  "required_design_files": [
+    "experiment.md",
+    "engineering/experiments/K8_20260913/READINESS.md",
+    "engineering/experiments/K8_20260913/AGENT_PROMPT.md"
+  ],
+  "scientific_status": "exploratory_two_seed_campaign_not_AGI_confirmation"
+}

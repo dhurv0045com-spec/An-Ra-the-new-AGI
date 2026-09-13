@@ -1,0 +1,17 @@
+{
+  "kind": "design_validation_not_experiment_result",
+  "errors": [],
+  "wall_minutes": 480,
+  "provisioned_gpu_minutes": 960,
+  "experiment_phases": 7,
+  "local_links_checked": 75,
+  "design_markdown_words": 6310,
+  "canonical_utf8_lf_sha256": {
+    "experiment.md": "631ae103f619cc843394d27156b014969fada622bdeea70c89122c0fbd05de03",
+    "engineering/experiments/K8_20260913/READINESS.md": "9d2dd2f72ec87e9bd85e31a077a402cfba9665ab995027633ea3131eb88724be",
+    "engineering/experiments/K8_20260913/AGENT_PROMPT.md": "c95874bfdfb8a4d3c25982a5c615275a0367d0e85ad6eb5441e3a812c2b024cb",
+    "engineering/experiments/K8_20260913/campaign.json": "fd22ef92273b0d4d41c93bd1c8bda598269a11d3616cd8fa25e991b165f0c353"
+  },
+  "model_instantiations": 0,
+  "optimizer_updates": 0
+}

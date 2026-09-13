@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Current dispatch supersedes the earlier queue below:** implement [K8 readiness I01–I06](experiments/K8_20260913/READINESS.md) for [experiment.md](../experiment.md), then hand the notebook to the owner. The new authorization covers one owner-launched two-T4 session of at most480 minutes; no local training or extra sessions. Use the [K8 prompt](experiments/K8_20260913/AGENT_PROMPT.md). M00–M24 remains architectural context.
+
 **Active assignment:** [Complete learner program](master_program_20260913/README.md) plus [cognition and recursive improvement](cognition_rsi_20260913/README.md), **M00–M24**. Read both packets' architectures, algorithms, data/training contracts, packages and evaluation rules. M00 includes [F1–F6 from the latest chief review](reports/B2_2_CHIEF_20260913/REVIEW.md) of `acfa249`. Use the [current agent prompt](cognition_rsi_20260913/AGENT_PROMPT.md). No new learned execution is authorized with the over-cap ledger.
 
 The complete [BRAMASTRA research paper](../BRAMASTRA_PAPER.md) presents the architecture, formal learning objectives, preliminary evidence and deferred experimental program in manuscript form.
