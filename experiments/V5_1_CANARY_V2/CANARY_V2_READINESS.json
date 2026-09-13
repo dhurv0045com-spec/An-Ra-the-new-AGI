@@ -1,0 +1,36 @@
+{
+  "schema": "anra-v51-canary-v2-readiness/v1",
+  "generated": "2026-09-13",
+  "branch": "cymek-v51-canary-v2",
+  "verdict": "IMPLEMENTED_AWAITING_OPERATOR_PREFLIGHT",
+  "scientific_result_status": "NOT_EXECUTED",
+  "reason": "The V2 preregistration, runner, validator, tests and runbook are implemented. This environment cannot execute the repository test suite or CUDA preflight, so no false READY_FOR_GPU_CANARY claim is issued. The exact-commit operator notebook must run static validation, V1+V2 CPU qualification, fresh-data prepare and CUDA preflight before the substantive run.",
+  "parent_v1": {
+    "verdict": "CANARY_FAIL_FORMATION",
+    "mechanical_gates": "ALL_PASS",
+    "updates": 120,
+    "tokens": 491520
+  },
+  "v2": {
+    "rung": "A",
+    "parameters": 10227456,
+    "updates": 360,
+    "tokens_per_update": 4096,
+    "token_budget": 1474560,
+    "fresh_seed": 2026091302,
+    "checkpoint_every": 24,
+    "canonical_output": "tied full softmax",
+    "precision": "CUDA FP32 substantive run"
+  },
+  "required_operator_gates": [
+    "python tools/validate_v51_canary_v2.py",
+    "pytest tests/test_v51_canary.py tests/test_v51_canary_v2.py -q",
+    "prepare fresh V2 data and require contamination clean + max shortcut < 0.35",
+    "one real CUDA preflight update through ProductionTrainingBackend",
+    "scan persistent root and require START or compatible RESUME"
+  ],
+  "fail_closed": true,
+  "scale_authorization": false,
+  "production_tokenizer_change_authorized": false,
+  "agi_claim_authorized": false
+}
