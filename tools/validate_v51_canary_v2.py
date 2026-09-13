@@ -68,6 +68,11 @@ def main() -> int:
         'CONSUMED_AND_FINALIZED',
         'epoch=epoch',
         'state.global_update % checkpoint_every == 0',
+        'TemporaryDirectory',
+        'base.LINEAGE_ID = "v51-canary-v2-preflight"',
+        '"scientific_state_untouched"] = True',
+        'return mode_preflight(args)',
+        'mechanical gate failed BEFORE sealed consumption',
         'CANARY_V2_FAIL_FORMATION',
         'CANARY_V2_FAIL_ENGINEERING',
         'CANARY_V2_PASS',
@@ -88,6 +93,7 @@ def main() -> int:
     print("V5.1 CANARY-V2 STATIC VALIDATION PASSED")
     print("fixed endpoint: 360 updates / 1,474,560 real tokens")
     print("output path: canonical tied full softmax")
+    print("preflight policy: isolated temporary lineage; scientific checkpoint root untouched")
     print("sealed policy: fresh + one-shot fail-closed")
     return 0
 
