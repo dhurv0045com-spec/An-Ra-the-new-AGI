@@ -1,0 +1,38 @@
+{
+ "schema": "anra-v51-canary-preflight/v1",
+ "rung": "B",
+ "device": "cuda",
+ "cuda": true,
+ "parameter_count": {
+  "embedding": 12582912,
+  "attention_per_layer": 786432,
+  "ffn_per_layer": 2162688,
+  "block_norms_per_layer": 1024,
+  "qk_norms_per_layer": 768,
+  "block_total": 2950912,
+  "all_blocks": 29509120,
+  "final_norm": 512,
+  "output_head": 0,
+  "total": 42092544
+ },
+ "instantiated_parameters": 42092544,
+ "precision": {
+  "schema": "anra-v5-precision-contract/v1",
+  "runtime": "cuda",
+  "persistent_parameters": "float32",
+  "compute": "bfloat16-autocast",
+  "logits_loss_reductions": "float32",
+  "global_gradient_norm": "float32 replica-global",
+  "optimizer_moments": "float32",
+  "persistent_bfloat16_shadow": false,
+  "loss_scaler": null,
+  "status": "CERTIFIED_LOCAL"
+ },
+ "loss": 10.238578796386719,
+ "grad_norm_post_clip": 1.0000001192092896,
+ "clip_tolerance": 0.0001,
+ "consumed_real_tokens": 4096,
+ "receipt_name": "PREFLIGHT",
+ "receipt_sha256": "3cc4e3fd0a9867dfd0d77beb93552f3980c6a76601f09b40a0d7c90ff017c06d",
+ "device_note": "bounded local preflight on RTX 4050 Laptop (6GB, idle at audit); NOT the substantive Rung-B campaign, which is operator-executed on a Colab T4 via the pinned notebook"
+}

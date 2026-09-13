@@ -1,0 +1,41 @@
+{
+ "schema": "anra-v51-canary-evaluation/v1",
+ "split": "development",
+ "split_sha256": "082db259d38a8d98a81a960470fab2e28e6e5f533f8b49815bb79cb720b5565c",
+ "rung": "A",
+ "per_family": {
+  "binding": {
+   "n": 661,
+   "exact_with_valid_eos": 0.2027231467473525,
+   "eos_correct": 1.0
+  },
+  "state_order": {
+   "n": 661,
+   "exact_with_valid_eos": 0.0,
+   "eos_correct": 0.07866868381240545
+  },
+  "composition": {
+   "n": 661,
+   "exact_with_valid_eos": 0.12859304084720122,
+   "eos_correct": 1.0
+  },
+  "missing_info": {
+   "n": 661,
+   "exact_with_valid_eos": 0.15431164901664146,
+   "eos_correct": 1.0
+  },
+  "termination": {
+   "n": 661,
+   "exact_with_valid_eos": 0.31316187594553707,
+   "eos_correct": 1.0
+  },
+  "identity": {
+   "n": 661,
+   "exact_with_valid_eos": 0.0,
+   "eos_correct": 0.14977307110438728
+  }
+ },
+ "worst_family": "state_order",
+ "receipt_name": "EVALUATION",
+ "receipt_sha256": "9d77d2eb3c0895320e6533d6fe0f666f86d70ecccd764128fa39901d2c2b4ca4"
+}

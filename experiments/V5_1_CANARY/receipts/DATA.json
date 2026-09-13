@@ -1,0 +1,110 @@
+{
+ "schema": "anra-v51-canary-data-receipt/v1",
+ "generator_version": "v51-canary-data/v1",
+ "generator_source_sha256": "dc6a720fe15092b0f1529a71ad483ccc68f4095ce7288eae528b988ae4d0bfee",
+ "seed": 20260913,
+ "worlds_per_family": 3305,
+ "split_hashes": {
+  "sealed": "6c8f6ae9c52e00056fea7b8156a25cf42f4ed1296c81a22d2dc546ec5643dc21",
+  "development": "082db259d38a8d98a81a960470fab2e28e6e5f533f8b49815bb79cb720b5565c",
+  "training": "2ce44fe170111f08f6c88deda0f685254ba7e1e7cf40c01ddecb71c99c771e46"
+ },
+ "split_sizes": {
+  "training": 11898,
+  "development": 3966,
+  "sealed": 3966
+ },
+ "families": [
+  "identity",
+  "binding",
+  "state_order",
+  "composition",
+  "termination",
+  "missing_info"
+ ],
+ "tokenizer_identity": {
+  "schema": "anra-v5-tokenizer-identity/v1",
+  "vocabulary_size": 24576,
+  "special_token_ids": {
+   "pad": 0,
+   "unk": 1,
+   "bos": 2,
+   "eos": 3
+  },
+  "artifact_sha256": "97e12db63b343312e5e4abc37df9ef4b01fcb1faba792a6420a4c1b15d0a7fbc",
+  "evaluation": {
+   "encoding_megabytes_per_second": 0.7625984471026188,
+   "encoding_seconds": 1.3873316999524832,
+   "identity_roundtrip_failures": 0,
+   "line_tokens": {
+    "maximum": 680,
+    "median": 10,
+    "p95": 58
+   },
+   "literal_unknown_token_occurrences": 1,
+   "records": 14757,
+   "tokens_per_byte": 0.23216667281046752,
+   "tokens_per_byte_by_domain": {
+    "legacy-mixed": 0.23216667281046752
+   },
+   "total_tokens": 245627,
+   "total_utf8_bytes": 1057977,
+   "unexpected_unknown_token_occurrences": 0,
+   "unknown_token_occurrences": 1
+  }
+ },
+ "receipt_sha256": "99676f9f2d602da287c81d766251708a9ddf10e5255ea9151162cbe5356fe80c",
+ "contamination_screen": {
+  "collisions": {
+   "exact": [],
+   "normalized": [],
+   "group": []
+  },
+  "clean": true
+ },
+ "shortcut_baselines_dev": {
+  "binding": {
+   "constant": 0.0,
+   "latest_position": 0.0,
+   "answer_frequency": 0.0,
+   "first_color_in_prompt": 0.25718608169440244,
+   "answer_is_fixed_none": 0.0
+  },
+  "state_order": {
+   "constant": 0.0,
+   "latest_position": 0.0,
+   "answer_frequency": 0.0,
+   "first_color_in_prompt": 0.0,
+   "answer_is_fixed_none": 0.0
+  },
+  "composition": {
+   "constant": 0.0,
+   "latest_position": 0.0,
+   "answer_frequency": 0.0,
+   "first_color_in_prompt": 0.0,
+   "answer_is_fixed_none": 0.0
+  },
+  "missing_info": {
+   "constant": 0.2042360060514372,
+   "latest_position": 0.0,
+   "answer_frequency": 0.2042360060514372,
+   "first_color_in_prompt": 0.1800302571860817,
+   "answer_is_fixed_none": 0.2042360060514372
+  },
+  "termination": {
+   "constant": 0.0,
+   "latest_position": 0.0,
+   "answer_frequency": 0.0,
+   "first_color_in_prompt": 0.0,
+   "answer_is_fixed_none": 0.0
+  },
+  "identity": {
+   "constant": 0.0,
+   "latest_position": 0.0,
+   "answer_frequency": 0.0,
+   "first_color_in_prompt": 0.0,
+   "answer_is_fixed_none": 0.0
+  }
+ },
+ "receipt_name": "DATA"
+}
