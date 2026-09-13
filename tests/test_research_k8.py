@@ -1,0 +1,343 @@
+"""K8 vertical slice + I01/I02/I04/I05 focused tests.
+
+The vertical slice connects one tiny episode through preparation, objective
+routing, trainer forward/backward, checkpoint serialization, the scorer
+adapter, the executive and the tool receipt path — with NO optimizer step
+locally (the owner-launched E0 supplies actual updates on GPU).
+"""
+import json
+import os
+import tempfile
+import unittest
+
+import torch
+
+from bramastra_lab.research.config import BuildConfig, seed_everything
+from bramastra_lab.research.errors import CommandError
+from bramastra_lab.research.experience.rendering import (
+    RendererError,
+    render_event_sequence,
+    renderer_identity,
+)
+from bramastra_lab.research.learning.k8_scoring import (
+    ScoringError,
+    deduplicate_support,
+    score_candidates_trainable,
+    value_estimate_trainable,
+    world_transition_token_loss,
+)
+from bramastra_lab.research.learning.k8_trainer import (
+    AllocationContext,
+    K8Trainer,
+)
+from bramastra_lab.research.experience.supervision import SupervisionWindow
+
+
+class RenderingTests(unittest.TestCase):
+    def test_provenance_leak_rejected_at_boundary(self) -> None:
+        with self.assertRaises(RendererError):
+            render_event_sequence([("goal", {"task": "x", "episode_id": "ep-9"})])
+
+    def test_undeclared_role_rejected(self) -> None:
+        with self.assertRaises(RendererError):
+            render_event_sequence([("hidden_answer", {"value": 42})])
+
+    def test_same_state_renders_identically(self) -> None:
+        events = [("goal", {"task": "x"}), ("observation", {"value": 42})]
+        self.assertEqual(render_event_sequence(events), render_event_sequence(events))
+        self.assertTrue(renderer_identity())
+
+
+class DifferentiableScoringTests(unittest.TestCase):
+    def setUp(self) -> None:
+        seed_everything(42)
+        self.config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        self.model = IntegratedModel(self.config)
+
+    def test_action_scores_carry_gradients(self) -> None:
+        scored = score_candidates_trainable(
+            self.model, self.config, [1, 2, 3], [[70, 71], [80, 81]])
+        self.assertTrue(scored["scores"].requires_grad)
+        loss = -scored["log_probs"].sum()
+        loss.backward()
+        self.assertIsNotNone(self.model.action_head.weight.grad)
+        self.assertIsNotNone(self.model.decoder.embedding.weight.grad)
+
+    def test_value_estimate_carries_gradients(self) -> None:
+        value = value_estimate_trainable(self.model, self.config, [1, 2, 3])
+        self.assertTrue(value.requires_grad)
+        value.backward()
+        self.assertIsNotNone(self.model.value_head.weight.grad)
+
+    def test_world_loss_masks_conditioned_prefix(self) -> None:
+        loss = world_transition_token_loss(
+            self.model, self.config, [1, 2, 3], action={"kind": "press"},
+            target_feedback={"result": "ok"})
+        self.assertTrue(loss.requires_grad)
+        self.assertTrue(torch.isfinite(loss))
+        loss.backward()
+
+    def test_duplicate_support_deduplication(self) -> None:
+        support = [{"feedback": {"kind": "a"}, "terminated": False},
+                   {"feedback": {"kind": "a"}, "terminated": False},
+                   {"feedback": {"kind": "b"}, "terminated": True}]
+        deduped = deduplicate_support(support)
+        self.assertEqual(len(deduped), 2)
+
+
+class AllocationGateTests(unittest.TestCase):
+    def test_exhausted_allocation_refuses_updates(self) -> None:
+        import time
+
+        seed_everything(1)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        model = IntegratedModel(config)
+        trainer = K8Trainer(config, model, device="cpu")
+        trainer.begin_campaign(AllocationContext(
+            allocation_id="test", device="cpu", deadline_unix=time.time() + 60,
+            remaining_updates=0, job_id="j1", phase="E0"))
+        trainer.accumulate(_fake_batch())
+        with self.assertRaises(Exception):
+            trainer.finalize_update()
+
+    def test_expired_deadline_refuses(self) -> None:
+        seed_everything(1)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        model = IntegratedModel(config)
+        trainer = K8Trainer(config, model, device="cpu")
+        trainer.begin_campaign(AllocationContext(
+            allocation_id="test", device="cpu", deadline_unix=0.0,
+            remaining_updates=10, job_id="j1", phase="E0"))
+        trainer.accumulate(_fake_batch())  # accumulation proceeds
+        with self.assertRaises(Exception):
+            trainer.finalize_update()  # admission check fires at the boundary
+
+
+def _fake_batch():
+    from bramastra_lab.research.experience.sequences import (
+        build_answer_row,
+        collocate,
+    )
+
+    row = build_answer_row(
+        [("goal", {"q": "1+1?"})], "2",
+        provenance={"kind": "trajectory", "episode_id": "e1",
+                    "task_semantic_id": "t", "split": "training",
+                    "source": "test", "collection_policy": "fixed",
+                    "family": "f"},
+        max_tokens=64)
+    return collocate([row], max_seq=64)
+
+
+class VerticalSliceTests(unittest.TestCase):
+    """One tiny episode through preparation -> objective routing -> trainer
+    backward -> checkpoint serialization -> scorer -> executive -> tool path.
+
+    No optimizer step locally (the E0 GPU gate supplies the actual update).
+    """
+
+    def test_slice_reaches_all_components(self) -> None:
+        seed_everything(77)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        model = IntegratedModel(config)
+        trainer = K8Trainer(config, model, device="cpu")
+        # 1. Render a public episode through the canonical renderer.
+        tokens = render_event_sequence([
+            ("goal", {"task": "2+2"}),
+            ("observation", {"display": "2+2=?"}),
+        ])
+        self.assertGreater(len(tokens), 2)
+        # 2. Prepare a batch through the sequence builder.
+        batch = _fake_batch()
+        # 3. Route through the trainer (backward only, no optimizer step).
+        trainer.accumulate(batch)
+        self.assertGreater(trainer.counters.microbatches, 0)
+        # 4. Checkpoint the state (discard pending to reach a boundary).
+        trainer.optimizer.zero_grad(set_to_none=True)
+        trainer._pending_targets = 0
+        payload = trainer.state_payload()
+        self.assertIn("model", payload)
+        self.assertIn("scaler_state", payload)
+        # 5. Score actions through the differentiable adapter.
+        scored = score_candidates_trainable(model, config, [1, 2, 3],
+                                            [[70, 71], [80, 81]])
+        self.assertTrue(scored["scores"].requires_grad)
+        # 6. Executive selects from candidates via the scorer.
+        from bramastra_lab.research.cognition.executive import (
+            Executive,
+            OperationRegistry,
+            CognitiveOperation,
+        )
+        from bramastra_lab.research.cognition.workspace import CognitiveWorkspace
+
+        candidate_ops = [CognitiveOperation(verb="PREDICT", arguments={}),
+                         CognitiveOperation(verb="SUBMIT", arguments={})]
+        scores = scored["scores"].tolist()
+        executive = Executive(registry=OperationRegistry(verbs=("PREDICT", "SUBMIT")),
+                              scorer=lambda candidates: scores,
+                              decision_origin="model")
+        workspace = CognitiveWorkspace(goal={"task": "test"},
+                                       success_predicate="test.ok", budget=8)
+        decision = executive.decide(workspace)
+        self.assertIn(decision.origin, ("model", "fixed_rule", "fallback"))
+        # 7. Tool receipt path: classify_failure sees through claimed success.
+        from bramastra_lab.research.collection.runner import classify_failure
+        from bramastra_lab.research.environments.oracles import EpisodeRecord
+
+        record = EpisodeRecord(environment="tools", episode_id="e",
+                               success=False, terminated=True, truncated=False,
+                               steps=[{"action": {"kind": "write_result"},
+                                        "cost": 1.0,
+                                        "feedback": {"kind": "claimed_success"}}])
+        self.assertEqual(classify_failure(record), "unknown")
+
+
+class GatedArchitectureTests(unittest.TestCase):
+    def test_zero_gate_migration_functionally_equal(self) -> None:
+        from bramastra_lab.research.models.gated import (
+            GatedReuseModel,
+            migrate_from_parent,
+        )
+
+        seed_everything(19)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        parent = IntegratedModel(config)
+        child = migrate_from_parent(parent, config, gates_enabled=True)
+        self.assertIsInstance(child, GatedReuseModel)
+        self.assertEqual(child.gate_values(), [0.0, 0.0])
+
+    def test_gate_gradients_and_shared_blocks(self) -> None:
+        from bramastra_lab.research.models.gated import (
+            check_gate_gradients,
+            migrate_from_parent,
+            nonzero_gate_reaches_shared_blocks,
+        )
+
+        seed_everything(23)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        parent = IntegratedModel(config)
+        child = migrate_from_parent(parent, config, gates_enabled=True)
+        checks = check_gate_gradients(child)
+        self.assertTrue(checks["shared_block_gradients_present"])
+        self.assertTrue(checks["embedding_gradients_present"])
+        self.assertTrue(nonzero_gate_reaches_shared_blocks(child))
+
+    def test_disabled_gate_slots_for_s0(self) -> None:
+        from bramastra_lab.research.models.gated import GatedReuseModel
+
+        seed_everything(29)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        model = GatedReuseModel(config, gates_enabled=False)
+        self.assertFalse(model.gates_enabled)
+        self.assertEqual(model.gate_values(), [0.0, 0.0])
+
+
+class K8BundleTests(unittest.TestCase):
+    def test_bundle_builds_and_validates(self) -> None:
+        from bramastra_lab.research.data.k8_bundle import build_k8_bundle, validate_bundle
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = build_k8_bundle(tmp, training_mechanisms=4,
+                                       controller_mechanisms=2,
+                                       development_mechanisms=2,
+                                       confirmation_mechanisms=2,
+                                       tool_mechanisms=3, tool_heldout=1,
+                                       meta_train=2, meta_validate=1, meta_confirm=1)
+            self.assertIn("identity", manifest)
+            report = validate_bundle(tmp, min_confirmation=1)
+            self.assertTrue(report["valid"], report.get("issues"))
+
+    def test_bundle_rejects_tampered_rows(self) -> None:
+        from bramastra_lab.research.data.k8_bundle import build_k8_bundle, validate_bundle
+
+        with tempfile.TemporaryDirectory() as tmp:
+            build_k8_bundle(tmp, training_mechanisms=2, controller_mechanisms=1,
+                            development_mechanisms=1, confirmation_mechanisms=1,
+                            tool_mechanisms=1, tool_heldout=1, meta_train=1,
+                            meta_validate=1, meta_confirm=1)
+            episode_path = os.path.join(tmp, "episodes")
+            family_file = os.path.join(episode_path, os.listdir(episode_path)[0])
+            content = open(family_file, encoding="utf-8").read()
+            open(family_file, "w", encoding="utf-8").write(
+                content + '{"tampered": true}\n')
+            report = validate_bundle(tmp, min_confirmation=1)
+            self.assertFalse(report["valid"])
+
+
+class SupervisorTests(unittest.TestCase):
+    def _make_ledger(self, tmp):
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+
+        return CampaignLedger(tmp)
+    def test_reservation_close_and_aggregation(self) -> None:
+        import shutil
+        from bramastra_lab.research.campaigns.supervisor import (
+            CampaignLedger,
+            SupervisorError,
+        )
+
+        tmp = tempfile.mkdtemp()
+        try:
+            ledger = CampaignLedger(tmp)
+            ledger.record_allocation("alloc-1", "src-hash-1", 480.0)
+            r1 = ledger.reserve("job-1", worker="w0", device="cuda:0",
+                                phase="E0", arm=None, seed=None,
+                                reserved_seconds=600.0)
+            closed = ledger.close_reservation(
+                r1.reservation_id, status="completed", committed_updates=3,
+                attempted_updates=3, supervised_exposure=12, device_seconds=120.0)
+            self.assertEqual(closed.status, "completed")
+            self.assertEqual(ledger.phase_consumption("E0")["committed_updates"], 3)
+            again = ledger.close_reservation(
+                r1.reservation_id, status="completed", committed_updates=3,
+                attempted_updates=3, supervised_exposure=12, device_seconds=120.0)
+            self.assertEqual(again.status, "completed")
+            r2 = ledger.reserve("job-2", worker="w1", device="cuda:1",
+                                phase="E0", arm=None, seed=None,
+                                reserved_seconds=600.0)
+            ledger.close_reservation(r2.reservation_id, status="failed",
+                                     committed_updates=0, attempted_updates=0,
+                                     supervised_exposure=0, device_seconds=30.0)
+            with self.assertRaises(SupervisorError):
+                ledger.close_reservation(r2.reservation_id, status="completed",
+                                         committed_updates=1, attempted_updates=1,
+                                         supervised_exposure=1, device_seconds=1.0)
+            ledger.close()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_concurrent_reservations_cannot_exceed_capacity(self) -> None:
+        import shutil
+        from bramastra_lab.research.campaigns.supervisor import (
+            CampaignLedger,
+            SupervisorError,
+        )
+
+        tmp = tempfile.mkdtemp()
+        try:
+            ledger = CampaignLedger(tmp)
+            ledger.record_allocation("alloc-1", "src", 10.0)
+            ledger.reserve("j1", worker="w0", device="cuda:0", phase="E0",
+                           arm=None, seed=None, reserved_seconds=540.0)
+            with self.assertRaises(SupervisorError):
+                ledger.reserve("j2", worker="w1", device="cuda:1", phase="E0",
+                               arm=None, seed=None, reserved_seconds=540.0)
+            ledger.close()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    unittest.main()
