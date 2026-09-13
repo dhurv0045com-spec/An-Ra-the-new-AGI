@@ -179,14 +179,19 @@ class WriterFenceTests(unittest.TestCase):
             token2 = ckpt.acquire_writer_fence(tmp)
             ckpt.release_writer_fence(tmp, token2)
 
-    def test_stale_fence_is_broken(self) -> None:
+    def test_stale_fence_requires_explicit_force(self) -> None:
+        """A held lease is never stolen for its age (B2.2 R4)."""
         with tempfile.TemporaryDirectory() as tmp:
             lock = os.path.join(tmp, "writer.lock")
             with open(lock, "w", encoding="utf-8") as handle:
                 handle.write("999999:0.0")
             old = time.time() - 10 * 3600
             os.utime(lock, (old, old))
-            token = ckpt.acquire_writer_fence(tmp)
+            with self.assertRaises(CheckpointError) as caught:
+                ckpt.acquire_writer_fence(tmp)
+            self.assertIn("explicit", str(caught.exception))
+            # Recovery from a crashed writer is an explicit operator decision.
+            token = ckpt.acquire_writer_fence(tmp, force=True)
             self.assertTrue(token)
             ckpt.release_writer_fence(tmp, token)
 

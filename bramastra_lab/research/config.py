@@ -353,11 +353,14 @@ class ReplaySection:
     proportion: float = 0.25
     family_weights: Mapping[str, float] = field(default_factory=dict)
     ledger_path: str = "episodes.jsonl"
+    on_empty: str = "refuse"
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> "ReplaySection":
         values = _strict_section(
-            raw, frozenset({"enabled", "proportion", "family_weights", "ledger_path"}),
+            raw,
+            frozenset({"enabled", "proportion", "family_weights", "ledger_path",
+                       "on_empty"}),
             "replay section")
         kwargs: dict[str, Any] = {}
         if "enabled" in values:
@@ -380,6 +383,10 @@ class ReplaySection:
             if not isinstance(values["ledger_path"], str) or not values["ledger_path"]:
                 raise ConfigError("replay.ledger_path must be a nonempty string")
             kwargs["ledger_path"] = values["ledger_path"]
+        if "on_empty" in values:
+            if values["on_empty"] not in ("refuse", "skip"):
+                raise ConfigError("replay.on_empty must be 'refuse' or 'skip'")
+            kwargs["on_empty"] = values["on_empty"]
         section = cls(**kwargs)
         section.validate()
         return section
@@ -392,7 +399,7 @@ class ReplaySection:
         return {
             "enabled": self.enabled, "proportion": self.proportion,
             "family_weights": dict(self.family_weights),
-            "ledger_path": self.ledger_path,
+            "ledger_path": self.ledger_path, "on_empty": self.on_empty,
         }
 
 

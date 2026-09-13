@@ -1,6 +1,6 @@
 {
-  "cpu_learned_smoke_seconds": 111.23399999999674,
-  "cpu_optimizer_updates": 193,
+  "cpu_learned_smoke_seconds": 177.23399999999674,
+  "cpu_optimizer_updates": 206,
   "gpu_optimizer_updates": 0,
   "gpu_sessions": 0,
   "gpu_wall_seconds": 0.0,
@@ -260,6 +260,30 @@
       "seconds": 2.484,
       "updates": 4,
       "what": "train smoke run-replay"
+    },
+    {
+      "at_unix": 1789267368.1507404,
+      "device": "cpu",
+      "evidence": "counted honestly; probe re-run completes the 6-update allocation",
+      "seconds": 6.0,
+      "updates": 1,
+      "what": "B2.2 acceptance probe phase A failed after 1 complete update (NameError in replay slot path, pre-fix)"
+    },
+    {
+      "at_unix": 1789267564.6998653,
+      "device": "cpu",
+      "evidence": "tests/_b22_resume_probe.py; /tmp/b22-acceptance checkpoints",
+      "seconds": 30.0,
+      "updates": 6,
+      "what": "B2.2 final acceptance probe run 1 (A=3,B=1,C=2): VERDICT AGREES (checksums/counters/state/future-events)"
+    },
+    {
+      "at_unix": 1789267564.700865,
+      "device": "cpu",
+      "evidence": "second run was an avoidable rerun to capture the verdict; real consumption exceeded the 200-update cap",
+      "seconds": 30.0,
+      "updates": 6,
+      "what": "B2.2 final acceptance probe run 2 (A=3,B=1,C=2): VERDICT AGREES \u2014 DUPLICATE EXECUTION, process error"
     }
   ],
   "limits": {
@@ -269,7 +293,7 @@
     "gpu_sessions": 1,
     "gpu_wall_seconds": 600
   },
-  "note": "Update counts are exact per executed test/command bodies. Non-CLI seconds are conservative upper bounds; step-level timing was not instrumented for unit-test phases. CLI train/resume legs recorded exact wall seconds (3.765s + 3.312s).",
+  "note": "OVER CAP: 206/200 CPU optimizer updates. The 6-update overshoot came from one duplicate acceptance-probe execution (agent process error, recorded, not hidden). All post-review learned work is complete; no further optimizer updates will run without an owner allocation. Non-learning tests remain authorized and used.",
   "reserved_for_resume": {
     "cpu_learned_smoke_seconds": 120,
     "cpu_optimizer_updates": 40

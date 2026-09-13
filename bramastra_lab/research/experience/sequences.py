@@ -26,7 +26,7 @@ from bramastra_lab.research.experience.codec import (
 
 PROVENANCE_FIELDS = frozenset({
     "kind", "episode_id", "task_semantic_id", "split", "source", "collection_policy",
-    "pair_group_id", "packed_rows", "family",
+    "pair_group_id", "packed_rows", "family", "mechanism_cluster", "trainable",
 })
 FORBIDDEN_PROVENANCE_FIELDS = frozenset({
     "answer", "label", "gold", "target", "reward", "prediction", "probability",

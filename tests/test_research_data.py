@@ -162,7 +162,8 @@ class ManifestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             handle = load_dataset(self.make_manifest(tmp))
             allowed_keys = {"example_id", "kind", "split", "semantic_identity",
-                            "group_id", "family", "source"}
+                            "group_id", "family", "mechanism_cluster", "trainable",
+                            "source"}
             for example in handle.examples:
                 metadata = example.inference_metadata()
                 self.assertEqual(set(metadata), allowed_keys)

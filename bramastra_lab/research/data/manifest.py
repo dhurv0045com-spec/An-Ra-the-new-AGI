@@ -52,6 +52,7 @@ class Example:
     line_number: int
     trainable: bool
     family: str = "default"
+    mechanism_cluster: str | None = None
 
     def public_input(self) -> Any:
         """The public, learnable input; answers are not part of it."""
@@ -76,6 +77,8 @@ class Example:
             "semantic_identity": self.semantic_identity,
             "group_id": self.group_id,
             "family": self.family,
+            "mechanism_cluster": self.mechanism_cluster,
+            "trainable": self.trainable,
             "source": self.source,
         }
 
@@ -146,10 +149,15 @@ def _load_jsonl(path: str) -> list[tuple[int, Mapping[str, Any]]]:
 
 
 def _semantic_content(kind: str, record: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The bytes that define semantic identity: input plus teacher answer.
+    """The bytes that define the semantic CONTENT digest: input plus teacher answer.
 
     Surface names, example IDs, provenance and file positions are excluded so
-    renamed duplicates are still recognized as the same semantics.
+    renamed duplicates are still recognized as the same content. This digest
+    is NOT a validated hidden-mechanism equivalence class: two renderings of
+    one mechanism that differ in input or answer bytes hash differently, and
+    qualified mechanism-cluster identity must be declared separately via the
+    manifest's ``mechanism_cluster`` field (required for cluster-transfer
+    claims; generalization claims without it are unsupported).
     """
     if kind == "language":
         return {"input": record.get("text")}
@@ -221,11 +229,14 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
 
         file_sha = hashlib.sha256(file_bytes).hexdigest()
         file_records.append({"path": path, "split": split, "kind": kind,
-                             "sha256": file_sha, "bytes": len(file_bytes)})
+                             "sha256": file_sha, "bytes": len(file_bytes),
+                             "trainable": trainable, "license": entry_license,
+                             "provenance": entry_provenance})
 
         for line_number, record in _load_jsonl(absolute):
             unknown_example = set(record) - {"example_id", "text", "prompt_events", "answer",
-                                             "group", "family"}
+                                             "group", "family", "mechanism_cluster",
+                                             "trainable"}
             if unknown_example:
                 raise DatasetError(
                     f"{path}:{line_number} has unknown fields: {sorted(unknown_example)}")
@@ -256,6 +267,14 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
             family = record.get("family", "default")
             if not isinstance(family, str) or not family:
                 raise DatasetError(f"{path}:{line_number} family must be a nonempty string")
+            mechanism_cluster = record.get("mechanism_cluster")
+            if mechanism_cluster is not None                     and (not isinstance(mechanism_cluster, str) or not mechanism_cluster):
+                raise DatasetError(
+                    f"{path}:{line_number} mechanism_cluster must be a nonempty string or null")
+            example_trainable = record.get("trainable", trainable)
+            if not isinstance(example_trainable, bool):
+                raise DatasetError(f"{path}:{line_number} trainable must be a boolean")
+            trainable = trainable and example_trainable
             semantic = content_identity(_semantic_content(kind, record))
             prior = seen_semantic.get(semantic)
             if prior is not None and prior != split:
@@ -270,7 +289,7 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
                 semantic_identity=semantic, content_identity=content_identity(record),
                 group_id=group_id,
                 source=f"{path}:{line_number}", line_number=line_number, trainable=trainable,
-                family=family))
+                family=family, mechanism_cluster=mechanism_cluster))
 
     if not examples:
         raise DatasetError("manifest references contain no examples", status=DATA_NOT_READY)

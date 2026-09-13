@@ -189,6 +189,7 @@ class ControllerState:
     last_metrics_update: int | None = None
     pending_collapse: Mapping[str, int] = field(default_factory=dict)
     consecutive_recovery_passes: int = 0
+    last_controller_eval_update: int | None = None
     history: tuple[TransitionRecord, ...] = ()
 
     def __post_init__(self) -> None:
@@ -208,6 +209,7 @@ class ControllerState:
             "last_metrics_update": self.last_metrics_update,
             "pending_collapse": dict(self.pending_collapse),
             "consecutive_recovery_passes": self.consecutive_recovery_passes,
+            "last_controller_eval_update": self.last_controller_eval_update,
             "history": [record.to_dict() for record in self.history],
         }
 
@@ -217,7 +219,7 @@ class ControllerState:
                  "protected_families", "qualifying_families", "acquiring_family",
                  "window_start_score", "hold_return_state", "hold_reason",
                  "last_metrics_update", "pending_collapse", "consecutive_recovery_passes",
-                 "history"}
+                 "last_controller_eval_update", "history"}
         unknown = set(raw) - known
         if unknown:
             raise ControllerInputError(f"controller state has unknown fields: {sorted(unknown)}")
@@ -233,6 +235,7 @@ class ControllerState:
             last_metrics_update=raw["last_metrics_update"],
             pending_collapse=dict(raw.get("pending_collapse", {})),
             consecutive_recovery_passes=raw.get("consecutive_recovery_passes", 0),
+            last_controller_eval_update=raw.get("last_controller_eval_update"),
             history=tuple(TransitionRecord.from_dict(record) for record in raw["history"]),
         )
 

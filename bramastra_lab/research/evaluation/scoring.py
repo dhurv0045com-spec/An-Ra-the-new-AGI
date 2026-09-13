@@ -10,6 +10,7 @@ defaults to no-promotion whenever evidence is insufficient.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any, Mapping, Sequence
 
 
@@ -41,12 +42,17 @@ class RawOutcome:
     pair_group_id: str | None = None
     role: str | None = None   # for paired items: primary | swapped
     confidence: float | None = None  # optional declared confidence for Brier
+    case_id: str = ""         # explicit evaluation case id, separate from clusters
 
     def __post_init__(self) -> None:
         for name in ("outcome_id", "pool", "split", "family", "task_semantic_id", "label"):
             value = getattr(self, name)
             if not isinstance(value, str) or not value:
                 raise EvaluationError(f"{name} must be a nonempty string")
+        if not isinstance(self.case_id, str) or not self.case_id:
+            raise EvaluationError(
+                "case_id must be a nonempty string identifying the exact evaluation "
+                "case, separate from the semantic world/cluster identity")
         if self.prediction is not None and not isinstance(self.prediction, str):
             raise EvaluationError("prediction must be a string or None")
         if not isinstance(self.stopped_on_eos, bool):
@@ -250,16 +256,56 @@ def sustained_gate(evaluations: Sequence[tuple[int, float]], *, threshold: float
     }
 
 
+def _pair_outcomes_by_case(reference_outcomes: Sequence[RawOutcome],
+                           candidate_outcomes: Sequence[RawOutcome]) -> dict[str, tuple[RawOutcome, RawOutcome]]:
+    """Pair reference/candidate outcomes on exact case identity (B2.2 R6).
+
+    A pair requires the same ``task_semantic_id`` AND ``case_id``, with equal
+    label, family, split and cost. Duplicates on either side and unmatched
+    or mismatched cases reject: different cases inside one world can never
+    produce a delta.
+    """
+    def index(outcomes: Sequence[RawOutcome], side: str) -> dict[tuple[str, str], RawOutcome]:
+        indexed: dict[tuple[str, str], RawOutcome] = {}
+        for outcome in outcomes:
+            key = (outcome.task_semantic_id, outcome.case_id)
+            if key in indexed:
+                raise EvaluationError(
+                    f"duplicate {side} outcome for case {key[1]!r} in world {key[0]!r}")
+            indexed[key] = outcome
+        return indexed
+
+    ref_index = index(reference_outcomes, "reference")
+    cand_index = index(candidate_outcomes, "candidate")
+    unmatched = sorted(set(ref_index) ^ set(cand_index))
+    if unmatched:
+        raise EvaluationError(
+            f"reference/candidate cases do not pair: {unmatched[:4]}")
+    pairs: dict[str, tuple[RawOutcome, RawOutcome]] = {}
+    for (task, case), ref_outcome in ref_index.items():
+        cand_outcome = cand_index[(task, case)]
+        mismatches = [name for name, a, b in (
+            ("label", ref_outcome.label, cand_outcome.label),
+            ("family", ref_outcome.family, cand_outcome.family),
+            ("split", ref_outcome.split, cand_outcome.split),
+            ("cost", ref_outcome.cost, cand_outcome.cost)) if a != b]
+        if mismatches:
+            raise EvaluationError(
+                f"paired case {case!r} in world {task!r} differs on {mismatches}")
+        pairs[f"{task}\x00{case}"] = (ref_outcome, cand_outcome)
+    return pairs
+
+
 def clustered_bootstrap_delta(reference_outcomes: Sequence[RawOutcome],
                               candidate_outcomes: Sequence[RawOutcome], *,
                               iterations: int = 1000, seed: int = 0,
                               confidence_level: float = 0.95) -> dict[str, Any]:
     """Bootstrap the paired complete-answer delta by semantic world cluster.
 
-    Resamples clusters (``task_semantic_id``), never individual rows, so all
-    evaluations of one world move together (W08: correlated rows are not
-    independent evidence). Reference and candidate outcomes must pair on
-    task ids; unmatched tasks reject.
+    Outcomes first pair on exact case identity (same task, same case id,
+    equal label/family/split/cost — duplicates and mismatches reject), then
+    clusters (``task_semantic_id``) are resampled, never individual rows, so
+    all evaluations of one world move together (W08).
     """
     import random as _random
 
@@ -267,34 +313,26 @@ def clustered_bootstrap_delta(reference_outcomes: Sequence[RawOutcome],
         raise EvaluationError("iterations must be at least 1")
     if not 0.0 < confidence_level < 1.0:
         raise EvaluationError("confidence_level must lie in (0, 1)")
-    ref: dict[str, list[int]] = {}
-    cand: dict[str, list[int]] = {}
-    for outcome in reference_outcomes:
-        ref.setdefault(outcome.task_semantic_id, []).append(
-            1 if outcome.complete_answer_correct() else 0)
-    for outcome in candidate_outcomes:
-        cand.setdefault(outcome.task_semantic_id, []).append(
-            1 if outcome.complete_answer_correct() else 0)
-    unmatched = sorted(set(ref) ^ set(cand))
-    if unmatched:
-        raise EvaluationError(
-            f"reference/candidate tasks do not pair: {unmatched[:4]}")
-    cluster_deltas: dict[str, float] = {}
-    for task in ref:
-        r = sum(ref[task]) / len(ref[task])
-        c = sum(cand[task]) / len(cand[task])
-        cluster_deltas[task] = c - r
-    tasks = sorted(cluster_deltas)
+    pairs = _pair_outcomes_by_case(reference_outcomes, candidate_outcomes)
+    cluster_deltas: dict[str, list[float]] = {}
+    for key, (ref_outcome, cand_outcome) in pairs.items():
+        task = key.split("\x00")[0]
+        delta = (1 if cand_outcome.complete_answer_correct() else 0) \
+            - (1 if ref_outcome.complete_answer_correct() else 0)
+        cluster_deltas.setdefault(task, []).append(float(delta))
+    cluster_means = {task: sum(values) / len(values)
+                     for task, values in cluster_deltas.items()}
+    tasks = sorted(cluster_means)
     rng = _random.Random(seed)
     sampled: list[float] = []
     for _ in range(iterations):
         draw = [tasks[rng.randrange(len(tasks))] for _ in tasks]
-        sampled.append(sum(cluster_deltas[task] for task in draw) / len(tasks))
+        sampled.append(sum(cluster_means[task] for task in draw) / len(tasks))
     sampled.sort()
     alpha = (1.0 - confidence_level) / 2.0
     low = sampled[max(0, int(alpha * iterations))]
     high = sampled[min(iterations - 1, int((1 - alpha) * iterations))]
-    point = sum(cluster_deltas.values()) / len(tasks)
+    point = sum(cluster_means.values()) / len(tasks)
     return {
         "delta": point,
         "ci_low": low,
@@ -321,48 +359,120 @@ class PromotionConfig:
         return dict(self.__dict__)
 
 
-def decide_promotion(*, reference_metrics: Mapping[str, Any],
-                     candidate_metrics: Mapping[str, Any],
-                     reference_family: Mapping[str, dict[str, float]],
-                     candidate_family: Mapping[str, dict[str, float]],
-                     paired: Mapping[str, Any] | None,
-                     config: PromotionConfig,
-                     evidence_complete: bool,
-                     sealed_fresh: bool | None = None,
-                     clustered_uncertainty: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """Frozen-margin promotion decision; insufficient evidence defaults to
-    no_promotion. A family regression can never be hidden by the aggregate.
-    Underpowered evidence (too few clusters, or a confidence interval that
-    straddles zero) can never produce a confident accept."""
+@dataclass(frozen=True)
+class EvaluationProtocol:
+    """The declared protocol an evaluation runs under (B2.2 R6).
+
+    ``paired_goal`` makes pair receipts mandatory for promotion; protocols
+    without paired goals record that pair criteria are explicitly not
+    applicable instead of silently bypassing the gate.
+    ``requires_uncertainty`` makes a clustered-uncertainty receipt mandatory.
+    """
+
+    protocol_id: str
+    paired_goal: bool = False
+    requires_uncertainty: bool = False
+    max_new_tokens: int | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.protocol_id, str) or not self.protocol_id.strip():
+            raise EvaluationError("protocol_id must be a nonempty string")
+        if self.max_new_tokens is not None \
+                and (not isinstance(self.max_new_tokens, int)
+                     or isinstance(self.max_new_tokens, bool) or self.max_new_tokens <= 0):
+            raise EvaluationError("max_new_tokens must be a positive integer")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"protocol_id": self.protocol_id, "paired_goal": self.paired_goal,
+                "requires_uncertainty": self.requires_uncertainty,
+                "max_new_tokens": self.max_new_tokens}
+
+
+@dataclass(frozen=True)
+class EvidenceBundle:
+    """One validated evidence bundle binding a promotion claim together."""
+
+    parent_identity: str
+    child_identity: str
+    protocol: EvaluationProtocol
+    pool: str
+    data_identity: str
+    reference_metrics: Mapping[str, Any]
+    candidate_metrics: Mapping[str, Any]
+    reference_family: Mapping[str, dict[str, float]]
+    candidate_family: Mapping[str, dict[str, float]]
+    paired: Mapping[str, Any] | None = None
+    clustered_uncertainty: Mapping[str, Any] | None = None
+    sealed_fresh: bool | None = None
+    mechanism_cluster_evidence: bool = False
+
+    def __post_init__(self) -> None:
+        for name in ("parent_identity", "child_identity", "pool", "data_identity"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise EvaluationError(f"evidence bundle {name} must be a nonempty string")
+        if self.parent_identity == self.child_identity:
+            raise EvaluationError("promotion parent and child must differ")
+        if not isinstance(self.protocol, EvaluationProtocol):
+            raise EvaluationError("evidence bundle requires an EvaluationProtocol")
+        if not isinstance(self.reference_metrics, Mapping) \
+                or not isinstance(self.candidate_metrics, Mapping):
+            raise EvaluationError("evidence bundle requires metric mappings")
+        for metrics in (self.reference_metrics, self.candidate_metrics):
+            for key, value in metrics.items():
+                if isinstance(value, float) and not math.isfinite(value):
+                    raise EvaluationError(f"nonfinite metric {key!r} in evidence bundle")
+
+
+def decide_promotion(evidence: EvidenceBundle, config: PromotionConfig) -> dict[str, Any]:
+    """Protocol-bound promotion from a validated evidence bundle.
+
+    Missing required receipts are insufficient evidence, never a bypass
+    (B2.2 R6): a paired-goal protocol without a pair receipt and an
+    uncertainty-requiring protocol without an uncertainty receipt both
+    refuse. Pair criteria are explicitly not applicable under protocols
+    without paired goals, and that is recorded. A family regression can
+    never be hidden by the aggregate.
+    """
     reasons: list[str] = []
-    if not evidence_complete:
-        reasons.append("evidence_incomplete")
+    if evidence.protocol.paired_goal:
+        if evidence.paired is None:
+            reasons.append("missing_required_pair_receipt")
+        elif evidence.paired.get("pairs", 0) < config.min_pairs_for_goal_check:
+            reasons.append("insufficient_pairs_for_goal_check")
+        elif evidence.paired.get("both_correct_rate", 0.0) < config.both_correct_floor:
+            reasons.append("both_correct_floor_not_met")
+    else:
+        pair_not_applicable = True
+    if evidence.protocol.requires_uncertainty and evidence.clustered_uncertainty is None:
+        reasons.append("missing_required_uncertainty_receipt")
+    if evidence.clustered_uncertainty is not None:
+        min_clusters = config.min_clusters
+        if evidence.clustered_uncertainty.get("clusters", 0) < min_clusters:
+            reasons.append(
+                f"underpowered: {evidence.clustered_uncertainty['clusters']} clusters < "
+                f"{min_clusters}")
+        ref_rate_early = evidence.reference_metrics.get("complete_answer_rate", 0.0)
+        cand_rate_early = evidence.candidate_metrics.get("complete_answer_rate", 0.0)
+        if evidence.clustered_uncertainty.get("ci_includes_zero") \
+                and cand_rate_early - ref_rate_early >= config.primary_margin:
+            reasons.append("bootstrap_ci_includes_zero")
+    if evidence.sealed_fresh is False:
+        reasons.append("sealed_pool_reuse_detected")
+    reference_metrics = evidence.reference_metrics
+    candidate_metrics = evidence.candidate_metrics
     ref_rate = reference_metrics.get("complete_answer_rate", 0.0)
     cand_rate = candidate_metrics.get("complete_answer_rate", 0.0)
     if cand_rate - ref_rate < config.primary_margin:
         reasons.append(
             f"primary_margin_not_met: {cand_rate:.4f} - {ref_rate:.4f} < "
             f"{config.primary_margin}")
-    retention = retention_report(reference_family, candidate_family,
+    retention = retention_report(evidence.reference_family, evidence.candidate_family,
                                  regression_margin=config.regression_margin)
     if retention["regressed_families"]:
         reasons.append(
             f"family_regression: {retention['regressed_families']} "
             f"(worst {retention['worst_family']} delta {retention['worst_delta']:.4f})")
-    if paired is not None and paired.get("pairs", 0) < config.min_pairs_for_goal_check:
-        reasons.append("insufficient_pairs_for_goal_check")
-    elif paired is not None and paired.get("both_correct_rate", 0.0) < config.both_correct_floor:
-        reasons.append("both_correct_floor_not_met")
-    if sealed_fresh is False:
-        reasons.append("sealed_pool_reuse_detected")
-    if clustered_uncertainty is not None:
-        if clustered_uncertainty.get("clusters", 0) < config.min_clusters:
-            reasons.append(
-                f"underpowered: {clustered_uncertainty['clusters']} clusters < "
-                f"{config.min_clusters}")
-        elif clustered_uncertainty.get("ci_includes_zero") \
-                and cand_rate - ref_rate >= config.primary_margin:
-            reasons.append("bootstrap_ci_includes_zero")
     decision = "accept" if not reasons else (
         "diagnose" if len(reasons) == 1 and reasons[0] == "insufficient_pairs_for_goal_check"
         else "no_promotion")
@@ -373,4 +483,12 @@ def decide_promotion(*, reference_metrics: Mapping[str, Any],
         "reference_complete_answer_rate": ref_rate,
         "retention": retention,
         "thresholds_frozen": True,
+        "protocol": evidence.protocol.to_dict(),
+        "pair_criteria": ("applied" if evidence.protocol.paired_goal
+                          else "not_applicable_for_this_protocol"),
+        "mechanism_cluster_evidence": evidence.mechanism_cluster_evidence,
+        "pool": evidence.pool,
+        "parent_identity": evidence.parent_identity,
+        "child_identity": evidence.child_identity,
+        "data_identity": evidence.data_identity,
     }

@@ -196,3 +196,70 @@ class ReplayEngine:
         self.consumed_by_family = dict(state["consumed_by_family"])
         self.planned_total = state["planned_total"]
         self._orders = {family: list(order) for family, order in state["orders"].items()}
+
+
+class ReplaySchedule:
+    """Persisted fractional replay-slot scheduler (B2.2 R3).
+
+    A slot fires when accumulated credit crosses one whole slot, computed in
+    exact rational arithmetic, so a proportion like 0.3 produces the same
+    deterministic fire pattern in an uninterrupted run and in any split run
+    that persists the credit. Scheduling is a function of committed optimizer
+    updates, never of loop-local indexes.
+    """
+
+    schema = "bramastra-replay-schedule/v1"
+
+    def __init__(self, proportion: float, *, credit_num: int = 0,
+                 slots_fired: int = 0) -> None:
+        from fractions import Fraction
+
+        if not 0.0 < proportion <= 1.0:
+            raise ReplayStateError("replay proportion must lie in (0, 1]")
+        fraction = Fraction(proportion).limit_denominator(1000)
+        self.numerator = int(fraction.numerator)
+        self.denominator = int(fraction.denominator)
+        if credit_num < 0 or slots_fired < 0:
+            raise ReplayStateError("replay schedule state must be nonnegative")
+        if credit_num >= self.denominator:
+            raise ReplayStateError("replay credit must be smaller than one slot")
+        self.credit_num = credit_num
+        self.slots_fired = slots_fired
+
+    def slot_due(self) -> bool:
+        """Advance one decision; True when this update replays."""
+        self.credit_num += self.numerator
+        if self.credit_num >= self.denominator:
+            self.credit_num -= self.denominator
+            self.slots_fired += 1
+            return True
+        return False
+
+    def peek(self) -> bool:
+        """Non-mutating preview of the next decision (for trace comparison)."""
+        return self.credit_num + self.numerator >= self.denominator
+
+    def state(self) -> dict[str, Any]:
+        return {"schema": self.schema,
+                "proportion": self.numerator / self.denominator,
+                "credit_num": self.credit_num, "denominator": self.denominator,
+                "slots_fired": self.slots_fired}
+
+    @classmethod
+    def from_state(cls, state: Mapping[str, Any]) -> "ReplaySchedule":
+        if state.get("schema") != cls.schema:
+            raise ReplayStateError(
+                f"replay schedule schema mismatch: {state.get('schema')!r}")
+        if int(state.get("denominator", 0)) != cls._denominator_for(
+                float(state.get("proportion", 0.0))):
+            raise ReplayStateError(
+                "replay proportion does not match its recorded denominator; "
+                "changed policy requires a new schedule identity")
+        return cls(float(state["proportion"]), credit_num=int(state["credit_num"]),
+                   slots_fired=int(state["slots_fired"]))
+
+    @staticmethod
+    def _denominator_for(proportion: float) -> int:
+        from fractions import Fraction
+
+        return int(Fraction(proportion).limit_denominator(1000).denominator)

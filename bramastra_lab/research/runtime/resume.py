@@ -39,6 +39,8 @@ class RunContext:
     sampler_state: Mapping[str, Any] | None
     controller_state: Mapping[str, Any] | None
     replay_cursor: Mapping[str, Any] | None
+    expected_parent: str | None = None
+    source_identity: Mapping[str, str] | None = None
 
 
 def create_run(run_dir: str, config: BuildConfig, *, data_identity: str,
@@ -84,7 +86,12 @@ def read_run_manifest(run_dir: str) -> dict[str, Any]:
 
 def checkpoint_run(trainer: Trainer, run_dir: str, ctx: RunContext, *,
                    milestone: str | None = None) -> ckpt.CheckpointManifest:
-    """Publish one checkpoint at an update boundary with every stream captured."""
+    """Publish one checkpoint at an update boundary with every live stream
+    captured in the same snapshot (B2.2 R3): sampler, controller and replay
+    state are written into the payload by the caller BEFORE publication, and
+    the publication verifies the writer lease and the expected parent under
+    the serialized boundary (B2.2 R4).
+    """
     payload = dict(trainer.state_payload())
     payload["rng"] = ckpt.capture_rng_state()
     payload["sampler_state"] = ctx.sampler_state
@@ -99,12 +106,24 @@ def checkpoint_run(trainer: Trainer, run_dir: str, ctx: RunContext, *,
         tokenizer_identity=run_manifest["tokenizer_identity"],
         data_identity=run_manifest["data_identity"],
         parent_checkpoint_id=None,
+        code_identity=ctx.source_identity.get("source_closure_sha256", "unavailable")
+        if ctx.source_identity else "unavailable",
         milestone=milestone,
+        writer_token=ctx.writer_token,
+        expected_parent=ctx.expected_parent,
     )
 
 
-def restore_run(run_dir: str, config: BuildConfig) -> RunContext:
-    """Restore the latest valid checkpoint in this (fresh) process."""
+def restore_run(run_dir: str, config: BuildConfig, *,
+                allow_source_migration: bool = False) -> RunContext:
+    """Restore the latest valid checkpoint in this (fresh) process.
+
+    Validates run/config/data/source compatibility before anything loads.
+    A changed source closure is an explicit, recorded migration — never a
+    silent resume (B2.2 R1/R4).
+    """
+    from bramastra_lab.research.runtime.provenance import source_identity
+
     run_manifest = read_run_manifest(run_dir)
     if run_manifest["config_identity"] != config.identity():
         raise RunError("run config identity does not match the supplied config; "
@@ -113,7 +132,19 @@ def restore_run(run_dir: str, config: BuildConfig) -> RunContext:
         run_dir,
         expect_config_identity=run_manifest["config_identity"],
         expect_tokenizer_identity=run_manifest["tokenizer_identity"],
+        expect_data_identity=run_manifest["data_identity"],
     )
+    current_source = source_identity()
+    recorded_closure = manifest.code_identity
+    if recorded_closure not in ("unavailable", current_source["source_closure_sha256"]):
+        if not allow_source_migration:
+            raise RunError(
+                f"checkpoint source closure {str(recorded_closure)[:12]}... differs from "
+                f"this process {current_source['source_closure_sha256'][:12]}...; a source "
+                "migration must be explicit (--allow-source-migration) and is recorded")
+        append_event(run_dir, {"event": "source_migration",
+                               "from_closure": recorded_closure,
+                               "to_closure": current_source["source_closure_sha256"]})
     model = IntegratedModel(config)
     trainer = Trainer(config, model)
     trainer.load_state_payload(payload)
@@ -126,4 +157,6 @@ def restore_run(run_dir: str, config: BuildConfig) -> RunContext:
         sampler_state=payload.get("sampler_state"),
         controller_state=payload.get("controller_state"),
         replay_cursor=payload.get("replay_cursor"),
+        expected_parent=manifest.checkpoint_id,
+        source_identity=current_source,
     )

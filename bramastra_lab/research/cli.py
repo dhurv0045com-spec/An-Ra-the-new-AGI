@@ -76,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--split", default="development",
                           help="which prepared split to score (never the sealed pool)")
     evaluate.add_argument("--out", required=True, help="output report JSON path")
+    evaluate.add_argument("--protocol", default=None,
+                          help="evaluation protocol JSON (paired-goal flags, cap)")
+    evaluate.add_argument("--max-new-tokens", type=int, default=None,
+                          help="generation cap override; defaults to protocol cap or "
+                               "the remaining context budget")
 
     collect = subparsers.add_parser(
         "collect", help="run real environment episodes and append experience receipts")
@@ -160,7 +165,8 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     from bramastra_lab.research.commands import evaluate
 
     return evaluate(checkpoint=args.checkpoint, config_path=args.config, data_dir=args.data,
-                    split=args.split, out_path=args.out)
+                    split=args.split, out_path=args.out, protocol_path=args.protocol,
+                    max_new_tokens=args.max_new_tokens)
 
 
 def cmd_package(args: argparse.Namespace) -> int:

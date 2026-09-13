@@ -58,6 +58,9 @@ class TrainerCounters:
     supervised_targets_seen: int = 0
     encoded_tokens_seen: int = 0
     real_interactions: int = 0
+    attempted_batches: int = 0
+    microbatches: int = 0
+    replay_entries_consumed: int = 0
 
     def to_dict(self) -> dict[str, int]:
         return dict(self.__dict__)
@@ -66,7 +69,7 @@ class TrainerCounters:
     def from_dict(cls, raw: Mapping[str, int]) -> "TrainerCounters":
         counters = cls()
         for key in counters.__dict__:
-            value = raw.get(key)
+            value = raw.get(key, 0)
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise TrainerStateError(f"counter {key} must be a nonnegative integer")
             setattr(counters, key, value)
@@ -118,12 +121,15 @@ class Trainer:
         self.pair_margin = training.pair_margin
         self.pair_score_normalization = training.pair_score_normalization
         self.clip_norm = training.clip_norm
+        self.grad_accum_steps = training.grad_accum_steps
         self.controller_multiplier = 1.0
         self.controller_reason: str | None = None
         self.counters = TrainerCounters()
         self._pending_targets = 0
         self._pending_answer_sum = 0.0
         self._pending_presentations = 0
+        self._pending_pair_own: list = []
+        self._pending_pair_swapped: list = []
         self.schema: TreatmentSchema | None = None
         self.diagnostics: TrainerDiagnostics | None = None
 
@@ -160,11 +166,15 @@ class Trainer:
         return apply_treatment(logits, self.schema, self.treatment,
                                effective_vocab=self.effective_vocab)
 
-    def accumulate(self, batch) -> dict[str, float]:
+    def accumulate(self, batch, *, pair_rows: tuple[list, list] | None = None) -> dict[str, float]:
         """Backward one micro batch's unnormalized sum loss.
 
         Gradients accumulate raw; the global supervised-target denominator is
-        applied once at the accumulation boundary.
+        applied once at the accumulation boundary. Pair renderings supplied
+        with a micro batch are pooled across the complete accumulation group
+        and scored together at ``finalize_update`` (B2.2 R5), so the pair
+        objective is defined over all eligible pairs of the group, not per
+        invocation.
         """
         if self._pending_targets and batch.target_count == 0:
             raise TrainerStateError("micro batch declares zero supervised targets")
@@ -183,9 +193,16 @@ class Trainer:
                 f"batch declares {batch.target_count} targets but loss sees "
                 f"{report.target_count}")
         report.total.backward()
+        if pair_rows is not None:
+            own_rows, swapped_rows = pair_rows
+            if len(own_rows) != len(swapped_rows):
+                raise TrainerStateError("pair renderings must align within a micro batch")
+            self._pending_pair_own.extend(own_rows)
+            self._pending_pair_swapped.extend(swapped_rows)
         self._pending_targets += report.target_count
         self._pending_answer_sum += float(report.total.detach().item())
         self._pending_presentations += int(batch.batch_size)
+        self.counters.microbatches += 1
         self.counters.presentations += int(batch.batch_size)
         self.counters.supervised_targets_seen += report.target_count
         self.counters.encoded_tokens_seen += int(batch.padding_mask.sum().item())
@@ -215,13 +232,14 @@ class Trainer:
 
     # -- update boundary ------------------------------------------------------
 
-    def finalize_update(self, *, pair_input: PairUpdateInput | None = None) -> StepReport:
+    def finalize_update(self) -> StepReport:
         """Complete one optimizer update from accumulated micro batches.
 
         Reduction happens exactly once, here: accumulated raw gradients are
         divided by the true global target count; the optional pair term is
-        added at this boundary; then finiteness, clipping, one step, one
-        schedule advance and one counter increment.
+        pooled across the complete accumulation group and added at this
+        boundary; then finiteness, clipping, one step, one schedule advance
+        and one counter increment.
         """
         if self._pending_targets <= 0:
             raise TrainerStateError("finalize_update called with no accumulated batches")
@@ -229,14 +247,22 @@ class Trainer:
             if parameter.grad is not None:
                 parameter.grad.div_(self._pending_targets)
         pair_loss_value: float | None = None
-        if pair_input is not None:
+        if self._pending_pair_own or self._pending_pair_swapped:
             if self.pair_loss_weight <= 0:
                 raise TrainerStateError(
-                    "pair_input supplied while training.pair_loss_weight is zero")
-            if pair_input.own.batch_size != pair_input.swapped.batch_size:
+                    "pair renderings accumulated while training.pair_loss_weight is zero")
+            if len(self._pending_pair_own) != len(self._pending_pair_swapped):
                 raise TrainerStateError(
-                    "pair batches must contain the same number of pair renderings")
-            pair_loss_value = self._apply_pair_term(pair_input)
+                    "pair renderings must align across the accumulation group")
+            from bramastra_lab.research.experience.sequences import collocate as _collocate
+
+            max_seq = self.config.model.max_seq
+            own_batch = _collocate(list(self._pending_pair_own), max_seq=max_seq)
+            swapped_batch = _collocate(list(self._pending_pair_swapped), max_seq=max_seq)
+            pair_loss_value = self._apply_pair_term(
+                PairUpdateInput(own=own_batch, swapped=swapped_batch))
+            self._pending_pair_own = []
+            self._pending_pair_swapped = []
 
         nonfinite = [name for name, parameter in self.model.named_parameters()
                      if parameter.grad is not None and not torch.isfinite(parameter.grad).all()]
@@ -283,10 +309,10 @@ class Trainer:
         self._pending_presentations = 0
         return report
 
-    def training_step(self, batch, *, pair_input: PairUpdateInput | None = None) -> StepReport:
-        """One optimizer update from a single global batch."""
-        self.accumulate(batch)
-        return self.finalize_update(pair_input=pair_input)
+    def training_step(self, batch, *, pair_rows: tuple[list, list] | None = None) -> StepReport:
+        """One optimizer update from a single micro batch (grad_accum_steps=1)."""
+        self.accumulate(batch, pair_rows=pair_rows)
+        return self.finalize_update()
 
     # -- checkpoint payload ---------------------------------------------------
 
@@ -314,6 +340,8 @@ class Trainer:
         self._pending_targets = 0
         self._pending_answer_sum = 0.0
         self._pending_presentations = 0
+        self._pending_pair_own = []
+        self._pending_pair_swapped = []
 
 
 class TrainerDiagnostics:

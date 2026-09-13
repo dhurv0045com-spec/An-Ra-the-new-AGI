@@ -59,34 +59,50 @@ def _load_config(config_path: str) -> BuildConfig:
 # -- prepare-data --------------------------------------------------------------
 
 def _row_provenance(example) -> dict[str, str]:
+    """Provenance carried onto every prepared row.
+
+    ``task_semantic_id`` is the manifest's semantic CONTENT digest, not the
+    example id; the qualified mechanism cluster (when the operator declared
+    one) and trainability ride along separately (B2.2 R2).
+    """
     return {
         "episode_id": example.example_id,
-        "task_semantic_id": example.example_id,
+        "task_semantic_id": example.semantic_identity,
         "split": example.split,
         "source": example.source,
         "collection_policy": "operator-manifest/v1",
         "family": example.family,
+        "mechanism_cluster": example.mechanism_cluster or "unqualified",
+        "trainable": "true" if example.trainable else "false",
     }
 
 
 def _render_example(example, config: BuildConfig) -> dict[str, Any]:
+    import dataclasses
+
     max_tokens = config.model.max_seq
     provenance = _row_provenance(example)
     if example.kind == "language":
         row = build_language_row(example.content["text"], provenance=provenance,
                                  max_tokens=max_tokens)
+    else:
+        prompt_events = [(event[0], event[1]) for event in example.content["prompt_events"]]
+        row = build_answer_row(prompt_events, example.content["answer"],
+                               provenance=provenance, max_tokens=max_tokens)
+    if example.group_id is not None:
+        # Counterfactual pair groups survive preparation (B2.2 R2): the row
+        # carries its group so pair batching and evaluation see the relation.
+        row = dataclasses.replace(row, pair_group_id=example.group_id)
+    if example.kind == "language":
         return _row_record(row, kind="language", prompt_length=None, label=None)
-    prompt_events = [(event[0], event[1]) for event in example.content["prompt_events"]]
-    row = build_answer_row(prompt_events, example.content["answer"],
-                           provenance=provenance, max_tokens=max_tokens)
     prompt_length = 1 + sum(len(encode_event(role, content))
-                            for role, content in prompt_events)
+                            for role, content in example.content["prompt_events"])
     return _row_record(row, kind="trajectory", prompt_length=prompt_length,
                        label=example.content["answer"])
 
 
 def _row_record(row: SequenceRow, *, kind: str, prompt_length: int | None,
-                label: str | None) -> dict[str, Any]:
+                label: str | None, role: str | None = None) -> dict[str, Any]:
     return {
         "kind": kind,
         "tokens": list(row.tokens),
@@ -94,6 +110,7 @@ def _row_record(row: SequenceRow, *, kind: str, prompt_length: int | None,
         "prompt_length": prompt_length,
         "label": label,
         "pair_group_id": row.pair_group_id,
+        "role": role,
         "provenance": dict(row.provenance),
     }
 
@@ -109,19 +126,32 @@ def prepare_data(manifest_path: str, out_dir: str, config_path: str) -> int:
         raise CommandError(f"{exc} (status: {exc.status})")
     os.makedirs(out_dir)
     rows_by_split: dict[str, list[dict[str, Any]]] = {}
+    import hashlib as _hashlib
+
+    split_integrity: dict[str, dict[str, Any]] = {}
     for split in sorted({example.split for example in handle.examples}):
         rows = [_render_example(example, config)
                 for example in handle.examples_for_split(split)]
+        _assign_pair_roles(rows)
         rows_by_split[split] = rows
+        payload = "".join(json.dumps(record, sort_keys=True) + "\n" for record in rows)
         with open(os.path.join(out_dir, f"rows-{split}.jsonl"), "w",
-                  encoding="utf-8") as out:
-            for record in rows:
-                out.write(json.dumps(record, sort_keys=True) + "\n")
+                  encoding="utf-8", newline="\n") as out:
+            out.write(payload)
+        split_integrity[split] = {
+            "schema": "bramastra-prepared-rows/v1",
+            "rows_sha256": _hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+            "row_count": len(rows),
+            "supervised_targets": sum(sum(record["supervised"][1:]) for record in rows),
+            "pair_group_ids": sorted({record["pair_group_id"] for record in rows
+                                      if record["pair_group_id"]}),
+        }
     prepared = {
         "schema": "bramastra-prepared-data/v1",
         "dataset_identity": handle.identity,
         "dataset_name": handle.name,
         "config_identity": config.identity(),
+        "split_integrity": split_integrity,
         "split_inventory": {
             split: {"examples": len(rows),
                     "supervised_targets": sum(sum(record["supervised"][1:])
@@ -161,18 +191,70 @@ def _row_from_record(record: dict[str, Any]) -> SequenceRow:
 
 
 def _load_rows(data_dir: str, split: str) -> list[dict[str, Any]]:
+    """Load one prepared split after verifying its exact bytes (B2.2 R1).
+
+    The prepared manifest records each split's row-file SHA-256, schema and
+    row inventory; a mismatched, missing or tampered split refuses rather
+    than feeding changed bytes under an old identity.
+    """
+    import hashlib as _hashlib
+
     path = os.path.join(data_dir, f"rows-{split}.jsonl")
     if not os.path.exists(path):
         return []
-    rows = []
-    with open(path, "r", encoding="utf-8") as handle:
-        for line in handle:
-            if line.strip():
-                rows.append(json.loads(line))
+    manifest_path = os.path.join(data_dir, "prepared.json")
+    if not os.path.exists(manifest_path):
+        raise CommandError(f"{data_dir} has no prepared.json; cannot verify split bytes")
+    with open(manifest_path, "r", encoding="utf-8") as handle:
+        prepared = json.load(handle)
+    integrity = prepared.get("split_integrity", {}).get(split)
+    if integrity is None:
+        raise CommandError(
+            f"prepared manifest does not record split {split!r}; prepared data "
+            "predates content binding and must be regenerated")
+    payload = open(path, "rb").read()
+    actual = _hashlib.sha256(payload).hexdigest()
+    if actual != integrity["rows_sha256"]:
+        raise CommandError(
+            f"prepared split {split!r} bytes do not match the prepared manifest "
+            f"(expected {integrity['rows_sha256'][:12]}, found {actual[:12]}); "
+            "changed prepared data requires regeneration, not silent reuse")
+    rows = [json.loads(line) for line in payload.decode("utf-8").splitlines()
+            if line.strip()]
+    if len(rows) != integrity["row_count"]:
+        raise CommandError(
+            f"prepared split {split!r} row count {len(rows)} does not match the "
+            f"manifest inventory {integrity['row_count']}")
     return rows
 
 
+def _assign_pair_roles(rows: list[dict[str, Any]]) -> None:
+    """Assign primary/swapped roles to exactly-two-member pair groups.
+
+    Role order follows manifest file order (the counterfactual rendering
+    order the operator declared). Groups of any other size stay role-less
+    and cannot enter paired metrics.
+    """
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for record in rows:
+        group_id = record.get("pair_group_id")
+        if group_id:
+            groups.setdefault(group_id, []).append(record)
+    for members in groups.values():
+        if len(members) == 2:
+            members[0]["role"] = "primary"
+            members[1]["role"] = "swapped"
+
+
 def _read_prepared(data_dir: str, config: BuildConfig) -> dict[str, Any]:
+    """Read the prepared manifest, verifying config identity AND split bytes.
+
+    Config identity alone is not a data-integrity substitute (B2.2 R1): every
+    declared split's row-file digest is re-hashed before the manifest is
+    returned to any consumer.
+    """
+    import hashlib as _hashlib
+
     path = os.path.join(data_dir, "prepared.json")
     if not os.path.exists(path):
         raise CommandError(f"{data_dir} has no prepared.json; run prepare-data first")
@@ -181,11 +263,23 @@ def _read_prepared(data_dir: str, config: BuildConfig) -> dict[str, Any]:
     if prepared["config_identity"] != config.identity():
         raise CommandError("prepared data was built under a different config identity; "
                            "prepare again with this config")
+    for split, integrity in prepared.get("split_integrity", {}).items():
+        split_path = os.path.join(data_dir, f"rows-{split}.jsonl")
+        if not os.path.exists(split_path):
+            raise CommandError(f"prepared split {split!r} file is missing")
+        actual = _hashlib.sha256(open(split_path, "rb").read()).hexdigest()
+        if actual != integrity["rows_sha256"]:
+            raise CommandError(
+                f"prepared split {split!r} bytes do not match the prepared manifest; "
+                "changed prepared data requires regeneration, not silent reuse")
     return prepared
 
 
 def _sampler_units(rows: list[dict[str, Any]]) -> list[tuple[_RowRef, ...]]:
-    refs = [_RowRef(record) for record in rows]
+    """Gradient-eligible sampling units: nontrainable rows never enter (R2)."""
+    eligible = [record for record in rows
+                if record["provenance"].get("trainable", "true") == "true"]
+    refs = [_RowRef(record) for record in eligible]
     groups: dict[str, list[_RowRef]] = {}
     singles: list[_RowRef] = []
     for ref in refs:
@@ -198,6 +292,13 @@ def _sampler_units(rows: list[dict[str, Any]]) -> list[tuple[_RowRef, ...]]:
 
 
 def _collocate_records(records: list[dict[str, Any]], max_seq: int):
+    """Collocate gradient rows; refuses ineligible data at the boundary (R2)."""
+    ineligible = [record["provenance"].get("episode_id", "?") for record in records
+                  if record["provenance"].get("trainable", "true") != "true"]
+    if ineligible:
+        raise CommandError(
+            f"nontrainable rows reached a gradient batch: {ineligible[:4]}; "
+            "ineligible data is refused, never silently trained")
     return collocate([_row_from_record(record) for record in records], max_seq=max_seq)
 
 
@@ -251,41 +352,10 @@ def _answer_flags(own: dict[str, Any], other: dict[str, Any]) -> list[bool]:
     return [False] * own["prompt_length"] + [True] * (other_answer_length + 1)
 
 
-def _checkpoint(trainer, run_dir: str, ctx, *, milestone: str | None = None):
-    from bramastra_lab.research.runtime.resume import append_event, checkpoint_run
+def _source_identity() -> dict[str, str]:
+    from bramastra_lab.research.runtime.provenance import source_identity
 
-    manifest = checkpoint_run(trainer, run_dir, ctx, milestone=milestone)
-    append_event(run_dir, {"event": "checkpoint", "checkpoint_id": manifest.checkpoint_id,
-                           "update": trainer.counters.optimizer_updates})
-    return manifest
-
-
-def _source_identity() -> str:
-    """Git HEAD plus dirty flag, recorded into every run for provenance."""
-    import subprocess
-
-    try:
-        head = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=_repo_root(), text=True, timeout=10).strip()
-        dirty = subprocess.check_output(
-            ["git", "status", "--porcelain"], cwd=_repo_root(), text=True,
-            timeout=10).strip() != ""
-        return f"{head}{'-dirty' if dirty else ''}"
-    except Exception:
-        return "unavailable"
-
-
-def _write_data_source(run_dir: str, data_dir: str) -> None:
-    with open(os.path.join(run_dir, "data_source.json"), "w", encoding="utf-8") as handle:
-        json.dump({"data_dir": os.path.abspath(data_dir)}, handle)
-
-
-def _read_data_source(run_dir: str) -> str:
-    path = os.path.join(run_dir, "data_source.json")
-    if not os.path.exists(path):
-        raise CommandError("run has no data_source.json; cannot relocate its data")
-    with open(path, "r", encoding="utf-8") as handle:
-        return json.load(handle)["data_dir"]
+    return source_identity()
 
 
 # -- preflight (fail-closed, V5 launch-gate discipline) -----------------------
@@ -425,7 +495,6 @@ def _evaluate_controller_families(trainer, config: BuildConfig, controller_rows)
     Uses the real inference path (full-vocabulary greedy generation over each
     row's prompt), never dev or sealed data.
     """
-    from bramastra_lab.research.models import IntegratedModel  # noqa: F401
     from bramastra_lab.research.runtime.inference import generate_free_form
 
     by_family: dict[str, list[dict[str, Any]]] = {}
@@ -448,14 +517,23 @@ def _evaluate_controller_families(trainer, config: BuildConfig, controller_rows)
 
 
 def _controller_boundary(trainer, ctx, config: BuildConfig, data_dir: str,
-                         controller_state, *, current_update: int, run_dir: str):
-    """Run one controller evaluation+transition at an optimizer boundary."""
+                         controller_state, *, run_dir: str):
+    """Run one controller evaluation+transition at an optimizer boundary.
+
+    Cadence is a function of committed optimizer updates persisted on the
+    controller state (B2.2 R3), never of loop-local indexes.
+    """
     from bramastra_lab.research.learning.plasticity import (
         ControllerMetrics,
         transition,
     )
     from bramastra_lab.research.runtime.resume import append_event
 
+    current_update = trainer.counters.optimizer_updates
+    last_eval = controller_state.last_controller_eval_update
+    if last_eval is not None and current_update - last_eval \
+            < config.controller.controller_eval_every:
+        return controller_state, None
     controller_rows = _load_rows(data_dir, "controller")
     if not controller_rows:
         return controller_state, None
@@ -471,93 +549,211 @@ def _controller_boundary(trainer, ctx, config: BuildConfig, data_dir: str,
         relative_parameter_displacement=telemetry.get("parameter_displacement_relative"),
     )
     family_request = None
-    if controller_state.state == "FORM" and controller_state.acquiring_family is None             and len(scores) == 1:
+    if controller_state.state == "FORM" and controller_state.acquiring_family is None \
+            and len(scores) == 1:
         # The runner introduces the first acquisition family from the
         # controller pool; further introductions are operator decisions.
         family_request = next(iter(scores))
     controller_state, decision = transition(controller_state, metrics,
                                             config.controller, current_update=current_update,
                                             family_request=family_request)
+    controller_state = replace_last_eval(controller_state, current_update)
     trainer.set_controller_multiplier(decision.lr_multiplier, decision.reason)
-    if decision.checkpoint_requested:
-        _checkpoint(trainer, run_dir, ctx)
     append_event(run_dir, {"event": "controller_boundary",
                            "update": current_update, "decision": decision.to_dict()})
     return controller_state, decision
 
 
+def replace_last_eval(controller_state, current_update: int):
+    import dataclasses
+
+    return dataclasses.replace(controller_state,
+                               last_controller_eval_update=current_update)
+
+
+def _publish(trainer, ctx, run_dir: str, *, sampler, controller_state,
+             replay_state, milestone: str | None, publication: dict) -> Any:
+    """Snapshot ALL live state and publish one checkpoint (B2.2 R3/R4).
+
+    Publication happens only at complete optimizer boundaries; the snapshot
+    (sampler, controller, replay) is taken in the same call, duplicate
+    publication at the same update is skipped (a milestone re-attaches to the
+    existing checkpoint), and the expected-parent chain is enforced by the
+    publication boundary itself.
+    """
+    ctx.sampler_state = sampler.state().to_dict() if sampler is not None else None
+    ctx.controller_state = controller_state.to_dict()
+    ctx.replay_cursor = replay_state
+    current_update = trainer.counters.optimizer_updates
+    if publication["last_update"] == current_update:
+        if milestone and publication["last_manifest"] is not None:
+            from bramastra_lab.research.runtime import checkpoint as ckpt
+
+            ckpt.mark_milestone(run_dir, publication["last_manifest"].checkpoint_id,
+                                milestone,
+                                update_index=current_update,
+                                directory=publication["last_directory"])
+        return publication["last_manifest"]
+    from bramastra_lab.research.runtime.resume import checkpoint_run
+
+    manifest = checkpoint_run(trainer, run_dir, ctx, milestone=milestone)
+    publication["last_update"] = current_update
+    publication["last_manifest"] = manifest
+    publication["last_directory"] = f"update-{current_update:012d}"
+    ctx.expected_parent = manifest.checkpoint_id
+    return manifest
+
+
 def _training_loop(trainer, ctx, config: BuildConfig, data_dir: str, run_dir: str,
-                   sampler, *, updates: int, controller_state,
-                   replay_engine, checkpoint_every: int = 4) -> dict[str, Any]:
+                   sampler, *, target_updates: int, controller_state,
+                   replay_engine, replay_schedule, resource_policy,
+                   publication: dict, checkpoint_every: int = 4) -> dict[str, Any]:
     """One shared update loop for train and resume (no parallel paths).
 
-    Each update draws a data batch; updates designated by the replay
-    proportion draw from the replay engine instead. At controller evaluation
-    boundaries the plasticity controller may change the LR multiplier, request
-    a checkpoint, or pause updates (HOLD). Returns an exact report.
+    Scheduling is a function of committed optimizer updates: the replay slot
+    decision comes from the persisted fractional scheduler and the controller
+    cadence from the persisted controller state, so an uninterrupted run and
+    a split run make identical choices at every boundary (B2.2 R3). An empty
+    replay attempt never counts as an update; it fails explicitly or applies
+    the configured, logged fallback. Deadlines are checked inside the loop.
     """
-    interval = max(1, round(1.0 / config.replay.proportion)) \
-        if config.replay.enabled and replay_engine is not None \
-        and config.replay.proportion > 0 else 0
-    replay_updates_expected = 0
-    if interval:
-        replay_updates_expected = updates // interval
-        replay_engine.declare_planned(replay_updates_expected)
+    from bramastra_lab.research.runtime.resume import append_event
+
     updates_done = 0
-    last_checkpointed = -1
+    last_periodic = trainer.counters.optimizer_updates
     hold_reason: str | None = None
     replay_batches = 0
     render_modes: dict[str, int] = {}
-    for index in range(updates):
-        if interval and (index + 1) % interval == 0:
-            replay_batch = replay_engine.sample()
-            rendered = []
-            for receipt in replay_batch.entries:
-                row, mode = _rows_from_receipt(receipt, max_tokens=config.model.max_seq)
-                if row is not None:
-                    rendered.append(row)
-                    render_modes[mode] = render_modes.get(mode, 0) + 1
-                elif mode == "oversized":
-                    render_modes["oversized_skipped"] = render_modes.get("oversized_skipped", 0) + 1
-            if rendered:
-                trainer.training_step(_collocate_rows(rendered, config.model.max_seq))
-                replay_batches += 1
-            # A shortfall is recorded even when nothing could be rendered.
+    failure: str | None = None
+    try:
+        while trainer.counters.optimizer_updates < target_updates:
+            if resource_policy.get("deadline_seconds") is not None:
+                elapsed = time.monotonic() - resource_policy["_started"]
+                if elapsed > resource_policy["deadline_seconds"]:
+                    hold_reason = "deadline_exceeded"
+                    break
+            if config.controller.mode == "evidence_driven":
+                controller_state, decision = _controller_boundary(
+                    trainer, ctx, config, data_dir, controller_state, run_dir=run_dir)
+                if decision is not None and decision.pause_updates:
+                    hold_reason = f"controller_hold:{decision.reason}"
+                    break
+            for _micro in range(trainer.grad_accum_steps):
+                use_replay = replay_engine is not None \
+                    and replay_schedule is not None and replay_schedule.slot_due()
+                if use_replay:
+                    replay_batch = replay_engine.sample()
+                    rendered = []
+                    for receipt in replay_batch.entries:
+                        row, mode = _rows_from_receipt(receipt,
+                                                       max_tokens=config.model.max_seq)
+                        if row is not None:
+                            rendered.append(row)
+                            render_modes[mode] = render_modes.get(mode, 0) + 1
+                        elif mode == "oversized":
+                            render_modes["oversized_skipped"] = \
+                                render_modes.get("oversized_skipped", 0) + 1
+                    trainer.counters.attempted_batches += 1
+                    if not rendered:
+                        if config.replay.on_empty == "refuse":
+                            raise CommandError(
+                                "replay slot fired but produced no renderable rows; "
+                                "refusing a fictional update (replay.on_empty=refuse)")
+                        append_event(run_dir, {"event": "replay_slot_empty_skipped",
+                                               "update": trainer.counters.optimizer_updates,
+                                               "shortfall": replay_batch.shortfall})
+                        rendered = None  # slot consumed; fall back to data
+                    if rendered:
+                        trainer.counters.replay_entries_consumed += len(rendered)
+                        trainer.accumulate(_collocate_rows(rendered,
+                                                           config.model.max_seq))
+                        replay_batches += 1
+                        continue
+                batch_refs = sampler.take_batch()
+                trainer.counters.attempted_batches += 1
+                batch = _collocate_records([ref.record for ref in batch_refs],
+                                           config.model.max_seq)
+                pair_rows = None
+                if config.training.pair_loss_weight > 0:
+                    own, swapped = _pair_rows_for([ref.record for ref in batch_refs])
+                    if own:
+                        pair_rows = (own, swapped)
+                trainer.accumulate(batch, pair_rows=pair_rows)
+            trainer.finalize_update()
             updates_done += 1
-        else:
-            batch_refs = sampler.take_batch()
-            batch = _collocate_records([ref.record for ref in batch_refs],
-                                       config.model.max_seq)
-            pair_input = _build_pair_input([ref.record for ref in batch_refs]) \
-                if config.training.pair_loss_weight > 0 else None
-            trainer.training_step(batch, pair_input=pair_input)
-            updates_done += 1
-        if config.controller.mode == "evidence_driven" \
-                and updates_done % config.controller.controller_eval_every == 0:
-            controller_state, decision = _controller_boundary(
-                trainer, ctx, config, data_dir, controller_state,
-                current_update=trainer.counters.optimizer_updates, run_dir=run_dir)
-            if decision is not None and decision.pause_updates:
-                hold_reason = decision.reason
-                break
-        if updates_done % checkpoint_every == 0 and updates_done < updates:
-            _checkpoint(trainer, run_dir, ctx)
-            last_checkpointed = updates_done
-    reconciliation = replay_engine.reconciliation() if replay_engine is not None else None
-    if replay_engine is not None and reconciliation is not None:
-        reconciliation["designated_updates"] = replay_updates_expected
-        reconciliation["executed_replay_batches"] = replay_batches
-        reconciliation["render_modes"] = dict(render_modes)
-        # Planned entries are the designated updates scaled by replay batch
-        # size; consumed entries are what the pools actually delivered.
-        reconciliation["planned"] = replay_updates_expected * replay_engine.batch_size
+            if trainer.counters.optimizer_updates % checkpoint_every == 0 \
+                    and trainer.counters.optimizer_updates < target_updates:
+                _publish(trainer, ctx, run_dir, sampler=sampler,
+                         controller_state=controller_state,
+                         replay_state=_replay_state(replay_engine, replay_schedule),
+                         milestone=None, publication=publication)
+                last_periodic = trainer.counters.optimizer_updates
+    except Exception as exc:  # consumption is recorded in finally (B2.2 R7)
+        failure = f"{type(exc).__name__}: {exc}"
+        raise
+    finally:
+        append_event(run_dir, {"event": "loop_consumption",
+                               "committed_updates": trainer.counters.optimizer_updates,
+                               "attempted_batches": trainer.counters.attempted_batches,
+                               "microbatches": trainer.counters.microbatches,
+                               "updates_this_call": updates_done,
+                               "failure": failure,
+                               "hold_reason": hold_reason})
     return {
         "updates_done": updates_done,
-        "last_checkpointed": last_checkpointed,
         "hold_reason": hold_reason,
         "controller_state": controller_state,
-        "replay_reconciliation": reconciliation,
+        "replay_reconciliation": (
+            {**replay_engine.reconciliation(),
+             "render_modes": dict(render_modes),
+             "replay_batches": replay_batches}
+            if replay_engine is not None else None),
     }
+
+
+def _replay_state(replay_engine, replay_schedule):
+    if replay_engine is None or replay_schedule is None:
+        return None
+    return {"engine": replay_engine.state(), "schedule": replay_schedule.state()}
+
+
+def _restore_replay(config: BuildConfig, data_dir: str, payload_cursor):
+    """Rebuild the replay engine + persisted schedule for resume (B2.2 R3)."""
+    from bramastra_lab.research.experience.replay import ReplaySchedule
+
+    engine = _load_replay_engine(config, data_dir)
+    if engine is None:
+        return None, None
+    if not payload_cursor:
+        return engine, ReplaySchedule(config.replay.proportion)
+    engine.restore(payload_cursor["engine"])
+    schedule = ReplaySchedule.from_state(payload_cursor["schedule"])
+    return engine, schedule
+
+
+def _pair_rows_for(records: list[dict[str, Any]]) -> tuple[list, list]:
+    own: list = []
+    swapped: list = []
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        group_id = record.get("pair_group_id")
+        if group_id:
+            groups.setdefault(group_id, []).append(record)
+    for group_id, members in groups.items():
+        if len(members) != 2:
+            continue
+        first, second = members
+        if first["label"] == second["label"]:
+            continue  # legitimately identical answers are excluded, not negatives
+        own.append(_row_from_record(first))
+        own.append(_row_from_record(second))
+        swapped_first = {**first, "tokens": _swap_answer(first, second),
+                         "supervised": _answer_flags(first, second)}
+        swapped_second = {**second, "tokens": _swap_answer(second, first),
+                          "supervised": _answer_flags(second, first)}
+        swapped.append(_row_from_record(swapped_first))
+        swapped.append(_row_from_record(swapped_second))
+    return own, swapped
 
 
 def _collocate_rows(rows: list[SequenceRow], max_seq: int):
@@ -567,10 +763,11 @@ def _collocate_rows(rows: list[SequenceRow], max_seq: int):
 # -- train / resume ------------------------------------------------------------
 
 def train(config_path: str, data_dir: str, run_dir: str, max_updates: int | None,
-          smoke: bool) -> int:
+          smoke: bool, deadline_seconds: float | None = None) -> int:
     from bramastra_lab.research.data.sampler import GroupSampler
-    from bramastra_lab.research.learning.trainer import Trainer, TrainerDiagnostics
     from bramastra_lab.research.learning.plasticity import ControllerState
+    from bramastra_lab.research.learning.trainer import Trainer, TrainerDiagnostics
+    from bramastra_lab.research.experience.replay import ReplaySchedule
     from bramastra_lab.research.models import IntegratedModel
     from bramastra_lab.research.runtime.resume import (
         RunContext,
@@ -578,6 +775,7 @@ def train(config_path: str, data_dir: str, run_dir: str, max_updates: int | None
         create_run,
         read_run_manifest,
     )
+    from bramastra_lab.research.runtime import checkpoint as ckpt
 
     config = _load_config(config_path)
     ledger = _ledger()
@@ -591,71 +789,120 @@ def train(config_path: str, data_dir: str, run_dir: str, max_updates: int | None
     sampler = GroupSampler(_sampler_units(rows), batch_size=min(4, len(rows)),
                            seed=config.training.seed)
     replay_engine = _load_replay_engine(config, data_dir)
+    replay_schedule = ReplaySchedule(config.replay.proportion) \
+        if replay_engine is not None else None
 
     started = time.monotonic()
     seed_everything(config.training.seed)
     if os.path.exists(run_dir):
         raise CommandError(f"run directory {run_dir} already exists; use a new run id")
     create_run(run_dir, config, data_identity=prepared["identity"])
-    with open(os.path.join(run_dir, "config_used.json"), "w", encoding="utf-8") as handle:
-        json.dump(config.to_dict(), handle, indent=2, sort_keys=True)
-    _write_data_source(run_dir, data_dir)
-    with open(os.path.join(run_dir, "source.json"), "w", encoding="utf-8") as handle:
-        json.dump({"source_identity": _source_identity()}, handle, indent=2)
-    with open(os.path.join(run_dir, "preflight.json"), "w", encoding="utf-8") as handle:
-        json.dump(preflight, handle, indent=2, sort_keys=True)
-    trainer = Trainer(config, IntegratedModel(config))
-    diagnostic_batch = _collocate_records(rows[:1], config.model.max_seq)
-    trainer.set_diagnostics(TrainerDiagnostics(trainer.model, diagnostic_batch))
-    ctx = RunContext(run_dir=run_dir, run_id=read_run_manifest(run_dir)["run_id"],
-                     config=config, data_identity=prepared["identity"],
-                     writer_token="train", trainer=trainer,
-                     sampler_state=None, controller_state=None, replay_cursor=None)
-    controller_state = ControllerState()
-    result = _training_loop(trainer, ctx, config, data_dir, run_dir, sampler,
-                            updates=max_updates, controller_state=controller_state,
-                            replay_engine=replay_engine)
-    updates_done = result["updates_done"]
-    ctx.sampler_state = sampler.state().to_dict()
-    ctx.controller_state = result["controller_state"].to_dict()
-    milestone = "final" if result["last_checkpointed"] != updates_done else None
-    manifest = _checkpoint(trainer, run_dir, ctx, milestone=milestone)
-    elapsed = time.monotonic() - started
-    if smoke:
-        ledger.record(device="cpu", updates=updates_done, seconds=elapsed,
-                      what=f"train smoke {os.path.basename(run_dir)}",
-                      evidence=manifest.checkpoint_id)
-    append_event(run_dir, {"event": "train_complete", "updates": updates_done,
-                           "seconds": round(elapsed, 3),
-                           "hold_reason": result["hold_reason"]})
-    print(json.dumps({
-        "status": "TRAINED", "run_dir": run_dir, "updates": updates_done,
-        "seconds": round(elapsed, 3), "checkpoint_id": manifest.checkpoint_id,
-        "counters": trainer.counters.to_dict(),
-        "hold_reason": result["hold_reason"],
-        "replay_reconciliation": result["replay_reconciliation"],
-    }, indent=2))
-    return 0
+    writer_token = ckpt.acquire_writer_fence(run_dir)
+    failure: str | None = None
+    try:
+        with open(os.path.join(run_dir, "config_used.json"), "w", encoding="utf-8") as handle:
+            json.dump(config.to_dict(), handle, indent=2, sort_keys=True)
+        _write_data_source(run_dir, data_dir)
+        with open(os.path.join(run_dir, "source.json"), "w", encoding="utf-8") as handle:
+            json.dump({"source_identity": _source_identity()}, handle, indent=2)
+        with open(os.path.join(run_dir, "preflight.json"), "w", encoding="utf-8") as handle:
+            json.dump(preflight, handle, indent=2, sort_keys=True)
+        resource_policy = {"declared_updates": max_updates,
+                           "deadline_seconds": deadline_seconds,
+                           "policy_source": "train-command"}
+        with open(os.path.join(run_dir, "resource_policy.json"), "w",
+                  encoding="utf-8") as handle:
+            json.dump(resource_policy, handle, indent=2, sort_keys=True)
+        if smoke:
+            with open(os.path.join(run_dir, "smoke.json"), "w", encoding="utf-8") as handle:
+                json.dump({"smoke": True, "declared_updates": max_updates}, handle)
+        policy = {"deadline_seconds": deadline_seconds, "declared_updates": max_updates,
+                  "_started": started}
+        trainer = Trainer(config, IntegratedModel(config))
+        diagnostic_batch = _collocate_records(rows[:1], config.model.max_seq)
+        trainer.set_diagnostics(TrainerDiagnostics(trainer.model, diagnostic_batch))
+        ctx = RunContext(run_dir=run_dir, run_id=read_run_manifest(run_dir)["run_id"],
+                         config=config, data_identity=prepared["identity"],
+                         writer_token=writer_token, trainer=trainer,
+                         sampler_state=None, controller_state=None, replay_cursor=None,
+                         expected_parent=None, source_identity=_source_identity())
+        result = _training_loop(trainer, ctx, config, data_dir, run_dir, sampler,
+                                target_updates=max_updates,
+                                controller_state=ControllerState(),
+                                replay_engine=replay_engine,
+                                replay_schedule=replay_schedule,
+                                resource_policy=policy,
+                                publication={"last_update": None, "last_manifest": None,
+                                             "last_directory": None})
+        updates_done = result["updates_done"]
+        manifest = _publish(trainer, ctx, run_dir, sampler=sampler,
+                            controller_state=result["controller_state"],
+                            replay_state=_replay_state(replay_engine, replay_schedule),
+                            milestone="final", publication={
+                                "last_update": None, "last_manifest": None,
+                                "last_directory": None})
+        elapsed = time.monotonic() - started
+        if smoke:
+            ledger.record(device="cpu", updates=updates_done, seconds=elapsed,
+                          what=f"train smoke {os.path.basename(run_dir)}",
+                          evidence=manifest.checkpoint_id)
+        append_event(run_dir, {"event": "train_complete", "updates": updates_done,
+                               "seconds": round(elapsed, 3),
+                               "hold_reason": result["hold_reason"]})
+        print(json.dumps({
+            "status": "TRAINED", "run_dir": run_dir, "updates": updates_done,
+            "seconds": round(elapsed, 3), "checkpoint_id": manifest.checkpoint_id,
+            "counters": trainer.counters.to_dict(),
+            "hold_reason": result["hold_reason"],
+            "replay_reconciliation": result["replay_reconciliation"],
+        }, indent=2))
+        return 0
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"
+        # Failure consumption is recorded before the error propagates (R7).
+        if smoke and os.path.exists(os.path.join(run_dir, "events.jsonl")):
+            ledger.record(device="cpu", updates=_committed_so_far(run_dir), seconds=0.0,
+                          what=f"train smoke FAILED {os.path.basename(run_dir)}",
+                          evidence=failure[:200])
+        raise
+    finally:
+        ckpt.release_writer_fence(run_dir, writer_token)
 
 
-def resume(run_dir: str, max_updates: int | None, expect_parent: str | None) -> int:
+def _committed_so_far(run_dir: str) -> int:
+    """Committed optimizer updates from the last valid checkpoint payload."""
+    try:
+        from bramastra_lab.research.runtime import checkpoint as ckpt
+
+        payload, _ = ckpt.load_checkpoint(run_dir)
+        return payload.get("counters", {}).get("optimizer_updates", 0)
+    except Exception:
+        return 0
+
+
+def resume(run_dir: str, max_updates: int | None, expect_parent: str | None,
+           allow_source_migration: bool = False,
+           deadline_seconds: float | None = None) -> int:
     from bramastra_lab.research.data.sampler import GroupSampler, SamplerState
     from bramastra_lab.research.learning.plasticity import ControllerState
 
     ledger = _ledger()
     if max_updates is None or max_updates <= 0:
         raise CommandError("--max-updates is required for resume")
-    try:
-        ledger.check_can_run(device="cpu", updates=max_updates,
-                             seconds=30.0 + 12.0 * max_updates,
-                             reserve_for_resume=False)
-    except SmokeBudgetExhausted as exc:
-        raise CommandError(f"smoke budget refuses this resume: {exc}")
+    smoke_run = os.path.exists(os.path.join(run_dir, "smoke.json"))
+    if smoke_run:
+        try:
+            ledger.check_can_run(device="cpu", updates=max_updates,
+                                 seconds=30.0 + 12.0 * max_updates,
+                                 reserve_for_resume=False)
+        except SmokeBudgetExhausted as exc:
+            raise CommandError(f"smoke budget refuses this resume: {exc}")
     with open(os.path.join(run_dir, "config_used.json"), "r", encoding="utf-8") as handle:
         config = BuildConfig.from_dict(json.load(handle))
     data_dir = _read_data_source(run_dir)
     started = time.monotonic()
-    ctx = resume_mod_restore_run(run_dir, config)
+    ctx = resume_mod_restore_run(run_dir, config,
+                                 allow_source_migration=allow_source_migration)
     if expect_parent:
         from bramastra_lab.research.runtime import checkpoint as ckpt
 
@@ -674,86 +921,76 @@ def resume(run_dir: str, max_updates: int | None, expect_parent: str | None) -> 
         sampler.restore(SamplerState.from_dict(ctx.sampler_state))
     controller_state = ControllerState.from_dict(ctx.controller_state) \
         if ctx.controller_state else ControllerState()
+    replay_engine, replay_schedule = _restore_replay(config, data_dir, ctx.replay_cursor)
     trainer = ctx.trainer
+    # Diagnostics parity with train: the controller boundary telemetry must
+    # see the same streams in a fresh process (B2.2 R3).
+    if trainer.diagnostics is None:
+        from bramastra_lab.research.learning.trainer import TrainerDiagnostics
+
+        trainer.set_diagnostics(TrainerDiagnostics(
+            trainer.model, _collocate_records(rows[:1], config.model.max_seq)))
     updates_before = trainer.counters.optimizer_updates
-    result = _training_loop(trainer, ctx, config, data_dir, run_dir, sampler,
-                            updates=max_updates, controller_state=controller_state,
-                            replay_engine=_load_replay_engine(config, data_dir))
-    updates_done = result["updates_done"]
-    ctx.sampler_state = sampler.state().to_dict()
-    ctx.controller_state = result["controller_state"].to_dict()
-    milestone = "resumed" if result["last_checkpointed"] != updates_done else None
-    manifest = _checkpoint(trainer, run_dir, ctx, milestone=milestone)
-    elapsed = time.monotonic() - started
-    ledger.record(device="cpu", updates=updates_done, seconds=elapsed,
-                  what=f"fresh-process resume {os.path.basename(run_dir)}",
-                  evidence=manifest.checkpoint_id)
-    print(json.dumps({
-        "status": "RESUMED", "run_dir": run_dir,
-        "updates_before": updates_before,
-        "updates_after": trainer.counters.optimizer_updates,
-        "seconds": round(elapsed, 3), "checkpoint_id": manifest.checkpoint_id,
-        "hold_reason": result["hold_reason"],
-    }, indent=2))
-    return 0
-
-
-# -- collect (experience collection) -------------------------------------------
-
-COLLECTABLE_ENVIRONMENTS = {
-    "switch-world": "SwitchWorld",
-    "inventory-world": "InventoryWorld",
-    "program-lab": "ProgramLab",
-}
-
-
-def collect(environments: str, ledger_path: str, *, episodes: int, policy: str,
-            budget: int, seed: int) -> int:
-    """Run real episodes with a collection policy and append receipts."""
-    from bramastra_lab.research.collection.runner import collect as run_collection
-    from bramastra_lab.research.environments.oracles import failed_baseline_policy
-    from bramastra_lab.research.environments.worlds import (
-        InventoryWorld,
-        ProgramLab,
-        SwitchWorld,
-    )
-    from bramastra_lab.research.experience.ledger import ExperienceLedger
-    from bramastra_lab.research.planning.planner import FixedCollectionPolicy
-
-    constructors = {"switch-world": SwitchWorld, "inventory-world": InventoryWorld,
-                    "program-lab": ProgramLab}
-    names = [name.strip() for name in environments.split(",") if name.strip()]
-    unknown = [name for name in names if name not in constructors]
-    if unknown:
-        raise CommandError(f"unknown environments {sorted(unknown)}; "
-                           f"expected {sorted(constructors)}")
-    if policy == "fixed":
-        collection_policy = FixedCollectionPolicy(seed=seed)
-        policy_identity = collection_policy.policy_identity
-
-        def executor(view):
-            return collection_policy.select(view)
-    elif policy == "failed-baseline":
-        executor = failed_baseline_policy
-        policy_identity = "failed-baseline/v1"
+    policy_path = os.path.join(run_dir, "resource_policy.json")
+    if os.path.exists(policy_path):
+        with open(policy_path, "r", encoding="utf-8") as handle:
+            resource_policy = json.load(handle)
     else:
-        raise CommandError(
-            "policy must be 'fixed' or 'failed-baseline'; the winning diagnostic "
-            "policy is an environment check, not a collection policy")
-    instances = [constructors[name](budget=budget, seed=seed + index)
-                 for index, name in enumerate(names)]
-    ledger = ExperienceLedger(ledger_path)
-    report = run_collection(instances, ledger, executor,
-                            policy_identity=policy_identity, episodes_per_environment=episodes)
-    print(json.dumps({"status": "COLLECTED", "ledger": ledger_path, "identity":
-                      ledger.identity(), **report}, indent=2))
-    return 0
+        resource_policy = {}
+    policy = {"deadline_seconds": deadline_seconds if deadline_seconds is not None
+              else resource_policy.get("deadline_seconds"),
+              "declared_updates": max_updates, "_started": started}
+    publication = {"last_update": None, "last_manifest": None, "last_directory": None}
+    failure: str | None = None
+    try:
+        result = _training_loop(trainer, ctx, config, data_dir, run_dir, sampler,
+                                target_updates=updates_before + max_updates,
+                                controller_state=controller_state,
+                                replay_engine=replay_engine,
+                                replay_schedule=replay_schedule,
+                                resource_policy=policy,
+                                publication=publication)
+        updates_done = result["updates_done"]
+        manifest = _publish(trainer, ctx, run_dir, sampler=sampler,
+                            controller_state=result["controller_state"],
+                            replay_state=_replay_state(replay_engine, replay_schedule),
+                            milestone="resumed", publication=publication)
+        elapsed = time.monotonic() - started
+        if smoke_run:
+            ledger.record(device="cpu", updates=updates_done, seconds=elapsed,
+                          what=f"fresh-process resume {os.path.basename(run_dir)}",
+                          evidence=manifest.checkpoint_id)
+        print(json.dumps({
+            "status": "RESUMED", "run_dir": run_dir,
+            "updates_before": updates_before,
+            "updates_after": trainer.counters.optimizer_updates,
+            "seconds": round(elapsed, 3), "checkpoint_id": manifest.checkpoint_id,
+            "hold_reason": result["hold_reason"],
+            "smoke_ledger_recorded": smoke_run,
+        }, indent=2))
+        return 0
+    except Exception as exc:
+        failure = f"{type(exc).__name__}: {exc}"
+        if smoke_run and os.path.exists(os.path.join(run_dir, "events.jsonl")):
+            ledger.record(device="cpu", updates=_committed_so_far(run_dir), seconds=0.0,
+                          what=f"resume FAILED {os.path.basename(run_dir)}",
+                          evidence=failure[:200])
+        raise
+    finally:
+        ckpt_release(run_dir, ctx)
 
 
-def resume_mod_restore_run(run_dir: str, config: BuildConfig):
+def ckpt_release(run_dir: str, ctx) -> None:
+    from bramastra_lab.research.runtime import checkpoint as ckpt
+
+    ckpt.release_writer_fence(run_dir, ctx.writer_token)
+
+
+def resume_mod_restore_run(run_dir: str, config: BuildConfig, *,
+                           allow_source_migration: bool = False):
     from bramastra_lab.research.runtime.resume import restore_run
 
-    return restore_run(run_dir, config)
+    return restore_run(run_dir, config, allow_source_migration=allow_source_migration)
 
 
 # -- infer / evaluate / package ------------------------------------------------
@@ -808,12 +1045,23 @@ def _resolve_run_dir(checkpoint: str) -> str:
 
 
 def evaluate(checkpoint: str, config_path: str, data_dir: str, split: str,
-             out_path: str) -> int:
+             out_path: str, protocol_path: str | None = None,
+             max_new_tokens: int | None = None) -> int:
+    """Score one prepared split through the real inference path (B2.2 R6).
+
+    Pool routing follows the split (confirmation outputs go to confirmation
+    storage, never measurement); pair roles flow from prepared rows into
+    outcomes so paired metrics are computed from actual CLI outcomes; the
+    generation cap comes from the protocol or the context budget, never a
+    hard-coded constant.
+    """
     from bramastra_lab.research.evaluation.scoring import (
+        EvaluationProtocol,
         RawOutcome,
         brier_score,
         complete_answer_metrics,
         family_metrics,
+        paired_goal_metrics,
     )
     from bramastra_lab.research.evaluation.store import EvaluationStore
     from bramastra_lab.research.models import IntegratedModel
@@ -824,6 +1072,15 @@ def evaluate(checkpoint: str, config_path: str, data_dir: str, split: str,
         raise CommandError(
             f"split {split!r} is pool-separated; the CLI evaluates measurement/"
             "confirmation splits only")
+    pool = "confirmation" if split == "confirmation" else "measurement"
+    if protocol_path:
+        try:
+            with open(protocol_path, "r", encoding="utf-8") as handle:
+                protocol = EvaluationProtocol(**json.load(handle))
+        except (OSError, json.JSONDecodeError, TypeError) as exc:
+            raise CommandError(f"cannot read evaluation protocol: {exc}")
+    else:
+        protocol = EvaluationProtocol(protocol_id="complete-answer-default")
     config = _load_config(config_path)
     run_dir = _resolve_run_dir(checkpoint)
     payload, manifest = ckpt.load_checkpoint(run_dir, expect_config_identity=config.identity())
@@ -834,33 +1091,58 @@ def evaluate(checkpoint: str, config_path: str, data_dir: str, split: str,
     if not rows:
         raise CommandError(f"prepared data {data_dir} has no rows for split {split!r}")
     outcomes = []
+    paired_without_role = 0
+    unqualified_clusters = 0
     for index, record in enumerate(rows):
         if record["kind"] != "trajectory" or record.get("label") is None:
             continue
         prompt = list(record["tokens"][:record["prompt_length"]])
-        report = generate_free_form(model, config, prompt, max_new_tokens=8)
-        semantic = record["provenance"].get("task_semantic_id", "fixture")
+        cap = max_new_tokens if max_new_tokens is not None             else protocol.max_new_tokens
+        if cap is None:
+            # Context-budget derivation: never a hard-coded constant.
+            cap = max(1, config.model.max_seq - len(prompt))
+        report = generate_free_form(model, config, prompt, max_new_tokens=cap)
+        provenance = record["provenance"]
+        semantic = provenance.get("task_semantic_id", "fixture")
+        pair_group_id = record.get("pair_group_id")
+        role = record.get("role")
+        if pair_group_id and role is None:
+            paired_without_role += 1
+            continue  # paired outcomes without roles cannot enter paired metrics
+        if provenance.get("mechanism_cluster", "unqualified") == "unqualified":
+            unqualified_clusters += 1
         outcomes.append(RawOutcome(
             outcome_id=f"{manifest.checkpoint_id[:12]}-{index}",
-            pool="measurement", split=split, family=semantic,
+            pool=pool, split=split, family=provenance.get("family", "default"),
             task_semantic_id=semantic,
             prediction=report.answer, stopped_on_eos=report.stopped_on_eos,
             label=record["label"], cost=0.0,
-            pair_group_id=record.get("pair_group_id"), role=None))
+            pair_group_id=pair_group_id, role=role,
+            case_id=provenance.get("episode_id", f"case-{index}")))
     if not outcomes:
         raise CommandError("no scoreable trajectory rows in this split")
+    paired_metrics = None
+    try:
+        paired_metrics = paired_goal_metrics(outcomes)
+    except Exception:
+        paired_metrics = None  # recorded as absent, not silently zero
     report = {
         "checkpoint_id": manifest.checkpoint_id,
         "config_identity": config.identity(),
         "split": split,
+        "pool": pool,
+        "protocol": protocol.to_dict(),
         "metrics": complete_answer_metrics(outcomes),
         "families": family_metrics(outcomes),
+        "paired_metrics": paired_metrics,
+        "paired_rows_without_role_rejected": paired_without_role,
+        "mechanism_clusters_qualified": unqualified_clusters == 0,
         "calibration": brier_score(outcomes),
         "note": "tiny-fixture scores are integration evidence, never capability claims",
     }
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     store = EvaluationStore(os.path.dirname(os.path.abspath(out_path)))
-    store.record(outcomes, pool="measurement", run_id=manifest.checkpoint_id)
+    store.record(outcomes, pool=pool, run_id=manifest.checkpoint_id)
     with open(out_path, "w", encoding="utf-8") as handle:
         json.dump(report, handle, indent=2, sort_keys=True)
     print(json.dumps(report, indent=2))

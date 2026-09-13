@@ -101,11 +101,13 @@ def _sha256_file(path: str) -> str:
 
 # -- writer fencing -----------------------------------------------------------
 
-def acquire_writer_fence(run_dir: str, *, stale_after_seconds: float = 6 * 3600) -> str:
+def acquire_writer_fence(run_dir: str, *, force: bool = False) -> str:
     """Single-writer fencing via an exclusive lock file.
 
-    A leftover lock is broken when it names this process or is older than the
-    declared staleness bound; a live foreign writer raises instead.
+    A held lease is never stolen for being old: a long legitimate job must
+    not lose ownership to a heuristic (B2.2 R4). Recovery from a crashed
+    writer is an explicit operator decision via ``force=True`` and is
+    recorded by the caller.
     """
     os.makedirs(run_dir, exist_ok=True)
     lock_path = os.path.join(run_dir, WRITER_LOCK)
@@ -118,16 +120,14 @@ def acquire_writer_fence(run_dir: str, *, stale_after_seconds: float = 6 * 3600)
                 existing = handle.read().strip()
         except OSError:
             existing = ""
-        pid_text = existing.split(":", 1)[0]
-        try:
-            age = time.time() - os.path.getmtime(lock_path)
-        except OSError:
-            age = 0.0
-        if age > stale_after_seconds:
+        if force:
             os.remove(lock_path)
-            return acquire_writer_fence(run_dir, stale_after_seconds=stale_after_seconds)
+            return acquire_writer_fence(run_dir, force=force)
+        pid_text = existing.split(":", 1)[0] if existing else "unknown"
         raise CheckpointError(
-            f"another writer holds {lock_path} (pid {pid_text}); one canonical writer only")
+            f"another writer holds {lock_path} (pid {pid_text}); one canonical "
+            "writer only. Recovery from a crashed writer requires the explicit "
+            "force policy, never an age heuristic.")
     else:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             handle.write(token)
@@ -161,13 +161,40 @@ def save_checkpoint(
     parent_checkpoint_id: str | None,
     code_identity: str = "uncommitted-local",
     milestone: str | None = None,
+    writer_token: str | None = None,
+    expected_parent: str | None = None,
 ) -> CheckpointManifest:
-    """Publish one checkpoint atomically and advance the LATEST pointer."""
+    """Publish one checkpoint atomically under a serialized publication
+    boundary.
+
+    The caller must hold the run's writer lease (``writer_token`` is verified
+    against the live lock file), and ``expected_parent`` must equal the
+    LATEST pointer as it exists at publication time: a stale writer cannot
+    publish onto a lineage another writer has already advanced (B2.2 R4).
+    """
     if not isinstance(update_index, int) or isinstance(update_index, bool) or update_index < 0:
         raise CheckpointError("update_index must be a nonnegative integer")
     checkpoints = checkpoint_root(run_dir)
     os.makedirs(checkpoints, exist_ok=True)
+    lock_path = os.path.join(run_dir, WRITER_LOCK)
+    if writer_token is not None:
+        try:
+            with open(lock_path, "r", encoding="utf-8") as handle:
+                held = handle.read().strip()
+        except OSError:
+            held = ""
+        if held != writer_token:
+            raise CheckpointError(
+                "publication refused: the caller does not hold the run's writer "
+                "lease (ownership verified at publication time)")
     previous_latest = read_pointer(run_dir, LATEST_POINTER)
+    if expected_parent is not None:
+        current_parent = previous_latest["checkpoint_id"] if previous_latest else None
+        if current_parent != expected_parent:
+            raise CheckpointError(
+                f"publication refused: expected parent {str(expected_parent)[:12]}... "
+                f"but LATEST currently holds {str(current_parent)[:12]}...; a stale "
+                "writer cannot infer a new parent from whatever LATEST says")
     if previous_latest is not None and parent_checkpoint_id is None:
         parent_checkpoint_id = previous_latest["checkpoint_id"]
 
@@ -293,6 +320,43 @@ def prune_checkpoints(run_dir: str, *, keep_latest: int = 2) -> list[str]:
 
 # -- restore ------------------------------------------------------------------
 
+def _validated_pointer_directory(run_dir: str, pointer: Mapping[str, Any]) -> str:
+    """Validate a pointer's directory containment, id and update binding."""
+    directory = pointer.get("directory")
+    if not isinstance(directory, str) or not directory:
+        raise CheckpointError("pointer does not name a checkpoint directory")
+    if os.path.sep in directory or "/" in directory or ".." in directory:
+        raise CheckpointError(
+            f"pointer directory {directory!r} escapes the checkpoint root")
+    checkpoints = checkpoint_root(run_dir)
+    directory_path = os.path.join(checkpoints, directory)
+    real_root = os.path.realpath(checkpoints)
+    real_path = os.path.realpath(directory_path)
+    if os.path.commonpath([real_root, real_path]) != real_root:
+        raise CheckpointError("pointer directory escapes the checkpoint root")
+    manifest_id = _manifest_id(directory_path)
+    if manifest_id is not None and pointer.get("checkpoint_id")             and manifest_id != pointer["checkpoint_id"]:
+        raise CheckpointError(
+            "pointer checkpoint id does not match the referenced manifest; "
+            "the pointer was redirected or the payload swapped")
+    manifest_update = _manifest_update_index(directory_path)
+    if manifest_update is not None and pointer.get("update_index") is not None             and manifest_update != pointer["update_index"]:
+        raise CheckpointError(
+            "pointer update index does not match the referenced manifest")
+    return directory
+
+
+def _manifest_update_index(directory_path: str) -> int | None:
+    manifest_path = os.path.join(directory_path, MANIFEST_NAME)
+    if not os.path.exists(manifest_path):
+        return None
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as handle:
+            return json.load(handle).get("update_index")
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
 def load_checkpoint(
     run_dir: str,
     *,
@@ -300,14 +364,16 @@ def load_checkpoint(
     expect_config_identity: str | None = None,
     expect_tokenizer_identity: str | None = None,
     expect_parent_checkpoint_id: str | None = None,
+    expect_data_identity: str | None = None,
 ) -> tuple[dict[str, Any], CheckpointManifest]:
-    """Load and fully validate one checkpoint; rejects incomplete or tampered state."""
+    """Load and fully validate one checkpoint; rejects incomplete, tampered,
+    redirected or identity-mismatched state."""
     checkpoints = checkpoint_root(run_dir)
     if checkpoint_id is None:
         pointer = read_pointer(run_dir, LATEST_POINTER)
         if pointer is None:
             raise CheckpointError(f"no LATEST checkpoint pointer in {run_dir}")
-        directory = pointer["directory"]
+        directory = _validated_pointer_directory(run_dir, pointer)
     else:
         matches = [name for name in os.listdir(checkpoints)
                    if name.startswith("update-") and os.path.isdir(os.path.join(checkpoints, name))
@@ -336,21 +402,28 @@ def load_checkpoint(
             "the payload is incomplete or tampered")
     if os.path.getsize(payload_path) != manifest.payload_bytes:
         raise CheckpointError(f"checkpoint {directory} payload size mismatch")
+    marker_path = os.path.join(directory_path, COMPLETE_MARKER)
+    with open(marker_path, "r", encoding="utf-8") as handle:
+        if handle.read().strip() != manifest.checkpoint_id:
+            raise CheckpointError(
+                "COMPLETE marker does not name this checkpoint's identity; "
+                "manifest/marker association is inconsistent")
     if expect_config_identity is not None and manifest.config_identity != expect_config_identity:
         raise CheckpointError(
             "checkpoint configuration identity does not match the active config")
     if expect_tokenizer_identity is not None \
             and manifest.tokenizer_identity != expect_tokenizer_identity:
         raise CheckpointError("checkpoint tokenizer identity mismatch")
+    if expect_data_identity is not None and manifest.data_identity != expect_data_identity:
+        raise CheckpointError(
+            "checkpoint data identity does not match the expected prepared data; "
+            "resume across changed data requires an explicit migration")
     if expect_parent_checkpoint_id is not None \
             and manifest.parent_checkpoint_id != expect_parent_checkpoint_id:
         raise CheckpointError(
             f"checkpoint parent is {manifest.parent_checkpoint_id!r}, expected "
             f"{expect_parent_checkpoint_id!r}; refusing a stale or divergent parent")
-    try:
-        payload = torch.load(payload_path, map_location="cpu", weights_only=True)
-    except Exception:
-        payload = torch.load(payload_path, map_location="cpu", weights_only=False)
+    payload = torch.load(payload_path, map_location="cpu", weights_only=True)
     return payload, manifest
 
 
@@ -376,6 +449,12 @@ def promote_accepted_parent(run_dir: str) -> dict[str, Any] | None:
 # -- RNG streams --------------------------------------------------------------
 
 def capture_rng_state() -> dict[str, Any]:
+    """Capture every RNG stream in restricted-load-safe primitive form.
+
+    numpy's Mersenne-Twister state is stored as plain integer lists so the
+    checkpoint loads under ``torch.load(weights_only=True)`` without any
+    unrestricted-pickle fallback (B2.2 R4).
+    """
     state: dict[str, Any] = {
         "torch": torch.get_rng_state(),
         "python": random.getstate(),
@@ -385,7 +464,10 @@ def capture_rng_state() -> dict[str, Any]:
     except ImportError:
         np = None
     if np is not None:
-        state["numpy"] = np.random.get_state()
+        name, keys, pos, has_gauss, cached = np.random.get_state()
+        state["numpy"] = {"name": name, "keys": [int(key) for key in keys],
+                          "pos": int(pos), "has_gauss": int(has_gauss),
+                          "cached_gaussian": float(cached)}
     if torch.cuda.is_available():
         state["cuda"] = torch.cuda.get_rng_state_all()
     return state
@@ -398,7 +480,14 @@ def restore_rng_state(state: Mapping[str, Any]) -> None:
     if "numpy" in state:
         import numpy as np
 
-        np.random.set_state(state["numpy"])
+        encoded = state["numpy"]
+        if isinstance(encoded, Mapping):
+            np.random.set_state((encoded["name"],
+                                 np.array(encoded["keys"], dtype=np.uint32),
+                                 int(encoded["pos"]), int(encoded["has_gauss"]),
+                                 float(encoded["cached_gaussian"])))
+        else:  # legacy in-memory shape (same process)
+            np.random.set_state(encoded)
     if "cuda" in state and torch.cuda.is_available():
         torch.cuda.set_rng_state_all(list(state["cuda"]))
 

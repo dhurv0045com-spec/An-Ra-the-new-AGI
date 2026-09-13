@@ -19,11 +19,13 @@ from bramastra_lab.research.evaluation.store import StoreError
 
 def outcome(outcome_id: str, *, prediction="4", stopped=True, label="4", family="math",
             pool="measurement", cost=1.0, pair=None, role=None, confidence=None,
-            split="development", task_semantic_id=None):
+            split="development", task_semantic_id=None, case_id=None):
     return RawOutcome(outcome_id=outcome_id, pool=pool, split=split, family=family,
-                      task_semantic_id=task_semantic_id or f"task-{outcome_id}", prediction=prediction,
+                      task_semantic_id=task_semantic_id or f"task-{outcome_id}",
+                      prediction=prediction,
                       stopped_on_eos=stopped, label=label, cost=cost,
-                      pair_group_id=pair, role=role, confidence=confidence)
+                      pair_group_id=pair, role=role, confidence=confidence,
+                      case_id=case_id or outcome_id)
 
 
 class CompleteAnswerTests(unittest.TestCase):
@@ -39,6 +41,11 @@ class CompleteAnswerTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["complete_answer_rate"], 0.0)
         self.assertAlmostEqual(metrics["exact_answer_rate"], 1.0)
         self.assertEqual(metrics["exact_but_stopping_invalid"], 1)
+
+    def test_case_id_required(self) -> None:
+        with self.assertRaises(EvaluationError):
+            RawOutcome("a", "measurement", "development", "math", "w",
+                       "4", True, "4", 0.0, case_id="")
 
     def test_no_success_field_exists_to_forge(self) -> None:
         # Even a hand-forged outcome cannot inject correctness: the raw
@@ -113,47 +120,107 @@ class RetentionTests(unittest.TestCase):
 
 class PromotionTests(unittest.TestCase):
     @staticmethod
-    def build_inputs(*, cand_primary=0.9, ref_primary=0.8, logic_delta=0.0,
-                     pairs=8, both_correct=0.9, evidence=True, sealed_fresh=True):
-        reference_metrics = {"complete_answer_rate": ref_primary}
-        candidate_metrics = {"complete_answer_rate": cand_primary}
-        reference_family = {"math": {"complete_answer_rate": ref_primary, "count": 10},
-                            "logic": {"complete_answer_rate": 0.9, "count": 10}}
-        candidate_family = {
-            "math": {"complete_answer_rate": cand_primary, "count": 10},
-            "logic": {"complete_answer_rate": 0.9 + logic_delta, "count": 10}}
+    def build_bundle(*, cand_primary=0.9, ref_primary=0.8, logic_delta=0.0,
+                     pairs=8, both_correct=0.9, sealed_fresh=True,
+                     paired_goal=True, requires_uncertainty=False,
+                     clustered=None, evidence_complete=True):
+        from bramastra_lab.research.evaluation.scoring import (EvidenceBundle,
+                                                               EvaluationProtocol)
+
+        protocol = EvaluationProtocol(protocol_id="test-protocol",
+                                      paired_goal=paired_goal,
+                                      requires_uncertainty=requires_uncertainty)
         paired = {"pairs": pairs, "both_correct_rate": both_correct,
-                  "goal_swap_gap": 0.4}
-        decision = decide_promotion(
-            reference_metrics=reference_metrics, candidate_metrics=candidate_metrics,
-            reference_family=reference_family, candidate_family=candidate_family,
-            paired=paired, config=PromotionConfig(), evidence_complete=evidence,
+                  "goal_swap_gap": 0.4} if paired_goal else None
+        return EvidenceBundle(
+            parent_identity="parent-1", child_identity="child-1",
+            protocol=protocol, pool="confirmation", data_identity="data-1",
+            reference_metrics={"complete_answer_rate": ref_primary},
+            candidate_metrics={"complete_answer_rate": cand_primary},
+            reference_family={"math": {"complete_answer_rate": ref_primary, "count": 10},
+                              "logic": {"complete_answer_rate": 0.9, "count": 10}},
+            candidate_family={"math": {"complete_answer_rate": cand_primary, "count": 10},
+                              "logic": {"complete_answer_rate": 0.9 + logic_delta,
+                                        "count": 10}},
+            paired=paired,
+            clustered_uncertainty=clustered,
             sealed_fresh=sealed_fresh)
-        return decision
 
     def test_accept_on_clear_evidence(self) -> None:
-        decision = self.build_inputs()
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        decision = decide_promotion(self.build_bundle(), PromotionConfig())
         self.assertEqual(decision["decision"], "accept")
         self.assertEqual(decision["reasons"], [])
 
-    def test_default_is_no_promotion_without_evidence(self) -> None:
-        decision = self.build_inputs(cand_primary=0.80, evidence=False)
+    def test_missing_pair_receipt_is_insufficient_under_paired_protocol(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import (decide_promotion,
+                                                               EvidenceBundle)
+
+        bundle = self.build_bundle()
+        broken = EvidenceBundle(**{**bundle.__dict__, "paired": None})
+        decision = decide_promotion(broken, PromotionConfig())
         self.assertEqual(decision["decision"], "no_promotion")
-        self.assertIn("evidence_incomplete", decision["reasons"])
+        self.assertIn("missing_required_pair_receipt", decision["reasons"])
+
+    def test_missing_uncertainty_receipt_when_required(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        bundle = self.build_bundle(requires_uncertainty=True, clustered=None)
+        decision = decide_promotion(bundle, PromotionConfig())
+        self.assertIn("missing_required_uncertainty_receipt", decision["reasons"])
+
+    def test_pair_criteria_not_applicable_recorded(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        bundle = self.build_bundle(paired_goal=False)
+        decision = decide_promotion(bundle, PromotionConfig())
+        self.assertEqual(decision["pair_criteria"], "not_applicable_for_this_protocol")
+        self.assertNotIn("insufficient_pairs_for_goal_check", decision["reasons"])
+
+    def test_default_is_no_promotion_without_evidence(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        decision = decide_promotion(self.build_bundle(cand_primary=0.80), PromotionConfig())
+        self.assertEqual(decision["decision"], "no_promotion")
+        self.assertIn("primary_margin_not_met", decision["reasons"][0])
 
     def test_small_improvement_does_not_promote(self) -> None:
-        decision = self.build_inputs(cand_primary=0.82)
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        decision = decide_promotion(self.build_bundle(cand_primary=0.82), PromotionConfig())
         self.assertIn("primary_margin_not_met", decision["reasons"][0])
 
     def test_family_regression_blocks_promotion(self) -> None:
-        decision = self.build_inputs(logic_delta=-0.4)
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        decision = decide_promotion(self.build_bundle(logic_delta=-0.4), PromotionConfig())
         self.assertEqual(decision["decision"], "no_promotion")
         self.assertTrue(any(r.startswith("family_regression") for r in decision["reasons"]))
 
     def test_sealed_reuse_blocks_acceptance(self) -> None:
-        decision = self.build_inputs(sealed_fresh=False)
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        decision = decide_promotion(self.build_bundle(sealed_fresh=False), PromotionConfig())
         self.assertEqual(decision["decision"], "no_promotion")
         self.assertIn("sealed_pool_reuse_detected", decision["reasons"])
+
+    def test_parent_child_must_differ(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import (decide_promotion,
+                                                               EvidenceBundle)
+
+        bundle = self.build_bundle()
+        with self.assertRaises(Exception):
+            EvidenceBundle(**{**bundle.__dict__,
+                              "parent_identity": "same", "child_identity": "same"})
+
+    def test_uncertainty_underpowered_blocks_accept(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
+
+        bundle = self.build_bundle(requires_uncertainty=True,
+                                   clustered={"clusters": 1, "ci_includes_zero": False})
+        decision = decide_promotion(bundle, PromotionConfig())
+        self.assertTrue(any(r.startswith("underpowered") for r in decision["reasons"]))
 
 
 class BrierTests(unittest.TestCase):
@@ -214,10 +281,13 @@ class ClusteredBootstrapTests(unittest.TestCase):
         for cluster in range(n_clusters):
             for item in range(items_per):
                 task = f"task-{cluster}"
-                refs.append(outcome(f"r{cluster}-{item}", label="4" if ref_correct else "5",
-                                    prediction="4" if ref_correct else "6", task_semantic_id=task))
-                cands.append(outcome(f"c{cluster}-{item}", label="4" if cand_correct else "5",
-                                     prediction="4" if cand_correct else "6", task_semantic_id=task))
+                case = f"case-{cluster}-{item}"
+                refs.append(outcome(f"r{cluster}-{item}", label="4",
+                                    prediction="4" if ref_correct else "6",
+                                    task_semantic_id=task, case_id=case))
+                cands.append(outcome(f"c{cluster}-{item}", label="4",
+                                     prediction="4" if cand_correct else "6",
+                                     task_semantic_id=task, case_id=case))
         return refs, cands
 
     def test_delta_and_clusters(self) -> None:
@@ -229,28 +299,43 @@ class ClusteredBootstrapTests(unittest.TestCase):
         self.assertAlmostEqual(report["delta"], 1.0)
         self.assertFalse(report["ci_includes_zero"])
 
-    def test_unmatched_tasks_reject(self) -> None:
+    def test_unmatched_cases_reject(self) -> None:
         from bramastra_lab.research.evaluation.scoring import clustered_bootstrap_delta
 
         refs, cands = self.build_paired_worlds()
-        extra = [outcome("extra", task_semantic_id="task-other")]
+        extra = [outcome("extra", task_semantic_id="task-0", case_id="case-other")]
         with self.assertRaises(EvaluationError):
             clustered_bootstrap_delta(refs, cands + extra)
 
+    def test_different_cases_same_world_reject(self) -> None:
+        """The chief probe's defect: different cases in one world cannot pair."""
+        from bramastra_lab.research.evaluation.scoring import clustered_bootstrap_delta
+
+        refs = [outcome("a", label="a", prediction="wrong", task_semantic_id="world",
+                        case_id="different-task-a")]
+        cands = [outcome("b", label="b", prediction="b", task_semantic_id="world",
+                         case_id="different-task-b")]
+        with self.assertRaises(EvaluationError):
+            clustered_bootstrap_delta(refs, cands, iterations=10)
+
+    def test_mismatched_labels_within_case_reject(self) -> None:
+        from bramastra_lab.research.evaluation.scoring import clustered_bootstrap_delta
+
+        refs = [outcome("a", label="4", task_semantic_id="w", case_id="c1")]
+        cands = [outcome("b", label="5", task_semantic_id="w", case_id="c1")]
+        with self.assertRaises(EvaluationError) as caught:
+            clustered_bootstrap_delta(refs, cands)
+        self.assertIn("label", str(caught.exception))
+
     def test_underpowered_promotion_is_refused(self) -> None:
-        from bramastra_lab.research.evaluation.scoring import PromotionConfig
+        from bramastra_lab.research.evaluation.scoring import decide_promotion
 
         refs, cands = self.build_paired_worlds(n_clusters=1, ref_correct=False,
                                                cand_correct=True)
-        reference_metrics = {"complete_answer_rate": 0.0}
-        candidate_metrics = {"complete_answer_rate": 1.0}
-        fam = {"math": {"complete_answer_rate": 1.0, "count": 4}}
-        uncertainty = {"clusters": 1, "ci_includes_zero": False}
-        decision = decide_promotion(
-            reference_metrics=reference_metrics, candidate_metrics=candidate_metrics,
-            reference_family=fam, candidate_family=fam, paired=None,
-            config=PromotionConfig(), evidence_complete=True,
-            clustered_uncertainty=uncertainty)
+        bundle = PromotionTests.build_bundle(requires_uncertainty=True,
+                                             clustered={"clusters": 1,
+                                                        "ci_includes_zero": False})
+        decision = decide_promotion(bundle, PromotionConfig())
         self.assertEqual(decision["decision"], "no_promotion")
         self.assertTrue(any(r.startswith("underpowered") for r in decision["reasons"]))
 
