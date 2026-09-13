@@ -1,6 +1,10 @@
 # Current engineering state
 
-Updated: 2026-09-13. This is the dispatch entry point. Update from actual evidence, not intention.
+Updated: 2026-09-14. This is the dispatch entry point. Update from actual evidence, not intention.
+
+## Latest acceptance decision: 2a1e35a is partial; K8 launch blocked
+
+Read the [chief review and R01–R08 repair order](reports/K8_CHIEF_20260914/REVIEW.md) before further K8 work. The new modules pass 17 focused tests, but source and zero-learning diagnostics demonstrate absent phase execution, invalid E0/trainer behavior, resettable deadlines, broken restart, insufficient rule diversity and incomplete export. The K8_BUILD handoff's launch-readiness claims are not accepted. Repair code before the owner spends GPU time; return `engineering/reports/K8_REPAIR_20260914/HANDOFF.md`. Allocation remains unchanged, with zero local optimizer authorization. The older milestone descriptions below are context, not current acceptance.
 
 ## Current milestone: K8 notebook and campaign readiness
 

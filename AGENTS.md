@@ -2,6 +2,8 @@
 
 ## Mission and authority
 
+Latest chief dispatch: [K8 review of 2a1e35a, repairs R01–R08](engineering/reports/K8_CHIEF_20260914/REVIEW.md). Current notebook launch is not accepted; repair implementation and return the specified handoff before owner GPU execution.
+
 The owner's objective is general intelligence trained from scratch, including learning to investigate, acquire transferable skills and improve while retaining earlier capabilities. This repository is a research program; neither an architecture proposal nor a passing test suite establishes AGI.
 
 The chief engineer owns architecture, algorithms, data contracts, experiment design, integration decisions and claim acceptance. Implementation agents own their assigned code, focused tests and experimental execution. Follow the owner's current request if it changes a role or scope. Do not substitute a long implementation by the chief for delegation when the owner has requested engineering leadership.

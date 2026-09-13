@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Latest dispatch (2026-09-14):** repair [R01–R08 from the chief's review of 2a1e35a](reports/K8_CHIEF_20260914/REVIEW.md). The current notebook is not launch-ready. The K8 design remains the target; fix CPU-detectable integration and accounting defects before owner GPU execution.
+
 **Required execution quality extension:** the [chief's direct feedback](experiments/K8_20260913/CHIEF_TO_AGENT.md), [ten system themes](experiments/K8_20260913/SYSTEM_QUALITY.md) and [review protocol](experiments/K8_20260913/REVIEW_PROTOCOL.md) are part of K8 acceptance. Start with a complete vertical slice, then generalize; include production-path evidence and deliberately broken cases in the handoff.
 
 **Current dispatch supersedes the earlier queue below:** implement [K8 readiness I01–I06](experiments/K8_20260913/READINESS.md) for [experiment.md](../experiment.md), then hand the notebook to the owner. The new authorization covers one owner-launched two-T4 session of at most480 minutes; no local training or extra sessions. Use the [K8 prompt](experiments/K8_20260913/AGENT_PROMPT.md). M00–M24 remains architectural context.

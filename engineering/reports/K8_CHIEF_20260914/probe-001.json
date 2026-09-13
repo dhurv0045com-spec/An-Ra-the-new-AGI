@@ -1,0 +1,21 @@
+{
+  "source_reviewed": "2a1e35a",
+  "model_instantiations": 0,
+  "optimizer_updates": 0,
+  "accelerator_work": false,
+  "rule_inventory_requested": 4096,
+  "rule_inventory_returned": 24,
+  "archive_identity_error": "NameError: name 'content_identity' is not defined",
+  "same_allocation_deadline_extension_seconds": 60.0,
+  "duplicate_job_admitted_twice": true,
+  "fake_failed_e0_run_exit_code": 0,
+  "phases_called_after_failed_e0": ["E1", "E2", "E3", "E4", "E5", "E6"],
+  "restart_error": "IndexError: tuple index out of range",
+  "real_nonlearning_worker_statuses": {
+    "E1": "blocked_pending_e0", "E2": "completed",
+    "E3": "blocked_pending_e0", "E4": "blocked_pending_e0",
+    "E5": "blocked_pending_e0", "E6": "completed"
+  },
+  "reproduction": "From repository root: PYTHONPATH=. python engineering/reports/K8_CHIEF_20260914/probe.py",
+  "diagnostic_note": "Runner workers were mocked only for gate/restart checks. Direct E1-E6 worker calls perform no learning in reviewed source. Initial probe cleanup hit an unclosed SQLite handle on Windows; collecting unreachable connections before cleanup corrected the diagnostic. Neither attempt performed optimizer updates."
+}
