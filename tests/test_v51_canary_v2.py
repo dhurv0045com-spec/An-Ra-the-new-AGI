@@ -1,9 +1,9 @@
 """Qualification tests for V5.1 Canary-v2.
 
-V1 already owns the heavy checkpoint/corruption/fresh-process tests.  This
+V1 already owns the heavy checkpoint/corruption/fresh-process tests. This
 suite attacks only the V2 delta: frozen scientific identity, fresh data seed,
-multi-epoch mapping, schedule continuity, trace durability, formation-gate
-math, and the post-R1C full-softmax boundary.
+multi-epoch mapping, schedule continuity, trace durability, isolated preflight,
+formation-gate math, sealed-test discipline, and the post-R1C full-softmax boundary.
 """
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def test_post_r1c_boundary_forbids_masked_softmax_promotion():
 def test_v2_uses_fresh_seed_and_fresh_split_identity():
     p = v2.load_prereg()
     assert p["seed"] == 2026091302
-    assert p["seed"] != 20260913  # V1 seed
+    assert p["seed"] != 20260913
     small_v2 = data_mod.build_dataset(seed=p["seed"], worlds_per_family=60)
     small_v1 = data_mod.build_dataset(seed=20260913, worlds_per_family=60)
     assert small_v2["split_hashes"] != small_v1["split_hashes"]
@@ -71,7 +71,6 @@ def test_multi_epoch_layout_is_deterministic_and_epoch_sensitive(monkeypatch):
         calls.append(epoch)
         assert seed == p["seed"]
         assert tokens_per_update == 4096
-        # equal cardinality is mandatory; contents are epoch-specific
         return [(epoch, i) for i in range(127)]
 
     monkeypatch.setattr(v2, "_epoch_stream", fake_stream)
@@ -82,8 +81,6 @@ def test_multi_epoch_layout_is_deterministic_and_epoch_sensitive(monkeypatch):
         "epoch_window_counts": [127, 127, 127],
     }
     assert calls == [0, 0, 1, 2]
-    # fixed 360-update endpoint reaches the third epoch rather than trying to
-    # index beyond one frozen stream as V1 did.
     assert divmod(359, layout["windows_per_epoch"]) == (2, 105)
 
 
@@ -103,7 +100,6 @@ def test_trace_merge_is_contiguous_and_resume_safe():
     new = [{"update": 3, "loss": 1.2}, {"update": 4, "loss": 1.0}]
     merged = v2._merge_trace(old, new)
     assert [r["update"] for r in merged] == [1, 2, 3, 4]
-    # exact duplicate is idempotent
     assert v2._merge_trace(merged, [merged[-1]]) == merged
     with pytest.raises(SystemExit, match="conflicting"):
         v2._merge_trace(old, [{"update": 2, "loss": 99.0}])
@@ -140,7 +136,7 @@ def test_v1_formation_thresholds_are_retained_without_moving_goalposts():
     assert gates["identity_acquisition_dev"] is True
     assert gates["binding_acquisition_dev"] is True
     assert gates["formation_positive"] is True
-    assert gates["dev_transfer"] is True  # 1.05 / 6 = 0.175
+    assert gates["dev_transfer"] is True
 
 
 def test_360_update_wsd_has_all_phases_and_no_resume_rewarm():
@@ -167,7 +163,6 @@ def test_rung_b_is_not_authorized_by_v2_preregistration():
 def test_substantive_run_cannot_move_the_frozen_endpoint(monkeypatch):
     args = Namespace(rung="A", updates=359, bfloat16=False, cuda=False,
                      allow_cpu=True, checkpoint_every=24)
-    # endpoint check occurs before expensive pack/model construction
     assert v2.mode_run(args) == 1
 
 
@@ -177,6 +172,15 @@ def test_substantive_run_rejects_bfloat16_before_expensive_work():
     assert v2.mode_run(args) == 1
 
 
+def test_preflight_isolated_from_scientific_lineage_by_contract():
+    source = (REPO / "anra_v5" / "v51_canary_v2_run.py").read_text(encoding="utf-8")
+    assert "TemporaryDirectory" in source
+    assert 'base.LINEAGE_ID = "v51-canary-v2-preflight"' in source
+    assert '"scientific_state_untouched"] = True' in source
+    assert "temp_root / \"state\"" in source
+    assert "return mode_preflight(args)" in source
+
+
 def test_sealed_test_is_fresh_and_one_shot_by_contract():
     p = v2.load_prereg()
     assert "fresh V2 sealed split" in p["evaluation"]["sealed"]
@@ -184,6 +188,7 @@ def test_sealed_test_is_fresh_and_one_shot_by_contract():
     assert "SEALED_CONSUMPTION.json" in source
     assert "CONSUMED_AND_FINALIZED" in source
     assert "sealed-consumption marker exists without FINALIZATION" in source
+    assert "mechanical gate failed BEFORE sealed consumption" in source
 
 
 def test_v2_runner_keeps_production_spine_not_parallel_training_code():
