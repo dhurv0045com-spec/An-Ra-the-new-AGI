@@ -1,5 +1,7 @@
 # Data, state and evidence contracts
 
+**Authority update, 2026-09-13:** retain these original invariants where compatible. The [master data and training contracts](master_program_20260913/DATA_AND_TRAINING.md) extend and supersede conflicting schemas for the current [M00–M18 build](master_program_20260913/README.md).
+
 Status: schema specification for W01. Implement versioned strict records and validators before treating this as an enforced interface. Prototype records are adapters, not implicit compliance.
 
 ## 1. Identity rules

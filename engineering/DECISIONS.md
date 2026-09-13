@@ -1,5 +1,11 @@
 # Engineering decisions
 
+## E009 — Complete the learning connections before claiming an integrated learner
+
+Adopted for implementation design, 2026-09-13; efficacy unqualified. Source audit at `baa655d` found that action/value heads lack training objectives, the planner does not recursively value typed public outcomes, memory is absent from canonical input, and collection stops at the ledger. The [master program](master_program_20260913/README.md) assigns M00–M18 to connect those behaviors through the existing shared decoder and trainer, preserving an answer-only control.
+
+Candidate isolation, separate objective denominators, a finite-support initial world planner, explicit ResourceVector comparisons and fixture-versus-learned publication guards are required design decisions. The central research hypothesis is counterfactual inquiry followed by consolidation; no improvement magnitude is asserted. The owner requested the whole build, so after M00 dependency checks/report the executor may continue provisional implementation instead of stopping at the former B2.2 return boundary. Chief acceptance, from-scratch weights and cumulative resource limits remain in force.
+
 ## E001 — Chief designs; agents implement
 
 Date: 2026-09-07. Status: adopted from owner direction. The chief owns architecture, algorithms, data structures, experiments and acceptance. Coding and experimental execution are delegated. Existing in-flight prototype work is completed as a bounded delegated task.

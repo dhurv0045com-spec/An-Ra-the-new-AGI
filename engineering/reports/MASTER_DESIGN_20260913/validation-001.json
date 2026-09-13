@@ -1,0 +1,43 @@
+{
+  "check_kind": "design_structure_only",
+  "packages": 19,
+  "local_links_checked": 96,
+  "errors": [],
+  "optimizer_updates": 0,
+  "model_instantiations": 0,
+  "files": {
+    "engineering/master_program_20260913/README.md": {
+      "canonical_utf8_lf_sha256": "bcfb975ab42c05235e8e0ceddce256db78f7c0dcd1749ce1abe4c72e457e7acd",
+      "whitespace_delimited_words": 1033
+    },
+    "engineering/master_program_20260913/ARCHITECTURE.md": {
+      "canonical_utf8_lf_sha256": "a19396488ef65c7afb1746dec2f77034cf6064f2e50c8ff3d86538ad7ce2cfda",
+      "whitespace_delimited_words": 1743
+    },
+    "engineering/master_program_20260913/ALGORITHMS.md": {
+      "canonical_utf8_lf_sha256": "120d730c29bf9dd34b3a6eca078c88c34de645dc3f6fb25781a21ca99efb1314",
+      "whitespace_delimited_words": 2702
+    },
+    "engineering/master_program_20260913/DATA_AND_TRAINING.md": {
+      "canonical_utf8_lf_sha256": "db759df50d3a7b003560e6a02a08af36ae489a099e2c40dd60106f34e400e3ed",
+      "whitespace_delimited_words": 2184
+    },
+    "engineering/master_program_20260913/EXECUTION.md": {
+      "canonical_utf8_lf_sha256": "20aa3962da8724bf8ed9ee32fc8f7d6143323dde7d84616fdd63cc54556b1bd5",
+      "whitespace_delimited_words": 2828
+    },
+    "engineering/master_program_20260913/EVALUATION.md": {
+      "canonical_utf8_lf_sha256": "62a1b1aaed51f36f08e76663e956f3e131cc948d1de16c47e12140a491d5cf50",
+      "whitespace_delimited_words": 1514
+    },
+    "engineering/master_program_20260913/AGENT_PROMPT.md": {
+      "canonical_utf8_lf_sha256": "2099295597b0813e06a28a163e62e549aa4dabca362adf1d56b26993d51eb618",
+      "whitespace_delimited_words": 622
+    },
+    "engineering/master_program_20260913/program.json": {
+      "canonical_utf8_lf_sha256": "25e5814a7ac3aa1a38dcf3961f2fdf7a9fe8c4a5f85e2bdb6bda1f2fbc134fee",
+      "whitespace_delimited_words": null
+    }
+  },
+  "design_markdown_words": 12626
+}

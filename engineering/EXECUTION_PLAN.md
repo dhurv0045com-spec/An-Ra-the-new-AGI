@@ -1,5 +1,7 @@
 # Agent execution plan
 
+**Historical queue:** the current assignment is [M00–M18](master_program_20260913/EXECUTION.md), beginning with B2.2 repairs and continuing through the complete learner build. Do not dispatch the old queue below as a competing program.
+
 ## Dispatch protocol
 
 Give an agent one work-order ID and a checked-out repository. The agent reads root `AGENTS.md`, this directory's entry point, the work order and its required specifications. No chat history is necessary.

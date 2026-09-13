@@ -1,6 +1,6 @@
 # BRAMASTRA engineering headquarters
 
-**Active assignment:** [B2.2 integration correctness](phase_b22_20260913/README.md). Read the [chief review](reports/B2_CHIEF_20260913/REVIEW.md), then execute C1–C6. The prior build is substantial but its end-to-end completion claim needs correction.
+**Active assignment:** [Complete learner execution program, M00–M18](master_program_20260913/README.md). Read its architecture, algorithms, data/training contracts, execution packages and evaluation rules. M00 closes [B2.2 integration correctness](phase_b22_20260913/README.md) and the [chief review](reports/B2_CHIEF_20260913/REVIEW.md); the remaining packages build the connected learner. Use the [master agent prompt](master_program_20260913/AGENT_PROMPT.md).
 
 The complete [BRAMASTRA research paper](../BRAMASTRA_PAPER.md) presents the architecture, formal learning objectives, preliminary evidence and deferred experimental program in manuscript form.
 
@@ -9,14 +9,14 @@ This directory makes the owner's AGI research program executable by independent 
 ## Read in this order
 
 1. [Current state and next dispatch](STATUS.md): what exists, what is provisional, what is ready to assign.
-2. [Charter](CHARTER.md): objective, roles, claim standards and resource constraints.
-3. [System architecture](SYSTEM_ARCHITECTURE.md): modules, information flow and dependency boundaries.
-4. [Data contracts](DATA_CONTRACTS.md): identities, tensors, state and storage semantics.
-5. [Learning algorithms](LEARNING_ALGORITHMS.md): exact initial choices, alternatives and falsifying experiments.
+2. [Complete learner program](master_program_20260913/README.md): current execution authority; read every linked design file before shared-interface edits.
+3. [Charter](CHARTER.md): objective, roles, claim standards and resource constraints. The following original specifications are background where the master supersedes them.
+4. [System architecture](SYSTEM_ARCHITECTURE.md): historical modules, information flow and dependency boundaries.
+5. [Data contracts](DATA_CONTRACTS.md): original identities, tensors, state and storage semantics.
+6. [Learning algorithms](LEARNING_ALGORITHMS.md): original choices, alternatives and falsifying experiments.
    The [public evidence encoding specification](OBSERVATION_ENCODING.md) defines the shared model interface across environment families.
-6. [Experiment registry](EXPERIMENT_REGISTRY.md): hypotheses, comparisons, budgets and decision rules.
-7. [Execution plan](EXECUTION_PLAN.md): package dependencies, ownership and dispatch instructions.
-8. Your assigned [work order](work_orders/README.md).
+7. [Experiment registry](EXPERIMENT_REGISTRY.md): historical hypotheses, comparisons, budgets and decision rules.
+8. [Original execution plan](EXECUTION_PLAN.md) and [work orders](work_orders/README.md): historical context; dispatch from the master program.
 
 ## Authority and evidence
 
@@ -26,7 +26,7 @@ This directory makes the owner's AGI research program executable by independent 
 | `engineering/work_orders/` | Bounded implementation and experimental assignments |
 | `engineering/DECISIONS.md` | Why a decision was adopted, revised or rejected |
 | `bramastra_lab/discovery/` | Initial executable active-rule-learning prototype; not a production AGI |
-| `bramastra_lab/research/` | Proposed canonical integrated system namespace, created by assigned agents |
+| `bramastra_lab/research/` | Existing canonical implementation; repairs and missing learning connections assigned in M00–M18 |
 | `artifacts/bramastra/` | Immutable run evidence, including negative outcomes and source snapshots |
 | `engineering/reports/` | Agent handoffs and chief integration reviews |
 
@@ -36,4 +36,4 @@ Do not infer implementation from a proposed path. A module exists only when its 
 
 Build and measure a learner that chooses informative actions in unfamiliar worlds, uses recurrent state and predictive planning, and consolidates what it learns. Demonstrate transfer and retention before interpreting the loop as useful self-improvement. Then expand toward language, code, broader reasoning and long-horizon tasks.
 
-The program contains eleven substantial work packages. They form one shared architecture with controlled interfaces and an independent examiner. W11 separates storage/replay from W01's contract work so both assignments remain bounded.
+The active program contains nineteen packages, M00–M18, with a dependency manifest, file ownership and acceptance criteria. The earlier eleven W packages are historical design assignments. Dispatch from the master program and current status, not from the historical queue.

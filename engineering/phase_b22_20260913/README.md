@@ -56,7 +56,7 @@ Acceptance: one command exercises verified preparation, configured accumulation,
 
 Update `engineering/reports/B2_2/PROGRESS.md` continuously and finish `HANDOFF.md` with each R1–R7 disposition, exact source/test/receipt identities, residual limits and resource accounting. Preserve prior agent reports as history; don't rewrite old measurements. Resolve contradictory status statements. Push BRAMASTRA normally under existing owner authorization; no force-push or unrelated changes.
 
-The chief will accept B2.2 before choosing data scale or a capability-learning experiment. Completion requires the integrated behavior, not a larger count of green isolated tests. Do not replace this assignment with new controller ideas, another representation sweep or a paper rewrite.
+The chief will accept B2.2 before choosing data scale or a capability-learning experiment. Completion requires integrated behavior, not a larger count of green isolated tests. The later [complete learner program](../master_program_20260913/README.md) incorporates C1–C6 as M00 and authorizes continued provisional implementation after its dependency checks/report; it supersedes this packet's former stop-and-return boundary. It does not authorize a new training campaign or scientific promotion.
 
 ## Multi-agent discipline
 

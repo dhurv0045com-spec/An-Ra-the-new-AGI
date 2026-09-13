@@ -8,7 +8,7 @@ The chief engineer owns architecture, algorithms, data contracts, experiment des
 
 Start at [engineering/README.md](engineering/README.md), then [engineering/STATUS.md](engineering/STATUS.md). Read the assigned work order, its required specifications, and relevant local instructions before editing. The work order is the assignment; this conversation is not required context.
 
-The active assignment is [B2.2 integration correctness](engineering/phase_b22_20260913/README.md), following chief review of the B2/B2.1 push. Read its R1–R7 findings and execute C1–C6 before new mechanisms or scaling. The original [B2 build packet](engineering/build_20260912/README.md) remains architectural context. Preserve the cumulative local smoke ledger; a new phase does not reset its allowance.
+The active assignment is the [complete learner execution program](engineering/master_program_20260913/README.md), M00–M18. M00 executes [B2.2 integration correctness](engineering/phase_b22_20260913/README.md), including R1–R7 and C1–C6. After its dependency checks and report, continue through the master's architecture, algorithms and whole-repository build as provisional integration; chief acceptance still governs scientific promotion and broader claims. The master explicitly supersedes the old instruction to stop after B2.2. The original [B2 build packet](engineering/build_20260912/README.md) remains context. Preserve the cumulative local smoke ledger; a new phase does not reset its allowance.
 
 ## Working boundaries
 

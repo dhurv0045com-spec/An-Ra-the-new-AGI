@@ -1,5 +1,7 @@
 # Integrated system architecture
 
+**Authority update, 2026-09-13:** this original specification is background. The [complete learner architecture](master_program_20260913/ARCHITECTURE.md) and its [M00–M18 program](master_program_20260913/README.md) define the current build and supersede conflicting choices here.
+
 Status: proposed canonical system; `bramastra_lab/discovery` is the initial prototype. This design has no runtime dependency on Cymek, Citadel or another branch. Reuse reviewed BRAMASTRA components through explicit adapters, not silent inheritance.
 
 ## 1. A single learning loop

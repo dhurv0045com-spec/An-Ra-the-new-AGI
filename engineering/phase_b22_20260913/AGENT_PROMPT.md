@@ -1,5 +1,7 @@
 # Return prompt for the implementation agent
 
+**Scope update:** the owner's whole-repository assignment now uses the [master prompt](../master_program_20260913/AGENT_PROMPT.md). This older prompt describes its M00 repair prerequisite only; continue through the master packages under their explicit gates.
+
 Your BRAMASTRA B2/B2.1 push has been reviewed at c3662b3. Preserve the substantial implementation, but do not treat the integrated build as accepted yet.
 
 Fetch BRAMASTRA and inspect branch/status/worktrees without overwriting other work. Read AGENTS.md, engineering/STATUS.md, engineering/reports/B2_CHIEF_20260913/REVIEW.md and engineering/phase_b22_20260913/README.md in full. The chief's probe.py and observations.json reproduce defects with zero optimizer updates.

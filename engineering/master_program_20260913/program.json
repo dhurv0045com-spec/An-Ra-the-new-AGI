@@ -1,0 +1,332 @@
+{
+  "schema": "bramastra-chief-program/v1",
+  "kind": "dispatch_specification_not_runtime_config",
+  "date": "2026-09-13",
+  "branch": "BRAMASTRA",
+  "inspected_commit": "baa655df7989ab86c447c853fc23703c8b894fe7",
+  "status": "designed_assigned_not_capability_evidence",
+  "objective": "General intelligence learned from randomly initialized core weights; no AGI achievement claimed.",
+  "active_package": "M00",
+  "training_campaign_authorized": false,
+  "build_dependency_gate": "M00 acceptance checks and immutable report; subsequent integration provisional pending chief review",
+  "scientific_promotion_authority": "chief_engineer",
+  "resource_ledger": "engineering/reports/B2/SESSION_LEDGER.json",
+  "resource_baseline": {
+    "cpu_optimizer_updates": 193,
+    "cpu_learned_smoke_seconds": 111.23399999999674,
+    "gpu_optimizer_updates": 0,
+    "gpu_sessions": 0,
+    "gpu_wall_seconds": 0
+  },
+  "existing_shared_caps": {
+    "cpu_optimizer_updates": 200,
+    "cpu_learned_smoke_seconds": 300,
+    "optional_gpu_sessions": 1,
+    "optional_gpu_optimizer_updates": 200,
+    "optional_gpu_wall_seconds": 600
+  },
+  "m00_reserved_max_additional_cpu_updates": 6,
+  "requested_implementation_agent_tokens": 100000000,
+  "implementation_token_allocation": "external_app_unknown_not_enforceable",
+  "primary_design_files": [
+    "README.md",
+    "ARCHITECTURE.md",
+    "ALGORITHMS.md",
+    "DATA_AND_TRAINING.md",
+    "EXECUTION.md",
+    "EVALUATION.md",
+    "AGENT_PROMPT.md"
+  ],
+  "packages": [
+    {
+      "id": "M00",
+      "title": "Repair foundation",
+      "depends_on": [],
+      "status": "assigned",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M00/",
+      "estimated_useful_hours": null
+    },
+    {
+      "id": "M01",
+      "title": "Experience and objective contracts",
+      "depends_on": [
+        "M00"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M01/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Shared decision adapters",
+      "depends_on": [
+        "M01"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M02/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Public outcome prediction",
+      "depends_on": [
+        "M01",
+        "M02"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M03/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "Memory input path",
+      "depends_on": [
+        "M01"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M04/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Unified objective router",
+      "depends_on": [
+        "M01",
+        "M02",
+        "M03"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M05/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Episode and teacher preparation",
+      "bootstrap_input": "Versioned seed ledger from existing real environment collector; at most six short fixed-policy episodes, zero model updates; created or admitted by M06 before M08.",
+      "depends_on": [
+        "M01",
+        "M02",
+        "M05"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M06/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "Branching public-outcome search",
+      "depends_on": [
+        "M02",
+        "M03",
+        "M04"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M07/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "Collection to learning",
+      "depends_on": [
+        "M04",
+        "M06",
+        "M07"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M08/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "Verified curriculum",
+      "depends_on": [
+        "M06",
+        "M08"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M09/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "Acquisition and preservation",
+      "depends_on": [
+        "M05",
+        "M08",
+        "M09"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M10/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "Independent whole-loop examiner",
+      "depends_on": [
+        "M01",
+        "M03",
+        "M07",
+        "M08"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M11/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "Transactional candidate improvement",
+      "depends_on": [
+        "M08",
+        "M10",
+        "M11"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M12/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M13",
+      "title": "From-scratch corpus path",
+      "depends_on": [
+        "M01",
+        "M04",
+        "M05"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M13/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M14",
+      "title": "Qualified richer environments",
+      "depends_on": [
+        "M01",
+        "M06"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M14/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M15",
+      "title": "Backend readiness and recovery",
+      "depends_on": [
+        "M00",
+        "M05",
+        "M12"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M15/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M16",
+      "title": "Operator workflow",
+      "depends_on": [
+        "M12",
+        "M13",
+        "M14"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M16/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M17",
+      "title": "Qualification protocols",
+      "depends_on": [
+        "M11",
+        "M13",
+        "M14",
+        "M15"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M17/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M18",
+      "title": "Integrated build handoff",
+      "depends_on": [
+        "M16",
+        "M17"
+      ],
+      "status": "designed_not_implemented",
+      "specification": "EXECUTION.md",
+      "evidence_directory": "engineering/reports/MASTER_20260913/M18/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    }
+  ]
+}

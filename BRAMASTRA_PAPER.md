@@ -6,9 +6,9 @@
 
 **Status:** Complete design manuscript; integrated-system experiments pending.
 
-**Implementation update, 12 September 2026:** the [B2 build packet](engineering/build_20260912/README.md) is the current execution authority, informed by refreshed cross-branch results. The historical study below is unchanged.
+**Implementation update, 12 September 2026:** the [B2 build packet](engineering/build_20260912/README.md) records the original implementation assignment informed by refreshed cross-branch results. The historical study below is unchanged.
 
-**Implementation update, 13 September 2026:** the B00–B12 integrated build is implemented and unit-tested on branch `BRAMASTRA`; the command path prepare→train→resume→infer→evaluate→package runs end to end on tiny fixtures, including a verified fresh-process resume. This establishes operability only: no qualified production corpus has been supplied (`DATA_NOT_READY`), no accelerator has been certified, and no optional mechanism (pair grounding, logit treatments, plasticity controller, retrieval, planning) is scientifically qualified. Nothing here constitutes evidence of AGI or of a transfer advantage. See [the B2 handoff](engineering/reports/B2/HANDOFF.md).
+**Chief implementation update, 13 September 2026:** the agent's [B2 handoff](engineering/reports/B2/HANDOFF.md) records a substantial implementation and tiny smoke, but the [chief review](engineering/reports/B2_CHIEF_20260913/REVIEW.md) found integration defects; blanket end-to-end acceptance is withdrawn pending B2.2 repairs. The [complete learner program](engineering/master_program_20260913/README.md) is now the architecture and execution authority, extending repair into trained decisions, public prediction, memory, inquiry and transactional improvement. These extensions are designed, not demonstrated capabilities. Real corpus is `DATA_NOT_READY`, accelerator behavior is unverified, and no AGI or transfer advantage is established.
 
 **Evidence baseline:** repository commit `6525332`. This manuscript does not report an achieved AGI system.
 

@@ -2,11 +2,13 @@
 
 Updated: 2026-09-13. This is the dispatch entry point. Update from actual evidence, not intention.
 
-Owner direction: proceed to the next implementation phase after chief review of the pushed build. **Active assignment: [B2.2 integration correctness](phase_b22_20260913/README.md).** The agent delivered substantial B2/B2.1 code at `c3662b3`, but blanket completion is not accepted: the [chief review](reports/B2_CHIEF_20260913/REVIEW.md) documents reproduced data/pair/promotion defects and source-verified state/lineage issues. Preserve the implementation and close R1–R7 before scaling or adding mechanisms.
+Owner direction: write the complete architecture, algorithms and whole-repository execution program beyond the repair phase. **Active assignment: [Master program M00–M18](master_program_20260913/README.md).** M00 retains [B2.2 C1–C6](phase_b22_20260913/README.md) and all [chief R1–R7 findings](reports/B2_CHIEF_20260913/REVIEW.md). After its dependency checks/report, proceed with provisional implementation of the remaining packages; scientific promotion remains a chief decision. These new designs are written, not yet implemented or learned.
 
-The chief independently ran 63 non-training tests successfully and reproduced defects without a model or optimizer update. The historical build ledger remains at **193/200 CPU updates, 111.234/300 seconds**, zero GPU usage; no new allocation is implied. Real corpus supply is DATA_NOT_READY. See [the original agent handoff](reports/B2/HANDOFF.md) for its historical evidence and [the return prompt](phase_b22_20260913/AGENT_PROMPT.md) for the next executor. No experimental agent is running.
+The inspected B2/B2.1 core trains answer tokens and optional pairs; action/value heads have no training targets, the planner lacks typed recursive outcome valuation, memory is absent from the canonical input path, and collection stops at the ledger. The master assigns those missing connections explicitly while preserving the useful existing code and answer-only control. Design baseline is `baa655d`; reviewed implementation is `c3662b3`.
 
-The build was prepared in a separate `BRAMASTRA` worktree because the original checkout is now on an Arkenstone branch. Resolve Git worktrees before editing. The W01–W11 table below records historical packages; B2.2 C1–C6 is the current repair/integration order; B00–B12 remains the original build scope.
+The chief's prior review independently ran 63 non-training tests and reproduced defects without a model or optimizer update. This master expansion adds design/document validation, not new training. The historical build ledger remains at **193/200 CPU updates, 111.234/300 seconds**, zero GPU usage; no new allocation is implied. Real corpus supply is DATA_NOT_READY. See [the original agent handoff](reports/B2/HANDOFF.md) for historical evidence and [the master return prompt](master_program_20260913/AGENT_PROMPT.md) for the next executor. No experimental agent is running.
+
+The build was prepared in a separate `BRAMASTRA` worktree because the original checkout is now on an Arkenstone branch. Resolve Git worktrees before editing. M00–M18 is the active queue; W01–W11 and B00–B12 below are historical records.
 
 ## Current state
 
@@ -24,14 +26,11 @@ The build was prepared in a separate `BRAMASTRA` worktree because the original c
 
 ## Ready assignments
 
-1. **W01:** contracts and identities; W11 follows with storage/replay.
-2. **W02:** environment qualification and shared public interface, initially using W01 fixture contracts.
-3. **W08:** independent examiner and honest promotion decisions.
-4. **W07:** CPU update/restore and runtime design; accelerator execution waits for an actual allocation.
+Dispatch **M00** first, then M01–M18 according to [EXECUTION.md](master_program_20260913/EXECUTION.md) and [program.json](master_program_20260913/program.json). Use one integrator and bounded Luna work with explicit ownership. The program covers contracts, shared decision heads, public prediction, memory, all learning objectives, teachers, planning, experience collection, curriculum, retention, evaluation, candidate transactions, corpus support, richer tasks, runtime and operator integration.
 
-W04's exact delayed-information diagnostic can start independently; its learned integration waits for the model/environment interfaces. W09 can inventory qualified local data in parallel. See [execution plan](EXECUTION_PLAN.md) for the full dependency graph and file ownership.
+Implementation may proceed with deterministic fixtures where learned runs or hardware remain unallocated; mark the corresponding capability unqualified. No experimental campaign is assigned. Each package requires exact evidence and the final master handoff; no larger token or code count substitutes for its criteria.
 
-## Work-order ledger
+## Historical work-order ledger
 
 | Packet | Status | Owner / acceptance |
 |---|---|---|

@@ -2,7 +2,7 @@
 
 **Agents start at [AGENTS.md](AGENTS.md), then [engineering headquarters](engineering/README.md) and [current status](engineering/STATUS.md).** The chief owns architecture, algorithms and experiments; execution agents receive substantial [work orders](engineering/work_orders/README.md) with interfaces, dependencies, file ownership and acceptance evidence. The active system is designed directly for BRAMASTRA.
 
-The [full AGI blueprint](AGI_BLUEPRINT.md) states the broader objective: intelligence trained from scratch that investigates, plans, consolidates skills and improves under independent evaluation. The [engineering specifications](engineering/SYSTEM_ARCHITECTURE.md) define the current implementation program.
+The [complete learner execution program](engineering/master_program_20260913/README.md) is the current architecture and implementation authority: M00–M18 connect shared prediction, trained decisions, memory, inquiry, continual learning and independent candidate evaluation. Start with its [implementation-agent prompt](engineering/master_program_20260913/AGENT_PROMPT.md). It is a designed build program, not a claim that these capabilities have been achieved. The older [full AGI blueprint](AGI_BLUEPRINT.md) preserves the broader research motivation.
 
 The new [discovery prototype review](engineering/reports/PROTOTYPE_REVIEW.md) records executable rule-learning, learned inquiry, acquisition/replay comparisons and two development seeds. It also records unresolved retention failures. This is an experimental system, not an achieved AGI.
 

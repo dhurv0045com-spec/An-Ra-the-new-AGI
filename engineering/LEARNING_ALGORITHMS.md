@@ -1,5 +1,7 @@
 # Learning and investigation algorithms
 
+**Authority update, 2026-09-13:** this original specification is background. The [complete learner algorithms](master_program_20260913/ALGORITHMS.md) define current objectives, normalization, inquiry, planning and candidate improvement; use the [master program](master_program_20260913/README.md) for dispatch.
+
 Status: engineering specification. Algorithm names here do not imply implementation. The current discovery prototype implements recurrent prediction and supervised imitation of a training-only one-step information-gain teacher. It does not implement the complete actor-critic/planning/consolidation system below.
 
 ## A. Observation-driven representation
