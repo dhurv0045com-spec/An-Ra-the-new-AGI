@@ -1,0 +1,65 @@
+{
+  "schema": "anra-v51-canary-v2-final-result-summary/v1",
+  "experiment": "CYMEK-V5.1-CANARY-V2",
+  "scientific_executable_commit": "4470a34b7e2d4b2d673c328ef962c84d8e075b89",
+  "source_bundle": "CYMEK_V51_CANARY_V2_RESULTS.zip",
+  "source_bundle_observed": true,
+  "operator_gpu": "Tesla T4",
+  "operator_gpu_vram_gib": 14.56,
+  "endpoint": {
+    "global_updates": 360,
+    "cumulative_tokens": 1474560,
+    "training_wall_seconds": 443.441,
+    "tokens_per_second": 3325.3,
+    "final_loss": 0.40539637207984924,
+    "final_grad_norm_post_clip": 0.21404989063739777
+  },
+  "verdict": "CANARY_V2_FAIL_FORMATION",
+  "mechanical_gates_all_pass": true,
+  "formation_gates": {
+    "identity_acquisition_dev": false,
+    "binding_acquisition_dev": true,
+    "dev_transfer": true,
+    "formation_positive": true
+  },
+  "development_overall_exact_with_valid_eos": 0.5194150277357539,
+  "sealed_overall_exact_with_valid_eos": 0.516641452344932,
+  "development_per_family": {
+    "identity": 0.17700453857791226,
+    "binding": 0.36459909228441756,
+    "state_order": 0.5113464447806354,
+    "composition": 0.9273827534039334,
+    "termination": 0.8562783661119516,
+    "missing_info": 0.27987897125567324
+  },
+  "sealed_per_family": {
+    "identity": 0.18910741301059,
+    "binding": 0.3313161875945537,
+    "state_order": 0.5219364599092284,
+    "composition": 0.9349470499243571,
+    "termination": 0.8305597579425114,
+    "missing_info": 0.291981845688351
+  },
+  "diagnostic_observations": {
+    "identity_answer_exact_ignoring_eos_dev": 0.2102874432677761,
+    "identity_eos_stop_rate_dev": 0.19364599092284418,
+    "state_order_answer_exact_ignoring_eos_dev": 0.8320726172465961,
+    "state_order_exact_with_valid_eos_dev": 0.5113464447806354,
+    "answer_prefix_exact_reported_zero_all_families": true
+  },
+  "interpretation": {
+    "demonstrated": [
+      "the V5.1 Rung-A production training path reached the frozen 360-update endpoint with all mandatory mechanical gates passing",
+      "extended exposure substantially improved development and sealed transfer relative to V1",
+      "identity/copy remained below the frozen acquisition threshold while composition, termination, state/order, and binding formed materially"
+    ],
+    "not_demonstrated": [
+      "physical vocabulary/class-space causality",
+      "that training longer alone will solve identity/copy",
+      "production-corpus readiness",
+      "PRE500M or 500M readiness",
+      "AGI or cognition"
+    ],
+    "next_decisive_question": "Does changing the actual physical tied embedding/output class space, while holding token sequences and all other training variables fixed, causally change identity/copy formation and transfer?"
+  }
+}
