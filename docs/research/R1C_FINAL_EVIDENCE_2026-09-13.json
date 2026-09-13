@@ -1,0 +1,53 @@
+{
+  "schema": "anra.evidence-supplement.r1c/v1",
+  "date": "2026-09-13",
+  "experiment": "CYR-GPU-014-R1C",
+  "status": "COMPLETE",
+  "completed_arm_count": 24,
+  "evidence_class": "SCIENTIFIC_EVIDENCE",
+  "replication": "R1",
+  "source": {
+    "bundle_name": "CYMEK_R1C_SOFTMAX_MECHANISM_RESULTS.zip",
+    "bundle_sha256": "2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e",
+    "decision_sha256": "abfe0ca730e0b2a50e5d1004c2fe7d061dcd2162e4e5271c1dac0db0b985e389",
+    "campaign_sha256": "d05a11d4a52affc44db85b0194fa05237a7fd5eeda2e54d189ae9659f1554dd0",
+    "data_split_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236"
+  },
+  "question": "Is the earlier physical class-space formation effect sufficiently explained by training-time inactive-class softmax competition when the physical 24,576-way tied matrix is held fixed?",
+  "design": {
+    "physical_vocab_all_arms": 24576,
+    "arms": ["FULL_24576", "MASK_19", "MASK_4096", "MASK_8192", "MASK_16384", "OFFSET_EQ4096"],
+    "model_seeds": [3711, 3712, 3713, 3714],
+    "order_seeds": [6001, 6002, 6003, 6004],
+    "updates_per_arm": 3000,
+    "total_optimizer_updates": 72000
+  },
+  "primary_result": {
+    "verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "primary_pair": ["MASK_4096", "FULL_24576"],
+    "paired_formation_auc_gaps": [-0.1397923875432526, -0.24221453287197228, -0.019377162629757805, -0.04013840830449827],
+    "mean_gap": -0.11038062283737024,
+    "mask4096_sustained_g50_seeds": 1,
+    "full24576_sustained_g50_seeds": 0,
+    "functional_supported": false,
+    "structural_supported": false,
+    "inactive_partition_mass_rescue": {"functional": false, "structural": false}
+  },
+  "supported_claim": "Inactive-class softmax competition is not sufficient to reproduce the earlier physical V4096 formation advantage under this matched fixed-matrix design.",
+  "unsupported_claims": [
+    "FULL_24576 is optimal",
+    "physical class-space size does not matter",
+    "a production tokenizer/vocabulary change is justified",
+    "PRE500M or 500M training is authorized",
+    "broad reasoning or AGI has been demonstrated"
+  ],
+  "belief_update": "Move the causal search from masked denominator competition toward actual physical embedding/output geometry, parameterization/initialization, optimization geometry, tokenization/representation, or interactions.",
+  "next_discriminating_experiment": "CS-TRANSFER-001 with actual physical V4096 versus V24576 tied output geometry on clean attack-screened / production-tokenizer transfer surfaces",
+  "authorizations": {
+    "production_tokenizer_change": false,
+    "pre500m": false,
+    "training_500m": false,
+    "broad_reasoning_claim": false,
+    "agi_claim": false
+  }
+}
