@@ -55,7 +55,7 @@ def test_operator_detaches_exact_science_commit_and_verifies_blobs():
         "v5_training/step.py",
     ):
         assert required in code
-    assert "git\", \"hash-object" in NOTEBOOK.read_text(encoding="utf-8")
+    assert '"hash-object", rel' in code
 
 
 def test_operator_binds_dedicated_drive_root_and_resume_endpoint():
@@ -98,8 +98,8 @@ def test_operator_preserves_one_shot_sealed_firewall_and_no_outcome_branch():
 def test_operator_packages_receipts_but_not_checkpoint_or_raw_splits():
     code = _code(_load())
     assert 'CYMEK_V51_CANARY_V2_RESULTS.zip' in code
-    assert 'checkpoint_state_excluded": True' in NOTEBOOK.read_text(encoding="utf-8")
-    assert 'raw_train_dev_sealed_rows_excluded": True' in NOTEBOOK.read_text(encoding="utf-8")
+    assert '"checkpoint_state_excluded": True' in code
+    assert '"raw_train_dev_sealed_rows_excluded": True' in code
     # Bundle inclusion is explicit; state and split files are not appended.
     assert 'include += sorted(p for p in RECEIPTS.glob("*.json")' in code
     assert 'include.append(STATE)' not in code
