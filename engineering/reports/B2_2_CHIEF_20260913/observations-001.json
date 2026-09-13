@@ -1,0 +1,16 @@
+{
+  "source_commit": "acfa249",
+  "model_instantiations": 0,
+  "optimizer_updates": 0,
+  "per_row_trainability_false_then_true": {
+    "excluded": false,
+    "eligible": false
+  },
+  "per_row_trainability_reversed_order": {
+    "eligible": true,
+    "excluded": false
+  },
+  "changed_rows_and_digest_accepted_under_old_prepared_identity": true,
+  "promotion_with_entirely_negative_inconsistent_interval": "accept",
+  "promotion_with_nan_protected_family": "accept"
+}

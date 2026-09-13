@@ -1,0 +1,120 @@
+{
+  "schema": "bramastra-chief-program-extension/v1",
+  "kind": "dispatch_specification_not_runtime_config",
+  "date": "2026-09-13",
+  "branch": "BRAMASTRA",
+  "inspected_agent_commit": "acfa249",
+  "extends": "../master_program_20260913/program.json",
+  "active_gate": "M00: chief F1-F6 at engineering/reports/B2_2_CHIEF_20260913/REVIEW.md",
+  "optimizer_updates_authorized": 0,
+  "accelerator_experiments_authorized": false,
+  "resource_snapshot": {
+    "cpu_optimizer_updates": 206,
+    "cpu_learned_smoke_seconds": 177.23399999999674,
+    "gpu_optimizer_updates": 0,
+    "gpu_sessions": 0
+  },
+  "old_remaining_update_instructions": "exhausted_and_superseded",
+  "scope": "M00-M24 combined; cognition, meta-learning and bounded recursive method improvement",
+  "primary_design_files": [
+    "README.md",
+    "COGNITION.md",
+    "RSI.md",
+    "LEARNING_AND_EVALUATION.md",
+    "EXECUTION.md",
+    "AGENT_PROMPT.md"
+  ],
+  "packages": [
+    {
+      "id": "M19",
+      "title": "Grounded cognitive workspace",
+      "depends_on": [
+        "M01",
+        "M04"
+      ],
+      "status": "designed_not_implemented",
+      "evidence_directory": "engineering/reports/COGNITION_RSI_20260913/M19/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M20",
+      "title": "Learned executive and metacognition",
+      "depends_on": [
+        "M19",
+        "M02",
+        "M05",
+        "M07"
+      ],
+      "status": "designed_not_implemented",
+      "evidence_directory": "engineering/reports/COGNITION_RSI_20260913/M20/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M21",
+      "title": "Verified reasoning and abstraction",
+      "depends_on": [
+        "M19",
+        "M06",
+        "M09",
+        "M14"
+      ],
+      "status": "designed_not_implemented",
+      "evidence_directory": "engineering/reports/COGNITION_RSI_20260913/M21/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M22",
+      "title": "Meta-episodes and learning efficiency",
+      "depends_on": [
+        "M20",
+        "M21",
+        "M11",
+        "M12"
+      ],
+      "status": "designed_not_implemented",
+      "evidence_directory": "engineering/reports/COGNITION_RSI_20260913/M22/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M23",
+      "title": "Model-origin method proposals",
+      "depends_on": [
+        "M22",
+        "M13",
+        "M15"
+      ],
+      "status": "designed_not_implemented",
+      "evidence_directory": "engineering/reports/COGNITION_RSI_20260913/M23/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    },
+    {
+      "id": "M24",
+      "title": "Recursive generation integration",
+      "depends_on": [
+        "M18",
+        "M23"
+      ],
+      "status": "designed_not_implemented",
+      "evidence_directory": "engineering/reports/COGNITION_RSI_20260913/M24/",
+      "estimated_useful_hours": [
+        3,
+        5
+      ]
+    }
+  ]
+}

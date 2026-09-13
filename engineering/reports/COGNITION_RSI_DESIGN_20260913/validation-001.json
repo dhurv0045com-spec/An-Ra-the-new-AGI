@@ -1,0 +1,32 @@
+{
+  "kind": "combined_design_structure_only",
+  "source_review": "acfa249",
+  "combined_packages": 25,
+  "local_links_checked": 108,
+  "errors": [],
+  "word_counts": {
+    "base": 12722,
+    "cognition_rsi_extension": 6744
+  },
+  "canonical_utf8_lf_sha256": {
+    "engineering/master_program_20260913/README.md": "f5521caf4b88aa60ccd74cd398d8f35e9ee0a53a05b13fa9eb542e51cc53ec57",
+    "engineering/master_program_20260913/ARCHITECTURE.md": "a19396488ef65c7afb1746dec2f77034cf6064f2e50c8ff3d86538ad7ce2cfda",
+    "engineering/master_program_20260913/ALGORITHMS.md": "120d730c29bf9dd34b3a6eca078c88c34de645dc3f6fb25781a21ca99efb1314",
+    "engineering/master_program_20260913/DATA_AND_TRAINING.md": "db759df50d3a7b003560e6a02a08af36ae489a099e2c40dd60106f34e400e3ed",
+    "engineering/master_program_20260913/EXECUTION.md": "20aa3962da8724bf8ed9ee32fc8f7d6143323dde7d84616fdd63cc54556b1bd5",
+    "engineering/master_program_20260913/EVALUATION.md": "62a1b1aaed51f36f08e76663e956f3e131cc948d1de16c47e12140a491d5cf50",
+    "engineering/master_program_20260913/AGENT_PROMPT.md": "61c2fa00d73506ea3f7c48f7a2d2396c4db29b116716c27f13ab3ca703b30c30",
+    "engineering/cognition_rsi_20260913/README.md": "0f12162b703a7d156c635248c289db0769bf5b7ce6b0c30de24b81c24f2231ab",
+    "engineering/cognition_rsi_20260913/COGNITION.md": "88277016175ef4ebe18fffcc9ff0166298923ce7dacb5bee1999cf95813e5afa",
+    "engineering/cognition_rsi_20260913/RSI.md": "7e79c32b80ccaf6f8a0a7f0ffd07178a26feaa604e517f9723079609ef8eec95",
+    "engineering/cognition_rsi_20260913/LEARNING_AND_EVALUATION.md": "c952553017ebf8de09f76ea5f18acce7ecec5b723a14b09c3fd9ddb13263b801",
+    "engineering/cognition_rsi_20260913/EXECUTION.md": "1ffb76837b4b0cdc02cee37d8f713d9b1827ee8f107d317d85a1abeac93cda02",
+    "engineering/cognition_rsi_20260913/AGENT_PROMPT.md": "a23281d4bccbd51781f4f7ffd8dec5f6a50890ba6a1adb4430e377bf1e00efa5",
+    "engineering/master_program_20260913/program.json": "25e5814a7ac3aa1a38dcf3961f2fdf7a9fe8c4a5f85e2bdb6bda1f2fbc134fee",
+    "engineering/cognition_rsi_20260913/program.json": "2ad0f841447b8dff6d03e0669576f7e356f8e27033a3f74d6d7a77e99866eea0"
+  },
+  "validation_optimizer_updates": 0,
+  "validation_model_instantiations": 0,
+  "live_cpu_optimizer_updates": 206,
+  "live_cpu_learned_smoke_seconds": 177.23399999999674
+}

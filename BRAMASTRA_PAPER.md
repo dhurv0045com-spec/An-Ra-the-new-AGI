@@ -6,6 +6,8 @@
 
 **Status:** Complete design manuscript; integrated-system experiments pending.
 
+**Cognition/RSI extension, 13 September 2026:** the [current M00–M24 assignment](engineering/cognition_rsi_20260913/README.md) adds explicit belief revision, executive control, subgoals, meta-learning and recursive learning-method proposal contracts. The [latest chief review](engineering/reports/B2_2_CHIEF_20260913/REVIEW.md) checks agent push `acfa249` and retains unresolved foundation gates. These are design and review updates, not new learned results in this manuscript.
+
 **Implementation update, 12 September 2026:** the [B2 build packet](engineering/build_20260912/README.md) records the original implementation assignment informed by refreshed cross-branch results. The historical study below is unchanged.
 
 **Chief implementation update, 13 September 2026:** the agent's [B2 handoff](engineering/reports/B2/HANDOFF.md) records a substantial implementation and tiny smoke, but the [chief review](engineering/reports/B2_CHIEF_20260913/REVIEW.md) found integration defects; blanket end-to-end acceptance is withdrawn pending B2.2 repairs. The [complete learner program](engineering/master_program_20260913/README.md) is now the architecture and execution authority, extending repair into trained decisions, public prediction, memory, inquiry and transactional improvement. These extensions are designed, not demonstrated capabilities. Real corpus is `DATA_NOT_READY`, accelerator behavior is unverified, and no AGI or transfer advantage is established.

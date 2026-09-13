@@ -1,6 +1,6 @@
 # BRAMASTRA engineering headquarters
 
-**Active assignment:** [Complete learner execution program, M00–M18](master_program_20260913/README.md). Read its architecture, algorithms, data/training contracts, execution packages and evaluation rules. M00 closes [B2.2 integration correctness](phase_b22_20260913/README.md) and the [chief review](reports/B2_CHIEF_20260913/REVIEW.md); the remaining packages build the connected learner. Use the [master agent prompt](master_program_20260913/AGENT_PROMPT.md).
+**Active assignment:** [Complete learner program](master_program_20260913/README.md) plus [cognition and recursive improvement](cognition_rsi_20260913/README.md), **M00–M24**. Read both packets' architectures, algorithms, data/training contracts, packages and evaluation rules. M00 includes [F1–F6 from the latest chief review](reports/B2_2_CHIEF_20260913/REVIEW.md) of `acfa249`. Use the [current agent prompt](cognition_rsi_20260913/AGENT_PROMPT.md). No new learned execution is authorized with the over-cap ledger.
 
 The complete [BRAMASTRA research paper](../BRAMASTRA_PAPER.md) presents the architecture, formal learning objectives, preliminary evidence and deferred experimental program in manuscript form.
 
@@ -9,7 +9,7 @@ This directory makes the owner's AGI research program executable by independent 
 ## Read in this order
 
 1. [Current state and next dispatch](STATUS.md): what exists, what is provisional, what is ready to assign.
-2. [Complete learner program](master_program_20260913/README.md): current execution authority; read every linked design file before shared-interface edits.
+2. [Complete learner program](master_program_20260913/README.md) and [cognition/RSI extension](cognition_rsi_20260913/README.md): combined execution authority; read every linked design file before shared-interface edits.
 3. [Charter](CHARTER.md): objective, roles, claim standards and resource constraints. The following original specifications are background where the master supersedes them.
 4. [System architecture](SYSTEM_ARCHITECTURE.md): historical modules, information flow and dependency boundaries.
 5. [Data contracts](DATA_CONTRACTS.md): original identities, tensors, state and storage semantics.
@@ -36,4 +36,4 @@ Do not infer implementation from a proposed path. A module exists only when its 
 
 Build and measure a learner that chooses informative actions in unfamiliar worlds, uses recurrent state and predictive planning, and consolidates what it learns. Demonstrate transfer and retention before interpreting the loop as useful self-improvement. Then expand toward language, code, broader reasoning and long-horizon tasks.
 
-The active program contains nineteen packages, M00–M18, with a dependency manifest, file ownership and acceptance criteria. The earlier eleven W packages are historical design assignments. Dispatch from the master program and current status, not from the historical queue.
+The active program contains twenty-five packages, M00–M24, across the master and cognition/RSI extension manifests, with dependencies, file ownership and acceptance criteria. The earlier eleven W packages are historical design assignments. Dispatch from the combined program and current status, not from the historical queue.

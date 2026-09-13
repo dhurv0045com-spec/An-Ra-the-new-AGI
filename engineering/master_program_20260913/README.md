@@ -1,5 +1,7 @@
 # BRAMASTRA: complete learner execution program
 
+**Current extension and resource override:** read [cognition and recursive improvement, M19–M24](../cognition_rsi_20260913/README.md) with this base packet. The [chief review of acfa249](../reports/B2_2_CHIEF_20260913/REVIEW.md) adds F1–F6 to M00. The ledger is now 206/200 CPU updates and 177.234 learned-smoke seconds; the original remaining-update instructions below are historical and exhausted. The current continuation authorizes no optimizer updates or accelerator experiments. Use the [new combined prompt](../cognition_rsi_20260913/AGENT_PROMPT.md).
+
 Chief-engineer specification, 2026-09-13. Baseline inspected: `baa655df7989ab86c447c853fc23703c8b894fe7`, containing agent implementation `c3662b3`. **Status: designed and assigned; the extensions below are not implemented or experimentally established by this document.**
 
 The owner's objective is general intelligence learned from scratch: a system that understands unfamiliar tasks, investigates uncertainty, uses knowledge across domains, acquires capabilities, and improves without destroying earlier capabilities. This packet turns that objective into a connected implementation program. It specifies the complete next build, beyond the immediate B2.2 repairs. No known result in this repository establishes a sufficient recipe for AGI. The architecture is a set of testable engineering hypotheses with explicit failure paths.

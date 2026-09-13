@@ -1,5 +1,7 @@
 # BRAMASTRA — An-Ra research from first principles
 
+**Current assignment:** [M00–M24, including cognition and recursive improvement](engineering/cognition_rsi_20260913/README.md). The [latest branch review](engineering/reports/B2_2_CHIEF_20260913/REVIEW.md) checks `acfa249`; the [current implementation-agent prompt](engineering/cognition_rsi_20260913/AGENT_PROMPT.md) invokes both design packets and the remaining repair gate.
+
 **Agents start at [AGENTS.md](AGENTS.md), then [engineering headquarters](engineering/README.md) and [current status](engineering/STATUS.md).** The chief owns architecture, algorithms and experiments; execution agents receive substantial [work orders](engineering/work_orders/README.md) with interfaces, dependencies, file ownership and acceptance evidence. The active system is designed directly for BRAMASTRA.
 
 The [complete learner execution program](engineering/master_program_20260913/README.md) is the current architecture and implementation authority: M00–M18 connect shared prediction, trained decisions, memory, inquiry, continual learning and independent candidate evaluation. Start with its [implementation-agent prompt](engineering/master_program_20260913/AGENT_PROMPT.md). It is a designed build program, not a claim that these capabilities have been achieved. The older [full AGI blueprint](AGI_BLUEPRINT.md) preserves the broader research motivation.

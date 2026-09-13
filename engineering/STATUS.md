@@ -2,13 +2,13 @@
 
 Updated: 2026-09-13. This is the dispatch entry point. Update from actual evidence, not intention.
 
-Owner direction: write the complete architecture, algorithms and whole-repository execution program beyond the repair phase. **Active assignment: [Master program M00–M18](master_program_20260913/README.md).** M00 retains [B2.2 C1–C6](phase_b22_20260913/README.md) and all [chief R1–R7 findings](reports/B2_CHIEF_20260913/REVIEW.md). After its dependency checks/report, proceed with provisional implementation of the remaining packages; scientific promotion remains a chief decision. These new designs are written, not yet implemented or learned.
+Owner direction: the complete learner must include cognition, learning, meta-learning and recursive improvement. **Active assignment: M00–M24**, combining the [master program](master_program_20260913/README.md) and [cognition/RSI extension](cognition_rsi_20260913/README.md). M00 includes the [latest chief findings F1–F6](reports/B2_2_CHIEF_20260913/REVIEW.md) on `acfa249`. Continue independent contracts and provisional implementation under the dependency gates; learned promotion remains a chief decision. The cognitive/RSI extensions are designed, not learned capabilities.
 
-The inspected B2/B2.1 core trains answer tokens and optional pairs; action/value heads have no training targets, the planner lacks typed recursive outcome valuation, memory is absent from the canonical input path, and collection stops at the ledger. The master assigns those missing connections explicitly while preserving the useful existing code and answer-only control. Design baseline is `baa655d`; reviewed implementation is `c3662b3`.
+The core still trains answer tokens and optional pairs; action/value heads lack training targets, the planner lacks typed recursive outcome valuation, memory is absent from the canonical input path, and collection stops at the ledger. The master assigns those connections; the extension adds beliefs, executive operations, subgoals, verified abstractions, meta-episodes and model-origin method proposals. Latest reviewed implementation is `acfa249`; original master design was committed as `bab6ca5`.
 
-The chief's review defects (R1–R7) were repaired under [B2.2](phase_b22_20260913/README.md) — see [the B2.2 handoff](reports/B2_2/HANDOFF.md) — and the final six-update interrupted-versus-uninterrupted acceptance comparison through the shared path **agreed** on checksums, counters, live state and future event sequence. **The build ledger is now OVER CAP at 206/200 CPU updates (~171/300 s)**: the acceptance consumed six updates and one duplicate probe execution consumed six more, all recorded with the cause named; no further learned checks run without an owner allocation. Zero GPU usage. Real corpus supply remains DATA_NOT_READY. Real corpus supply is DATA_NOT_READY. See [the original agent handoff](reports/B2/HANDOFF.md) for historical evidence and [the master return prompt](master_program_20260913/AGENT_PROMPT.md) for the next executor. No experimental agent is running.
+The [B2.2 agent handoff](reports/B2_2/HANDOFF.md) reports substantial repairs and an agreeing learned resume comparison. Chief review passed **60 selected non-training tests in 4.58 seconds**, but new zero-update probes reproduced trainability, prepared-identity and promotion defects; source review found resume and API gaps. Blanket closure is not accepted. The agent's raw learned-resume output has not been independently recovered/verified here. The live ledger is **206/200 CPU updates, 177.234/300 learned-smoke seconds**, zero GPU usage: one failed update plus two six-update probes after the prior 193. No optimizer updates or accelerator experiments are authorized by the current continuation. Real corpus remains DATA_NOT_READY. Use the [current agent prompt](cognition_rsi_20260913/AGENT_PROMPT.md).
 
-The build was prepared in a separate `BRAMASTRA` worktree because the original checkout is now on an Arkenstone branch. Resolve Git worktrees before editing. M00–M18 is the active queue; W01–W11 and B00–B12 below are historical records.
+The build was prepared in a separate `BRAMASTRA` worktree because the original checkout is on an Arkenstone branch. Resolve Git worktrees before editing. M00–M24 is the active queue; W01–W11 and B00–B12 below are historical records.
 
 ## Current state
 
@@ -19,14 +19,15 @@ The build was prepared in a separate `BRAMASTRA` worktree because the original c
 | Active discovery prototype | Implemented; bounded CPU development runs completed | [Chief review](reports/PROTOTYPE_REVIEW.md) |
 | Learned inquiry | Exploratory improvement in two seeds' point estimates; uncertainty/strong-baseline limits remain | D01 results; execute W04 for delayed-information mechanisms |
 | Consolidation | Unstable; not accepted as durable improvement | Family regressions; W06 required |
-| Canonical integrated architecture | Implemented in B2/B2.1; chief acceptance pending B2.2 corrections | Data integrity, state continuity and evaluator gates need closure |
-| **B2/B2.1 integrated build** | Substantial implementation and historical tiny smoke; not accepted as fully integrated after chief audit | [B2.2 assignment](phase_b22_20260913/README.md); [review](reports/B2_CHIEF_20260913/REVIEW.md) |
+| Canonical integrated architecture | Substantial B2/B2.2 implementation; F1–F6 remain | [Latest chief review](reports/B2_2_CHIEF_20260913/REVIEW.md) |
+| Learned cognition and meta-learning | Explicit design and M19–M22 assignment; not implemented/qualified | [Cognition](cognition_rsi_20260913/COGNITION.md) |
+| Recursive learning-method improvement | Explicit design and M23–M24 assignment; not implemented/qualified | [RSI](cognition_rsi_20260913/RSI.md) |
 | Real TPU runtime | Not validated for this prototype | W07 and live hardware/quota record |
 | Autonomous method/code improvement | Not implemented | Later isolated experiment after inquiry/retention evidence |
 
 ## Ready assignments
 
-Dispatch **M00** first, then M01–M18 according to [EXECUTION.md](master_program_20260913/EXECUTION.md) and [program.json](master_program_20260913/program.json). Use one integrator and bounded Luna work with explicit ownership. The program covers contracts, shared decision heads, public prediction, memory, all learning objectives, teachers, planning, experience collection, curriculum, retention, evaluation, candidate transactions, corpus support, richer tasks, runtime and operator integration.
+Dispatch **M00/F1–F6** first. Implement M01–M18 under the [master execution plan](master_program_20260913/EXECUTION.md), and M19–M24 under the [cognitive/RSI work orders](cognition_rsi_20260913/EXECUTION.md) and [extension manifest](cognition_rsi_20260913/program.json). Use one integrator and bounded Luna work with explicit ownership. No remaining-update allowance from old packets survives the current resource override.
 
 Implementation may proceed with deterministic fixtures where learned runs or hardware remain unallocated; mark the corresponding capability unqualified. No experimental campaign is assigned. Each package requires exact evidence and the final master handoff; no larger token or code count substitutes for its criteria.
 

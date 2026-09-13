@@ -1,0 +1,11 @@
+{
+  "source_commit": "acfa249",
+  "scope": "four selected non-learning suites; no full-suite or learned-acceptance claim",
+  "command": "python -m pytest tests/test_research_data.py tests/test_research_evaluation.py tests/test_research_pair_path.py tests/test_research_loop_traces.py -q -p no:cacheprovider -o addopts=",
+  "passed": 60,
+  "failed": 0,
+  "pytest_reported_seconds": 4.58,
+  "optimizer_updates": 0,
+  "accelerator_experiments": 0,
+  "new_production_code_changes_by_chief": 0
+}
