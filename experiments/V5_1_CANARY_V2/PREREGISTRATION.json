@@ -1,0 +1,133 @@
+{
+  "schema": "anra-v51-canary-v2-preregistration/v1",
+  "frozen_at": "2026-09-13",
+  "parent_canary": {
+    "branch": "cymek-v51-canary",
+    "head_at_design": "d87aa519455d6d3ca111454cb1a7c8f21c5f2190",
+    "verdict": "CANARY_FAIL_FORMATION",
+    "mechanical_gates": "ALL_PASS",
+    "observed_failure": {
+      "updates": 120,
+      "tokens": 491520,
+      "dev_overall_exact_with_valid_eos": 0.1331,
+      "identity": 0.0,
+      "binding": 0.203,
+      "termination": 0.313,
+      "interpretation": "train-fit with weak dev transfer; compatible with the previously demonstrated delayed-generalization regime"
+    }
+  },
+  "post_r1c_context": {
+    "experiment": "CYR-GPU-014-R1C",
+    "verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "consequence": "canonical full-softmax path remains; MASK_4096 is not a promoted fix",
+    "not_authorized": ["production tokenizer change", "PRE500M", "500M training"]
+  },
+  "primary_question": "Does the unchanged V5.1 Rung-A contract form transferable capability when exposure is extended to approximately three deterministic epochs, without changing architecture, tokenizer, output head, objective, optimizer family, peak LR, or evaluation thresholds?",
+  "purpose": "Resolve the Task-3 formation failure cheaply before any larger model or physical-class-space transfer run. This is a development-scale formation qualification, not cognition or scale authorization.",
+  "claim_ceiling": "At most: the unchanged V5.1 Rung-A contract either does or does not satisfy the preregistered development formation gates under the extended-exposure regime.",
+  "model": {
+    "rung": "A",
+    "geometry": {
+      "vocabulary_size": 24576,
+      "width": 256,
+      "layers": 4,
+      "query_heads": 4,
+      "kv_heads": 2,
+      "head_dimension": 64,
+      "ffn_width": 1024,
+      "context_length": 1024,
+      "rope_base": 10000.0,
+      "tied_embeddings": true,
+      "qk_norm_affine": true
+    },
+    "parameter_count": 10227456,
+    "output_path": "tied full softmax, canonical only",
+    "experimental_output_treatments": "FORBIDDEN"
+  },
+  "seed": 2026091302,
+  "dataset": {
+    "generator": "anra_v5/v51_canary_data.py",
+    "generator_version": "v51-canary-data/v1",
+    "worlds_per_family": 3305,
+    "families": ["identity", "binding", "state_order", "composition", "termination", "missing_info"],
+    "freshness": "fresh deterministic seed relative to V1; all train/dev/sealed rows regenerated",
+    "split_rule": "latent-world group level; sealed generated and hash-bound before training",
+    "screening": {
+      "exact_cross_split_collisions": 0,
+      "normalized_cross_split_collisions": 0,
+      "latent_world_collisions": 0,
+      "shortcut_fail_threshold": 0.35
+    },
+    "not_production_data": true
+  },
+  "tokenizer": {
+    "artifact": "artifacts/e1/local_tournament/tokenizer-24576.json.gz",
+    "vocabulary_size": 24576,
+    "special_tokens": {"pad": 0, "unk": 1, "bos": 2, "eos": 3},
+    "policy": "identical production-tokenizer contract as V1; no tokenizer experiment"
+  },
+  "training": {
+    "tokens_per_update": 4096,
+    "target_updates": 360,
+    "token_budget": 1474560,
+    "exposure": "approximately 3 epochs over one frozen training set; each epoch deterministically reshuffles shard order using the canonical sampler epoch parameter",
+    "checkpoint_every": 24,
+    "optimizer": "production build_adamw_optimizer: AdamW beta(0.9,0.95) eps 1e-8 wd 0.1 selective groups",
+    "objective": "canonical causal CE; BOS/PAD/segment excluded; EOS included; aux lambdas 0",
+    "schedule": {
+      "family": "token-indexed canary WSD through ProductionTrainingBackend",
+      "peak_lr": 0.0003,
+      "warmup_fraction": 0.10,
+      "stable_end_fraction": 0.85,
+      "final_lr_fraction": 0.10,
+      "rewarm_on_resume_or_epoch_change": false
+    },
+    "precision_primary": "CUDA FP32 (no autocast) when operator GPU is available; CPU FP32 is mechanically equivalent fallback",
+    "no_outcome_based_stopping": true
+  },
+  "evaluation": {
+    "development": "may be used for diagnosis; final dev evaluation at 360 updates is mandatory",
+    "sealed": "fresh V2 sealed split; consumed exactly once during finalization",
+    "mode": "candidate-free greedy generation with EOS stop",
+    "primary_metric": "exact_with_valid_eos",
+    "diagnostics": ["answer_exact_ignoring_eos", "eos_stop_rate", "per-family exact_with_valid_eos", "worst-family", "train final loss"],
+    "v1_thresholds_retained_without_change": {
+      "identity_dev_min": 0.30,
+      "binding_dev_min": 0.25,
+      "dev_overall_min": 0.15,
+      "formation_min_any_family": 0.30
+    }
+  },
+  "verdict_rule": {
+    "CANARY_V2_PASS": "all mechanical gates pass AND all retained formation gates pass at 360 updates",
+    "CANARY_V2_FAIL_FORMATION": "mechanical gates pass but one or more retained formation gates fail",
+    "CANARY_V2_FAIL_ENGINEERING": "any mandatory mechanical/integrity gate fails",
+    "CANARY_V2_INCONCLUSIVE": "run cannot reach the fixed endpoint for external hardware/session reasons while preserving a valid resumable checkpoint"
+  },
+  "mechanical_gates": [
+    "exact parameter accounting",
+    "fresh split identity and zero prohibited collisions",
+    "all trivial shortcut baselines below 0.35",
+    "production data->pack->stream->backend path only",
+    "finite loss and gradients; real parameter updates",
+    "global clip certificate <= 1.0 + 1e-4",
+    "exact token accounting",
+    "WSD expected==actual at every update and no rewarm at resume or epoch transition",
+    "durable atomic checkpoints",
+    "resume identity match; incompatible state rejected",
+    "canonical full-softmax only",
+    "sealed split consumed only at finalization"
+  ],
+  "failure_taxonomy": ["DATA", "MODEL", "OBJECTIVE", "OPTIMIZER", "SCHEDULE", "NUMERICS", "CHECKPOINT", "RESUME", "EVALUATION", "OPERATOR", "HARDWARE"],
+  "boundaries": [
+    "No architecture redesign",
+    "No MASK_4096 or inactive-offset treatment",
+    "No physical-vocabulary conclusion",
+    "No production-corpus claim",
+    "No cognition/AGI claim",
+    "No 250M or 500M training",
+    "ARK-020 remains external and untouched"
+  ],
+  "next_if_pass": "Proceed to CS-TRANSFER-001: physical V4096 vs V24576 transfer on clean attack-screened tasks/production-tokenizer rendering.",
+  "next_if_fail": "Do not scale. Diagnose whether failure is exposure/schedule, EOS termination, representation/physical class-space, or objective/data interaction; use dev-only diagnostics and keep sealed result immutable."
+}
