@@ -1,90 +1,109 @@
 # NEXT PHASE DECISION MEMO
 
-**Date:** 2026-09-13 · **Basis:** `EXPERIMENT_EVIDENCE_LEDGER.json` (78 entries, validated by `tools/validate_evidence_ledger.py`, audited from primary artifacts across 14 live branches + history forensics).
-**Standard applied:** every recommendation carries ACTION / WHY / EVIDENCE / UNCERTAINTY / FALSIFIER / CHEAPEST_NEXT_TEST. A recommendation with no realistic falsifier is not evidence-driven and has been excluded.
+**Date:** 2026-09-13 · **Basis:** `EXPERIMENT_EVIDENCE_LEDGER.json` (81 entries at the last validated Task-1 snapshot) plus the completed external `CYR-GPU-014-R1C` result bundle recorded in [`R1C_FINAL_EVIDENCE_2026-09-13.md`](R1C_FINAL_EVIDENCE_2026-09-13.md).  
+**Standard applied:** every recommendation carries ACTION / WHY / EVIDENCE / UNCERTAINTY / FALSIFIER / CHEAPEST_NEXT_TEST. New external evidence may update a decision without retroactively rewriting the historical ledger entry count until the ledger itself is revalidated.
 
 ---
 
 ## 1. What have we actually demonstrated?
 
-1. **Loss is not cognition** (R3 family): PGE continuation improved held-out loss 2.1884→1.9710 with all probed cognition at 0/chance; T1-series/T1D replicated the dissociation at TPU scale. [ESO-PGE, CIT-T1-series, CIT-T1D]
-2. **Delayed generalization after memorization** replicates at micro scale (2 seeds); M99 does not predict G90 (ρ=0.00). [ARK-002B, ARK-004A]
-3. **Representation/class-space controls formation**: with everything else fixed, declared tied class-space size moved held-out formation from 0% to 100% (V4096) vs 0% (V24576) and 12.94% (V19) at 512k rows; the intermediate 4096–16384 region is strongest across two fresh seeds; both monotonic stories are falsified. [CYR-011, CYR-012-R1, CYR-013-R1B]
-4. **Retention is phase-dependent and levers are separable**: LOW LR protects an acquired Micro-T2 invariant (0/12 vs 9/12 failures; 0/6 vs 3/6 recurrence); HIGH recovers what immediate LOW cannot (8/9 vs 2/9); narrowed high-plasticity support erodes broader invariance while canonical accuracy stays 1.0 (8/8 vs 0/8 vs 0/8); and ARK-017 V2 showed lowered update magnitude (CAP1X) and sparse treatment-exact replay each protect independently — total parameter movement does not explain outcomes. [ARK-007R, ARK-010, ARK-011, ARK-015, ARK-017-V2]
-5. **EOS supervision is mechanically required** (0/32→32/32 ×2 seeds; T1D's 15,000/15,000 MAX_TOKENS postmortem independently agrees). [BRM-terminal-EOS, CIT-T1D]
-6. **Measurement can be validated and can fail loudly**: calibrated scorers fail bias screens (1.000 fewest-token in 15/15 CUDA cells), generator v0.3.0 false green was caught and repaired, readiness v1 false green was self-caught, X1 self-model PASS was invalidated by a trivial baseline (0.9545 vs 0.9733 always-negative at prevalence 0.0267). [CIT-scoring-policy-tournament, CIT-e0, TQ-readiness, TQ-X1]
-7. **Real-text substrate behavior**: a ~20–25M model on peS2o+Birth assimilates a small repeated corpus but does not meet a preregistered content-internalization threshold, pays 3.7–3.9% sealed science NLL, and slows later binding acquisition ~4–5×. [ARK-018-V4]
-8. **New-skill formation gates continual learning**: no controller verdict is interpretable before the unprotected reference acquires (T3 never acquired in ARK-013; SKILL_B never formed in any ARK-019 V3.1 arm — official verdict `CONTROLLER_NOT_SUPPORTED`). [ARK-013, ARK-019-V3.1]
+1. **Loss is not cognition** (R3 family): PGE continuation improved held-out loss while probed cognition stayed at 0/chance; T1-series/T1D replicated the dissociation at TPU scale. [ESO-PGE, CIT-T1-series, CIT-T1D]
+2. **Delayed generalization after memorization** replicates at micro scale. M99 does not imply G90. [ARK-002B, ARK-004A]
+3. **Physical representation/class-space controls formation**: changing the actual tied class-space size produced large, non-monotonic formation differences, with V4096 strongly outperforming V24576 in the controlled developmental studies. [CYR-011, CYR-012-R1, CYR-013-R1B]
+4. **R1C rules out inactive-softmax competition as a sufficient carrier of that physical class-space effect.** All 24/24 arms completed. `MASK_4096 - FULL_24576` formation-AUC gaps were `[-0.139792, -0.242215, -0.019377, -0.040138]`, mean `-0.110381`; functional and structural primary tests both returned unsupported / not sufficient. [CYR-GPU-014-R1C]
+5. **Retention is phase-dependent and levers are separable**: lower plasticity and sparse treatment-exact replay can each protect acquired invariants under tested regimes; total parameter movement alone does not explain outcomes. [ARK-007R, ARK-010, ARK-011, ARK-015, ARK-017-V2]
+6. **EOS supervision is mechanically required** across independent programs. [BRM-terminal-EOS, CIT-T1D]
+7. **Measurement can be validated and can fail loudly**: several apparently positive systems were correctly rejected by bias, baseline, or readiness attacks. [CIT-scoring-policy-tournament, CIT-e0, TQ-readiness, TQ-X1]
+8. **Real-text substrate behavior**: a ~20–25M model can assimilate a small repeated corpus while still failing a preregistered internalization threshold and paying measurable science/plasticity costs. [ARK-018-V4]
+9. **New-skill formation gates continual learning**: no controller verdict is interpretable before the unprotected reference can acquire the new skill. [ARK-013, ARK-019-V3.1]
 
 ## 2. What have we falsified?
 
-Curriculum/teacher acceleration (two programs); EMA/WD-removal stabilization; "LOW LR is universal"; "large movement causes forgetting"; exact LR-switch thresholds; memorization-timing prediction; precursor predictors; whole-vocab first-order effects at micro lift-off; monotonic vocabulary stories in both directions; query-blind-explainable binding claims as "selection"; E5-template internalization; margin objectives; EXP v10/v11 composition claims; X1 self-model; readiness-gate v1; calibrated candidate scorers; data-variety ⇒ query control; learned discovery > random (at scale); depth-two inquiry > one-step (at budget 2); "this-regime replay rescues retention"; native-BF16 optimizer states.
+The previous falsification list still stands (curriculum/teacher acceleration in tested regimes; EMA/WD-removal stabilization; universal LOW-LR claims; movement-causes-forgetting; several timing/predictor/objective claims; monotonic vocabulary stories; query-blind binding claims; T1/X1 false positives; scorer/readiness false greens; replay-universal claims; native-BF16 optimizer-state assumptions).
 
-## 3. What is merely implemented?
+**New falsification from R1C:**
 
-- **CYR-GPU-014-R1C** — frozen, twice engineering-repaired, unexecuted (and launch-blocking until its launcher is rebound to a pushed commit).
-- **ARK-020 V1→V4** — 4-skill continual battery, 39/39 tests, no executed run in-repo; A1 durability amendments pending validation.
-- **ARK-021** (retention-vs-reacquisition; core+tests), **ARK-022** (dormant retention; plan), **CIT-T1E** (EOS-corrected successor; plan), **ESO-E3** (mixture screens; blocked upstream), **Cymek production corpus/entry-point** (missing components), **P35A** (gated on external identities).
+> The earlier physical V4096 advantage is primarily explained by inactive classes competing in the 24,576-way softmax denominator during training.
+
+R1C held the physical 24,576 tied matrix fixed and removed output competition in several ways; the preregistered MASK_4096 mechanism did not reproduce the physical V4096 advantage. This sharply redirects the causal search toward physical embedding/output geometry, parameterization/initialization, optimization geometry, tokenization/representation, or interactions among them.
+
+## 3. What is merely implemented or still externally unresolved?
+
+- **ARK-020 V4** — executed externally/partially according to operator state, but final scientific completion must be established from its final result receipt before promotion.
+- **ARK-021** (retention-vs-reacquisition), **ARK-022** (dormant retention), **CIT-T1E** (EOS-corrected successor), **ESO-E3** (mixture screens; blocked upstream), and production corpus/entry-point work remain separate lines.
+- **V5.1 canary** exists on `cymek-v51-canary`; its own result is a development-scale execution/formation result and must not be conflated with R1C's output-space mechanism question.
+
+R1C is **no longer** in this category: it is executed and complete.
 
 ## 4. What remains speculative?
 
-Capability Guardian as a *prevention* mechanism (V4 candidate is transcribed-only); inactive-softmax competition as THE mechanism (R1C's hypothesis); any dose-universal replay fraction; scale transfer of every Micro law; the 65/20/15 mixture; the 5B WSD schedule constants; ARK-022 dormant retention; portfolio ranks below the top three.
+- Which **physical** class-space mechanism carries the V4096↔V24576 formation difference.
+- Whether the effect transfers to larger models, natural-text / production-tokenizer tasks, and clean non-arithmetic surfaces.
+- Whether 24,576 is adequate or optimal for the eventual production representation.
+- Guardian as a production prevention mechanism until final audited multi-set evidence is complete.
+- Dose-universal replay fractions and scale transfer of Micro retention laws.
+- The 65/20/15 mixture and 5B WSD constants until production-path evidence exists.
 
-## 5. The 10 largest unknowns (ranked by information gain × impact ÷ cost)
+Inactive-softmax competition is no longer the leading sufficient-mechanism hypothesis; R1C materially downgraded it.
 
-1. **Is inactive-softmax competition the causal carrier of the class-space effect?** — R1C is designed to answer; blocks ARK-025 and any tokenizer decision.
-2. **Does the Guardian result survive byte-level audit?** — the entire continual-learning direction currently rests on a transcription; also blocks ARK-020 interpretation.
-3. **Does the class-space/formation effect transfer beyond the arithmetic micro-task** (larger models, natural text, real tokenizer)? — nothing yet tests it.
-4. **What is the minimum viable new-skill dose** that lets SKILL_B form while science competence is preserved (V4/ARK-020 dose-selection machinery exists)?
-5. **Which retention lever is necessary in which regime** (cap vs replay interaction), and do doses transfer beyond micro?
-6. **Can a certified candidate-free scorer + fresh-tier replication be achieved** (unblocks every assisted-scoring comparison; `production_scoring_mode` still null)?
-7. **Does the production 24,576 representation fail on natural text the way it fails on the arithmetic bridge** (or is the failure task-specific)?
-8. **What does the corpus actually contain** (production 5B mixture unqualified; E3 mixture screens blocked)?
-9. **Is the checkpoint subject pool qualifiable** (Triquetra readiness v2 says no local subject qualifies — unblocks all mechanism instrumentation when fixed)?
-10. **What is in the unreachable history** (SENORA program, CYR-GPU-006 smoke, frozen CYR-005 executable) — cheap recovery, nonzero information, before `git gc` destroys it.
+## 5. The largest remaining unknowns
 
-## 6. The three highest-information next experiments
+1. **What physical geometry/representation factor actually carries the class-space formation effect?** R1C eliminated the simplest denominator-competition explanation.
+2. **Does the physical V4096↔V24576 effect transfer** to a larger development model and a clean production-tokenizer/natural-text-mapped task?
+3. **Does the Guardian/continual-learning result survive final byte-level audit and matched-set completion?**
+4. **What minimum viable new-skill dose** permits formation while preserving science competence?
+5. **Which retention lever is necessary in which regime**, and how doses transfer beyond Micro.
+6. **Can production evaluation become candidate-free, attack-screened, and clean enough for promotion decisions?**
+7. **What does the intended production corpus actually contain**, and is it large/clean enough for the target training plan?
+8. **Can the canonical WSD / production execution path run end-to-end with trustworthy receipts?**
+9. **Can development-scale formation replicate multi-seed on the chosen production representation?**
+10. **What useful evidence remains in unreachable history**, before it is lost to pruning?
+
+## 6. Highest-information next experiments
 
 | # | Experiment | Why it dominates | Depends on |
 |---|---|---|---|
-| 1 | **CYR-GPU-014-R1C** (after launcher rebind) | Converts the program's strongest discovery from correlation to mechanism; dual structural/functional endpoints pre-registered; its result redirects either the production-representation design or the initialization/geometry search; unblocks ARK-025 | launcher rebind (minutes of work) |
-| 2 | **ARK-019 V4 bundle recovery + byte audit** (or controlled rerun) | Decides whether continual-learning controllers are a live direction; zero new GPU needed if the bundle exists externally; then ARK-020 runs on the same substrate | operator Drive access |
-| 3 | **Transfer probe of the class-space effect**: replicate V4096-vs-V24576 at one larger scale / one natural-text-mapped task with matched everything (e.g. 8L/256w, or a number-formatting task over the production tokenizer) | Tests the only effect with formation-level effect size for scale generality; cheap relative to its gating value for 500M design | R1C outcome (to know which mechanism variant to carry) |
+| 1 | **CS-TRANSFER-001 — actual physical V4096 vs V24576 transfer** | R1C says masking is not the carrier; the next decisive test must change the real tied geometry. Use a larger development rung plus clean attack-screened / production-tokenizer rendering and matched seeds. | clean generator/eval surface |
+| 2 | **ARK-020 / Guardian final audit or completion** | Determines whether continual-controller work has a production-scale signal beyond static replay/caps. | final operator receipts / matched-set completion |
+| 3 | **Physical-class mechanism dissection after transfer** | If transfer survives, separate matrix-size/parameterization/init/tokenization causes with one-factor matched interventions. If transfer fails, do not spend further mechanism GPU. | outcome of CS-TRANSFER-001 |
 
 ## 7. What should NOT be built yet
 
-- Any production tokenizer/vocabulary change (mechanism unverified; natural-language transfer untested).
-- Any Guardian/continual controller in production code (V3.1 negative; V4 unverified; CAP16X value undemonstrated).
-- Any 500M campaign (corpus MISSING, entry point MISSING at last audit; no scientific authorization; R1C/transfer unknowns open).
-- Exotic architecture (MoE/SSM/recurrence/latent-thought/neural memory) — no bottleneck evidence demands them.
-- A learned experiment-selection controller (BRAMASTRA discovery null stands).
-- Any query-conditioning training objective on unqualified substrates (three past claim deaths).
-- Re-running anything in the falsified list (§2) without a materially different hypothesis.
+- **Do not promote MASK_4096 or any masked-output treatment into production.** R1C did not support it.
+- Do not infer that FULL_24576 is optimal; R1C was a sufficiency test, not an optimality proof.
+- Do not make a production tokenizer/vocabulary change before physical transfer evidence.
+- Do not schedule a 500M campaign: corpus/evaluation/representation/scale gates remain open.
+- Do not add exotic architecture (MoE/SSM/recurrence/latent-thought/neural memory) without bottleneck evidence.
+- Do not promote Guardian into the production Core before its final evidence clears.
+- Do not rerun falsified experiments without a materially different causal hypothesis.
 
 ## 8. What must be true before a 500M-scale run is rational
 
-1. Production corpus materialized, manifest-bound, dedup/contamination-qualified (external gate).
-2. Top-level production entry point wired (Citadel blocker #14) and canonical token-indexed WSD executed at least once end-to-end (blocker #9).
-3. Tokenizer identity resolved — including the R1C mechanism verdict, because vocabulary size is no longer a free parameter: it has a demonstrated 0%↔100% formation effect at development scale.
-4. At least one capability (arithmetic or transfer probe) demonstrably forms held-out on the production representation at development scale, replicated multi-seed.
-5. Sealed evaluation fixtures committed and consumed exactly once; milestone evaluation wired.
-6. Explicit PRE500M green decision recorded with hashes.
+1. Production corpus materialized, manifest-bound, deduplicated and contamination-qualified.
+2. Production entry point wired and canonical token-indexed WSD executed end-to-end with durable receipts.
+3. **Physical tokenizer/output geometry resolved by transfer evidence.** R1C has closed the softmax-competition mechanism question but explicitly did not authorize a tokenizer change.
+4. At least one capability demonstrably forms held-out on the chosen production representation at a larger development rung, replicated multi-seed.
+5. Sealed evaluation fixtures are clean, hash-bound and consumed exactly once.
+6. Citadel PRE500M green decision recorded with hashes.
 
-## 9. Components that deserve promotion into the next Core
+R1C itself records `production_tokenizer_change_authorized: false`, `pre500m_authorized: false`, and `training_500m_authorized: false`.
 
-- **EOS-supervised answer+termination contract** (R3 across three programs) — already in Cymek contracts; keep.
-- **Candidate-free primary evaluation + orthogonal invariance axes** (canonical/query/order/query+order separate; COMMUTED lesson) — keep.
-- **Shared-parent matched-fork retention harness** (ARK-007R/011/015/017 pattern) — promote into Cymek's retention-controller testing.
-- **Formation-first gating** (V4/ARK-020 dose selection + reference-must-acquire rule) — promote into any continual-learning experiment template.
-- **Readiness-v2-style subject qualification** before any mechanism study — promote Triquetra's gate into the common toolkit.
-- **Fail-closed launch/hardware gates with progressive fixed-wall fallback** (CYR-008 → 009 lesson; ARK-020 A1 amendments).
-- **Treatment-exact sparse replay construction** (ARK-017) as the reference replay implementation, dose TBD.
+## 9. Components that still deserve promotion into the next Core/tooling
 
-## 10. Assumptions that could invalidate the current direction
+- EOS-supervised answer+termination contract.
+- Candidate-free primary evaluation + orthogonal invariance axes.
+- Shared-parent matched-fork retention harness.
+- Formation-first gating for continual-learning experiments.
+- Subject/readiness qualification before mechanism studies.
+- Fail-closed launch/hardware/checkpoint gates.
+- Treatment-exact sparse replay as a reference experimental implementation, dose unresolved.
+- Canonical full-softmax path for V5.1 canaries **only as the conservative default**, not because R1C proved it optimal.
 
-1. **"The class-space effect is about the softmax denominator"** — R1C could falsify; then the tied-geometry/optimization search restarts.
-2. **"Micro-scale retention laws transfer to production scale"** — no test exists; the entire LOW/CAP/replay policy toolbox could be regime-specific.
-3. **"The ARK-019 V4 Guardian candidate is real"** — if the bundle cannot be produced or fails re-audit, the continual-learning program loses its only positive signal and falls back to V3.1's formation-bottleneck interpretation.
-4. **"The production tokenizer is adequate for language even though it fails the arithmetic bridge"** — plausible but untested; a natural-text formation failure would invalidate the 500M data plan wholesale.
-5. **"Eval fixtures are clean"** — one more fixture leak like scorer-fixture v1 would invalidate any sealed claim built on them.
-6. **"Unreachable history is worthless"** — if SENORA's dry-run receipts encode a validated cheaper campaign design, recovering them changes the cost model.
+## 10. Current representation decision
+
+**ACTION:** keep V5.1 Candidate A / canonical full-softmax as the conservative canary path; reject masked-output Candidate B promotion.  
+**WHY:** R1C's primary mask treatment underperformed FULL_24576 on formation AUC in every matched seed.  
+**EVIDENCE:** 24/24 completed arms; mean paired gap `-0.110381`; bundle SHA-256 `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`.  
+**UNCERTAINTY:** R1C held the physical matrix fixed, so physical vocabulary geometry/tokenization remains unresolved.  
+**FALSIFIER:** a clean, matched actual-geometry transfer study showing no meaningful V4096↔V24576 effect.  
+**CHEAPEST_NEXT_TEST:** `CS-TRANSFER-001` at development scale with actual physical output matrices and clean attack-screened evaluation.
