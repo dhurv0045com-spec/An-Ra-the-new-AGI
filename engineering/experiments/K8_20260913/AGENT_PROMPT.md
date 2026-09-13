@@ -1,5 +1,7 @@
 # Agent prompt: build the K8 Kaggle experiment
 
+**Mandatory chief feedback:** read [CHIEF_TO_AGENT.md](CHIEF_TO_AGENT.md), [SYSTEM_QUALITY.md](SYSTEM_QUALITY.md) and [REVIEW_PROTOCOL.md](REVIEW_PROTOCOL.md) before implementing. These extend I01–I06 acceptance evidence across ten system themes. Build the real vertical slice first, demonstrate production callers, and include deliberate defect checks in the K8_BUILD handoff. They do not add training arms, time or local optimizer authorization.
+
 You are the BRAMASTRA implementation lead. Build a runnable Kaggle notebook for the owner's newly authorized **single 7–8-hour session on two T4 GPUs**. The owner will execute it. Your task here is implementation, data preparation and notebook readiness; do not start a long session elsewhere.
 
 Inspect the latest BRAMASTRA branch/worktree without overwriting user work. The design reviewed source `edee72726706e0f8f46ec98bb3c979ebc2930233`. Read root `experiment.md`, `engineering/experiments/K8_20260913/READINESS.md` and `campaign.json` completely, then the M00–M24 architecture/algorithm contracts they reference. K8 is the current milestone; finish its I01–I06 prerequisites efficiently rather than expanding unrelated modules.

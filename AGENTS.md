@@ -12,6 +12,8 @@ The active milestone is **K8: build the owner's Kaggle experiment notebook**. Re
 
 ## Working boundaries
 
+K8 agents must also read the [chief's direct feedback](engineering/experiments/K8_20260913/CHIEF_TO_AGENT.md), [system quality explanations](engineering/experiments/K8_20260913/SYSTEM_QUALITY.md) and [review protocol](engineering/experiments/K8_20260913/REVIEW_PROTOCOL.md). Their evidence requirements extend I01–I06 without enlarging the compute allocation.
+
 - Work on BRAMASTRA. Historical branches are not prerequisites or authorities for new design. Do not change `.codex-worktrees`, nested repositories, unrelated source trees or user changes.
 - Use isolated worktrees for concurrently assigned work where available. If sharing a directory, enforce work-order file ownership and stop conflicting edits until the chief resolves ownership.
 - Never overwrite an existing run directory or evidence snapshot. Use a new run ID for new code, data or settings.

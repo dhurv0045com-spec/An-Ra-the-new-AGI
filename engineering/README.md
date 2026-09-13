@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Required execution quality extension:** the [chief's direct feedback](experiments/K8_20260913/CHIEF_TO_AGENT.md), [ten system themes](experiments/K8_20260913/SYSTEM_QUALITY.md) and [review protocol](experiments/K8_20260913/REVIEW_PROTOCOL.md) are part of K8 acceptance. Start with a complete vertical slice, then generalize; include production-path evidence and deliberately broken cases in the handoff.
+
 **Current dispatch supersedes the earlier queue below:** implement [K8 readiness I01–I06](experiments/K8_20260913/READINESS.md) for [experiment.md](../experiment.md), then hand the notebook to the owner. The new authorization covers one owner-launched two-T4 session of at most480 minutes; no local training or extra sessions. Use the [K8 prompt](experiments/K8_20260913/AGENT_PROMPT.md). M00–M24 remains architectural context.
 
 **Active assignment:** [Complete learner program](master_program_20260913/README.md) plus [cognition and recursive improvement](cognition_rsi_20260913/README.md), **M00–M24**. Read both packets' architectures, algorithms, data/training contracts, packages and evaluation rules. M00 includes [F1–F6 from the latest chief review](reports/B2_2_CHIEF_20260913/REVIEW.md) of `acfa249`. Use the [current agent prompt](cognition_rsi_20260913/AGENT_PROMPT.md). No new learned execution is authorized with the over-cap ledger.

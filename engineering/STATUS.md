@@ -4,6 +4,8 @@ Updated: 2026-09-13. This is the dispatch entry point. Update from actual eviden
 
 ## Current milestone: K8 notebook and campaign readiness
 
+The execution-quality extension adds [direct chief feedback](experiments/K8_20260913/CHIEF_TO_AGENT.md), [ten detailed system themes](experiments/K8_20260913/SYSTEM_QUALITY.md) and a [production-path review protocol](experiments/K8_20260913/REVIEW_PROTOCOL.md). These are mandatory I01–I06 acceptance evidence, with unchanged experimental treatments and allocation. Remote BRAMASTRA was synchronized at 0f6fbf4 when this extension began; no newer implementation push was present. This update is engineering documentation, not new implementation or experimental results.
+
 The owner now requests multiple experiments within one 7–8-hour Kaggle session on two T4 GPUs, including cognition, tools, architecture change and RSI. [experiment.md](../experiment.md) is the active experiment design; [I01–I06](experiments/K8_20260913/READINESS.md) is the next implementation assignment. [campaign.json](experiments/K8_20260913/campaign.json) bounds all phases to480 elapsed minutes/960 provisioned GPU-minutes. The owner will launch the notebook; no experiment has run in this review.
 
 Latest inspected push is **edee727**. It adds F1–F6 corrections and substantial M01–M07/M12/M19–M24 modules, with an honest [agent handoff](reports/COGNITION_RSI_20260913/HANDOFF.md) distinguishing fixture behavior from learned capability. The chief ran62 selected tests successfully, but source review confirms missing CUDA train/restore routing, canonical multi-objective consumption and learned executive/proposer callers. Notebook integration is not complete; E0 must prove actual GPU gradients and fresh-process resume before E1–E5.

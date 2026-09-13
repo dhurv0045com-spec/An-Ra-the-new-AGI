@@ -1,5 +1,7 @@
 # K8 branch review and notebook implementation order
 
+Read the chief's direct [implementation feedback](CHIEF_TO_AGENT.md), [system explanations](SYSTEM_QUALITY.md) and [review protocol](REVIEW_PROTOCOL.md). Their evidence requirements supplement every package below. Complete production connections rather than satisfying the file inventory alone.
+
 Source inspected: `edee72726706e0f8f46ec98bb3c979ebc2930233`. The chief and one Luna reviewer inspected actual consumers, not just new file names. The chief ran:
 
 ```powershell

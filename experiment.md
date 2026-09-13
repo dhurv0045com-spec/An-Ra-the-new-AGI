@@ -205,3 +205,11 @@ K8-<unique-id>/
 Include task-success/learning curves, protected-family deltas, calibration/goal-pair tables, tool-call costs, architecture gate/cost plots and E5 method-choice/regret tables. An AGI score is not required and must not be invented. End with concrete decisions: keep, disable, diagnose or replicate each mechanism, and the cheapest informative next experiment.
 
 The complete [agent prompt](engineering/experiments/K8_20260913/AGENT_PROMPT.md), [readiness work order](engineering/experiments/K8_20260913/READINESS.md) and [campaign manifest](engineering/experiments/K8_20260913/campaign.json) make this file executable by another agent without conversation history.
+
+## 14. Expanded system explanation and mandatory implementation review
+
+The chief's [direct message to the implementation agent](engineering/experiments/K8_20260913/CHIEF_TO_AGENT.md) defines how to turn this design into one functioning system. [SYSTEM_QUALITY.md](engineering/experiments/K8_20260913/SYSTEM_QUALITY.md) explains representation, objective mathematics, cognition, world models, tool competence, retention, architecture plasticity, RSI, recovery and subsequent research decisions. Read these explanations before choosing convenient implementation shortcuts.
+
+The [review protocol](engineering/experiments/K8_20260913/REVIEW_PROTOCOL.md) adds concrete counterexamples at ten integration boundaries. An implementation must detect a detached objective, a hidden-state leak, an unapplied model proposal and a restarted budget clock; shape checks and mock-only demonstrations cannot establish these properties. The handoff must map evidence to actual production callers and distinguish fixture checks from learned evidence.
+
+These additions strengthen I01–I06 without adding arms or expanding the 480-minute campaign. All GPU-dependent checks remain inside E0's existing allowance. No new local optimizer work is authorized. The next improvement is a more trustworthy execution and diagnosis process, not an unmeasured capability claim.

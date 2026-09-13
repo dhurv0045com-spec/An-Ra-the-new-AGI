@@ -226,7 +226,10 @@
   "required_design_files": [
     "experiment.md",
     "engineering/experiments/K8_20260913/READINESS.md",
-    "engineering/experiments/K8_20260913/AGENT_PROMPT.md"
+    "engineering/experiments/K8_20260913/AGENT_PROMPT.md",
+    "engineering/experiments/K8_20260913/CHIEF_TO_AGENT.md",
+    "engineering/experiments/K8_20260913/SYSTEM_QUALITY.md",
+    "engineering/experiments/K8_20260913/REVIEW_PROTOCOL.md"
   ],
   "scientific_status": "exploratory_two_seed_campaign_not_AGI_confirmation"
 }

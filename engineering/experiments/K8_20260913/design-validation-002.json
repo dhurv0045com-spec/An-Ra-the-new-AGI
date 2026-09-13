@@ -1,0 +1,20 @@
+{
+  "kind": "design_validation_not_experiment_result",
+  "errors": [],
+  "wall_minutes": 480,
+  "provisioned_gpu_minutes": 960,
+  "experiment_phases": 7,
+  "local_links_checked": 100,
+  "design_markdown_words": 10002,
+  "canonical_utf8_lf_sha256": {
+    "experiment.md": "19b424e7cc1a8d8edc2da08f4dce77c4a63700e951962d94c1fda30bdb767bd5",
+    "engineering/experiments/K8_20260913/READINESS.md": "90f92ac0b3f46bcc7c1c470a3fae788f056df411900eeb0586431cac3276add5",
+    "engineering/experiments/K8_20260913/AGENT_PROMPT.md": "7f1a6feb8b1c068ec71fec9897bc6ebf677897d47de17f07e16c37144236d2e5",
+    "engineering/experiments/K8_20260913/CHIEF_TO_AGENT.md": "d4368ed38d5bb99661a973d69c6c1220942747545d5929d04983971e37548171",
+    "engineering/experiments/K8_20260913/SYSTEM_QUALITY.md": "a91484cdc456cc96b5face301acec69692b8ab7dc08d67e20d7472800b5ade26",
+    "engineering/experiments/K8_20260913/REVIEW_PROTOCOL.md": "81703130179fd8cb41fd64228561ccfaeccba3b487ef1367d3cb6106b195ea26",
+    "engineering/experiments/K8_20260913/campaign.json": "f46adfd2e0394dfdc48653bad9a53d8788652449a3ccaae0001822dc2716bcce"
+  },
+  "model_instantiations": 0,
+  "optimizer_updates": 0
+}
