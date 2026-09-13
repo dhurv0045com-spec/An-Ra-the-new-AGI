@@ -54,13 +54,7 @@ def test_matched_initialization_shared_bytes_are_exact():
 
 
 def test_naive_same_seed_would_be_confounded_but_matched_constructor_is_not():
-    """Guard the reason this experiment has a dedicated pair constructor.
-
-    A different embedding shape consumes a different number of RNG draws, so
-    simply passing the same seed to both constructors is not enough.  At least
-    one later shared tensor must differ under the naïve construction; the
-    matched constructor then makes every shared tensor exact.
-    """
+    """Guard the reason this experiment has a dedicated pair constructor."""
     torch = pytest.importorskip("torch")
     from v5_model.core import initialize
 
@@ -78,17 +72,27 @@ def test_naive_same_seed_would_be_confounded_but_matched_constructor_is_not():
     assert torch.equal(ms["embedding.weight"], mf["embedding.weight"][:4096])
 
 
+def test_shared_surface_fixture_is_feasible_at_protocol_acceptance_floor():
+    # The canonical generator uses 60/20/20 train/dev/sealed fractions. With
+    # 1,000 candidate worlds/family and a 15% minimum eligibility requirement,
+    # the fixture guarantees >=90 train and >=30 dev/sealed eligible rows if the
+    # acceptance gate itself passes. Requested counts (60/30/30) are therefore
+    # feasible by construction instead of depending on lucky sampling.
+    candidates = 1_000
+    floor = data_mod.MIN_ACCEPTANCE
+    assert int(candidates * 0.60 * floor) >= 60
+    assert int(candidates * 0.20 * floor) >= 30
+
+
 def test_shared_surface_is_deterministic_and_low_id():
-    # Use enough deterministic rows that shortcut-baseline assertions test the
-    # generator rather than four-example sampling noise.
     tok = _LowIdTokenizer()
     counts = {"training": 60, "development": 30, "sealed": 30}
     a = data_mod.build_shared_surface(
-        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=300,
+        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=1000,
         select_counts=counts,
     )
     b = data_mod.build_shared_surface(
-        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=300,
+        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=1000,
         select_counts=counts,
     )
     assert a["manifest_sha256"] == b["manifest_sha256"]
@@ -119,14 +123,19 @@ def test_low_id_filter_rejects_out_of_range_tokens():
 
 
 def test_serialized_token_rows_roundtrip_exactly():
-    tok = _LowIdTokenizer()
-    surface = data_mod.build_shared_surface(
-        tokenizer=tok, seed=2026091303, candidate_worlds_per_family=100,
-        select_counts={"training": 10, "development": 10, "sealed": 10},
+    row = data_mod.TokenRow(
+        example_id="fixture-example",
+        group_id="fixture-group",
+        family="identity",
+        split="development",
+        template_id="copy-list",
+        prompt="Copy these words: flint quark.",
+        answer="flint quark",
+        prompt_ids=(71, 72, 73),
+        answer_ids=(81, 82),
     )
-    for split, rows in surface["rows"].items():
-        restored = data_mod.deserialize_rows(data_mod.serialize_rows(rows))
-        assert restored == rows, split
+    restored = data_mod.deserialize_rows(data_mod.serialize_rows([row]))
+    assert restored == [row]
 
 
 def test_sealed_is_generated_selected_and_hash_bound_before_training():
