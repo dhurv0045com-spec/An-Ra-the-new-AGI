@@ -1,0 +1,35 @@
+{
+  "reviewed_commit": "c3662b3ca097abf6ca5acaa73eb91cd9d074bc7a",
+  "command": "python engineering/reports/B2_CHIEF_20260913/probe.py",
+  "optimizer_updates": 0,
+  "model_instantiations": 0,
+  "observations": {
+    "changed_prepared_tokens_accepted_with_old_identity": true,
+    "nontrainable_rows_emitted_for_training": 2,
+    "prepared_pair_group_ids": [
+      null,
+      null
+    ],
+    "prepared_semantic_ids_are_example_ids": [
+      "left",
+      "right"
+    ],
+    "promotion_without_uncertainty_or_pair_receipt": "accept",
+    "trainability_change_preserves_dataset_identity": true,
+    "unmatched_cases_same_world_accepted_delta": 1.0
+  },
+  "focused_tests": {
+    "command": "python -m pytest tests/test_research_data.py tests/test_research_evaluation.py tests/test_research_plasticity.py -q -p no:cacheprovider --basetemp=.codex-test-tmp-chief-review-20260913",
+    "result": "63 passed in 0.23s",
+    "scope": "non-training tests"
+  },
+  "probe_sha256": "ca01ec8501d3fba44ad8510e7295990eb3a71c422af2064d815e7f3266375d0b",
+  "source_files": {
+    "bramastra_lab/research/commands.py": "c9c01855e2fcfc6a04a612638217d23cde6cb619bdead99aea7577b2ddb47b3b",
+    "bramastra_lab/research/data/manifest.py": "d589c53755716e285a900a2507230c9d387082e4d99b2480b7a6a10b1b9e13f1",
+    "bramastra_lab/research/evaluation/scoring.py": "700c49044cc175a18d5f1e56f1e15225eafb23ed6658f79403bf40a179c8ddf1",
+    "bramastra_lab/research/runtime/checkpoint.py": "fccb85ef2188bebf20eb7a792f72c695b0256170b002936f65cb7fdfbfbb3230",
+    "bramastra_lab/research/runtime/resume.py": "ad5606877c6275b2fd095c776b55a0ba8178a922ce24a7295037942620f4ea19",
+    "bramastra_lab/research/learning/trainer.py": "36342c2c5fd7d63c32585fb122ec9ac16d4e197069344d79961917223a6b65dc"
+  }
+}

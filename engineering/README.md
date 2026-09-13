@@ -1,6 +1,6 @@
 # BRAMASTRA engineering headquarters
 
-**Active assignment:** [B2 integrated build](build_20260912/README.md), revised from the latest Arkenstone and Cymek evidence. External implementation agents should start there and execute B00–B12. The paper remains historical design context.
+**Active assignment:** [B2.2 integration correctness](phase_b22_20260913/README.md). Read the [chief review](reports/B2_CHIEF_20260913/REVIEW.md), then execute C1–C6. The prior build is substantial but its end-to-end completion claim needs correction.
 
 The complete [BRAMASTRA research paper](../BRAMASTRA_PAPER.md) presents the architecture, formal learning objectives, preliminary evidence and deferred experimental program in manuscript form.
 
