@@ -9,19 +9,30 @@
     "reference_implementation": {"state": "SATISFIED", "note": "v5_next contract layer + reference builder; 12/12 CPU fixture tests pass (parameter inventory, tied identity, QK scales, causal prefix invariance, segment isolation, deterministic init, finite fwd/bwd, optimizer ownership, checkpoint round trip, EOS lock, treatment gating, canonical-path purity)"},
     "compute_model_validation": {"state": "SATISFIED", "note": "tools/next_core_compute_model.py reproduces 250,216,960 exactly; 8/8 tests pass"},
     "spec_validator": {"state": "SATISFIED", "note": "tools/validate_next_core_spec.py PASS"},
-    "output_space_resolution": {"state": "OPEN", "note": "EXEC-R1C NOT_EXECUTED; output head/vocabulary stay BLOCKED; canary must run the canonical path only"},
+    "output_space_mechanism_r1c": {
+      "state": "SATISFIED_NEGATIVE",
+      "note": "CYR-GPU-014-R1C COMPLETE 24/24; verdict SOFTMAX_COMPETITION_NOT_SUFFICIENT; MASK_4096-FULL_24576 mean formation-AUC gap -0.11038062283737024; masking branch not promoted",
+      "bundle_sha256": "2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e"
+    },
+    "physical_vocabulary_output_geometry": {"state": "OPEN", "note": "R1C held the physical 24,576 matrix fixed; actual V4096-vs-V24576 transfer remains required before tokenizer/vocabulary adoption"},
     "corpus_readiness": {"state": "FAILING", "note": "production corpus MISSING; tiered arithmetic surface retired (CITADEL-DATA-001); canary uses synthetic screened fixtures only"},
     "evaluation_readiness": {"state": "FAILING", "note": "Citadel readiness NOT_READY; cognition promotion impossible regardless of canary outcome"},
-    "schedule_execution": {"state": "OPEN", "note": "canonical WSD never executed end-to-end; not required for a canary"},
+    "schedule_execution": {"state": "OPEN", "note": "canonical WSD never executed end-to-end at this Task-2 snapshot; not required for a canary"},
     "scale_authorization": {"state": "NOT_JUSTIFIED", "note": "READY_FOR_500M is not issued and cannot be issued under the conditional gate in SCALING_PLAN.md"}
+  },
+  "r1c_consequence": {
+    "verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "candidate_b_masked_output_promoted": false,
+    "candidate_a_canary_default_unchanged": true,
+    "full_24576_proven_optimal": false,
+    "next_decisive_test": "CS-TRANSFER-001 with actual physical V4096 versus V24576 geometry on clean transfer surfaces"
   },
   "canary_definition": {
     "what": "instantiate V5.1 contract geometry at development scale (byte-6M or ~40M rung), train through the production path on screened synthetic fixtures, verify receipt/eval/checkpoint contracts end to end",
     "what_it_does_not_authorize": ["500M scheduling", "production corpus claims", "cognition promotion", "output-space adoption", "any AGI/superiority claim"]
   },
   "blockers_to_ready_for_500m": [
-    "EXEC-R1C executed + interpreted (U01)",
-    "CS-TRANSFER-001 executed + output-space consequence adopted per tree (U03)",
+    "CS-TRANSFER-001 executed + physical output-space consequence adopted per tree (U03)",
     "production corpus materialized + attack-screened (U08)",
     "canonical WSD executed once end-to-end",
     "multi-seed formation demonstrated at ~97M rung on the production representation",
