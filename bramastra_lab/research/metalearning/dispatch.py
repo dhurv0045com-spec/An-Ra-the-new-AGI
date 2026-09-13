@@ -1,22 +1,16 @@
-"""Real model-origin proposer dispatch (I04/E5): generated method bytes bind
-to a validated, applied method and its successor update. Fixture generation
-remains a test control and never enters the learned evidence namespace.
-
-The proposer's decoder generates method tokens through the shared model;
-the controlled adapter renders the input, decodes the output, parses the
-AST and validates origin — all through these production functions.
-"""
+"""Real model-origin proposer dispatch (I04/E5) with method-to-trainer
+binding, controlled capture and origin validation."""
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping, Sequence
 
 import torch
 
+from bramastra_lab.research.contracts.core import content_identity
 from bramastra_lab.research.metalearning.generations import (
     ProposalCapture,
-    classify_external_submission,
     validate_origin,
 )
 from bramastra_lab.research.metalearning.method_language import (
@@ -27,23 +21,25 @@ from bramastra_lab.research.metalearning.method_language import (
     compile_method,
 )
 
-
-class DispatchError(ValueError):
-    """A proposer dispatch violated its contract."""
-
-
 METHOD_TOKEN_VOCABULARY = frozenset({"M0", "M1", "M2"})
 
 _METHOD_PROGRAMS = {
-    "M0": MethodProgram(objective_coefficients=ObjectiveCoefficients(
-        token=1.0, world=0.5, action=0.5, value=0.1, pair=0.1),
+    "M0": MethodProgram(
+        objective_coefficients=ObjectiveCoefficients(
+            token=1.0, world=0.5, action=0.5, value=0.1, pair=0.1),
         comparison_protocol="e5-anchor/v1"),
-    "M1": MethodProgram(objective_coefficients=ObjectiveCoefficients(
-        token=1.0, world=0.5, action=0.5, value=0.1, pair=0.1),
+    "M1": MethodProgram(
+        objective_coefficients=ObjectiveCoefficients(
+            token=1.0, world=0.5, action=0.5, value=0.1, pair=0.1),
         comparison_protocol="e5-anchor/v1"),
-    "M2": MethodProgram(gradient_transform=GradientTransform(
-        kind="clip_norm", bound=1.0), comparison_protocol="e5-anchor/v1"),
+    "M2": MethodProgram(
+        gradient_transform=GradientTransform(kind="clip_norm", bound=1.0),
+        comparison_protocol="e5-anchor/v1"),
 }
+
+
+class DispatchError(ValueError):
+    """A proposer dispatch violated its contract."""
 
 
 @dataclass
@@ -53,7 +49,7 @@ class MethodTrialOutcome:
     measured_updates: int
     measured_success: float
     elapsed_seconds: float
-    validation: str = "measured"   # measured | failed | invalid
+    validation: str = "measured"
 
     def to_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -61,9 +57,6 @@ class MethodTrialOutcome:
 
 @dataclass
 class MethodArchive:
-    """Immutable pre-decision archive snapshot (RSI §5): binding this hash
-    into proposal context proves which outcomes were visible."""
-
     rows: tuple[MethodTrialOutcome, ...]
     cutoff_event_index: int
 
@@ -86,12 +79,7 @@ class MethodArchive:
 
 
 class MethodProposer:
-    """Generates a method choice through the shared decoder.
-
-    The input contains only permitted support-derived task descriptors,
-    public goals, budget and the frozen archive summary — never the current
-    task's measured outcomes (confirmation->archive boundary).
-    """
+    """Generates a method choice through the shared decoder."""
 
     def __init__(self, model, config, *, checkpoint_payload_identity: str) -> None:
         self.model = model
@@ -104,7 +92,7 @@ class MethodProposer:
         leaked = set(task_descriptor) & forbidden
         if leaked:
             raise DispatchError(
-                f"current-task outcomes cannot appear in proposal context: {sorted(leaked)}")
+                f"current-task outcomes in proposal context: {sorted(leaked)}")
         summary = {
             "task_descriptor": dict(task_descriptor),
             "archive_identity": archive_snapshot.identity(),
@@ -114,75 +102,55 @@ class MethodProposer:
 
     def capture_proposal(self, task_descriptor: Mapping[str, Any],
                          archive_snapshot: MethodArchive, *,
-                         sampling_temperature: float = 0.7,
-                         generator: torch.Generator | None = None) -> ProposalCapture:
+                         sampling_temperature: float = 0.7) -> ProposalCapture:
         rendered_input = self.render_input(task_descriptor, archive_snapshot)
         from bramastra_lab.research.experience.codec import encode_text
-
-        prompt = [259] + encode_text(rendered_input)
         from bramastra_lab.research.runtime.inference import generate_free_form
 
-        report = __import__("bramastra_lab.research.runtime.inference",
-                            fromlist=["generate_free_form"]).generate_free_form(
-            self.model, self.config, prompt, max_new_tokens=24,
-            generator=generator)
+        prompt = [259] + encode_text(rendered_input)
+        report = generate_free_form(self.model, self.config, prompt,
+                                    max_new_tokens=24)
         raw_output = report.answer
-        # Controlled parser: method-token vocabulary or a typed program JSON.
         token = raw_output.strip().upper()
         if token in METHOD_TOKEN_VOCABULARY:
-            raw_normalized = json.dumps({"proposal": token})
-        else:
-            raw_normalized = raw_output
-        method_id, program = parse_method_selection(raw_normalized)
-        if program is None:
-            # Bare token: build the representative typed program for capture.
+            method_id = token
             program = _METHOD_PROGRAMS[method_id]
+        else:
+            method_id, program = parse_method_selection(raw_output)
         return ProposalCapture(
             checkpoint_payload_identity=self.checkpoint_payload_identity,
-            rendered_input=rendered_input, sampling={
-                "temperature": sampling_temperature,
-                "max_new_tokens": 24},
+            rendered_input=rendered_input,
+            sampling={"temperature": sampling_temperature, "max_new_tokens": 24},
             raw_output=raw_output, parsed_program=program)
 
     def choose_method(self, task_descriptor: Mapping[str, Any],
                       archive_snapshot: MethodArchive, *,
-                      checkpoint_registry: Mapping[str, str],
-                      generator: torch.Generator | None = None) -> tuple[str, ProposalCapture]:
-        capture = self.capture_proposal(task_descriptor, archive_snapshot,
-                                        generator=generator)
-        reparsed = parse_method_selection(
-            json.dumps({"proposal": capture.raw_output.strip().upper()})
-            if capture.raw_output.strip().upper() in METHOD_TOKEN_VOCABULARY
-            else capture.raw_output)
-        reparsed_id, reparsed_program = parse_method_selection(
-            json.dumps({"proposal": capture.raw_output.strip().upper()})
-            if capture.raw_output.strip().upper() in METHOD_TOKEN_VOCABULARY
-            else capture.raw_output)
-        if reparsed_program is None:
-            reparsed_program = _METHOD_PROGRAMS[reparsed_id]
-        checkpoint_id = validate_origin(capture, reparsed_program=reparsed_program,
-                                        checkpoint_registry=checkpoint_registry)
-        return reparsed_id, capture
+                      checkpoint_registry: Mapping[str, str]) -> tuple[str, Any]:
+        capture = self.capture_proposal(task_descriptor, archive_snapshot)
+        method_id, _ = parse_method_selection(capture.raw_output)
+        validate_origin(capture,
+                        reparsed_program=_METHOD_PROGRAMS[method_id],
+                        checkpoint_registry=checkpoint_registry)
+        return method_id, capture
 
 
-def _program_to_method_id(program: MethodProgram) -> str:
-    if program.gradient_transform is not None:
-        return "M2"
-    return "M0"
-
-
-def parse_method_selection(raw_output: str) -> tuple[str, MethodProgram | None]:
-    """Parse a method selection: a bare method token (the declared E5 action
-    language) or typed JSON. Returns (method_id, program-or-None)."""
+def parse_method_selection(raw_output: str) -> tuple[str, Any]:
+    """Parse a method selection: bare token or typed JSON."""
     token = raw_output.strip().upper()
     if token in METHOD_TOKEN_VOCABULARY:
-        return token, None
+        return token, _METHOD_PROGRAMS[token]
     try:
         raw = json.loads(raw_output)
     except json.JSONDecodeError as exc:
         raise MethodError(f"method output is neither a token nor JSON: {exc}")
     program = _program_from_json(raw)
     return _program_to_method_id(program), program
+
+
+def _program_to_method_id(program: MethodProgram) -> str:
+    if program.gradient_transform is not None:
+        return "M2"
+    return "M0"
 
 
 def _program_from_json(raw: Mapping[str, Any]) -> MethodProgram:
@@ -192,23 +160,23 @@ def _program_from_json(raw: Mapping[str, Any]) -> MethodProgram:
     if raw.get("schedule"):
         from bramastra_lab.research.metalearning.method_language import (
             ScheduleExpression, SchedulePoint)
-
         kwargs["schedule"] = ScheduleExpression(
             counter=raw["schedule"]["counter"],
-            points=tuple(SchedulePoint(**point) for point in raw["schedule"]["points"]))
+            points=tuple(SchedulePoint(**point)
+                         for point in raw["schedule"]["points"]))
     if raw.get("replay_weights"):
         from bramastra_lab.research.metalearning.method_language import ReplayWeights
-
         kwargs["replay_weights"] = ReplayWeights(raw["replay_weights"])
     if raw.get("objective_coefficients"):
-        from bramastra_lab.research.metalearning.method_language import ObjectiveCoefficients
-
+        from bramastra_lab.research.metalearning.method_language import (
+            ObjectiveCoefficients)
         kwargs["objective_coefficients"] = ObjectiveCoefficients(
             **raw["objective_coefficients"])
     if raw.get("gradient_transform"):
-        from bramastra_lab.research.metalearning.method_language import GradientTransform
-
-        kwargs["gradient_transform"] = GradientTransform(**raw["gradient_transform"])
+        from bramastra_lab.research.metalearning.method_language import (
+            GradientTransform)
+        kwargs["gradient_transform"] = GradientTransform(
+            **raw["gradient_transform"])
     kwargs["expected_gain"] = raw.get("expected_gain", 0.0)
     kwargs["predicted_cost"] = raw.get("predicted_cost", 0.0)
     kwargs["comparison_protocol"] = raw.get("comparison_protocol", "e5-anchor/v1")
@@ -218,28 +186,19 @@ def _program_from_json(raw: Mapping[str, Any]) -> MethodProgram:
 
 
 def dispatch_method_to_trainer(method_id: str, compiled: Mapping[str, Any],
-                               trainer, *, task_identity: str,
-                               measured_outcomes: MethodArchive | None = None) -> str:
-    """Apply a selected method to the REAL trainer: schedule and coefficients
-    change the actual update recipe. Returns the applied method identity.
-
-    A dispatch that silently substitutes M0 while keeping the proposal label
-    is the deliberate defect this function's caller must reject — the
-    compiled identity is recorded in the trainer-visible state.
-    """
+                               trainer, *, task_identity: str) -> str:
+    """Apply a selected method to the REAL trainer."""
     if method_id not in METHOD_TOKEN_VOCABULARY:
         raise DispatchError(f"unknown method id {method_id!r}")
-    if compiled.get("identity") is None:
+    if not compiled.get("identity"):
         raise DispatchError("compiled method carries no identity")
     if method_id == "M1":
         for group in trainer.optimizer.param_groups:
             group["lr"] = group["lr"] * 0.5
     if method_id == "M2":
-        # Architecture migration is handled by the caller before the trainer
-        # is constructed; dispatch records the requirement here.
         if not getattr(trainer.model, "gates_enabled", False):
             raise DispatchError(
-                "M2 dispatched but the trainer's model has no enabled gates; "
-                "architecture migration must precede dispatch")
-    trainer.set_controller_multiplier(1.0, f"method:{method_id}:{compiled['identity'][:12]}")
+                "M2 dispatched but the trainer model has no enabled gates")
+    trainer.set_controller_multiplier(
+        1.0, f"method:{method_id}:{compiled['identity'][:12]}")
     return f"applied:{method_id}:{task_identity}"

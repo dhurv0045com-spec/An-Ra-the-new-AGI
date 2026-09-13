@@ -291,7 +291,7 @@ class SupervisorTests(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         try:
             ledger = CampaignLedger(tmp)
-            ledger.record_allocation("alloc-1", "src-hash-1", 480.0)
+            ledger.record_allocation("alloc-1", "src-hash-1", "data-hash-1", 480.0)
             r1 = ledger.reserve("job-1", worker="w0", device="cuda:0",
                                 phase="E0", arm=None, seed=None,
                                 reserved_seconds=600.0)
@@ -328,7 +328,7 @@ class SupervisorTests(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         try:
             ledger = CampaignLedger(tmp)
-            ledger.record_allocation("alloc-1", "src", 10.0)
+            ledger.record_allocation("alloc-1", "src", "data", 10.0)
             ledger.reserve("j1", worker="w0", device="cuda:0", phase="E0",
                            arm=None, seed=None, reserved_seconds=540.0)
             with self.assertRaises(SupervisorError):

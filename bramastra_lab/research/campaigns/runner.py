@@ -27,7 +27,8 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
         raise SupervisorError(f"unknown mode {mode!r}")
     os.makedirs(run_dir, exist_ok=True)
     source_hash = _source_closure_hash()
-    allocation_id = content_identity({"mode": mode, "data": _hash_dir(data_dir),
+    data_hash = _hash_dir(data_dir)
+    allocation_id = content_identity({"data": data_hash,
                                       "source": source_hash,
                                       "max_wall": max_wall_minutes})
     lease = SupervisorLease(run_dir)
@@ -35,24 +36,37 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
     try:
         ledger = CampaignLedger(run_dir)
         deadline = ledger.record_allocation(allocation_id, source_hash,
-                                            max_wall_minutes)
-        existing_phases = {row[5] for row in ledger.conn.execute(
-            "SELECT DISTINCT phase FROM reservations").fetchall()}
+                                            data_hash, max_wall_minutes)
+        existing_phases = {row[0] for row in ledger.conn.execute(
+            "SELECT DISTINCT phase FROM reservations WHERE status='completed'"
+        ).fetchall()}
         if "E0" in existing_phases and mode == "e0":
             print(json.dumps({"status": "E0_ALREADY_RUN",
                               "message": "E0 receipts exist; full mode uses the "
                                          "same allocation without duplicating E0"}))
             return 0
+        # E0 admission gate: full mode requires successful E0 on both devices.
+        if mode == "full" and not ledger.phase_success("E0", required_workers=2):
+            print(json.dumps({"status": "E0_GATE_BLOCKED",
+                              "message": "full campaign requires successful E0 "
+                                         "receipts on both workers; run --mode e0 first"}))
+            return 1
         campaign_plan = _phase_plan(mode, deadline, devices)
         ledger.append_event("campaign_started", {"mode": mode,
                                                  "plan": campaign_plan})
         from bramastra_lab.research.campaigns.worker import run_worker_phase
 
         results: dict[str, Any] = {}
+        campaign_failed = False
         for phase_entry in campaign_plan:
             phase = phase_entry["phase"]
+            if campaign_failed and phase != "E6":
+                ledger.append_event("phase_skipped", {"phase": phase,
+                                                       "reason": "prior_phase_failed"})
+                continue
             if phase in existing_phases:
                 continue
+            phase_failed = False
             for worker_entry in phase_entry["workers"]:
                 device = worker_entry["device"]
                 reservation = ledger.reserve(
@@ -66,15 +80,19 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                         seed=worker_entry.get("seed"), data_dir=data_dir,
                         run_dir=run_dir, precision=precision,
                         deadline=deadline)
+                    success = output.get("status") == "completed" and                         output.get("resume_agrees", True)
                     ledger.close_reservation(
                         reservation.reservation_id,
-                        status=output.get("status", "completed"),
+                        status="completed" if success else "failed",
                         committed_updates=output.get("committed_updates", 0),
                         attempted_updates=output.get("attempted_updates", 0),
                         supervised_exposure=output.get("supervised_exposure", 0),
                         device_seconds=output.get("device_seconds", 0.0),
                         checkpoint_identity=output.get("checkpoint_identity"))
                     results[worker_entry["job_id"]] = output
+                    if not success:
+                        phase_failed = True
+                        campaign_failed = True
                 except Exception as exc:
                     ledger.close_reservation(
                         reservation.reservation_id, status="failed",
@@ -85,6 +103,10 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                         "error": f"{type(exc).__name__}: {exc}"})
                     results[worker_entry["job_id"]] = {"status": "failed",
                                                        "error": str(exc)}
+                    phase_failed = True
+                    campaign_failed = True
+            if phase_failed:
+                ledger.append_event("phase_failed", {"phase": phase})
         remaining = ledger.deadline() - time.time()
         print(json.dumps({"status": "CAMPAIGN_PHASE_COMPLETE", "mode": mode,
                           "remaining_minutes": round(remaining / 60.0, 1),

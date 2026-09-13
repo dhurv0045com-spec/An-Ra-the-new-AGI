@@ -48,27 +48,29 @@ class GatedReuseModel(IntegratedModel):
         self.architecture_id = GATED_ARCHITECTURE_ID if gates_enabled \
             else BASE_ARCHITECTURE_ID + "+disabled-gate-slots"
 
-    def reuse_blocks(self, hidden: Tensor) -> Tensor:
-        if not self.gates_enabled:
-            return hidden
-        blocks = self.decoder.blocks
-        reused = blocks[-GATED_BLOCK_COUNT:]
-        for index, block in enumerate(reused):
-            alpha = torch.tanh(self.gate_alpha[index])
-            hidden = hidden + alpha * (block(hidden, None, None) - hidden)
-        return hidden
+
+
+    def _decoder_with_reuse(self, tokens: Tensor,
+                            padding_mask: Tensor | None = None):
+        """Decoder blocks + gated reuse of the final two, BEFORE final norm."""
+        hidden = self.decoder.embedding(tokens)
+        for block in self.decoder.blocks:
+            hidden = block(hidden, padding_mask, None)
+        if self.gates_enabled:
+            reused = self.decoder.blocks[-GATED_BLOCK_COUNT:]
+            for index, block in enumerate(reused):
+                alpha = torch.tanh(self.gate_alpha[index])
+                hidden = hidden + alpha * (block(hidden, padding_mask, None) - hidden)
+        return self.decoder.final_norm(hidden)
 
     def forward(self, tokens: Tensor, padding_mask: Tensor | None = None, **kwargs):
-        hidden = self.decoder.forward_hidden(tokens, padding_mask)
-        hidden = self.reuse_blocks(hidden)
+        hidden = self._decoder_with_reuse(tokens, padding_mask)
         logits = torch.nn.functional.linear(hidden, self.decoder.embedding.weight)
         from bramastra_lab.research.models.wrapper import ModelOutput
-
         return ModelOutput(logits=logits)
 
     def forward_hidden(self, tokens: Tensor, padding_mask: Tensor | None = None, **kwargs):
-        hidden = self.decoder.forward_hidden(tokens, padding_mask)
-        return self.reuse_blocks(hidden)
+        return self._decoder_with_reuse(tokens, padding_mask)
 
     def gate_values(self) -> list[float]:
         return [float(torch.tanh(self.gate_alpha[index]).item())

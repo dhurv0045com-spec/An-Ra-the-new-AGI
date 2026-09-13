@@ -15,12 +15,15 @@ import torch
 from bramastra_lab.research.learning.trainer import (
     CLIP_CERTIFICATE_TOLERANCE,
     DISPLACEMENT_SNAPSHOT_MAX_PARAMETERS,
+    StepReport,
     Trainer,
     TrainerStateError,
     _total_grad_norm,
     answer_eos_loss_sum,
     validate_targets_in_schema,
 )
+from bramastra_lab.research.experience.supervision import SupervisionWindow
+from bramastra_lab.research.learning.router import route_window
 
 
 @dataclass(frozen=True)
@@ -73,7 +76,7 @@ class K8Trainer(Trainer):
 
     def _admit_update(self) -> None:
         if self.allocation is None:
-            return
+            return  # local/non-campaign mode: no allocation gate
         import time
 
         if self.counters.optimizer_updates >= self.allocation.remaining_updates \
@@ -177,13 +180,20 @@ class K8Trainer(Trainer):
                 <= DISPLACEMENT_SNAPSHOT_MAX_PARAMETERS:
             snapshot = {name: parameter.detach().clone()
                         for name, parameter in self.model.named_parameters()}
-        self.optimizer.step()
+        # Apply the scheduled LR before stepping (R04: actual LR application).
+        scheduled_lr = self._schedule(self.counters.optimizer_updates)             * self.controller_multiplier
+        for group in self.optimizer.param_groups:
+            group["lr"] = scheduled_lr
+        if self.use_amp:
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            self.optimizer.step()
         self.counters.optimizer_updates += 1
         report = StepReport(
             optimizer_update=self.counters.optimizer_updates,
             answer_loss_mean=self._pending_answer_sum / self._pending_targets,
-            pair_loss=None, lr=self._schedule(self.counters.optimizer_updates)
-            * self.controller_multiplier,
+            pair_loss=None, lr=scheduled_lr,
             grad_norm=pre_norm, clipped=clipped,
             supervised_targets=self._pending_targets,
             presentations=self._pending_presentations)

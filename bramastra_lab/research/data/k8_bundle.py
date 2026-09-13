@@ -20,16 +20,25 @@ def _hash_file(path: str) -> str:
 
 
 def generate_rule_inquiry_mechanism(rng: random.Random, mechanism_index: int) -> dict:
-    """Hidden Boolean rule with complementary queries and distractors."""
-    n_vars = rng.choice([2, 3])
-    rule_type = rng.choice(["and", "or", "xor", "threshold"])
-    vars_ = [f"x{i}" for i in range(n_vars)]
-    threshold = rng.randint(1, n_vars - 1) if rule_type == "threshold" else None
+    """Hidden Boolean rule with sufficient diversity for 4096 mechanisms.
+
+    Diversity comes from: variable names, variable count (2-6), rule type
+    (8 types), threshold values, target values, distractor names/counts,
+    and query sets. The dedup key includes the rule definition, not just
+    surface names.
+    """
+    n_vars = rng.randint(2, 6)
+    rule_type = rng.choice([
+        "and", "or", "xor", "nand", "nor", "xnor",
+        "threshold", "majority", "exactly_one", "at_least_two"])
+    vars_ = [f"v{rng.randint(1000, 9999)}_{i}" for i in range(n_vars)]
+    threshold = rng.randint(1, n_vars) if rule_type in ("threshold", "at_least_two") else None
     target_value = rng.choice([True, False])
-    distractors = [f"distractor_{i}" for i in range(rng.randint(1, 3))]
-    queries = []
-    for var in vars_:
-        queries.append({"kind": "inspect", "variable": var})
+    n_distractors = rng.randint(1, 5)
+    distractors = [f"d{rng.randint(100, 999)}" for _ in range(n_distractors)]
+    obs_noise = rng.choice(["none", "flip_one", "extra_report"])
+    query_order = rng.sample(vars_, len(vars_))
+    queries = [{"kind": "inspect", "variable": v} for v in query_order]
     queries.append({"kind": "inspect", "variable": rng.choice(distractors)})
     return {
         "mechanism_id": f"rule-{mechanism_index:06d}",
@@ -40,7 +49,7 @@ def generate_rule_inquiry_mechanism(rng: random.Random, mechanism_index: int) ->
         "complementary_pair": [{"variable": vars_[0]},
                                {"variable": vars_[1]}] if n_vars >= 2 else [],
         "public": {"variables": vars_, "rule_type": rule_type,
-                   "distractors": distractors},
+                   "distractors": distractors, "obs_noise": obs_noise},
         "answer": str(target_value).lower(),
     }
 
@@ -166,7 +175,8 @@ def _mechanisms_for_family(family: str, count: int, seed: int) -> list[dict]:
         attempts += 1
         mechanism = generator(rng, len(mechanisms))
         # Mechanism dedup by public content (not UUID).
-        public_key = json.dumps(mechanism.get("public", {}), sort_keys=True)
+        public_key = json.dumps(mechanism.get("rule", mechanism.get("public", {})),
+                                sort_keys=True, default=str)
         if public_key in seen:
             continue
         seen.add(public_key)
@@ -211,7 +221,8 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
             mechanisms = _mechanisms_for_family(family, count, generation_seed + mechanism_offset)
             mechanism_offset += count
             for mechanism in mechanisms:
-                public_key = json.dumps(mechanism.get("public", {}), sort_keys=True)
+                public_key = json.dumps(mechanism.get("rule", mechanism.get("public", {})),
+                                sort_keys=True, default=str)
                 splits.setdefault("_public_keys", set()).add(public_key)
             pool_id = f"{family}:{pool}"
             family_splits[pool] = {
