@@ -218,7 +218,7 @@ class PromotionTests(unittest.TestCase):
         from bramastra_lab.research.evaluation.scoring import decide_promotion
 
         bundle = self.build_bundle(requires_uncertainty=True,
-                                   clustered={"clusters": 1, "ci_includes_zero": False})
+                                   clustered={"clusters": 1, "delta": 0.5, "ci_low": 0.1, "ci_high": 0.9})
         decision = decide_promotion(bundle, PromotionConfig())
         self.assertTrue(any(r.startswith("underpowered") for r in decision["reasons"]))
 
@@ -333,8 +333,8 @@ class ClusteredBootstrapTests(unittest.TestCase):
         refs, cands = self.build_paired_worlds(n_clusters=1, ref_correct=False,
                                                cand_correct=True)
         bundle = PromotionTests.build_bundle(requires_uncertainty=True,
-                                             clustered={"clusters": 1,
-                                                        "ci_includes_zero": False})
+                                             clustered={"clusters": 1, "delta": 0.5,
+                                                        "ci_low": 0.1, "ci_high": 0.9})
         decision = decide_promotion(bundle, PromotionConfig())
         self.assertEqual(decision["decision"], "no_promotion")
         self.assertTrue(any(r.startswith("underpowered") for r in decision["reasons"]))

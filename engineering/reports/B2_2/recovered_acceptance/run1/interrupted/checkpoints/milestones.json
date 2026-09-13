@@ -1,0 +1,16 @@
+{
+  "milestones": [
+    {
+      "checkpoint_id": "54967799a18ec9892d82a4702c10a45611eab5d2727b62c1dc28f261f0fdd646",
+      "directory": "update-000000000001",
+      "label": "probe",
+      "update_index": 1
+    },
+    {
+      "checkpoint_id": "06b0f352a3827927118137b7a6ff0a321bb09a2f72c825513e9423367786e4db",
+      "directory": "update-000000000003",
+      "label": "probe",
+      "update_index": 3
+    }
+  ]
+}

@@ -271,10 +271,13 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
             if mechanism_cluster is not None                     and (not isinstance(mechanism_cluster, str) or not mechanism_cluster):
                 raise DatasetError(
                     f"{path}:{line_number} mechanism_cluster must be a nonempty string or null")
+            # Per-example trainability narrows the file-level rule but can
+            # never broaden it: the entry's own eligibility stays immutable
+            # across the record loop (B2.2 chief F2).
             example_trainable = record.get("trainable", trainable)
             if not isinstance(example_trainable, bool):
                 raise DatasetError(f"{path}:{line_number} trainable must be a boolean")
-            trainable = trainable and example_trainable
+            effective_trainable = trainable and example_trainable
             semantic = content_identity(_semantic_content(kind, record))
             prior = seen_semantic.get(semantic)
             if prior is not None and prior != split:
@@ -288,7 +291,8 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
                 example_id=example_id, kind=kind, split=split, content=dict(record),
                 semantic_identity=semantic, content_identity=content_identity(record),
                 group_id=group_id,
-                source=f"{path}:{line_number}", line_number=line_number, trainable=trainable,
+                source=f"{path}:{line_number}", line_number=line_number,
+                trainable=effective_trainable,
                 family=family, mechanism_cluster=mechanism_cluster))
 
     if not examples:

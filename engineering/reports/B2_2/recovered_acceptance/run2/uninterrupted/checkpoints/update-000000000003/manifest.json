@@ -1,0 +1,14 @@
+{
+  "checkpoint_id": "b626270c50c2d7bdafe76712118f49854becc32adbe0320fba94f37ea8634b1c",
+  "code_identity": "unavailable",
+  "config_identity": "ab3b4c38b557671087a9c823a1f296de0233841fca51a31108ac1b99de51027e",
+  "created_unix": 1789267500.7070167,
+  "data_identity": "86f2d6655cedfba544914bc4668baa7a2d7599538bc0d1e1e00079099df3ebb7",
+  "parent_checkpoint_id": null,
+  "payload_bytes": 1443098,
+  "payload_sha256": "9985aeb201a8da09cd3823715c04aeb9ae04b02d0a067162a8996777a8c794eb",
+  "run_id": "run-aaec0c183a5d",
+  "schema": "bramastra-checkpoint/v1",
+  "tokenizer_identity": "4db7ac566c37acffcac8d1c23895a5c3610285ceba4c7cd544d779ac13893c09",
+  "update_index": 3
+}

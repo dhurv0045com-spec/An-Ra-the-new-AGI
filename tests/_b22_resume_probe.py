@@ -226,9 +226,19 @@ elif phase == "C":
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workdir", required=True)
+    parser.add_argument("--ledger", default=None,
+                        help="session ledger path (defaults to the repo build ledger)")
     args = parser.parse_args()
     workdir = os.path.abspath(args.workdir)
     os.makedirs(workdir, exist_ok=True)
+    # Hard pre-execution gate: subprocess launches cannot bypass the shared
+    # allowance merely because they run outside train --smoke (B2.2 chief F6).
+    from bramastra_lab.research.runtime.smoke import SessionLedger
+
+    ledger_path = args.ledger or os.path.join(REPO_ROOT, "engineering", "reports",
+                                              "B2", "SESSION_LEDGER.json")
+    SessionLedger(ledger_path).require_learned_allowance(
+        updates=6, seconds=60.0, what="B2.2 acceptance comparison")
     env = {**os.environ, "PYTHONPATH": REPO_ROOT, "BRAMASTRA_LEARNED_CHECKS": "1"}
 
     def run_phase(name: str) -> dict:

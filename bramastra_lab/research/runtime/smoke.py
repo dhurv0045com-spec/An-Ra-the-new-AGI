@@ -67,6 +67,26 @@ class SessionLedger:
                 "updates": LIMITS["gpu_optimizer_updates"] - state["gpu_optimizer_updates"],
                 "sessions": LIMITS["gpu_sessions"] - state["gpu_sessions"]}
 
+    def require_learned_allowance(self, *, updates: int, seconds: float,
+                                  what: str = "learned work") -> None:
+        """Hard pre-execution gate for ANY learned entry point (F6).
+
+        Subprocess probes and helper agents must call this before spending
+        optimizer updates; being launched outside ``train --smoke`` does not
+        bypass the shared allowance. The ledger may already be over cap, in
+        which case every learned request refuses.
+        """
+        state = self._read()
+        remaining_updates = LIMITS["cpu_optimizer_updates"] - state["cpu_optimizer_updates"]
+        remaining_seconds = LIMITS["cpu_learned_smoke_seconds"] - state["cpu_learned_smoke_seconds"]
+        if remaining_updates < updates or remaining_seconds < seconds:
+            raise SmokeBudgetExhausted(
+                f"{what} refused: requested {updates} updates / {seconds}s but the "
+                f"shared ledger has {remaining_updates} updates / "
+                f"{remaining_seconds:.1f}s remaining "
+                f"(used {state['cpu_optimizer_updates']}/{LIMITS['cpu_optimizer_updates']}); "
+                "a new owner allocation is required")
+
     def check_can_run(self, *, device: str, updates: int, seconds: float,
                       reserve_for_resume: bool = False) -> None:
         remaining = self.remaining(device)

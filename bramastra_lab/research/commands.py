@@ -246,24 +246,37 @@ def _assign_pair_roles(rows: list[dict[str, Any]]) -> None:
             members[1]["role"] = "swapped"
 
 
-def _read_prepared(data_dir: str, config: BuildConfig) -> dict[str, Any]:
-    """Read the prepared manifest, verifying config identity AND split bytes.
+def _validate_prepared_manifest(data_dir: str, prepared: dict[str, Any]) -> None:
+    """Strict prepared-manifest validation shared by every consumer (F1).
 
-    Config identity alone is not a data-integrity substitute (B2.2 R1): every
-    declared split's row-file digest is re-hashed before the manifest is
-    returned to any consumer.
+    Recomputes the manifest's own content identity from its immutable fields
+    and compares it with the recorded identity, then validates the schema,
+    the split inventory and each split's exact row bytes. Mutating rows while
+    retaining an old top-level identity — even together with the split
+    integrity map — cannot pass.
     """
     import hashlib as _hashlib
 
-    path = os.path.join(data_dir, "prepared.json")
-    if not os.path.exists(path):
-        raise CommandError(f"{data_dir} has no prepared.json; run prepare-data first")
-    with open(path, "r", encoding="utf-8") as handle:
-        prepared = json.load(handle)
-    if prepared["config_identity"] != config.identity():
-        raise CommandError("prepared data was built under a different config identity; "
-                           "prepare again with this config")
-    for split, integrity in prepared.get("split_integrity", {}).items():
+    if prepared.get("schema") != "bramastra-prepared-data/v1":
+        raise CommandError(
+            f"unsupported prepared-data schema {prepared.get('schema')!r}")
+    recorded_identity = prepared.get("identity")
+    if not isinstance(recorded_identity, str) or not recorded_identity:
+        raise CommandError("prepared manifest does not record a content identity")
+    recomputed = content_identity(
+        {key: value for key, value in prepared.items()
+         if key not in ("identity", "created_unix")})
+    if recomputed != recorded_identity:
+        raise CommandError(
+            "prepared manifest content identity mismatch: the recorded identity "
+            f"{recorded_identity[:12]}... does not match the manifest content "
+            f"{recomputed[:12]}...; regenerated or tampered prepared data is refused")
+    if not prepared.get("split_integrity"):
+        raise CommandError("prepared manifest records no split integrity")
+    inventory = prepared.get("split_inventory", {})
+    for split, integrity in prepared["split_integrity"].items():
+        if integrity.get("schema") != "bramastra-prepared-rows/v1":
+            raise CommandError(f"split {split!r} records an unsupported row schema")
         split_path = os.path.join(data_dir, f"rows-{split}.jsonl")
         if not os.path.exists(split_path):
             raise CommandError(f"prepared split {split!r} file is missing")
@@ -272,6 +285,29 @@ def _read_prepared(data_dir: str, config: BuildConfig) -> dict[str, Any]:
             raise CommandError(
                 f"prepared split {split!r} bytes do not match the prepared manifest; "
                 "changed prepared data requires regeneration, not silent reuse")
+        if split not in inventory:
+            raise CommandError(f"split {split!r} is missing from the split inventory")
+        if inventory[split].get("examples") != integrity.get("row_count"):
+            raise CommandError(
+                f"split {split!r} row inventory disagrees with its integrity record")
+
+
+def _read_prepared(data_dir: str, config: BuildConfig) -> dict[str, Any]:
+    """Read the prepared manifest through the strict F1 validator.
+
+    Verifies the manifest's own recomputed content identity, the config
+    identity, the split inventory and each split's exact row bytes before
+    returning anything to a consumer.
+    """
+    path = os.path.join(data_dir, "prepared.json")
+    if not os.path.exists(path):
+        raise CommandError(f"{data_dir} has no prepared.json; run prepare-data first")
+    with open(path, "r", encoding="utf-8") as handle:
+        prepared = json.load(handle)
+    _validate_prepared_manifest(data_dir, prepared)
+    if prepared["config_identity"] != config.identity():
+        raise CommandError("prepared data was built under a different config identity; "
+                           "prepare again with this config")
     return prepared
 
 
@@ -760,6 +796,19 @@ def _collocate_rows(rows: list[SequenceRow], max_seq: int):
     return collocate(rows, max_seq=max_seq)
 
 
+def _write_data_source(run_dir: str, data_dir: str) -> None:
+    with open(os.path.join(run_dir, "data_source.json"), "w", encoding="utf-8") as handle:
+        json.dump({"data_dir": os.path.abspath(data_dir)}, handle)
+
+
+def _read_data_source(run_dir: str) -> str:
+    path = os.path.join(run_dir, "data_source.json")
+    if not os.path.exists(path):
+        raise CommandError("run has no data_source.json; cannot relocate its data")
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)["data_dir"]
+
+
 # -- train / resume ------------------------------------------------------------
 
 def train(config_path: str, data_dir: str, run_dir: str, max_updates: int | None,
@@ -885,6 +934,7 @@ def resume(run_dir: str, max_updates: int | None, expect_parent: str | None,
            deadline_seconds: float | None = None) -> int:
     from bramastra_lab.research.data.sampler import GroupSampler, SamplerState
     from bramastra_lab.research.learning.plasticity import ControllerState
+    from bramastra_lab.research.runtime.resume import read_run_manifest
 
     ledger = _ledger()
     if max_updates is None or max_updates <= 0:
@@ -901,8 +951,20 @@ def resume(run_dir: str, max_updates: int | None, expect_parent: str | None,
         config = BuildConfig.from_dict(json.load(handle))
     data_dir = _read_data_source(run_dir)
     started = time.monotonic()
+    # The chosen prepared dataset must BE the run/checkpoint's dataset before
+    # any lease or model allocation (B2.2 chief F1). A deliberately changed
+    # data pointer is a migration decision, never an exact resume.
+    prepared = _read_prepared(data_dir, config)
+    run_manifest = read_run_manifest(run_dir)
+    if prepared["identity"] != run_manifest["data_identity"]:
+        raise CommandError(
+            "resumed-data binding failed: the prepared data at "
+            f"{data_dir} has identity {prepared['identity'][:12]}... but the run was "
+            f"created with {run_manifest['data_identity'][:12]}...; point resume at the "
+            "original prepared data or create an explicit migration")
     ctx = resume_mod_restore_run(run_dir, config,
-                                 allow_source_migration=allow_source_migration)
+                                 allow_source_migration=allow_source_migration,
+                                 acquire_lease=False)
     if expect_parent:
         from bramastra_lab.research.runtime import checkpoint as ckpt
 
@@ -942,7 +1004,21 @@ def resume(run_dir: str, max_updates: int | None, expect_parent: str | None,
               "declared_updates": max_updates, "_started": started}
     publication = {"last_update": None, "last_manifest": None, "last_directory": None}
     failure: str | None = None
+    # Acquire the lease only after every fallible setup step (F4), then
+    # fenced-recheck that LATEST has not moved, and release on ANY failure
+    # so the next valid attempt can acquire without force recovery.
+    from bramastra_lab.research.runtime import checkpoint as ckpt
+
+    writer_token = ckpt.acquire_writer_fence(run_dir)
     try:
+        _, latest_manifest = ckpt.load_checkpoint(run_dir)
+        if ctx.expected_parent is not None \
+                and latest_manifest.checkpoint_id != ctx.expected_parent:
+            raise CommandError(
+                "fenced recheck failed: LATEST moved during setup "
+                f"({latest_manifest.checkpoint_id[:12]}... != expected "
+                f"{ctx.expected_parent[:12]}...)")
+        ctx.writer_token = writer_token
         result = _training_loop(trainer, ctx, config, data_dir, run_dir, sampler,
                                 target_updates=updates_before + max_updates,
                                 controller_state=controller_state,
@@ -975,9 +1051,10 @@ def resume(run_dir: str, max_updates: int | None, expect_parent: str | None,
             ledger.record(device="cpu", updates=_committed_so_far(run_dir), seconds=0.0,
                           what=f"resume FAILED {os.path.basename(run_dir)}",
                           evidence=failure[:200])
+        ckpt.release_writer_fence(run_dir, writer_token)  # failure releases the lease
         raise
     finally:
-        ckpt_release(run_dir, ctx)
+        ckpt.release_writer_fence(run_dir, writer_token)
 
 
 def ckpt_release(run_dir: str, ctx) -> None:

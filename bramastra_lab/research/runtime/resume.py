@@ -115,7 +115,8 @@ def checkpoint_run(trainer: Trainer, run_dir: str, ctx: RunContext, *,
 
 
 def restore_run(run_dir: str, config: BuildConfig, *,
-                allow_source_migration: bool = False) -> RunContext:
+                allow_source_migration: bool = False,
+                acquire_lease: bool = True) -> RunContext:
     """Restore the latest valid checkpoint in this (fresh) process.
 
     Validates run/config/data/source compatibility before anything loads.
@@ -149,7 +150,11 @@ def restore_run(run_dir: str, config: BuildConfig, *,
     trainer = Trainer(config, model)
     trainer.load_state_payload(payload)
     ckpt.restore_rng_state(payload["rng"])
-    token = ckpt.acquire_writer_fence(run_dir)
+    # The lease is acquired LATE (F4): identity, parent and source validation
+    # happen first, so a failed setup cannot leak an active writer lease to
+    # the next attempt. Callers that acquire later pass acquire_lease=False
+    # and must fence-recheck at their publication boundary.
+    token = ckpt.acquire_writer_fence(run_dir) if acquire_lease else ""
     return RunContext(
         run_dir=run_dir, run_id=run_manifest["run_id"], config=config,
         data_identity=run_manifest["data_identity"], writer_token=token,

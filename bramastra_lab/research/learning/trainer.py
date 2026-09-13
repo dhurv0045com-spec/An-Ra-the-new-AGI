@@ -310,7 +310,18 @@ class Trainer:
         return report
 
     def training_step(self, batch, *, pair_rows: tuple[list, list] | None = None) -> StepReport:
-        """One optimizer update from a single micro batch (grad_accum_steps=1)."""
+        """One optimizer update from a single micro batch.
+
+        Only valid while ``grad_accum_steps == 1``: the configured window is
+        the public contract, and the CLI loop implements it. A configured
+        multi-microbatch window rejects this convenience method instead of
+        silently disagreeing with the CLI (B2.2 chief F5).
+        """
+        if self.grad_accum_steps != 1:
+            raise TrainerStateError(
+                f"training_step is a single-microbatch convenience and this config "
+                f"declares grad_accum_steps={self.grad_accum_steps}; use the "
+                "accumulate/finalize_update window boundary")
         self.accumulate(batch, pair_rows=pair_rows)
         return self.finalize_update()
 

@@ -418,10 +418,91 @@ class EvidenceBundle:
         if not isinstance(self.reference_metrics, Mapping) \
                 or not isinstance(self.candidate_metrics, Mapping):
             raise EvaluationError("evidence bundle requires metric mappings")
-        for metrics in (self.reference_metrics, self.candidate_metrics):
-            for key, value in metrics.items():
-                if isinstance(value, float) and not math.isfinite(value):
-                    raise EvaluationError(f"nonfinite metric {key!r} in evidence bundle")
+        for side, metrics in (("reference", self.reference_metrics),
+                              ("candidate", self.candidate_metrics)):
+            _validate_metric_mapping(metrics, f"{side} metrics")
+        for side, families in (("reference", self.reference_family),
+                               ("candidate", self.candidate_family)):
+            _validate_family_metrics(families, f"{side} family metrics")
+        if self.paired is not None:
+            _validate_paired_metrics(self.paired)
+        if self.clustered_uncertainty is not None:
+            _validate_clustered_uncertainty(self.clustered_uncertainty)
+
+
+def _require_finite_number(value: Any, where: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) \
+            or not math.isfinite(float(value)):
+        raise EvaluationError(f"{where} must be a finite number")
+    return float(value)
+
+
+def _validate_metric_mapping(metrics: Mapping[str, Any], where: str) -> None:
+    rate = metrics.get("complete_answer_rate")
+    if rate is None:
+        raise EvaluationError(f"{where} must report complete_answer_rate")
+    checked = _require_finite_number(rate, f"{where}.complete_answer_rate")
+    if not 0.0 <= checked <= 1.0:
+        raise EvaluationError(f"{where}.complete_answer_rate must lie in [0, 1]")
+
+
+def _validate_family_metrics(families: Mapping[str, Any], where: str) -> None:
+    if not isinstance(families, Mapping) or not families:
+        raise EvaluationError(f"{where} must be a nonempty mapping")
+    for family, entry in families.items():
+        if not isinstance(family, str) or not family:
+            raise EvaluationError(f"{where} family names must be nonempty strings")
+        if not isinstance(entry, Mapping):
+            raise EvaluationError(f"{where}.{family} must be an object")
+        rate = entry.get("complete_answer_rate")
+        if rate is None:
+            raise EvaluationError(f"{where}.{family} must report complete_answer_rate")
+        checked = _require_finite_number(rate, f"{where}.{family}.complete_answer_rate")
+        if not 0.0 <= checked <= 1.0:
+            raise EvaluationError(
+                f"{where}.{family}.complete_answer_rate must lie in [0, 1]")
+        count = entry.get("count")
+        if count is not None:
+            if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+                raise EvaluationError(
+                    f"{where}.{family}.count must be a nonnegative integer")
+
+
+def _validate_paired_metrics(paired: Mapping[str, Any]) -> None:
+    if not isinstance(paired, Mapping):
+        raise EvaluationError("paired receipt must be an object")
+    pairs = paired.get("pairs")
+    if not isinstance(pairs, int) or isinstance(pairs, bool) or pairs < 0:
+        raise EvaluationError("paired receipt pairs must be a nonnegative integer")
+    for key in ("both_correct_rate", "same_answer_rate", "primary_accuracy",
+                "swapped_accuracy"):
+        if key in paired:
+            checked = _require_finite_number(paired[key], f"paired.{key}")
+            if not 0.0 <= checked <= 1.0:
+                raise EvaluationError(f"paired.{key} must lie in [0, 1]")
+    if "goal_swap_gap" in paired:
+        gap = _require_finite_number(paired["goal_swap_gap"], "paired.goal_swap_gap")
+        if not -1.0 <= gap <= 1.0:
+            raise EvaluationError("paired.goal_swap_gap must lie in [-1, 1]")
+
+
+def _validate_clustered_uncertainty(uncertainty: Mapping[str, Any]) -> None:
+    if not isinstance(uncertainty, Mapping):
+        raise EvaluationError("clustered uncertainty must be an object")
+    clusters = uncertainty.get("clusters")
+    if not isinstance(clusters, int) or isinstance(clusters, bool) or clusters < 1:
+        raise EvaluationError("clustered uncertainty clusters must be a positive integer")
+    for key in ("delta", "ci_low", "ci_high"):
+        if key not in uncertainty:
+            raise EvaluationError(f"clustered uncertainty must report {key}")
+        _require_finite_number(uncertainty[key], f"clustered uncertainty.{key}")
+    if uncertainty["ci_low"] > uncertainty["ci_high"]:
+        raise EvaluationError(
+            "clustered uncertainty interval is inverted: ci_low exceeds ci_high")
+    # The includes-zero flag is DERIVED from the bounds, never trusted from
+    # the caller (B2.2 chief F3).
+    uncertainty["ci_includes_zero"] = bool(
+        uncertainty["ci_low"] <= 0.0 <= uncertainty["ci_high"])
 
 
 def decide_promotion(evidence: EvidenceBundle, config: PromotionConfig) -> dict[str, Any]:
@@ -454,9 +535,19 @@ def decide_promotion(evidence: EvidenceBundle, config: PromotionConfig) -> dict[
                 f"{min_clusters}")
         ref_rate_early = evidence.reference_metrics.get("complete_answer_rate", 0.0)
         cand_rate_early = evidence.candidate_metrics.get("complete_answer_rate", 0.0)
-        if evidence.clustered_uncertainty.get("ci_includes_zero") \
-                and cand_rate_early - ref_rate_early >= config.primary_margin:
-            reasons.append("bootstrap_ci_includes_zero")
+        aggregate_gain = cand_rate_early - ref_rate_early
+        ci_low = evidence.clustered_uncertainty["ci_low"]
+        ci_high = evidence.clustered_uncertainty["ci_high"]
+        # The interval must agree in direction with the aggregate gain: an
+        # entirely negative interval with a positive aggregate gain is an
+        # inconsistent comparison, never a favorable selection (F3). An
+        # accept additionally requires a positive lower bound.
+        if aggregate_gain >= config.primary_margin:
+            if ci_high <= 0.0:
+                reasons.append("aggregate_interval_inconsistent: positive gain with "
+                               "an entirely negative interval")
+            elif ci_low <= 0.0:
+                reasons.append("bootstrap_ci_includes_zero")
     if evidence.sealed_fresh is False:
         reasons.append("sealed_pool_reuse_detected")
     reference_metrics = evidence.reference_metrics

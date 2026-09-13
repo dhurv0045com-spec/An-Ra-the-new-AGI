@@ -1,0 +1,3 @@
+{"event": "run_created", "run_id": "run-aaec0c183a5d", "at_unix": 1789267499.1403513}
+{"at_unix": 1789267500.5427911, "decision": {"checkpoint_requested": true, "lr_multiplier": 1.0, "pause_updates": false, "proposed_only": false, "reason": "new_family_introduced:arithmetic", "replay_mixture": {"acquisition": 0.75, "protected_replay": 0.25}, "state": "EXPAND"}, "event": "controller_boundary", "update": 0}
+{"at_unix": 1789267500.653067, "decision": {"checkpoint_requested": false, "lr_multiplier": 1.0, "pause_updates": false, "proposed_only": false, "reason": "acquiring_formation_in_progress", "replay_mixture": {"acquisition": 0.75, "protected_replay": 0.25}, "state": "EXPAND"}, "event": "controller_boundary", "update": 2}

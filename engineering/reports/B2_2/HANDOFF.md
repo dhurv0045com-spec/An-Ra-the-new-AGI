@@ -31,3 +31,11 @@ All seven chief findings are closed with architectural changes, command-path reg
 - The B2.1-era fresh-process receipt covered the default fixture path; the B2.2 receipt adds configured accumulation, pair routing, replay and controller continuation — but both are tiny-fixture integration evidence, not capability evidence, and not accelerator certification.
 - `DATA_NOT_READY` stands: no qualified production corpus exists. Mechanism-cluster transfer claims remain unsupported until operators declare qualified clusters.
 - Scientific qualification of every optional mechanism remains false; nothing here establishes AGI, a 10x gain, or training readiness.
+
+---
+
+## Post-review clarification (appended 2026-09-13, B2.2-chief F6; history above preserved)
+
+- The authoritative ledger after the B2.2 phase records **206/200 CPU optimizer updates and 177.234/300 learned-smoke seconds**, zero GPU. The increment from 193 is exactly **13**: one failed attempt (1 update) plus two six-update comparisons. The earlier "approximately 171 seconds" figure in the R7 disposition omitted the failed attempt's seconds; the ledger total is authoritative.
+- The raw acceptance-probe outputs were recovered from the session work directories into `recovered_acceptance/` (checkpoint manifests, pointers, events, run/config identities; `payload.pt` weights remain local-only under the existing `.gitignore` rule). The probe was not rerun to recover them.
+- A hard pre-execution gate (`SessionLedger.require_learned_allowance`) now refuses any learned entry point — including subprocess probes launched outside `train --smoke` — when the shared allowance is exhausted; the probe refuses at 206/200 as verified by `tests/test_research_accounting.py`.
