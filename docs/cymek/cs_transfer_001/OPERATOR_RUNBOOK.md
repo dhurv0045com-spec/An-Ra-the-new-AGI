@@ -4,6 +4,10 @@ Status before qualification: `IMPLEMENTED_NOT_EXECUTED`.
 
 Canonical executable module: `anra_v5.cs_transfer_001_run_v3`.
 
+Frozen scientific commit: `a916d1c8d2637abb86d16b1c78e418c95461f3c7`.
+
+Qualification Repair E1 test blob: `tests/test_cs_transfer_001.py` @ `1a17fe9d29c48273d8c92e6320edf577bff6f19b` from repair commit `acd1d51421466eafe208c71a4f7be70c229d2a53`. E1 is qualification-only and must be restored out of the worktree before Drive preparation or CUDA execution.
+
 Dedicated persistent root:
 
 `/content/drive/MyDrive/CYMEK/CS_TRANSFER_001`
@@ -12,21 +16,22 @@ Never reuse Canary-v2, R1C, ARK, or another CS-TRANSFER root.
 
 ## Required order
 
-1. Checkout the exact frozen `CS_TRANSFER_001_EXECUTABLE_COMMIT` in detached HEAD state.
-2. Verify critical Git blob hashes.
+1. Checkout the exact frozen scientific commit in detached HEAD state.
+2. Verify critical Git blob hashes for the frozen science.
 3. Run `python -m tools.validate_cs_transfer_001` from the repository root. **Do not** invoke the validator as `python tools/validate_cs_transfer_001.py`: when executed by file path, Python sets `sys.path[0]` to `tools/`, so the validator's package import `tools.next_core_compute_model` may fail in a clean Colab runtime even though the code and blobs are correct.
-4. Run the dedicated CS-TRANSFER CPU qualification tests plus the relevant production backend/checkpoint tests.
-5. Mount Drive and set `CS_TRANSFER_001_ROOT` to the dedicated root **before importing the runner**.
-6. Run `python -m anra_v5.cs_transfer_001_run_v3 --mode protocol` and preserve the effective protocol SHA.
-7. Run `--mode prepare`. This is CPU-only and must finish before any scientific GPU update. It generates the fresh candidate worlds, applies Amendment 1, selects the shared `<4096` token rows, attacks shortcuts/contamination, writes exact split rows, pack identity, DATA receipt, and PROTOCOL receipt.
-8. Inspect the DATA receipt mechanically only. If any family/split acceptance is `<15%`, any required count is unavailable, any selected content token is `>=4096`, or a predictive shortcut is `>=0.35`, **stop before GPU**. Do not relax the screen after seeing it fail.
-9. Run `--mode preflight --cuda`. Both physical arms must execute a real production-backend update with finite loss/gradients, valid clipping, exact parameter counts, and matched initialization. Preflight must not create scientific arm checkpoints.
-10. Run `--mode scan`. It must report `START`, `RESUME`, `FINALIZE`, or `COMPLETE`; any `FAIL_CLOSED` is an operator stop.
-11. Execute all eight mandatory arms sequentially. Recommended fixed order for operational simplicity: pair 0 V4096, pair 0 V24576, then pairs 1–3 in the same order. Arm order is not a scientific variable because each arm has its own frozen model/order seed and state root.
-12. Re-run `--mode scan` after each arm. Never delete a partial arm. Reissuing the same arm command restores its last durable checkpoint and continues to update 480.
-13. After all eight arm results are COMPLETE, run `--mode development`. This freezes the paired development aggregate and the preregistered development verdict before sealed consumption.
-14. Run `--mode finalize --cuda` exactly once. Finalization writes `SEALED_CONSUMPTION.json` with `STARTED` before any sealed inference, evaluates every endpoint checkpoint, writes `FINAL_RESULT.json`, then changes the marker to `CONSUMED_AND_FINALIZED`.
-15. Package receipts/traces/results and their hashes. Checkpoint objects stay in Drive and should not be copied into the compact result ZIP.
+4. For `tests/test_cs_transfer_001.py` only, apply Qualification Repair E1 temporarily. The frozen synthetic test requested 30 development rows/family from 300 candidate worlds/family. With the canonical 20% development split this exposes only 60 candidates; the protocol acceptance floor is 15%, so only 9 eligible rows are guaranteed. This made the CPU fixture itself infeasible. E1 increases the synthetic qualification pool to 1,000 worlds/family and makes serialization round-trip a local fixture. Run the repaired test, then restore the frozen worktree and require `git status --porcelain` to be empty. Do **not** alter any `anra_v5/`, `v5_*`, or experiment protocol file.
+5. Run the remaining dedicated CS-TRANSFER CPU qualification tests plus the relevant production backend/checkpoint tests from the clean frozen worktree.
+6. Mount Drive and set `CS_TRANSFER_001_ROOT` to the dedicated root **before importing the runner**.
+7. Run `python -m anra_v5.cs_transfer_001_run_v3 --mode protocol` and preserve the effective protocol SHA.
+8. Run `--mode prepare`. This is CPU-only and must finish before any scientific GPU update. It generates the fresh candidate worlds, applies Amendment 1, selects the shared `<4096` token rows, attacks shortcuts/contamination, writes exact split rows, pack identity, DATA receipt, and PROTOCOL receipt.
+9. Inspect the DATA receipt mechanically only. If any family/split acceptance is `<15%`, any required count is unavailable, any selected content token is `>=4096`, or a predictive shortcut is `>=0.35`, **stop before GPU**. Do not relax the screen after seeing it fail.
+10. Run `--mode preflight --cuda`. Both physical arms must execute a real production-backend update with finite loss/gradients, valid clipping, exact parameter counts, and matched initialization. Preflight must not create scientific arm checkpoints.
+11. Run `--mode scan`. It must report `START`, `RESUME`, `FINALIZE`, or `COMPLETE`; any `FAIL_CLOSED` is an operator stop.
+12. Execute all eight mandatory arms sequentially. Recommended fixed order for operational simplicity: pair 0 V4096, pair 0 V24576, then pairs 1–3 in the same order. Arm order is not a scientific variable because each arm has its own frozen model/order seed and state root.
+13. Re-run `--mode scan` after each arm. Never delete a partial arm. Reissuing the same arm command restores its last durable checkpoint and continues to update 480.
+14. After all eight arm results are COMPLETE, run `--mode development`. This freezes the paired development aggregate and the preregistered development verdict before sealed consumption.
+15. Run `--mode finalize --cuda` exactly once. Finalization writes `SEALED_CONSUMPTION.json` with `STARTED` before any sealed inference, evaluates every endpoint checkpoint, writes `FINAL_RESULT.json`, then changes the marker to `CONSUMED_AND_FINALIZED`.
+16. Package receipts/traces/results and their hashes. Checkpoint objects stay in Drive and should not be copied into the compact result ZIP.
 
 ## Mandatory arms
 
