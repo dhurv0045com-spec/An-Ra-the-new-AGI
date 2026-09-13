@@ -25,6 +25,7 @@ class Geometry:
     head_dimension: int
     ffn_width: int
     context_length: int
+    rope_base: float = 10_000.0
     tied_embeddings: bool = True
     qk_norm_affine: bool = True
 
@@ -140,6 +141,20 @@ def scale_ladder() -> list[dict[str, object]]:
 V5A = Geometry(
     vocabulary_size=24_576, width=896, layers=26, query_heads=14, kv_heads=7,
     head_dimension=64, ffn_width=2_368, context_length=4_096,
+)
+
+# Task-3 canary rungs (Task-2 geometry family, exact counts):
+#   RUNG_A: micro/integration canary — canonical 24,576 class space, head_dim 64,
+#           GQA 2:1, V5 norms/SwiGLU/RoPE/tied output; smallest honest geometry (~10.2M).
+#   RUNG_B: development GPU canary — ~42M, fits a single T4 with checkpoint/eval headroom
+#           (peak training bytes ~18 B/param ~ 0.76 GiB + activations).
+RUNG_A = Geometry(
+    vocabulary_size=24_576, width=256, layers=4, query_heads=4, kv_heads=2,
+    head_dimension=64, ffn_width=1_024, context_length=1_024,
+)
+RUNG_B = Geometry(
+    vocabulary_size=24_576, width=512, layers=10, query_heads=8, kv_heads=4,
+    head_dimension=64, ffn_width=1_408, context_length=2_048,
 )
 
 
