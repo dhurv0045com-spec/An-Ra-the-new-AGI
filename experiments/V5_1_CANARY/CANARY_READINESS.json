@@ -1,0 +1,58 @@
+{
+ "schema": "anra-v51-canary-readiness/v1",
+ "generated": "2026-09-13",
+ "branch": "cymek-v51-canary",
+ "parent_task2_head": "38925a1ad0ffc3385cac7a7afd77c01b76d81f28",
+ "prerun_verdict": "READY_FOR_GPU_CANARY",
+ "prerun_gates": {
+  "task2_validators": "PASS",
+  "architecture_frozen": "SATISFIED",
+  "rung_accounting": {
+   "rung_a": 10227456,
+   "rung_b": 42092544,
+   "v5a_control": 250216960
+  },
+  "data_instrument": "SATISFIED (zero collisions; worst baseline 0.267 < 0.35)",
+  "production_path": "SATISFIED (no parallel training path)",
+  "cpu_suite": "15/15 PASSED incl. fresh-process bitwise resume",
+  "preregistration": "FROZEN before final result (amendment 1 documented)",
+  "output_space_boundary": "canonical full-softmax only",
+  "production_data_boundary": "synthetic instrument only; corpus blocker unchanged"
+ },
+ "postrun_verdicts": [
+  "CANARY_PASS",
+  "CANARY_FAIL_ENGINEERING",
+  "CANARY_FAIL_FORMATION",
+  "CANARY_INCONCLUSIVE"
+ ],
+ "forbidden_verdicts": [
+  "READY_FOR_500M",
+  "PRODUCTION_DATA_READY",
+  "COGNITION_VALIDATED",
+  "OUTPUT_SPACE_RESOLVED"
+ ],
+ "fail_closed": true,
+ "postrun_verdict": "CANARY_FAIL_FORMATION",
+ "postrun_summary": {
+  "rung": "A (CPU, 10,227,456 params)",
+  "updates": 120,
+  "tokens_consumed": 491520,
+  "mechanical_gates": "ALL PASS (production path, exact accounting, clean splits, no shortcuts, finite training, real updates, clip certificate, exact token ledger, WSD trace 0 mismatches/zero rewarm, 7 durable checkpoints, fresh-process bitwise resume, corruption/identity rejection, EOS contract exercised, valid receipts, no EXPERIMENT_ONLY leak)",
+  "formation_gates": {
+   "identity_acquisition_dev": false,
+   "binding_acquisition_dev": false,
+   "dev_transfer": false,
+   "formation_positive": true
+  },
+  "dev_overall_exact": 0.1331,
+  "train_final_loss": 0.6122,
+  "determinism": "two independent full executions produced bitwise-identical model.bin",
+  "interpretation": "memorize-without-generalize at single-epoch dose - consistent with the documented delayed-generalization law (ARK-002B); execution mechanics are not implicated (train loss 0.61 = strong fit; 4/6 families' EOS behavior perfect; termination family clearly learned).",
+  "next_experiment_designed_not_executed": "canary-v2: extend to ~3 epochs (1.47M tokens, 360 updates) crossing the delayed-generalization region, fresh prereg, identity/state_order EOS diagnostics; optionally LR 1e-3 arm"
+ },
+ "superseded_executions": [
+  {
+   "note": "execution 1: identical weights (model.bin sha f9afe368... bitwise-equal to execution 2); superseded solely for a trace-labeling defect (LR rows labeled post-update; the applied LR sequence was correct) and a verdict-mapping defect (FAIL_ENGINEERING vs FAIL_FORMATION)"
+  }
+ ]
+}

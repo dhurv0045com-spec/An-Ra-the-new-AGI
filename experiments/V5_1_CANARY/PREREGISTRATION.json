@@ -1,0 +1,153 @@
+{
+ "schema": "anra-v51-canary-preregistration/v1",
+ "frozen_at": "2026-09-13",
+ "purpose": "Prove the V5.1 selection executes correctly through the REAL production training path (data consumption, masking, objective, optimizer, WSD mechanism, clipping, checkpointing, fresh-process exact resume, receipts) and can acquire the clean integration instrument. NOT a cognition experiment; NOT scale authorization.",
+ "claim_ceiling": "V5.1 executed successfully through the specified development-scale production training path and satisfied the canary's mechanical/integration gates.",
+ "rungs": {
+  "A": {
+   "role": "micro/integration canary (CPU-qualified)",
+   "geometry": {
+    "vocabulary_size": 24576,
+    "width": 256,
+    "layers": 4,
+    "query_heads": 4,
+    "kv_heads": 2,
+    "head_dimension": 64,
+    "ffn_width": 1024,
+    "context_length": 1024,
+    "rope_base": 10000.0,
+    "tied_embeddings": true,
+    "qk_norm_affine": true
+   },
+   "parameter_count": 10227456
+  },
+  "B": {
+   "role": "development GPU canary (Colab T4 operator execution)",
+   "geometry": {
+    "vocabulary_size": 24576,
+    "width": 512,
+    "layers": 10,
+    "query_heads": 8,
+    "kv_heads": 4,
+    "head_dimension": 64,
+    "ffn_width": 1408,
+    "context_length": 2048,
+    "rope_base": 10000.0,
+    "tied_embeddings": true,
+    "qk_norm_affine": true
+   },
+   "parameter_count": 42092544,
+   "memory_plan": "weights+moments+grads ~18B/param = 0.71 GiB plus activations; T4 16GiB headroom verified by preflight calibration before substantive run"
+  }
+ },
+ "seed": 20260913,
+ "dataset": {
+  "generator": "anra_v5/v51_canary_data.py",
+  "generator_version": "v51-canary-data/v1",
+  "worlds_per_family": 3305,
+  "families": [
+   "identity",
+   "binding",
+   "state_order",
+   "composition",
+   "termination",
+   "missing_info"
+  ],
+  "split_rule": "latent-world group level; sealed generated FIRST and hashed before training",
+  "screens": [
+   "contamination exact/normalized/group = ZERO (fail closed)",
+   "shortcut baselines per family; any family solved >= 0.35 by a trivial baseline is repaired or removed BEFORE training"
+  ],
+  "not_production_data": true
+ },
+ "tokenizer": "frozen 24,576-entry BPE artifact artifacts/e1/local_tournament/tokenizer-24576.json.gz (identity-bound, receipt-verified); special tokens pad=0 unk=1 bos=2 eos=3",
+ "training": {
+  "tokens_per_update": 4096,
+  "updates_rung_a_cpu": 120,
+  "token_budget_wsd_canary": 491520,
+  "checkpoint_every": 16,
+  "optimizer": "production build_adamw_optimizer: AdamW beta(0.9,0.95) eps 1e-8 wd 0.1 selective groups",
+  "schedule": "canary-scaled WSD through the production backend schedule interface: warmup 10% -> stable to 85% -> linear decay to 0.1x peak (peak 3e-4); shape receipt bound to v5_training.schedule.schedule_receipt; frozen 5B lr_at verified on its real domain (probe points 0/25M/50M-1/50M/4.5B-1/5B-1)",
+  "objective": "canonical causal_lm_loss (BOS/PAD/segment excluded, EOS included); aux lambdas 0; answer+EOS supervision via document termination"
+ },
+ "evaluation": {
+  "mode": "candidate-free greedy generation with EOS stop; exact-with-valid-EOS",
+  "splits": {
+   "development": "iteration/diagnostic",
+   "sealed": "finalization only"
+  },
+  "sealed_rule": "sealed generated first, hashed, untouched until finalize; any inspection invalidates it and forces regeneration with recorded invalidation",
+  "metrics": [
+   "exact_with_valid_eos per family",
+   "eos_correct",
+   "worst-family",
+   "loss",
+   "tokens/sec",
+   "updates/sec",
+   "checkpoint time/size",
+   "restore time"
+  ]
+ },
+ "pass_gates": {
+  "identity_dev_min": 0.3,
+  "binding_dev_min": 0.25,
+  "dev_overall_min": 0.15,
+  "formation_min": 0.3,
+  "eos_valid_everywhere": true,
+  "mechanical": [
+   "exact parameter accounting analytic==instantiated",
+   "clean split audit (zero collisions)",
+   "no prohibited shortcut (all baselines < 0.35 per family)",
+   "production path only (manifest->tokenizer->pack->stream->backend)",
+   "finite training; parameter updates occur",
+   "clip certificate valid within 1e-4 tolerance",
+   "token accounting exact (window ledger == TrainingState ledger)",
+   "WSD trace lr_expected == lr_actual at every update; zero rewarm events; resume continues schedule",
+   "checkpoints durable (store-verified); fresh-process resume bitwise-equal state on CPU",
+   "incompatible/corrupted restore rejected",
+   "EOS contract works (valid stops reported)",
+   "evaluation receipts valid",
+   "no EXPERIMENT_ONLY output mode in the canonical path"
+  ]
+ },
+ "formation_diagnostics": "train acquisition, dev transfer, sealed result reported SEPARATELY; never collapsed",
+ "stop_conditions": [
+  "requested updates exceed the frozen pack stream",
+  "NONFINITE_LOSS / NONFINITE_GRAD / CLIP_BREACH (backend aborts)",
+  "identity drift on resume",
+  "session timebox (engineering only; checkpoint + resume)"
+ ],
+ "failure_taxonomy": [
+  "DATA",
+  "MODEL",
+  "OBJECTIVE",
+  "OPTIMIZER",
+  "SCHEDULE",
+  "NUMERICS",
+  "CHECKPOINT",
+  "RESUME",
+  "EVALUATION",
+  "OPERATOR",
+  "HARDWARE"
+ ],
+ "boundaries": [
+  "R1C and ARK-020 untouched; canonical output path only",
+  "no production-corpus claims from synthetic canary data",
+  "no output-space conclusions",
+  "no 250M/500M training"
+ ],
+ "amendments": [
+  {
+   "amendment": 1,
+   "date": "2026-09-13",
+   "change": "dataset.worlds_per_family 300 -> 2000",
+   "reason": "the 300-world pack produced ~18 update windows (~75k tokens) but the frozen WSD budget requires 491,520 tokens (120 updates x 4096); the runner failed closed (FAIL_CLOSED: requested updates exceed the frozen pack stream) BEFORE any scientific outcome existed. Single-epoch coverage removes data repetition from the formation probe. No threshold, seed, geometry, or gate changed."
+  },
+  {
+   "amendment": 2,
+   "date": "2026-09-13",
+   "change": "dataset.worlds_per_family 2000 -> 3305",
+   "reason": "measured pack: 2000 worlds/family yields 315,200 real tokens/epoch (< the frozen 491,520-token budget) because canary prompts average ~31 tokens. Amendment 1's single-epoch principle retained; 3305 worlds/family measured-scale to 521k tokens (> budget with ~6% bucket-rounding margin). Thresholds, seeds, geometry, gates unchanged; no scientific outcome existed at amendment time."
+  }
+ ]
+}
