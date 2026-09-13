@@ -13,22 +13,27 @@ Interfaces: certified-corpus-only data consumption with attack screens; external
 ## Field statuses
 
 - **LOCKED:** family; attention block (mechanism priors D-024/25); precision layout; clipping; objective/EOS; exposure policy; evaluation architecture; checkpoint contract. Each carries evidence refs + falsifier in the JSON.
-- **PROVISIONAL:** optimizer hyperparameters; WSD schedule (execution gap); parameter scale; context; tokenizer family.
-- **BLOCKED:** vocabulary size (EXEC-R1C + CS-TRANSFER-001); output head (EXEC-R1C); numeric/symbol representation (CS-TRANSFER-001); continual controller (GRD-VALID-001); data interface (CORPUS-REGEN).
+- **PROVISIONAL:** optimizer hyperparameters; WSD schedule (execution gap); parameter scale; context; tokenizer family; **canonical tied full-softmax output head** after R1C rejected masked-output promotion.
+- **BLOCKED:** vocabulary size / physical output geometry (`CS-TRANSFER-001`); numeric/symbol representation (`CS-TRANSFER-001`); continual controller (`GRD-VALID-001`); data interface (`CORPUS-REGEN`).
 - **REJECTED:** learned self-model heads; MoE/SSM/recurrence/learned-memory modules; internal Guardian heads.
-- **EXPERIMENT_ONLY:** participating_mask / inactive_offset training treatments (R1C family; independently implemented by BRAMASTRA B04; hash-visible via `v5_next.NextCoreContract.identity_sha256()`; never default).
+- **EXPERIMENT_ONLY:** participating_mask / inactive_offset training treatments. R1C completed 24/24 and found inactive-softmax competition **not sufficient**, so these remain hash-visible experimental treatments and never become the default.
 
-## Output-space worlds (R1C-A/B/C) and the naming rule
+## R1C result and output-space consequence
 
-The three R1C worlds each carry architecture/tokenizer/output-head/training consequences and a next required experiment (see JSON `output_space_worlds`). Under every world the block family is unchanged; therefore the architecture is **V5.1**, not V6 — only a World-A/B/C handoff that eventually changes blocks could earn a major version.
+`CYR-GPU-014-R1C` is now **COMPLETE**. The preregistered `MASK_4096 - FULL_24576` formation-AUC gaps were `[-0.139792, -0.242215, -0.019377, -0.040138]`, mean `-0.110381`; both functional and structural primary tests were unsupported / not sufficient. Bundle SHA-256: `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`.
+
+Observed world: **R1C-C / not sufficient**. This rejects a production move to masked-output Candidate B and keeps Candidate A's full-softmax path as the conservative canary default. It does **not** prove physical vocab 24,576 optimal because R1C held the physical matrix fixed. The live next representation gate is therefore an actual physical V4096↔V24576 transfer test (`CS-TRANSFER-001`). See [`R1C_POSTRUN_UPDATE.md`](R1C_POSTRUN_UPDATE.md).
+
+The block family is unchanged; therefore the architecture remains **V5.1**, not V6.
 
 ## Why not the alternatives
 
 - **V5 unchanged (the §33 control):** Candidate A *is* that control plus corrections; the spec exists to make the corrections, gates, and blocked fields explicit and machine-checkable.
-- **Larger V5:** scale is a variable, not a goal (SCALING_PLAN.md); no evidence that scale resolves the formation bottleneck; data gate open.
-- **MoE/SSM/recurrence/memory:** REJECTED — no isolated bottleneck (BOTTLENECK rank 8).
-- **Candidate B/C now:** both are evidence-gated on R1C; building them today would ship untested science as engineering.
+- **Masked-output Candidate B:** not promoted — R1C's primary mechanism test failed and the paired AUC direction was negative in every seed.
+- **Candidate C / physical-geometry dissection:** remains a research direction only if physical-class-space transfer survives; do not ship it before that evidence.
+- **Larger V5:** scale is a variable, not a goal (`SCALING_PLAN.md`); no evidence that scale resolves the formation bottleneck; data gate open.
+- **MoE/SSM/recurrence/memory:** REJECTED — no isolated bottleneck (`BOTTLENECK` rank 8).
 
 ## Claim ceiling (§44)
 
-This is the strongest currently justified next-Core candidate; its implementation satisfies the specified mechanical contracts. Nothing more.
+This is the strongest currently justified next-Core candidate; its implementation satisfies the specified mechanical contracts. R1C narrows one mechanism question but does not authorize a tokenizer change, PRE500M, 500M training, superiority, or AGI claim.
