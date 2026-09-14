@@ -1,0 +1,35 @@
+{
+  "schema": "anra.formation-mux-preregistration/v5",
+  "campaign": "FORMATION-MUX-001",
+  "amendment_chain": [
+    "AMENDMENT_1_PREEXECUTION",
+    "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
+    "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL",
+    "AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY"
+  ],
+  "experiment": "CS-MECH-002",
+  "physical_vocabulary": 24576,
+  "shared_rows": "0..4095",
+  "extra_rows": "4096..24575",
+  "training_surface": "60000 unique rows total, 10000 per family",
+  "development_surface": "480 rows total, 80 per family",
+  "sealed_surface": "720 rows total, 120 per family; not worker-visible",
+  "arms": ["M0_STANDARD", "M1_EXTRA_NO_DECAY", "M2_EXTRA_FROZEN", "M3_EXTRA_FROZEN_MASKED"],
+  "primary_metric": "identity-family candidate-free formation AUC using exact content plus valid EOS stop",
+  "sealed_endpoint": "identity-family exact content plus valid EOS stop",
+  "seeds": [73011, 73012, 73013, 73014],
+  "updates_per_arm": 2000,
+  "batch_rows": 16,
+  "row_presentations_per_arm": 32000,
+  "training_stream_wrap_before_endpoint": false,
+  "development_eval_every_updates": 100,
+  "exact_resume_checkpoint_every_updates": 200,
+  "progress_snapshot_every_checkpoint": true,
+  "thresholds": {
+    "formation_auc_gap": 0.05,
+    "sealed_endpoint_gap": 0.05,
+    "sign_consistency": "3 of 4"
+  },
+  "session_policy": "campaign may span as many Kaggle sessions as necessary; session boundaries may not change frozen science",
+  "claim_ceiling": "development-scale mechanism evidence only; no production-vocabulary or large-scale authorization"
+}
