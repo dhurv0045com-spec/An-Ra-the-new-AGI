@@ -1,0 +1,96 @@
+{
+  "schema": "anra.formation-mux-preregistration/v2",
+  "campaign": "FORMATION-MUX-001",
+  "amendment": "AMENDMENT_1_PREEXECUTION",
+  "experiment": "CS-MECH-002",
+  "physical_vocabulary": 24576,
+  "shared_rows": "0..4095",
+  "extra_rows": "4096..24575",
+  "model": "8L/256w V5-style development geometry",
+  "arms": [
+    "M0_STANDARD",
+    "M1_EXTRA_NO_DECAY",
+    "M2_EXTRA_FROZEN",
+    "M3_EXTRA_FROZEN_MASKED"
+  ],
+  "seed_bundles": [73011, 73012, 73013, 73014],
+  "updates_per_arm": 2000,
+  "batch_rows": 16,
+  "eval_every_updates": 100,
+  "formation_auc_eligible_from_update": 600,
+  "checkpoint_every_updates": 250,
+  "lr": 0.001,
+  "primary_metric": "identity-family candidate-free formation AUC using exact content plus valid EOS stop",
+  "sealed_endpoint": "identity-family exact content plus valid EOS stop at the frozen endpoint",
+  "secondary_diagnostics": [
+    "per-family exact+valid-EOS",
+    "active/shared row gradient norm",
+    "extra-row gradient norm before frozen-row masking",
+    "shared-core gradient norm",
+    "embedding update/weight ratio",
+    "extra-row update/weight ratio",
+    "hidden-state/embedding geometry where implemented",
+    "first acquisition update",
+    "clipping rate",
+    "seed variance"
+  ],
+  "causal_variable_matrix": [
+    {
+      "arm": "M0_STANDARD",
+      "physical_rows": 24576,
+      "training_denominator": 24576,
+      "extra_trainable": true,
+      "extra_optimizer_state": true,
+      "extra_weight_decay": 0.1,
+      "shared_rows": "normal AdamW-equivalent row treatment after global clip"
+    },
+    {
+      "arm": "M1_EXTRA_NO_DECAY",
+      "physical_rows": 24576,
+      "training_denominator": 24576,
+      "extra_trainable": true,
+      "extra_optimizer_state": true,
+      "extra_weight_decay": 0.0,
+      "shared_rows": "identical to M0"
+    },
+    {
+      "arm": "M2_EXTRA_FROZEN",
+      "physical_rows": 24576,
+      "training_denominator": 24576,
+      "extra_trainable": false,
+      "extra_optimizer_state": false,
+      "extra_weight_decay": 0.0,
+      "shared_rows": "identical to M1"
+    },
+    {
+      "arm": "M3_EXTRA_FROZEN_MASKED",
+      "physical_rows": 24576,
+      "training_denominator": 4096,
+      "extra_trainable": false,
+      "extra_optimizer_state": false,
+      "extra_weight_decay": 0.0,
+      "shared_rows": "identical to M2"
+    }
+  ],
+  "contrasts": [
+    ["M0_STANDARD", "M1_EXTRA_NO_DECAY", "extra-row weight decay"],
+    ["M1_EXTRA_NO_DECAY", "M2_EXTRA_FROZEN", "extra-row trainability/update evolution"],
+    ["M2_EXTRA_FROZEN", "M3_EXTRA_FROZEN_MASKED", "extra-row denominator participation"]
+  ],
+  "thresholds": {
+    "mean_development_identity_formation_auc_gap": 0.05,
+    "mean_sealed_identity_endpoint_gap": 0.05,
+    "matched_seed_sign_consistency": "at least 3 of 4"
+  },
+  "verdicts": [
+    "SUCCESS",
+    "NULL",
+    "REVERSE_EFFECT",
+    "PARTIAL_OR_INTERACTION",
+    "INCONCLUSIVE",
+    "ENGINEERING_FAILURE"
+  ],
+  "sealed_policy": "one-shot after all development arms and thresholds are frozen; STARTED without FINAL_RESULT fails closed",
+  "null_action": "stop vocabulary-row mechanism work and move to representation/data/objective; do not create a follow-up merely because the result is null",
+  "claim_ceiling": "development-scale mechanism evidence only; no production-vocabulary, PRE500M, 250M/500M, general-cognition, or AGI authorization"
+}
