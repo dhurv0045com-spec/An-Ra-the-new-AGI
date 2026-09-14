@@ -2,6 +2,8 @@
 
 ## Mission and authority
 
+**Current chief dispatch:** [Operational cognitive learner O01–O10](engineering/next_phase_20260914/README.md), following review of 44e3905. This supersedes older review notices below. Complete the connected execution and meet its code-readiness criteria before owner GPU qualification; existing resource limits remain unchanged.
+
 Latest chief dispatch: [K8 review of 2a1e35a, repairs R01–R08](engineering/reports/K8_CHIEF_20260914/REVIEW.md). Current notebook launch is not accepted; repair implementation and return the specified handoff before owner GPU execution.
 
 The owner's objective is general intelligence trained from scratch, including learning to investigate, acquire transferable skills and improve while retaining earlier capabilities. This repository is a research program; neither an architecture proposal nor a passing test suite establishes AGI.

@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Current assignment supersedes older dispatch notices:** [Operational cognitive learner O01–O10](next_phase_20260914/README.md), based on [44e3905 assessment](next_phase_20260914/ASSESSMENT.md). Implement complete session authority, calibration, live cognition and measured RSI; use the packet's explicit code-ready/GPU-qualified criteria. The K8 experiment budget and original treatments remain unchanged.
+
 **Latest assignment:** [real executor contracts](reports/K8_SEMANTIC_REVIEW_20260914/EXECUTOR_CONTRACTS.md), following [semantic review of 5c0567f](reports/K8_SEMANTIC_REVIEW_20260914/REVIEW.md). The runner now refuses known incomplete implementations before E0 allocation. Build real checkpoint/target/evaluation/RSI paths and deliver K8_REAL_EXECUTION_20260914 before chief acceptance.
 
 **Current dispatch:** [D1–D5 concrete implementation order](reports/K8_V2_CHIEF_20260914/EXECUTION.md), following [review of 30d0fcd](reports/K8_V2_CHIEF_20260914/REVIEW.md). Complete actual E1–E5 handlers and correct integration before owner GPU launch. This supersedes earlier review dispatch notices.
