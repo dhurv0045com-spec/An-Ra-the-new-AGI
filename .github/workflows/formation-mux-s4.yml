@@ -29,10 +29,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install targeted dependencies
+      - name: Install targeted dependencies matching current Kaggle tokenizer line
         run: |
           python -m pip install --upgrade pip
-          pip install pytest numpy tokenizers
+          pip install pytest numpy 'tokenizers==0.23.0rc0'
           pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Compile S5 execution surface
         run: |
@@ -62,6 +62,8 @@ jobs:
           repo = Path('.').resolve()
           hashes = op.v7.base.verify_science(repo)
           assert set(hashes) == set(op.SCIENCE_FILES)
+          assert callable(op.qualify_s5)
+          assert callable(op.storage_preflight)
           tok, _ = _load_tokenizer(repo)
           public = build_public_surface(seed=73011, tokenizer=tok)
           assert set(public['splits']) == {'training', 'development'}
@@ -75,7 +77,7 @@ jobs:
               del sealed
           print('S5_IDENTITY_AND_REAL_TOKENIZER_SURFACE_PASS', len(hashes))
           PY
-      - name: Validate canonical notebook JSON and pins
+      - name: Validate canonical notebook JSON, code cells, and pins
         run: |
           python - <<'PY'
           import json
@@ -83,8 +85,12 @@ jobs:
           p = Path('notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb')
           nb = json.loads(p.read_text(encoding='utf-8'))
           assert nb['nbformat'] == 4
+          assert nb['metadata']['schema'] == 'anra.formation-mux-notebook/v7'
           assert nb['metadata']['science_commit'] == 'c15ad8beb409537db42d075684ea54847a074ebd'
-          assert nb['metadata']['operator_commit'] == '4e3bb50c683d94a09801703dfb9f469debe64a50'
-          assert nb['metadata']['operator_blob'] == 'b427269f682322c9ce58f1677710c5979c76465c'
+          assert nb['metadata']['operator_commit'] == 'fdc2483fed0bb1a80d4bfad376aac84a66db6055'
+          assert nb['metadata']['operator_blob'] == '58614bcab3d5a5ea4b3b28e00da56a834c321bba'
+          for index, cell in enumerate(nb['cells']):
+              if cell.get('cell_type') == 'code':
+                  compile(''.join(cell.get('source', [])), f'notebook-cell-{index}', 'exec')
           print('CANONICAL_NOTEBOOK_S5_PIN_PASS')
           PY
