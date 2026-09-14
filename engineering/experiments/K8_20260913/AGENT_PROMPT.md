@@ -1,5 +1,7 @@
 # Agent prompt: build the K8 Kaggle experiment
 
+**Current response to 5c0567f:** read [semantic review](../../reports/K8_SEMANTIC_REVIEW_20260914/REVIEW.md) and implement [real executor contracts](../../reports/K8_SEMANTIC_REVIEW_20260914/EXECUTOR_CONTRACTS.md). E5 fixtures/fake trainer and E6 metadata-only export cannot satisfy campaign execution. The chief's preflight readiness gate blocks allocation until corrected production paths and evidence are accepted. Return `engineering/reports/K8_REAL_EXECUTION_20260914/HANDOFF.md`; no bypass flag, local training or budget reset.
+
 **Current response to 30d0fcd:** read [V2 chief review](../../reports/K8_V2_CHIEF_20260914/REVIEW.md) and execute [D1–D5](../../reports/K8_V2_CHIEF_20260914/EXECUTION.md). Missing learned phase executors must be implemented before GPU launch. Return `engineering/reports/K8_DELIVERY_20260914/HANDOFF.md` with real production-handler evidence, corrected slot/device/timeout/lease/update boundaries and complete artifacts. Preserve the allocation and zero-local-learning constraint.
 
 **Latest response to 3914dc4:** read [the second chief review](../../reports/K8_SECOND_REVIEW_20260914/REVIEW.md). The repair is partial; worker.py is unchanged despite E0 closure claims. Complete R01–R08 and return `engineering/reports/K8_REPAIR_V2_20260914/HANDOFF.md` with precise changed-function and regression evidence. Launch remains blocked; allocation is unchanged.

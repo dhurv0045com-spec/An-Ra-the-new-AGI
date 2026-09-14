@@ -28,6 +28,15 @@ def _preflight(data_dir: str, mode: str) -> str | None:
     expensive work: missing manifest, invalid bundle, or missing phase
     executors refuse with exit 2 (never silent campaign success).
     """
+    if mode not in ("e0", "full"):
+        return f"unknown mode {mode!r}"
+    # Importable handlers are not proof that they implement the experiment.
+    # Refuse known unqualified implementations before allocating GPU time.
+    from bramastra_lab.research.campaigns.readiness import implementation_readiness
+
+    readiness = implementation_readiness()
+    if not readiness["ready"]:
+        return "IMPLEMENTATION_NOT_READY: " + json.dumps(readiness, sort_keys=True)
     manifest_path = os.path.join(data_dir, "manifest.json")
     if not os.path.exists(manifest_path):
         return f"prepared bundle manifest missing: {manifest_path}"

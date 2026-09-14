@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Latest assignment:** [real executor contracts](reports/K8_SEMANTIC_REVIEW_20260914/EXECUTOR_CONTRACTS.md), following [semantic review of 5c0567f](reports/K8_SEMANTIC_REVIEW_20260914/REVIEW.md). The runner now refuses known incomplete implementations before E0 allocation. Build real checkpoint/target/evaluation/RSI paths and deliver K8_REAL_EXECUTION_20260914 before chief acceptance.
+
 **Current dispatch:** [D1–D5 concrete implementation order](reports/K8_V2_CHIEF_20260914/EXECUTION.md), following [review of 30d0fcd](reports/K8_V2_CHIEF_20260914/REVIEW.md). Complete actual E1–E5 handlers and correct integration before owner GPU launch. This supersedes earlier review dispatch notices.
 
 **Current dispatch supersedes older review notices:** [second K8 review of 3914dc4](reports/K8_SECOND_REVIEW_20260914/REVIEW.md). Complete remaining R01–R08 and submit K8_REPAIR_V2_20260914. The owner notebook is still not launch-ready.

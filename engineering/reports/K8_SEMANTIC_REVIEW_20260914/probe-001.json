@@ -1,0 +1,12 @@
+{
+  "source_reviewed": "5c0567f",
+  "model_instantiations": 0,
+  "optimizer_updates": 0,
+  "accelerator_work": false,
+  "e5_status_with_training_forbidden": "completed",
+  "e5_reported_committed_updates": 1,
+  "e5_training_calls": 0,
+  "e6_status_without_payloads": "completed",
+  "payload_files_present": 0,
+  "publish_checkpoint_api_exists": false
+}
