@@ -6,7 +6,13 @@
   "selected_candidate": "A (CONSERVATIVE EVIDENCE CORE)",
   "architecture_name": "V5.1",
   "naming_rationale": "no material architectural change vs live V5; naming rule section 32 forbids V6 without one",
-  "field_states": ["LOCKED", "PROVISIONAL", "BLOCKED", "REJECTED", "EXPERIMENT_ONLY"],
+  "field_states": [
+    "LOCKED",
+    "PROVISIONAL",
+    "BLOCKED",
+    "REJECTED",
+    "EXPERIMENT_ONLY"
+  ],
   "geometry": {
     "value": {
       "vocabulary_size": 24576,
@@ -22,7 +28,10 @@
       "qk_norm_affine": true
     },
     "status": "PROVISIONAL",
-    "evidence_refs": ["CYMEK-closure-cycle-engineering", "ESO-e2-mechanism-canaries"],
+    "evidence_refs": [
+      "CYMEK-closure-cycle-engineering",
+      "ESO-e2-mechanism-canaries"
+    ],
     "falsifier": "an isolated block-level bottleneck demonstrated under matched compute",
     "blocking_experiment": null,
     "parameter_receipt": {
@@ -39,35 +48,286 @@
     }
   },
   "components": [
-    {"component": "family", "value": "dense causal decoder-only Transformer", "status": "LOCKED", "evidence_refs": ["BOTTLENECK rank 8 (no evidence for change)", "AD01"], "falsifier": "isolated bottleneck resolved by an alternative family", "blocking_experiment": null},
-    {"component": "attention_block", "value": "pre-RMSNorm + GQA 14Q/7KV hd64 + RoPE(base 1e4) + affine QK norm + SwiGLU ffn 2368 + residual init 0.02/sqrt(2L)", "status": "LOCKED", "evidence_refs": ["ESO-e2-mechanism-canaries (D-024/D-025)", "CURRENT_V5_AUDIT"], "falsifier": "no-QK or geometry ablation matching learning outcomes", "blocking_experiment": null},
-    {"component": "precision_layout", "value": "BF16 compute, FP32 master params/moments/logits/loss/clip reductions", "status": "LOCKED", "evidence_refs": ["ESO-e2-mechanism-canaries (D-026/D-028)"], "falsifier": "long-horizon parity failure", "blocking_experiment": null},
-    {"component": "gradient_clipping", "value": "global L2 1.0, post-clip cert tolerance 1e-4", "status": "LOCKED", "evidence_refs": ["CYR-GPU-014-R1C repair derivation"], "falsifier": null, "blocking_experiment": null},
-    {"component": "objective", "value": "causal CE, eligible targets, BOS/PAD/segment excluded, EOS included, aux lambdas 0", "status": "LOCKED", "evidence_refs": ["BRM-terminal-EOS", "CIT-T1D postmortem", "ESO-SFT7-margin"], "falsifier": "qualified-substrate transfer from an auxiliary objective", "blocking_experiment": null},
-    {"component": "exposure_policy", "value": "never stop at train saturation; budget past the delayed-generalization region", "status": "LOCKED", "evidence_refs": ["ARK-002B", "ARK-004A"], "falsifier": "substrate where saturation coincides with lift-off", "blocking_experiment": null},
-    {"component": "evaluation_architecture", "value": "candidate-free primary; orthogonal invariance axes; sealed firewall; shortcut/leakage attack screens; worst-family reporting", "status": "LOCKED", "evidence_refs": ["CIT-scoring-policy-tournament", "ARK-015", "CITADEL-EVAL-001"], "falsifier": "certified scoring mode (C0) reopens assisted comparison as secondary only", "blocking_experiment": "CIT-C0-EXTENDED"},
-    {"component": "checkpoint_contract", "value": "V5 exact-resume store: FP32 params/moments, counters, cursor, RNG, identity hashes, parent fence", "status": "LOCKED", "evidence_refs": ["CYMEK-closure-cycle-engineering"], "falsifier": null, "blocking_experiment": null},
-    {"component": "optimizer", "value": "AdamW (0.9, 0.95) eps 1e-8, wd 0.1 on ndim>=2", "status": "PROVISIONAL", "evidence_refs": ["production contract"], "falsifier": "matched optimizer comparison at learning scale", "blocking_experiment": null},
-    {"component": "lr_schedule", "value": "token-indexed WSD 0->3e-4/50M, decay ->3e-5/5B; must execute once end-to-end before scale", "status": "PROVISIONAL", "evidence_refs": ["CIT-500M-production-path-audit (never executed)"], "falsifier": "first production-schedule execution", "blocking_experiment": null},
-    {"component": "parameter_scale", "value": "250,216,960 (V5-A geometry carried)", "status": "PROVISIONAL", "evidence_refs": ["SCALING_PLAN ladder"], "falsifier": "scale-vs-formation evidence from CS-TRANSFER-001", "blocking_experiment": "CS-TRANSFER-001"},
-    {"component": "context_length", "value": 4096, "status": "PROVISIONAL", "evidence_refs": ["conformance only"], "falsifier": "context-learning evidence", "blocking_experiment": null},
-    {"component": "vocabulary_size", "value": 24576, "status": "BLOCKED", "evidence_refs": ["CYR-GPU-012-R1 (0%<->100%)", "CYR-GPU-013-R1B (non-monotonic, seed-sensitive)", "CYR-GPU-014-R1C (softmax competition not sufficient)"], "falsifier": "CS-TRANSFER-001 with actual physical V4096 versus V24576 geometry", "blocking_experiment": "CS-TRANSFER-001"},
-    {"component": "output_head", "value": "tied full softmax canonical; participating_mask / inactive_offset remain EXPERIMENT_ONLY and are not promoted after R1C", "status": "PROVISIONAL", "evidence_refs": ["CYR-GPU-014-R1C COMPLETE: SOFTMAX_COMPETITION_NOT_SUFFICIENT", "R1C_POSTRUN_UPDATE"], "falsifier": "clean transfer or physical-geometry dissection demonstrating a different production output contract", "blocking_experiment": null},
-    {"component": "numeric_symbol_representation", "value": "default BPE segmentation", "status": "BLOCKED", "evidence_refs": ["CYR-GPU-011 (composite treatment)"], "falsifier": "transfer probe implicating segmentation", "blocking_experiment": "CS-TRANSFER-001"},
-    {"component": "tokenizer_family", "value": "byte-level BPE + byte fallback", "status": "PROVISIONAL", "evidence_refs": ["CYMEK-e1-tokenizer-tournament (planning prior)"], "falsifier": "mechanism/transfer evidence implicating segmentation", "blocking_experiment": null},
-    {"component": "continual_learning_controller", "value": "external only; formation-first gates (acquisition/qualification/continuation/retention/reacquisition) enforced mechanically by the training interface", "status": "BLOCKED", "evidence_refs": ["ARK-019-V3.1 CONTROLLER_NOT_SUPPORTED", "ARK-019-V4 transcribed-only"], "falsifier": "audited V4 bundle + efficiency-over-static with task-ID-hidden features", "blocking_experiment": "GRD-VALID-001"},
-    {"component": "replay_interface", "value": "external treatment-exact sparse replay store; dose NOT fixed", "status": "PROVISIONAL", "evidence_refs": ["ARK-017-V2 BOTH_LEVERS_SUFFICIENT"], "falsifier": "two-dose contrast across task families", "blocking_experiment": "TWO-DOSE-RETENTION"},
-    {"component": "data_interface", "value": "certified-corpus-only: provenance manifests, dedup, contamination screens, attack screens, token accounting, family ledger; BOS/EOS/packing per V5 contract", "status": "BLOCKED", "evidence_refs": ["CITADEL-DATA-001", "CIT-500M-production-path-audit"], "falsifier": "regenerated corpus passing tools/audit_tiered_corpus.py + eval-attack screens", "blocking_experiment": "CORPUS-REGEN"},
-    {"component": "learned_self_model_heads", "value": null, "status": "REJECTED", "evidence_refs": ["TQ-X1-REAL-self-model (invalidated)", "TQ-readiness-gates (no qualified subject)"], "falsifier": "qualified substrate + basis beating constant baselines prospectively", "blocking_experiment": "SUBJECT-QUAL-NEXT-PARENT"},
-    {"component": "moe_ssm_recurrence_memory_modules", "value": null, "status": "REJECTED", "evidence_refs": ["BOTTLENECK rank 8: no evidence"], "falsifier": "isolated bottleneck resolved by such a mechanism under matched compute", "blocking_experiment": null},
-    {"component": "internal_guardian_heads", "value": null, "status": "REJECTED", "evidence_refs": ["ARK-019-V3.1", "section 34"], "falsifier": "same as continual_learning_controller", "blocking_experiment": "GRD-VALID-001"}
+    {
+      "component": "family",
+      "value": "dense causal decoder-only Transformer",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "BOTTLENECK rank 8 (no evidence for change)",
+        "AD01"
+      ],
+      "falsifier": "isolated bottleneck resolved by an alternative family",
+      "blocking_experiment": null
+    },
+    {
+      "component": "attention_block",
+      "value": "pre-RMSNorm + GQA 14Q/7KV hd64 + RoPE(base 1e4) + affine QK norm + SwiGLU ffn 2368 + residual init 0.02/sqrt(2L)",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "ESO-e2-mechanism-canaries (D-024/D-025)",
+        "CURRENT_V5_AUDIT"
+      ],
+      "falsifier": "no-QK or geometry ablation matching learning outcomes",
+      "blocking_experiment": null
+    },
+    {
+      "component": "precision_layout",
+      "value": "BF16 compute, FP32 master params/moments/logits/loss/clip reductions",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "ESO-e2-mechanism-canaries (D-026/D-028)"
+      ],
+      "falsifier": "long-horizon parity failure",
+      "blocking_experiment": null
+    },
+    {
+      "component": "gradient_clipping",
+      "value": "global L2 1.0, post-clip cert tolerance 1e-4",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "CYR-GPU-014-R1C repair derivation"
+      ],
+      "falsifier": null,
+      "blocking_experiment": null
+    },
+    {
+      "component": "objective",
+      "value": "causal CE, eligible targets, BOS/PAD/segment excluded, EOS included, aux lambdas 0",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "BRM-terminal-EOS",
+        "CIT-T1D postmortem",
+        "ESO-SFT7-margin"
+      ],
+      "falsifier": "qualified-substrate transfer from an auxiliary objective",
+      "blocking_experiment": null
+    },
+    {
+      "component": "exposure_policy",
+      "value": "never stop at train saturation; budget past the delayed-generalization region",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "ARK-002B",
+        "ARK-004A"
+      ],
+      "falsifier": "substrate where saturation coincides with lift-off",
+      "blocking_experiment": null
+    },
+    {
+      "component": "evaluation_architecture",
+      "value": "candidate-free primary; orthogonal invariance axes; sealed firewall; shortcut/leakage attack screens; worst-family reporting",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "CIT-scoring-policy-tournament",
+        "ARK-015",
+        "CITADEL-EVAL-001"
+      ],
+      "falsifier": "certified scoring mode (C0) reopens assisted comparison as secondary only",
+      "blocking_experiment": "CIT-C0-EXTENDED"
+    },
+    {
+      "component": "checkpoint_contract",
+      "value": "V5 exact-resume store: FP32 params/moments, counters, cursor, RNG, identity hashes, parent fence",
+      "status": "LOCKED",
+      "evidence_refs": [
+        "CYMEK-closure-cycle-engineering"
+      ],
+      "falsifier": null,
+      "blocking_experiment": null
+    },
+    {
+      "component": "optimizer",
+      "value": "AdamW (0.9, 0.95) eps 1e-8, wd 0.1 on ndim>=2",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "production contract"
+      ],
+      "falsifier": "matched optimizer comparison at learning scale",
+      "blocking_experiment": null
+    },
+    {
+      "component": "lr_schedule",
+      "value": "token-indexed WSD 0->3e-4/50M, decay ->3e-5/5B; must execute once end-to-end before scale",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "CIT-500M-production-path-audit (never executed)"
+      ],
+      "falsifier": "first production-schedule execution",
+      "blocking_experiment": null
+    },
+    {
+      "component": "parameter_scale",
+      "value": "250,216,960 (V5-A geometry carried)",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "SCALING_PLAN ladder"
+      ],
+      "falsifier": "scale-vs-formation evidence from CS-TRANSFER-001",
+      "cs_transfer_001_outcome": "CS-TRANSFER-001 COMPLETE, verdict PARTIAL_OR_INTERACTION: physical V4096 is NOT a robust remedy (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed pair gaps mixed sign); V24576 is NOT proven optimal"
+    },
+    {
+      "component": "context_length",
+      "value": 4096,
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "conformance only"
+      ],
+      "falsifier": "context-learning evidence",
+      "blocking_experiment": null
+    },
+    {
+      "component": "vocabulary_size",
+      "value": 24576,
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "CYR-GPU-012-R1 (0%<->100%)",
+        "CYR-GPU-013-R1B (non-monotonic, seed-sensitive)",
+        "CYR-GPU-014-R1C (softmax competition not sufficient)",
+        "CS-TRANSFER-001 (f858280 scientific executable)"
+      ],
+      "falsifier": "residual mechanism dissection (CS-MECH-002: tied-row decay/trainability/denominator) and representation probes (REP-FORM-003A)",
+      "cs_transfer_001_outcome": "CS-TRANSFER-001 COMPLETE, verdict PARTIAL_OR_INTERACTION: physical V4096 is NOT a robust remedy (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed pair gaps mixed sign); V24576 is NOT proven optimal",
+      "working_choice": 24576,
+      "cs_transfer_gate": "CLOSED",
+      "optimality": "NOT_ESTABLISHED",
+      "residual_mechanism_question": "OPEN",
+      "note": "working choice is NOT a LOCKED optimal; gates reflect the CS-TRANSFER-001 outcome only"
+    },
+    {
+      "component": "output_head",
+      "value": "tied full softmax canonical; participating_mask / inactive_offset remain EXPERIMENT_ONLY and are not promoted after R1C",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "CYR-GPU-014-R1C COMPLETE: SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+        "R1C_POSTRUN_UPDATE"
+      ],
+      "falsifier": "clean transfer or physical-geometry dissection demonstrating a different production output contract",
+      "blocking_experiment": null
+    },
+    {
+      "component": "numeric_symbol_representation",
+      "value": "default BPE segmentation",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "CYR-GPU-011 (composite treatment)",
+        "CS-TRANSFER-001"
+      ],
+      "falsifier": "REP-FORM-003A paired rendering contrast",
+      "blocking_experiment": "CS-TRANSFER-001",
+      "cs_transfer_001_outcome": "CS-TRANSFER-001 COMPLETE, verdict PARTIAL_OR_INTERACTION: physical V4096 is NOT a robust remedy (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed pair gaps mixed sign); V24576 is NOT proven optimal; segmentation question re-scoped to REP-FORM-003A (isomorphic vs production BPE at fixed physical V24576)"
+    },
+    {
+      "component": "tokenizer_family",
+      "value": "byte-level BPE + byte fallback",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "CYMEK-e1-tokenizer-tournament (planning prior)"
+      ],
+      "falsifier": "mechanism/transfer evidence implicating segmentation",
+      "blocking_experiment": null
+    },
+    {
+      "component": "continual_learning_controller",
+      "value": "external only; formation-first gates (acquisition/qualification/continuation/retention/reacquisition) enforced mechanically by the training interface",
+      "status": "BLOCKED",
+      "evidence_refs": [
+        "ARK-019-V3.1 CONTROLLER_NOT_SUPPORTED",
+        "ARK-019-V4 transcribed-only"
+      ],
+      "falsifier": "audited V4 bundle + efficiency-over-static with task-ID-hidden features",
+      "blocking_experiment": "GRD-VALID-001"
+    },
+    {
+      "component": "replay_interface",
+      "value": "external treatment-exact sparse replay store; dose NOT fixed",
+      "status": "PROVISIONAL",
+      "evidence_refs": [
+        "ARK-017-V2 BOTH_LEVERS_SUFFICIENT"
+      ],
+      "falsifier": "two-dose contrast across task families",
+      "blocking_experiment": "TWO-DOSE-RETENTION"
+    },
+    {
+      "component": "data_interface",
+      "value": "certified-corpus-only: provenance manifests, dedup, contamination screens, attack screens, token accounting, family ledger; BOS/EOS/packing per V5 contract",
+      "status": "BLOCKED",
+      "evidence_refs": [
+        "CITADEL-DATA-001",
+        "CIT-500M-production-path-audit"
+      ],
+      "falsifier": "regenerated corpus passing tools/audit_tiered_corpus.py + eval-attack screens",
+      "blocking_experiment": "CORPUS-REGEN"
+    },
+    {
+      "component": "learned_self_model_heads",
+      "value": null,
+      "status": "REJECTED",
+      "evidence_refs": [
+        "TQ-X1-REAL-self-model (invalidated)",
+        "TQ-readiness-gates (no qualified subject)"
+      ],
+      "falsifier": "qualified substrate + basis beating constant baselines prospectively",
+      "blocking_experiment": "SUBJECT-QUAL-NEXT-PARENT"
+    },
+    {
+      "component": "moe_ssm_recurrence_memory_modules",
+      "value": null,
+      "status": "REJECTED",
+      "evidence_refs": [
+        "BOTTLENECK rank 8: no evidence"
+      ],
+      "falsifier": "isolated bottleneck resolved by such a mechanism under matched compute",
+      "blocking_experiment": null
+    },
+    {
+      "component": "internal_guardian_heads",
+      "value": null,
+      "status": "REJECTED",
+      "evidence_refs": [
+        "ARK-019-V3.1",
+        "section 34"
+      ],
+      "falsifier": "same as continual_learning_controller",
+      "blocking_experiment": "GRD-VALID-001"
+    }
   ],
   "output_space_worlds": {
     "observed_r1c_world": "R1C-C_not_sufficient",
-    "R1C-A_competition_dominant": {"status": "NOT_OBSERVED", "architecture_consequence": "output-head treatment becomes an EVIDENCE_LOCKED training contract on the unchanged block", "tokenizer_consequence": "physical vocab retained; class-space definition freezes", "output_head_consequence": "MASK/OFFSET selected by R1C endpoints", "training_consequence": "dual structural/functional reporting permanent", "next_required_experiment": "CS-TRANSFER-001 with mechanism arm"},
-    "R1C-B_partial": {"status": "NOT_OBSERVED", "architecture_consequence": "output treatment PROVISIONAL with calibration caveat", "tokenizer_consequence": "unchanged", "output_head_consequence": "mechanism + tied-geometry diagnostics both run", "training_consequence": "ACTIVE_ONLY diagnostics mandatory", "next_required_experiment": "CS-TRANSFER-001 with both arms"},
-    "R1C-C_not_sufficient": {"status": "OBSERVED", "evidence": {"verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT", "mean_mask4096_minus_full24576_formation_auc_gap": -0.11038062283737024, "bundle_sha256": "2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e"}, "architecture_consequence": "masked output competition is not promoted; canonical full softmax remains the conservative canary default while physical vocabulary geometry stays unresolved", "tokenizer_consequence": "no production tokenizer change authorized", "output_head_consequence": "MASK/OFFSET remain EXPERIMENT_ONLY", "training_consequence": "physical-class-space transfer must change the actual tied matrix rather than rely on a masking proxy", "next_required_experiment": "CS-TRANSFER-001 with actual physical V4096 versus V24576 geometry"}
+    "R1C-A_competition_dominant": {
+      "status": "NOT_OBSERVED",
+      "architecture_consequence": "output-head treatment becomes an EVIDENCE_LOCKED training contract on the unchanged block",
+      "tokenizer_consequence": "physical vocab retained; class-space definition freezes",
+      "output_head_consequence": "MASK/OFFSET selected by R1C endpoints",
+      "training_consequence": "dual structural/functional reporting permanent",
+      "next_required_experiment": "CS-TRANSFER-001 with mechanism arm"
+    },
+    "R1C-B_partial": {
+      "status": "NOT_OBSERVED",
+      "architecture_consequence": "output treatment PROVISIONAL with calibration caveat",
+      "tokenizer_consequence": "unchanged",
+      "output_head_consequence": "mechanism + tied-geometry diagnostics both run",
+      "training_consequence": "ACTIVE_ONLY diagnostics mandatory",
+      "next_required_experiment": "CS-TRANSFER-001 with both arms"
+    },
+    "R1C-C_not_sufficient": {
+      "status": "OBSERVED",
+      "evidence": {
+        "verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+        "mean_mask4096_minus_full24576_formation_auc_gap": -0.11038062283737024,
+        "bundle_sha256": "2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e"
+      },
+      "architecture_consequence": "masked output competition is not promoted; canonical full softmax remains the conservative canary default while physical vocabulary geometry stays unresolved",
+      "tokenizer_consequence": "no production tokenizer change authorized",
+      "output_head_consequence": "MASK/OFFSET remain EXPERIMENT_ONLY",
+      "training_consequence": "physical-class-space transfer must change the actual tied matrix rather than rely on a masking proxy",
+      "next_required_experiment": "CS-TRANSFER-001 with actual physical V4096 versus V24576 geometry"
+    }
   },
   "claim_ceiling": "This is the strongest currently justified next-Core candidate and its implementation satisfies the specified mechanical contracts. No superiority, AGI, or scale-readiness claim is made or implied.",
-  "control_comparison": "Candidate A remains CURRENT-V5-plus-corrections. R1C rejected masked-output promotion for this scope; vocabulary/output geometry remains blocked on physical transfer evidence."
+  "control_comparison": "Candidate A remains CURRENT-V5-plus-corrections. R1C rejected masked-output promotion for this scope; vocabulary/output geometry remains blocked on physical transfer evidence.",
+  "synchronized": {
+    "date": "2026-09-14",
+    "authority": "CS-TRANSFER-001 final verdict PARTIAL_OR_INTERACTION (scientific executable f8582808b6e2be0753cb2689d9d6d4aeb4d57aeb)",
+    "rule": "historical documents/results unchanged; only CURRENT-STATE fields updated"
+  }
 }

@@ -21,7 +21,15 @@ The minimum experiments required to freeze unresolved architecture fields. Ranke
 
 R1C closes the softmax-competition sufficiency question but **does not** authorize a tokenizer/vocabulary change, PRE500M, or 500M training. It also does not prove FULL_24576 optimal because the physical matrix size was fixed in all arms.
 
-## R2 — CS-TRANSFER-001 (now the highest-value unresolved representation test)
+## R2 — CS-TRANSFER-001 (**EXECUTED / COMPLETE** — verdict PARTIAL_OR_INTERACTION)
+
+> Synchronized 2026-09-14: the section below is the historical pre-registration
+> text, preserved unedited. Outcome: physical V4096 is NOT a robust remedy
+> (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint
+> mean -0.1396, sealed pair gaps mixed sign). V24576 remains the conservative
+> working choice; optimality NOT ESTABLISHED; vocabulary gate CLOSED. Remaining
+> hypotheses moved to FORMATION-MUX-001 (CS-MECH-002 mechanism dissection +
+> REP-FORM-003A rendering contrast) on this branch.
 
 | Field | Value |
 |---|---|
