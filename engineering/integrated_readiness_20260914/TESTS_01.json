@@ -1,0 +1,22 @@
+{
+  "command": [
+    "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "tests/test_research_k8_foundation.py",
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "-k",
+    "not real_history_never_mutated and not production_trace_per_family_with_invalid_case"
+  ],
+  "returncode": 0,
+  "elapsed_seconds": 3.8439999999827705,
+  "stdout": "..........................                                               [100%]\n26 passed, 2 deselected in 2.26s\n",
+  "stderr": "",
+  "excluded_cases": {
+    "real_history_never_mutated": "nontermination independently reproduced by audit.py with 12-second child deadline",
+    "production_trace_per_family_with_invalid_case": "would enter same E2 planner path; not run pending liveness repair"
+  },
+  "optimizer_updates": 0
+}

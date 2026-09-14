@@ -1,0 +1,161 @@
+{
+  "schema": "bramastra-integrated-source-audit/v1",
+  "source_hashes_before": {
+    "bramastra_lab/research/cognition/episode.py": "15f0cb967e854307b9334c4f07e4944d52cb0ba0aed1e2e7af432309f80d41e5",
+    "bramastra_lab/research/campaigns/phases/e2.py": "d091edf0fd96f09dcdcb39fcf8ae289678859650792feb1d8ad73dfe672e070b",
+    "bramastra_lab/research/campaigns/phases/compiler.py": "771ee835927c7809a6008bfc3716523b6cf1b56523f6904640e803df3e7b87bd",
+    "bramastra_lab/research/learning/k8_scoring.py": "97fb2f7e592656f965dac7ebe40882a9575d353b422adf8afc52cf1faf6892aa",
+    "bramastra_lab/research/campaigns/phases/e5.py": "900b7174b70c5dc24542e7d83064ce17ade04fd9d4cc711b2b1d65521e46a72c",
+    "bramastra_lab/research/campaigns/trial_service.py": "0a0b0f84be3a23755176be35b44b6ff876c0cc26480e36e5a78627f96714195d",
+    "tests/test_research_k8_foundation.py": "368a8ca2675a53afe9b50f4681724a1832d9c006ffba72254ea68397c6225197",
+    "bramastra_lab/research/environments/k8_live.py": "696675275458c99ccd50fa00425f522537847b50c26b894db14faf00a94844cb",
+    "bramastra_lab/research/data/k8_bundle.py": "3ef92ba61ac8b34092d2e0810069091e1c9b4d695879cf69a5b7fb6ab7a03a17"
+  },
+  "optimizer_updates": 0,
+  "model_weight_origin": "no learned model used",
+  "checks": [
+    {
+      "criterion": "planner_preserves_received_evidence",
+      "status": "failed",
+      "details": {
+        "prompts_equal": true,
+        "calls_per_case": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "criterion": "compiler_preserves_distinct_action_candidates",
+      "status": "failed",
+      "details": {
+        "candidates": [
+          [
+            123,
+            34,
+            107,
+            105,
+            110,
+            100,
+            34,
+            58
+          ],
+          [
+            123,
+            34,
+            107,
+            105,
+            110,
+            100,
+            34,
+            58
+          ]
+        ],
+        "prefix_tokens": [
+          259,
+          103,
+          111,
+          97,
+          108,
+          58
+        ]
+      }
+    },
+    {
+      "criterion": "typed_submission_roundtrip_all_families",
+      "status": "failed",
+      "details": {
+        "rule-inquiry": {
+          "expected": {
+            "kind": "submit",
+            "answer": true
+          },
+          "restored": {
+            "kind": "submit",
+            "answer": true
+          },
+          "equal": true
+        },
+        "inventory": {
+          "expected": {
+            "kind": "submit",
+            "item": "item_561"
+          },
+          "restored": {
+            "kind": "submit",
+            "answer": "item_561"
+          },
+          "equal": false
+        },
+        "program": {
+          "expected": {
+            "kind": "submit",
+            "value": 45
+          },
+          "restored": {
+            "kind": "submit",
+            "answer": 45
+          },
+          "equal": false
+        }
+      }
+    },
+    {
+      "criterion": "empty_prediction_is_unknown",
+      "status": "failed",
+      "details": {
+        "feedback": {},
+        "success_prob": 0.5,
+        "value": 0.0,
+        "origin": "review-capture-double-imagined",
+        "prediction_failed": false
+      }
+    },
+    {
+      "criterion": "policy_input_identifies_legal_action_mapping",
+      "status": "failed",
+      "details": {
+        "same_prompt_different_action_meaning": true
+      }
+    },
+    {
+      "criterion": "rule_answer_identifiable_from_available_evidence",
+      "status": "failed",
+      "details": {
+        "identical_public_traces": true,
+        "different_correct_answers": true,
+        "oracle_answers_for_review_only": [
+          {
+            "kind": "submit",
+            "answer": true
+          },
+          {
+            "kind": "submit",
+            "answer": false
+          }
+        ]
+      }
+    },
+    {
+      "criterion": "episode_terminates_on_budget_exhaustion",
+      "status": "failed",
+      "details": {
+        "timeout_seconds": 12,
+        "child_terminated": true
+      }
+    }
+  ],
+  "elapsed_seconds": 14.10999999998603,
+  "source_hashes_after": {
+    "bramastra_lab/research/cognition/episode.py": "15f0cb967e854307b9334c4f07e4944d52cb0ba0aed1e2e7af432309f80d41e5",
+    "bramastra_lab/research/campaigns/phases/e2.py": "d091edf0fd96f09dcdcb39fcf8ae289678859650792feb1d8ad73dfe672e070b",
+    "bramastra_lab/research/campaigns/phases/compiler.py": "771ee835927c7809a6008bfc3716523b6cf1b56523f6904640e803df3e7b87bd",
+    "bramastra_lab/research/learning/k8_scoring.py": "97fb2f7e592656f965dac7ebe40882a9575d353b422adf8afc52cf1faf6892aa",
+    "bramastra_lab/research/campaigns/phases/e5.py": "900b7174b70c5dc24542e7d83064ce17ade04fd9d4cc711b2b1d65521e46a72c",
+    "bramastra_lab/research/campaigns/trial_service.py": "0a0b0f84be3a23755176be35b44b6ff876c0cc26480e36e5a78627f96714195d",
+    "tests/test_research_k8_foundation.py": "368a8ca2675a53afe9b50f4681724a1832d9c006ffba72254ea68397c6225197",
+    "bramastra_lab/research/environments/k8_live.py": "696675275458c99ccd50fa00425f522537847b50c26b894db14faf00a94844cb",
+    "bramastra_lab/research/data/k8_bundle.py": "3ef92ba61ac8b34092d2e0810069091e1c9b4d695879cf69a5b7fb6ab7a03a17"
+  },
+  "source_stable_during_run": true
+}

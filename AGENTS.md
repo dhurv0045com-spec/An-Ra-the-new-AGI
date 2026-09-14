@@ -1,5 +1,7 @@
 # BRAMASTRA agent entry point
 
+**Current consolidated dispatch:** [Integrated readiness U01–U10](engineering/integrated_readiness_20260914/README.md) supersedes older dispatch notices below. Review baseline: 5020533 plus the hashed in-progress foundation changes; no newer remote implementation commit was present. Seven cross-component checks fail despite 26 focused test passes. Complete solvable task/label contracts, trained decision consumers, bounded episodes, real A/B controls, E0 accounting and measured proposer/successor integration. Experiment launch remains blocked; all existing compute limits remain unchanged.
+
 **Current dispatch after ecc5953:** [Cognition foundation F1–F6](engineering/cognition_foundation_20260914/README.md) supersedes older dispatch notices below. Six CPU semantic counterexamples were reproduced despite five existing cognition tests passing. Repair evidence encoding, temporal conflict handling, observation-conditioned prediction, real two-step search and selected-action metrics. Cognition is not yet code-ready; preserve existing K8 limits and unresolved O01–O10 acceptance gates.
 
 ## Mission and authority

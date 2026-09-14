@@ -1,5 +1,7 @@
 # BRAMASTRA K8: cognition, tool transfer, architecture and recursive learning
 
+**Current consolidated dispatch:** [Integrated readiness U01–U10](engineering/integrated_readiness_20260914/README.md) supersedes older dispatch notices below. Review baseline: 5020533 plus the hashed in-progress foundation changes; no newer remote implementation commit was present. Seven cross-component checks fail despite 26 focused test passes. Complete solvable task/label contracts, trained decision consumers, bounded episodes, real A/B controls, E0 accounting and measured proposer/successor integration. Experiment launch remains blocked; all existing compute limits remain unchanged.
+
 Chief experiment design, 2026-09-13. Inspected implementation: `edee72726706e0f8f46ec98bb3c979ebc2930233`. **Status: experiment specified; notebook/integration work required; no campaign results exist.** This is the next executable milestone after the M00–M24 build, not another expansion of its module list.
 
 ## 1. Objective and new authorization

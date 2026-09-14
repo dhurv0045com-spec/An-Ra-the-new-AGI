@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Current consolidated dispatch:** [Integrated readiness U01–U10](integrated_readiness_20260914/README.md) supersedes older dispatch notices below. Review baseline: 5020533 plus the hashed in-progress foundation changes; no newer remote implementation commit was present. Seven cross-component checks fail despite 26 focused test passes. Complete solvable task/label contracts, trained decision consumers, bounded episodes, real A/B controls, E0 accounting and measured proposer/successor integration. Experiment launch remains blocked; all existing compute limits remain unchanged.
+
 **Current dispatch after ecc5953:** [Cognition foundation F1–F6](cognition_foundation_20260914/README.md) supersedes older dispatch notices below. Six CPU semantic counterexamples were reproduced despite five existing cognition tests passing. Repair evidence encoding, temporal conflict handling, observation-conditioned prediction, real two-step search and selected-action metrics. Cognition is not yet code-ready; preserve existing K8 limits and unresolved O01–O10 acceptance gates.
 
 **Current assignment supersedes older dispatch notices:** [Operational cognitive learner O01–O10](next_phase_20260914/README.md), based on [44e3905 assessment](next_phase_20260914/ASSESSMENT.md). Implement complete session authority, calibration, live cognition and measured RSI; use the packet's explicit code-ready/GPU-qualified criteria. The K8 experiment budget and original treatments remain unchanged.
