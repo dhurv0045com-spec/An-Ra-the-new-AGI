@@ -1,7 +1,9 @@
 """Qualification tests for CS-TRANSFER-001 causal isolation."""
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -14,12 +16,27 @@ PREREG = ROOT / "experiments" / "CS_TRANSFER_001" / "PREREGISTRATION.json"
 
 
 class _LowIdTokenizer:
-    """Deterministic test tokenizer: UTF-8 bytes map to 4..259."""
+    """Deterministic compact lexical tokenizer for qualification only.
+
+    Every lexical/punctuation token maps into IDs 4..4095. This fixture tests
+    the CS-TRANSFER low-ID selection contract without introducing an artificial
+    one-byte-per-token answer-length failure that is unrelated to the real
+    production tokenizer.
+    """
+
+    _pattern = re.compile(r"\w+|[^\w\s]", re.UNICODE)
+
     def encode(self, text: str):
-        return [4 + b for b in text.encode("utf-8")]
+        pieces = self._pattern.findall(text.lower())
+        return [
+            4 + (int.from_bytes(hashlib.sha256(piece.encode("utf-8")).digest()[:4], "big") % 4092)
+            for piece in pieces
+        ]
 
     def decode(self, ids):
-        return bytes(int(x) - 4 for x in ids).decode("utf-8")
+        # Qualification never depends on text reconstruction; keep a stable
+        # diagnostic representation for callers that exercise decode.
+        return " ".join(f"tok{int(i)}" for i in ids)
 
 
 def test_prereg_primary_contrast_is_physical_not_masked():
@@ -73,11 +90,6 @@ def test_naive_same_seed_would_be_confounded_but_matched_constructor_is_not():
 
 
 def test_shared_surface_fixture_is_feasible_at_protocol_acceptance_floor():
-    # The canonical generator uses 60/20/20 train/dev/sealed fractions. With
-    # 1,000 candidate worlds/family and a 15% minimum eligibility requirement,
-    # the fixture guarantees >=90 train and >=30 dev/sealed eligible rows if the
-    # acceptance gate itself passes. Requested counts (60/30/30) are therefore
-    # feasible by construction instead of depending on lucky sampling.
     candidates = 1_000
     floor = data_mod.MIN_ACCEPTANCE
     assert int(candidates * 0.60 * floor) >= 60
