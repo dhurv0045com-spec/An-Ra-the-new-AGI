@@ -1,0 +1,57 @@
+{
+  "schema": "anra.formation-mux-readiness/v4",
+  "campaign": "FORMATION-MUX-001",
+  "branch": "cymek-next-core-architecture",
+  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_SURFACE_PASS / KAGGLE_T4X2_NOT_YET_RUN",
+  "science": {
+    "authority": "Science S4",
+    "commit": "ad25f6944cdd5ac5f47a6bf3a667322cb985314b",
+    "amendment_chain": [
+      "AMENDMENT_1_PREEXECUTION",
+      "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
+      "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL"
+    ],
+    "historical_non_run_authorities": {
+      "S1": "36ab16a4950d582fcc26b239dfc8c0ba816911bb",
+      "S2": "534dcccfb8f96a30e80d71a30160e6a16eaa1ede",
+      "S3": "e157835a52a41696ca56512477584fd267391ced"
+    },
+    "official_outcomes_observed": false
+  },
+  "execution": {
+    "operator": "tools/formation_mux_001_kaggle_operator_v7.py",
+    "operator_commit": "04278c570aeb1ccba1609ec0e7334b6bfedf894b",
+    "operator_git_blob": "a0c00cfa61247fc4fd9ca14e0619ac10ae3bc365",
+    "notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
+    "notebook_pin_commit": "56bd9c4b9303a41ccac4302e3477b3f4142d4e85",
+    "accelerator_required": "Kaggle GPU T4 x2",
+    "internet_required": true,
+    "parallelism": "two independent matched-bundle workers; no DDP",
+    "ops_safe_projected_campaign_minutes": 570,
+    "operator_wall_minutes": 660,
+    "finalization_package_reserve_minutes": 45
+  },
+  "sealed_firewall": {
+    "worker_visible_splits": ["training", "development"],
+    "raw_sealed_rows_persisted_before_or_during_training": false,
+    "pre_science_binding": "full-surface SHA-256 + experiment-namespaced sealed SHA-256 commitments",
+    "consumption": "regenerate and verify only after DEVELOPMENT_COMPLETE and SEALED_MARKER=STARTED",
+    "raw_sealed_rows_in_result_bundle": false
+  },
+  "qualification": {
+    "github_actions_run_id": 34883240785,
+    "qualification_commit": "498d59fa870239c6185a51768094c1a9e61e9596",
+    "python": "3.11",
+    "py_compile": "PASS",
+    "targeted_tests": "25 passed in 6.90s",
+    "immutable_science_files_verified": 29,
+    "real_frozen_tokenizer_loaded": true,
+    "public_surface_training_rows": 3600,
+    "public_surface_development_rows": 480,
+    "sealed_rows_regenerated_per_experiment_for_commitment_test": 720,
+    "sealed_rows_persisted_in_qualification": false,
+    "canonical_notebook_json_and_pins": "PASS",
+    "kaggle_t4x2_execution": "NOT_YET_RUN"
+  },
+  "claim_ceiling": "This receipt qualifies code identity and CPU/real-tokenizer pre-execution behavior only. It is not evidence of Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
+}
