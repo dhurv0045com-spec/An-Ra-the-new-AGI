@@ -1,0 +1,24 @@
+{
+  "schema": "anra.formation-mux-readiness/v1",
+  "campaign": "FORMATION-MUX-001",
+  "branch": "cymek-next-core-architecture",
+  "science_commit_S": "36ab16a4950d582fcc26b239dfc8c0ba816911bb",
+  "science_blob_hashes": {
+    "anra_v5/formation_mux_model.py": "1928937192ad1c0709f45a41a9fa33365714d8b65552366d5167c84e575d8e79",
+    "anra_v5/formation_mux_train.py": "281f384ea9049974d29b47af7b2e65865b3403d8cd852c0e3912dd7aca787b21",
+    "v5_experiments/formation_mux_protocol.py": "981fa001e90aca43c2c46a076317f7557713341ddd6500214af5f160d32358ec",
+    "v5_experiments/formation_mux_data.py": "758367ce2ab3dec9307d1c0a8b8c56424c8353cdb3927f974a369a1941ae40f5",
+    "tools/formation_mux_001_worker.py": "b581622a8bee812545effa78b10678032bdddc89877e724e02b5baffdee05ec1",
+    "docs/cymek/experiments/CS-MECH-002/PREREGISTRATION.json": "2b6dac20adb2899630b875681221b006477f228d04956682dc3282831ea89cae",
+    "docs/cymek/experiments/REP-FORM-003A/PREREGISTRATION.json": "5e04d29f624827d43545a2385cc2a62e92b6092345d9515abf07a6fd5d5c1777"
+  },
+  "status": "IMPLEMENTED / CPU_E2E_PASS / KAGGLE_T4X2_NOT_YET_RUN",
+  "labels": {
+    "static_analysis": "PASS (0 undefined-name findings, science + operator + tests)",
+    "cpu_unit_tests": "PASS (16/16 tests/test_formation_mux_001.py)",
+    "cpu_tiny_e2e": "PASS (actual worker executable path, 2+2-update exact resume)",
+    "dual_t4_hardware_gate": "IMPLEMENTED (blocks official run unless exactly 2 T4-class GPUs)",
+    "kaggle_t4x2_execution": "KAGGLE_T4X2_NOT_YET_RUN"
+  },
+  "note": "No GPU/Kaggle execution claim is made; the notebook verifies the hardware gate before any science."
+}
