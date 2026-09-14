@@ -1,0 +1,39 @@
+{
+  "schema": "anra.formation-mux-readiness/v3",
+  "campaign": "FORMATION-MUX-001",
+  "status": "SCIENCE_S3_FROZEN / OPERATOR_PINNED / KAGGLE_T4X2_NOT_YET_RUN",
+  "failed_preexecution_history": {
+    "S1": "36ab16a4950d582fcc26b239dfc8c0ba816911bb",
+    "S2": "534dcccfb8f96a30e80d71a30160e6a16eaa1ede",
+    "note": "neither S1 nor S2 produced official FORMATION-MUX outcomes"
+  },
+  "science_commit_S3": "e157835a52a41696ca56512477584fd267391ced",
+  "canonical_operator": {
+    "commit": "88910df06ffca4a467345b3c33dc50e81b414ce8",
+    "path": "tools/formation_mux_001_kaggle_operator_v4.py",
+    "git_blob": "2939b3051a95fbc365749364e78d7b886d46173c"
+  },
+  "canonical_notebook": {
+    "commit": "462e14cf958753c403ab3dc5b073649ca6b620d2",
+    "path": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb"
+  },
+  "scientific_repairs_bound_in_S3": [
+    "shared rows 0..4095; extra rows 4096..24575",
+    "full official surface restored to 600/80/120 rows per family",
+    "identity-only candidate-free formation AUC primary",
+    "REP-FORM uses processed-token exposure budget with 0.1% mismatch gate",
+    "row-aware tied embedding optimizer steps only after production global clip",
+    "M2 frozen extra gradients remain in global clip but rows receive no update/state/decay",
+    "all three CS-MECH contrasts survive development and sealed aggregation",
+    "sealed endpoint is identity exact+valid-EOS and is combined with development formation AUC",
+    "sealed evaluation restores model weights without optimizer-topology reconstruction",
+    "calibration uses non-scientific seeds and concurrent T4 workers",
+    "partition resume retains incomplete matched bundles until complete"
+  ],
+  "execution_gate": {
+    "kaggle_accelerator": "GPU T4 x2",
+    "internet": "ON",
+    "actual_execution": "NOT_YET_RUN"
+  },
+  "claim_ceiling": "No scientific result, GPU runtime pass, production tokenizer change, or large-scale authorization is claimed before actual pinned Kaggle execution."
+}
