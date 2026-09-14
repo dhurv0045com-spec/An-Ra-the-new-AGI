@@ -135,7 +135,7 @@ class InventoryEnv(BaseEnvironment):
     def _legal_actions(self) -> list[Mapping[str, Any]]:
         actions = [{"kind": "check_dependency", "item": item}
                    for item in self.mechanism["items"]]
-        actions.append({"kind": "submit", "answer": True})
+        actions.append({"kind": "submit"})
         return actions
 
     def _is_submission(self, action: Mapping[str, Any]) -> bool:
