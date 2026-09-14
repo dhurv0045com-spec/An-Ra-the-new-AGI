@@ -49,3 +49,39 @@ jobs:
             tests/test_formation_mux_001_v3.py \
             tests/test_formation_mux_001_v4.py \
             tests/test_formation_mux_surface_v2.py
+      - name: Verify immutable S4 and real-tokenizer sealed commitments
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tools import formation_mux_001_kaggle_operator_v7 as op
+          from v5_data.corpus_loading import _load_tokenizer
+          from v5_experiments.formation_mux_surface_v4 import build_public_surface, regenerate_sealed_rows
+
+          repo = Path('.').resolve()
+          hashes = op.base.verify_science(repo)
+          assert set(hashes) == set(op.SCIENCE_FILES)
+          tok, _ = _load_tokenizer(repo)
+          public = build_public_surface(seed=73011, tokenizer=tok)
+          assert set(public['splits']) == {'training', 'development'}
+          assert public['sealed_rows_persisted'] is False
+          assert len(public['splits']['training']) == 3600
+          assert len(public['splits']['development']) == 480
+          for exp in op.proto.EXPERIMENTS:
+              sealed = regenerate_sealed_rows(public_manifest=public, tokenizer=tok, experiment=exp)
+              assert len(sealed) == 720
+              del sealed
+          print('S4_IDENTITY_AND_REAL_TOKENIZER_SURFACE_PASS', len(hashes))
+          PY
+      - name: Validate canonical notebook JSON and pins
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb')
+          nb = json.loads(p.read_text(encoding='utf-8'))
+          assert nb['nbformat'] == 4
+          assert nb['metadata']['science_commit'] == 'ad25f6944cdd5ac5f47a6bf3a667322cb985314b'
+          assert nb['metadata']['operator_commit'] == '04278c570aeb1ccba1609ec0e7334b6bfedf894b'
+          assert nb['metadata']['operator_blob'] == 'a0c00cfa61247fc4fd9ca14e0619ac10ae3bc365'
+          print('CANONICAL_NOTEBOOK_PIN_PASS')
+          PY
