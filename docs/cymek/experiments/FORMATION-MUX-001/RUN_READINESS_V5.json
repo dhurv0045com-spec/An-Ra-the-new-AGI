@@ -1,136 +1,161 @@
 {
-  "schema": "anra.formation-mux-readiness/v5",
+  "schema": "anra.formation-mux-readiness/v5-frontier",
   "campaign": "FORMATION-MUX-001",
   "branch": "cymek-next-core-architecture",
-  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / KAGGLE_COMPATIBILITY_HARDENED / VOCAB_PRESSURE_PREREGISTERED_AND_QUALIFIED / KAGGLE_T4X2_NOT_YET_RUN",
+  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / VOCAB_PRESSURE_QUALIFIED / TIE_ROLE_FRONTIER_PREREGISTERED_AND_QUALIFIED / DUAL_STORAGE_PREFLIGHTS_BOUND / KAGGLE_T4X2_NOT_YET_RUN",
   "science": {
-    "authority": "Science S5",
-    "commit": "c15ad8beb409537db42d075684ea54847a074ebd",
-    "amendment_chain": [
-      "AMENDMENT_1_PREEXECUTION",
-      "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
-      "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL",
-      "AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY"
-    ],
+    "s5_authority": "Science S5",
+    "s5_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "s5_science_changed_by_frontier": false,
     "official_outcomes_observed": false,
-    "science_files_changed_by_kaggle_hardening_or_xfactor": false
+    "prospective_extensions": [
+      "VOCAB-PRESSURE-001",
+      "TIE-ROLE-FRONTIER-001"
+    ]
   },
   "data": {
     "families": 6,
-    "training_rows_per_family": 10000,
     "training_rows_total": 60000,
-    "development_rows_per_family": 80,
+    "training_rows_per_family": 10000,
     "development_rows_total": 480,
-    "sealed_rows_per_family": 120,
+    "development_rows_per_family": 80,
     "sealed_rows_total": 720,
-    "cs_mech_row_presentations_per_arm": 32000,
-    "cs_mech_training_stream_wrap_before_endpoint": false,
-    "rep_form_processed_token_budget_per_arm": 500000
+    "sealed_rows_per_family": 120,
+    "production_tokenizer_frozen": true,
+    "raw_sealed_rows_worker_visible": false,
+    "raw_sealed_rows_persisted": false
   },
-  "durability": {
-    "cs_mech_exact_resume_checkpoint_every_updates": 200,
-    "rep_form_exact_resume_checkpoint_every_processed_tokens": 10000,
-    "progress_snapshot_at_every_checkpoint": true,
-    "progress_files": [
-      "LATEST_PROGRESS.json",
-      "progress/UPDATE_*.json"
-    ],
-    "campaign_may_span_multiple_kaggle_sessions": true,
-    "science_is_not_shortened_to_fit_a_session": true
-  },
-  "kaggle_compatibility": {
-    "checked_date_utc": "2026-09-15",
-    "documented_gpu_session_limit_hours": 12,
-    "documented_saved_working_storage_gb": 20,
-    "accelerator": "GPU T4 x2",
-    "visible_physical_gpus_expected": 2,
-    "ddp_used": false,
-    "p100_retirement_date": "2026-09-15",
-    "t4x2_remains_supported": true,
-    "ci_tokenizers_version_matched_to_current_kaggle_gpu_image": "0.23.0rc0"
-  },
-  "execution": {
-    "operator": "tools/formation_mux_001_kaggle_operator_v9.py",
-    "operator_commit": "8940cdef11f85c66499e49fcaf1ac55ac558883c",
-    "operator_git_blob": "ad79efd1ea4d875921be9ea359598953f4afb565",
-    "notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
-    "notebook_pin_commit": "b4e5dc2df6da76d93408fce57b548dc959327a99",
-    "notebook_git_blob": "6ed59fc6277e88ac3bb83d9b9ff78939e62282f2",
-    "notebook_schema": "anra.formation-mux-notebook/v8",
-    "accelerator_required": "Kaggle GPU T4 x2",
-    "internet_required": true,
-    "parallelism": "two independent matched-bundle workers; no DDP",
-    "per_session_policy": "run until actual wall guard, package exact-resume output, continue next session if PARTIAL_SESSION",
-    "kaggle_s5_compile_and_pytest_preflight": true,
-    "dual_t4_engineering_only_e2e_preflight": true,
-    "storage_capacity_preflight": {
-      "enabled": true,
-      "receipt": "STORAGE_PREFLIGHT.json",
-      "method": "measure largest calibration resume.pt, count remaining official checkpoint slots, require projected checkpoint bytes plus 2 GiB reserve to fit current /kaggle/working free space",
-      "reserve_bytes": 2147483648,
-      "fail_closed_before_official_arms": true
+  "official_campaign": {
+    "s5_arms": 24,
+    "frontier_arms": 24,
+    "total_official_arms_before_sealed": 48,
+    "s5": {
+      "CS-MECH-002": {
+        "arms": 4,
+        "seeds": 4,
+        "updates_per_arm": 2000,
+        "batch_rows": 16,
+        "row_presentations_per_arm": 32000,
+        "checkpoint_every_updates": 200
+      },
+      "REP-FORM-003A": {
+        "arms": 2,
+        "seeds": 4,
+        "processed_nonpadding_token_budget_per_arm": 500000,
+        "checkpoint_every_processed_tokens": 10000
+      }
+    },
+    "frontier": {
+      "extension": "TIE-ROLE-FRONTIER-001",
+      "preregistration": "docs/cymek/experiments/FORMATION-MUX-001/TIE_ROLE_FRONTIER_PREREGISTRATION_V1.json",
+      "written_before_official_outcomes": true,
+      "TIE-ROLE-001": {
+        "arms": [
+          "T0_CANONICAL",
+          "T1_INPUT_X4",
+          "T2_OUTPUT_X025",
+          "T3_BALANCED_X4_X025"
+        ],
+        "seeds": 4,
+        "updates_per_arm": 2000,
+        "primary_contrast": "T3_BALANCED_X4_X025 - T0_CANONICAL",
+        "forward_equivalent_at_matched_initialization": true,
+        "factorial_question": "input-role versus output-role tied-gradient pressure and interaction"
+      },
+      "TIE-ROLE-XFER-001": {
+        "arms": [
+          "X0_CANONICAL_R0",
+          "X1_BALANCED_R0"
+        ],
+        "seeds": 4,
+        "rendering": "frozen production BPE",
+        "processed_nonpadding_token_budget_per_arm": 500000,
+        "primary_contrast": "X1_BALANCED_R0 - X0_CANONICAL_R0"
+      }
     }
   },
-  "xfactor": {
-    "diagnostic": "VOCAB-PRESSURE-001",
-    "preregistration": "docs/cymek/experiments/FORMATION-MUX-001/XFACTOR_VOCAB_PRESSURE_PREREGISTRATION_V1.json",
-    "preregistration_commit": "910223d07cf01d3a839966324e7bee4219d5a28e",
-    "preregistration_sha256": "ea70f361a9c038d22a87967f611379e772fccd8870855b905c1bfef07ad83969",
-    "implementation": "tools/formation_mux_001_vocab_pressure_v1.py",
-    "diagnostic_only": true,
-    "adds_training_arms": false,
-    "changes_training": false,
-    "can_change_frozen_s5_verdict": false,
-    "sealed_rows_used": false,
-    "execution_point": "after every official arm is complete and before any sealed rows are regenerated",
-    "surface": "CS-MECH-002 development identity family only (80 rows)",
-    "focus_arm": "M2_EXTRA_FROZEN",
-    "measurements": [
-      "full-vocabulary identity exact+valid-EOS",
-      "evaluation-only shared-vocabulary-mask identity exact+valid-EOS",
-      "counterfactual rescue exact+valid-EOS",
-      "extra-row softmax probability mass",
-      "exact denominator tax in nats",
-      "target-logit margin versus strongest extra-row logit",
-      "full-vocabulary versus shared-only target rank",
-      "shared-row versus extra-row embedding norm geometry"
-    ],
-    "prospective_focus_rule": {
-      "material_endpoint_competition": "mean M2 counterfactual rescue >= 0.05 and rescue > 0 in at least 3 of 4 seed bundles",
-      "small_endpoint_competition": "mean M2 counterfactual rescue < 0.05",
-      "mixed": "all other patterns"
+  "mechanism_diagnostics": {
+    "VOCAB-PRESSURE-001": {
+      "training_arms_added": 0,
+      "surface": "CS-MECH-002 development identity family",
+      "sealed_used": false,
+      "question": "endpoint extra-row competition versus training-time denominator/formation damage",
+      "output": "CS-MECH-002/VOCAB_PRESSURE_DIAGNOSTIC.json"
     },
-    "architecture_targets": [
-      "D7 vocabulary field (BLOCKED)",
-      "D8 output-head field (BLOCKED/EXPERIMENT_ONLY)",
-      "DECIDE-OUTPUT-SPACE -> ADOPT-TRAINING-TREATMENT versus ADOPT-GEOMETRY-CHANGE"
+    "TIE_ROLE_GRADIENT_DIAGNOSTIC": {
+      "surface": "fixed development identity batch",
+      "sealed_used": false,
+      "measurements": [
+        "input-only tied-matrix gradient norm",
+        "output-only tied-matrix gradient norm",
+        "output/input gradient norm ratio",
+        "input/output gradient cosine",
+        "combined gradient norm",
+        "gradient cancellation fraction"
+      ],
+      "output": "TIE_ROLE_GRADIENT_DIAGNOSTIC.json"
+    }
+  },
+  "architecture_gate": {
+    "output": "TIE_ROLE_ARCHITECTURE_GATE.json",
+    "possible_classifications": [
+      "ROBUST_ROLE_INTERFERENCE",
+      "ROBUST_EFFECT_MECHANISM_NOT_CONFIRMED",
+      "LATENT_ONLY",
+      "NULL",
+      "REVERSE_OR_INTERACTION",
+      "TRANSFER_OR_REPRESENTATION_INTERACTION"
     ],
-    "output": "CS-MECH-002/VOCAB_PRESSURE_DIAGNOSTIC.json"
+    "automatic_version_bump": false,
+    "automatic_3x_or_6x_claim": false,
+    "positive_result_consequence": "nominate a specific role-balanced or input/output-decoupled next-Core candidate for separate scale confirmation; do not silently ship it"
   },
   "sealed_firewall": {
-    "worker_visible_splits": [
-      "training",
-      "development"
-    ],
-    "raw_sealed_rows_persisted_before_or_during_training": false,
-    "consumption": "regenerate and commitment-verify only after DEVELOPMENT_COMPLETE and after the development-only X-factor diagnostic",
-    "raw_sealed_rows_in_result_bundle": false
+    "all_48_official_arms_complete_before_sealed": true,
+    "all_s5_and_frontier_development_results_frozen_before_sealed": true,
+    "both_development_only_mechanism_diagnostics_run_before_sealed": true,
+    "sealed_regeneration": "deterministic in-memory regeneration against the pre-existing frozen S5 commitment",
+    "raw_sealed_rows_in_result_bundle": false,
+    "started_without_final_result_policy": "fail closed and preserve evidence"
+  },
+  "durability": {
+    "exact_resume": true,
+    "multi_session": true,
+    "completed_arms_immutable": true,
+    "science_not_shortened_to_fit_session": true,
+    "s5_storage_preflight": "STORAGE_PREFLIGHT.json",
+    "frontier_storage_preflight": "TIE_ROLE_STORAGE_PREFLIGHT.json",
+    "frontier_storage_method": "after real dual-T4 engineering calibration, measure largest frontier resume.pt and require every remaining official frontier checkpoint slot plus 2 GiB reserve to fit current saved working storage",
+    "frontier_storage_fail_closed_before_official_arms": true
+  },
+  "execution": {
+    "canonical_operator": "tools/formation_mux_001_kaggle_operator_v12.py",
+    "operator_commit": "4ee05f6e386f15d34f9dfa7bd7f3300a496b9896",
+    "operator_git_blob": "e9e1f701b0d4edc509194da55fe1ba37ed62ef86",
+    "notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
+    "notebook_pin_commit": "3e16b4733874d58f803f8aa861e90da57f6051e6",
+    "notebook_git_blob": "da60f71364c0515486b968dad784e679680c8fbf",
+    "notebook_schema": "anra.formation-mux-notebook/v11",
+    "accelerator_required": "Kaggle GPU T4 x2",
+    "internet_required": true,
+    "parallelism": "two independent matched-seed workers; no DDP",
+    "on_partial_session": "save Kaggle version/output, attach output to the next run, rerun the exact same pinned notebook"
   },
   "qualification": {
-    "github_actions_run_id": 34906087905,
-    "qualification_commit": "3868087f694c31cd2b601dcd71d211d4a3a34d8d",
+    "github_actions_run_id": 34907887003,
+    "qualification_commit": "8188e4ff792f7097c2deef20f2ac2af64581d52f",
     "conclusion": "SUCCESS",
-    "kaggle_tokenizer_line_dependency_install": "PASS",
-    "py_compile_s5_and_xfactor_execution_surface": "PASS",
-    "targeted_tests_including_xfactor": "PASS",
-    "xfactor_preregistration_identity_and_contract": "PASS",
-    "immutable_science_files_verified": true,
+    "compile_s5_xfactor_frontier_v12": "PASS",
+    "all_targeted_tests_including_forward_equivalence_and_gradient_additivity": "PASS",
+    "immutable_s5_science_files_verified": true,
+    "vocab_pressure_preregistration_verified": true,
+    "tie_role_frontier_preregistration_verified": true,
     "real_frozen_tokenizer_loaded": true,
     "public_surface_training_rows": 60000,
     "public_surface_development_rows": 480,
-    "sealed_rows_regenerated_per_experiment_for_commitment_test": 720,
+    "sealed_rows_regenerated_per_s5_experiment_for_commitment_test": 720,
     "canonical_notebook_json_code_cells_and_pins": "PASS",
-    "kaggle_t4x2_execution": "NOT_YET_RUN"
+    "kaggle_t4x2_official_execution": "NOT_YET_RUN"
   },
-  "claim_ceiling": "Pre-execution qualification, Kaggle-environment hardening, and a prospective development-only mechanism diagnostic. VOCAB-PRESSURE-001 cannot alter the frozen S5 verdict. This is not evidence of actual Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
+  "claim_ceiling": "This is pre-execution qualification and prospective experimental design, not a scientific outcome. No V6 designation, 3x/6x capability claim, production architecture promotion, large-scale authorization, cognition claim, or AGI claim exists before the frozen experiments execute and transfer evidence supports it."
 }
