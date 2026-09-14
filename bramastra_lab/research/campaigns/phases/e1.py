@@ -104,9 +104,31 @@ def execute(job: JobInput, *, ops=None,
 
     # Frozen campaign init (never bare development/256). All supported ops
     # expose initialize_random (same validated interface, no type branches).
+    # Authority binding (O01): real trainers admit only through the
+    # supervisor reservation; doubles take the recorded zero-update path.
     try:
         handle = ops.initialize_random(seed=job.seed, device=job.local_device,
-                                       reservation=job.reservation_id)
+                                       reservation=None)
+        from bramastra_lab.research.campaigns.phases.session import (
+            bind_job_reservation, job_reservation_record)
+        authority = bind_job_reservation(handle, job,
+                                         remaining_updates=target)
+        reservation = None
+        if authority == "bound":
+            # Stepping additionally requires the live ledger allocation
+            # (backstop: well-formed fields alone never authorize steps).
+            reservation = job_reservation_record(
+                job, remaining_updates=target)
+    except Exception as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E1 authority refused: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E1"})
+    except Exception as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E1 authority refused: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E1"})
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E1 init refused: {exc}",
@@ -141,6 +163,7 @@ def execute(job: JobInput, *, ops=None,
     weights = ARM_WEIGHTS[job.arm]
     enabled = ARM_ENABLED[job.arm]
     committed = attempted = exposure = 0
+    noop_boundaries = 0
     checkpoint_ids: list[str] = []
     parent_for_next: str | None = None
     fractions = {max(1, target * p // 100) for p in (25, 50, 75, 100)}
@@ -199,12 +222,14 @@ def execute(job: JobInput, *, ops=None,
                     error=f"E1 pair row construction refused: {exc}",
                     evidence_kind=EVIDENCE_FIXTURE, extra={"phase": "E1"})
         try:
-            # All supported ops expose apply_update(handle, *, batch, window,
-            # extra, pair_rows). No silent downgrade: a TypeError here is a
-            # real interface violation and must fail loudly.
-            outcome = ops.apply_update(
-                handle, batch=batch, window=window,
-                extra=extra, pair_rows=pair_rows)
+            # Real steps only under a live ledger allocation; otherwise the
+            # admission-checked no-op boundary (O01 backstop: fields alone
+            # never authorize local training). Doubles record fixture counts.
+            from bramastra_lab.research.campaigns.phases.session import (
+                step_or_noop)
+            outcome = step_or_noop(
+                ops, handle, job, batch=batch, window=window,
+                extra=extra, pair_rows=pair_rows, reservation=reservation)
         except Exception as exc:
             return PhaseResult(status="failed", committed_updates=committed,
                                attempted_updates=attempted,
@@ -216,6 +241,7 @@ def execute(job: JobInput, *, ops=None,
         committed += int(outcome.get("committed", 0))
         attempted += int(outcome.get("attempted", 0))
         exposure += int(outcome.get("exposure", 0))
+        noop_boundaries += 1 if outcome.get("boundary") == "noop" else 0
         if (step + 1) in fractions or (step + 1) == target:
             try:
                 checkpoint_id = ops.publish_checkpoint(
@@ -266,7 +292,11 @@ def execute(job: JobInput, *, ops=None,
     receipt = {"job": {"phase": job.phase, "arm": job.arm, "seed": job.seed,
                        "slot": job.slot, "parent": job.parent,
                        "job_id": job.job_id,
-                       "update_target": target},
+                       "update_target": target,
+                       "reservation_id": job.reservation_id,
+                       "allocation_id": job.allocation_id},
+               "authority": authority,
+               "noop_boundaries": noop_boundaries,
                "stream_id": stream_id,
                "treatment_weights": weights,
                "enabled_terms": sorted(enabled),
@@ -298,6 +328,7 @@ def execute(job: JobInput, *, ops=None,
                                 "treatment_weights": weights,
                                 "init_state_hash": init_hash,
                                 "checkpoint_identities": checkpoint_ids,
+                                "authority": authority,
                                 "evaluation": eval_report})
     try:
         result.validate()

@@ -160,6 +160,8 @@ class JobInput:
     config_identity: str | None = None
     protocol_hash: str | None = None
     reservation_id: str | None = None
+    allocation_id: str | None = None
+    reservation_deadline_unix: float | None = None
     parent_ref: ParentRef | None = None
 
     def validate(self) -> None:

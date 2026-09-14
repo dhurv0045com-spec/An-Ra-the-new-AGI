@@ -30,7 +30,12 @@ def run_worker_phase(*, phase: str, device: str, arm: str | None,
                      job_id: str | None = None,
                      update_target: int | None = None,
                      eval_cases: int | None = None,
-                     tasks_per_block: int | None = None) -> dict[str, Any]:
+                     tasks_per_block: int | None = None,
+                     reservation_id: str | None = None,
+                     allocation_id: str | None = None,
+                     deadline_unix: float | None = None,
+                     remaining_updates: int | None = None,
+                     learning_boundary: str | None = None) -> dict[str, Any]:
     """Execute one phase on one device (D4: real executors behind dispatch).
 
     Runs in a fresh spawn subprocess with CUDA_VISIBLE_DEVICES set before
@@ -68,6 +73,10 @@ def run_worker_phase(*, phase: str, device: str, arm: str | None,
             job_id=job_id,
             update_target=update_target, eval_cases=eval_cases,
             tasks_per_block=tasks_per_block,
+            reservation_id=reservation_id, allocation_id=allocation_id,
+            deadline_unix=deadline_unix,
+            remaining_updates=remaining_updates,
+            learning_boundary=learning_boundary,
             data_dir=data_dir, run_dir=run_dir, precision=precision,
             deadline=deadline, started=started)
     if phase == "E6":
@@ -89,6 +98,11 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                              update_target: int | None = None,
                              eval_cases: int | None = None,
                              tasks_per_block: int | None = None,
+                             reservation_id: str | None = None,
+                             allocation_id: str | None = None,
+                             deadline_unix: float | None = None,
+                             remaining_updates: int | None = None,
+                             learning_boundary: str | None = None,
                              data_dir: str, run_dir: str, precision: str,
                              deadline: float, started: float) -> dict[str, Any]:
     """Dispatch to the repository phase executor (D4 + contracts S1).
@@ -172,6 +186,9 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                    data_hash=identities.get("data_identity"),
                    tokenizer_identity=identities.get("tokenizer_identity"),
                    config_identity=identities.get("config_identity"),
+                   reservation_id=reservation_id,
+                   allocation_id=allocation_id,
+                   reservation_deadline_unix=deadline_unix,
                    parent_ref=parent_ref)
     try:
         if phase == "E1":
@@ -181,7 +198,10 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
         elif phase == "E2":
             result = executor(job, eval_cases=eval_cases)
         elif phase == "E5":
-            result = executor(job, tasks_per_block=tasks_per_block)
+            result = executor(
+                job, tasks_per_block=tasks_per_block,
+                learning_boundary=learning_boundary
+                if learning_boundary is not None else "test_substitute")
         else:
             result = executor(job)
     except Exception as exc:  # noqa: BLE001 - executor failure is a result
@@ -405,6 +425,14 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
               and uninterrupted_committed == resumed_committed == 3)
     committed = uninterrupted_committed + resumed_committed
     attempted = uninterrupted_attempted + resumed_attempted
+    # Full-profile pilot timing for E0 calibration (O03): heaviest-arm
+    # update seconds + eval-loop throughput on the K8 configuration.
+    # Accelerator-only: locally recorded as skipped (no local training and
+    # no large-model timing claims from CPU). Pilot updates are charged to
+    # the E0 allowance like every other attempt.
+    calibration_samples = _pilot_full_profile(
+        device=device, data_dir=data_dir, precision=precision,
+        deadline=deadline, seed=seed)
     return {
         "status": "completed" if agrees else "resume_divergence",
         "committed_updates": committed, "attempted_updates": attempted,
@@ -417,7 +445,90 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
         "restore_proof": restore_proof,
         "device_used": child_result.get("device_used", device),
         "profile": profile,
+        "calibration_samples": calibration_samples,
     }
+
+
+def _pilot_full_profile(*, device: str, data_dir: str, precision: str,
+                        deadline: float, seed: int) -> dict[str, Any]:
+    """Time heaviest-arm updates + eval throughput on the K8 config (O03)."""
+    import time as _time
+
+    if not str(device).startswith("cuda"):
+        return {"full_profile_pilot": "skipped-local-no-accelerator",
+                "worst_update_seconds": None,
+                "eval_cases_per_second": None}
+    from bramastra_lab.research.campaigns.phases.ops import (
+        ProductionOps, k8_campaign_config)
+
+    started = _time.monotonic()
+    ops = ProductionOps(precision=precision)
+    handle = ops.initialize_random(seed=seed, device=device)
+    from bramastra_lab.research.learning.k8_trainer import AllocationContext
+
+    pilot_allocation = AllocationContext(
+        allocation_id=f"e0-pilot-{device}", device=device,
+        deadline_unix=deadline, remaining_updates=8,
+        job_id=f"E0-pilot-{device}", phase="E0")
+    handle["trainer"].begin_campaign(pilot_allocation)
+    # Heaviest arm (B package) on a real training trajectory.
+    from bramastra_lab.research.campaigns.phases.compiler import (
+        build_batch_for_trajectory, build_pair_rows,
+        compile_channels_for_row, load_training_trajectories)
+    from bramastra_lab.research.campaigns.phases.e1 import (
+        ARM_ENABLED, ARM_WEIGHTS)
+
+    trajectories = load_training_trajectories(data_dir, seed=seed)[:4]
+    per_update: list[float] = []
+    for step, row in enumerate(trajectories[:3]):
+        batch = build_batch_for_trajectory(row)
+        compiled = compile_channels_for_row(
+            row, batch, arm_weights=dict(ARM_WEIGHTS["B"]),
+            arm_enabled=ARM_ENABLED["B"])
+        window, extra = ops.construct_objectives(
+            handle=handle, batch=batch, compiled=compiled, arm="B")
+        partner = next(
+            r for r in trajectories
+            if str(r.get("answer")) != str(row.get("answer")))
+        pair_rows = build_pair_rows(row, partner)
+        tick = _time.monotonic()
+        ops.apply_update(handle, batch=batch, window=window, extra=extra,
+                         pair_rows=pair_rows)
+        per_update.append(_time.monotonic() - tick)
+    worst_update_seconds = max(per_update) if per_update else None
+    # Eval-loop throughput: live episodes on the pilot model (frozen eval,
+    # no training; random-init generations score ~nothing — throughput only).
+    eval_cases_per_second = None
+    try:
+        from bramastra_lab.research.cognition import episode as kernel
+        from bramastra_lab.research.cognition.episode import (
+            FreeGenerationModel)
+        from bramastra_lab.research.environments.k8_live import (
+            build_live_env, generate_live_mechanism)
+
+        model = FreeGenerationModel(handle["model"], handle["config"])
+        tick = _time.monotonic()
+        episodes = 0
+        for index, family in enumerate(("rule-inquiry", "inventory")):
+            mechanism = generate_live_mechanism(family, index, seed=seed)
+            env = build_live_env(mechanism, budget=6, seed=seed)
+            # Learned-policy path on the pilot model (random-init outputs
+            # mostly fail parsing; throughput — not success — is measured).
+            kernel.run_episode(
+                env, kernel.LearnedPolicyAdapter(), model=model, seed=seed,
+                mechanism=mechanism, session_job_id=f"E0-pilot-{device}",
+                checkpoint_id=None)
+            episodes += 1
+        elapsed = _time.monotonic() - tick
+        eval_cases_per_second = episodes / elapsed if elapsed > 0 else None
+    except Exception as exc:
+        eval_cases_per_second = f"refused:{exc}"[:120]
+    return {"full_profile_pilot": "measured",
+            "device": device,
+            "worst_update_seconds": worst_update_seconds,
+            "eval_cases_per_second": eval_cases_per_second,
+            "pilot_updates_charged": len(per_update),
+            "pilot_wall_seconds": round(_time.monotonic() - started, 1)}
 
 
 def _strong_checksum(trainer) -> str:

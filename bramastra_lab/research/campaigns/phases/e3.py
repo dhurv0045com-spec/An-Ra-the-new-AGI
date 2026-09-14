@@ -111,6 +111,16 @@ def execute(job: JobInput, *, ops=None,
         except Exception:
             parent_hash = "unavailable"
         child = ops.fork_child(parent_handle=restored, optimizer_policy="fresh")
+        # Authority binding (O01): the forked child trains only under the
+        # job reservation; doubles take the recorded zero-update path.
+        from bramastra_lab.research.campaigns.phases.session import (
+            bind_job_reservation, job_reservation_record)
+        authority = bind_job_reservation(child, job,
+                                         remaining_updates=target)
+        reservation = None
+        if authority == "bound":
+            reservation = job_reservation_record(
+                job, remaining_updates=target)
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E3 parent restore/fork refused: {exc}",
@@ -154,9 +164,11 @@ def execute(job: JobInput, *, ops=None,
                                evidence_kind=EVIDENCE_FIXTURE,
                                extra={"phase": "E3"})
         try:
-            outcome = ops.apply_update(
-                child, batch=batch, window=window, extra=extra,
-                pair_rows=_pair_rows)
+            from bramastra_lab.research.campaigns.phases.session import (
+                step_or_noop)
+            outcome = step_or_noop(
+                ops, child, job, batch=batch, window=window, extra=extra,
+                pair_rows=_pair_rows, reservation=reservation)
         except Exception as exc:
             return PhaseResult(status="failed", committed_updates=committed,
                                attempted_updates=attempted,
@@ -245,6 +257,8 @@ def execute(job: JobInput, *, ops=None,
                    "parent_lookup": parent_record.get("lookup_key"),
                    "parent_hash": parent_hash,
                    "arm": job.arm, "seed": job.seed,
+                   "job_id": job.job_id,
+                   "authority": authority,
                    "replay_mixture": mixture,
                    "expected_mixture": expected,
                    "committed_updates": committed,
@@ -308,13 +322,19 @@ def _build_training_stream(data_dir: str, seed: int, arm: str,
         build_answer_row, collocate)
 
     tool_rows = load_tool_rows(data_dir, split="tool-training")
-    # Heldout exclusion proof: ensure no heldout composition leaks.
+    protected_canonical, heldout_tools = _load_protected_canonical(data_dir)
+    # Heldout exclusion proof: split, composition, canonical identity and
+    # heldout mechanism IDs must all agree on training-only rows.
     for row in tool_rows:
         if row.get("split") != "tool-training":
             raise ValueError("tool-heldout row in training stream; refusing")
         if row.get("composition") == "filter_then_aggregate_then_check":
             raise ValueError(
                 "heldout composition in training stream; refusing")
+        if str(row.get("mechanism_id", "")) in heldout_tools:
+            raise ValueError(
+                f"tool row {row.get('mechanism_id')} is a heldout mechanism; "
+                "refusing")
     rng = _random.Random(f"E3:{seed}:{arm}")
     rng.shuffle(tool_rows)
     # Insufficient tool rows fail loudly (never synthesize replacements).
@@ -348,6 +368,11 @@ def _build_training_stream(data_dir: str, seed: int, arm: str,
                 f"E3-T1 needs {n_replay} replay rows but only {len(old_rows)} "
                 "exist; refusing")
         replay_rows = old_rows[:n_replay]
+        for row in replay_rows:
+            if str(row.get("canonical_identity", "")) in protected_canonical:
+                raise ValueError(
+                    f"replay row {row.get('mechanism_id')} carries sealed-"
+                    "confirmation canonical identity; refusing")
     weights = T0_WEIGHTS if arm == "T0" else T1_WEIGHTS
     enabled = T0_ENABLED if arm == "T0" else T1_ENABLED
     stream: list[tuple] = []
@@ -388,7 +413,13 @@ def _build_training_stream(data_dir: str, seed: int, arm: str,
 
 
 def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
-    """Real tool batch with preserved tool-training provenance."""
+    """Real tool batch with execution-grounded history (O06).
+
+    The history is built from an actual execution of the row's table: the
+    observed sum is computed (never read from the stored answer), checked
+    for consistency with the stored label (mismatch = corrupt row, refuse),
+    and embedded in the submit feedback with its request receipt.
+    """
     from bramastra_lab.research.experience.sequences import (
         build_answer_row, collocate)
 
@@ -399,6 +430,11 @@ def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
     if ":" in answer:
         raise ValueError(
             "heldout-style answer in tool-training stream; refusing")
+    observed = _execute_tool_sum(trow)
+    if observed != answer:
+        raise ValueError(
+            f"tool row {trow.get('mechanism_id')}: executed sum {observed!r} "
+            f"!= stored answer {answer!r}; corrupt row, refusing")
     public = dict(trow.get("public", {"tool": trow.get("composition", "single_filter")}))
     seq = build_answer_row(
         [("goal", public)], answer,
@@ -409,13 +445,14 @@ def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
                     "family": "tools"},
         max_tokens=512)
     batch = collocate([seq], max_seq=512)
-    # Tool history for channel compilation: real table observation.
+    # History from the real execution above (observed output + receipt).
+    predicate = trow.get("predicate", {})
     pseudo_row = {"mechanism_id": trow.get("mechanism_id", "tool"),
                   "family": "tools", "pool": "tool-training",
                   "public": public, "answer": answer,
                   "exploration_mode": "teacher",
                   "queries": [{"kind": "read_table"},
-                              {"kind": "filter_rows", "predicate": trow.get("predicate", {})},
+                              {"kind": "filter_rows", "predicate": predicate},
                               {"kind": "sum_column"},
                               {"kind": "write_result"}],
                   "history": [
@@ -423,14 +460,48 @@ def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
                        "feedback": {"kind": "observation",
                                     "schema": public}},
                       {"action": {"kind": "filter_rows",
-                                  "predicate": trow.get("predicate", {})},
+                                  "predicate": predicate},
                        "feedback": {"kind": "observation",
-                                    "filtered": True}},
+                                    "filtered": True,
+                                    "request": "filter/executed"}},
                       {"action": {"kind": "submit", "answer": answer},
-                       "feedback": {"kind": "verdict", "correct": True}}]}
+                       "feedback": {"kind": "verdict", "correct": True,
+                                    "executed_sum": observed,
+                                    "request": "sum/executed"}}]}
     compiled = compile_channels_for_row(
         pseudo_row, batch, arm_weights=dict(weights), arm_enabled=enabled)
     return batch, compiled
+
+
+def _load_protected_canonical(data_dir: str) -> tuple[set[str], set[str]]:
+    """Canonical IDs that must never enter training (sealed + heldout).
+
+    Reads splits.json sealed-confirmation canonical identities plus the
+    tool-heldout mechanism IDs. Training rows matching either are refused.
+    """
+    import json as _json
+
+    protected: set[str] = set()
+    heldout_tools: set[str] = set()
+    splits_path = os.path.join(data_dir, "splits.json")
+    if os.path.exists(splits_path):
+        with open(splits_path, encoding="utf-8") as handle:
+            splits = _json.load(handle)
+        for _family, pools in (splits.get("families") or {}).items():
+            sealed = (pools.get("sealed-confirmation") or {})
+            for identity in sealed.get("canonical_identities", ()):
+                protected.add(str(identity))
+    tool_path = os.path.join(data_dir, "tools", "tool_tasks.jsonl")
+    if os.path.exists(tool_path):
+        with open(tool_path, encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                row = _json.loads(line)
+                if row.get("split") == "tool-heldout":
+                    heldout_tools.add(str(row.get("mechanism_id", "")))
+    return protected, heldout_tools
 
 
 def _execute_tool_sum(trow: dict) -> str:

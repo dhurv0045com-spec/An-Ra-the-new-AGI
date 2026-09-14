@@ -9,7 +9,7 @@ permissive recorder alone is not an integration test.
 """
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
 
 
 K8_CAMPAIGN_MODEL = {"profile": "development", "vocab": 260, "layers": 8,
@@ -220,7 +220,11 @@ class ProductionOps:
     def initialize_random(self, *, seed: int, device: str,
                           reservation: Any | None = None) -> Any:
         handle = self.init_model(seed=seed, profile="k8-campaign", device=device)
+        # Always unbound here: authority attaches explicitly through
+        # session.bind_job_reservation (O01), which validates job/device/
+        # phase/source/deadline before admitting via begin_campaign.
         handle["reservation"] = reservation
+        handle["reservation_bound"] = False
         return handle
 
     def restore_parent(self, *, parent: dict[str, Any], device: str,

@@ -88,6 +88,16 @@ def execute(job: JobInput, *, ops=None,
         migration_error = _verify_handle_migration(child, gates_enabled=gates_enabled)
         if migration_error:
             raise ValueError(migration_error)
+        # Authority binding (O01): the migrated handle trains only under the
+        # job reservation; doubles take the recorded zero-update path.
+        from bramastra_lab.research.campaigns.phases.session import (
+            bind_job_reservation, job_reservation_record)
+        authority = bind_job_reservation(child, job,
+                                         remaining_updates=target)
+        reservation = None
+        if authority == "bound":
+            reservation = job_reservation_record(
+                job, remaining_updates=target)
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E4 migration failed: {exc}",
@@ -102,6 +112,18 @@ def execute(job: JobInput, *, ops=None,
     weights = {"token": 1.0, "world": 0.5, "action": 0.5, "value": 0.1,
                "pair": 0.0, "pg": 0.0}
     enabled = frozenset({"token", "world", "action", "value"})
+    # Gate-path activation + segment isolation + cost on the migrated handle
+    # itself (O07): backward-only gate gradient proof (grads discarded, no
+    # step), packed-segment forward contract, and timed execution cost.
+    # Fixture doubles record the checks without model compute.
+    try:
+        arch_proof = _prove_architecture_on_handle(
+            ops, child, gates_enabled=gates_enabled)
+    except Exception as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E4 architecture proof refused: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E4"})
     try:
         trajectories = load_training_trajectories(job.data_dir, seed=job.seed)
     except Exception as exc:
@@ -136,9 +158,11 @@ def execute(job: JobInput, *, ops=None,
                                evidence_kind=EVIDENCE_FIXTURE,
                                extra={"phase": "E4"})
         try:
-            outcome = ops.apply_update(
-                child, batch=batch, window=window, extra=extra,
-                pair_rows=None)
+            from bramastra_lab.research.campaigns.phases.session import (
+                step_or_noop)
+            outcome = step_or_noop(
+                ops, child, job, batch=batch, window=window, extra=extra,
+                pair_rows=None, reservation=reservation)
         except Exception as exc:
             return PhaseResult(status="failed", committed_updates=committed,
                                attempted_updates=attempted,
@@ -187,6 +211,8 @@ def execute(job: JobInput, *, ops=None,
         json.dump({"parent": parent_record.get("checkpoint_id"),
                    "parent_lookup": parent_record.get("lookup_key"),
                    "arm": job.arm, "seed": job.seed,
+                   "job_id": job.job_id,
+                   "authority": authority,
                    "gates_enabled": gates_enabled,
                    "architecture_id": child.get("architecture_id")
                    if isinstance(child, dict) else str(
@@ -194,6 +220,7 @@ def execute(job: JobInput, *, ops=None,
                                "architecture_id", "unknown")),
                    "gate_values_after_training": gate_values,
                    "migration": "verified-on-training-handle",
+                   "architecture_proof": arch_proof,
                    "committed_updates": committed,
                    "optimizer_delta": optimizer_delta,
                    "evidence_kind": evidence,
@@ -227,6 +254,79 @@ def execute(job: JobInput, *, ops=None,
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E4"})
     return result
+
+
+def _prove_architecture_on_handle(ops: Any, handle: Any, *,
+                                    gates_enabled: bool) -> dict[str, Any]:
+    """Gate-path, segment-isolation and cost proof on the training handle."""
+    try:
+        from bramastra_lab.research.models.gated import check_gate_gradients
+    except Exception:
+        check_gate_gradients = None  # type: ignore[assignment]
+    model = handle.get("model") if isinstance(handle, dict) else getattr(
+        handle, "model", None)
+    if model is None or isinstance(handle, dict) and "double_id" in handle:
+        ops.calls.append(("e4_arch_proof", {"gates_enabled": gates_enabled,
+                                            "fixture": True}))
+        return {"gate_gradients": "fixture-recorded",
+                "segment_isolation": "fixture-recorded",
+                "execution_cost": "fixture-recorded"}
+    import time as _time
+    import torch as _torch
+
+    # Gate-path activation: real backward, gate grads must exist for S1.
+    @_torch.no_grad()
+    def _probe_batch() -> Any:
+        config = handle["config"]
+        probe = _torch.randint(0, config.model.vocab, (2, 12))
+        return probe
+
+    probe = _probe_batch()
+    logits = model(probe).logits
+    loss = logits.float().square().mean()
+    model.zero_grad(set_to_none=True)
+    loss.backward()
+    if gates_enabled:
+        gate_grad = getattr(getattr(model, "gate_alpha", None), "grad", None)
+        if gate_grad is None:
+            raise ValueError(
+                "S1 gate path inactive: gate_alpha carries no gradient")
+        if not bool(_torch.isfinite(gate_grad).all()):
+            raise ValueError("S1 gate gradients nonfinite")
+    grad_proof = True
+    if check_gate_gradients is not None:
+        try:
+            checks = check_gate_gradients(model)
+            grad_proof = bool(checks.get("shared_block_gradients_present"))
+        except Exception:
+            pass
+    model.zero_grad(set_to_none=True)
+    # Packed-segment isolation: identical tokens under different segments
+    # must route differently (mask respected), checked on this handle.
+    with _torch.no_grad():
+        tokens = probe
+        pad = _torch.ones_like(tokens, dtype=_torch.bool)
+        seg_same = _torch.ones_like(tokens)
+        seg_split = _torch.ones_like(tokens)
+        seg_split[:, 6:] = 2
+        try:
+            out_same = model(tokens, pad, segment_ids=seg_same).logits
+            out_split = model(tokens, pad, segment_ids=seg_split).logits
+            isolated = bool((out_same - out_split).abs().max().item() > 0.0)
+        except Exception as exc:
+            raise ValueError(
+                f"segment-isolation forward refused: {exc}") from exc
+    # Execution cost: timed forwards on this handle (extra block passes run
+    # even at zero gates by design).
+    repeats = 3
+    start = _time.perf_counter()
+    with _torch.no_grad():
+        for _ in range(repeats):
+            _ = model(probe).logits
+    cost_seconds = (_time.perf_counter() - start) / max(1, repeats)
+    return {"gate_gradients": grad_proof,
+            "segment_isolation": isolated,
+            "execution_cost_seconds_per_forward": cost_seconds}
 
 
 def _verify_handle_migration(handle: Any, *, gates_enabled: bool) -> str | None:

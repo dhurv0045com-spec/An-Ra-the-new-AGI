@@ -115,7 +115,12 @@ def _child_main(result_queue, spec: dict[str, Any],
                   "job_id": spec.get("job_id"),
                   "update_target": spec.get("update_target"),
                   "eval_cases": spec.get("eval_cases"),
-                  "tasks_per_block": spec.get("tasks_per_block")}
+                  "tasks_per_block": spec.get("tasks_per_block"),
+                  "learning_boundary": spec.get("learning_boundary"),
+                  "reservation_id": spec.get("reservation_id"),
+                  "allocation_id": spec.get("allocation_id"),
+                  "deadline_unix": spec.get("deadline_unix"),
+                  "remaining_updates": spec.get("remaining_updates")}
         # Backwards compatibility: workers without physical_device accept the
         # eight-arg call; try with physical first, fall back without it.
         try:
@@ -215,7 +220,12 @@ def _child_execute(
                   "job_id": spec.get("job_id"),
                   "update_target": spec.get("update_target"),
                   "eval_cases": spec.get("eval_cases"),
-                  "tasks_per_block": spec.get("tasks_per_block")}
+                  "tasks_per_block": spec.get("tasks_per_block"),
+                  "learning_boundary": spec.get("learning_boundary"),
+                  "reservation_id": spec.get("reservation_id"),
+                  "allocation_id": spec.get("allocation_id"),
+                  "deadline_unix": spec.get("deadline_unix"),
+                  "remaining_updates": spec.get("remaining_updates")}
         try:
             output = worker_fn(**kwargs)
         except TypeError:
@@ -348,7 +358,12 @@ def run_phase_concurrently(
                     job_id=spec.get("job_id"),
                     update_target=spec.get("update_target"),
                     eval_cases=spec.get("eval_cases"),
-                    tasks_per_block=spec.get("tasks_per_block"))
+                    tasks_per_block=spec.get("tasks_per_block"),
+                    reservation_id=spec.get("reservation_id"),
+                    allocation_id=spec.get("allocation_id"),
+                    deadline_unix=spec.get("deadline_unix"),
+                    remaining_updates=spec.get("remaining_updates"),
+                    learning_boundary=spec.get("learning_boundary"))
                 if not isinstance(output, dict):
                     return job_id, {"status": "failed",
                                     "error": "double must return dict"}

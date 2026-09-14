@@ -241,12 +241,15 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                     campaign_failed = True
                     continue
                 specs = []
+                frozen = _load_usable_protocol(run_dir, list(devices))
                 for worker_entry in pending:
-                    # Frozen protocol minimums (E0 calibration refines them on
-                    # GPU; the worker refuses missing training targets).
+                    # Targets come from the frozen E0-calibrated protocol when
+                    # present; otherwise campaign minima labeled uncalibrated
+                    # (never masquerading as calibrated).
                     spec_update_target = None
                     spec_eval_cases: int | None = None
                     spec_tasks: int | None = None
+                    calibration_source = "uncalibrated-minima"
                     if phase == "E1":
                         spec_update_target = 200
                     elif phase in ("E3", "E4"):
@@ -255,6 +258,22 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                         spec_eval_cases = 32
                     elif phase == "E5":
                         spec_tasks = 12
+                    # E5 learning boundary is explicit: production on the
+                    # campaign path (real steps under ledger-gated allocation),
+                    # test_substitute only in direct local calls (default).
+                    spec_learning_boundary = "production" \
+                        if phase == "E5" else None
+                    if frozen is not None:
+                        selection = frozen.get("selection", {})
+                        targets = selection.get("update_targets", {})
+                        if phase in targets:
+                            spec_update_target = int(targets[phase])
+                        if phase == "E2" and selection.get(
+                                "confirmation_clusters_per_family"):
+                            spec_eval_cases = int(selection[
+                                "confirmation_clusters_per_family"])
+                        calibration_source = "e0-calibrated"
+                    reservation = reservations[worker_entry["job_id"]]
                     specs.append({
                         "job_id": worker_entry["job_id"],
                         "phase": phase,
@@ -267,10 +286,22 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                         "update_target": spec_update_target,
                         "eval_cases": spec_eval_cases,
                         "tasks_per_block": spec_tasks,
+                        "learning_boundary": spec_learning_boundary,
+                        "reservation_id": reservation.reservation_id,
+                        "allocation_id": allocation_id,
+                        "deadline_unix": reservation.reserved_at_unix
+                        + reservation.reserved_seconds,
+                        "remaining_updates": spec_update_target,
                         "data_dir": data_dir, "run_dir": run_dir,
                         "precision": precision,
                         "deadline": min(deadline, phase_deadline),
                     })
+                ledger.append_event("phase_targets", {
+                    "phase": phase, "slot": slot_index,
+                    "calibration_source": calibration_source,
+                    "update_target": spec_update_target,
+                    "eval_cases": spec_eval_cases,
+                    "tasks_per_block": spec_tasks})
                 outputs = ps.run_phase_concurrently(
                     specs, timeout_seconds=timeout_seconds,
                     worker_fn_path="bramastra_lab.research.campaigns.worker:run_worker_phase",
@@ -317,6 +348,17 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                     "slot_completed" if not slot_failed else "slot_failed",
                     {"phase": phase, "slot": slot_index,
                      "jobs": [entry["job_id"] for entry in pending]})
+                if phase == "E0" and not slot_failed:
+                    # Freeze the calibrated protocol from measured E0 pilot
+                    # samples before any learning phase consumes targets.
+                    try:
+                        _maybe_freeze_protocol(
+                            ledger, run_dir, results, pending,
+                            source_hash=source_hash, data_hash=data_hash,
+                            devices=list(devices))
+                    except Exception as exc:
+                        ledger.append_event("calibration_failed", {
+                            "phase": phase, "error": str(exc)[:300]})
                 if slot_failed:
                     ledger.append_event("phase_failed", {
                         "phase": phase, "slot": slot_index})
@@ -341,6 +383,67 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                 lease.release()
             except Exception:
                 pass
+
+
+def _load_usable_protocol(run_dir: str,
+                          devices: list[str]) -> dict[str, Any] | None:
+    """Frozen protocol when present and hardware-matched, else None."""
+    from bramastra_lab.research.campaigns import calibration as cal
+
+    try:
+        protocol = cal.load_frozen_protocol(run_dir)
+    except Exception:
+        return None
+    if protocol is None:
+        return None
+    try:
+        cal.check_hardware_match(protocol, device_ids=list(devices))
+    except Exception:
+        return None
+    return protocol
+
+
+def _maybe_freeze_protocol(ledger: Any, run_dir: str,
+                           results: dict[str, Any],
+                           pending: list[dict[str, Any]], *,
+                           source_hash: str, data_hash: str,
+                           devices: list[str]) -> None:
+    """Freeze E0-measured calibration exactly once (O03)."""
+    from bramastra_lab.research.campaigns import calibration as cal
+
+    if cal.load_frozen_protocol(run_dir) is not None:
+        return
+    worst_update: float | None = None
+    worst_eval_rate: float | None = None
+    for entry in pending:
+        samples = (results.get(entry["job_id"], {}) or {}).get(
+            "calibration_samples") or {}
+        update_seconds = samples.get("worst_update_seconds")
+        if isinstance(update_seconds, (int, float)):
+            worst_update = update_seconds if worst_update is None \
+                else max(worst_update, float(update_seconds))
+        rate = samples.get("eval_cases_per_second")
+        if isinstance(rate, (int, float)):
+            worst_eval_rate = rate if worst_eval_rate is None \
+                else min(worst_eval_rate, float(rate))
+    if worst_update is None or worst_eval_rate is None:
+        raise ValueError(
+            "E0 outputs carry no full-profile pilot samples; refusing to "
+            "freeze unmeasured targets")
+    selection = {"update_targets": {
+        phase: cal.select_update_target(
+            phase=phase, worst_update_seconds=worst_update)
+        for phase in ("E1", "E3", "E4")},
+        "confirmation_clusters_per_family":
+        cal.select_confirmation_inventory(
+            eval_cases_per_second=worst_eval_rate)}
+    protocol = cal.freeze_protocol(
+        run_dir, selection=selection,
+        identities={"source_hash": source_hash, "data_hash": data_hash,
+                    "device_ids": sorted(devices)})
+    ledger.append_event("protocol_frozen", {
+        "selection": selection,
+        "protocol": {key: protocol[key] for key in ("schema",)}})
 
 
 def _phase_plan(mode: str, deadline: float,
