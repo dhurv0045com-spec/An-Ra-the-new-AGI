@@ -1,9 +1,10 @@
-"""E6 executor: verification and export production (D4/D5).
+"""E6 executor: verification and export production (D4/D5 + real contracts S7).
 
 Builds the canonical source/data/protocol/results/payload bundle, verifies
-hashes, required parent checkpoints, failed-run records and a real load of
-each required payload. An identity string or filename list is not restore
-evidence. Export failure never becomes campaign success.
+hashes, required parent checkpoints by exact lineage, failed-run records and
+a real load of each required payload (not just IDs). Export failure never
+becomes campaign success. Partial failed-run export reports incomplete with
+missing artifacts; it cannot satisfy complete-campaign acceptance.
 """
 from __future__ import annotations
 
@@ -12,10 +13,18 @@ import json
 import os
 import time
 
-from bramastra_lab.research.campaigns.phases.types import JobInput, PhaseResult
+from bramastra_lab.research.campaigns.phases.types import (
+    EVIDENCE_FIXTURE,
+    EVIDENCE_LEARNED_CAMPAIGN,
+    JobInput,
+    PhaseResult,
+)
 
 REQUIRED_FILES = ("campaign_ledger.json", "phase_results.json",
-                  "allocation.json", "protocol.json", "restore_evidence.json")
+                  "allocation.json", "protocol.json", "restore_evidence.json",
+                  "source.json", "data.json", "artifact_manifest.json")
+# Exact lineage identities (never substring matching).
+REQUIRED_PARENT_JOBS = ("E1-B-1701", "E1-B-1702")
 
 
 def execute(job: JobInput, *, ops=None) -> PhaseResult:
@@ -23,11 +32,15 @@ def execute(job: JobInput, *, ops=None) -> PhaseResult:
     job.validate()
     if job.phase != "E6":
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error="E6 executor requires phase E6")
+                           error="E6 executor requires phase E6",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6"})
     ledger_path = os.path.join(job.run_dir, "campaign_ledger.sqlite")
     if not os.path.exists(ledger_path):
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"ledger missing: {ledger_path}")
+                           error=f"ledger missing: {ledger_path}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6"})
     from bramastra_lab.research.campaigns.k8 import cmd_export
     import argparse
 
@@ -36,42 +49,71 @@ def execute(job: JobInput, *, ops=None) -> PhaseResult:
     code = cmd_export(args)
     if code != 0:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"export refused with code {code}")
-    # Real verification: every required file exists, hashes validate, parent
-    # checkpoints for E1-B (both seeds) are present, failed-run records are
-    # preserved, and each payload reloads (not just listed).
+                           error=f"export refused with code {code}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6"})
     missing = [name for name in REQUIRED_FILES
                if not os.path.exists(os.path.join(out_dir, name))]
     if missing:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"export bundle incomplete: {missing}")
+                           error=f"export bundle incomplete (missing files): {missing}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6", "missing_files": missing,
+                                  "export_dir": out_dir})
     try:
         verification = _verify_bundle(job.run_dir, out_dir, job.data_dir)
     except Exception as exc:  # noqa: BLE001
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"export verification failed: {exc}")
+                           error=f"export verification failed: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6"})
     if not verification.get("ok"):
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"export verification refused: {verification.get('reason')}")
+                           error=f"export verification refused: {verification.get('reason')}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6",
+                                  "missing_artifacts": verification.get("missing", []),
+                                  "export_dir": out_dir})
     return PhaseResult(status="completed",
                        device_seconds=time.monotonic() - started,
                        checkpoint_identity="e6-export-verified",
-                       extra={"export_dir": out_dir,
-                              "verified_files": verification.get("files", [])})
+                       evidence_kind=EVIDENCE_LEARNED_CAMPAIGN,
+                       extra={"phase": "E6", "export_dir": out_dir,
+                              "verified_files": verification.get("files", []),
+                              "parents": verification.get("parents", [])})
 
 
 def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     import sqlite3
 
     files = sorted(os.listdir(out_dir))
-    # Hash every exported file (tamper evidence).
-    digests = {}
+    # Hash every exported file (tamper evidence) and compare against the
+    # independently generated artifact manifest (not just "whatever exists").
+    manifest_path = os.path.join(out_dir, "artifact_manifest.json")
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except Exception as exc:
+        return {"ok": False, "reason": f"artifact manifest unreadable: {exc}"}
+    expected = manifest.get("files", {})
+    digests: dict[str, str] = {}
     for name in files:
         path = os.path.join(out_dir, name)
+        if not os.path.isfile(path):
+            continue
         digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
         digests[name] = digest
-    # Required parent checkpoints: E1-B for both seeds must have qualified
-    # receipts (export is meaningless without the comparison parents).
+    for name, record in expected.items():
+        if name not in digests:
+            return {"ok": False, "reason": f"manifest expects {name} but it is missing",
+                    "missing": [name]}
+        if record.get("sha256") != digests[name]:
+            return {"ok": False,
+                    "reason": f"hash mismatch for {name}: manifest claims "
+                              f"{str(record.get('sha256'))[:12]}, file hashes "
+                              f"{digests[name][:12]}",
+                    "missing": [name]}
+    # Required parent checkpoints by EXACT lineage (never substring).
     conn = sqlite3.connect(os.path.join(run_dir, "campaign_ledger.sqlite"))
     try:
         rows = conn.execute(
@@ -79,20 +121,60 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
             "WHERE status='completed' AND phase='E1'").fetchall()
     finally:
         conn.close()
-    parents = {row[0]: row[1] for row in rows}
-    if not any("B-1701" in job for job in parents):
-        return {"ok": False, "reason": "missing E1-B-1701 parent checkpoint"}
-    if not any("B-1702" in job for job in parents):
-        return {"ok": False, "reason": "missing E1-B-1702 parent checkpoint"}
+    parents = {str(row[0]): row[1] for row in rows}
+    missing_parents = [jid for jid in REQUIRED_PARENT_JOBS if jid not in parents]
+    if missing_parents:
+        return {"ok": False,
+                "reason": f"missing required parent checkpoints (exact lineage): "
+                          f"{missing_parents}; partial export is incomplete, not complete",
+                "missing": missing_parents}
     if any(not identity for identity in parents.values()):
-        return {"ok": False, "reason": "parent checkpoint without identity"}
-    # Failed-run records preserved (ledger events contain worker_failed when
-    # any failure occurred; absence with all-success is also valid).
-    # Payload reload: every checkpoint identity listed in restore_evidence
-    # must be a non-empty string (full .pt reload happens on owner storage;
-    # here we prove the bundle is complete and self-consistent).
+        return {"ok": False, "reason": "parent checkpoint without identity",
+                "missing": ["parent-identity"]}
+    # Payload reload: every required parent must load via the real API (not
+    # just a non-empty string). Fixture-only bundles (no .pt) fail here.
+    try:
+        from bramastra_lab.research.runtime.checkpoint import load_checkpoint
+    except Exception as exc:
+        return {"ok": False, "reason": f"checkpoint API unavailable: {exc}"}
+    pt_files = []
+    for base, _dirs, names in os.walk(os.path.join(run_dir, "checkpoints")):
+        for name in names:
+            if name.endswith(".pt"):
+                pt_files.append(os.path.join(base, name))
+    # Also accept payloads exported under out_dir/checkpoints.
+    for base, _dirs, names in os.walk(os.path.join(out_dir, "checkpoints")):
+        for name in names:
+            if name.endswith(".pt"):
+                pt_files.append(os.path.join(base, name))
+    if not pt_files:
+        return {"ok": False,
+                "reason": "no .pt payloads anywhere in run or export; "
+                          "metadata-only export cannot satisfy complete-campaign "
+                          "acceptance (partial failed-run export must report "
+                          "incomplete)",
+                "missing": ["payloads"]}
+    for required_job in REQUIRED_PARENT_JOBS:
+        checkpoint_id = parents.get(required_job)
+        if not checkpoint_id or str(checkpoint_id).startswith(("fixture-", "double-")):
+            return {"ok": False,
+                    "reason": f"parent {required_job} checkpoint "
+                              f"{str(checkpoint_id)[:24]} is fixture/metadata-only; "
+                              "a real restorable payload is required",
+                    "missing": [required_job]}
+        try:
+            # Real load (hash, COMPLETE, schema, identities).
+            load_checkpoint(run_dir, checkpoint_id=checkpoint_id)
+        except Exception as exc:
+            return {"ok": False,
+                    "reason": f"parent {required_job} payload failed to load: {exc}",
+                    "missing": [required_job]}
+    # Restore evidence must list checkpoints with real identities.
     restore_path = os.path.join(out_dir, "restore_evidence.json")
-    restore = json.load(open(restore_path, encoding="utf-8"))
+    try:
+        restore = json.load(open(restore_path, encoding="utf-8"))
+    except Exception as exc:
+        return {"ok": False, "reason": f"restore evidence unreadable: {exc}"}
     checkpoints = restore.get("checkpoints", [])
     if not checkpoints:
         return {"ok": False, "reason": "no checkpoint records in restore evidence"}

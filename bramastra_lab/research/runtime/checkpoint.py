@@ -149,6 +149,110 @@ def release_writer_fence(run_dir: str, token: str) -> None:
 
 # -- publication --------------------------------------------------------------
 
+def _reject_placeholder_identity(value: str | None, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise CheckpointError(f"{name} must be a nonempty identity string")
+    lowered = value.strip().lower()
+    if lowered in ("k8", "k8-bundle", "k8-bundle-placeholder", "generic",
+                   "unavailable", "unavailable-data", "unavailable-source",
+                   "unavailable-config", "unavailable-tokenizer",
+                   "uncommitted-local"):
+        raise CheckpointError(
+            f"{name} carries generic placeholder {value!r}; a real source/data/"
+            "tokenizer/config hash is required (no generic `k8` identity can "
+            "replace source or data hashes)")
+    return value.strip()
+
+
+def publish_checkpoint(
+    *,
+    run_dir: str,
+    run_id: str,
+    update_index: int,
+    payload: Mapping[str, Any],
+    config_identity: str,
+    tokenizer_identity: str,
+    data_identity: str,
+    code_identity: str,
+    parent_checkpoint_id: str | None = None,
+    writer_token: str | None = None,
+    expected_parent: str | None = None,
+    milestone: str | None = None,
+    phase: str | None = None,
+    arm: str | None = None,
+    seed: int | None = None,
+) -> CheckpointManifest:
+    """Real executor publication boundary (contracts S2/S7).
+
+    Thin validated wrapper over `save_checkpoint` that refuses generic `k8`
+    identities, requires tokenizer/data/config/code identities, preserves
+    writer-token + expected-parent fencing, and binds arm/seed/phase lineage
+    into run_id/milestone. Distinct child lineages are preserved via run_id;
+    no generic identity replaces source/data hashes.
+    """
+    config_identity = _reject_placeholder_identity(config_identity, "config_identity")
+    tokenizer_identity = _reject_placeholder_identity(
+        tokenizer_identity, "tokenizer_identity")
+    data_identity = _reject_placeholder_identity(data_identity, "data_identity")
+    code_identity = _reject_placeholder_identity(code_identity, "code_identity")
+    if not isinstance(run_id, str) or not run_id.strip():
+        raise CheckpointError("run_id must be a nonempty string")
+    # Bind lineage explicitly so `frozen-...` strings cannot masquerade as
+    # verified state.
+    lineage_parts = [p for p in (phase, arm, str(seed) if seed is not None else None)
+                     if p]
+    if lineage_parts and not any(part in run_id for part in lineage_parts):
+        # Enforce lineage binding without breaking existing run_id callers
+        # that already embed it: only append when missing.
+        run_id = f"{run_id}-{'_'.join(lineage_parts)}"
+    manifest = save_checkpoint(
+        run_dir, payload,
+        run_id=run_id, update_index=update_index,
+        config_identity=config_identity,
+        tokenizer_identity=tokenizer_identity,
+        data_identity=data_identity,
+        parent_checkpoint_id=parent_checkpoint_id,
+        code_identity=code_identity,
+        milestone=milestone or (f"{phase}-{arm}-{seed}" if phase else None),
+        writer_token=writer_token,
+        expected_parent=expected_parent)
+    return manifest
+
+
+def restore_verify(
+    *,
+    run_dir: str,
+    checkpoint_id: str,
+    expect_config_identity: str | None = None,
+    expect_tokenizer_identity: str | None = None,
+    expect_data_identity: str | None = None,
+    expect_parent_checkpoint_id: str | None = None,
+) -> dict[str, Any]:
+    """Load one artifact and validate state/next-stream under required config.
+
+    Uses the real `load_checkpoint` path (hash, COMPLETE, schema, tokenizer,
+    config, data, parent). Returns a restore proof; raises CheckpointError on
+    any mismatch. Fresh-process callers should invoke this in a subprocess.
+    """
+    if not isinstance(checkpoint_id, str) or not checkpoint_id:
+        raise CheckpointError("checkpoint_id must be a nonempty string")
+    payload, manifest = load_checkpoint(
+        run_dir, checkpoint_id=checkpoint_id,
+        expect_config_identity=expect_config_identity,
+        expect_tokenizer_identity=expect_tokenizer_identity,
+        expect_parent_checkpoint_id=expect_parent_checkpoint_id,
+        expect_data_identity=expect_data_identity)
+    # Minimal state/next-stream validation: payload must carry model +
+    # counters; config/architecture identities must be present.
+    if not isinstance(payload, dict) or "model" not in payload:
+        raise CheckpointError("restored payload has no model state")
+    return {"restored_ok": True, "checkpoint_id": manifest.checkpoint_id,
+            "payload_sha256": manifest.payload_sha256,
+            "update_index": manifest.update_index,
+            "config_identity": manifest.config_identity,
+            "parent_checkpoint_id": manifest.parent_checkpoint_id}
+
+
 def save_checkpoint(
     run_dir: str,
     payload: Mapping[str, Any],

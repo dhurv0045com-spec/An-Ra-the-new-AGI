@@ -111,12 +111,47 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                 "committed_updates": 0, "attempted_updates": 0,
                 "supervised_exposure": 0, "device_seconds": elapsed,
                 "checkpoint_identity": None}
+    # Frozen protocol targets (never silent function defaults). E0 calibration
+    # would refine these; minimum informative targets are the fail-closed
+    # floor (E1=200, E3/E4=80 per campaign.json). E5 uses 12 tasks/worker for
+    # archive blocks, E2 uses minimum 32 confirmation clusters.
+    from bramastra_lab.research.campaigns.phases.types import ParentRef
+
+    job_id = f"{phase}-{arm}-{seed}" if arm and seed is not None else \
+        (f"{phase}-{seed}" if seed is not None else phase)
+    update_target = None
+    if phase == "E1":
+        update_target = 200
+    elif phase in ("E3", "E4"):
+        update_target = 80
+    parent_ref = ParentRef(lookup_key=parent) if parent else None
+    try:
+        from bramastra_lab.research.campaigns.phases.ops import k8_identities
+
+        identities = k8_identities(data_dir=data_dir)
+    except Exception:
+        identities = {}
     job = JobInput(phase=phase, slot=slot, arm=arm, seed=seed, parent=parent,
                    physical_device=physical_device, local_device=device,
                    data_dir=data_dir, run_dir=run_dir, precision=precision,
-                   deadline=deadline)
+                   deadline=deadline, job_id=job_id,
+                   update_target=update_target,
+                   source_hash=identities.get("source_hash"),
+                   data_hash=identities.get("data_identity"),
+                   tokenizer_identity=identities.get("tokenizer_identity"),
+                   config_identity=identities.get("config_identity"),
+                   parent_ref=parent_ref)
     try:
-        result = executor(job)
+        if phase == "E1":
+            result = executor(job, update_target=update_target)
+        elif phase in ("E3", "E4"):
+            result = executor(job, update_target=update_target)
+        elif phase == "E2":
+            result = executor(job, eval_cases=32)
+        elif phase == "E5":
+            result = executor(job, tasks_per_block=12)
+        else:
+            result = executor(job)
     except Exception as exc:  # noqa: BLE001 - executor failure is a result
         return {"phase": phase, "device": device, "arm": arm, "seed": seed,
                 "status": "failed", "error": f"{type(exc).__name__}: {exc}",

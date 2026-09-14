@@ -59,17 +59,22 @@ def _preflight(data_dir: str, mode: str) -> str | None:
 
 
 def _phase_success_for_output(phase: str, output: dict[str, Any]) -> bool:
-    """Per-phase success predicate (D4).
+    """Per-phase success predicate (D4 + contracts S1).
 
     E0: completed + resume agreement + positive committed updates.
-    E1/E3/E4: completed + positive committed updates.
+    E1/E3/E4: completed + positive committed updates + non-fixture evidence.
     E2 (frozen eval): completed + evaluated_cases>0 + checkpoint bound;
-      optimizer updates MUST be zero (no optimizer path in frozen eval).
-    E5: completed + trials>0 + archive bound (attempted>0).
-    E6: completed (export verification inside the executor).
+      optimizer updates MUST be zero (no optimizer path in frozen eval) +
+      non-fixture evidence.
+    E5: completed + trials>0 + archive bound + non-fixture evidence.
+    E6: completed + non-fixture evidence (export verification inside executor).
+    Fixture receipts never enter accepted campaign aggregates (contracts S1).
     """
     status = output.get("status")
     if status != "completed":
+        return False
+    # Fixture receipts (doubles, metadata-only) never qualify for the campaign.
+    if output.get("evidence_kind") == "fixture":
         return False
     if phase == "E0":
         return bool(output.get("resume_agrees") is True) and int(

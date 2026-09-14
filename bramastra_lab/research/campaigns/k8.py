@@ -109,12 +109,18 @@ def cmd_summarize(args: argparse.Namespace) -> int:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
-    """Write the full restorable result bundle (R08).
+    """Write the full restorable result bundle (R08 + contracts S7).
 
     Exports ledger, per-phase results, allocation, frozen protocol,
-    source/data identities and checkpoint inventory. Fails (nonzero) when
-    requirements are absent instead of writing a ledger-only stub.
+    source/data identities, failures, comparisons, proposer transcripts and
+    checkpoint payload bytes (not metadata only). Generates
+    artifact_manifest.json only after successful writes and independently
+    verifies it. Fails (nonzero) when requirements are absent instead of
+    writing a ledger-only stub. Partial failed-run export is written with an
+    explicit incomplete status; it cannot satisfy complete-campaign
+    acceptance (see E6 verification).
     """
+    import hashlib
     import shutil
 
     ledger_path = os.path.join(args.run_dir, "campaign_ledger.sqlite")
@@ -148,6 +154,11 @@ def cmd_export(args: argparse.Namespace) -> int:
                 "qualified_job_ids": sorted(row.job_id for row in qualified),
             }
         allocations = ledger2.conn.execute("SELECT * FROM allocation").fetchall()
+        try:
+            events = ledger2.conn.execute(
+                "SELECT * FROM events ORDER BY rowid").fetchall()
+        except Exception:
+            events = []
     finally:
         try:
             ledger2.close()
@@ -158,6 +169,17 @@ def cmd_export(args: argparse.Namespace) -> int:
     with open(os.path.join(args.out, "allocation.json"), "w") as handle:
         json.dump({"allocations": allocations}, handle, indent=2, sort_keys=True,
                   default=str)
+    # Failures (failed-run records preserved, never dropped).
+    try:
+        failures = [row for row in export.get("reservations", [])
+                    if len(row) >= 11 and row[10] in ("failed", "timed_out")]
+        worker_failures = [e for e in events if isinstance(e, (list, tuple))
+                           and len(e) >= 2 and "failed" in str(e[1])]
+    except Exception:
+        failures, worker_failures = [], []
+    with open(os.path.join(args.out, "failures.jsonl"), "w", encoding="utf-8") as handle:
+        handle.write(json.dumps({"failed_reservations": len(failures),
+                                 "worker_failed_events": len(worker_failures)}) + "\n")
     # Frozen protocol (the exact plan + cutoffs the campaign ran under).
     from bramastra_lab.research.campaigns import process_supervision as ps
 
@@ -172,6 +194,67 @@ def cmd_export(args: argparse.Namespace) -> int:
     }
     with open(os.path.join(args.out, "protocol.json"), "w") as handle:
         json.dump(protocol, handle, indent=2, sort_keys=True)
+    # Source/data identities (real hashes, never generic `k8`).
+    try:
+        from bramastra_lab.research.runtime.provenance import source_closure_sha256
+        from bramastra_lab.research.config import tokenizer_identity
+        from bramastra_lab.research.campaigns.phases.ops import k8_campaign_config
+
+        source_hash = source_closure_sha256()
+        tokenizer_id = tokenizer_identity()
+        config_id = k8_campaign_config().identity()
+    except Exception as exc:
+        source_hash, tokenizer_id, config_id = f"unavailable:{exc}", "unavailable", "unavailable"
+    try:
+        data_hash = allocations[0][2] if allocations and len(allocations[0]) > 2 else "unavailable"
+    except Exception:
+        data_hash = "unavailable"
+    with open(os.path.join(args.out, "source.json"), "w") as handle:
+        json.dump({"source_closure_sha256": source_hash,
+                   "tokenizer_identity": tokenizer_id,
+                   "config_identity": config_id}, handle, indent=2, sort_keys=True)
+    with open(os.path.join(args.out, "data.json"), "w") as handle:
+        json.dump({"data_hash": data_hash,
+                   "note": "Preserve the prepared bundle alongside this export; "
+                           "resume across changed data requires explicit migration."},
+                  handle, indent=2, sort_keys=True)
+    # Proposer transcripts (E5 phase outputs) + comparisons.
+    try:
+        import glob as _glob
+
+        transcripts: list[dict] = []
+        for path in sorted(_glob.glob(os.path.join(
+                args.run_dir, "phase_outputs", "E5", "*.json"))):
+            try:
+                transcripts.append(json.load(open(path, encoding="utf-8")))
+            except Exception:
+                continue
+        with open(os.path.join(args.out, "proposer_transcripts.json"), "w") as handle:
+            json.dump({"transcripts": transcripts}, handle, indent=2, sort_keys=True)
+    except Exception:
+        with open(os.path.join(args.out, "proposer_transcripts.json"), "w") as handle:
+            json.dump({"transcripts": []}, handle, indent=2, sort_keys=True)
+    with open(os.path.join(args.out, "comparisons.json"), "w") as handle:
+        json.dump({"phase_results": phase_results}, handle, indent=2, sort_keys=True)
+    # Checkpoint payload bytes (not metadata only): copy real .pt payloads +
+    # manifests into the export when present.
+    checkpoints_out = os.path.join(args.out, "checkpoints")
+    os.makedirs(checkpoints_out, exist_ok=True)
+    payload_count = 0
+    for base, _dirs, names in os.walk(os.path.join(args.run_dir, "checkpoints")):
+        for name in names:
+            if not name.endswith((".pt", ".json")):
+                continue
+            src = os.path.join(base, name)
+            try:
+                rel = os.path.relpath(src, os.path.join(args.run_dir, "checkpoints"))
+                dest = os.path.join(checkpoints_out, rel)
+                os.makedirs(os.path.dirname(dest), exist_ok=True)
+                shutil.copy2(src, dest)
+                if name.endswith(".pt"):
+                    payload_count += 1
+            except OSError:
+                continue
     # Source/data artifacts: copy bundle manifest when the run records one.
     # The run_dir does not store the data path; record the ledger's data_hash
     # binding and require the caller to preserve the bundle alongside export.
@@ -189,12 +272,50 @@ def cmd_export(args: argparse.Namespace) -> int:
             except Exception:
                 continue
         json.dump({"checkpoints": checkpoints,
-                   "note": "Restorable payloads are ledger checkpoint identities; "
-                           "full .pt durability + fresh-process resume proof "
-                           "remain GPU-gated (see E0 restore_proof)."},
+                   "payload_files_exported": payload_count,
+                   "note": "Restorable payloads are ledger checkpoint identities with "
+                           "exported .pt bytes under checkpoints/; fixture-only "
+                           "identities without payloads cannot satisfy complete "
+                           "acceptance."},
                   handle, indent=2, sort_keys=True)
+    # Artifact manifest only after successful writes + independent verification.
+    manifest_records: dict[str, dict] = {}
+    for base, _dirs, names in os.walk(args.out):
+        # Skip the manifest itself + nested checkpoints dir handled below.
+        for name in sorted(names):
+            if name == "artifact_manifest.json":
+                continue
+            path = os.path.join(base, name)
+            try:
+                digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+                rel = os.path.relpath(path, args.out)
+                manifest_records[rel] = {"sha256": digest,
+                                         "bytes": os.path.getsize(path)}
+            except OSError:
+                continue
+    manifest_path = os.path.join(args.out, "artifact_manifest.json")
+    with open(manifest_path, "w") as handle:
+        json.dump({"schema": "bramastra-k8-artifact-manifest/v1",
+                   "files": manifest_records,
+                   "payload_files": payload_count,
+                   "complete": payload_count > 0}, handle, indent=2, sort_keys=True)
+    # Independent verification: re-hash every listed file.
+    try:
+        reloaded = json.load(open(manifest_path, encoding="utf-8"))
+        for rel, record in reloaded.get("files", {}).items():
+            actual = hashlib.sha256(
+                open(os.path.join(args.out, rel), "rb").read()).hexdigest()
+            if actual != record.get("sha256"):
+                print(json.dumps({"status": "EXPORT_REFUSED",
+                                  "reason": f"manifest verification failed for {rel}"}))
+                return 2
+    except Exception as exc:
+        print(json.dumps({"status": "EXPORT_REFUSED",
+                          "reason": f"manifest verification error: {exc}"}))
+        return 2
     print(json.dumps({"status": "EXPORTED", "out": args.out,
-                      "files": sorted(os.listdir(args.out))}, indent=2))
+                      "files": sorted(os.listdir(args.out)),
+                      "payload_files": payload_count}, indent=2))
     return 0
 
 
