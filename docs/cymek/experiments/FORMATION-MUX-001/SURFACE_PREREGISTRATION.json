@@ -1,0 +1,23 @@
+{
+  "schema": "anra.formation-mux-surface-preregistration/v2",
+  "campaign": "FORMATION-MUX-001",
+  "amendment": "AMENDMENT_1_PREEXECUTION",
+  "status": "PROSPECTIVE_NO_OFFICIAL_OUTCOMES",
+  "generator": "v5_experiments.formation_mux_data deterministic latent grammar",
+  "counts_are_per_family": true,
+  "families": ["identity", "binding", "state_order", "composition", "termination", "missing_info"],
+  "per_family": {
+    "training": 600,
+    "development": 80,
+    "sealed": 120
+  },
+  "whole_split_totals": {
+    "training": 3600,
+    "development": 480,
+    "sealed": 720
+  },
+  "latent_id_constraint": "all scientific latent prompt/answer ids < 4096",
+  "production_rendering_requirement": "all rows carry frozen V24576 production-BPE r0 prompt/answer ids before official execution",
+  "shortcut_and_contamination_policy": "fail closed before science; split/content identities hash-bound",
+  "note": "S1 accidentally treated 600/80/120 as whole-split totals. This prospective preregistration restores the CS-TRANSFER Amendment-2 per-family interpretation before any official FORMATION-MUX outcome."
+}
