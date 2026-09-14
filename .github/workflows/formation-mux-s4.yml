@@ -1,0 +1,51 @@
+name: FORMATION-MUX S4 CPU qualification
+
+on:
+  push:
+    branches: [cymek-next-core-architecture]
+    paths:
+      - 'anra_v5/formation_mux_*'
+      - 'v5_experiments/formation_mux_*'
+      - 'tools/formation_mux_001_*'
+      - 'tests/test_formation_mux_*'
+      - 'docs/cymek/experiments/FORMATION-MUX-001/**'
+      - 'docs/cymek/experiments/CS-MECH-002/**'
+      - 'docs/cymek/experiments/REP-FORM-003A/**'
+      - '.github/workflows/formation-mux-s4.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install targeted dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest numpy tokenizers
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Compile S4 execution surface
+        run: |
+          python -m py_compile \
+            anra_v5/formation_mux_model_v3.py \
+            anra_v5/formation_mux_train_v4.py \
+            v5_experiments/formation_mux_protocol_v4.py \
+            v5_experiments/formation_mux_surface_v4.py \
+            tools/formation_mux_001_worker_v4.py \
+            tools/formation_mux_001_kaggle_operator_v7.py
+      - name: Run FORMATION-MUX qualification tests
+        run: |
+          python -m pytest -q \
+            tests/test_formation_mux_001_v2.py \
+            tests/test_formation_mux_001_v3.py \
+            tests/test_formation_mux_001_v4.py \
+            tests/test_formation_mux_surface_v2.py
