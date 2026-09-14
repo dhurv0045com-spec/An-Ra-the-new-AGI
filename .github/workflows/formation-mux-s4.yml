@@ -52,7 +52,8 @@ jobs:
             tools/formation_mux_001_tie_role_gradient_diag_v1.py \
             tools/formation_mux_001_kaggle_operator_v8.py \
             tools/formation_mux_001_kaggle_operator_v9.py \
-            tools/formation_mux_001_kaggle_operator_v10.py
+            tools/formation_mux_001_kaggle_operator_v10.py \
+            tools/formation_mux_001_kaggle_operator_v11.py
       - name: Run FORMATION-MUX qualification tests
         run: |
           python -m pytest -q \
@@ -67,6 +68,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          from tools import formation_mux_001_kaggle_operator_v11 as op11
           from tools import formation_mux_001_kaggle_operator_v10 as op
           from v5_data.corpus_loading import _load_tokenizer
           from v5_experiments.formation_mux_surface_v5 import build_public_surface, regenerate_sealed_rows
@@ -82,6 +84,7 @@ jobs:
           assert freceipt['extension'] == 'TIE-ROLE-FRONTIER-001'
           assert freceipt['prospective'] is True
           assert frontier.total_official_arms() == 24
+          assert callable(op11._rebind_s5_training)
           tok, _ = _load_tokenizer(repo)
           public = build_public_surface(seed=73011, tokenizer=tok)
           assert set(public['splits']) == {'training', 'development'}
@@ -103,10 +106,10 @@ jobs:
           p = Path('notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb')
           nb = json.loads(p.read_text(encoding='utf-8'))
           assert nb['nbformat'] == 4
-          assert nb['metadata']['schema'] == 'anra.formation-mux-notebook/v9'
+          assert nb['metadata']['schema'] == 'anra.formation-mux-notebook/v10'
           assert nb['metadata']['science_commit'] == 'c15ad8beb409537db42d075684ea54847a074ebd'
-          assert nb['metadata']['operator_commit'] == 'b059bb4171d8ccc873a0fea915178898527a2d8d'
-          assert nb['metadata']['operator_blob'] == '80e932766dd8689fc65dbb819e9fc0342e763608'
+          assert nb['metadata']['operator_commit'] == '42c9d7ec6da43bc67f521d0ba200683962f1cea1'
+          assert nb['metadata']['operator_blob'] == '0b4ced9fa2f5a628abf9b348455b6e8f18b18425'
           assert nb['metadata']['xfactor'] == 'VOCAB-PRESSURE-001'
           assert nb['metadata']['frontier_extension'] == 'TIE-ROLE-FRONTIER-001'
           for index, cell in enumerate(nb['cells']):
