@@ -55,8 +55,28 @@ class ParentRef:
         import sqlite3
 
         wanted = self.checkpoint_id or self.lookup_key or ""
-        # Direct checkpoint-ID load when it looks like a content hash.
+        # Direct checkpoint-ID load: still requires a completed ledger receipt
+        # referencing that exact checkpoint (never an arbitrary payload).
         if self.checkpoint_id and len(self.checkpoint_id) == 64:
+            import sqlite3 as _sqlite
+
+            _ledger = os.path.join(run_dir, "campaign_ledger.sqlite")
+            if not os.path.exists(_ledger):
+                raise ValueError(
+                    f"parent checkpoint {self.checkpoint_id[:12]}... has no ledger; "
+                    "missing evidence must fail")
+            _conn = _sqlite.connect(_ledger)
+            try:
+                _hits = _conn.execute(
+                    "SELECT job_id FROM reservations WHERE status='completed' "
+                    "AND checkpoint_identity=? ORDER BY rowid",
+                    (self.checkpoint_id,)).fetchall()
+            finally:
+                _conn.close()
+            if not _hits:
+                raise ValueError(
+                    f"parent checkpoint {self.checkpoint_id[:12]}... has no "
+                    "completed ledger receipt; refusing arbitrary payload")
             try:
                 _payload, manifest = load_checkpoint(
                     run_dir, checkpoint_id=self.checkpoint_id,
@@ -85,7 +105,7 @@ class ParentRef:
         try:
             rows = conn.execute(
                 "SELECT job_id, checkpoint_identity FROM reservations "
-                "WHERE status='completed'").fetchall()
+                "WHERE status='completed' ORDER BY rowid").fetchall()
         finally:
             conn.close()
         candidates = [(jid, cid) for jid, cid in rows
@@ -206,6 +226,14 @@ class PhaseResult:
             raise ValueError(f"unknown status {self.status!r}")
         if self.evidence_kind not in EVIDENCE_KINDS:
             raise ValueError(f"unknown evidence_kind {self.evidence_kind!r}")
+        reserved = {"status", "committed_updates", "attempted_updates",
+                    "supervised_exposure", "device_seconds",
+                    "checkpoint_identity", "evidence_kind", "error"}
+        collisions = reserved & set(self.extra)
+        if collisions:
+            raise ValueError(
+                f"extra carries reserved receipt keys {sorted(collisions)}; "
+                "refusing spoofable receipt")
         for name in ("committed_updates", "attempted_updates",
                      "supervised_exposure"):
             value = getattr(self, name)
@@ -230,28 +258,32 @@ class PhaseResult:
                     "committed updates; refusing")
 
     def phase_kind_is_training(self) -> bool:
-        # Explicit phase only (no marker heuristics that can be spoofed by
-        # adding export_dir/evaluated_cases to extra).
-        marker = str(self.extra.get("phase", ""))
-        return marker not in ("E2", "E6")
+        # Explicit known training phases only. Unknown/missing phase is NOT
+        # assumed training (fail-closed the other way: callers must set phase
+        # for learned receipts; see validate).
+        return str(self.extra.get("phase", "")) in (
+            "E0", "E1", "E3", "E4", "E5")
 
     def qualifies_for_campaign(self) -> bool:
-        """Fixture receipts never qualify for accepted aggregates."""
+        """Fixture receipts never qualify; training phases need real work."""
         if self.status != "completed":
             return False
         if self.evidence_kind == EVIDENCE_FIXTURE:
             return False
+        if self.phase_kind_is_training() and self.committed_updates <= 0:
+            return False
         return True
 
     def to_dict(self) -> dict[str, Any]:
-        out = {"status": self.status,
-               "committed_updates": self.committed_updates,
-               "attempted_updates": self.attempted_updates,
-               "supervised_exposure": self.supervised_exposure,
-               "device_seconds": self.device_seconds,
-               "checkpoint_identity": self.checkpoint_identity,
-               "evidence_kind": self.evidence_kind}
-        out.update(self.extra)
+        # Extra first so reserved receipt keys cannot be spoofed by extras.
+        out: dict[str, Any] = dict(self.extra)
+        out.update({"status": self.status,
+                    "committed_updates": self.committed_updates,
+                    "attempted_updates": self.attempted_updates,
+                    "supervised_exposure": self.supervised_exposure,
+                    "device_seconds": self.device_seconds,
+                    "checkpoint_identity": self.checkpoint_identity,
+                    "evidence_kind": self.evidence_kind})
         if self.error:
             out["error"] = self.error
         return out

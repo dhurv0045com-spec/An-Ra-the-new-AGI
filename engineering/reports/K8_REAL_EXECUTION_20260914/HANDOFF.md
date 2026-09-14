@@ -38,10 +38,10 @@ Results on this worktree:
   `publish_checkpoint` absent):
   now E5 `failed`/0 updates/0 calls, E6 `failed`/0 payloads,
   `publish_checkpoint` present. Fixture paths no longer report success.
-- `31 passed` (K8 slice + readiness + launch gate + 9 new real-execution
+- `35 passed` (K8 slice + readiness + launch gate + 13 real-execution
   regressions, single invocation).
 - `53 passed, 5 skipped` (checkpoint + learning + contracts); combined
-  `84 passed, 5 skipped` across all seven files.
+  `88 passed, 5 skipped` across all seven files.
 - `verify_local.py`: `14/14 passed, 0 optimizer steps, 0 GPU` (see below).
 - `validate_design.py`: no errors, 0 optimizer updates.
 - `git diff --check`: clean.
@@ -70,13 +70,44 @@ device/lease supervision, E0 canonical update + resume proof.
 Removed (production fixtures/fabrications): silent `4/3` defaults, bare
 `development`/256 profile, `require_allocation=False`, answer-only-A aux
 construction, pair-without-loss, invented candidates/regression/transitions,
-`type(ops)` branches, fixed `[259,…]` prompts, substring stream matching,
+`type(ops)`/`hasattr` branches, fixed `[259,…]` prompts, substring stream matching,
 synthetic fallback rows, random-init-instead-of-restore, invented
 action/call/node counts, `frozen-…` strings, same-weight T0/T1 + `50/50`
 receipts, stored-answer-as-execution, discarded tiny-model migration,
 `_FakeTrainer` + `run_fixture_generation(confirmed=True)` + `P_fixed=M2` +
 task-count updates + constant isolation flag, JSON-only E6 + substring parent
 checks + metadata-only `cmd_export`.
+
+## Debug hardening in this pass (audit-driven, all covered by tests)
+
+- Receipts: `to_dict` puts `extra` first (reserved keys win) + `validate`
+  refuses colliding extras; direct-ID parents require a completed ledger
+  receipt; ledger queries `ORDER BY rowid`; learned validation requires
+  explicit `phase`; `qualifies_for_campaign` enforces work for training.
+- Checkpoints: namespaced `update-…-<phase>-<arm>-<seed>` dirs (no cross-arm
+  collision, legacy names unchanged); namespaced lineages never inherit global
+  `LATEST`; exact segment lineage (no `1701 in 21701`).
+- Ops: `apply_update` carries `pair_rows` in the protocol; deprecated
+  `save_checkpoint` fails loudly on bad paths/seed/counters/identities;
+  `restore_parent` no longer swallows config errors; eval counters derive from
+  `new_tokens` (never case arithmetic); fixture publishes get per-handle seq.
+- Compiler: exact dict-subset teacher only (no substring fallback), no fixed
+  `[259]` fallback, all queries as candidates (no `[:8]` truncation); program
+  uses its single real history action.
+- Executors: no `hasattr`/`type` branches; E1/E3/E4 publish directly; E2 exact
+  arm segment + explicit `eval_cases` + strict counter keys; E3 exact 75/25
+  with insufficient-rows refusal + exact-split leak check + retention `>0`;
+  E4 real gate-vs-optimizer inventory; E5 explicit anchor + `lookup_key`
+  lineage + meta-confirmation only + fixture-only doubles with production
+  refusal; E6 `bundle_identity` content hash + `validate()` + recursive
+  manifest walk.
+- Runner/worker/spawn: E5 parents wired (`E1-B-1701/1702`); specs carry
+  `job_id/slot/parent/targets`; worker refuses missing training targets;
+  thread test path carries the full spec; worker failures carry
+  `evidence_kind: fixture`.
+- Tests: `test_research_k8_real.py` 13 checks (exact match, namespaces,
+  propagation incl. full-spec thread path, evidence/marker-spoof refusal,
+  anchor, E2 explicit, E3 exact multiple); `verify_local.py` 14/14.
 
 ## Pending chief/owner actions (no additional local work authorized)
 

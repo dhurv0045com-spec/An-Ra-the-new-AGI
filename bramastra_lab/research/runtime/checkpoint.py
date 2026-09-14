@@ -314,7 +314,10 @@ def save_checkpoint(
                 f"publication refused: expected parent {str(expected_parent)[:12]}... "
                 f"but LATEST currently holds {str(current_parent)[:12]}...; a stale "
                 "writer cannot infer a new parent from whatever LATEST says")
-    if previous_latest is not None and parent_checkpoint_id is None:
+    # Namespaced (per-arm) lineages must never inherit the global LATEST as
+    # their parent: concurrent arms would cross-contaminate lineages
+    # (last-writer-wins). Only the legacy global store infers LATEST.
+    if dir_suffix is None and previous_latest is not None and parent_checkpoint_id is None:
         parent_checkpoint_id = previous_latest["checkpoint_id"]
 
     staging = os.path.join(checkpoints, f".staging-{uuid.uuid4().hex}")

@@ -252,17 +252,14 @@ class ProductionOps:
             AllocationContext, K8Trainer)
         import time
 
-        # Config identity compatibility: refuse cross-config resume.
-        try:
-            config = k8_campaign_config()
-            if loaded.config_identity != config.identity():
-                raise ValueError(
-                    "parent config identity does not match frozen K8 campaign "
-                    "config; refusing cross-config resume")
-        except ValueError:
-            raise
-        except Exception:
-            config = k8_campaign_config()
+        # Config identity compatibility: refuse cross-config resume. Only
+        # ValueError (the contract refusal) propagates; unexpected errors
+        # building the frozen config must fail loudly, never fall back.
+        config = k8_campaign_config()
+        if loaded.config_identity != config.identity():
+            raise ValueError(
+                "parent config identity does not match frozen K8 campaign "
+                "config; refusing cross-config resume")
         model = IntegratedModel(config).to(device)
         trainer = K8Trainer(
             config, model, device=device,
@@ -445,10 +442,15 @@ class ProductionOps:
                 success = bool(verifier(episode.get("mechanism", {}), observation))
             except Exception:
                 success = False
+        # Counters derive from the actual generation event (durable): one
+        # episode submits once (actions=1, nodes=1); model calls and cost
+        # scale with generated tokens (never case-number arithmetic).
+        new_tokens = int(report.get("new_tokens", 1) or 1)
         return {"answer": report.get("answer", ""),
                 "stopped_on_eos": bool(report.get("stopped_on_eos", False)),
                 "success": success,
-                "model_calls": 1, "actions": 1, "nodes": 1, "cost": 1.0}
+                "model_calls": max(1, new_tokens), "actions": 1, "nodes": 1,
+                "cost": float(max(1, new_tokens))}
 
     def publish_checkpoint(self, *, handle: Any, run_dir: str, phase: str,
                            arm: str | None, seed: int | None,
@@ -623,25 +625,45 @@ class ProductionOps:
                 f"save_checkpoint path {path!r} carries no checkpoints segment; "
                 "use publish_checkpoint with explicit run_dir/phase/arm/seed")
         idx = parts.index("checkpoints")
-        run_dir = os.sep.join(parts[:idx]) or os.path.dirname(
-            os.path.dirname(path))
+        run_dir = os.sep.join(parts[:idx])
+        if not run_dir:
+            raise ValueError(
+                f"save_checkpoint path {path!r} carries no run_dir before "
+                "checkpoints; use publish_checkpoint directly")
         # Path forms: run/checkpoints/<phase>/<file> or
         # run/checkpoints/<phase>/<arm-seed>/<file>.
-        phase = parts[idx + 1] if len(parts) > idx + 1 else "E1"
-        arm_seed = parts[idx + 2] if len(parts) > idx + 3 else "compat-0"
-        if "-" in arm_seed:
-            arm, _, seed_text = arm_seed.partition("-")
-            try:
-                seed: int | None = int(seed_text.split("-")[0].split(".")[0])
-            except ValueError:
-                seed = handle.get("seed", 0)
-        else:
-            arm, seed = "compat", handle.get("seed", 0)
         try:
-            update_index = int(handle["trainer"].counters.optimizer_updates)
-        except Exception:
-            update_index = 0
+            phase = parts[idx + 1]
+        except IndexError:
+            raise ValueError(
+                f"save_checkpoint path {path!r} carries no phase segment")
+        arm_seed = parts[idx + 2] if len(parts) > idx + 3 else None
+        if arm_seed is None:
+            raise ValueError(
+                f"save_checkpoint path {path!r} carries no arm-seed segment; "
+                "use publish_checkpoint directly")
+        if "-" not in arm_seed:
+            raise ValueError(
+                f"save_checkpoint arm-seed {arm_seed!r} is not <arm>-<seed>")
+        arm, _, seed_text = arm_seed.partition("-")
+        try:
+            seed: int | None = int(seed_text.split("-")[0].split(".")[0])
+        except ValueError:
+            raise ValueError(
+                f"save_checkpoint arm-seed {arm_seed!r} carries no integer seed")
+        try:
+            trainer = handle["trainer"]
+        except (KeyError, TypeError) as exc:
+            raise ValueError(f"handle carries no trainer: {exc}") from exc
+        try:
+            update_index = int(trainer.counters.optimizer_updates)
+        except Exception as exc:
+            raise ValueError(f"trainer counters unreadable: {exc}") from exc
         data_dir = handle.get("data_dir")
+        if not data_dir:
+            raise ValueError(
+                "handle carries no data_dir; publish_checkpoint requires real "
+                "data identity (use publish_checkpoint directly)")
         return self.publish_checkpoint(
             handle=handle, run_dir=run_dir, phase=phase, arm=arm,
             seed=seed, update_index=update_index,
@@ -808,7 +830,8 @@ class RecordingDoubleOps:
 
     def evaluate_episode(self, *, handle, episode, task_env=None):
         # Deterministic double: requires a real episode with mechanism +
-        # verifier; derives counters from actual operations (one call).
+        # verifier; counters derive from the recorded double call (one
+        # deterministic generation event, never case-number arithmetic).
         if not isinstance(episode, dict) or not episode.get("mechanism"):
             raise ValueError("evaluate_episode requires a real episode")
         if not callable(episode.get("verifier")):
@@ -824,7 +847,8 @@ class RecordingDoubleOps:
         except Exception:
             success = False
         return {"answer": "double", "stopped_on_eos": True, "success": success,
-                "model_calls": 1, "actions": 1, "nodes": 1, "cost": 1.0}
+                "model_calls": 1, "actions": 1, "nodes": 1, "cost": 1.0,
+                "new_tokens": 1}
 
     def publish_checkpoint(self, *, handle, run_dir, phase, arm, seed,
                            update_index, parent_checkpoint_id,
@@ -835,17 +859,20 @@ class RecordingDoubleOps:
 
         # Fixture publication: writes a receipt (not a .pt payload) and
         # returns a fixture-labeled identity. E6 must reject fixture-only
-        # bundles (no .pt payloads).
+        # bundles (no .pt payloads). A per-handle sequence keeps repeated
+        # fraction publishes distinct (optimizer never advances for doubles).
         self.calls.append(("publish_checkpoint", {
             "phase": phase, "arm": arm, "seed": seed,
             "update_index": update_index}))
+        seq = int(handle.get("_fixture_seq", 0)) + 1
+        handle["_fixture_seq"] = seq
         mirror = _os.path.join(run_dir, "checkpoints", phase, f"{arm}-{seed}")
         _os.makedirs(mirror, exist_ok=True)
-        identity = f"fixture-ckpt-{phase}-{arm}-{seed}-{update_index}"
-        with open(_os.path.join(mirror, f"{update_index:06d}.json"), "w",
+        identity = f"fixture-ckpt-{phase}-{arm}-{seed}-{update_index}-{seq}"
+        with open(_os.path.join(mirror, f"{update_index:06d}-{seq:03d}.json"), "w",
                   encoding="utf-8") as fh:
             _json.dump({"checkpoint_id": identity, "evidence_kind": "fixture",
-                        "update_index": update_index}, fh, indent=2)
+                        "update_index": update_index, "seq": seq}, fh, indent=2)
         return identity
 
     def restore_verify(self, *, run_dir, checkpoint_id):

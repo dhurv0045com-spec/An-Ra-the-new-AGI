@@ -61,7 +61,9 @@ def _resolve_parent(job: JobInput) -> dict[str, Any]:
             f"E2 parent {key!r} has unverified parts {errors}; "
             "reinitializing with the same seed is forbidden")
     # Primary is the B (learned) arm by exact arm segment; fail if absent.
-    primary = next((r for r in resolved_parts if "-B-" in str(r.get("lookup_key", ""))), None)
+    primary = next(
+        (r for r in resolved_parts
+         if _primary_arm_key(str(r.get("lookup_key", ""))) == "B"), None)
     if primary is None:
         raise ValueError(
             f"E2 parent {key!r} carries no learned B arm; refusing")
@@ -70,7 +72,19 @@ def _resolve_parent(job: JobInput) -> dict[str, Any]:
     return primary
 
 
-def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResult:
+def _primary_arm_key(lookup_key: str) -> str:
+    """Extract the arm segment exactly (never substring).
+
+    Job IDs are <phase>-<arm>-<seed> (e.g. E1-B-1701). The arm is the exact
+    middle segment; `-B-` substring matching would misclassify E1-B-17010.
+    """
+    parts = str(lookup_key).split("-")
+    if len(parts) >= 3:
+        return parts[1]
+    return ""
+
+
+def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseResult:
     started = time.monotonic()
     job.validate()
     if job.phase != "E2" or job.seed is None:
@@ -85,10 +99,13 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResu
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E2"})
     if eval_cases is None:
-        # Production passes explicit confirmation inventory (E0-calibrated
-        # 128/64/32); local default is 4 for integration only.
-        eval_cases = 4
-    if not isinstance(eval_cases, int) or eval_cases <= 0:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error="E2 requires explicit eval_cases (E0-calibrated "
+                                 "128/64/32); refusing silent default",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E2"})
+    if not isinstance(eval_cases, int) or isinstance(eval_cases, bool) \
+            or eval_cases <= 0:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error="eval_cases must be a positive integer",
                            evidence_kind=EVIDENCE_FIXTURE,
@@ -97,7 +114,8 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResu
         from bramastra_lab.research.campaigns.phases.ops import ProductionOps
 
         ops = ProductionOps(precision=job.precision)
-    # Verified parent restore (never random init with the same seed).
+    # Verified parent restore (never random init with the same seed). All
+    # supported ops expose restore_parent (same interface, no branches).
     try:
         parent_record = _resolve_parent(job)
     except Exception as exc:
@@ -105,16 +123,10 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResu
                            error=str(exc), evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E2"})
     try:
-        if hasattr(ops, "restore_parent"):
-            handle = ops.restore_parent(
-                parent={**parent_record, "run_dir": job.run_dir,
-                        "seed": job.seed},
-                device=job.local_device, optimizer_policy="fresh")
-        else:
-            # Backward-compat: old doubles lack restore_parent; refuse rather
-            # than silently reinit.
-            raise ValueError(
-                "ops carries no restore_parent; refusing random reinit")
+        handle = ops.restore_parent(
+            parent={**parent_record, "run_dir": job.run_dir,
+                    "seed": job.seed},
+            device=job.local_device, optimizer_policy="fresh")
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E2 parent restore refused: {exc}",
@@ -140,30 +152,21 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResu
     details: list[dict] = []
     for case in cases:
         try:
-            if hasattr(ops, "evaluate_episode"):
-                outcome = ops.evaluate_episode(handle=handle, episode=case)
-            else:
-                response = ops.free_generation(
-                    handle, prompt=case.get("prompt_tokens", [259]),
-                    max_new_tokens=8)
-                # Independent verifier decides (not EOS).
-                try:
-                    success = bool(case["verifier"](
-                        case["mechanism"], {"answer": response.get("answer", ""),
-                                            "sum": response.get("answer", "")}))
-                except Exception:
-                    success = False
-                outcome = {"answer": response.get("answer", ""),
-                           "stopped_on_eos": bool(response.get("stopped_on_eos", False)),
-                           "success": success, "model_calls": 1,
-                           "actions": 1, "nodes": 1, "cost": 1.0}
+            outcome = ops.evaluate_episode(handle=handle, episode=case)
         except Exception as exc:
             violations.append(f"case {case.get('mechanism_id')}: eval refused: {exc}")
             continue
-        # Actual operation counters (never 1+case%2 inventions).
-        actions = int(outcome.get("actions", 1))
-        calls = int(outcome.get("model_calls", 1))
-        nodes = int(outcome.get("nodes", 1))
+        # Counters must come from the ops outcome (durable events); missing
+        # keys are a contract violation, never silent 1s.
+        try:
+            actions = int(outcome["actions"])
+            calls = int(outcome["model_calls"])
+            nodes = int(outcome["nodes"])
+            cost = float(outcome["cost"])
+        except (KeyError, TypeError, ValueError) as exc:
+            violations.append(
+                f"case {case.get('mechanism_id')}: outcome missing counters: {exc}")
+            continue
         total_actions += actions
         total_calls += calls
         total_nodes += nodes
@@ -185,7 +188,7 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResu
                         "stopped_on_eos": bool(outcome.get("stopped_on_eos", False)),
                         "success": bool(outcome.get("success", False)),
                         "actions": actions, "model_calls": calls, "nodes": nodes,
-                        "cost": float(outcome.get("cost", 1.0))})
+                        "cost": cost})
     try:
         after_updates = int(ops.optimizer_updates(handle))
     except Exception:

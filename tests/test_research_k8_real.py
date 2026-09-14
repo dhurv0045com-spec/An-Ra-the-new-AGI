@@ -186,5 +186,64 @@ class E5AnchorTests(unittest.TestCase):
         self.assertIn("explicit adaptation anchor", (res.error or ""))
 
 
+class ReceiptSpoofTests(unittest.TestCase):
+    def test_extra_cannot_override_reserved_keys(self) -> None:
+        from bramastra_lab.research.campaigns.phases.types import PhaseResult
+        with self.assertRaises(ValueError):
+            PhaseResult(status="completed", committed_updates=2,
+                        evidence_kind="fixture",
+                        extra={"phase": "E1", "status": "failed"}).validate()
+        res = PhaseResult(status="completed", committed_updates=2,
+                          evidence_kind="fixture",
+                          extra={"phase": "E1", "stream_id": "s"})
+        d = res.to_dict()
+        self.assertEqual(d["status"], "completed")
+        self.assertEqual(d["committed_updates"], 2)
+        self.assertEqual(d["phase"], "E1")
+
+    def test_direct_id_requires_ledger_receipt(self) -> None:
+        from bramastra_lab.research.campaigns.phases.types import ParentRef
+
+        run = tempfile.mkdtemp()
+        manifest = _save_tiny(run, "r1", 0)
+        # No ledger at all: direct ID must fail (never arbitrary payload).
+        with self.assertRaises(ValueError):
+            ParentRef(checkpoint_id=manifest.checkpoint_id).resolve(run)
+
+
+class E2ExplicitTests(unittest.TestCase):
+    def test_eval_cases_required(self) -> None:
+        from bramastra_lab.research.campaigns.phases.types import JobInput
+        from bramastra_lab.research.campaigns.phases.ops import RecordingDoubleOps
+        from bramastra_lab.research.campaigns.phases import e2
+
+        tmp = tempfile.mkdtemp()
+        open(os.path.join(tmp, "manifest.json"), "w").write("{}")
+        run = tempfile.mkdtemp()
+        job = JobInput(phase="E2", slot=0, arm=None, seed=1701,
+                       parent="E1-B-1701", physical_device="cpu",
+                       local_device="cpu", data_dir=tmp, run_dir=run,
+                       precision="fp32", deadline=9e9)
+        res = e2.execute(job, ops=RecordingDoubleOps(), eval_cases=None)
+        self.assertEqual(res.status, "failed")
+        self.assertIn("explicit eval_cases", (res.error or ""))
+
+
+class E3ExactMixtureTests(unittest.TestCase):
+    def test_non_multiple_of_four_refused(self) -> None:
+        from bramastra_lab.research.campaigns.phases.e3 import (
+            _build_training_stream)
+        import tempfile as tf
+        from bramastra_lab.research.data.k8_bundle import build_k8_bundle
+
+        tmp = tf.mkdtemp()
+        build_k8_bundle(tmp, training_mechanisms=8, controller_mechanisms=1,
+                        development_mechanisms=1, confirmation_mechanisms=1,
+                        tool_mechanisms=3, tool_heldout=1,
+                        meta_train=1, meta_validate=1, meta_confirm=1)
+        with self.assertRaises(ValueError):
+            _build_training_stream(tmp, 1701, "T1", 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -32,8 +32,11 @@ def _resolve_parent(job: JobInput) -> dict[str, Any]:
     candidate = str(key).strip()
     try:
         if job.parent_ref is not None and job.parent_ref.lookup_key == candidate:
-            return job.parent_ref.resolve(job.run_dir)
-        return ParentRef(lookup_key=candidate).resolve(job.run_dir)
+            rec = job.parent_ref.resolve(job.run_dir)
+        else:
+            rec = ParentRef(lookup_key=candidate).resolve(job.run_dir)
+        rec["lookup_key"] = candidate
+        return rec
     except Exception as exc:
         raise ValueError(
             f"E4 parent {candidate!r} has no verified checkpoint; "
@@ -73,12 +76,9 @@ def execute(job: JobInput, *, ops=None,
                            extra={"phase": "E4"})
     gates_enabled = (job.arm == "S1")
     # Restore + fork + migrate the actual training handle (never a discarded
-    # tiny probe; never a fresh base model for both arms).
+    # tiny probe; never a fresh base model for both arms). All supported ops
+    # expose restore/fork/migrate (same interface, no branches).
     try:
-        if not hasattr(ops, "restore_parent") or not hasattr(ops, "fork_child") \
-                or not hasattr(ops, "migrate_to_gated"):
-            raise ValueError(
-                "ops lacks restore/fork/migrate; refusing fresh base init")
         restored = ops.restore_parent(
             parent={**parent_record, "run_dir": job.run_dir, "seed": job.seed},
             device=job.local_device, optimizer_policy="fresh")
@@ -161,17 +161,11 @@ def execute(job: JobInput, *, ops=None,
     except Exception:
         gate_values = None
     try:
-        if hasattr(ops, "publish_checkpoint"):
-            checkpoint_id = ops.publish_checkpoint(
-                handle=child, run_dir=job.run_dir, phase="E4",
-                arm=job.arm, seed=job.seed, update_index=after_updates,
-                parent_checkpoint_id=parent_record.get("checkpoint_id"),
-                data_dir=job.data_dir)
-        else:
-            checkpoint_id = ops.save_checkpoint(
-                child, path=os.path.join(job.run_dir, "checkpoints", job.phase,
-                                         f"{job.arm}-{job.seed}-final.pt"),
-                fraction=1.0)
+        checkpoint_id = ops.publish_checkpoint(
+            handle=child, run_dir=job.run_dir, phase="E4",
+            arm=job.arm, seed=job.seed, update_index=after_updates,
+            parent_checkpoint_id=parent_record.get("checkpoint_id"),
+            data_dir=job.data_dir)
     except Exception as exc:
         return PhaseResult(status="failed", committed_updates=committed,
                            attempted_updates=attempted,
@@ -250,7 +244,7 @@ def _verify_handle_migration(handle: Any, *, gates_enabled: bool) -> str | None:
             if not gates_enabled and "disabled" not in arch and "gated" in arch:
                 return "S0 fixture architecture must carry disabled slots"
             return None
-        # Production handle: real model inventory.
+        # Production handle: real model + optimizer inventory.
         model = handle.get("model") if isinstance(handle, dict) else getattr(
             handle, "model", None)
         if model is None:
@@ -260,16 +254,39 @@ def _verify_handle_migration(handle: Any, *, gates_enabled: bool) -> str | None:
             return f"S1 architecture {arch!r} is not gated"
         if not gates_enabled and getattr(model, "gates_enabled", True):
             return "S0 handle has enabled gates"
-        # Optimizer inventory must reflect gate params.
-        trainer = handle.get("trainer") if isinstance(handle, dict) else getattr(
-            handle, "trainer", None)
-        if trainer is not None:
+        # Optimizer inventory must reflect gate params on the very handle:
+        # S1 exposes trainable gate_alpha, S0 keeps them fixed/disabled.
+        try:
+            named = dict(model.named_parameters())
+        except Exception as exc:
+            return f"parameter inventory refused: {exc}"
+        gate_params = [n for n in named if "gate_alpha" in n]
+        if gates_enabled:
+            if not gate_params:
+                return "S1 optimizer inventory carries no gate_alpha params"
             try:
-                n_params = sum(p.numel() for p in model.parameters())
-                if n_params <= 0:
-                    return "migrated model has no parameters"
+                trainer = handle.get("trainer") if isinstance(handle, dict) else getattr(
+                    handle, "trainer", None)
+                if trainer is not None:
+                    opt_ids = {id(p) for g in trainer.optimizer.param_groups
+                               for p in g.get("params", [])}
+                    if not any(id(named[n]) in opt_ids for n in gate_params):
+                        return "S1 gate params missing from optimizer inventory"
             except Exception as exc:
-                return f"parameter inventory refused: {exc}"
+                return f"optimizer inventory refused: {exc}"
+        else:
+            try:
+                trainer = handle.get("trainer") if isinstance(handle, dict) else getattr(
+                    handle, "trainer", None)
+                if trainer is not None:
+                    opt_ids = {id(p) for g in trainer.optimizer.param_groups
+                               for p in g.get("params", [])}
+                    for n in gate_params:
+                        param = named[n]
+                        if param.requires_grad and id(param) in opt_ids:
+                            return "S0 gate slots must be fixed/disabled (trainable gate in optimizer)"
+            except Exception as exc:
+                return f"optimizer inventory refused: {exc}"
         return None
     except Exception as exc:
         return f"migration verification refused: {exc}"

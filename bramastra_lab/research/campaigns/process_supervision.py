@@ -335,16 +335,44 @@ def run_phase_concurrently(
                 physical = str(spec.get("physical_device",
                                         spec.get("device", "cpu")))
                 _, local = physical_to_local_device(physical)
+                # Same full spec as the spawn path (job_id/slot/parent/targets
+                # must reach test doubles too, or propagation is untested).
                 output = worker_fn(
                     phase=spec.get("phase"), device=local,
                     arm=spec.get("arm"), seed=spec.get("seed"),
                     data_dir=spec.get("data_dir"), run_dir=spec.get("run_dir"),
                     precision=spec.get("precision"),
-                    deadline=spec.get("deadline"))
+                    deadline=spec.get("deadline"),
+                    physical_device=physical,
+                    slot=spec.get("slot"), parent=spec.get("parent"),
+                    job_id=spec.get("job_id"),
+                    update_target=spec.get("update_target"),
+                    eval_cases=spec.get("eval_cases"),
+                    tasks_per_block=spec.get("tasks_per_block"))
                 if not isinstance(output, dict):
                     return job_id, {"status": "failed",
                                     "error": "double must return dict"}
                 return job_id, output
+            except TypeError:
+                # Backward-compat doubles with the legacy 8-arg signature.
+                try:
+                    physical = str(spec.get("physical_device",
+                                            spec.get("device", "cpu")))
+                    _, local = physical_to_local_device(physical)
+                    output = worker_fn(
+                        phase=spec.get("phase"), device=local,
+                        arm=spec.get("arm"), seed=spec.get("seed"),
+                        data_dir=spec.get("data_dir"),
+                        run_dir=spec.get("run_dir"),
+                        precision=spec.get("precision"),
+                        deadline=spec.get("deadline"))
+                    if not isinstance(output, dict):
+                        return job_id, {"status": "failed",
+                                        "error": "double must return dict"}
+                    return job_id, output
+                except Exception as exc:  # noqa: BLE001
+                    return job_id, {"status": "failed",
+                                    "error": f"{type(exc).__name__}: {exc}"}
             except Exception as exc:  # noqa: BLE001
                 return job_id, {"status": "failed",
                                 "error": f"{type(exc).__name__}: {exc}"}

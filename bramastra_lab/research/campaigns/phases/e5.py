@@ -44,8 +44,11 @@ def _resolve_anchor(job: JobInput) -> dict[str, Any]:
     candidate = str(key).strip()
     try:
         if job.parent_ref is not None and job.parent_ref.lookup_key == candidate:
-            return job.parent_ref.resolve(job.run_dir)
-        return ParentRef(lookup_key=candidate).resolve(job.run_dir)
+            rec = job.parent_ref.resolve(job.run_dir)
+        else:
+            rec = ParentRef(lookup_key=candidate).resolve(job.run_dir)
+        rec["lookup_key"] = candidate
+        return rec
     except Exception as exc:
         raise ValueError(
             f"E5 adaptation anchor {candidate!r} has no verified checkpoint; "
@@ -180,8 +183,6 @@ def execute(job: JobInput, *, ops=None,
                            error=str(exc), evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
     try:
-        if not hasattr(ops, "restore_parent") or not hasattr(ops, "fork_child"):
-            raise ValueError("ops lacks restore/fork; refusing fresh init")
         anchor = ops.restore_parent(
             parent={**anchor_record, "run_dir": job.run_dir, "seed": job.seed},
             device=job.local_device, optimizer_policy="fresh")
@@ -301,11 +302,15 @@ def execute(job: JobInput, *, ops=None,
                            error=f"E5 proposer capture refused: {exc}",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
-    # Changing the adaptation anchor must fail (stability check against the
-    # verified record, not a mutated handle).
-    if str(anchor_record.get("checkpoint_id")) != anchor_id:
+    # Anchor stability: the requested parent key must match the resolved
+    # record's lineage (a changed anchor key fails instead of silently
+    # retargeting mid-job).
+    requested_key = job.resolved_parent_key()
+    if requested_key and anchor_record.get("lookup_key") \
+            and str(anchor_record["lookup_key"]) != str(requested_key).split("/")[0].strip():
+        # Resolved via structured parent_ref with a different key: refuse.
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error="E5 adaptation anchor changed mid-job; refusing",
+                           error="E5 adaptation anchor key changed mid-job; refusing",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
     try:
@@ -331,17 +336,16 @@ def execute(job: JobInput, *, ops=None,
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
     # Block 3: fresh confirmation — capture ALL choices BEFORE fresh outcomes.
+    # Exact pool only (meta-confirmation); silently substituting validation
+    # would leak a different split into confirmation.
     try:
         meta_confirm = _load_meta_tasks(job.data_dir, pool="meta-confirmation")
-    except Exception:
-        # Fall back to meta-validation when confirmation pool is tiny locally.
-        try:
-            meta_confirm = _load_meta_tasks(job.data_dir, pool="meta-validation")
-        except Exception as exc:
-            return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                               error=f"E5 confirmation pool refused: {exc}",
-                               evidence_kind=EVIDENCE_FIXTURE,
-                               extra={"phase": "E5"})
+    except Exception as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E5 confirmation pool refused (meta-confirmation "
+                                 f"required, no validation fallback): {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E5"})
     confirm_tasks = meta_confirm[:max(1, min(tasks_per_block, len(meta_confirm)))]
     # Immutable confirmation capability: separate archive snapshot that must
     # NOT contain confirmation outcomes at capture time.

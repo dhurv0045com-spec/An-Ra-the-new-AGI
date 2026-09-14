@@ -82,19 +82,47 @@ def execute(job: JobInput, *, ops=None) -> PhaseResult:
                            error="export verification produced no bundle identity",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E6", "export_dir": out_dir})
-    return PhaseResult(status="completed",
-                       device_seconds=time.monotonic() - started,
-                       checkpoint_identity=bundle_identity,
-                       evidence_kind=EVIDENCE_LEARNED_CAMPAIGN,
-                       extra={"phase": "E6", "export_dir": out_dir,
-                              "verified_files": verification.get("files", []),
-                              "parents": verification.get("parents", [])})
+    result = PhaseResult(status="completed",
+                         device_seconds=time.monotonic() - started,
+                         checkpoint_identity=bundle_identity,
+                         evidence_kind=EVIDENCE_LEARNED_CAMPAIGN,
+                         extra={"phase": "E6", "export_dir": out_dir,
+                                "verified_files": verification.get("files", []),
+                                "parents": verification.get("parents", [])})
+    try:
+        result.validate()
+    except ValueError as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E6 receipt refused: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6", "export_dir": out_dir})
+    return result
 
 
 def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     import sqlite3
 
-    files = sorted(os.listdir(out_dir))
+    # Hash every exported file recursively (the manifest includes nested
+    # checkpoints/... rels, not just top-level names).
+    digests: dict[str, str] = {}
+    top_files: list[str] = []
+    for base, _dirs, names in os.walk(out_dir):
+        for name in names:
+            path = os.path.join(base, name)
+            try:
+                rel = os.path.relpath(path, out_dir)
+            except ValueError:
+                continue
+            if name == "artifact_manifest.json":
+                continue
+            try:
+                digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+            except OSError:
+                continue
+            digests[rel] = digest
+            if os.path.dirname(rel) == "":
+                top_files.append(rel)
+    files = sorted(top_files)
     # Hash every exported file (tamper evidence) and compare against the
     # independently generated artifact manifest (not just "whatever exists").
     manifest_path = os.path.join(out_dir, "artifact_manifest.json")

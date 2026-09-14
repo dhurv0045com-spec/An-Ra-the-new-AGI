@@ -190,7 +190,8 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                 "committed_updates": 0, "attempted_updates": 0,
                 "supervised_exposure": 0,
                 "device_seconds": time.monotonic() - started,
-                "checkpoint_identity": None}
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
     out = result.to_dict()
     out.setdefault("phase", phase)
     out.setdefault("device", device)
@@ -230,7 +231,8 @@ def _run_e6(*, device: str, data_dir: str, run_dir: str,
                 "committed_updates": 0, "attempted_updates": 0,
                 "supervised_exposure": 0,
                 "device_seconds": time.monotonic() - started,
-                "checkpoint_identity": None}
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
     out = result.to_dict()
     out.setdefault("phase", "E6")
     out["device_seconds"] = float(out.get("device_seconds") or 0.0) or \

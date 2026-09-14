@@ -40,8 +40,11 @@ def _resolve_parent(job: JobInput) -> dict[str, Any]:
     candidate = str(key).strip()
     try:
         if job.parent_ref is not None and job.parent_ref.lookup_key == candidate:
-            return job.parent_ref.resolve(job.run_dir)
-        return ParentRef(lookup_key=candidate).resolve(job.run_dir)
+            rec = job.parent_ref.resolve(job.run_dir)
+        else:
+            rec = ParentRef(lookup_key=candidate).resolve(job.run_dir)
+        rec["lookup_key"] = candidate
+        return rec
     except Exception as exc:
         raise ValueError(
             f"E3 parent {candidate!r} has no verified checkpoint; "
@@ -80,20 +83,31 @@ def execute(job: JobInput, *, ops=None,
                            error=str(exc), evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E3"})
     # Restore + fork isolation (same parent payload, independent child).
+    # All supported ops expose restore_parent/fork_child (no branches).
     try:
-        if not hasattr(ops, "restore_parent") or not hasattr(ops, "fork_child"):
-            raise ValueError("ops lacks restore_parent/fork_child; refusing fresh init")
         restored = ops.restore_parent(
             parent={**parent_record, "run_dir": job.run_dir, "seed": job.seed},
             device=job.local_device, optimizer_policy="fresh")
-        # Parent hash before fork (isolation proof).
+        # Parent hash over full state values (not key names): any weight
+        # mutation changes the hash (fake isolation proofs refused).
         try:
-            parent_snapshot = ops.snapshot_state(restored)
             import hashlib as _hashlib
-            parent_hash = _hashlib.sha256(
-                str(sorted(str(k) for k in (
-                    parent_snapshot.keys() if isinstance(parent_snapshot, dict)
-                    else [parent_snapshot]))).encode()).hexdigest()[:16]
+
+            parent_snapshot = ops.snapshot_state(restored)
+            if isinstance(parent_snapshot, dict):
+                _digest = _hashlib.sha256()
+                for k in sorted(parent_snapshot.keys()):
+                    _digest.update(str(k).encode())
+                    _digest.update(b"\0")
+                    try:
+                        _digest.update(parent_snapshot[k].detach().cpu().contiguous().numpy().tobytes())
+                    except Exception:
+                        _digest.update(str(parent_snapshot[k])[:256].encode())
+                    _digest.update(b"\0")
+                parent_hash = _digest.hexdigest()[:16]
+            else:
+                parent_hash = _hashlib.sha256(
+                    str(parent_snapshot).encode()).hexdigest()[:16]
         except Exception:
             parent_hash = "unavailable"
         child = ops.fork_child(parent_handle=restored, optimizer_policy="fresh")
@@ -174,6 +188,7 @@ def execute(job: JobInput, *, ops=None,
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E3"})
     # Protected old-family retention (fixed set, never trained on here).
+    # Zero evaluated rows is a refusal (0/0 retention never passes).
     try:
         retention = _evaluate_retention(job, ops, child)
     except Exception as exc:
@@ -184,23 +199,25 @@ def execute(job: JobInput, *, ops=None,
                            error=f"E3 retention evaluation refused: {exc}",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E3"})
+    if int(retention.get("evaluated", 0)) <= 0:
+        return PhaseResult(status="failed", committed_updates=committed,
+                           attempted_updates=attempted,
+                           supervised_exposure=exposure,
+                           device_seconds=time.monotonic() - started,
+                           error="E3 retention evaluated zero cases; failing",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E3"})
     try:
         after_updates = int(ops.optimizer_updates(child))
     except Exception:
         after_updates = before_updates
     optimizer_delta = after_updates - before_updates
     try:
-        if hasattr(ops, "publish_checkpoint"):
-            checkpoint_id = ops.publish_checkpoint(
-                handle=child, run_dir=job.run_dir, phase="E3",
-                arm=job.arm, seed=job.seed, update_index=after_updates,
-                parent_checkpoint_id=parent_record.get("checkpoint_id"),
-                data_dir=job.data_dir)
-        else:
-            checkpoint_id = ops.save_checkpoint(
-                child, path=os.path.join(job.run_dir, "checkpoints", job.phase,
-                                         f"{job.arm}-{job.seed}-final.pt"),
-                fraction=1.0)
+        checkpoint_id = ops.publish_checkpoint(
+            handle=child, run_dir=job.run_dir, phase="E3",
+            arm=job.arm, seed=job.seed, update_index=after_updates,
+            parent_checkpoint_id=parent_record.get("checkpoint_id"),
+            data_dir=job.data_dir)
     except Exception as exc:
         return PhaseResult(status="failed", committed_updates=committed,
                            attempted_updates=attempted,
@@ -216,10 +233,8 @@ def execute(job: JobInput, *, ops=None,
         is_fixture = True
     evidence = EVIDENCE_FIXTURE if (is_fixture or optimizer_delta <= 0) \
         else EVIDENCE_LEARNED_CAMPAIGN
-    # T1 mixture must be 75/25; T0 100/0 (never 50/50). Exact ratio is
-    # enforced for full-size streams (target>=4); tiny local streams report
-    # their true composition and must still be pure-tool for T0 and mixed
-    # for T1 (when old data exists), never a hardcoded 50/50 claim.
+    # Mixture was already enforced exactly at build time (T0 100/0, T1
+    # 75/25); re-check here as defense-in-depth (never 50/50).
     expected = {"tool": 0.75, "retention": 0.25} if job.arm == "T1" \
         else {"tool": 1.0, "retention": 0.0}
     artifact_dir = os.path.join(job.run_dir, "phase_outputs", job.phase)
@@ -240,34 +255,14 @@ def execute(job: JobInput, *, ops=None,
                    "evidence_kind": evidence,
                    "checkpoint_identity": checkpoint_id},
                   handle_file, indent=2, sort_keys=True)
-    if target >= 4:
-        if mixture != expected:
-            return PhaseResult(status="failed", committed_updates=committed,
-                               attempted_updates=attempted,
-                               supervised_exposure=exposure,
-                               device_seconds=time.monotonic() - started,
-                               error=f"E3 replay mixture {mixture} != expected {expected}",
-                               evidence_kind=EVIDENCE_FIXTURE,
-                               extra={"phase": "E3"})
-    else:
-        # Tiny local stream: T0 must be pure-tool, T1 must contain tool rows
-        # (and replay rows when old data was available).
-        if job.arm == "T0" and mixture.get("retention", 0) != 0.0:
-            return PhaseResult(status="failed", committed_updates=committed,
-                               attempted_updates=attempted,
-                               supervised_exposure=exposure,
-                               device_seconds=time.monotonic() - started,
-                               error=f"E3-T0 tiny stream must be pure-tool, got {mixture}",
-                               evidence_kind=EVIDENCE_FIXTURE,
-                               extra={"phase": "E3"})
-        if job.arm == "T1" and mixture.get("tool", 0) <= 0:
-            return PhaseResult(status="failed", committed_updates=committed,
-                               attempted_updates=attempted,
-                               supervised_exposure=exposure,
-                               device_seconds=time.monotonic() - started,
-                               error=f"E3-T1 tiny stream has no tool rows: {mixture}",
-                               evidence_kind=EVIDENCE_FIXTURE,
-                               extra={"phase": "E3"})
+    if mixture != expected:
+        return PhaseResult(status="failed", committed_updates=committed,
+                           attempted_updates=attempted,
+                           supervised_exposure=exposure,
+                           device_seconds=time.monotonic() - started,
+                           error=f"E3 replay mixture {mixture} != expected {expected}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E3"})
     if committed <= 0:
         return PhaseResult(status="failed", committed_updates=committed,
                            attempted_updates=attempted,
@@ -322,29 +317,37 @@ def _build_training_stream(data_dir: str, seed: int, arm: str,
                 "heldout composition in training stream; refusing")
     rng = _random.Random(f"E3:{seed}:{arm}")
     rng.shuffle(tool_rows)
+    # Insufficient tool rows fail loudly (never synthesize replacements).
     if arm == "T0":
         # Token-only, no replay: 100% new-tool.
+        if len(tool_rows) < count:
+            raise ValueError(
+                f"E3-T0 needs {count} tool-training rows but only "
+                f"{len(tool_rows)} exist; refusing to synthesize")
         chosen_tools = tool_rows[:count]
-        mixture = {"tool": 1.0, "retention": 0.0}
         replay_rows: list[dict] = []
     else:
-        # T1: 75% new-tool + 25% old-task replay (stratified).
-        n_tool = (count * 3 + 3) // 4  # ceil(0.75*count)
+        # T1: 75% new-tool + 25% old-task replay (stratified). Non-multiples
+        # of 4 cannot satisfy the exact ratio; require count>=4 multiples,
+        # otherwise fail instead of reporting a rounded invented mixture.
+        if count < 4 or count % 4 != 0:
+            raise ValueError(
+                f"E3-T1 requires update_target>=4 and a multiple of 4 for an "
+                f"exact 75/25 split (got {count}); refusing inexact mixture")
+        n_tool = count * 3 // 4
         n_replay = count - n_tool
-        chosen_tools = tool_rows[:max(1, n_tool)] if count > 0 else []
+        if len(tool_rows) < n_tool:
+            raise ValueError(
+                f"E3-T1 needs {n_tool} tool-training rows but only "
+                f"{len(tool_rows)} exist; refusing to synthesize")
+        chosen_tools = tool_rows[:n_tool]
         old_rows = load_training_trajectories(data_dir, seed=seed)
         rng.shuffle(old_rows)
-        replay_rows = old_rows[:max(0, n_replay)]
-        mixture = {"tool": 0.75, "retention": 0.25} if count > 0 else \
-            {"tool": 1.0, "retention": 0.0}
-        # For tiny local targets (e.g. count=2), keep exact 75/25 only when
-        # divisible; otherwise preserve the declared ratio as counts and
-        # record the true mixture below from actual stream composition.
-        # To keep the contract exact, pad to a multiple of 4 when needed.
-        # Local integration uses count>=4 to verify the ratio; smaller counts
-        # still report their true composition and are checked by the caller.
-        # Here we enforce the ratio on the actual built stream.
-        pass
+        if len(old_rows) < n_replay:
+            raise ValueError(
+                f"E3-T1 needs {n_replay} replay rows but only {len(old_rows)} "
+                "exist; refusing")
+        replay_rows = old_rows[:n_replay]
     weights = T0_WEIGHTS if arm == "T0" else T1_WEIGHTS
     enabled = T0_ENABLED if arm == "T0" else T1_ENABLED
     stream: list[tuple] = []
@@ -372,21 +375,16 @@ def _build_training_stream(data_dir: str, seed: int, arm: str,
             n_replay_actual += 1
     if not stream:
         raise ValueError("tool stream empty after exact-split load")
-    # True mixture from actual stream (never a hardcoded 50/50 claim).
+    # True mixture from the actual built stream (never a declared constant).
     total = len(stream)
     true_mixture = {"tool": round(n_tool_actual / total, 4) if total else 0.0,
                     "retention": round(n_replay_actual / total, 4) if total else 0.0}
-    # Enforce declared ratio for full-size streams; tiny local streams
-    # (count<4) report their true composition without failing the ratio gate
-    # in the executor (the caller checks exactness for count>=4).
-    if count >= 4 and true_mixture != mixture:
-        # Rebalance by construction: this should not happen; fail loudly.
+    expected = {"tool": 1.0, "retention": 0.0} if arm == "T0" else \
+        {"tool": 0.75, "retention": 0.25}
+    if true_mixture != expected:
         raise ValueError(
-            f"E3 {arm} mixture {true_mixture} != declared {mixture}")
-    # For acceptance, return the declared mixture when count>=4, else true.
-    reported = mixture if count >= 4 else true_mixture
-    # When count<4, still require T0 pure-tool and T1 mixed when possible.
-    return stream, reported
+            f"E3 {arm} true mixture {true_mixture} != required {expected}")
+    return stream, true_mixture
 
 
 def _tool_batch(trow: dict, weights: dict, enabled: frozenset):

@@ -102,13 +102,11 @@ def execute(job: JobInput, *, ops=None,
         load_training_trajectories,
     )
 
-    # Frozen campaign init (never bare development/256). Doubles enforce the
-    # same canonical lineage via init_model mapping.
+    # Frozen campaign init (never bare development/256). All supported ops
+    # expose initialize_random (same validated interface, no type branches).
     try:
         handle = ops.initialize_random(seed=job.seed, device=job.local_device,
-                                       reservation=job.reservation_id) \
-            if hasattr(ops, "initialize_random") else ops.init_model(
-                seed=job.seed, profile="k8-campaign", device=job.local_device)
+                                       reservation=job.reservation_id)
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E1 init refused: {exc}",
@@ -219,21 +217,13 @@ def execute(job: JobInput, *, ops=None,
         attempted += int(outcome.get("attempted", 0))
         exposure += int(outcome.get("exposure", 0))
         if (step + 1) in fractions or (step + 1) == target:
-            fraction = (step + 1) / target
             try:
-                if hasattr(ops, "publish_checkpoint"):
-                    checkpoint_id = ops.publish_checkpoint(
-                        handle=handle, run_dir=job.run_dir, phase="E1",
-                        arm=job.arm, seed=job.seed,
-                        update_index=int(ops.optimizer_updates(handle)),
-                        parent_checkpoint_id=parent_for_next,
-                        data_dir=job.data_dir)
-                else:
-                    checkpoint_id = ops.save_checkpoint(
-                        handle, path=os.path.join(
-                            job.run_dir, "checkpoints", job.phase,
-                            f"{job.arm}-{job.seed}-{step + 1}.pt"),
-                        fraction=fraction)
+                checkpoint_id = ops.publish_checkpoint(
+                    handle=handle, run_dir=job.run_dir, phase="E1",
+                    arm=job.arm, seed=job.seed,
+                    update_index=int(ops.optimizer_updates(handle)),
+                    parent_checkpoint_id=parent_for_next,
+                    data_dir=job.data_dir)
                 checkpoint_ids.append(checkpoint_id)
                 parent_for_next = checkpoint_id
             except Exception as exc:
@@ -252,17 +242,11 @@ def execute(job: JobInput, *, ops=None,
     final_id = parent_for_next
     if not final_id:
         try:
-            if hasattr(ops, "publish_checkpoint"):
-                final_id = ops.publish_checkpoint(
-                    handle=handle, run_dir=job.run_dir, phase="E1",
-                    arm=job.arm, seed=job.seed, update_index=after_updates,
-                    parent_checkpoint_id=parent_for_next,
-                    data_dir=job.data_dir)
-            else:
-                final_id = ops.save_checkpoint(
-                    handle, path=os.path.join(
-                        job.run_dir, "checkpoints", job.phase,
-                        f"{job.arm}-{job.seed}-final.pt"), fraction=1.0)
+            final_id = ops.publish_checkpoint(
+                handle=handle, run_dir=job.run_dir, phase="E1",
+                arm=job.arm, seed=job.seed, update_index=after_updates,
+                parent_checkpoint_id=parent_for_next,
+                data_dir=job.data_dir)
             checkpoint_ids.append(final_id)
         except Exception as exc:
             return PhaseResult(status="failed", committed_updates=committed,

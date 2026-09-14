@@ -431,9 +431,11 @@ def _phase_plan(mode: str, deadline: float,
                      "workers": e4_workers, "slots": [e4_slot1, e4_slot2]})
         e5_workers = [
             {"job_id": "E5-w0", "worker": "w0", "device": gpu0,
-             "phase": "E5", "seed": 1701, "wall_seconds": 135 * 60.0},
+             "phase": "E5", "seed": 1701, "wall_seconds": 135 * 60.0,
+             "parent": "E1-B-1701"},
             {"job_id": "E5-w1", "worker": "w1", "device": gpu1,
-             "phase": "E5", "seed": 1702, "wall_seconds": 135 * 60.0},
+             "phase": "E5", "seed": 1702, "wall_seconds": 135 * 60.0,
+             "parent": "E1-B-1702"},
         ]
         plan.append({"phase": "E5", "wall_cap_minutes": 135,
                      "workers": e5_workers, "slots": [e5_workers]})

@@ -150,11 +150,14 @@ def compile_channels_for_row(row: dict[str, Any], batch,
     feedback = first.get("feedback")
     if not isinstance(action, dict) or not isinstance(feedback, dict):
         raise ValueError("history action/feedback must be objects")
-    # Prefix tokens from the real compiled batch (not a fixed prompt).
+    # Prefix tokens from the real compiled batch (never a fixed prompt).
     try:
         prefix_tokens = batch.input_ids[0][:6].tolist()
-    except Exception:
-        prefix_tokens = [259]
+    except Exception as exc:
+        raise ValueError(
+            f"batch has no input tokens for channel compilation: {exc}") from exc
+    if not prefix_tokens:
+        raise ValueError("empty prefix tokens; refusing fixed-prompt fallback")
     compiled: dict[str, Any] = {"weights": dict(arm_weights),
                                 "enabled": frozenset(arm_enabled),
                                 "extra": {}}
@@ -189,10 +192,10 @@ def compile_channels_for_row(row: dict[str, Any], batch,
             if not queries:
                 raise ValueError(
                     "action enabled but trajectory carries no legal queries")
-            # Use all declared queries as candidates (not just the first 4)
-            # so shuffled exploration orders remain covered.
+            # All declared queries are candidates (no silent truncation:
+            # shuffled exploration orders must stay covered).
             candidates = []
-            for query in queries[:8]:
+            for query in queries:
                 text = json.dumps(query, sort_keys=True)
                 tokens = encode_text(text)[:8]
                 if not tokens:
@@ -210,18 +213,13 @@ def compile_channels_for_row(row: dict[str, Any], batch,
                 candidates = [list(tokens_single)]
                 teacher = [1.0]
             else:
+                # Exact dict-subset match only (query object contained in the
+                # history action). No substring/JSON-containment fallback.
                 teacher_index = None
                 for idx, query in enumerate(queries[:len(candidates)]):
                     if all(action.get(k) == v for k, v in query.items()):
                         teacher_index = idx
                         break
-                if teacher_index is None:
-                    action_text = json.dumps(action, sort_keys=True)
-                    for idx, query in enumerate(queries[:len(candidates)]):
-                        query_text = json.dumps(query, sort_keys=True)
-                        if query_text in action_text:
-                            teacher_index = idx
-                            break
                 if teacher_index is None:
                     raise ValueError(
                         f"trajectory {row.get('mechanism_id')} history action does not "
