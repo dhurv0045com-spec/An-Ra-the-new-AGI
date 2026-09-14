@@ -1,0 +1,49 @@
+{
+  "schema": "anra.formation-mux-preregistration/v2",
+  "campaign": "FORMATION-MUX-001",
+  "amendment": "AMENDMENT_1_PREEXECUTION",
+  "experiment": "REP-FORM-003A",
+  "physical_vocabulary": 24576,
+  "model": "8L/256w V5-style development geometry",
+  "arms": [
+    "R0_PRODUCTION_BPE",
+    "R1_ISOMORPHIC_RENDERING"
+  ],
+  "seed_bundles": [73011, 73012, 73013, 73014],
+  "rng_namespace_xor": 1592590337,
+  "batch_rows": 16,
+  "primary_exposure_axis": "actual processed non-padding token positions",
+  "processed_token_budget_per_arm": 500000,
+  "allowed_endpoint_exposure_mismatch_fraction": 0.001,
+  "full_examples_indivisible": true,
+  "eval_every_processed_tokens": 25000,
+  "formation_auc_eligible_from_processed_tokens": 150000,
+  "checkpoint_every_processed_tokens": 50000,
+  "lr": 0.001,
+  "latent_worlds": "identical deterministic latent generator and split identities; arm changes rendering only",
+  "primary_metric": "identity-family candidate-free formation AUC indexed by processed-token exposure using exact content plus valid EOS stop",
+  "sealed_endpoint": "identity-family exact content plus valid EOS stop at the frozen processed-token endpoint",
+  "comparison": [
+    "R0_PRODUCTION_BPE",
+    "R1_ISOMORPHIC_RENDERING",
+    "production segmentation versus isomorphic rendering"
+  ],
+  "thresholds": {
+    "mean_development_identity_formation_auc_gap": 0.05,
+    "mean_sealed_identity_endpoint_gap": 0.05,
+    "matched_seed_sign_consistency": "at least 3 of 4",
+    "maximum_processed_token_exposure_mismatch_fraction": 0.001
+  },
+  "verdicts": [
+    "SUCCESS",
+    "NULL",
+    "REVERSE_EFFECT",
+    "PARTIAL_OR_INTERACTION",
+    "INCONCLUSIVE",
+    "INCONCLUSIVE_EXPOSURE_MISMATCH",
+    "ENGINEERING_FAILURE"
+  ],
+  "sealed_policy": "one-shot after all development arms and thresholds are frozen; STARTED without FINAL_RESULT fails closed",
+  "null_action": "do not create another tokenizer sweep; move to identity data/exposure/objective Stage B",
+  "claim_ceiling": "development-scale representation evidence only; no production-tokenizer, PRE500M, 250M/500M, general-cognition, or AGI authorization"
+}
