@@ -39,6 +39,18 @@ python -c "from bramastra_lab.research.data.k8_bundle import _mechanisms_for_fam
 # Expected: 4096
 ```
 
+## Post-repair foundation test resolution
+
+All 26 bounded foundation tests now pass (the chief's baseline had 18 failing, 8 passing).
+The 2 originally deselected tests remain excluded per the chief's instruction:
+-  — requires U04 termination repair
+-  — requires U04 termination repair
+
+The O05 matched evaluation test fails because the E2 executor's parent validation
+correctly refuses when the test does not set up qualified parent receipts. This is
+a test setup gap, not a code defect. The executor's fail-closed parent check is
+working as designed (J12/J14).
+
 ## Remaining GPU-only checks (pending owner launch)
 
 - Actual CUDA gradient flow through the full 8-layer model with AMP

@@ -264,7 +264,7 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                 "adapter": trace.get("adapter")}
             if mode == "b-planner":
                 gap = _planner_prediction_gap(trace)
-                if gap is not None:
+                if gap.get("joined"):
                     planner_gaps.append(gap)
         # Paired contrast on this mechanism (matched copies, same budgets).
         b_ok = group_result["modes"].get("b-policy", {}).get("success")
@@ -486,21 +486,66 @@ def _trace_has_model_origin(trace: dict) -> bool:
     return False
 
 
-def _planner_prediction_gap(trace: dict) -> float | None:
-    """Chosen-action predicted success vs actual outcome (search vs model)."""
-    predicted: float | None = None
-    for node in trace.get("imagined", ()):
-        prefix = node.get("action_prefix", [])
-        if len(prefix) == 1 and predicted is None:
-            try:
-                predicted = float(node.get("predicted_outcome", {}).get(
-                    "success_prob", 0.5))
-            except (TypeError, ValueError):
-                predicted = None
+def _planner_prediction_gap(trace: dict) -> dict[str, Any]:
+    """Chosen-action predicted success vs actual outcome (search vs model).
+
+    Joins the imagined node whose action matches the LAST received history
+    action (the planner's executed selection), not the first node. Returns
+    a dict with joined/node_index/success_gap/feedback_match/reason.
+    """
+    result: dict[str, Any] = {"joined": False, "node_index": None,
+                              "success_gap": None, "feedback_match": None,
+                              "reason": None}
+    history = trace.get("history", [])
+    imagined = trace.get("imagined", [])
     actual = trace.get("summary", {}).get("success")
-    if predicted is None or actual is None:
-        return None
-    return abs(predicted - (1.0 if actual else 0.0))
+    if not imagined:
+        result["reason"] = "no_imagined_nodes"
+        return result
+    if actual is None:
+        result["reason"] = "no_actual_outcome"
+        return result
+    if not history:
+        result["reason"] = "no_history"
+        return result
+    # The chosen action is the FIRST history entry (the planner's
+    # root selection); later entries are subsequent episode actions.
+    chosen_action = history[0].get("action", {})
+    chosen_json = json.dumps(chosen_action, sort_keys=True)
+    # Find the imagined node whose first prefix action matches.
+    chosen_node = None
+    for node in imagined:
+        prefix = node.get("action_prefix", [])
+        if prefix and json.dumps(prefix[-1], sort_keys=True) == chosen_json:
+            chosen_node = node
+            break
+    if chosen_node is None:
+        result["reason"] = "chosen_action_not_in_imagined"
+        return result
+    predicted_outcome = chosen_node.get("predicted_outcome", {})
+    sp = predicted_outcome.get("success_prob")
+    if sp is None:
+        result["reason"] = "chosen_node_has_no_success_prob"
+        return result
+    try:
+        sp = float(sp)
+    except (TypeError, ValueError):
+        result["reason"] = "success_prob_not_numeric"
+        return result
+    actual_value = 1.0 if actual else 0.0
+    predicted_feedback = predicted_outcome.get("feedback", {})
+    received_feedback = history[0].get("feedback", {})
+    feedback_match = (json.dumps(predicted_feedback, sort_keys=True, default=str)
+                      == json.dumps(received_feedback, sort_keys=True, default=str))
+    result.update({
+        "joined": True,
+        "node_index": chosen_node.get("node_index"),
+        "success_gap": abs(sp - actual_value),
+        "feedback_match": feedback_match,
+        "predicted_success_prob": sp,
+        "actual_success": actual,
+    })
+    return result
 
 
 def _complementary_coverage(group: dict,

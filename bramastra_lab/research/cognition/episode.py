@@ -135,65 +135,144 @@ def render_public_state(*, goal: Mapping[str, Any],
     return tokens, omitted
 
 
-def _compact_history_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
-    """Lossless-compact history entry (semantic fields preserved).
+def _ACTION_SHORT_KEYS():
+    return {
+        "kind": "k", "variable": "var", "item": "itm", "input": "inp",
+        "value": "val", "container": "cnt", "switch": "sw",
+        "answer": "ans", "target": "tgt", "column": "col",
+        "equals": "eq", "op": "op", "operand": "opr",
+    }
 
-    Short keys keep multi-step traces inside the byte-level context policy;
-    the mapping is bijective over the whitelisted fields (see _expand key
-    table in receipts: a=action, f=feedback, k=kind, v=value/variable,
-    n=name, r=result/requires, c=correct, s=submitted, m=matched,
-    w=written, t=total).
-    """
+def _FEEDBACK_SHORT_KEYS():
+    return {
+        "kind": "k", "variable": "var", "value": "val", "item": "itm",
+        "requires": "req", "input": "inp", "result": "res",
+        "total": "tot", "matched": "mat", "written": "wri",
+        "submitted_answer": "sub", "correct": "cor",
+        "contains_item": "cnt_itm", "changed": "chg", "state": "state",
+        "success": "suc", "error": "err", "is_dependency": "is_dep",
+        "table": "tbl", "filtered_rows": "flt", "sum": "sum",
+    }
+
+def _compact_history_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
+    """Lossless-compact history entry. Unique short keys per field.
+    Unknown fields survive in the '_x' extension map."""
     action = dict(entry.get("action", {}))
     feedback = dict(entry.get("feedback", {}))
-    compact_action = {"k": action.get("kind")}
-    for key, short in (("variable", "v"), ("item", "n"), ("input", "v"),
-                       ("value", "v"), ("container", "n"), ("switch", "n"),
-                       ("answer", "s")):
-        if action.get(key) is not None:
-            compact_action[short] = action[key]
-    compact_feedback = {"k": feedback.get("kind")}
-    for key, short in (("variable", "v"), ("value", "v"), ("item", "n"),
-                       ("requires", "r"), ("input", "v"), ("result", "r"),
-                       ("total", "t"), ("matched", "m"), ("written", "w"),
-                       ("submitted_answer", "s"), ("correct", "c"),
-                       ("contains_item", "v"), ("changed", "c"),
-                       ("state", "v")):
-        if feedback.get(key) is not None:
-            compact_feedback[short] = feedback[key]
+    a_keys = _ACTION_SHORT_KEYS()
+    f_keys = _FEEDBACK_SHORT_KEYS()
+    compact_action: dict[str, Any] = {}
+    action_ext: dict[str, Any] = {}
+    for key, value in action.items():
+        short = a_keys.get(key)
+        if short and short not in compact_action:
+            compact_action[short] = value
+        elif short is None:
+            action_ext[key] = value
+    compact_feedback: dict[str, Any] = {}
+    feedback_ext: dict[str, Any] = {}
+    for key, value in feedback.items():
+        short = f_keys.get(key)
+        if short and short not in compact_feedback:
+            compact_feedback[short] = value
+        elif short is None:
+            feedback_ext[key] = value
+    if action_ext:
+        compact_action["x"] = action_ext
+    if feedback_ext:
+        compact_feedback["x"] = feedback_ext
     return {"a": compact_action, "f": compact_feedback}
+
+
+def _expand_history_entry(compact: Mapping[str, Any]) -> dict[str, Any]:
+    """Exact inverse of _compact_history_entry."""
+    a_reverse = {v: k for k, v in _ACTION_SHORT_KEYS().items()}
+    f_reverse = {v: k for k, v in _FEEDBACK_SHORT_KEYS().items()}
+    compact_action = dict(compact.get("a", {}))
+    compact_feedback = dict(compact.get("f", {}))
+    ext = compact_action.pop("x", {})
+    for key, value in ext.items():
+        compact_action[key] = value
+    ext = compact_feedback.pop("x", {})
+    for key, value in ext.items():
+        compact_feedback[key] = value
+    action = {a_reverse.get(k, k): v for k, v in compact_action.items()}
+    feedback = {f_reverse.get(k, k): v for k, v in compact_feedback.items()}
+    return {"action": action, "feedback": feedback}
 
 
 def _compact_evidence_record(record: Mapping[str, Any]) -> dict[str, Any]:
     """Lossless-compact evidence record for the shared renderer."""
     compact: dict[str, Any] = {}
-    for key, short in (("entity", "e"), ("observed_value", "o"),
-                       ("observation_id", "i"), ("temporal_scope", "t"),
-                       ("status", "s")):
-        if record.get(key) is not None:
-            value = record[key]
-            compact[short] = str(value)[:120] if key == "observed_value" \
-                else value
+    for key, value in record.items():
+        if key == "observed_value":
+            compact["o"] = str(value)[:120] if isinstance(value, str) else value
+        elif key == "entity":
+            compact["e"] = value
+        elif key == "observation_id":
+            compact["i"] = value
+        elif key == "temporal_scope":
+            compact["t"] = value
+        elif key == "status":
+            compact["s"] = value
+        else:
+            compact[key] = value
     return compact or {"e": "empty-record"}
 
 
 def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
-    """Mark contradictory evidence without rewriting history.
+    """Mark contradictions and temporal supersession.
 
-    Two records conflict when they share an entity with different observed
-    values. Both keep their source observations; their status becomes
-    "conflicting" (a revision of support, not of history). Returns the
-    conflicting observation-id pairs.
+    Groups records by (subject, predicate). Within a group:
+    - Same value at same valid_time: duplicates, no conflict.
+    - Different values at same valid_time: contradiction (both conflicting).
+    - Different valid_times: later supersedes earlier (earlier superseded).
+    Different subjects or predicates never conflict. Multivalued predicates
+    (e.g. contains) accumulate without conflict.
     """
     conflicts: list[tuple[str, str]] = []
-    for i, left in enumerate(workspace):
-        for right in workspace[i + 1:]:
-            if left.get("entity") and left.get("entity") == right.get("entity") \
-                    and left.get("observed_value") != right.get("observed_value"):
-                left["status"] = "conflicting"
-                right["status"] = "conflicting"
-                conflicts.append((str(left.get("observation_id")),
-                                  str(right.get("observation_id"))))
+    groups: dict[tuple, list[dict[str, Any]]] = {}
+    for record in workspace:
+        if record.get("predicate") == "contains":
+            continue  # multivalued: accumulate without conflict
+        key = (record.get("subject"), record.get("predicate"))
+        groups.setdefault(key, []).append(record)
+
+    for (subject, predicate), members in groups.items():
+        if len(members) < 2:
+            continue
+        members.sort(key=lambda r: r.get("valid_time", 0))
+        # Check for same-time contradictions.
+        by_time: dict[Any, list[dict[str, Any]]] = {}
+        for member in members:
+            by_time.setdefault(member.get("valid_time", 0), []).append(member)
+        has_contradiction = False
+        for _time, same_time in by_time.items():
+            values = set(json.dumps(r.get("value"), sort_keys=True, default=str)
+                         for r in same_time)
+            if len(values) > 1:
+                has_contradiction = True
+                for r in same_time:
+                    r["status"] = "conflicting"
+                for i in range(len(same_time)):
+                    for j in range(i + 1, len(same_time)):
+                        conflicts.append((same_time[i].get("record_id", "?"),
+                                          same_time[j].get("record_id", "?")))
+        if has_contradiction:
+            continue
+        # Temporal supersession: later valid_time supersedes earlier.
+        sorted_members = sorted(members, key=lambda r: r.get("valid_time", 0))
+        for i in range(len(sorted_members) - 1):
+            earlier = sorted_members[i]
+            later = sorted_members[i + 1]
+            if earlier.get("value") != later.get("value"):
+                earlier["status"] = "superseded"
+                later["supersedes"] = earlier.get("record_id")
+                later["status"] = "active"
+            else:
+                earlier["status"] = "superseded"
+                later["supersedes"] = earlier.get("record_id")
+                later["status"] = "active"
     return conflicts
 
 
@@ -223,25 +302,44 @@ class ModelWorldModel:
                  action: Mapping[str, Any], depth: int) -> Mapping[str, Any]:
         from bramastra_lab.research.experience.codec import encode_text
 
-        prompt_text = json.dumps({"state_goal": dict(state.get("goal", {})),
-                                  "action": dict(action),
-                                  "depth": depth}, sort_keys=True)[:256]
-        prompt = [259] + encode_text(prompt_text)[:64]
+        prompt_text = json.dumps({
+            "goal": dict(state.get("goal", {})),
+            "history": [dict(entry) for entry in state.get("history", [])],
+            "workspace": [dict(entry) for entry in state.get("workspace", [])],
+            "action": dict(action),
+            "depth": depth,
+        }, sort_keys=True, default=str)[:512]
+        prompt = [259] + encode_text(prompt_text)[:256]
         self.calls += 1
         try:
             out = self.model.generate(prompt, max_new_tokens=24)
             predicted = json.loads(out["answer"])
             if not isinstance(predicted, Mapping):
                 raise ValueError("prediction is not an object")
+            sp = predicted.get("success_prob")
+            if sp is not None:
+                sp = float(sp)
+                if not (0.0 <= sp <= 1.0):
+                    return {"feedback": {},
+                            "success_prob": None, "value": None,
+                            "origin": "out-of-range",
+                            "prediction_failed": True,
+                            "error": f"success_prob {sp} outside [0,1]"}
             base_origin = str(out.get("origin", "model"))
             return {"feedback": dict(predicted.get("feedback", {})),
-                    "success_prob": float(predicted.get("success_prob", 0.5)),
+                    "success_prob": sp,
                     "value": float(predicted.get("value", 0.0)),
                     "origin": base_origin + "-imagined",
                     "prediction_failed": False}
+        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
+            return {"feedback": {},
+                    "success_prob": None, "value": None,
+                    "origin": "parse-failure",
+                    "prediction_failed": True,
+                    "error": str(exc)[:120]}
         except Exception as exc:
             return {"feedback": {},
-                    "success_prob": 0.5, "value": 0.0,
+                    "success_prob": None, "value": None,
                     "origin": "neutral-fallback",
                     "prediction_failed": True,
                     "error": str(exc)[:120]}
@@ -392,25 +490,38 @@ def admit_observation_evidence(workspace: list[dict[str, Any]], *,
                                observation: Mapping[str, Any],
                                observation_id: str) -> dict[str, Any]:
     """Declared deterministic workspace transform (shared by train/infer)."""
-    compact_obs = _compact_history_entry({"action": {}, "feedback": dict(
-        observation)})["f"]
-    record = {"entity": str(compact_obs.get("k", "observation")),
-              "observed_value": json.dumps(compact_obs, sort_keys=True,
-                                           default=str)[:120],
-              "observation_id": observation_id,
-              "temporal_scope": "episode",
-              "status": "active"}
+    kind = observation.get("kind", "observation")
+    variable = observation.get("variable")
+    value = observation.get("value")
+    subject = f"variable:{variable}" if variable else f"observation:{observation_id}"
+    predicate = observation.get("kind", "value")
+    record = {
+        "record_id": observation_id,
+        "subject": subject,
+        "predicate": predicate,
+        "value": value if value is not None else json.dumps(observation, sort_keys=True, default=str)[:120],
+        "valid_time": len(workspace),
+        "source_event_id": observation_id,
+        "status": "active",
+    }
     workspace.append(record)
     return record
+
+
+class _AttrDict(dict):
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name)
 
 
 class BoundedPlannerAdapter(Adapter):
     """Depth-two / node-eight imagined search (B planner arm).
 
-    Expands legal actions, predicts outcomes through the declared world
-    model, and ranks first actions by predicted success minus action cost.
-    All predictions stay in the imagined list with provenance; the proposed
-    action executes for real in the loop like any other adapter.
+    Breadth-first: all roots expanded at depth-1 first, then depth-2
+    children with remaining budget. This ensures permutation equivariance
+    for depth-1 scores regardless of action ordering.
     """
 
     name = "bounded-planner"
@@ -424,63 +535,116 @@ class BoundedPlannerAdapter(Adapter):
         self.value_fn_name = value_fn_name
         self.max_depth = max_depth
         self.max_nodes = max_nodes
-        self.last_imagined: list[ImaginedNode] = []
+        self.last_imagined: list[Any] = []
+        self.excluded_root_ids: list[str] = []
+        self._model_calls = 0
+
+    @staticmethod
+    def _known_forecast(predicted: Mapping[str, Any]) -> float | None:
+        """Extract a valid success_prob; None for failed/out-of-range."""
+        if predicted.get("prediction_failed"):
+            return None
+        sp = predicted.get("success_prob")
+        if sp is None:
+            return None
+        try:
+            val = float(sp)
+        except (TypeError, ValueError):
+            return None
+        if not (0.0 <= val <= 1.0):
+            return None
+        return val
+
+    def _make_node(self, node_index: int, action_prefix: list,
+                   predicted: Mapping[str, Any], state_view: Mapping[str, Any],
+                   provenance: str) -> _AttrDict:
+        return _AttrDict(
+            node_index=node_index,
+            action_prefix=[dict(a) for a in action_prefix],
+            predicted_outcome=dict(predicted),
+            value_estimate=float(predicted.get("value", 0.0)),
+            remaining_budget=int(state_view.get("budgets", {}).get(
+                "actions_left", 0)),
+            provenance=provenance,
+            public_state_hash=_hash_mapping(dict(state_view)),
+            goal_hash=_hash_mapping(dict(state_view.get("goal", {}))),
+        )
+
+    def _world_call(self, state_view: Mapping[str, Any],
+                    action: Mapping[str, Any], depth: int,
+                    applied_prefix: tuple) -> Mapping[str, Any]:
+        self._model_calls += 1
+        return self.world_model(
+            state={**dict(state_view), "applied_prefix": applied_prefix},
+            action=dict(action), depth=depth)
 
     def select(self, *, legal_actions, rendered, model, workspace,
                state_view) -> Mapping[str, Any]:
         self.last_imagined = []
+        self.excluded_root_ids = []
+        self._model_calls = 0
         if not legal_actions:
             raise EpisodeError("planner has no legal actions to expand")
-        scored: list[tuple[float, Mapping[str, Any]]] = []
+
+        action_keys = [json.dumps(dict(a), sort_keys=True) for a in legal_actions]
+        root_scores: dict[str, float] = {}
         nodes = 0
-        state_hash = _hash_mapping(dict(state_view.get("goal", {})))
-        for action in list(legal_actions):
+
+        # Phase 1: Expand all roots at depth-1 (breadth-first).
+        root_predictions: dict[str, Mapping[str, Any]] = {}
+        for index, action in enumerate(legal_actions):
+            key = action_keys[index]
             if nodes >= self.max_nodes:
-                break
-            predicted = self.world_model(state=dict(state_view),
-                                         action=dict(action), depth=1)
+                self.excluded_root_ids.append(key)
+                continue
+            predicted = self._world_call(state_view, action, 1, ())
             nodes += 1
-            self.last_imagined.append(ImaginedNode(
-                node_index=nodes, public_state_hash=state_hash,
-                goal_hash=_hash_mapping(dict(state_view.get("goal", {}))),
-                action_prefix=[dict(action)],
-                predicted_outcome=dict(predicted),
-                value_estimate=float(predicted.get("value", 0.0)),
-                remaining_budget=int(state_view.get("budgets", {}).get(
-                    "actions_left", 0)),
-                provenance="planner-depth1"))
-            best_value = float(predicted.get("success_prob", 0.0)) \
-                + self.value_fn(state=dict(state_view), action=dict(action))
-            if self.max_depth >= 2:
-                for second in list(legal_actions):
+            root_predictions[key] = predicted
+            sp1 = self._known_forecast(predicted)
+            self.last_imagined.append(self._make_node(
+                nodes, [action], predicted, state_view, "planner-depth1"))
+            root_scores[key] = sp1 if sp1 is not None else -1.0
+
+        # Phase 2: Depth-2 children with remaining budget (breadth-first
+        # over roots, expanding children in root order). Q uses A5:
+        # Q_2(h,a) = sp1 * max_over_children(sp2), weighting the best
+        # continuation by the root's own transition probability.
+        if self.max_depth >= 2:
+            for index, action in enumerate(legal_actions):
+                key = action_keys[index]
+                if key in self.excluded_root_ids:
+                    continue
+                if nodes >= self.max_nodes:
+                    break
+                prefix = (key,)
+                predicted1 = root_predictions[key]
+                sp1 = self._known_forecast(predicted1)
+                if sp1 is None or sp1 <= 0:
+                    continue
+                best_sp2 = None
+                for second in legal_actions:
                     if nodes >= self.max_nodes:
                         break
-                    predicted2 = self.world_model(
-                        state=dict(state_view), action=dict(second), depth=2)
+                    predicted2 = self._world_call(
+                        state_view, second, 2, prefix)
                     nodes += 1
-                    self.last_imagined.append(ImaginedNode(
-                        node_index=nodes, public_state_hash=state_hash,
-                        goal_hash=_hash_mapping(
-                            dict(state_view.get("goal", {}))),
-                        action_prefix=[dict(action), dict(second)],
-                        predicted_outcome=dict(predicted2),
-                        value_estimate=float(predicted2.get("value", 0.0)),
-                        remaining_budget=int(state_view.get("budgets", {}).get(
-                            "actions_left", 0)),
-                        provenance="planner-depth2"))
-                    candidate = float(predicted2.get("success_prob", 0.0)) \
-                        + self.value_fn(state=dict(state_view),
-                                        action=dict(second)) - 0.05
-                    best_value = max(best_value, candidate)
-            cost = 1.0
-            scored.append((best_value - 0.1 * cost, dict(action),
-                         str(predicted.get("origin", "unknown"))))
-        scored.sort(key=lambda item: item[0], reverse=True)
-        chosen = dict(scored[0][1])
+                    sp2 = self._known_forecast(predicted2)
+                    self.last_imagined.append(self._make_node(
+                        nodes, [action, second], predicted2, state_view,
+                        "planner-depth2"))
+                    if sp2 is not None:
+                        best_sp2 = max(best_sp2, sp2) if best_sp2 is not None else sp2
+                if best_sp2 is not None:
+                    root_scores[key] = sp1 * best_sp2
+
+        # Select best root by Q value.
+        best_key = max(root_scores, key=lambda k: root_scores[k])
+        best_index = action_keys.index(best_key)
+        chosen = dict(legal_actions[best_index])
         chosen["_planner_nodes"] = nodes
-        chosen["_planner_value"] = scored[0][0]
+        chosen["_planner_value"] = root_scores[best_key]
         chosen["_value_fn"] = self.value_fn_name
-        chosen["_origin"] = scored[0][2]
+        chosen["_model_calls"] = self._model_calls
         return chosen
 
 
@@ -814,7 +978,7 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                "success": success,
                "cost": sum(event.resource_delta for event in events)}
     return {"events": [event.to_dict() for event in events],
-            "imagined": [node.__dict__ for node in imagined],
+            "imagined": [dict(node) for node in imagined],
             "history": history,
             "summary": summary,
             "adapter": adapter.name,
@@ -860,30 +1024,3 @@ def decode_action_code(code: dict, legal_actions: list[dict]) -> tuple[dict, str
     return dict(legal_actions[index]), "code"
 
 
-def _expand_history_entry(compact: Mapping[str, Any]) -> dict[str, Any]:
-    """Inverse of _compact_history_entry: restore full key names."""
-    action_short_to_full = {
-        "k": "kind", "v": "variable", "n": "name", "s": "answer"}
-    feedback_short_to_full = {
-        "k": "kind", "v": "value", "n": "name", "r": "result",
-        "t": "total", "m": "matched", "w": "written", "s": "submitted_answer",
-        "c": "correct"}
-    # Action short keys: v maps to both variable and value; use context.
-    action_reverse = {"k": "kind"}
-    for full, short in (("variable", "v"), ("item", "n"), ("input", "v"),
-                        ("value", "v"), ("container", "n"), ("switch", "n"),
-                        ("answer", "s")):
-        action_reverse[short] = full  # last wins; ambiguity is inherent
-    feedback_reverse = {"k": "kind"}
-    for full, short in (("variable", "v"), ("value", "v"), ("item", "n"),
-                        ("requires", "r"), ("input", "v"), ("result", "r"),
-                        ("total", "t"), ("matched", "m"), ("written", "w"),
-                        ("submitted_answer", "s"), ("correct", "c"),
-                        ("contains_item", "v"), ("changed", "c"),
-                        ("state", "v")):
-        feedback_reverse[short] = full
-    compact_action = dict(compact.get("a", {}))
-    compact_feedback = dict(compact.get("f", {}))
-    action = {action_reverse.get(k, k): v for k, v in compact_action.items()}
-    feedback = {feedback_reverse.get(k, k): v for k, v in compact_feedback.items()}
-    return {"action": action, "feedback": feedback}
