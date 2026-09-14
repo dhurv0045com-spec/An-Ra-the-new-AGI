@@ -48,7 +48,9 @@ def _fake_job(**overrides):
             "local_device": "cpu",
             "phase": "E1", "source_hash": "src-test",
             "allocation_id": "alloc-test", "reservation_id": "res-test",
-            "reservation_deadline_unix": 9e9}
+            "reservation_deadline_unix": 9e9,
+            "run_dir": tempfile.mkdtemp(),
+            "data_dir": tempfile.mkdtemp()}
     base.update(overrides)
     return SimpleNamespace(**base)
 
@@ -128,6 +130,49 @@ class O01SessionTests(unittest.TestCase):
         self.assertEqual(
             bind_job_reservation(handle, _fake_job(), remaining_updates=4),
             "zero-update-double")
+
+    def test_step_or_noop_gates(self) -> None:
+        from bramastra_lab.research.campaigns.phases.session import (
+            bind_job_reservation, step_or_noop)
+        from bramastra_lab.research.experience.supervision import (
+            SupervisionWindow)
+
+        # Real trainer, well-formed but non-ledger reservation: no-op
+        # boundary with zero steps (fields alone never authorize).
+        _, trainer = _tiny_trainer(require_allocation=True)
+        handle = {"trainer": trainer, "model": trainer.model}
+        job = _fake_job()
+        bind_job_reservation(handle, job, remaining_updates=4)
+        batch = _tiny_batch()
+        window = SupervisionWindow(
+            weights={"token": 1.0, "world": 0.0, "action": 0.0,
+                     "value": 0.0, "pair": 0.0, "pg": 0.0},
+            enabled_terms=frozenset({"token"}))
+        window.add("token", batch.target_count)
+        from bramastra_lab.research.campaigns.phases.session import (
+            job_reservation_record)
+        outcome = step_or_noop(
+            None, handle, job, batch=batch, window=window, extra={},
+            pair_rows=None,
+            reservation=job_reservation_record(job, remaining_updates=4))
+        self.assertEqual(outcome.get("boundary"), "noop")
+        self.assertEqual(outcome.get("committed"), 0)
+        self.assertEqual(trainer.counters.optimizer_updates, 0)
+        # Doubles take the recording path with fixture counts.
+        from bramastra_lab.research.campaigns.phases.ops import (
+            RecordingDoubleOps)
+
+        ops = RecordingDoubleOps()
+        double = ops.init_model(seed=1, profile="k8-campaign", device="cpu")
+        window2 = SupervisionWindow(
+            weights={"token": 1.0, "world": 0.0, "action": 0.0,
+                     "value": 0.0, "pair": 0.0, "pg": 0.0},
+            enabled_terms=frozenset({"token"}))
+        window2.add("token", batch.target_count)
+        recorded = step_or_noop(
+            ops, double, job, batch=batch, window=window2, extra={},
+            pair_rows=None, reservation=None)
+        self.assertEqual(recorded.get("committed"), 1)
 
 
 class O02WindowTests(unittest.TestCase):
@@ -288,6 +333,59 @@ class O03CalibrationTests(unittest.TestCase):
                 identities={"source_hash": "s", "data_hash": "d",
                             "device_ids": ["cuda:0", "cuda:1"]})
         self.assertIsNone(cal.load_frozen_protocol(tempfile.mkdtemp()))
+
+
+    def test_freeze_from_e0_samples(self) -> None:
+        from bramastra_lab.research.campaigns import calibration as cal
+        from bramastra_lab.research.campaigns import runner
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+
+        run = tempfile.mkdtemp()
+        ledger = CampaignLedger(run)
+        ledger.record_allocation("alloc-cal", "src-cal", "data-cal", 480.0)
+        results = {"E0-w0": {"calibration_samples": {
+            "worst_update_seconds": 2.0, "eval_cases_per_second": 10.0}},
+            "E0-w1": {"calibration_samples": {
+                "worst_update_seconds": 3.0, "eval_cases_per_second": 8.0}}}
+        pending = [{"job_id": "E0-w0"}, {"job_id": "E0-w1"}]
+        runner._maybe_freeze_protocol(
+            ledger, run, results, pending, source_hash="src-cal",
+            data_hash="data-cal", devices=["cuda:0", "cuda:1"])
+        ledger.close()
+        frozen = cal.load_frozen_protocol(run)
+        assert frozen is not None
+        # Worst worker governs: floor(0.75*3600/3.0) = 900 for E1.
+        self.assertEqual(
+            frozen["selection"]["update_targets"]["E1"], 900)
+        self.assertEqual(
+            frozen["selection"]["confirmation_clusters_per_family"], 128)
+        self.assertIsNotNone(runner._load_usable_protocol(
+            run, ["cuda:0", "cuda:1"]))
+        self.assertIsNone(runner._load_usable_protocol(run, ["cuda:0"]))
+        # Second freeze is a no-op (resume consumes the existing artifact;
+        # freeze_protocol itself refuses overwrites, tested in O03).
+        before = open(os.path.join(run, "frozen_protocol.json")).read()
+        ledger2 = CampaignLedger(run)
+        runner._maybe_freeze_protocol(
+            ledger2, run, results, pending, source_hash="src-cal",
+            data_hash="data-cal", devices=["cuda:0", "cuda:1"])
+        ledger2.close()
+        after = open(os.path.join(run, "frozen_protocol.json")).read()
+        self.assertEqual(before, after)
+
+    def test_freeze_refuses_missing_samples(self) -> None:
+        from bramastra_lab.research.campaigns import runner
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+
+        run = tempfile.mkdtemp()
+        ledger = CampaignLedger(run)
+        ledger.record_allocation("alloc-cal2", "src", "data", 480.0)
+        with self.assertRaises(Exception):
+            runner._maybe_freeze_protocol(
+                ledger, run, {"E0-w0": {}}, [{"job_id": "E0-w0"}],
+                source_hash="src", data_hash="data",
+                devices=["cuda:0", "cuda:1"])
+        ledger.close()
 
 
 class O04KernelTests(unittest.TestCase):

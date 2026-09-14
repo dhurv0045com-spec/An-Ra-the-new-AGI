@@ -9,7 +9,7 @@ permissive recorder alone is not an integration test.
 """
 from __future__ import annotations
 
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 
 
 K8_CAMPAIGN_MODEL = {"profile": "development", "vocab": 260, "layers": 8,

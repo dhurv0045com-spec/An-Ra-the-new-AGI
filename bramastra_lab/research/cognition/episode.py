@@ -18,13 +18,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 
 class EpisodeError(ValueError):
     """An episode violated its declared kernel contract."""
+
+    def __init__(self, message: str = "", *,
+                 model_origin: str | None = None) -> None:
+        super().__init__(message)
+        # A failed generation still has an origin (real model output that did
+        # not parse is model-originated evidence of failure, not absence).
+        self.model_origin = model_origin
 
 
 ACTION_BUDGET_DEFAULT = 4
@@ -200,9 +206,11 @@ class ModelWorldModel:
     """Production world predictor: model-originated imagined outcomes.
 
     Prompts the shared decoder for a feedback prediction over the declared
-    finite support (the current legal actions). Every prediction carries
-    origin "model-imagined"; unparseable outputs become explicit neutral
-    predictions (recorded, never silent). Local tests use canned doubles.
+    finite support (the current legal actions). The imagined origin derives
+    from the underlying generation's reported origin (real model output vs
+    double output), never from this class's name. Unparseable outputs become
+    explicit neutral predictions (recorded, never silent). Local tests use
+    canned doubles.
     """
 
     name = "model-world"
@@ -225,10 +233,11 @@ class ModelWorldModel:
             predicted = json.loads(out["answer"])
             if not isinstance(predicted, Mapping):
                 raise ValueError("prediction is not an object")
+            base_origin = str(out.get("origin", "model"))
             return {"feedback": dict(predicted.get("feedback", {})),
                     "success_prob": float(predicted.get("success_prob", 0.5)),
                     "value": float(predicted.get("value", 0.0)),
-                    "origin": out.get("origin", "model") + "-imagined",
+                    "origin": base_origin + "-imagined",
                     "prediction_failed": False}
         except Exception as exc:
             return {"feedback": {},
@@ -311,14 +320,16 @@ class ScriptedModel(ModelInterface):
                 "generation_id": generation_id, "origin": "scripted-double"}
 
 
-def parse_action(answer: str) -> Mapping[str, Any]:
+def parse_action(answer: str, *, model_origin: str | None = None) -> Mapping[str, Any]:
     """Parse model text into a typed action mapping (strict JSON object)."""
     try:
         action = json.loads(answer)
     except (json.JSONDecodeError, TypeError) as exc:
-        raise EpisodeError(f"model output is not a JSON action: {exc}") from exc
+        raise EpisodeError(f"model output is not a JSON action: {exc}",
+                           model_origin=model_origin) from exc
     if not isinstance(action, Mapping) or "kind" not in action:
-        raise EpisodeError("model action must be a JSON object with 'kind'")
+        raise EpisodeError("model action must be a JSON object with 'kind'",
+                           model_origin=model_origin)
     return dict(action)
 
 
@@ -348,7 +359,8 @@ class LearnedPolicyAdapter(Adapter):
     def select(self, *, legal_actions, rendered, model, workspace,
                state_view) -> Mapping[str, Any]:
         out = model.generate(rendered, max_new_tokens=24)
-        action = parse_action(out["answer"])
+        action = parse_action(out["answer"],
+                              model_origin=out.get("origin", "model"))
         action["_generation_id"] = out.get("generation_id")
         action["_origin"] = out.get("origin", "model")
         return action
@@ -368,7 +380,8 @@ class WorkspacePolicyAdapter(Adapter):
     def select(self, *, legal_actions, rendered, model, workspace,
                state_view) -> Mapping[str, Any]:
         out = model.generate(rendered, max_new_tokens=24)
-        action = parse_action(out["answer"])
+        action = parse_action(out["answer"],
+                              model_origin=out.get("origin", "model"))
         action["_generation_id"] = out.get("generation_id")
         action["_origin"] = out.get("origin", "model")
         action["_workspace_records"] = len(workspace)
@@ -460,12 +473,14 @@ class BoundedPlannerAdapter(Adapter):
                                         action=dict(second)) - 0.05
                     best_value = max(best_value, candidate)
             cost = 1.0
-            scored.append((best_value - 0.1 * cost, dict(action)))
+            scored.append((best_value - 0.1 * cost, dict(action),
+                         str(predicted.get("origin", "unknown"))))
         scored.sort(key=lambda item: item[0], reverse=True)
         chosen = dict(scored[0][1])
         chosen["_planner_nodes"] = nodes
         chosen["_planner_value"] = scored[0][0]
         chosen["_value_fn"] = self.value_fn_name
+        chosen["_origin"] = scored[0][2]
         return chosen
 
 
@@ -711,11 +726,14 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                                     state_view=state_view)
         except EpisodeError as exc:
             # A failed generation still consumed a model call: budget it, or
-            # unparseable outputs would loop forever without progress.
+            # unparseable outputs would loop forever without progress. The
+            # failure keeps the generation's origin for evidence tracing.
             model_calls += 1
             invalid += 1
             emit("action", action={"kind": "adapter_error"},
-                 model_origin="unknown", planner_meta={},
+                 model_origin=getattr(exc, "model_origin", None)
+                 or "unknown",
+                 planner_meta={},
                  observed_result={"kind": "adapter_error",
                                   "error": str(exc)[:200]},
                  resource_delta=1.0)
