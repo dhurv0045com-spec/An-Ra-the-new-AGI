@@ -1,0 +1,24 @@
+{
+  "schema": "anra.formation-mux-surface-preregistration/v5",
+  "campaign": "FORMATION-MUX-001",
+  "amendment": "AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY",
+  "status": "PROSPECTIVE_NO_OFFICIAL_OUTCOMES",
+  "generator": "v5_experiments.formation_mux_data deterministic latent grammar",
+  "families": ["identity", "binding", "state_order", "composition", "termination", "missing_info"],
+  "per_family": {
+    "training": 10000,
+    "development": 80,
+    "sealed": 120
+  },
+  "whole_split_totals": {
+    "training": 60000,
+    "development": 480,
+    "sealed": 720
+  },
+  "reason": "CS-MECH presents 32000 rows per arm; a 60000-row train split avoids stream wrap for that experiment and removes the severe small-surface reuse of S4. REP-FORM remains matched by processed tokens.",
+  "latent_id_constraint": "all scientific latent prompt/answer ids < 4096",
+  "production_rendering_requirement": "all public rows carry frozen V24576 production-BPE ids before official execution",
+  "sealed_firewall": "training workers persist training+development only; sealed rows are commitment-bound and regenerated only after DEVELOPMENT_COMPLETE",
+  "shortcut_and_contamination_policy": "fail closed before science; deterministic split/content identities; exact shortcut statistics computed with an O(n) Counter implementation",
+  "claim_ceiling": "development-scale causal surface only; not a pretraining corpus"
+}
