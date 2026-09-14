@@ -264,8 +264,9 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                 "adapter": trace.get("adapter")}
             if mode == "b-planner":
                 gap = _planner_prediction_gap(trace)
-                if gap.get("joined"):
-                    planner_gaps.append(gap)
+                if gap.get("joined") and isinstance(
+                        gap.get("success_gap"), (int, float)):
+                    planner_gaps.append(float(gap["success_gap"]))
         # Paired contrast on this mechanism (matched copies, same budgets).
         b_ok = group_result["modes"].get("b-policy", {}).get("success")
         a_ok = group_result["modes"].get("a-fixed", {}).get("success")
@@ -324,6 +325,35 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                            error="E2 parent has no verified checkpoint identity",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E2"})
+    # Per-mode count reconciliation (U05): top-level totals must reduce from
+    # the per-mode per-episode details (including goal-swap episodes).
+    sum_actions = sum_calls = 0
+    for detail in group_details:
+        for mode_stat in detail["modes"].values():
+            sum_actions += int(mode_stat.get("actions") or 0)
+            sum_calls += int(mode_stat.get("model_calls") or 0)
+    for swap in goal_swap_rows:
+        sum_actions += int(swap.get("actions") or 0)
+        sum_calls += int(swap.get("model_calls") or 0)
+    calls_reconciled = (sum_actions == total_actions
+                        and sum_calls == total_calls
+                        and evaluated_episodes > 0)
+    # Consumed checkpoint/schema identities per mode (U05): B modes name the
+    # B parent's schema identity, A/control modes the A control's.
+    b_schema = _handle_schema_identity(b_handle)
+    a_schema = _handle_schema_identity(a_handle)
+    schema_identities: dict[str, str | None] = {}
+    for mode in mode_stats:
+        if mode.startswith("b-"):
+            schema_identities[mode] = b_schema
+        elif mode.startswith("a-"):
+            schema_identities[mode] = a_schema
+        else:
+            schema_identities[mode] = None
+    planner_calibration = {"joined": len(planner_gaps),
+                           "mean_abs_gap": (sum(planner_gaps)
+                                            / len(planner_gaps)
+                                            if planner_gaps else None)}
     # Evidence origin (O05): a learned checkpoint alone never qualifies —
     # the trace must show model-origin generations behind B-mode decisions.
     try:
@@ -353,9 +383,12 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                    "goal_swap": goal_swap_rows,
                    "contradiction": contradiction_rows,
                    "complementary": complementary_rows,
+                   "planner_calibration": planner_calibration,
                    "planner_calibration_mean_abs_gap": (
                        sum(planner_gaps) / len(planner_gaps)
                        if planner_gaps else None),
+                   "calls_reconciled": calls_reconciled,
+                   "schema_identities": schema_identities,
                    "budgets": {"actions": ACTION_BUDGET, "calls": CALL_BUDGET,
                                "nodes": NODE_BUDGET},
                    "totals": {"actions": total_actions,
@@ -484,6 +517,21 @@ def _trace_has_model_origin(trace: dict) -> bool:
         if str(event.get("model_origin", "")).startswith("model"):
             return True
     return False
+
+
+def _handle_schema_identity(handle: Any) -> str | None:
+    """Schema/config identity consumed by a restored handle (U05)."""
+    if handle is None:
+        return None
+    for key in ("config_identity", "schema_identity"):
+        if isinstance(handle, dict):
+            if handle.get(key):
+                return str(handle[key])
+        else:
+            value = getattr(handle, key, None)
+            if value:
+                return str(value)
+    return None
 
 
 def _planner_prediction_gap(trace: dict) -> dict[str, Any]:

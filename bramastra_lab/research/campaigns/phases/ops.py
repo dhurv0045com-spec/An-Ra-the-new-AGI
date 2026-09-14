@@ -350,8 +350,7 @@ class ProductionOps:
             extra["world"] = world_transition_token_loss(
                 model, config, channels["prefix_tokens"],
                 action=channels["action"],
-                target_feedback=channels["target_feedback"],
-                goal=channels.get("goal"))
+                target_feedback=channels["target_feedback"])
             window.add("world", int(channels.get("denominator", 1)))
         # Action: declared teacher policy over legal candidates.
         if "action" in enabled and float(weights.get("action", 0.0)) > 0:

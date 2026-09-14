@@ -1,4 +1,8 @@
 # Preserve exact research receipt/source-snapshot bytes across Windows checkouts.
 artifacts/bramastra/** -text
+artifacts/e1/** -text
 bramastra_lab/** text eol=lf
+e1_tokenizer/** text eol=lf
+v5_training/** text eol=lf
+e2_architecture/** text eol=lf
 tests/test_bramastra* text eol=lf

@@ -12,12 +12,30 @@ import glob
 import json
 import os
 import random
-from typing import Any
+from typing import Any, Mapping
 
 
 K8_FAMILIES = ("rule-inquiry", "inventory", "program")
 K8_TRAINING_POOL = "training"
 K8_MAX_SEQ = 512
+
+
+def goal_prefix_tokens(public: Mapping[str, Any], *,
+                       max_event_bytes: int = None) -> list[int]:
+    """Complete prompt prefix: boundary + the single-encoded goal event.
+
+    This is exactly the context portion of the answer row built by
+    `build_batch_for_trajectory` (no answer bytes, no truncation). All
+    decision channels (world/action/value) and any inference prompt must
+    share this one representation so training and evaluation cannot drift.
+    """
+    from bramastra_lab.research.experience.codec import (
+        DEFAULT_MAX_EVENT_BYTES, SPECIAL_BOUNDARY, encode_event)
+
+    if max_event_bytes is None:
+        max_event_bytes = DEFAULT_MAX_EVENT_BYTES
+    return [SPECIAL_BOUNDARY] + list(encode_event(
+        "goal", dict(public), max_event_bytes=max_event_bytes))
 
 
 def _read_jsonl(path: str) -> list[dict[str, Any]]:
@@ -126,7 +144,8 @@ def build_batch_for_trajectory(row: dict[str, Any], *,
 
 def compile_channels_for_row(row: dict[str, Any], batch,
                              *, arm_weights: dict[str, float],
-                             arm_enabled: frozenset[str]) -> dict[str, Any]:
+                             arm_enabled: frozenset[str],
+                             max_seq: int = K8_MAX_SEQ) -> dict[str, Any]:
     """Compile real world/action/value/pair channels from episode history.
 
     - world: actual next observation after the first allowed history action.
@@ -136,8 +155,14 @@ def compile_channels_for_row(row: dict[str, Any], batch,
       the history verdict); never unconditional zero.
     - pair: actual paired goals are bound by the caller via pair_rows
       (see `build_pair_rows`); here we only declare eligibility.
+
+    Every channel conditions on the COMPLETE prompt prefix (boundary + goal
+    event, cross-checked against the compiled batch) and full-length
+    candidate/action/target encodings. Oversized content fails explicitly;
+    nothing is silently truncated.
     """
-    from bramastra_lab.research.experience.codec import encode_text
+    from bramastra_lab.research.experience.codec import (
+        encode_event, encode_text)
     import torch
 
     history = row.get("history") or []
@@ -150,23 +175,37 @@ def compile_channels_for_row(row: dict[str, Any], batch,
     feedback = first.get("feedback")
     if not isinstance(action, dict) or not isinstance(feedback, dict):
         raise ValueError("history action/feedback must be objects")
-    # Prefix tokens from the real compiled batch (never a fixed prompt).
+    # Complete prompt prefix from the same single goal encoding the answer
+    # row uses — no fixed prompt, no six-token cut, no answer leakage.
+    prefix_tokens = goal_prefix_tokens(row.get("public") or {})
     try:
-        prefix_tokens = batch.input_ids[0][:6].tolist()
+        batch_prefix = batch.input_ids[0][:len(prefix_tokens)].tolist()
     except Exception as exc:
         raise ValueError(
             f"batch has no input tokens for channel compilation: {exc}") from exc
-    if not prefix_tokens:
-        raise ValueError("empty prefix tokens; refusing fixed-prompt fallback")
+    if list(prefix_tokens) != batch_prefix:
+        raise ValueError(
+            "compiled channel prefix disagrees with the batch input prefix; "
+            "refusing drifting training/inference representations")
+    if len(prefix_tokens) + 1 > max_seq:
+        raise ValueError(
+            f"prompt prefix needs {len(prefix_tokens)} tokens; max_seq is "
+            f"{max_seq}")
     compiled: dict[str, Any] = {"weights": dict(arm_weights),
                                 "enabled": frozenset(arm_enabled),
                                 "extra": {}}
-    # World channel: real action + real target feedback + real goal.
+    # World channel: real action + real target feedback + real goal (the
+    # goal is already inside the complete prefix).
     if "world" in arm_enabled and float(arm_weights.get("world", 0.0)) > 0:
+        action_event = encode_event("action", action)
+        feedback_event = encode_event("feedback", dict(feedback))
+        span = len(prefix_tokens) + len(action_event) + len(feedback_event) + 1
+        if span > max_seq:
+            raise ValueError(
+                f"world transition needs {span} tokens; max_seq is {max_seq}")
         compiled["world"] = {"prefix_tokens": list(prefix_tokens),
                              "action": dict(action),
                              "target_feedback": dict(feedback),
-                             "goal": dict(row.get("public", {})),
                              "denominator": 1}
     # Action channel: legal candidates from row queries + teacher one-hot
     # from the history's actual first action (declared teacher policy).
@@ -182,9 +221,13 @@ def compile_channels_for_row(row: dict[str, Any], batch,
         # alternatives, no uniformity over arbitrary token lists.
         if family == "program":
             action_text_single = json.dumps(action, sort_keys=True)
-            tokens_single = encode_text(action_text_single)[:8]
+            tokens_single = encode_text(action_text_single)
             if not tokens_single:
                 raise ValueError("empty history-action encoding; refusing")
+            if len(prefix_tokens) + len(tokens_single) > max_seq:
+                raise ValueError(
+                    f"action candidate needs {len(prefix_tokens) + len(tokens_single)} "
+                    f"tokens; max_seq is {max_seq}")
             candidates = [list(tokens_single)]
             teacher = [1.0]
         else:
@@ -192,14 +235,18 @@ def compile_channels_for_row(row: dict[str, Any], batch,
             if not queries:
                 raise ValueError(
                     "action enabled but trajectory carries no legal queries")
-            # All declared queries are candidates (no silent truncation:
-            # shuffled exploration orders must stay covered).
+            # All declared queries are candidates, at FULL length (no silent
+            # truncation: shuffled exploration orders must stay covered).
             candidates = []
             for query in queries:
                 text = json.dumps(query, sort_keys=True)
-                tokens = encode_text(text)[:8]
+                tokens = encode_text(text)
                 if not tokens:
                     raise ValueError("empty candidate encoding; refusing")
+                if len(prefix_tokens) + len(tokens) > max_seq:
+                    raise ValueError(
+                        f"action candidate needs {len(prefix_tokens) + len(tokens)} "
+                        f"tokens; max_seq is {max_seq}")
                 candidates.append(list(tokens))
             if not candidates:
                 raise ValueError("no action candidates; refusing")
@@ -207,9 +254,13 @@ def compile_channels_for_row(row: dict[str, Any], batch,
             if len(set(query_texts)) == 1:
                 # Degenerate identical queries: single real history action.
                 action_text_single = json.dumps(action, sort_keys=True)
-                tokens_single = encode_text(action_text_single)[:8]
+                tokens_single = encode_text(action_text_single)
                 if not tokens_single:
                     raise ValueError("empty history-action encoding; refusing")
+                if len(prefix_tokens) + len(tokens_single) > max_seq:
+                    raise ValueError(
+                        f"action candidate needs {len(prefix_tokens) + len(tokens_single)} "
+                        f"tokens; max_seq is {max_seq}")
                 candidates = [list(tokens_single)]
                 teacher = [1.0]
             else:

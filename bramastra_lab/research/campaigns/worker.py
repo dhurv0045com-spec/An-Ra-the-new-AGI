@@ -326,10 +326,12 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
             max_tokens=64)
         return collocate([row], max_seq=64)
 
-    batches = [make_batch("2+2?", "4"), make_batch("3+3?", "6"),
-               make_batch("5+1?", "6")]
+    e0_questions = ("2+2?", "3+3?", "5+1?")
+    e0_answers = ("4", "6", "6")
+    batches = [make_batch(question, answer)
+               for question, answer in zip(e0_questions, e0_answers)]
 
-    def training_step_full(batch, trainer_ref):
+    def training_step_full(batch, trainer_ref, question):
         """One explicit canonical update (D2): accumulate then finalize once.
 
         Both uninterrupted and resume branches call THIS function with the
@@ -348,7 +350,7 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
             batch,
             window_builder=lambda target_count: _e0_window(target_count),
             extra_terms_fn=lambda: _e0_extra_terms(
-                trainer_ref.model, trainer_ref.config, batch),
+                trainer_ref.model, trainer_ref.config, batch, question),
         )
         return trainer_ref.finalize_update()
 
@@ -365,28 +367,39 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
         window.add("value", 1)
         return window
 
-    def _e0_extra_terms(model_ref, config_ref, batch_ref):
+    def _e0_extra_terms(model_ref, config_ref, batch_ref, question):
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            goal_prefix_tokens)
+        from bramastra_lab.research.experience.codec import encode_text
         from bramastra_lab.research.learning.k8_scoring import (
             score_candidates_trainable,
             value_estimate_trainable,
             world_transition_token_loss,
         )
 
-        tokens = batch_ref.input_ids[0][:8].tolist()
-        candidates = [[70, 71], [80, 81]]
+        # Complete prompt prefix (boundary + goal event), matching the
+        # compiled batch — never a sliced fragment of the input row.
+        tokens = goal_prefix_tokens({"question": question})
+        # Real typed action candidates at full length (no arbitrary token
+        # lists): the diagnostic exercises the same encode path as training.
+        candidates = [
+            encode_text(json.dumps(
+                {"kind": "e0", "op": op, "question": question},
+                sort_keys=True))
+            for op in ("add", "echo")]
         scored = score_candidates_trainable(model_ref, config_ref, tokens, candidates)
         action_sum = -scored["log_probs"].sum()
-        value = value_estimate_trainable(model_ref, config_ref, tokens[:6])
+        value = value_estimate_trainable(model_ref, config_ref, tokens)
         value_sum = value.square()
         world_sum = world_transition_token_loss(
-            model_ref, config_ref, tokens[:6], action={"kind": "e0"},
+            model_ref, config_ref, tokens, action={"kind": "e0"},
             target_feedback={"result": "ok"})
         return {"action": action_sum, "value": value_sum, "world": world_sum}
 
     # Uninterrupted: 3 explicit updates (accumulate + finalize each).
     seed_everything(seed)
-    for batch in batches:
-        training_step_full(batch, trainer)
+    for batch, question in zip(batches, e0_questions):
+        training_step_full(batch, trainer, question)
     uninterrupted_checksum = _strong_checksum(trainer)
     uninterrupted_committed = int(trainer.counters.optimizer_updates)
     uninterrupted_attempted = int(trainer.attempted_updates)
@@ -408,7 +421,7 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
         allocation_id=f"e0-resume-{device}", device=device,
         deadline_unix=deadline, remaining_updates=128,
         job_id=f"E0-resume-{device}", phase="E0"))
-    training_step_full(batches[0], trainer_b)
+    training_step_full(batches[0], trainer_b, e0_questions[0])
     payload = trainer_b.state_payload()
     interrupted_committed_1 = int(trainer_b.counters.optimizer_updates)
     child_result = _run_resume_in_child(
@@ -609,6 +622,8 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
             "from bramastra_lab.research.learning.k8_trainer import AllocationContext, K8Trainer\n"
             "from bramastra_lab.research.models import IntegratedModel\n"
             "from bramastra_lab.research.campaigns.worker import _strong_checksum\n"
+            "from bramastra_lab.research.campaigns.phases.compiler import goal_prefix_tokens\n"
+            "from bramastra_lab.research.experience.codec import encode_text\n"
             f"profile={profile!r}; device={device!r}; precision={precision!r}; "
             f"seed={int(seed)}; deadline={float(deadline)!r}\n"
             f"config_identity={config_identity!r}\n"
@@ -635,13 +650,15 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
             "    window.add('token', n); window.add('world', 1); window.add('action', 1); window.add('value', 1)\n"
             "    return window\n"
             "import json\n"
-            "for batch in batches[1:]:\n"
-            "    def extra_terms(batch_ref=batch):\n"
-            "        tokens = batch_ref.input_ids[0][:8].tolist()\n"
-            "        scored = score_candidates_trainable(trainer.model, trainer.config, tokens, [[70, 71], [80, 81]])\n"
+            "questions = ['3+3?', '5+1?']\n"
+            "for batch, question in zip(batches[1:], questions):\n"
+            "    def extra_terms(batch_ref=batch, q=question):\n"
+            "        tokens = goal_prefix_tokens({'question': q})\n"
+            "        candidates = [encode_text(json.dumps({'kind': 'e0', 'op': op, 'question': q}, sort_keys=True)) for op in ('add', 'echo')]\n"
+            "        scored = score_candidates_trainable(trainer.model, trainer.config, tokens, candidates)\n"
             "        action_sum = -scored['log_probs'].sum()\n"
-            "        value = value_estimate_trainable(trainer.model, trainer.config, tokens[:6])\n"
-            "        world_sum = world_transition_token_loss(trainer.model, trainer.config, tokens[:6], action={'kind': 'e0'}, target_feedback={'result': 'ok'})\n"
+            "        value = value_estimate_trainable(trainer.model, trainer.config, tokens)\n"
+            "        world_sum = world_transition_token_loss(trainer.model, trainer.config, tokens, action={'kind': 'e0'}, target_feedback={'result': 'ok'})\n"
             "        return {'action': action_sum, 'value': value.square(), 'world': world_sum}\n"
             "    trainer.accumulate_full_window(batch, window_builder=window_for, extra_terms_fn=extra_terms)\n"
             "    trainer.finalize_update()\n"

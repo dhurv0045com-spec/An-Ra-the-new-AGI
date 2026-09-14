@@ -114,22 +114,25 @@ def value_estimate_trainable(model: IntegratedModel, config: BuildConfig,
 def world_transition_token_loss(model: IntegratedModel, config: BuildConfig,
                                 prefix_tokens: Sequence[int],
                                 action: Mapping[str, Any],
-                                target_feedback: Mapping[str, Any], *,
-                                goal: Mapping[str, Any] | None = None) -> torch.Tensor:
+                                target_feedback: Mapping[str, Any]) -> torch.Tensor:
     """Next-public-outcome token NLL over the DECLARED target span (A4).
 
-    The span is exactly the feedback event plus required EOS; the conditioned
-    prefix (history + goal + action) is masked out of the loss. Uses the same
-    renderer conventions as preparation (single public renderer upstream).
+    The conditioned prefix is exactly the caller's complete context tokens —
+    the compiler builds it once upstream (boundary + goal event) so training
+    and inference share one representation; this function never re-encodes
+    or truncates it. The span is exactly the action event's outcome: the
+    feedback event plus required EOS; everything before the span is masked
+    out of the loss.
     """
-    from bramastra_lab.research.experience.codec import SPECIAL_BOUNDARY, SPECIAL_EOS, \
+    from bramastra_lab.research.experience.codec import SPECIAL_EOS, \
         encode_event
 
-    condition = [SPECIAL_BOUNDARY]
-    if goal is not None:
-        condition += encode_event("goal", goal)
+    condition = list(prefix_tokens)
+    if not condition:
+        raise ScoringError(
+            "world condition prefix must be nonempty; refusing a context-free "
+            "transition target")
     condition += encode_event("action", action)
-    condition += list(prefix_tokens)
     target_span = encode_event("feedback", target_feedback) + [SPECIAL_EOS]
     sequence = condition + target_span
     if len(sequence) - 1 > config.model.max_seq:

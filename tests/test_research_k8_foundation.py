@@ -561,6 +561,8 @@ class F6IntegrationTests(unittest.TestCase):
     def test_production_trace_per_family_with_invalid_case(self) -> None:
         import tempfile as _tempfile
 
+        import torch
+
         from bramastra_lab.research.campaigns.phases import e2
         from bramastra_lab.research.campaigns.phases.ops import (
             RecordingDoubleOps)

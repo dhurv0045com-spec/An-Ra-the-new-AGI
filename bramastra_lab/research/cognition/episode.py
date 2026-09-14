@@ -82,7 +82,7 @@ class ImaginedNode:
     goal_hash: str
     action_prefix: list[Mapping[str, Any]]
     predicted_outcome: Mapping[str, Any]
-    value_estimate: float
+    value_estimate: float | None
     remaining_budget: int
     provenance: str
 
@@ -555,6 +555,22 @@ class BoundedPlannerAdapter(Adapter):
             return None
         return val
 
+    @staticmethod
+    def _known_value(predicted: Mapping[str, Any]) -> float | None:
+        """Extract a finite value estimate; None for failed/unknown."""
+        if predicted.get("prediction_failed"):
+            return None
+        value = predicted.get("value")
+        if value is None:
+            return None
+        try:
+            val = float(value)
+        except (TypeError, ValueError):
+            return None
+        if val != val or val in (float("inf"), float("-inf")):
+            return None
+        return val
+
     def _make_node(self, node_index: int, action_prefix: list,
                    predicted: Mapping[str, Any], state_view: Mapping[str, Any],
                    provenance: str) -> _AttrDict:
@@ -562,7 +578,7 @@ class BoundedPlannerAdapter(Adapter):
             node_index=node_index,
             action_prefix=[dict(a) for a in action_prefix],
             predicted_outcome=dict(predicted),
-            value_estimate=float(predicted.get("value", 0.0)),
+            value_estimate=self._known_value(predicted),
             remaining_budget=int(state_view.get("budgets", {}).get(
                 "actions_left", 0)),
             provenance=provenance,
