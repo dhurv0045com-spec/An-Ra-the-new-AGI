@@ -1,0 +1,16 @@
+{
+  "command": [
+    "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "tests/test_research_scoring_device_contract.py",
+    "-q",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "returncode": 0,
+  "elapsed_seconds": 4.9060000000172295,
+  "stdout": "....ss                                                                   [100%]\n4 passed, 2 skipped in 1.82s\n",
+  "stderr": "",
+  "optimizer_updates": 0
+}

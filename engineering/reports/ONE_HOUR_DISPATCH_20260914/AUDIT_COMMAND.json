@@ -1,0 +1,12 @@
+{
+  "command": [
+    "C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\.venv\\Scripts\\python.exe",
+    "engineering/integrated_readiness_20260914/audit.py",
+    "--output",
+    "engineering\\reports\\ONE_HOUR_DISPATCH_20260914\\AUDIT.json"
+  ],
+  "returncode": 1,
+  "elapsed_seconds": 3.687000000034459,
+  "stdout": "",
+  "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\bramastra-build-worktree\\engineering\\integrated_readiness_20260914\\audit.py\", line 190, in <module>\n    main()\n  File \"C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\bramastra-build-worktree\\engineering\\integrated_readiness_20260914\\audit.py\", line 178, in main\n    \"checks\": checks()}\n              ^^^^^^^^\n  File \"C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\bramastra-build-worktree\\engineering\\integrated_readiness_20260914\\audit.py\", line 94, in checks\n    code = k.encode_action_code(answer, env.legal_actions())\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\ankit\\Downloads\\An-Ra-the-new-AGI-1\\bramastra-build-worktree\\bramastra_lab\\research\\cognition\\episode.py\", line 1005, in encode_action_code\n    raise ValueError(f\"action not in legal set: {action}\")\nValueError: action not in legal set: {'kind': 'submit', 'answer': True}\n"
+}

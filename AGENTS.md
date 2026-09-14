@@ -1,48 +1,28 @@
 # BRAMASTRA agent entry point
 
-**Current consolidated dispatch:** [Integrated readiness U01–U10](engineering/integrated_readiness_20260914/README.md) supersedes older dispatch notices below. Review baseline: 5020533 plus the hashed in-progress foundation changes; no newer remote implementation commit was present. Seven cross-component checks fail despite 26 focused test passes. Complete solvable task/label contracts, trained decision consumers, bounded episodes, real A/B controls, E0 accounting and measured proposer/successor integration. Experiment launch remains blocked; all existing compute limits remain unchanged.
+## Active work: H01 — one focused hour of implementation
 
-**Current dispatch after ecc5953:** [Cognition foundation F1–F6](engineering/cognition_foundation_20260914/README.md) supersedes older dispatch notices below. Six CPU semantic counterexamples were reproduced despite five existing cognition tests passing. Repair evidence encoding, temporal conflict handling, observation-conditioned prediction, real two-step search and selected-action metrics. Cognition is not yet code-ready; preserve existing K8 limits and unresolved O01–O10 acceptance gates.
+Start at [engineering/README.md](engineering/README.md), read [STATUS](engineering/STATUS.md), then execute [ONE_HOUR_EXECUTION.md](engineering/ONE_HOUR_EXECUTION.md). Those are the required entry reads. Begin code changes after reading them. Earlier multi-day packets are reference material, not prerequisites or competing assignments.
+
+The owner asks for execution. H01 specifies three production repairs, owned files, regression checks and a commit/push handoff. Do not substitute a blueprint, another review, import-only fixes or a workload estimate for implementation. Resolve routine choices yourself. If a real blocker remains, identify the exact failing criterion and continue independent assigned work. The 60-minute target is an engineering timebox, not authorization to pad work or claim unfinished work complete.
 
 ## Mission and authority
 
-**Current chief dispatch:** [Operational cognitive learner O01–O10](engineering/next_phase_20260914/README.md), following review of 44e3905. This supersedes older review notices below. Complete the connected execution and meet its code-readiness criteria before owner GPU qualification; existing resource limits remain unchanged.
-
-Latest chief dispatch: [K8 review of 2a1e35a, repairs R01–R08](engineering/reports/K8_CHIEF_20260914/REVIEW.md). Current notebook launch is not accepted; repair implementation and return the specified handoff before owner GPU execution.
-
-The owner's objective is general intelligence trained from scratch, including learning to investigate, acquire transferable skills and improve while retaining earlier capabilities. This repository is a research program; neither an architecture proposal nor a passing test suite establishes AGI.
-
-The chief engineer owns architecture, algorithms, data contracts, experiment design, integration decisions and claim acceptance. Implementation agents own their assigned code, focused tests and experimental execution. Follow the owner's current request if it changes a role or scope. Do not substitute a long implementation by the chief for delegation when the owner has requested engineering leadership.
-
-Start at [engineering/README.md](engineering/README.md), then [engineering/STATUS.md](engineering/STATUS.md). Read the assigned work order, its required specifications, and relevant local instructions before editing. The work order is the assignment; this conversation is not required context.
-
-The active milestone is **K8: build the owner's Kaggle experiment notebook**. Read [experiment.md](experiment.md), the [readiness work order](engineering/experiments/K8_20260913/READINESS.md), [campaign manifest](engineering/experiments/K8_20260913/campaign.json), and [current agent prompt](engineering/experiments/K8_20260913/AGENT_PROMPT.md). The owner newly authorizes one future owner-launched two-T4 campaign, at most480 elapsed minutes including all phases/retries. This overrides older no-accelerator instructions only for that named campaign; local optimizer updates remain unallocated and the old206-update CPU ledger stays unchanged. The [master](engineering/master_program_20260913/README.md) and [cognition/RSI](engineering/cognition_rsi_20260913/README.md) packets remain the architecture reference. Latest inspected implementation is edee727; real CUDA/multi-objective/executive/proposer integration must precede the campaign.
+The objective is general intelligence trained from scratch, including transferable learning, investigation and improvement with retention. This is a research program: neither code nor passing tests establishes AGI. The chief owns architecture and claim acceptance; implementation agents own assigned code and focused verification. Follow the owner's latest instruction when it changes scope.
 
 ## Working boundaries
 
-K8 agents must also read the [chief's direct feedback](engineering/experiments/K8_20260913/CHIEF_TO_AGENT.md), [system quality explanations](engineering/experiments/K8_20260913/SYSTEM_QUALITY.md) and [review protocol](engineering/experiments/K8_20260913/REVIEW_PROTOCOL.md). Their evidence requirements extend I01–I06 without enlarging the compute allocation.
+- Work on BRAMASTRA. Preserve user changes, nested repositories and unrelated trees. Inspect Git status before editing and stage only your scoped work. No force-push.
+- Use separate worktrees for concurrent editing where available; otherwise assign exclusive file ownership. Resolve actual conflicts before touching another agent's file.
+- Keep learned core weights randomly initialized unless the owner changes that constraint. Declare symbolic teachers and external priors separately.
+- No local optimizer updates. CPU forward/backward diagnostics are allowed with gradients discarded. The historical CPU ledger remains unchanged.
+- The future owner-launched K8 campaign has one 480-minute allocation on two T4 GPUs, training stop at 450, export 30. This work order does not launch it, authorize paid compute or bypass readiness.
+- Do not overwrite run/evidence directories. Use unique IDs. Keep weights, optimizer payloads and large datasets out of Git; preserve failure evidence.
+- Do not message third parties. The owner has authorized scoped Git publication; do not include others' uncommitted work.
+- Use Luna/Sol for useful bounded delegation; specify owned paths, exclusions, prerequisites, resource limits and evidence location. No vague “build AGI” agent assignments.
 
-- Work on BRAMASTRA. Historical branches are not prerequisites or authorities for new design. Do not change `.codex-worktrees`, nested repositories, unrelated source trees or user changes.
-- Use isolated worktrees for concurrently assigned work where available. If sharing a directory, enforce work-order file ownership and stop conflicting edits until the chief resolves ownership.
-- Never overwrite an existing run directory or evidence snapshot. Use a new run ID for new code, data or settings.
-- Keep model weights, optimizer files and large datasets out of Git; commit manifests, compact outcomes and source identities. Preserve failed-run evidence.
-- All learned core weights start randomly initialized unless the owner explicitly changes that constraint. Declare tokenizer, symbolic teacher, retrieval and external-tool priors separately.
-- Prefer bounded CPU diagnostics before accelerator runs. The owner's approximately 100 TPU-hours/week is a planning envelope, not a verified quota. Confirm live hardware and remaining allowance in the run manifest.
-- Do not launch paid compute or an unattended long run merely because a packet describes it. Observe the active session's actual authorization and resource budget.
-- Do not message third parties. Publishing code follows the owner's explicit Git authorization; do not force-push or silently include others' work.
+## Completion
 
-## Delegation and completion
+Verify every H01 criterion against the actual consumer. Run focused tests and the bounded acceptance script; no repeated full-suite runs without a reason. Write a concise handoff with exact commands, source identities, outcomes, measured time, limitations and next action. Distinguish implemented, CPU-tested, GPU-qualified and experimentally supported. Push scoped changes and report the commit. The chief retains broader readiness acceptance.
 
-Work packages are intended to sustain roughly 3–5 hours of useful engineering when their prerequisites are available. Time is an estimate, not a requirement to pad work or keep compute busy. Complete the acceptance criteria, or deliver a precise partial result and blocker. Never report elapsed time that was not measured.
-
-When delegating, specify packet ID, prerequisite artifacts, owned paths, excluded paths, resource allowance and evidence location. Use the owner's preferred inexpensive models, such as Sol or Luna, for bounded execution/review. Do not create agents with vague instructions to “build AGI.”
-
-Before reporting completion:
-
-1. Check the implemented behavior against every acceptance criterion.
-2. Run focused correctness tests and the assigned bounded experiment, if authorized and runnable.
-3. Distinguish implemented, locally tested, accelerator-tested, experimentally supported and untested claims.
-4. Produce the [handoff report](engineering/templates/HANDOFF.md) with exact commands, identities, results, limitations and next step.
-5. Update only the assigned evidence and work-order status; the chief accepts integration and broader claims.
-
-Code volume, test count, lower training loss, an interesting example and a favorable selected seed are not intelligence evidence. Negative results are valid deliverables when the experiment is correct and informative.
+Earlier dispatch notices are preserved in Git at ba038c6; they are not active instructions.

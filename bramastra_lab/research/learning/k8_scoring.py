@@ -21,6 +21,20 @@ class ScoringError(ValueError):
     """A training-scoring call violated its contract."""
 
 
+def _model_device(model: IntegratedModel) -> torch.device:
+    """Return the device hosting the model parameters.
+
+    Scoring inputs are part of the model call contract.  Constructing them
+    with torch's default (CPU) device breaks as soon as the owner moves the
+    model to CUDA, even though the scorer itself contains no explicit device
+    argument.
+    """
+    try:
+        return next(model.parameters()).device
+    except StopIteration as exc:
+        raise ScoringError("model has no parameters from which to infer device") from exc
+
+
 def _model_hidden(model, input_ids, padding) -> Any:
     """Canonical hidden path that respects gated reuse (R07).
 
@@ -51,23 +65,35 @@ def score_candidates_trainable(model: IntegratedModel, config: BuildConfig,
         raise ScoringError("no candidates supplied")
     if any(len(candidate) == 0 for candidate in candidates):
         raise ScoringError("candidate rows must be nonempty")
+    if legal_mask is not None:
+        if tuple(legal_mask.shape) != (len(candidates),):
+            raise ScoringError("legal mask shape mismatch")
+        if not bool(legal_mask.to(dtype=torch.bool).any().item()):
+            raise ScoringError("legal mask must contain at least one legal candidate")
     prefix_list = list(prefix_tokens)
     max_len = max(len(prefix_list) + len(candidate) for candidate in candidates)
     if max_len > config.model.max_seq:
         raise ScoringError("prefix + candidate exceeds the configured context limit")
     rows = [prefix_list + list(candidate) for candidate in candidates]
-    input_ids = torch.full((len(rows), max_len), 0, dtype=torch.long)
-    padding = torch.zeros((len(rows), max_len), dtype=torch.bool)
+    device = _model_device(model)
+    input_ids = torch.full((len(rows), max_len), 0, dtype=torch.long,
+                           device=device)
+    padding = torch.zeros((len(rows), max_len), dtype=torch.bool,
+                          device=device)
     for row_index, row in enumerate(rows):
-        input_ids[row_index, :len(row)] = torch.tensor(row, dtype=torch.long)
+        input_ids[row_index, :len(row)] = torch.tensor(
+            row, dtype=torch.long, device=device)
         padding[row_index, :len(row)] = True
     hidden = _model_hidden(model, input_ids, padding)
-    spans = torch.tensor([[len(row) - 1] for row in rows], dtype=torch.long)
+    spans = torch.tensor([[len(row) - 1] for row in rows], dtype=torch.long,
+                         device=device)
     gathered = hidden.gather(
         1, spans.unsqueeze(-1).expand(-1, -1, hidden.shape[-1])).squeeze(1)
     scores = model.action_head(gathered).squeeze(-1)  # [K] live gradient
     if legal_mask is None:
         legal_mask = torch.ones_like(scores, dtype=torch.bool)
+    else:
+        legal_mask = legal_mask.to(device=device, dtype=torch.bool)
     log_probs = torch.log_softmax(scores.double().masked_fill(~legal_mask, -1e30), dim=-1)
     return {"scores": scores, "log_probs": log_probs.to(scores.dtype),
             "legal_mask": legal_mask}
@@ -79,7 +105,9 @@ def value_estimate_trainable(model: IntegratedModel, config: BuildConfig,
     prefix = list(prefix_tokens)
     if not prefix:
         raise ScoringError("value prefix must be nonempty")
-    tokens = torch.tensor([prefix], dtype=torch.long)
+    if len(prefix) > config.model.max_seq:
+        raise ScoringError("value prefix exceeds the configured context limit")
+    tokens = torch.tensor([prefix], dtype=torch.long, device=_model_device(model))
     return model(tokens, return_value=True).value[0]
 
 
@@ -106,8 +134,9 @@ def world_transition_token_loss(model: IntegratedModel, config: BuildConfig,
     sequence = condition + target_span
     if len(sequence) - 1 > config.model.max_seq:
         raise ScoringError("sequence exceeds the context limit")
-    inputs = torch.tensor([sequence[:-1]], dtype=torch.long)
-    targets = torch.tensor(sequence[1:], dtype=torch.long)
+    device = _model_device(model)
+    inputs = torch.tensor([sequence[:-1]], dtype=torch.long, device=device)
+    targets = torch.tensor(sequence[1:], dtype=torch.long, device=device)
     logits = model(inputs).logits[0]
     log_probs = torch.log_softmax(logits.float(), dim=-1)
     # Mask the conditioned prefix: only target-span positions contribute.
