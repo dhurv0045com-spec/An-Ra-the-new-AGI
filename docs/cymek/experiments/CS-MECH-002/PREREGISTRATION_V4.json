@@ -1,0 +1,37 @@
+{
+  "schema": "anra.formation-mux-preregistration/v4",
+  "campaign": "FORMATION-MUX-001",
+  "amendment_chain": [
+    "AMENDMENT_1_PREEXECUTION",
+    "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
+    "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL"
+  ],
+  "experiment": "CS-MECH-002",
+  "physical_vocabulary": 24576,
+  "shared_rows": "0..4095",
+  "extra_rows": "4096..24575",
+  "direct_interventions": {
+    "M0_STANDARD": {"denominator": 24576, "extra_updates": true, "extra_optimizer_state": true, "extra_weight_decay": 0.1},
+    "M1_EXTRA_NO_DECAY": {"denominator": 24576, "extra_updates": true, "extra_optimizer_state": true, "extra_weight_decay": 0.0},
+    "M2_EXTRA_FROZEN": {"denominator": 24576, "extra_updates": false, "extra_optimizer_state": false, "extra_weight_decay": 0.0},
+    "M3_EXTRA_FROZEN_MASKED": {"denominator": 4096, "extra_updates": false, "extra_optimizer_state": false, "extra_weight_decay": 0.0}
+  },
+  "global_clip_semantics": "all autograd gradients participate in the single whole-model global L2 clip; M2 extra-row gradients are retained through clipping even though those rows are excluded from optimizer updates",
+  "contrasts": [
+    ["M0_STANDARD", "M1_EXTRA_NO_DECAY", "extra-row weight decay"],
+    ["M1_EXTRA_NO_DECAY", "M2_EXTRA_FROZEN", "extra-row optimizer/update eligibility"],
+    ["M2_EXTRA_FROZEN", "M3_EXTRA_FROZEN_MASKED", "extra-row denominator participation"]
+  ],
+  "surface_counts_per_family": {"training": 600, "development": 80, "sealed": 120},
+  "worker_visible_splits": ["training", "development"],
+  "sealed_firewall": "raw sealed rows are not persisted or passed to training/qualification/calibration workers; an experiment-specific SHA-256 commitment is fixed before science and raw sealed rows are regenerated only after DEVELOPMENT_COMPLETE and SEALED_MARKER=STARTED",
+  "primary_metric": "identity-family candidate-free formation AUC using exact content plus valid EOS stop",
+  "formation_auc_eligible_from_update": 600,
+  "evaluation_every_updates": 100,
+  "checkpoint_every_updates": 250,
+  "sealed_endpoint": "identity-family exact content plus valid EOS stop",
+  "seeds": [73011, 73012, 73013, 73014],
+  "updates_per_arm": 2000,
+  "thresholds": {"formation_auc_gap": 0.05, "sealed_endpoint_gap": 0.05, "sign_consistency": "3 of 4"},
+  "claim_ceiling": "development-scale mechanism evidence only; no production-vocabulary or large-scale authorization"
+}
