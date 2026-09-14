@@ -1,0 +1,57 @@
+{
+  "schema": "anra.formation-mux-preregistration/v1",
+  "campaign": "FORMATION-MUX-001",
+  "experiment": "REP-FORM-003A",
+  "arms": [
+    "R0_PRODUCTION_BPE",
+    "R1_ISOMORPHIC_RENDERING"
+  ],
+  "seed_bundles": [
+    73011,
+    73012,
+    73013,
+    73014
+  ],
+  "seed_namespace_xor": 1592590337,
+  "updates_per_arm": 2000,
+  "batch_rows": 16,
+  "eval_every": 100,
+  "checkpoint_every": 250,
+  "lr": 0.001,
+  "primary_metric": "identity formation AUC (candidate-free generation)",
+  "endpoint_metric": "identity exact + valid EOS at the fixed endpoint",
+  "contrasts": [
+    [
+      "R0_PRODUCTION_BPE",
+      "R1_ISOMORPHIC_RENDERING",
+      "production segmentation vs isomorphic rendering"
+    ]
+  ],
+  "causal_variable_matrix": null,
+  "verdicts": [
+    "SUCCESS",
+    "NULL",
+    "REVERSE_EFFECT",
+    "PARTIAL_OR_INTERACTION",
+    "INCONCLUSIVE",
+    "ENGINEERING_FAILURE"
+  ],
+  "thresholds": {
+    "formation_auc": 0.05,
+    "endpoint_gap": 0.05,
+    "sign_consistency_required": 3
+  },
+  "next_action": {
+    "SUCCESS": "the contrast's mechanism is supported; record the effect and advance the specific architecture consequence it licenses",
+    "NULL": "mechanism not supported; STOP this mechanism line; keep the conservative working choice and move to the next roadmap item (no follow-on experiment is created merely because the answer was null)",
+    "REVERSE_EFFECT": "record the reversed effect with the same claim ceiling discipline; it is a full-value result",
+    "PARTIAL_OR_INTERACTION": "treat as interaction evidence; do not promote any arm; design the smallest follow-up that separates the interaction",
+    "INCONCLUSIVE": "do not reinterpret; restore wall/data budget and rerun the frozen protocol or extend execution partitioning",
+    "ENGINEERING_FAILURE": "preserve failure evidence; repair engineering only; scientific protocol unchanged"
+  },
+  "sealed_policy": "per-experiment sealed identity; consumed once after the development protocol is frozen; markers NOT_CONSUMED/STARTED/COMPLETE; STARTED-without-result fails closed",
+  "protocol_sha256": "9146215517faba2fe9e15964e32489f85ed245c79a12e2d121713d509b13e9cb",
+  "claim_ceiling_rule": "see claim_ceiling(); no large-scale authorization",
+  "created_utc": "2026-09-14T00:00:00Z",
+  "branch": "cymek-next-core-architecture"
+}
