@@ -1,0 +1,12 @@
+{
+  "source_reviewed": "3914dc4",
+  "optimizer_updates": 0,
+  "model_instantiations": 0,
+  "accelerator_work": false,
+  "same_id_deadline_extension": 0.0,
+  "new_id_same_directory_deadline_extension": 60.0,
+  "two_zero_work_receipts_on_same_gpu_pass_gate": true,
+  "failed_e0_exit_code": 0,
+  "generated_rule_rows": 4096,
+  "nand_false_false_target_true_accepted": false
+}

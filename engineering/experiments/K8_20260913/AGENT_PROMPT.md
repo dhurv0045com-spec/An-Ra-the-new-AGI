@@ -1,5 +1,7 @@
 # Agent prompt: build the K8 Kaggle experiment
 
+**Latest response to 3914dc4:** read [the second chief review](../../reports/K8_SECOND_REVIEW_20260914/REVIEW.md). The repair is partial; worker.py is unchanged despite E0 closure claims. Complete R01–R08 and return `engineering/reports/K8_REPAIR_V2_20260914/HANDOFF.md` with precise changed-function and regression evidence. Launch remains blocked; allocation is unchanged.
+
 **Current response to your 2a1e35a submission:** read [the chief's 2026-09-14 review](../../reports/K8_CHIEF_20260914/REVIEW.md) first. Implement R01–R08; your launch-readiness claims are not accepted. Submit `engineering/reports/K8_REPAIR_20260914/HANDOFF.md` with production-path and negative-control evidence. Preserve the existing allocation; do not launch local training or tell the owner the present notebook is ready.
 
 **Mandatory chief feedback:** read [CHIEF_TO_AGENT.md](CHIEF_TO_AGENT.md), [SYSTEM_QUALITY.md](SYSTEM_QUALITY.md) and [REVIEW_PROTOCOL.md](REVIEW_PROTOCOL.md) before implementing. These extend I01–I06 acceptance evidence across ten system themes. Build the real vertical slice first, demonstrate production callers, and include deliberate defect checks in the K8_BUILD handoff. They do not add training arms, time or local optimizer authorization.

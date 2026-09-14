@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Current dispatch supersedes older review notices:** [second K8 review of 3914dc4](reports/K8_SECOND_REVIEW_20260914/REVIEW.md). Complete remaining R01–R08 and submit K8_REPAIR_V2_20260914. The owner notebook is still not launch-ready.
+
 **Latest dispatch (2026-09-14):** repair [R01–R08 from the chief's review of 2a1e35a](reports/K8_CHIEF_20260914/REVIEW.md). The current notebook is not launch-ready. The K8 design remains the target; fix CPU-detectable integration and accounting defects before owner GPU execution.
 
 **Required execution quality extension:** the [chief's direct feedback](experiments/K8_20260913/CHIEF_TO_AGENT.md), [ten system themes](experiments/K8_20260913/SYSTEM_QUALITY.md) and [review protocol](experiments/K8_20260913/REVIEW_PROTOCOL.md) are part of K8 acceptance. Start with a complete vertical slice, then generalize; include production-path evidence and deliberately broken cases in the handoff.
