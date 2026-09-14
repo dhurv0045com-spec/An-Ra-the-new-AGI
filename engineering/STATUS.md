@@ -1,5 +1,7 @@
 # Current engineering state
 
+**Latest: 30d0fcd reviewed; campaign implementation remains incomplete.** Read [V2 chief review](reports/K8_V2_CHIEF_20260914/REVIEW.md) and implement [D1–D5](reports/K8_V2_CHIEF_20260914/EXECUTION.md). Missing E1–E5 executors are code work, not GPU-only verification. Production timeout/device/slot/lease diagnostics expose remaining blockers. Deliver K8_DELIVERY_20260914; no local optimizer authorization or budget increase. Older notices below are historical.
+
 **Latest review: 3914dc4 remains partial, launch blocked.** Read [the second K8 review](reports/K8_SECOND_REVIEW_20260914/REVIEW.md). Some import/LR/scaler/notebook and same-ID ledger fixes are accepted, but worker.py is unchanged, learned phases remain absent and new diagnostics expose weak E0 receipts and allocation reentry. The repair handoff's CLOSED labels are not accepted. Next deliverable: `engineering/reports/K8_REPAIR_V2_20260914/HANDOFF.md`, completing original R01–R08 with production evidence. No local optimizer updates are authorized.
 
 Updated: 2026-09-14. This is the dispatch entry point. Update from actual evidence, not intention.

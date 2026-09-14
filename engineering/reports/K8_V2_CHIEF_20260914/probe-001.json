@@ -1,0 +1,13 @@
+{
+  "source_reviewed": "30d0fcd",
+  "model_instantiations": 0,
+  "optimizer_updates": 0,
+  "accelerator_work": false,
+  "e1_jobs_reserved_together": ["E1-A-1701", "E1-B-1701", "E1-B-1702", "E1-A-1702"],
+  "timeout_error": "SupervisionError: worker None exceeded 0s phase boundary and was terminated",
+  "timeout_elapsed_seconds": 0.094,
+  "worker_finished_after_timeout": true,
+  "old_live_lease_reclaimed": true,
+  "worker_device_after_visibility_isolation": "cuda:1",
+  "cuda_visible_devices": "1"
+}

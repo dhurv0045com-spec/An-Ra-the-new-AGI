@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Current dispatch:** [D1–D5 concrete implementation order](reports/K8_V2_CHIEF_20260914/EXECUTION.md), following [review of 30d0fcd](reports/K8_V2_CHIEF_20260914/REVIEW.md). Complete actual E1–E5 handlers and correct integration before owner GPU launch. This supersedes earlier review dispatch notices.
+
 **Current dispatch supersedes older review notices:** [second K8 review of 3914dc4](reports/K8_SECOND_REVIEW_20260914/REVIEW.md). Complete remaining R01–R08 and submit K8_REPAIR_V2_20260914. The owner notebook is still not launch-ready.
 
 **Latest dispatch (2026-09-14):** repair [R01–R08 from the chief's review of 2a1e35a](reports/K8_CHIEF_20260914/REVIEW.md). The current notebook is not launch-ready. The K8 design remains the target; fix CPU-detectable integration and accounting defects before owner GPU execution.

@@ -1,5 +1,7 @@
 # Agent prompt: build the K8 Kaggle experiment
 
+**Current response to 30d0fcd:** read [V2 chief review](../../reports/K8_V2_CHIEF_20260914/REVIEW.md) and execute [D1–D5](../../reports/K8_V2_CHIEF_20260914/EXECUTION.md). Missing learned phase executors must be implemented before GPU launch. Return `engineering/reports/K8_DELIVERY_20260914/HANDOFF.md` with real production-handler evidence, corrected slot/device/timeout/lease/update boundaries and complete artifacts. Preserve the allocation and zero-local-learning constraint.
+
 **Latest response to 3914dc4:** read [the second chief review](../../reports/K8_SECOND_REVIEW_20260914/REVIEW.md). The repair is partial; worker.py is unchanged despite E0 closure claims. Complete R01–R08 and return `engineering/reports/K8_REPAIR_V2_20260914/HANDOFF.md` with precise changed-function and regression evidence. Launch remains blocked; allocation is unchanged.
 
 **Current response to your 2a1e35a submission:** read [the chief's 2026-09-14 review](../../reports/K8_CHIEF_20260914/REVIEW.md) first. Implement R01–R08; your launch-readiness claims are not accepted. Submit `engineering/reports/K8_REPAIR_20260914/HANDOFF.md` with production-path and negative-control evidence. Preserve the existing allocation; do not launch local training or tell the owner the present notebook is ready.
