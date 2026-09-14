@@ -1,0 +1,27 @@
+{
+  "schema": "anra.formation-mux-preregistration/v4",
+  "campaign": "FORMATION-MUX-001",
+  "amendment_chain": [
+    "AMENDMENT_1_PREEXECUTION",
+    "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
+    "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL"
+  ],
+  "experiment": "REP-FORM-003A",
+  "physical_vocabulary": 24576,
+  "arms": ["R0_PRODUCTION_BPE", "R1_ISOMORPHIC_RENDERING"],
+  "seed_bundles": [73011, 73012, 73013, 73014],
+  "rng_namespace_xor": 1592590337,
+  "surface_counts_per_family": {"training": 600, "development": 80, "sealed": 120},
+  "worker_visible_splits": ["training", "development"],
+  "sealed_firewall": "raw sealed rows are not persisted or passed to training/qualification/calibration workers; an experiment-specific SHA-256 commitment is fixed before science and raw sealed rows are regenerated only after DEVELOPMENT_COMPLETE and SEALED_MARKER=STARTED",
+  "primary_exposure_axis": "actual processed non-padding token positions",
+  "processed_token_budget_per_arm": 500000,
+  "maximum_endpoint_exposure_mismatch_fraction": 0.001,
+  "eval_every_processed_tokens": 25000,
+  "formation_auc_eligible_from_processed_tokens": 150000,
+  "checkpoint_every_processed_tokens": 50000,
+  "primary_metric": "identity-family candidate-free formation AUC using exact content plus valid EOS stop",
+  "sealed_endpoint": "identity-family exact content plus valid EOS stop",
+  "thresholds": {"formation_auc_gap": 0.05, "sealed_endpoint_gap": 0.05, "sign_consistency": "3 of 4"},
+  "claim_ceiling": "development-scale representation evidence only; no production-tokenizer or large-scale authorization"
+}
