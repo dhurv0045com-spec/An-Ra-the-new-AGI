@@ -1,0 +1,34 @@
+{
+  "schema": "anra.formation-mux-readiness/v2",
+  "campaign": "FORMATION-MUX-001",
+  "status": "IMPLEMENTED_PREEXECUTION_REPAIR / KAGGLE_T4X2_NOT_YET_RUN",
+  "science_commit_S2": "534dcccfb8f96a30e80d71a30160e6a16eaa1ede",
+  "canonical_operator_commit": "878072f75821bd93d1533792d7e9b14c347306c5",
+  "canonical_operator_path": "tools/formation_mux_001_kaggle_operator_v3.py",
+  "canonical_operator_git_blob": "a7be737b1c85de5fa28a7e0c80c35fac86d1a55a",
+  "canonical_notebook_commit": "eb7a77443ec5517f94049b6ed59c30340bfa8538",
+  "canonical_notebook_path": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
+  "repaired_before_official_outcomes": [
+    "shared/extra boundary 4096 instead of invalid 128",
+    "embedding row update moved behind global clipping boundary",
+    "identity-only primary formation measurement",
+    "REP-FORM matched by processed-token exposure rather than equal steps",
+    "all three CS-MECH contrasts preserved through finalization",
+    "sealed endpoint uses exact+valid-EOS and is not substituted for formation AUC",
+    "model-only sealed checkpoint restore",
+    "operator/science pinning no longer checks out a commit missing its operator",
+    "calibration uses non-scientific seeds and concurrent T4 workers",
+    "official surface restored to 600/80/120 rows per family"
+  ],
+  "qualification_state": {
+    "code_review": "PASS_PREEXECUTION_AUDIT_REPAIRED",
+    "tests": "WRITTEN_AND_ENFORCED_BY_OPERATOR_BEFORE_SCIENCE",
+    "actual_kaggle_t4x2_execution": "NOT_YET_RUN",
+    "scientific_result": "NOT_YET_OBSERVED"
+  },
+  "human_settings": {
+    "accelerator": "GPU T4 x2",
+    "internet": "ON"
+  },
+  "claim_ceiling": "Implementation/readiness only. No scientific outcome or Kaggle runtime pass is claimed until the pinned notebook actually executes."
+}
