@@ -1,8 +1,8 @@
 {
-  "schema": "anra.next-core-current-state-override/v3",
-  "date": "2026-09-14",
+  "schema": "anra.next-core-current-state-override/v4",
+  "date": "2026-09-15",
   "branch": "cymek-next-core-architecture",
-  "reason": "Generated NEXT_CORE_SPEC.json and NEXT_CORE_READINESS.json predate the completed CS-TRANSFER-001 consequence and still contain stale blocker text. This override records the current prospective FORMATION-MUX authority without rewriting historical evidence snapshots.",
+  "reason": "Generated NEXT_CORE_SPEC.json and NEXT_CORE_READINESS.json predate the completed CS-TRANSFER-001 consequence. This override records the current prospective FORMATION-MUX Science S5 authority without rewriting historical evidence snapshots.",
   "authoritative_overrides": {
     "vocabulary_size": {
       "working_choice": 24576,
@@ -16,38 +16,34 @@
       "working_choice": "default production byte-BPE rendering",
       "state": "PROVISIONAL",
       "blocking_experiment": "REP-FORM-003A",
-      "campaign": "FORMATION-MUX-001",
-      "note": "CS-TRANSFER-001 is complete and must not be treated as an open blocker"
+      "campaign": "FORMATION-MUX-001"
     }
   },
   "readiness_overrides": {
     "physical_vocabulary_output_geometry": {
       "state": "CS_TRANSFER_CLOSED_RESIDUAL_MECHANISM_OPEN",
-      "note": "CS-TRANSFER-001 completed with PARTIAL_OR_INTERACTION; physical V4096 is not a robust remedy and V24576 remains the conservative working choice, not a proven optimum. Residual mechanism/representation questions are now FORMATION-MUX-001."
+      "note": "CS-TRANSFER-001 completed with PARTIAL_OR_INTERACTION; physical V4096 is not a robust remedy and V24576 remains the conservative working choice, not a proven optimum. Residual questions are FORMATION-MUX-001."
     },
-    "r1c_consequence.next_decisive_test": "FORMATION-MUX-001: CS-MECH-002 + REP-FORM-003A under Science S4",
-    "blockers_to_ready_for_500m": {
-      "remove": ["CS-TRANSFER-001 executed + physical output-space consequence adopted per tree (U03)"],
-      "add": [
-        "FORMATION-MUX-001 adjudicated and architecture consequence recorded",
-        "production corpus materialized + attack-screened (U08)",
-        "canonical WSD executed once end-to-end",
-        "multi-seed formation demonstrated at the required transfer rung on the production representation",
-        "Citadel PRE500M green"
-      ],
-      "scale_authorization": "NOT_JUSTIFIED"
-    }
+    "r1c_consequence.next_decisive_test": "FORMATION-MUX-001: CS-MECH-002 + REP-FORM-003A under Science S5",
+    "scale_authorization": "NOT_JUSTIFIED"
   },
   "campaign": {
     "name": "FORMATION-MUX-001",
-    "science_authority": "Science S4",
-    "science_commit": "ad25f6944cdd5ac5f47a6bf3a667322cb985314b",
-    "canonical_operator": "tools/formation_mux_001_kaggle_operator_v7.py",
-    "operator_commit": "04278c570aeb1ccba1609ec0e7334b6bfedf894b",
+    "science_authority": "Science S5",
+    "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "canonical_operator": "tools/formation_mux_001_kaggle_operator_v8.py",
+    "operator_commit": "4e3bb50c683d94a09801703dfb9f469debe64a50",
+    "operator_blob": "b427269f682322c9ce58f1677710c5979c76465c",
     "canonical_notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
-    "notebook_pin_commit": "56bd9c4b9303a41ccac4302e3477b3f4142d4e85",
+    "notebook_pin_commit": "c01970cf6afc5434cc6e48562faa4979fbab969a",
     "experiments": ["CS-MECH-002", "REP-FORM-003A"],
-    "preexecution_qualification": "CPU_STATIC_PASS / REAL_TOKENIZER_SURFACE_PASS",
+    "training_rows": 60000,
+    "development_rows": 480,
+    "sealed_rows": 720,
+    "checkpoint_policy": "CS-MECH every 200 updates; REP-FORM every 10000 processed tokens; diagnostic progress snapshot at every checkpoint",
+    "session_policy": "exact-resume across as many Kaggle sessions as required; frozen science is never shortened to fit one session",
+    "preexecution_qualification": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS",
+    "qualification_run_id": 34900925973,
     "runtime_state": "KAGGLE_T4X2_NOT_YET_RUN",
     "scientific_outcomes_observed": false
   },
