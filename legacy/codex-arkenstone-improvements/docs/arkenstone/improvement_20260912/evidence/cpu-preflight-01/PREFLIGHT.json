@@ -1,0 +1,72 @@
+{
+  "status": "PASS",
+  "scope": "bounded engineering integrity; no capability evidence",
+  "t2_manifest_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+  "t2_assignment_sha256": "43a06daa118a3f856b50ba304817a319a7928257faacfbc626af99537aebd713",
+  "t3_manifest_sha256": "8d3b43c757a3191d8bbe029b1b0b04bd7ab771b3e0ae4525d5d6616ac5839a78",
+  "t3_counts": {
+    "train": 500,
+    "ood": 200,
+    "control": 101,
+    "sealed": 99
+  },
+  "train_ood_commutation_overlap": 0,
+  "snapshot_immutable_after_forks": true,
+  "optimizer_restore_exact": true,
+  "torch_rng_restore_exact": true,
+  "matched_next_update_sha256": "98d196a4cc47df5c977313651d7c592b9481743e716eef03db910422d28aaa6d",
+  "different_lr_changes_update": true,
+  "supervised_positions_initial_update": 32,
+  "sampler": {
+    "seed": 6801,
+    "batches": 18000,
+    "batch_size": 64,
+    "pool_size": 500,
+    "identical_legacy_stream": true,
+    "order_sha256": "6addecadb6727f9bf232ae8249a550d0cec35e2a630a71384ac6d76b1dba7049",
+    "repetitions": 5,
+    "legacy_seconds": [
+      0.28364540000620764,
+      0.28032239999447484,
+      0.4345270000048913,
+      0.26456700000562705,
+      0.2801118000061251
+    ],
+    "vectorized_seconds": [
+      0.08288329999777488,
+      0.10152579999703448,
+      0.07720709999557585,
+      0.08868559999973513,
+      0.0755689999932656
+    ],
+    "median_speedup": 3.382133674720969
+  },
+  "unverified": [
+    "CUDA runtime",
+    "full training horizons",
+    "cognition gain",
+    "ARK-014",
+    "full V6 orchestration",
+    "durable checkpoint restart"
+  ],
+  "experiment_id": "V6_PREFLIGHT",
+  "plan_commit_sha": "f46bae74c783821452947f3927acddbc14cc6dbf",
+  "master_plan_commit_sha": "f46bae74c783821452947f3927acddbc14cc6dbf",
+  "runner_commit_sha": "933d4f32019af2f0d61092d092b1c3db67407700",
+  "runner_source_sha256": "b94f512df424f2ae566dbeebcc3993389373da83419616cd98ef5a44eb34c048",
+  "source_sha256": {
+    "experiments\\COLAB\\run_discovery_v6.py": "b94f512df424f2ae566dbeebcc3993389373da83419616cd98ef5a44eb34c048",
+    "experiments\\COLAB\\discovery_v6_common.py": "f59f1f12f441afda06ae031668f1479c12b1c3cfd68f36a94af4e812ee73b327",
+    "experiments\\ARK-011\\run_ark011.py": "8fbe19f03e85765d366e89c81bcb14904a45e64529f4b0ec124895c83e925e69",
+    "experiments\\ARK-001\\run_ark001.py": "0cdba5d854e08825361de408d79bd5e7498f77be083c59d116d7a2674a68e477",
+    "experiments\\lib\\ark_tasks.py": "1ff8ad2beba9dcfc588b202898d2293a2fe435922885122c71222120bdc94a7e"
+  },
+  "run_id": "cpu-preflight-01",
+  "device": "cpu",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "torch": "2.14.0+cpu",
+  "python": "3.11.15",
+  "budget_minutes": 2.0,
+  "campaign_minutes_used": 0.15053333333319946,
+  "receipt_sha256": "643e7dddb8d3105a57ad1c8dcc940025e5d896f48aa0080cf59bb6cb1e10c48f"
+}

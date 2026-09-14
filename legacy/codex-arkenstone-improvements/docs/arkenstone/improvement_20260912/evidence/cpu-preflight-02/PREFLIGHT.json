@@ -1,0 +1,82 @@
+{
+  "status": "PASS",
+  "scope": "bounded engineering integrity; no capability evidence",
+  "t2_manifest_sha256": "0dd9305697045b0fbf4e7f268b46a4d7276e4794af5d78b60e999df914ae4236",
+  "t2_assignment_sha256": "43a06daa118a3f856b50ba304817a319a7928257faacfbc626af99537aebd713",
+  "t3_manifest_sha256": "8d3b43c757a3191d8bbe029b1b0b04bd7ab771b3e0ae4525d5d6616ac5839a78",
+  "t3_counts": {
+    "train": 500,
+    "ood": 200,
+    "control": 101,
+    "sealed": 99
+  },
+  "train_ood_commutation_overlap": 0,
+  "snapshot_immutable_after_forks": true,
+  "optimizer_restore_exact": true,
+  "torch_rng_restore_exact": true,
+  "matched_next_update_sha256": "98d196a4cc47df5c977313651d7c592b9481743e716eef03db910422d28aaa6d",
+  "different_lr_changes_update": true,
+  "supervised_positions_initial_update": 32,
+  "sampler": {
+    "seed": 6801,
+    "batches": 18000,
+    "batch_size": 64,
+    "pool_size": 500,
+    "identical_legacy_stream": true,
+    "order_sha256": "6addecadb6727f9bf232ae8249a550d0cec35e2a630a71384ac6d76b1dba7049",
+    "repetitions": 5,
+    "legacy_seconds": [
+      0.23110900000028778,
+      0.22885949999908917,
+      0.39263850000861567,
+      0.22209140000632033,
+      0.24136849999194965
+    ],
+    "vectorized_seconds": [
+      0.08572550000099,
+      0.0810566000000108,
+      0.07986230000096839,
+      0.08455139999568928,
+      0.07969430000230204
+    ],
+    "median_speedup": 2.851205207228739
+  },
+  "unverified": [
+    "CUDA runtime",
+    "full training horizons",
+    "cognition gain",
+    "ARK-014",
+    "full V6 orchestration",
+    "durable checkpoint restart"
+  ],
+  "experiment_id": "V6_PREFLIGHT",
+  "plan_commit_sha": "f46bae74c783821452947f3927acddbc14cc6dbf",
+  "master_plan_commit_sha": "f46bae74c783821452947f3927acddbc14cc6dbf",
+  "runner_commit_sha": "933d4f32019af2f0d61092d092b1c3db67407700",
+  "source_identity_note": "Commit identifies checkout base; source_sha256 binds working-tree contents.",
+  "runner_source_sha256": "39ced7546645fe715214e6193b22ec3f334f171decad7aa6cad8672dcd36d2d3",
+  "source_sha256": {
+    "experiments/COLAB/run_discovery_v6.py": "39ced7546645fe715214e6193b22ec3f334f171decad7aa6cad8672dcd36d2d3",
+    "experiments/COLAB/discovery_v6_common.py": "c89edddc5bb838009567be71007ad2aeb77cdbffe3f3cd9c0253acb8db274386",
+    "experiments/ARK-011/run_ark011.py": "8fbe19f03e85765d366e89c81bcb14904a45e64529f4b0ec124895c83e925e69",
+    "experiments/ARK-001/run_ark001.py": "0cdba5d854e08825361de408d79bd5e7498f77be083c59d116d7a2674a68e477",
+    "experiments/lib/ark_tasks.py": "1ff8ad2beba9dcfc588b202898d2293a2fe435922885122c71222120bdc94a7e",
+    "experiments/ARK-012/run_ark012.py": "e3fe0166ad2b056e29bcd06bf93776fde41f2b6aba60831438c3ed788dbd62c7",
+    "experiments/ARK-013/run_ark013.py": "1e0e868857910844c5abf7615b2415ee3ae7e2397837636291c8ec8b1e3e18dd",
+    "experiments/COLAB/MASTER_DISCOVERY_V6_PLAN.md": "bd192ec929c716d8c3511bb58aa0b5f8bfcc2b87c9459a8d2139ea3ed72ac818",
+    "experiments/ARK-012/PLAN.md": "08f732bca20ca9fda2c115a292fe59ae3c8cb69761b2f60b97c077359fa16c81",
+    "experiments/ARK-013/PLAN.md": "bd49c14eb2c968517f8401015b44d4efea79017b44277b920272f5f447ada37c",
+    "experiments/ARK-013/PREEXECUTION_ADDENDUM.md": "7c1ccd2c241eaf5b61dfcb8851d19ab61eb01d7d8ffa39b325d611cecba66508",
+    "experiments/ARK-011/PLAN.md": "ff8e4895ffde1033690127a51f84fc95891c0b03defde233685bb3914be3f546",
+    "experiments/ARK-011/PREEXECUTION_ADDENDUM.md": "810cbc68300438da5ca2e48218ea0c73e1af6bd9d2b2a577bd5cdc8e65eec453",
+    "experiments/ARK-002B/TASK_MANIFEST.json": "3bd07b5ea1e1044bbac6dcecfb4bacbcd033f71cc8ff79acfb6a761129c06c82"
+  },
+  "run_id": "cpu-preflight-02",
+  "device": "cpu",
+  "device_name": "AMD64 Family 25 Model 68 Stepping 1, AuthenticAMD",
+  "torch": "2.14.0+cpu",
+  "python": "3.11.15",
+  "budget_minutes": 2.0,
+  "campaign_minutes_used": 0.125,
+  "receipt_sha256": "df5d4245b5a100ebba65ed452b13259b57b0e7ed5d0383d31c25c2a576768c79"
+}

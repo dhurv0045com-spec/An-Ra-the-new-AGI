@@ -1,0 +1,5 @@
+warning: in the working copy of 'README.md', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'experiments/ARK-011/run_ark011.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'experiments/ARK-012/run_ark012.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'experiments/ARK-013/run_ark013.py', CRLF will be replaced by LF the next time Git touches it
+warning: in the working copy of 'experiments/COLAB/discovery_v6_common.py', CRLF will be replaced by LF the next time Git touches it

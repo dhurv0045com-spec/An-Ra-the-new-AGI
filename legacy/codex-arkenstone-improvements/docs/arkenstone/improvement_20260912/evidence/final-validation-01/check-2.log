@@ -1,0 +1,44 @@
+test_checkpoint_identity_mismatch_raises (test_ark_provenance.ContinuationProbeTest.test_checkpoint_identity_mismatch_raises) ... ok
+test_deterministic_update_reproduces (test_ark_provenance.ContinuationProbeTest.test_deterministic_update_reproduces) ... ok
+test_dose_ratio_when_boundary_open (test_ark_provenance.NominateNextTest.test_dose_ratio_when_boundary_open) ... ok
+test_escalation_after_nulls (test_ark_provenance.NominateNextTest.test_escalation_after_nulls) ... ok
+test_retention_first (test_ark_provenance.NominateNextTest.test_retention_first) ... ok
+test_rule_is_always_named (test_ark_provenance.NominateNextTest.test_rule_is_always_named) ... ok
+test_captures_and_hashes (test_ark_provenance.SourceSnapshotTest.test_captures_and_hashes) ... ok
+test_snapshot_detects_change (test_ark_provenance.SourceSnapshotTest.test_snapshot_detects_change) ... ok
+test_ceiling_recorded (test_arkenstone_ledgers.BranchRelationsTest.test_ceiling_recorded) ... ok
+test_every_branch_has_all_fields (test_arkenstone_ledgers.BranchRelationsTest.test_every_branch_has_all_fields) ... ok
+test_clean_repo_passes_and_accepts_legacy_receipts (test_arkenstone_ledgers.LedgerVerificationV2Test.test_clean_repo_passes_and_accepts_legacy_receipts) ... ok
+test_ledger_drift_detected (test_arkenstone_ledgers.LedgerVerificationV2Test.test_ledger_drift_detected) ... ok
+test_legacy_receipt_never_rewritten (test_arkenstone_ledgers.LedgerVerificationV2Test.test_legacy_receipt_never_rewritten) ... ok
+test_missing_referenced_artifact_fails (test_arkenstone_ledgers.LedgerVerificationV2Test.test_missing_referenced_artifact_fails) ... ok
+test_receipt_mutation_detected (test_arkenstone_ledgers.LedgerVerificationV2Test.test_receipt_mutation_detected) ... ok
+test_bind_and_verify (test_arkenstone_research.ReceiptBindingTest.test_bind_and_verify) ... C:\Users\ankit\AppData\Local\Temp\arkenstone-improvements-20260912\experiments\lib\ark_metrics.py:101: ResourceWarning: unclosed file <_io.BufferedReader name='C:\\Users\\ankit\\AppData\\Local\\Temp\\tmpn7i3yle2\\code.py'>
+  digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\ankit\AppData\Local\Temp\arkenstone-improvements-20260912\experiments\lib\ark_metrics.py:122: ResourceWarning: unclosed file <_io.BufferedReader name='C:\\Users\\ankit\\AppData\\Local\\Temp\\tmpn7i3yle2\\code.py'>
+  digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_tampered_code_fails (test_arkenstone_research.ReceiptBindingTest.test_tampered_code_fails) ... C:\Users\ankit\AppData\Local\Temp\arkenstone-improvements-20260912\experiments\lib\ark_metrics.py:101: ResourceWarning: unclosed file <_io.BufferedReader name='C:\\Users\\ankit\\AppData\\Local\\Temp\\tmpaw0q4w61\\code.py'>
+  digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+C:\Users\ankit\AppData\Local\Temp\arkenstone-improvements-20260912\experiments\lib\ark_metrics.py:122: ResourceWarning: unclosed file <_io.BufferedReader name='C:\\Users\\ankit\\AppData\\Local\\Temp\\tmpaw0q4w61\\code.py'>
+  digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_max_accuracy_is_not_a_claim (test_arkenstone_research.SustainedThresholdTest.test_max_accuracy_is_not_a_claim) ... ok
+test_run_ending_early_is_not_demonstrated (test_arkenstone_research.SustainedThresholdTest.test_run_ending_early_is_not_demonstrated) ... ok
+test_summary_delay_and_ratio (test_arkenstone_research.SustainedThresholdTest.test_summary_delay_and_ratio) ... ok
+test_three_consecutive_met (test_arkenstone_research.SustainedThresholdTest.test_three_consecutive_met) ... ok
+test_three_consecutive_required (test_arkenstone_research.SustainedThresholdTest.test_three_consecutive_required) ... ok
+test_deterministic_regeneration (test_arkenstone_research.TaskManifestTest.test_deterministic_regeneration) ... ok
+test_frozen_manifest_fail_closed (test_arkenstone_research.TaskManifestTest.test_frozen_manifest_fail_closed) ... ok
+test_manifest_is_deterministic (test_arkenstone_research.TaskManifestTest.test_manifest_is_deterministic) ... ok
+test_no_commutation_leakage (test_arkenstone_research.TaskManifestTest.test_no_commutation_leakage) ... ok
+test_structural_bands_disjoint (test_arkenstone_research.TaskManifestTest.test_structural_bands_disjoint) ... ok
+
+----------------------------------------------------------------------
+Ran 27 tests in 6.941s
+
+OK
