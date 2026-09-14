@@ -2,7 +2,7 @@
   "schema": "anra.formation-mux-readiness/v5",
   "campaign": "FORMATION-MUX-001",
   "branch": "cymek-next-core-architecture",
-  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / KAGGLE_COMPATIBILITY_HARDENED / KAGGLE_T4X2_NOT_YET_RUN",
+  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / KAGGLE_COMPATIBILITY_HARDENED / VOCAB_PRESSURE_PREREGISTERED_AND_QUALIFIED / KAGGLE_T4X2_NOT_YET_RUN",
   "science": {
     "authority": "Science S5",
     "commit": "c15ad8beb409537db42d075684ea54847a074ebd",
@@ -13,7 +13,7 @@
       "AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY"
     ],
     "official_outcomes_observed": false,
-    "science_files_changed_by_kaggle_hardening": false
+    "science_files_changed_by_kaggle_hardening_or_xfactor": false
   },
   "data": {
     "families": 6,
@@ -50,12 +50,13 @@
     "ci_tokenizers_version_matched_to_current_kaggle_gpu_image": "0.23.0rc0"
   },
   "execution": {
-    "operator": "tools/formation_mux_001_kaggle_operator_v8.py",
-    "operator_commit": "fdc2483fed0bb1a80d4bfad376aac84a66db6055",
-    "operator_git_blob": "58614bcab3d5a5ea4b3b28e00da56a834c321bba",
+    "operator": "tools/formation_mux_001_kaggle_operator_v9.py",
+    "operator_commit": "8940cdef11f85c66499e49fcaf1ac55ac558883c",
+    "operator_git_blob": "ad79efd1ea4d875921be9ea359598953f4afb565",
     "notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
-    "notebook_pin_commit": "5b1f0fee6c45c722c8e2bc0305e5e18782761bdb",
-    "notebook_schema": "anra.formation-mux-notebook/v7",
+    "notebook_pin_commit": "b4e5dc2df6da76d93408fce57b548dc959327a99",
+    "notebook_git_blob": "6ed59fc6277e88ac3bb83d9b9ff78939e62282f2",
+    "notebook_schema": "anra.formation-mux-notebook/v8",
     "accelerator_required": "Kaggle GPU T4 x2",
     "internet_required": true,
     "parallelism": "two independent matched-bundle workers; no DDP",
@@ -70,22 +71,59 @@
       "fail_closed_before_official_arms": true
     }
   },
+  "xfactor": {
+    "diagnostic": "VOCAB-PRESSURE-001",
+    "preregistration": "docs/cymek/experiments/FORMATION-MUX-001/XFACTOR_VOCAB_PRESSURE_PREREGISTRATION_V1.json",
+    "preregistration_commit": "910223d07cf01d3a839966324e7bee4219d5a28e",
+    "preregistration_sha256": "ea70f361a9c038d22a87967f611379e772fccd8870855b905c1bfef07ad83969",
+    "implementation": "tools/formation_mux_001_vocab_pressure_v1.py",
+    "diagnostic_only": true,
+    "adds_training_arms": false,
+    "changes_training": false,
+    "can_change_frozen_s5_verdict": false,
+    "sealed_rows_used": false,
+    "execution_point": "after every official arm is complete and before any sealed rows are regenerated",
+    "surface": "CS-MECH-002 development identity family only (80 rows)",
+    "focus_arm": "M2_EXTRA_FROZEN",
+    "measurements": [
+      "full-vocabulary identity exact+valid-EOS",
+      "evaluation-only shared-vocabulary-mask identity exact+valid-EOS",
+      "counterfactual rescue exact+valid-EOS",
+      "extra-row softmax probability mass",
+      "exact denominator tax in nats",
+      "target-logit margin versus strongest extra-row logit",
+      "full-vocabulary versus shared-only target rank",
+      "shared-row versus extra-row embedding norm geometry"
+    ],
+    "prospective_focus_rule": {
+      "material_endpoint_competition": "mean M2 counterfactual rescue >= 0.05 and rescue > 0 in at least 3 of 4 seed bundles",
+      "small_endpoint_competition": "mean M2 counterfactual rescue < 0.05",
+      "mixed": "all other patterns"
+    },
+    "architecture_targets": [
+      "D7 vocabulary field (BLOCKED)",
+      "D8 output-head field (BLOCKED/EXPERIMENT_ONLY)",
+      "DECIDE-OUTPUT-SPACE -> ADOPT-TRAINING-TREATMENT versus ADOPT-GEOMETRY-CHANGE"
+    ],
+    "output": "CS-MECH-002/VOCAB_PRESSURE_DIAGNOSTIC.json"
+  },
   "sealed_firewall": {
     "worker_visible_splits": [
       "training",
       "development"
     ],
     "raw_sealed_rows_persisted_before_or_during_training": false,
-    "consumption": "regenerate and commitment-verify only after DEVELOPMENT_COMPLETE",
+    "consumption": "regenerate and commitment-verify only after DEVELOPMENT_COMPLETE and after the development-only X-factor diagnostic",
     "raw_sealed_rows_in_result_bundle": false
   },
   "qualification": {
-    "github_actions_run_id": 34903937319,
-    "qualification_commit": "1d52e6e6d82c642f42146c0ff4c3ec0729f93668",
+    "github_actions_run_id": 34906087905,
+    "qualification_commit": "3868087f694c31cd2b601dcd71d211d4a3a34d8d",
     "conclusion": "SUCCESS",
     "kaggle_tokenizer_line_dependency_install": "PASS",
-    "py_compile_s5_execution_surface": "PASS",
-    "targeted_tests": "PASS",
+    "py_compile_s5_and_xfactor_execution_surface": "PASS",
+    "targeted_tests_including_xfactor": "PASS",
+    "xfactor_preregistration_identity_and_contract": "PASS",
     "immutable_science_files_verified": true,
     "real_frozen_tokenizer_loaded": true,
     "public_surface_training_rows": 60000,
@@ -94,5 +132,5 @@
     "canonical_notebook_json_code_cells_and_pins": "PASS",
     "kaggle_t4x2_execution": "NOT_YET_RUN"
   },
-  "claim_ceiling": "Pre-execution qualification and Kaggle-environment compatibility hardening only. This is not evidence of actual Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
+  "claim_ceiling": "Pre-execution qualification, Kaggle-environment hardening, and a prospective development-only mechanism diagnostic. VOCAB-PRESSURE-001 cannot alter the frozen S5 verdict. This is not evidence of actual Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
 }
