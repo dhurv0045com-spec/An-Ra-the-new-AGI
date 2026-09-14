@@ -21,6 +21,21 @@ class ScoringError(ValueError):
     """A training-scoring call violated its contract."""
 
 
+def _model_hidden(model, input_ids, padding) -> Any:
+    """Canonical hidden path that respects gated reuse (R07).
+
+    All models expose forward_hidden (base IntegratedModel routes to the
+    decoder; GatedReuseModel routes through _decoder_with_reuse BEFORE final
+    norm). Scorers must use this helper — direct decoder access bypasses
+    gates and is forbidden here.
+    """
+    forward_hidden = getattr(model, "forward_hidden", None)
+    if not callable(forward_hidden):
+        raise ScoringError(
+            "model carries no forward_hidden; gated reuse cannot be honored")
+    return forward_hidden(input_ids, padding)
+
+
 def score_candidates_trainable(model: IntegratedModel, config: BuildConfig,
                                prefix_tokens: Sequence[int],
                                candidates: Sequence[Sequence[int]],
@@ -46,7 +61,7 @@ def score_candidates_trainable(model: IntegratedModel, config: BuildConfig,
     for row_index, row in enumerate(rows):
         input_ids[row_index, :len(row)] = torch.tensor(row, dtype=torch.long)
         padding[row_index, :len(row)] = True
-    hidden = model.decoder.forward_hidden(input_ids, padding)
+    hidden = _model_hidden(model, input_ids, padding)
     spans = torch.tensor([[len(row) - 1] for row in rows], dtype=torch.long)
     gathered = hidden.gather(
         1, spans.unsqueeze(-1).expand(-1, -1, hidden.shape[-1])).squeeze(1)

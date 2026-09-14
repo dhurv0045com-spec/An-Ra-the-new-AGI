@@ -23,6 +23,12 @@ from bramastra_lab.research.metalearning.method_language import (
 
 METHOD_TOKEN_VOCABULARY = frozenset({"M0", "M1", "M2"})
 
+# P0/P1/P_fixed lineages (R07): three distinct typed method programs with
+# choices captured before fresh confirmation outcomes. M0/P0 is the anchor
+# baseline; M1/P1 halves the effective LR via distinct coefficients AND the
+# trainer dispatch (both must agree); M2/P_fixed is the gradient-clip variant.
+# M0 and M1 are intentionally different programs (identical entries would make
+# the LR-semantics claim unverifiable).
 _METHOD_PROGRAMS = {
     "M0": MethodProgram(
         objective_coefficients=ObjectiveCoefficients(
@@ -30,7 +36,7 @@ _METHOD_PROGRAMS = {
         comparison_protocol="e5-anchor/v1"),
     "M1": MethodProgram(
         objective_coefficients=ObjectiveCoefficients(
-            token=1.0, world=0.5, action=0.5, value=0.1, pair=0.1),
+            token=0.8, world=0.4, action=0.4, value=0.2, pair=0.1),
         comparison_protocol="e5-anchor/v1"),
     "M2": MethodProgram(
         gradient_transform=GradientTransform(kind="clip_norm", bound=1.0),
@@ -148,9 +154,34 @@ def parse_method_selection(raw_output: str) -> tuple[str, Any]:
 
 
 def _program_to_method_id(program: MethodProgram) -> str:
+    """Map a typed program to its lineage token (R07).
+
+    Gradient-transform programs are M2; objective-coefficient programs are
+    distinguished by their exact coefficients (M0 anchor vs M1 reduced-LR
+    variant). Arbitrary JSON no longer collapses into the small vocabulary by
+    a loose check — unknown coefficient sets raise instead of mapping to M0.
+    """
     if program.gradient_transform is not None:
-        return "M2"
-    return "M0"
+        if program.gradient_transform.kind == "clip_norm" \
+                and float(program.gradient_transform.bound) == 1.0:
+            return "M2"
+        raise DispatchError(
+            f"unknown gradient_transform {program.gradient_transform!r}; "
+            "only the declared M2 clip_norm/1.0 is admitted")
+    coefficients = program.objective_coefficients
+    if coefficients is not None:
+        token, world, action, value, pair = (
+            float(coefficients.token), float(coefficients.world),
+            float(coefficients.action), float(coefficients.value),
+            float(coefficients.pair))
+        if (token, world, action, value, pair) == (1.0, 0.5, 0.5, 0.1, 0.1):
+            return "M0"
+        if (token, world, action, value, pair) == (0.8, 0.4, 0.4, 0.2, 0.1):
+            return "M1"
+        raise DispatchError(
+            f"objective coefficients {(token, world, action, value, pair)} "
+            "match no declared lineage (M0/M1); refusing loose mapping")
+    raise DispatchError("program matches no declared method lineage")
 
 
 def _program_from_json(raw: Mapping[str, Any]) -> MethodProgram:
@@ -187,11 +218,33 @@ def _program_from_json(raw: Mapping[str, Any]) -> MethodProgram:
 
 def dispatch_method_to_trainer(method_id: str, compiled: Mapping[str, Any],
                                trainer, *, task_identity: str) -> str:
-    """Apply a selected method to the REAL trainer."""
+    """Apply a selected method to the REAL trainer (R07).
+
+    Binds the exact selected token/program, immutable archive, compiled
+    semantic recipe and applied trainer state: the compiled identity must
+    match the declared lineage program (recompiled here), otherwise the
+    caller-supplied recipe is rejected as mismatched. M1 halves LR; M2
+    requires enabled gates.
+    """
     if method_id not in METHOD_TOKEN_VOCABULARY:
         raise DispatchError(f"unknown method id {method_id!r}")
     if not compiled.get("identity"):
         raise DispatchError("compiled method carries no identity")
+    # Reject mismatched caller recipes: recompile the declared lineage and
+    # require identity agreement (a token string is not authentication).
+    from bramastra_lab.research.metalearning.method_language import compile_method
+
+    expected_program = _METHOD_PROGRAMS[method_id]
+    # Runtime config is part of the compiled identity; accept any runtime but
+    # require the program identity to match the declared lineage.
+    expected_program_identity = expected_program.identity()
+    actual_program_identity = compiled.get("program_identity")
+    if actual_program_identity != expected_program_identity:
+        raise DispatchError(
+            f"compiled recipe program {str(actual_program_identity)[:12]}... "
+            f"does not match declared lineage {method_id} "
+            f"({expected_program_identity[:12]}...); rejecting mismatched "
+            "caller recipe")
     if method_id == "M1":
         for group in trainer.optimizer.param_groups:
             group["lr"] = group["lr"] * 0.5

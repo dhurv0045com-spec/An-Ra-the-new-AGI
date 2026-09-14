@@ -93,7 +93,14 @@ class CampaignLedger:
 
     def record_allocation(self, allocation_id: str, source_hash: str,
                           data_hash: str, max_wall_minutes: float) -> float:
-        """Create or validate. The deadline never moves once recorded."""
+        """Create or validate. The deadline never moves once recorded.
+
+        A run directory binds to exactly one immutable allocation: a second
+        distinct allocation_id in the same directory is rejected (R02). An
+        independently authorized new campaign must use a new directory.
+        e0->full transitions share the same derived allocation_id and retain
+        the exact original deadline.
+        """
         existing = self.conn.execute(
             "SELECT source_hash, data_hash, max_wall_minutes, deadline_unix "
             "FROM allocation WHERE allocation_id=?",
@@ -108,6 +115,14 @@ class CampaignLedger:
                     f"allocation {allocation_id!r} max_wall_minutes="
                     f"{existing[2]} differs from {max_wall_minutes}")
             return existing[3]
+        # Immutable binding: one allocation per run directory.
+        other = self.conn.execute(
+            "SELECT allocation_id FROM allocation LIMIT 1").fetchone()
+        if other is not None:
+            raise SupervisorError(
+                f"run directory already bound to allocation {other[0]!r}; "
+                f"refusing second allocation {allocation_id!r} in the same "
+                "directory (use a new run directory for a new campaign)")
         started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         deadline = time.time() + max_wall_minutes * 60.0
         self.conn.execute(
@@ -140,24 +155,54 @@ class CampaignLedger:
                 reserved_seconds: float = 0.0,
                 parent_job: str | None = None) -> Reservation:
         """Reserve a bounded time slice. Unique job_id (idempotent retry
-        returns the existing reservation)."""
+        returns the existing reservation only for compatible retries).
+
+        Compatible retry: same job_id with different worker/device/phase/arm/
+        seed/parent_job raises (R02). Per-device occupancy: overlapping open
+        reservations on the SAME device must not exceed the remaining campaign
+        time; two different devices may each reserve up to the remaining time
+        concurrently. Transactionally checked via the UNIQUE(job_id)
+        constraint plus explicit capacity validation.
+        """
         existing = self.conn.execute(
             "SELECT * FROM reservations WHERE job_id=?", (job_id,)).fetchone()
         if existing is not None:
-            return self._row_to_reservation(existing)
+            prior = self._row_to_reservation(existing)
+            mismatches = []
+            if prior.worker != worker:
+                mismatches.append(f"worker {prior.worker!r}!={worker!r}")
+            if prior.device != device:
+                mismatches.append(f"device {prior.device!r}!={device!r}")
+            if prior.phase != phase:
+                mismatches.append(f"phase {prior.phase!r}!={phase!r}")
+            if prior.arm != arm:
+                mismatches.append(f"arm {prior.arm!r}!={arm!r}")
+            if prior.seed != seed:
+                mismatches.append(f"seed {prior.seed!r}!={seed!r}")
+            if prior.parent_job != parent_job:
+                mismatches.append(
+                    f"parent_job {prior.parent_job!r}!={parent_job!r}")
+            if mismatches:
+                raise SupervisorError(
+                    f"incompatible retry for job {job_id!r}: "
+                    + "; ".join(mismatches))
+            return prior
         deadline = self.deadline()
         now = time.time()
         if deadline is not None and now + reserved_seconds > deadline:
             raise SupervisorError(
                 f"reservation of {reserved_seconds}s exceeds the campaign "
                 f"deadline ({deadline - now:.0f}s remain)")
-        open_reserved = self.conn.execute(
+        # Per-device occupancy: sum open reservations on THIS device only.
+        device_open = self.conn.execute(
             "SELECT COALESCE(SUM(reserved_seconds),0) FROM reservations "
-            "WHERE status='open'").fetchone()[0]
-        span = deadline - self._campaign_start() if deadline else float("inf")
-        if span > 0 and open_reserved + reserved_seconds > span:
+            "WHERE status='open' AND device=?", (device,)).fetchone()[0]
+        remaining = (deadline - now) if deadline else float("inf")
+        if remaining > 0 and device_open + reserved_seconds > remaining:
             raise SupervisorError(
-                "concurrent reservations exceed remaining campaign capacity")
+                f"device {device!r} over-subscribed: open {device_open:.0f}s + "
+                f"requested {reserved_seconds:.0f}s exceeds {remaining:.0f}s "
+                "remaining (per-device exclusivity)")
         reservation = Reservation(
             reservation_id=uuid.uuid4().hex, job_id=job_id,
             parent_job=parent_job, worker=worker, device=device, phase=phase,
@@ -210,8 +255,48 @@ class CampaignLedger:
             (phase,)).fetchall()
         return [self._row_to_reservation(row) for row in rows]
 
+    @staticmethod
+    def _receipt_qualified(reservation: Reservation) -> bool:
+        """A qualified receipt carries actual E0 evidence, not a bare status.
+
+        Requires: completed status (caller filters), non-null checkpoint
+        identity, positive committed AND attempted updates, positive exposure,
+        positive device time, and a concrete device string. Two zero-work
+        receipts on the same GPU must NOT pass (R01/R02).
+        """
+        if reservation.status != "completed":
+            return False
+        if not reservation.checkpoint_identity:
+            return False
+        if reservation.committed_updates <= 0:
+            return False
+        if reservation.attempted_updates <= 0:
+            return False
+        if reservation.supervised_exposure <= 0:
+            return False
+        if reservation.device_seconds <= 0:
+            return False
+        if not reservation.device:
+            return False
+        return True
+
+    def qualified_phase_receipts(self, phase: str) -> list[Reservation]:
+        """Completed receipts with actual outcomes for this phase."""
+        return [row for row in self.phase_receipts(phase)
+                if self._receipt_qualified(row)]
+
     def phase_success(self, phase: str, *, required_workers: int = 2) -> bool:
-        return len(self.phase_receipts(phase)) >= required_workers
+        """Admission gate: distinct qualified workers/devices, not row count.
+
+        Requires at least `required_workers` qualified receipts on DISTINCT
+        devices. Two zero-work receipts for w0/cuda:0 fail (same device and
+        unqualified). Source/data/configuration identity is bound by the
+        immutable run-directory allocation (R02).
+        """
+        qualified = self.qualified_phase_receipts(phase)
+        distinct_devices = {row.device for row in qualified}
+        return len(qualified) >= required_workers \
+            and len(distinct_devices) >= required_workers
 
     def phase_consumption(self, phase: str) -> dict[str, float]:
         rows = self.conn.execute(
@@ -246,18 +331,81 @@ class CampaignLedger:
 
 
 class SupervisorLease:
-    """Exclusive supervisor lease via an exclusive lock file."""
+    """Exclusive supervisor lease via an exclusive lock file with verified
+    stale-lease recovery (R02).
+
+    acquire() refuses when another live supervisor holds the lease. A lock
+    whose writer process is gone (PID check) or whose mtime exceeds
+    `stale_after_seconds` is treated as stale: it is removed and acquisition
+    retries once, recording the recovery. Close database resources on every
+    path (runner closes its ledger in finally).
+    """
 
     def __init__(self, run_dir: str) -> None:
         self.path = os.path.join(run_dir, "supervisor.lock")
 
-    def acquire(self) -> str:
+    def _lock_probe(self) -> tuple[str | None, float | None]:
+        try:
+            with open(self.path, "r", encoding="utf-8") as handle:
+                content = handle.read().strip()
+        except OSError:
+            return None, None
+        try:
+            mtime = os.path.getmtime(self.path)
+        except OSError:
+            mtime = None
+        return content or None, mtime
+
+    @staticmethod
+    def _pid_alive(pid: int) -> bool:
+        try:
+            # Signal 0 probes liveness without delivering a signal.
+            # On Windows, os.kill exists for termination; fall back to mtime.
+            os.kill(pid, 0)  # type: ignore[attr-defined]
+        except AttributeError:
+            return True  # Cannot probe; treat as alive, rely on mtime.
+        except OSError:
+            return False
+        except Exception:
+            return True
+        return True
+
+    def acquire(self, *, stale_after_seconds: float = 1800.0) -> str:
         try:
             fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            raise SupervisorError(
-                "another live supervisor holds the lease; recovery must prove "
-                "the prior writer is gone (remove the lock explicitly)")
+            content, mtime = self._lock_probe()
+            pid: int | None = None
+            if content and ":" in content:
+                try:
+                    pid = int(content.split(":")[0])
+                except ValueError:
+                    pid = None
+            stale = False
+            reason = ""
+            if mtime is not None and (time.time() - mtime) > stale_after_seconds:
+                stale = True
+                reason = f"mtime age exceeds {stale_after_seconds:.0f}s"
+            elif pid is not None and not self._pid_alive(pid):
+                stale = True
+                reason = f"writer pid {pid} is gone"
+            if not stale:
+                raise SupervisorError(
+                    "another live supervisor holds the lease; recovery must prove "
+                    "the prior writer is gone (remove the lock explicitly)")
+            # Verified stale: recover once.
+            try:
+                os.remove(self.path)
+            except OSError as exc:
+                raise SupervisorError(
+                    f"stale lease detected ({reason}) but removal failed: {exc}"
+                ) from exc
+            try:
+                fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            except FileExistsError as exc:
+                raise SupervisorError(
+                    "stale lease recovered but another writer won the race; "
+                    "refusing to run concurrently") from exc
         with os.fdopen(fd, "w") as handle:
             handle.write(f"{os.getpid()}:{time.time():.6f}")
         return f"{os.getpid()}:{time.time():.6f}"

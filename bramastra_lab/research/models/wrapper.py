@@ -74,6 +74,22 @@ class IntegratedModel(nn.Module):
         for head in (self.action_head, self.value_head):
             nn.init.normal_(head.weight, mean=0.0, std=0.02)
 
+    def forward_hidden(self, tokens: Tensor, padding_mask: Tensor | None = None,
+                       attention_mask: Tensor | None = None,
+                       segment_ids: Tensor | None = None) -> Tensor:
+        """Canonical hidden path for scorers (R07).
+
+        Base model: decoder pass with optional packed-segment isolation.
+        GatedReuseModel overrides this to route through _decoder_with_reuse.
+        Scorers must call this (or the model call with return_hidden) rather
+        than decoder.forward_hidden directly when gates may be present.
+        """
+        if attention_mask is None and segment_ids is not None:
+            if not isinstance(segment_ids, Tensor) or segment_ids.shape != tokens.shape:
+                raise ValueError("segment_ids must be an integer tensor shaped like tokens")
+            attention_mask = segment_ids[:, None, :] == segment_ids[:, :, None]
+        return self.decoder.forward_hidden(tokens, padding_mask, attention_mask)
+
     def forward(
         self,
         tokens: Tensor,

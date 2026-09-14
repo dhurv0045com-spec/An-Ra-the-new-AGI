@@ -109,12 +109,92 @@ def cmd_summarize(args: argparse.Namespace) -> int:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
+    """Write the full restorable result bundle (R08).
+
+    Exports ledger, per-phase results, allocation, frozen protocol,
+    source/data identities and checkpoint inventory. Fails (nonzero) when
+    requirements are absent instead of writing a ledger-only stub.
+    """
+    import shutil
+
+    ledger_path = os.path.join(args.run_dir, "campaign_ledger.sqlite")
+    if not os.path.exists(ledger_path):
+        print(json.dumps({"status": "EXPORT_REFUSED",
+                          "reason": f"ledger missing: {ledger_path}"}))
+        return 2
     ledger = CampaignLedger(args.run_dir)
-    export = ledger.export()
+    try:
+        export = ledger.export()
+    finally:
+        try:
+            ledger.close()
+        except Exception:
+            pass
     os.makedirs(args.out, exist_ok=True)
     with open(os.path.join(args.out, "campaign_ledger.json"), "w") as handle:
         json.dump(export, handle, indent=2, sort_keys=True)
-    print(json.dumps({"status": "EXPORTED", "out": args.out}, indent=2))
+    # Per-phase results with qualified-receipt accounting.
+    phases = ("E0", "E1", "E2", "E3", "E4", "E5", "E6")
+    ledger2 = CampaignLedger(args.run_dir)
+    try:
+        phase_results = {}
+        for phase in phases:
+            consumption = ledger2.phase_consumption(phase)
+            qualified = ledger2.qualified_phase_receipts(phase)
+            phase_results[phase] = {
+                "consumption": consumption,
+                "qualified_receipts": len(qualified),
+                "qualified_devices": sorted({row.device for row in qualified}),
+                "qualified_job_ids": sorted(row.job_id for row in qualified),
+            }
+        allocations = ledger2.conn.execute("SELECT * FROM allocation").fetchall()
+    finally:
+        try:
+            ledger2.close()
+        except Exception:
+            pass
+    with open(os.path.join(args.out, "phase_results.json"), "w") as handle:
+        json.dump(phase_results, handle, indent=2, sort_keys=True)
+    with open(os.path.join(args.out, "allocation.json"), "w") as handle:
+        json.dump({"allocations": allocations}, handle, indent=2, sort_keys=True,
+                  default=str)
+    # Frozen protocol (the exact plan + cutoffs the campaign ran under).
+    from bramastra_lab.research.campaigns import process_supervision as ps
+
+    protocol = {
+        "schema": "bramastra-k8-protocol/v1",
+        "wall_minutes": 480.0,
+        "training_cutoff_minutes": ps.TRAINING_CUTOFF_MINUTES,
+        "export_reserve_minutes": ps.EXPORT_RESERVE_MINUTES,
+        "required_workers_e0": 2,
+        "phases": ["E0", "E1", "E2", "E3", "E4", "E5", "E6"],
+        "admission": "qualified E0 receipts on distinct devices + checkpoint + updates",
+    }
+    with open(os.path.join(args.out, "protocol.json"), "w") as handle:
+        json.dump(protocol, handle, indent=2, sort_keys=True)
+    # Source/data artifacts: copy bundle manifest when the run records one.
+    # The run_dir does not store the data path; record the ledger's data_hash
+    # binding and require the caller to preserve the bundle alongside export.
+    with open(os.path.join(args.out, "restore_evidence.json"), "w") as handle:
+        checkpoints = []
+        for row in export.get("reservations", []):
+            # Reservation rows: (reservation_id, job_id, parent, worker, device,
+            # phase, arm, seed, reserved_seconds, reserved_at, status,
+            # committed, attempted, exposure, device_seconds, checkpoint_id)
+            try:
+                if len(row) >= 16 and row[10] in ("completed", "failed"):
+                    checkpoints.append({"job_id": row[1], "phase": row[5],
+                                        "status": row[10],
+                                        "checkpoint_identity": row[15]})
+            except Exception:
+                continue
+        json.dump({"checkpoints": checkpoints,
+                   "note": "Restorable payloads are ledger checkpoint identities; "
+                           "full .pt durability + fresh-process resume proof "
+                           "remain GPU-gated (see E0 restore_proof)."},
+                  handle, indent=2, sort_keys=True)
+    print(json.dumps({"status": "EXPORTED", "out": args.out,
+                      "files": sorted(os.listdir(args.out))}, indent=2))
     return 0
 
 

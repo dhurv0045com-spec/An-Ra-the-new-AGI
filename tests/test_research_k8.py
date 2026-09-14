@@ -329,10 +329,15 @@ class SupervisorTests(unittest.TestCase):
         try:
             ledger = CampaignLedger(tmp)
             ledger.record_allocation("alloc-1", "src", "data", 10.0)
+            # R02 per-device exclusivity: two different GPUs may each reserve
+            # up to the remaining time concurrently (admitted).
             ledger.reserve("j1", worker="w0", device="cuda:0", phase="E0",
                            arm=None, seed=None, reserved_seconds=540.0)
+            ledger.reserve("j2", worker="w1", device="cuda:1", phase="E0",
+                           arm=None, seed=None, reserved_seconds=540.0)
+            # Overlapping second reservation on the SAME GPU is refused.
             with self.assertRaises(SupervisorError):
-                ledger.reserve("j2", worker="w1", device="cuda:1", phase="E0",
+                ledger.reserve("j3", worker="w0", device="cuda:0", phase="E0",
                                arm=None, seed=None, reserved_seconds=540.0)
             ledger.close()
         finally:
