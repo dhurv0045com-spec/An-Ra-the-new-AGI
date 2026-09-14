@@ -1,0 +1,68 @@
+{
+  "schema": "anra.formation-mux-readiness/v5",
+  "campaign": "FORMATION-MUX-001",
+  "branch": "cymek-next-core-architecture",
+  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / KAGGLE_T4X2_NOT_YET_RUN",
+  "science": {
+    "authority": "Science S5",
+    "commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "amendment_chain": [
+      "AMENDMENT_1_PREEXECUTION",
+      "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
+      "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL",
+      "AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY"
+    ],
+    "official_outcomes_observed": false
+  },
+  "data": {
+    "families": 6,
+    "training_rows_per_family": 10000,
+    "training_rows_total": 60000,
+    "development_rows_per_family": 80,
+    "development_rows_total": 480,
+    "sealed_rows_per_family": 120,
+    "sealed_rows_total": 720,
+    "cs_mech_row_presentations_per_arm": 32000,
+    "cs_mech_training_stream_wrap_before_endpoint": false,
+    "rep_form_processed_token_budget_per_arm": 500000
+  },
+  "durability": {
+    "cs_mech_exact_resume_checkpoint_every_updates": 200,
+    "rep_form_exact_resume_checkpoint_every_processed_tokens": 10000,
+    "progress_snapshot_at_every_checkpoint": true,
+    "progress_files": ["LATEST_PROGRESS.json", "progress/UPDATE_*.json"],
+    "campaign_may_span_multiple_kaggle_sessions": true,
+    "science_is_not_shortened_to_fit_a_session": true
+  },
+  "execution": {
+    "operator": "tools/formation_mux_001_kaggle_operator_v8.py",
+    "operator_commit": "4e3bb50c683d94a09801703dfb9f469debe64a50",
+    "operator_git_blob": "b427269f682322c9ce58f1677710c5979c76465c",
+    "notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
+    "notebook_pin_commit": "c01970cf6afc5434cc6e48562faa4979fbab969a",
+    "accelerator_required": "Kaggle GPU T4 x2",
+    "internet_required": true,
+    "parallelism": "two independent matched-bundle workers; no DDP",
+    "per_session_policy": "run until actual wall guard, package exact-resume output, continue next session if PARTIAL_SESSION"
+  },
+  "sealed_firewall": {
+    "worker_visible_splits": ["training", "development"],
+    "raw_sealed_rows_persisted_before_or_during_training": false,
+    "consumption": "regenerate and commitment-verify only after DEVELOPMENT_COMPLETE",
+    "raw_sealed_rows_in_result_bundle": false
+  },
+  "qualification": {
+    "github_actions_run_id": 34900925973,
+    "qualification_commit": "af3d3e517fc2755dae1bfae3c42e9e794d44282e",
+    "py_compile": "PASS",
+    "targeted_tests": "28 passed in 7.59s",
+    "immutable_science_files_verified": 38,
+    "real_frozen_tokenizer_loaded": true,
+    "public_surface_training_rows": 60000,
+    "public_surface_development_rows": 480,
+    "sealed_rows_regenerated_per_experiment_for_commitment_test": 720,
+    "canonical_notebook_json_and_pins": "PASS",
+    "kaggle_t4x2_execution": "NOT_YET_RUN"
+  },
+  "claim_ceiling": "Pre-execution qualification only. This is not evidence of Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
+}
