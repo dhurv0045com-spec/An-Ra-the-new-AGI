@@ -1,0 +1,47 @@
+{
+  "schema": "anra-cs-transfer-001-amendment/v1",
+  "amendment": 2,
+  "status": "PROSPECTIVE_PREEXECUTION",
+  "reason": "The first real prepare pass with the frozen production tokenizer failed before any model update because the natural-language low-ID filter produced sealed/identity acceptance 0.000 against the preregistered >=0.15 gate. This proves the original text-rendered shared surface is infeasible for the intended physical-class-space intervention under the actual tokenizer. Repeated operator/test repairs do not solve that scientific data-design flaw.",
+  "evidence": {
+    "observed_failure": "ValueError: low-ID acceptance below 0.15: sealed/identity=0.000",
+    "stage": "prepare/data gate",
+    "gpu_training_started": false,
+    "model_outcomes_observed": false,
+    "data_receipt_written": false
+  },
+  "change": {
+    "surface_before": "natural-language V5.1 canary rows encoded with the frozen 24,576 tokenizer, then filtered so every prompt/answer token ID is <4096",
+    "surface_after": "deterministic direct-token symbolic instrument constructed entirely inside ordinary shared token IDs 260..508, with the frozen 24,576 tokenizer retained as the artifact/ID authority but no natural-language acceptance filter",
+    "rationale": "The causal question is physical tied class space, not English-token merge luck. Direct common-token construction guarantees byte-identical integer token sequences across V4096 and V24576, removes the infeasible tokenizer-selection bottleneck, and makes the intervention cleaner because physical vocabulary size remains the only model treatment.",
+    "families_after": [
+      "identity token copy",
+      "query-conditioned token binding",
+      "state add/remove/order",
+      "two-hop symbolic composition",
+      "count/termination",
+      "known-vs-missing binding with abstention"
+    ],
+    "special_token_rule": "0..3 remain PAD/UNK/BOS/EOS and never appear as content",
+    "common_content_rule": "all prompt and answer IDs are >=4 and <4096"
+  },
+  "unchanged": [
+    "physical V4096 vs V24576 treatment",
+    "8L/256w geometry",
+    "parameter-count difference is exactly tied embedding/output rows",
+    "four matched seed pairs",
+    "matched byte-identical shared initialization",
+    "fresh seed 2026091303",
+    "600/80/120 train/development/sealed rows per family",
+    "480-update endpoint and 1,966,080-token budget per arm",
+    "AdamW/objective/WSD schedule/FP32 precision",
+    "development checkpoints every 60 updates",
+    "primary paired identity formation-AUC metric",
+    "co-primary identity endpoint gap",
+    "decision thresholds",
+    "one-shot sealed firewall",
+    "claim ceiling"
+  ],
+  "outcomes_observed_before_amendment": false,
+  "claim_ceiling_unchanged": true
+}
