@@ -1,28 +1,37 @@
 {
-  "schema": "anra.next-core-current-state-override/v1",
+  "schema": "anra.next-core-current-state-override/v2",
   "date": "2026-09-14",
   "branch": "cymek-next-core-architecture",
-  "reason": "NEXT_CORE_SPEC.json was synchronized after CS-TRANSFER-001 but retained one stale numeric_symbol_representation blocking_experiment string pointing to the already-completed CS-TRANSFER-001.",
+  "reason": "NEXT_CORE_SPEC.json is a generated historical-current snapshot that still carries one stale numeric_symbol_representation blocking_experiment label pointing to completed CS-TRANSFER-001. This override records the current prospective FORMATION-MUX authority without rewriting historical evidence.",
   "authoritative_overrides": {
     "vocabulary_size": {
       "working_choice": 24576,
       "state": "PROVISIONAL",
       "cs_transfer_001_gate": "CLOSED",
       "optimality": "NOT_ESTABLISHED",
-      "next_mechanism_gate": "CS-MECH-002"
+      "next_mechanism_gate": "CS-MECH-002",
+      "campaign": "FORMATION-MUX-001"
     },
     "numeric_symbol_representation": {
       "working_choice": "default production byte-BPE rendering",
       "state": "PROVISIONAL",
       "blocking_experiment": "REP-FORM-003A",
+      "campaign": "FORMATION-MUX-001",
       "note": "CS-TRANSFER-001 is complete and must not be treated as an open blocker"
     }
   },
   "campaign": {
     "name": "FORMATION-MUX-001",
-    "science_commit_S2": "534dcccfb8f96a30e80d71a30160e6a16eaa1ede",
+    "science_authority": "Science S4",
+    "science_commit": "ad25f6944cdd5ac5f47a6bf3a667322cb985314b",
+    "canonical_operator": "tools/formation_mux_001_kaggle_operator_v7.py",
+    "operator_commit": "04278c570aeb1ccba1609ec0e7334b6bfedf894b",
+    "canonical_notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
+    "notebook_pin_commit": "56bd9c4b9303a41ccac4302e3477b3f4142d4e85",
     "experiments": ["CS-MECH-002", "REP-FORM-003A"],
-    "runtime_state": "KAGGLE_T4X2_NOT_YET_RUN"
+    "preexecution_qualification": "CPU_STATIC_PASS / REAL_TOKENIZER_SURFACE_PASS",
+    "runtime_state": "KAGGLE_T4X2_NOT_YET_RUN",
+    "scientific_outcomes_observed": false
   },
-  "precedence": "For the two fields above, this prospective current-state override supersedes stale blocking_experiment labels in generated NEXT_CORE_SPEC.json until that generator is regenerated. Historical evidence remains unchanged."
+  "precedence": "For the two fields above, this prospective current-state override supersedes stale blocker labels in generated NEXT_CORE_SPEC.json until that generator is regenerated. Historical evidence remains unchanged."
 }
