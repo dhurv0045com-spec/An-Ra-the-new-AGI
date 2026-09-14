@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Current dispatch after ecc5953:** [Cognition foundation F1–F6](cognition_foundation_20260914/README.md) supersedes older dispatch notices below. Six CPU semantic counterexamples were reproduced despite five existing cognition tests passing. Repair evidence encoding, temporal conflict handling, observation-conditioned prediction, real two-step search and selected-action metrics. Cognition is not yet code-ready; preserve existing K8 limits and unresolved O01–O10 acceptance gates.
+
 **Current assignment supersedes older dispatch notices:** [Operational cognitive learner O01–O10](next_phase_20260914/README.md), based on [44e3905 assessment](next_phase_20260914/ASSESSMENT.md). Implement complete session authority, calibration, live cognition and measured RSI; use the packet's explicit code-ready/GPU-qualified criteria. The K8 experiment budget and original treatments remain unchanged.
 
 **Latest assignment:** [real executor contracts](reports/K8_SEMANTIC_REVIEW_20260914/EXECUTOR_CONTRACTS.md), following [semantic review of 5c0567f](reports/K8_SEMANTIC_REVIEW_20260914/REVIEW.md). The runner now refuses known incomplete implementations before E0 allocation. Build real checkpoint/target/evaluation/RSI paths and deliver K8_REAL_EXECUTION_20260914 before chief acceptance.

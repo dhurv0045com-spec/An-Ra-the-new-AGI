@@ -1,0 +1,24 @@
+{
+  "source_revision": "ecc5953",
+  "optimizer_updates": 0,
+  "gpu_runs": 0,
+  "diagnostic_flags_true": [
+    "distinct_variables_render_identically",
+    "different_variables_marked_conflicting",
+    "ordinary_temporal_change_marked_conflicting",
+    "world_prompt_ignores_observation_history",
+    "depth_two_reuses_untransitioned_state",
+    "eight_node_search_covers_only_first_root"
+  ],
+  "focused_pytest": {
+    "passed": 5,
+    "deselected": 27,
+    "seconds": 3.41,
+    "warning": "pytest cache write permission; tests completed"
+  },
+  "commands": [
+    "PYTHONPATH=. python engineering/cognition_foundation_20260914/probe.py",
+    "python -m pytest tests/test_research_k8_operational.py -q -k \"live_episode_trace_integrity or planner_imagined_stays_separate or invalid_action_becomes_costed_outcome or truncation_is_explicit or negative_controls_reflect\""
+  ],
+  "disposition": "cognition foundation not code-ready"
+}

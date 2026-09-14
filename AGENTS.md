@@ -1,5 +1,7 @@
 # BRAMASTRA agent entry point
 
+**Current dispatch after ecc5953:** [Cognition foundation F1–F6](engineering/cognition_foundation_20260914/README.md) supersedes older dispatch notices below. Six CPU semantic counterexamples were reproduced despite five existing cognition tests passing. Repair evidence encoding, temporal conflict handling, observation-conditioned prediction, real two-step search and selected-action metrics. Cognition is not yet code-ready; preserve existing K8 limits and unresolved O01–O10 acceptance gates.
+
 ## Mission and authority
 
 **Current chief dispatch:** [Operational cognitive learner O01–O10](engineering/next_phase_20260914/README.md), following review of 44e3905. This supersedes older review notices below. Complete the connected execution and meet its code-readiness criteria before owner GPU qualification; existing resource limits remain unchanged.
