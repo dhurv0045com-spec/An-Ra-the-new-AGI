@@ -820,3 +820,70 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
             "adapter": adapter.name,
             "goal": base_goal,
             "episode_id": episode_id}
+
+
+# --- I02/K8 additions: action coding and history expansion -------------------
+
+RESPONSE_ENVELOPE_TOKENS = 8
+
+
+def encode_action_code(action: dict, legal_actions: list[dict]) -> str:
+    """Encode an action as a compact JSON code within the response envelope.
+
+    The code is {"a": index} where index is the position in legal_actions.
+    Full JSON often exceeds the envelope; the code always fits.
+    """
+    for index, candidate in enumerate(legal_actions):
+        if dict(candidate) == dict(action):
+            import json as _json
+            code = _json.dumps({"a": index}, separators=(",", ":"))
+            return code
+    raise ValueError(f"action not in legal set: {action}")
+
+
+def decode_action_code(code: dict, legal_actions: list[dict]) -> tuple[dict, str]:
+    """Decode a compact action code back to the full action dict.
+
+    Rejects out-of-range indexes and unknown keys. Returns (action, "code").
+    """
+    if not isinstance(code, dict):
+        raise ValueError("action code must be a dict")
+    keys = set(code.keys())
+    if keys != {"a"}:
+        raise ValueError(f"action code must have exactly key 'a', got {sorted(keys)}")
+    index = code["a"]
+    if not isinstance(index, int) or isinstance(index, bool):
+        raise ValueError("action code index must be an integer")
+    if index < 0 or index >= len(legal_actions):
+        raise ValueError(
+            f"action code index {index} out of range for {len(legal_actions)} legal actions")
+    return dict(legal_actions[index]), "code"
+
+
+def _expand_history_entry(compact: Mapping[str, Any]) -> dict[str, Any]:
+    """Inverse of _compact_history_entry: restore full key names."""
+    action_short_to_full = {
+        "k": "kind", "v": "variable", "n": "name", "s": "answer"}
+    feedback_short_to_full = {
+        "k": "kind", "v": "value", "n": "name", "r": "result",
+        "t": "total", "m": "matched", "w": "written", "s": "submitted_answer",
+        "c": "correct"}
+    # Action short keys: v maps to both variable and value; use context.
+    action_reverse = {"k": "kind"}
+    for full, short in (("variable", "v"), ("item", "n"), ("input", "v"),
+                        ("value", "v"), ("container", "n"), ("switch", "n"),
+                        ("answer", "s")):
+        action_reverse[short] = full  # last wins; ambiguity is inherent
+    feedback_reverse = {"k": "kind"}
+    for full, short in (("variable", "v"), ("value", "v"), ("item", "n"),
+                        ("requires", "r"), ("input", "v"), ("result", "r"),
+                        ("total", "t"), ("matched", "m"), ("written", "w"),
+                        ("submitted_answer", "s"), ("correct", "c"),
+                        ("contains_item", "v"), ("changed", "c"),
+                        ("state", "v")):
+        feedback_reverse[short] = full
+    compact_action = dict(compact.get("a", {}))
+    compact_feedback = dict(compact.get("f", {}))
+    action = {action_reverse.get(k, k): v for k, v in compact_action.items()}
+    feedback = {feedback_reverse.get(k, k): v for k, v in compact_feedback.items()}
+    return {"action": action, "feedback": feedback}
