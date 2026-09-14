@@ -1,14 +1,32 @@
 {
-  "schema": "anra-cs-transfer-001-operator-binding/v1",
+  "schema": "anra-cs-transfer-001-operator-binding/v2",
   "experiment": "CS-TRANSFER-001",
-  "scientific_executable_commit": "a916d1c8d2637abb86d16b1c78e418c95461f3c7",
-  "canonical_runner": "anra_v5.cs_transfer_001_run_v3",
-  "operator_notebook": "notebooks/cymek_colab_cs_transfer_001_t4.ipynb",
-  "operator_notebook_blob_sha1": "ceef4457e28db316d18cc3d7e5d27db43361b4f3",
-  "notebook_contract_test": "tests/test_cs_transfer_001_notebook.py",
-  "notebook_contract_test_blob_sha1": "ace2f721abdd17a315a164caf58ecc3da10f1fe9",
+  "scientific_executable_commit": "f8582808b6e2be0753cb2689d9d6d4aeb4d57aeb",
+  "canonical_runner": "anra_v5.cs_transfer_001_run_v4",
+  "protocol_amendments": [
+    "experiments/CS_TRANSFER_001/AMENDMENT_1.json",
+    "experiments/CS_TRANSFER_001/AMENDMENT_2.json"
+  ],
+  "surface_revision": "A2_DIRECT_TOKEN_COMMON_SPACE",
+  "canonical_same_session_operator": "tools/cs_transfer_001_colab_operator_v3.py",
+  "operator_commit": "b798e3bd84790b5cf9a9255fc6e2cbdc93140f22",
+  "operator_blob_sha1": "8f85e6ff04fe0bb0aed72383f2911434cd7109ba",
   "drive_root": "/content/drive/MyDrive/CYMEK/CS_TRANSFER_001",
   "hardware": "NVIDIA T4 CUDA",
-  "branch_role": "post-freeze operator commits may change this branch head; the notebook must always detach scientific_executable_commit before qualification or execution",
+  "qualification_order": [
+    "exact science checkout and critical blob verification",
+    "Amendment-2 static validator",
+    "full direct-token surface tests at preregistered row counts",
+    "production backend and checkpoint tests",
+    "real production-tokenizer local-disk prepare",
+    "CPU production preflight",
+    "Drive compatibility check",
+    "Drive prepare and data receipt validation",
+    "CUDA preflight on both physical arms",
+    "eight-arm fixed-endpoint campaign",
+    "development freeze",
+    "one-shot sealed finalization"
+  ],
+  "branch_role": "operator commits may advance branch head; scientific execution must detach scientific_executable_commit",
   "claim_ceiling": "controlled development-scale causal class-space evidence only; no PRE500M/250M/500M/cognition/AGI authorization"
 }
