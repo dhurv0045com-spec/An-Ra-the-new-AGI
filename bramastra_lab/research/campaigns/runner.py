@@ -1,13 +1,11 @@
-"""Campaign runner (I05): one supervisor, two workers, one persistent
-allowance. ``run --mode e0`` runs only E0; ``run --mode full`` executes the
-gated campaign. The runner refuses to start E1+ without qualified successful
-E0 receipts for both workers (distinct devices, actual outcomes).
+"""Campaign runner (D1/D4/D5): slot-ordered execution with exclusive devices.
 
-Fail-closed: a blocked or failed required job yields a non-successful
-campaign result and nonzero exit code. Resume is per-job (successful
-individual job receipts), never per-phase names alone. Training stops by
-minute 450; export reserves 450-480. Workers run in isolated spawn
-subprocesses with GPU visibility set before torch import (R03).
+Slots: E1 has two counterbalanced slots; E3/E4 have two slots with reversed
+treatment order between seeds (GPU0 owns seed1701, GPU1 owns seed1702). Only
+one slot's jobs are reserved and launched at a time (at most one active job
+per physical GPU). Slot progress persists via individual job receipts; restart
+never repeats accepted outcomes. Leases are ownership-token fenced. E2 frozen
+evaluation binds cases + checkpoint (no positive-update gate); E6 is export.
 """
 from __future__ import annotations
 
@@ -23,6 +21,66 @@ from bramastra_lab.research.campaigns.supervisor import (
 )
 
 
+def _preflight(data_dir: str, mode: str) -> str | None:
+    """Validate bundle + handler availability before E0 (D5).
+
+    Returns an error string when preflight fails, else None. Fails before
+    expensive work: missing manifest, invalid bundle, or missing phase
+    executors refuse with exit 2 (never silent campaign success).
+    """
+    manifest_path = os.path.join(data_dir, "manifest.json")
+    if not os.path.exists(manifest_path):
+        return f"prepared bundle manifest missing: {manifest_path}"
+    try:
+        from bramastra_lab.research.data.k8_bundle import validate_bundle
+
+        report = validate_bundle(data_dir, min_confirmation=1)
+        if not report.get("valid"):
+            return f"bundle invalid: {report.get('issues', [])[:3]}"
+    except Exception as exc:  # noqa: BLE001
+        return f"bundle validation error: {exc}"
+    try:
+        from bramastra_lab.research.campaigns import phases  # noqa: F401
+        from bramastra_lab.research.campaigns.phases import e1, e2, e3, e4, e5, e6  # noqa: F401
+    except Exception as exc:  # noqa: BLE001
+        return f"phase executors unavailable: {exc}"
+    if mode not in ("e0", "full"):
+        return f"unknown mode {mode!r}"
+    return None
+
+
+def _phase_success_for_output(phase: str, output: dict[str, Any]) -> bool:
+    """Per-phase success predicate (D4).
+
+    E0: completed + resume agreement + positive committed updates.
+    E1/E3/E4: completed + positive committed updates.
+    E2 (frozen eval): completed + evaluated_cases>0 + checkpoint bound;
+      optimizer updates MUST be zero (no optimizer path in frozen eval).
+    E5: completed + trials>0 + archive bound (attempted>0).
+    E6: completed (export verification inside the executor).
+    """
+    status = output.get("status")
+    if status != "completed":
+        return False
+    if phase == "E0":
+        return bool(output.get("resume_agrees") is True) and int(
+            output.get("committed_updates", 0)) > 0
+    if phase in ("E1", "E3", "E4"):
+        return int(output.get("committed_updates", 0)) > 0
+    if phase == "E2":
+        evaluated = int(output.get("evaluated_cases", 0))
+        checkpoint = output.get("checkpoint_identity")
+        optimizer_updates = int(output.get("optimizer_updates", 0))
+        return evaluated > 0 and bool(checkpoint) and optimizer_updates == 0
+    if phase == "E5":
+        trials = int(output.get("trials", output.get("attempted_updates", 0)))
+        return trials > 0 and bool(output.get("archive_identity") or
+                                   output.get("checkpoint_identity"))
+    if phase == "E6":
+        return True
+    return False
+
+
 def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                  max_wall_minutes: float = 480.0,
                  devices: Sequence[str] = ("cuda:0", "cuda:1"),
@@ -32,12 +90,11 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
     if mode not in ("e0", "full"):
         raise SupervisorError(f"unknown mode {mode!r}")
     os.makedirs(run_dir, exist_ok=True)
-    # Fail before expensive work when requirements are absent (R08).
-    manifest_path = os.path.join(data_dir, "manifest.json")
-    if mode in ("e0", "full") and not os.path.exists(manifest_path):
-        print(json.dumps({"status": "DATA_NOT_READY",
-                          "message": f"prepared bundle manifest missing: {manifest_path}; "
-                                     "run prepare/validate first"}))
+    preflight_error = _preflight(data_dir, mode)
+    if preflight_error:
+        print(json.dumps({"status": "DATA_NOT_READY" if "bundle" in preflight_error
+                          or "manifest" in preflight_error else "PREFLIGHT_REFUSED",
+                          "message": preflight_error}))
         return 2
     source_hash = _source_closure_hash()
     data_hash = _hash_dir(data_dir)
@@ -45,7 +102,7 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                                       "source": source_hash,
                                       "max_wall": max_wall_minutes})
     lease = SupervisorLease(run_dir)
-    token = lease.acquire()
+    lease_token = lease.acquire()
     ledger: CampaignLedger | None = None
     try:
         ledger = CampaignLedger(run_dir)
@@ -53,12 +110,10 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
             deadline = ledger.record_allocation(allocation_id, source_hash,
                                                 data_hash, max_wall_minutes)
         except SupervisorError as exc:
-            # Incompatible reentry into a bound run directory (R02).
             print(json.dumps({"status": "ALLOCATION_REJECTED",
                               "error": str(exc)}))
             return 2
         campaign_start = deadline - max_wall_minutes * 60.0
-        # Per-job resume: successful individual job receipts, not phase names.
         completed_jobs = {row[0] for row in ledger.conn.execute(
             "SELECT job_id FROM reservations WHERE status='completed'"
         ).fetchall()}
@@ -69,7 +124,6 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                               "message": "qualified E0 receipts exist; full mode uses the "
                                          "same allocation without duplicating E0"}))
             return 0
-        # E0 admission gate: full mode requires QUALIFIED E0 on distinct devices.
         if mode == "full" and not ledger.phase_success("E0", required_workers=2):
             print(json.dumps({"status": "E0_GATE_BLOCKED",
                               "message": "full campaign requires qualified successful E0 "
@@ -81,7 +135,6 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                                                  "plan": campaign_plan,
                                                  "allocation_id": allocation_id})
         from bramastra_lab.research.campaigns import process_supervision as ps
-        from bramastra_lab.research.campaigns.worker import run_worker_phase  # noqa: F401 (path ref)
 
         phase_deadlines = ps.phase_absolute_deadlines(campaign_start, campaign_plan)
         training_cutoff = ps.campaign_training_cutoff(campaign_start)
@@ -96,132 +149,154 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                 ledger.append_event("phase_skipped", {"phase": phase,
                                                        "reason": "prior_phase_failed"})
                 continue
-            # Training cutoff: E0-E5 must not borrow export time (R03).
             if phase != "E6" and time.time() > training_cutoff:
                 ledger.append_event("phase_skipped", {
                     "phase": phase, "reason": "training_cutoff_exceeded",
                     "cutoff_unix": training_cutoff})
                 campaign_failed = True
                 continue
-            # Per-job filtering: skip only already-completed jobs.
-            pending_workers = [entry for entry in phase_entry["workers"]
-                               if entry["job_id"] not in completed_jobs]
-            if not pending_workers:
-                continue
-            # Reserve all pending jobs in this phase first (transactional
-            # capacity is enforced per-device inside reserve).
-            reservations: dict[str, Any] = {}
-            reserve_failed = False
-            for worker_entry in pending_workers:
-                try:
-                    reservations[worker_entry["job_id"]] = ledger.reserve(
-                        job_id=worker_entry["job_id"], worker=worker_entry["worker"],
-                        device=worker_entry["device"], phase=phase,
-                        arm=worker_entry.get("arm"), seed=worker_entry.get("seed"),
-                        reserved_seconds=worker_entry["wall_seconds"])
-                except SupervisorError as exc:
-                    ledger.append_event("worker_failed", {
+            slots: list[list[dict[str, Any]]] = phase_entry.get(
+                "slots") or [phase_entry["workers"]]
+            for slot_index, slot_workers in enumerate(slots):
+                pending = [entry for entry in slot_workers
+                           if entry["job_id"] not in completed_jobs]
+                if not pending:
+                    ledger.append_event("slot_skipped_completed", {
+                        "phase": phase, "slot": slot_index})
+                    continue
+                if campaign_failed and phase != "E6":
+                    ledger.append_event("phase_skipped", {
+                        "phase": phase, "slot": slot_index,
+                        "reason": "prior_phase_failed"})
+                    continue
+                # Exclusive occupancy within the slot: at most one job per
+                # physical device (D1). Slots are constructed to satisfy this;
+                # refuse rather than oversubscribe.
+                physicals = [entry["device"] for entry in pending]
+                if len(set(physicals)) != len(physicals):
+                    ledger.append_event("phase_failed", {
+                        "phase": phase, "slot": slot_index,
+                        "reason": "slot violates exclusive occupancy"})
+                    for entry in pending:
+                        results[entry["job_id"]] = {
+                            "status": "failed",
+                            "error": "slot violates exclusive occupancy"}
+                    campaign_failed = True
+                    continue
+                reservations: dict[str, Any] = {}
+                reserve_failed = False
+                for worker_entry in pending:
+                    try:
+                        reservations[worker_entry["job_id"]] = ledger.reserve(
+                            job_id=worker_entry["job_id"],
+                            worker=worker_entry["worker"],
+                            device=worker_entry["device"], phase=phase,
+                            arm=worker_entry.get("arm"),
+                            seed=worker_entry.get("seed"),
+                            reserved_seconds=worker_entry["wall_seconds"])
+                    except SupervisorError as exc:
+                        ledger.append_event("worker_failed", {
+                            "job_id": worker_entry["job_id"],
+                            "phase": phase, "slot": slot_index,
+                            "error": f"SupervisorError: {exc}"})
+                        results[worker_entry["job_id"]] = {
+                            "status": "failed", "error": str(exc)}
+                        reserve_failed = True
+                        campaign_failed = True
+                if reserve_failed:
+                    ledger.append_event("phase_failed", {
+                        "phase": phase, "slot": slot_index,
+                        "reason": "reservation_refused"})
+                    continue
+                now = time.time()
+                phase_deadline = phase_deadlines.get(phase, deadline)
+                slot_cap = float(phase_entry.get("wall_cap_minutes", 30.0)) * 60.0
+                # Slot timeout: proportional share of the phase cap (one slot
+                # at a time), bounded by absolute deadlines.
+                slot_cap_share = slot_cap / max(1, len(slots))
+                timeout_seconds = min(slot_cap_share,
+                                      max(1.0, phase_deadline - now),
+                                      max(1.0, deadline - now))
+                if phase != "E6":
+                    timeout_seconds = min(timeout_seconds,
+                                          max(1.0, training_cutoff - now))
+                if timeout_seconds <= 0:
+                    ledger.append_event("phase_failed", {
+                        "phase": phase, "slot": slot_index,
+                        "reason": "deadline_already_exceeded"})
+                    campaign_failed = True
+                    continue
+                specs = []
+                for worker_entry in pending:
+                    specs.append({
                         "job_id": worker_entry["job_id"],
-                        "error": f"SupervisorError: {exc}"})
-                    results[worker_entry["job_id"]] = {"status": "failed",
-                                                       "error": str(exc)}
-                    reserve_failed = True
-                    campaign_failed = True
-            if reserve_failed:
-                ledger.append_event("phase_failed", {"phase": phase,
-                                                     "reason": "reservation_refused"})
-                continue
-            # Absolute phase timeout: min(wall cap, time to phase deadline,
-            # time to training cutoff for training phases, time to campaign deadline).
-            now = time.time()
-            phase_deadline = phase_deadlines.get(phase, deadline)
-            cap_seconds = float(phase_entry.get("wall_cap_minutes", 30.0)) * 60.0
-            timeout_seconds = min(cap_seconds, max(1.0, phase_deadline - now),
-                                  max(1.0, deadline - now))
-            if phase != "E6":
-                timeout_seconds = min(timeout_seconds,
-                                      max(1.0, training_cutoff - now))
-            if timeout_seconds <= 0:
-                ledger.append_event("phase_failed", {
-                    "phase": phase, "reason": "deadline_already_exceeded"})
-                campaign_failed = True
-                continue
-            specs = []
-            for worker_entry in pending_workers:
-                specs.append({
-                    "job_id": worker_entry["job_id"],
-                    "phase": phase, "device": worker_entry["device"],
-                    "arm": worker_entry.get("arm"), "seed": worker_entry.get("seed"),
-                    "data_dir": data_dir, "run_dir": run_dir,
-                    "precision": precision,
-                    "deadline": min(deadline, phase_deadline),
-                })
-            outputs = ps.run_phase_concurrently(
-                specs, timeout_seconds=timeout_seconds,
-                worker_fn_path="bramastra_lab.research.campaigns.worker:run_worker_phase",
-            )
-            phase_failed = False
-            for worker_entry in pending_workers:
-                job_id = worker_entry["job_id"]
-                reservation = reservations[job_id]
-                reserve_started = reservation.reserved_at_unix
-                output = outputs.get(job_id, {"status": "failed",
-                                              "error": "missing worker output"})
-                status = output.get("status")
-                # E0 requires resume agreement; other learned phases require
-                # completed + real consumption; refused/pending/blocked fail.
-                if phase == "E0":
-                    success = status == "completed" and output.get(
-                        "resume_agrees", False) is True
-                elif phase == "E6":
-                    success = status == "completed"
-                else:
-                    success = status == "completed" and int(
-                        output.get("committed_updates", 0)) > 0
-                # Durable failure consumption: never erase work already
-                # attempted; on exception record elapsed wall time (R02).
-                if status in ("failed", "timed_out") and not output.get(
-                        "device_seconds"):
-                    output["device_seconds"] = max(
-                        0.0, time.time() - reserve_started)
-                try:
-                    ledger.close_reservation(
-                        reservation.reservation_id,
-                        status="completed" if success else "failed",
-                        committed_updates=int(output.get("committed_updates", 0)),
-                        attempted_updates=int(output.get("attempted_updates", 0)),
-                        supervised_exposure=int(output.get("supervised_exposure", 0)),
-                        device_seconds=float(output.get("device_seconds", 0.0)),
-                        checkpoint_identity=output.get("checkpoint_identity"))
-                except SupervisorError as exc:
-                    ledger.append_event("worker_failed", {
-                        "job_id": job_id,
-                        "error": f"close_reservation refused: {exc}"})
-                    success = False
-                results[job_id] = output
-                if success:
-                    completed_jobs.add(job_id)
-                else:
-                    phase_failed = True
-                    campaign_failed = True
-                    if status not in ("failed", "timed_out"):
+                        "phase": phase,
+                        "physical_device": worker_entry["device"],
+                        "device": worker_entry["device"],
+                        "arm": worker_entry.get("arm"),
+                        "seed": worker_entry.get("seed"),
+                        "slot": slot_index,
+                        "parent": worker_entry.get("parent"),
+                        "data_dir": data_dir, "run_dir": run_dir,
+                        "precision": precision,
+                        "deadline": min(deadline, phase_deadline),
+                    })
+                outputs = ps.run_phase_concurrently(
+                    specs, timeout_seconds=timeout_seconds,
+                    worker_fn_path="bramastra_lab.research.campaigns.worker:run_worker_phase",
+                )
+                slot_failed = False
+                for worker_entry in pending:
+                    job_id = worker_entry["job_id"]
+                    reservation = reservations[job_id]
+                    reserve_started = reservation.reserved_at_unix
+                    output = outputs.get(job_id, {"status": "failed",
+                                                  "error": "missing worker output"})
+                    success = _phase_success_for_output(phase, output)
+                    if output.get("status") in ("failed", "timed_out") \
+                            and not output.get("device_seconds"):
+                        output["device_seconds"] = max(
+                            0.0, time.time() - reserve_started)
+                    try:
+                        ledger.close_reservation(
+                            reservation.reservation_id,
+                            status="completed" if success else "failed",
+                            committed_updates=int(output.get("committed_updates", 0)),
+                            attempted_updates=int(output.get("attempted_updates", 0)),
+                            supervised_exposure=int(output.get("supervised_exposure", 0)),
+                            device_seconds=float(output.get("device_seconds", 0.0)),
+                            checkpoint_identity=output.get("checkpoint_identity"))
+                    except SupervisorError as exc:
                         ledger.append_event("worker_failed", {
-                            "job_id": job_id,
-                            "error": f"unsuccessful status {status!r}: "
-                                     f"{output.get('error', output.get('reason', ''))}"})
+                            "job_id": job_id, "phase": phase,
+                            "slot": slot_index,
+                            "error": f"close_reservation refused: {exc}"})
+                        success = False
+                    results[job_id] = output
+                    if success:
+                        completed_jobs.add(job_id)
                     else:
+                        slot_failed = True
+                        campaign_failed = True
                         ledger.append_event("worker_failed", {
-                            "job_id": job_id,
-                            "error": str(output.get("error", status))})
-            if phase_failed:
-                ledger.append_event("phase_failed", {"phase": phase})
+                            "job_id": job_id, "phase": phase,
+                            "slot": slot_index,
+                            "error": str(output.get("error", output.get(
+                                "reason", output.get("status"))))})
+                ledger.append_event(
+                    "slot_completed" if not slot_failed else "slot_failed",
+                    {"phase": phase, "slot": slot_index,
+                     "jobs": [entry["job_id"] for entry in pending]})
+                if slot_failed:
+                    ledger.append_event("phase_failed", {
+                        "phase": phase, "slot": slot_index})
+                    break
         remaining = (ledger.deadline() or time.time()) - time.time()
         final_status = "CAMPAIGN_FAILED" if campaign_failed else "CAMPAIGN_PHASE_COMPLETE"
         print(json.dumps({"status": final_status, "mode": mode,
                           "remaining_minutes": round(remaining / 60.0, 1),
                           "results": {key: value.get("status")
                                       for key, value in results.items()}}, indent=2))
-        # Failed or blocked campaigns return nonzero (R01).
         return 1 if campaign_failed else 0
     finally:
         try:
@@ -229,59 +304,115 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                 ledger.close()
         except Exception:
             pass
-        lease.release()
+        try:
+            lease.release(lease_token)
+        except Exception:
+            try:
+                lease.release()
+            except Exception:
+                pass
 
 
 def _phase_plan(mode: str, deadline: float,
                 devices: Sequence[str]) -> list[dict[str, Any]]:
-    """The phase plan from experiment.md §3, as worker assignments."""
+    """Phase plan with explicit ordered slots (D1).
+
+    E1: slot1 A1701/gpu0 + B1701/gpu1; slot2 B1702/gpu0 + A1702/gpu1.
+    E3: slot1 T0/seed1701/gpu0 + T1/seed1702/gpu1; slot2 T1/seed1701/gpu0 +
+      T0/seed1702/gpu1 (reversed treatment order between seeds).
+    E4: slot1 S0/seed1701/gpu0 + S1/seed1702/gpu1; slot2 S1/seed1701/gpu0 +
+      S0/seed1702/gpu1. GPU0 owns seed1701, GPU1 owns seed1702.
+    """
     device_list = list(devices)
+    gpu0 = device_list[0] if len(device_list) > 0 else "cuda:0"
+    gpu1 = device_list[1] if len(device_list) > 1 else "cuda:1"
     plan = []
-    e0_workers = []
-    for index, device in enumerate(device_list[:2]):
-        e0_workers.append({"job_id": f"E0-w{index}", "worker": f"w{index}",
-                           "device": device, "phase": "E0",
-                           "wall_seconds": 25 * 60.0})
-    plan.append({"phase": "E0", "wall_cap_minutes": 30, "workers": e0_workers})
+    e0_workers = [
+        {"job_id": "E0-w0", "worker": "w0", "device": gpu0, "phase": "E0",
+         "wall_seconds": 25 * 60.0},
+        {"job_id": "E0-w1", "worker": "w1", "device": gpu1, "phase": "E0",
+         "wall_seconds": 25 * 60.0},
+    ]
+    plan.append({"phase": "E0", "wall_cap_minutes": 30, "workers": e0_workers,
+                 "slots": [e0_workers]})
     if mode == "full":
-        plan.extend([
-            {"phase": "E1", "wall_cap_minutes": 120, "workers": [
-                {"job_id": "E1-A-1701", "worker": "w0", "device": device_list[0],
-                 "phase": "E1", "arm": "A", "seed": 1701, "wall_seconds": 60 * 60.0},
-                {"job_id": "E1-B-1701", "worker": "w1", "device": device_list[1],
-                 "phase": "E1", "arm": "B", "seed": 1701, "wall_seconds": 60 * 60.0},
-                {"job_id": "E1-B-1702", "worker": "w0", "device": device_list[0],
-                 "phase": "E1", "arm": "B", "seed": 1702, "wall_seconds": 60 * 60.0},
-                {"job_id": "E1-A-1702", "worker": "w1", "device": device_list[1],
-                 "phase": "E1", "arm": "A", "seed": 1702, "wall_seconds": 60 * 60.0},
-            ]},
-            {"phase": "E2", "wall_cap_minutes": 45, "workers": [
-                {"job_id": f"E2-w{i}", "worker": f"w{i}", "device": device,
-                 "phase": "E2", "wall_seconds": 45 * 60.0}
-                for i, device in enumerate(device_list[:2])]},
-            {"phase": "E3", "wall_cap_minutes": 60, "workers": [
-                {"job_id": f"E3-T0-w{i}", "worker": f"w{i}", "device": device,
-                 "phase": "E3", "arm": "T0", "wall_seconds": 30 * 60.0}
-                for i, device in enumerate(device_list[:2])] + [
-                {"job_id": f"E3-T1-w{i}", "worker": f"w{i}", "device": device,
-                 "phase": "E3", "arm": "T1", "wall_seconds": 30 * 60.0}
-                for i, device in enumerate(device_list[:2])]},
-            {"phase": "E4", "wall_cap_minutes": 60, "workers": [
-                {"job_id": f"E4-S0-w{i}", "worker": f"w{i}", "device": device,
-                 "phase": "E4", "arm": "S0", "wall_seconds": 30 * 60.0}
-                for i, device in enumerate(device_list[:2])] + [
-                {"job_id": f"E4-S1-w{i}", "worker": f"w{i}", "device": device,
-                 "phase": "E4", "arm": "S1", "wall_seconds": 30 * 60.0}
-                for i, device in enumerate(device_list[:2])]},
-            {"phase": "E5", "wall_cap_minutes": 135, "workers": [
-                {"job_id": f"E5-w{i}", "worker": f"w{i}", "device": device,
-                 "phase": "E5", "wall_seconds": 135 * 60.0}
-                for i, device in enumerate(device_list[:2])]},
-            {"phase": "E6", "wall_cap_minutes": 30, "workers": [
-                {"job_id": "E6-export", "worker": "supervisor",
-                 "device": device_list[0] if device_list else "cpu",
-                 "phase": "E6", "wall_seconds": 30 * 60.0}]},
-        ])
+        e1_slot1 = [
+            {"job_id": "E1-A-1701", "worker": "w0", "device": gpu0,
+             "phase": "E1", "arm": "A", "seed": 1701, "wall_seconds": 60 * 60.0},
+            {"job_id": "E1-B-1701", "worker": "w1", "device": gpu1,
+             "phase": "E1", "arm": "B", "seed": 1701, "wall_seconds": 60 * 60.0},
+        ]
+        e1_slot2 = [
+            {"job_id": "E1-B-1702", "worker": "w0", "device": gpu0,
+             "phase": "E1", "arm": "B", "seed": 1702, "wall_seconds": 60 * 60.0},
+            {"job_id": "E1-A-1702", "worker": "w1", "device": gpu1,
+             "phase": "E1", "arm": "A", "seed": 1702, "wall_seconds": 60 * 60.0},
+        ]
+        e1_workers = e1_slot1 + e1_slot2
+        plan.append({"phase": "E1", "wall_cap_minutes": 120,
+                     "workers": e1_workers, "slots": [e1_slot1, e1_slot2]})
+        e2_workers = [
+            {"job_id": "E2-w0", "worker": "w0", "device": gpu0,
+             "phase": "E2", "seed": 1701, "wall_seconds": 45 * 60.0,
+             "parent": "E1-A-1701/E1-B-1701"},
+            {"job_id": "E2-w1", "worker": "w1", "device": gpu1,
+             "phase": "E2", "seed": 1702, "wall_seconds": 45 * 60.0,
+             "parent": "E1-B-1702/E1-A-1702"},
+        ]
+        plan.append({"phase": "E2", "wall_cap_minutes": 45,
+                     "workers": e2_workers, "slots": [e2_workers]})
+        e3_slot1 = [
+            {"job_id": "E3-T0-1701", "worker": "w0", "device": gpu0,
+             "phase": "E3", "arm": "T0", "seed": 1701,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1701"},
+            {"job_id": "E3-T1-1702", "worker": "w1", "device": gpu1,
+             "phase": "E3", "arm": "T1", "seed": 1702,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1702"},
+        ]
+        e3_slot2 = [
+            {"job_id": "E3-T1-1701", "worker": "w0", "device": gpu0,
+             "phase": "E3", "arm": "T1", "seed": 1701,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1701"},
+            {"job_id": "E3-T0-1702", "worker": "w1", "device": gpu1,
+             "phase": "E3", "arm": "T0", "seed": 1702,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1702"},
+        ]
+        e3_workers = e3_slot1 + e3_slot2
+        plan.append({"phase": "E3", "wall_cap_minutes": 60,
+                     "workers": e3_workers, "slots": [e3_slot1, e3_slot2]})
+        e4_slot1 = [
+            {"job_id": "E4-S0-1701", "worker": "w0", "device": gpu0,
+             "phase": "E4", "arm": "S0", "seed": 1701,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1701"},
+            {"job_id": "E4-S1-1702", "worker": "w1", "device": gpu1,
+             "phase": "E4", "arm": "S1", "seed": 1702,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1702"},
+        ]
+        e4_slot2 = [
+            {"job_id": "E4-S1-1701", "worker": "w0", "device": gpu0,
+             "phase": "E4", "arm": "S1", "seed": 1701,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1701"},
+            {"job_id": "E4-S0-1702", "worker": "w1", "device": gpu1,
+             "phase": "E4", "arm": "S0", "seed": 1702,
+             "wall_seconds": 30 * 60.0, "parent": "E1-B-1702"},
+        ]
+        e4_workers = e4_slot1 + e4_slot2
+        plan.append({"phase": "E4", "wall_cap_minutes": 60,
+                     "workers": e4_workers, "slots": [e4_slot1, e4_slot2]})
+        e5_workers = [
+            {"job_id": "E5-w0", "worker": "w0", "device": gpu0,
+             "phase": "E5", "seed": 1701, "wall_seconds": 135 * 60.0},
+            {"job_id": "E5-w1", "worker": "w1", "device": gpu1,
+             "phase": "E5", "seed": 1702, "wall_seconds": 135 * 60.0},
+        ]
+        plan.append({"phase": "E5", "wall_cap_minutes": 135,
+                     "workers": e5_workers, "slots": [e5_workers]})
+        e6_workers = [
+            {"job_id": "E6-export", "worker": "supervisor",
+             "device": gpu0, "phase": "E6", "wall_seconds": 30 * 60.0},
+        ]
+        plan.append({"phase": "E6", "wall_cap_minutes": 30,
+                     "workers": e6_workers, "slots": [e6_workers]})
     return plan
 
 

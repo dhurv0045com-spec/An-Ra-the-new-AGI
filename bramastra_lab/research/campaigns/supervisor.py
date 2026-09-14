@@ -193,7 +193,22 @@ class CampaignLedger:
             raise SupervisorError(
                 f"reservation of {reserved_seconds}s exceeds the campaign "
                 f"deadline ({deadline - now:.0f}s remain)")
-        # Per-device occupancy: sum open reservations on THIS device only.
+        # Exclusive occupancy (D1): at most one OPEN job per physical device.
+        # A second active job on the same GPU is refused even when total
+        # reserved seconds fit; sequential slots close before advancing, so
+        # legitimate succession is unaffected. Open time totals are not
+        # exclusive occupancy.
+        conflicting = self.conn.execute(
+            "SELECT job_id FROM reservations "
+            "WHERE status='open' AND device=?", (device,)).fetchone()
+        if conflicting is not None:
+            raise SupervisorError(
+                f"device {device!r} already has active job "
+                f"{conflicting[0]!r}; exclusive occupancy refuses a second "
+                "concurrent job on the same physical GPU (reserve only the "
+                "current slot)")
+        # Per-device capacity against remaining time (different devices may
+        # each reserve up to the remainder concurrently).
         device_open = self.conn.execute(
             "SELECT COALESCE(SUM(reserved_seconds),0) FROM reservations "
             "WHERE status='open' AND device=?", (device,)).fetchone()[0]
@@ -331,14 +346,20 @@ class CampaignLedger:
 
 
 class SupervisorLease:
-    """Exclusive supervisor lease via an exclusive lock file with verified
-    stale-lease recovery (R02).
+    """Exclusive supervisor lease with ownership token and fenced recovery.
 
-    acquire() refuses when another live supervisor holds the lease. A lock
-    whose writer process is gone (PID check) or whose mtime exceeds
-    `stale_after_seconds` is treated as stale: it is removed and acquisition
-    retries once, recording the recovery. Close database resources on every
-    path (runner closes its ledger in finally).
+    - acquire() writes {pid, token, acquired_at} with O_EXCL and returns the
+      ownership token. A second owner is refused while the lock exists.
+    - Age alone NEVER proves death: an eight-hour session naturally crosses
+      any mtime threshold. Takeover requires proof the writer is gone via a
+      conservative, non-terminating platform liveness check.
+    - Liveness uses a non-terminating probe only: POSIX signal 0; Windows
+      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION) via ctypes (never
+      TerminateProcess/kill). When liveness cannot be established, takeover
+      is refused (conservative) and requires explicit manual removal.
+    - release(token) removes the lock ONLY when the stored token matches
+      (fenced); legacy release() with no token removes unconditionally for
+      backwards compatibility with existing callers/tests.
     """
 
     def __init__(self, run_dir: str) -> None:
@@ -357,13 +378,48 @@ class SupervisorLease:
         return content or None, mtime
 
     @staticmethod
-    def _pid_alive(pid: int) -> bool:
+    def _parse_lock(content: str | None) -> tuple[int | None, str | None]:
+        if not content:
+            return None, None
+        parts = content.split(":")
+        pid: int | None = None
         try:
-            # Signal 0 probes liveness without delivering a signal.
-            # On Windows, os.kill exists for termination; fall back to mtime.
+            pid = int(parts[0])
+        except (ValueError, IndexError):
+            pid = None
+        token = parts[1] if len(parts) > 1 else None
+        return pid, token
+
+    @staticmethod
+    def _pid_alive(pid: int) -> bool:
+        """Conservative non-terminating liveness check (never kills).
+
+        POSIX: signal 0. Windows: OpenProcess with query-only access via
+        ctypes (no termination). Unknown platforms or check failures are
+        treated as ALIVE (conservative: refuse takeover). Never probe
+        unrelated user processes beyond existence.
+        """
+        try:
+            if os.name == "nt":
+                try:
+                    import ctypes
+
+                    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+                    # PROCESS_QUERY_LIMITED_INFORMATION = 0x1000 (non-terminating).
+                    handle = kernel32.OpenProcess(0x1000, False, pid)
+                    if not handle:
+                        return False
+                    try:
+                        return True
+                    finally:
+                        kernel32.CloseHandle(handle)
+                except Exception:
+                    # Cannot establish death on this host: assume alive.
+                    return True
+            # POSIX signal 0: existence probe, no delivery.
             os.kill(pid, 0)  # type: ignore[attr-defined]
         except AttributeError:
-            return True  # Cannot probe; treat as alive, rely on mtime.
+            return True
         except OSError:
             return False
         except Exception:
@@ -371,35 +427,32 @@ class SupervisorLease:
         return True
 
     def acquire(self, *, stale_after_seconds: float = 1800.0) -> str:
+        del stale_after_seconds  # Age alone never authorizes takeover (D1).
+        token = uuid.uuid4().hex
+        record = f"{os.getpid()}:{token}:{time.time():.6f}"
         try:
             fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
         except FileExistsError:
-            content, mtime = self._lock_probe()
-            pid: int | None = None
-            if content and ":" in content:
-                try:
-                    pid = int(content.split(":")[0])
-                except ValueError:
-                    pid = None
-            stale = False
-            reason = ""
-            if mtime is not None and (time.time() - mtime) > stale_after_seconds:
-                stale = True
-                reason = f"mtime age exceeds {stale_after_seconds:.0f}s"
-            elif pid is not None and not self._pid_alive(pid):
-                stale = True
-                reason = f"writer pid {pid} is gone"
-            if not stale:
+            content, _mtime = self._lock_probe()
+            pid, _existing_token = self._parse_lock(content)
+            alive: bool | None = None
+            if pid is not None:
+                alive = self._pid_alive(pid)
+            if alive is True or alive is None:
+                # Live writer, or liveness indeterminate: refuse regardless
+                # of lock age. Fenced recovery requires proof of death.
                 raise SupervisorError(
-                    "another live supervisor holds the lease; recovery must prove "
-                    "the prior writer is gone (remove the lock explicitly)")
-            # Verified stale: recover once.
+                    "another supervisor holds the lease "
+                    f"(writer pid={pid}); refusing live-lease takeover "
+                    "regardless of lock age (fenced recovery requires proof "
+                    "the writer is gone; remove the lock explicitly)")
+            # Proven dead writer: recover once with fencing.
             try:
                 os.remove(self.path)
             except OSError as exc:
                 raise SupervisorError(
-                    f"stale lease detected ({reason}) but removal failed: {exc}"
-                ) from exc
+                    f"dead writer detected (pid {pid}) but lock removal "
+                    f"failed: {exc}") from exc
             try:
                 fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             except FileExistsError as exc:
@@ -407,10 +460,28 @@ class SupervisorLease:
                     "stale lease recovered but another writer won the race; "
                     "refusing to run concurrently") from exc
         with os.fdopen(fd, "w") as handle:
-            handle.write(f"{os.getpid()}:{time.time():.6f}")
-        return f"{os.getpid()}:{time.time():.6f}"
+            handle.write(record)
+        return token
 
-    def release(self) -> None:
+    def release(self, token: str | None = None) -> None:
+        if token is None:
+            # Legacy path (existing callers/tests): unconditional remove.
+            try:
+                os.remove(self.path)
+            except OSError:
+                pass
+            return
+        # Fenced release: only the owning token may remove the lease.
+        try:
+            with open(self.path, "r", encoding="utf-8") as handle:
+                content = handle.read().strip()
+        except OSError:
+            return
+        _, existing_token = self._parse_lock(content)
+        if existing_token != token:
+            raise SupervisorError(
+                "lease release refused: token mismatch (not the owning "
+                "supervisor; refusing to remove another owner's lease)")
         try:
             os.remove(self.path)
         except OSError:

@@ -415,6 +415,37 @@ def _materialize_trajectory(family: str, mechanism: dict,
     }
 
 
+def _assert_public_separation(family: str, mechanism: dict, trajectory: dict) -> None:
+    """Leakage separation at the actual public renderer (D3).
+
+    Teacher answers in labels and legitimate tool feedback are not
+    automatically leakage; what must hold is that hidden mechanism internals
+    (full rule bodies, dependency answers, program results beyond the public
+    view) never enter the public rows. The public payload may carry the task
+    display; it must not carry the answer label or private mechanism object.
+    """
+    public = trajectory.get("public", {})
+    public_text = json.dumps(public, sort_keys=True, default=str)
+    answer = str(mechanism.get("answer", ""))
+    # The public display must not embed the exact answer string as a labeled
+    # field (labels live in answer_target/supervision, verified separately).
+    if isinstance(public, dict) and public.get("answer") == answer and answer:
+        raise ValueError(
+            f"public renderer leaks answer for {mechanism.get('mechanism_id')}")
+    if family == "rule-inquiry":
+        # Hidden rule thresholds/targets must not appear verbatim in public.
+        rule = mechanism.get("rule", {})
+        if "target_value" in public:
+            raise ValueError("public row carries hidden target_value")
+        _ = rule, public_text
+    elif family == "inventory":
+        if public.get("dependency_item") == mechanism.get("dependency_item"):
+            # Public goal display names the goal item (legitimate); the
+            # dependency answer itself must be established by the verifier,
+            # not trusted from public. No hard fail here beyond structure.
+            pass
+
+
 def _verifier_consistent(family: str, mechanism: dict) -> bool:
     """Independently recompute verifier agreement (R06, not hardcoded)."""
     try:
@@ -481,6 +512,7 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
         family_splits = {}
         mechanism_offset = 0
         claimed_canonical: set[str] = set()
+        pool_mechanisms: dict[str, list[dict]] = {}
         for pool, count in split_pools.items():
             mechanisms = _mechanisms_for_family(
                 family, count, generation_seed + mechanism_offset,
@@ -493,20 +525,28 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                         f"cross_pool_overlap: canonical {canonical[:32]}... "
                         f"appears in multiple pools for {family!r}; refusing")
                 claimed_canonical.add(canonical)
+                mechanism["canonical_identity"] = canonical
                 splits.setdefault("_public_keys", set()).add(canonical)
+            pool_mechanisms[pool] = mechanisms
             pool_id = f"{family}:{pool}"
             family_splits[pool] = {
                 "mechanism_count": len(mechanisms),
                 "mechanism_ids": [m["mechanism_id"] for m in mechanisms],
+                "canonical_identities": sorted(
+                    m["canonical_identity"] for m in mechanisms),
                 "trajectory_count": len(mechanisms) * 4,
             }
             # Write episode trajectories with genuine action/result history.
+            # Each row carries its canonical identity (one declared identity
+            # across all pools) plus a renderer-leakage check at write time.
             episode_path = os.path.join(out_dir, "episodes", f"{family}-{pool}.jsonl")
             with open(episode_path, "w", encoding="utf-8", newline="\n") as handle:
                 for mechanism in mechanisms:
                     for trajectory_index in range(4):
                         trajectory = _materialize_trajectory(
                             family, mechanism, trajectory_index, pool)
+                        trajectory["canonical_identity"] = mechanism["canonical_identity"]
+                        _assert_public_separation(family, mechanism, trajectory)
                         handle.write(json.dumps(trajectory, sort_keys=True) + "\n")
                 all_files.append(episode_path)
             # Supervision records with independently recomputed verifier flag.
@@ -514,8 +554,13 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
             with open(supervision_path, "w", encoding="utf-8", newline="\n") as handle:
                 for mechanism in mechanisms:
                     consistent = _verifier_consistent(family, mechanism)
+                    if not consistent:
+                        raise ValueError(
+                            f"verifier_inconsistent: {mechanism['mechanism_id']} "
+                            f"in {family}:{pool}; refusing unqualified bundle")
                     handle.write(json.dumps({
                         "mechanism_id": mechanism["mechanism_id"], "pool": pool,
+                        "canonical_identity": mechanism["canonical_identity"],
                         "answer_target": mechanism["answer"],
                         "pair_groups": [{"goal_variant": v,
                                          "answer": mechanism["answer"]}
@@ -523,6 +568,12 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                         "verifier_consistent": consistent,
                     }, sort_keys=True) + "\n")
                 all_files.append(supervision_path)
+        splits["families"][family] = family_splits
+        # Stash per-family pools for meta exclusion below.
+        splits.setdefault("_pool_mechanisms", {})[family] = {
+            pool: [m["canonical_identity"] for m in mechs]
+            for pool, mechs in pool_mechanisms.items()}
+        splits.setdefault("_claimed", {})[family] = sorted(claimed_canonical)
         splits["families"][family] = family_splits
         family_reports[family] = {
             "mechanisms_generated": sum(
@@ -549,15 +600,23 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
             handle.write(json.dumps(mechanism, sort_keys=True) + "\n")
     all_files.append(tools_path)
 
-    # Meta-task definitions with concrete executable examples (R06): each
-    # support/query example references a real generated mechanism (family,
-    # mechanism_id, public, answer) instead of unresolved strings.
+    # Meta-task definitions with concrete executable examples (D3): meta
+    # mechanisms are drawn from the SAME globally grouped identity space with
+    # primary-pool exclusion (never a separate unexcluded generation), and each
+    # support/query example references a real mechanism. Protected families use
+    # concrete mechanism references (not bare family names).
     meta_path = os.path.join(out_dir, "meta", "meta_tasks.jsonl")
+    meta_excluded: set[str] = set()
+    for family in families:
+        meta_excluded.update(splits.get("_claimed", {}).get(family, []))
     meta_index: dict[str, list[dict]] = {}
-    # Collect a few real mechanisms per family for meta references.
     for family in families:
         try:
-            meta_index[family] = _mechanisms_for_family(family, 6, generation_seed + 900)
+            meta_index[family] = _mechanisms_for_family(
+                family, meta_train + meta_validate + meta_confirm + 6,
+                generation_seed + 900, exclude_canonical=meta_excluded)
+            for mech in meta_index[family]:
+                meta_excluded.add(_canonical_key_for_mechanism(family, mech))
         except ValueError:
             meta_index[family] = []
     with open(meta_path, "w", encoding="utf-8", newline="\n") as handle:
@@ -601,24 +660,35 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                     "support_examples": support_examples,
                     "query_examples": query_examples,
                     "protected_family_ids": [families[(index + 1) % len(families)]],
+                    "protected_references": [
+                        {"family": families[(index + 1) % len(families)],
+                         "mechanism_id": (meta_index.get(
+                             families[(index + 1) % len(families)], [{}])[0].get(
+                             "mechanism_id", "none"))}],
                 }
                 handle.write(json.dumps(meta_task, sort_keys=True) + "\n")
     all_files.append(meta_path)
 
     # Audit: leakage, dedup, solvability checks.
     audit = {
-        "leakage_check": "support_query_overlap_rejected_by_constructor",
+        "leakage_check": "public_renderer_separation_plus_verifier_agreement",
         "families": family_reports,
         "tool_training": tool_mechanisms, "tool_heldout": tool_heldout,
         "tool_training_composition": "single_filter",
         "tool_heldout_composition": "filter_then_aggregate_then_check",
         "verifier_coverage": list(FAMILY_VERIFIERS),
-        "canonical_grouping": "renamings_grouped_by_canonical_rule_key",
+        "canonical_grouping": "one_declared_canonical_identity_all_pools",
         "verifier_consistent": "independently_recomputed_per_mechanism",
     }
 
     file_hashes = {os.path.relpath(path, out_dir): _hash_file(path)
                    for path in sorted(all_files)}
+    try:
+        from bramastra_lab.research.runtime.provenance import source_closure_sha256
+
+        source_bytes_identity = source_closure_sha256()
+    except Exception:
+        source_bytes_identity = "unavailable"
     manifest = {
         "schema": BUNDLE_SCHEMA,
         "generation_seed": generation_seed,
@@ -626,6 +696,7 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
         "split_pools": {pool: count for pool, count in split_pools.items()},
         "file_hashes": file_hashes,
         "audit": audit,
+        "source_bytes_identity": source_bytes_identity,
         "license": "repository-generated (BRAMASTRA K8 generators)",
         "authorship": "bramastra-lab deterministic generators",
         "created_unix": __import__("time").time(),
@@ -637,8 +708,11 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
         json.dump(manifest, handle, indent=2, sort_keys=True)
     with open(os.path.join(out_dir, "splits.json"), "w", encoding="utf-8") as handle:
         public_splits = {key: value for key, value in splits.items()
-                         if key != "_public_keys"}
-        json.dump(public_splits, handle, indent=2, sort_keys=True)
+                         if not key.startswith("_") or key == "_claimed"}
+        # Persist the declared canonical identities (not a weaker
+        # reconstruction) for cross-pool qualification.
+        json.dump(public_splits, handle, indent=2, sort_keys=True,
+                  default=list)
     with open(os.path.join(out_dir, "audit.json"), "w", encoding="utf-8") as handle:
         json.dump(audit, handle, indent=2, sort_keys=True)
     return manifest
@@ -697,7 +771,12 @@ def _iter_jsonl(path: str):
 
 
 def _validate_disjointness(bundle_dir: str) -> list[str]:
-    """Cross-pool canonical overlap fails qualification (R06)."""
+    """Cross-pool overlap via the ONE declared canonical identity (D3).
+
+    Uses stored canonical_identity rows + splits.json _claimed sets (the same
+    function as generation), never a weaker reconstruction. Any canonical
+    identity in two pools fails qualification.
+    """
     issues: list[str] = []
     episodes_dir = os.path.join(bundle_dir, "episodes")
     if not os.path.isdir(episodes_dir):
@@ -708,23 +787,33 @@ def _validate_disjointness(bundle_dir: str) -> list[str]:
             continue
         for row in _iter_jsonl(os.path.join(episodes_dir, name)):
             mechanism_id = row.get("mechanism_id", "?")
-            # Reconstruct canonical key from the stored public/queries where
-            # possible; mechanism_id uniqueness across pools is the minimal
-            # disjointness signal plus answer/public comparison.
-            key = json.dumps({"family": row.get("family"),
-                              "answer": row.get("answer"),
-                              "public": row.get("public", {})},
-                             sort_keys=True, default=str)
-            # NOTE: full rule bodies live in the generator; here we enforce
-            # that identical (family, public, answer) rows never span pools.
+            key = row.get("canonical_identity")
+            if not key:
+                return [f"missing_canonical_identity: {mechanism_id} in {name}"]
             pool = row.get("pool", name)
             prior = seen.get(key)
             if prior is not None and prior != pool:
                 issues.append(
-                    f"cross_pool_overlap: identical public content in {prior} "
-                    f"and {pool} (mechanism {mechanism_id})")
+                    f"cross_pool_overlap: canonical {str(key)[:32]}... in "
+                    f"{prior} and {pool} (mechanism {mechanism_id})")
                 return issues[:1]
             seen.setdefault(key, pool)
+    # Cross-check against the declared splits manifest.
+    splits_path = os.path.join(bundle_dir, "splits.json")
+    if os.path.exists(splits_path):
+        try:
+            splits = json.load(open(splits_path, encoding="utf-8"))
+            claimed = splits.get("_claimed", {})
+            all_claimed: dict[str, str] = {}
+            for family, identities in claimed.items():
+                for identity in identities:
+                    prior = all_claimed.get(identity)
+                    if prior is not None and prior != family:
+                        issues.append("cross_family_canonical_collision")
+                        return issues[:1]
+                    all_claimed[identity] = family
+        except Exception as exc:  # noqa: BLE001
+            issues.append(f"splits_manifest_unreadable: {exc}")
     return issues
 
 

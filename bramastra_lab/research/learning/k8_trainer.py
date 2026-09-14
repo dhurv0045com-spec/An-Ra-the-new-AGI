@@ -15,6 +15,7 @@ import torch
 from bramastra_lab.research.learning.trainer import (
     CLIP_CERTIFICATE_TOLERANCE,
     DISPLACEMENT_SNAPSHOT_MAX_PARAMETERS,
+    PairUpdateInput,
     StepReport,
     Trainer,
     TrainerStateError,
@@ -76,6 +77,8 @@ class K8Trainer(Trainer):
         self.attempted_updates = 0
         self._pending_normalized = False
         self._last_route_report = {}
+        self._active_window_weights = {}
+        self._active_window_enabled = frozenset()
 
     # -- allocation admission -------------------------------------------------
 
@@ -106,18 +109,46 @@ class K8Trainer(Trainer):
         self.allocation = allocation
         self._k8_updates_at_start = self.counters.optimizer_updates
 
-    # -- AMP-aware accumulation and finalize ----------------------------------
+    # -- Single optimizer-window contract (D2) --------------------------------
+    #
+    # One update window = one accumulate call + one explicit finalize_update
+    # that steps exactly once. Accumulation never steps; finalization steps
+    # exactly once. Each accumulate routes its terms through route_window with
+    # per-term OWN denominators and performs ONE scaled backward, so there is
+    # no double normalization and no mean-of-microbatch-means. A second
+    # accumulate before finalize is refused (declare multi-microbatch windows
+    # explicitly instead of silently averaging means). Pair rows are consumed
+    # at the boundary when the pair weight is positive; disabled terms must
+    # neither execute nor contribute gradients; missing eligible terms for
+    # positively weighted objectives are refused.
+
+    def _require_clean_boundary(self) -> None:
+        if getattr(self, "_pending_targets", 0):
+            raise TrainerStateError(
+                "explicit finalize_update required before next accumulation "
+                "(one optimizer window = one accumulate + one finalize; "
+                "multi-microbatch means are refused)")
+
+    def _clear_pending(self) -> None:
+        self._pending_targets = 0
+        self._pending_answer_sum = 0.0
+        self._pending_presentations = 0
+        self._pending_pair_own = []
+        self._pending_pair_swapped = []
+        self._pending_normalized = False
+        self._last_route_report = {}
+        self._active_window_weights = {}
+        self._active_window_enabled = frozenset()
 
     def accumulate(self, batch, *, pair_rows=None) -> dict[str, float]:
-        """Backward one micro batch under the configured precision.
+        """Single-window token accumulation (no step).
 
-        The batch tensors are moved to the trainer device first; the loss is
-        scaled by the GradScaler on CUDA so AMP unscale happens before the
-        boundary clip. The token term is routed through route_window with its
-        own denominator (R04: no answer-only bypass); pair_rows are pooled
-        across the accumulation group for the boundary pair term.
+        Routes the token term through route_window with its own denominator;
+        pair_rows are pooled for boundary consumption. Refuses a second
+        accumulate before finalize.
         """
-        if self._pending_targets and batch.target_count == 0:
+        self._require_clean_boundary()
+        if batch.target_count == 0:
             raise TrainerStateError("micro batch declares zero supervised targets")
         if self.treatment != "full" and self.schema is not None:
             validate_targets_in_schema(batch.labels.to(self.device),
@@ -134,9 +165,6 @@ class K8Trainer(Trainer):
             raise TrainerStateError(
                 f"batch declares {batch.target_count} targets but loss sees "
                 f"{report.target_count}")
-        # Route the token term through the canonical window boundary so the
-        # router is consumed (not merely imported): single-term window with
-        # its own denominator, weight 1.0.
         from bramastra_lab.research.experience.supervision import SupervisionWindow
         from bramastra_lab.research.learning.router import route_window
 
@@ -146,19 +174,24 @@ class K8Trainer(Trainer):
             enabled_terms=frozenset({"token"}))
         window.add("token", report.target_count)
         combined, _route_report = route_window(window, {"token": report.total})
-        # Single scaled backward for this microbatch (AMP-consistent).
         scaled = self.scaler.scale(combined) if self.use_amp else combined
         scaled.backward()
         if pair_rows is not None:
             own_rows, swapped_rows = pair_rows
             if len(own_rows) != len(swapped_rows):
                 raise TrainerStateError("pair renderings must align within a micro batch")
+            if float(self.pair_loss_weight) <= 0:
+                raise TrainerStateError(
+                    "pair renderings supplied while training.pair_loss_weight "
+                    "is zero (disabled terms must not contribute)")
             self._pending_pair_own.extend(own_rows)
             self._pending_pair_swapped.extend(swapped_rows)
         self._pending_targets += report.target_count
         self._pending_answer_sum += float(report.total.detach().item())
         self._pending_presentations += int(batch.batch_size)
-        self._pending_normalized = False
+        self._pending_normalized = True
+        self._active_window_weights = {"token": 1.0}
+        self._active_window_enabled = frozenset({"token"})
         self.counters.microbatches += 1
         self.counters.presentations += int(batch.batch_size)
         self.counters.supervised_targets_seen += report.target_count
@@ -184,7 +217,8 @@ class K8Trainer(Trainer):
         from bramastra_lab.research.experience.supervision import SupervisionWindow
         from bramastra_lab.research.learning.router import route_window
 
-        if self._pending_targets and batch.target_count == 0:
+        self._require_clean_boundary()
+        if batch.target_count == 0:
             raise TrainerStateError("micro batch declares zero supervised targets")
         if self.treatment != "full" and self.schema is not None:
             validate_targets_in_schema(batch.labels.to(self.device),
@@ -214,9 +248,6 @@ class K8Trainer(Trainer):
             window.add("token", report.target_count)
         sums: dict[str, Any] = {"token": report.total}
         if extra_terms_fn is not None:
-            # Extra forwards must run under autocast for AMP consistency; they
-            # reuse the already-moved model on its device. Re-enter autocast
-            # so action/value/world paths share the precision policy.
             with torch.autocast(device_type=self._amp_device_type(),
                                 enabled=self.use_amp):
                 extra = extra_terms_fn()
@@ -225,7 +256,22 @@ class K8Trainer(Trainer):
             for term, total in extra.items():
                 if term == "token":
                     raise TrainerStateError("extra terms must not redefine 'token'")
+                if term not in window.enabled_terms:
+                    raise TrainerStateError(
+                        f"objective term {term!r} executed while disabled by "
+                        "feature switch (disabled terms must not contribute)")
+                if float(window.weights.get(term, 0.0)) <= 0:
+                    raise TrainerStateError(
+                        f"objective term {term!r} executed with non-positive "
+                        "weight (disabled terms must not contribute gradients)")
                 sums[term] = total
+        # Missing eligible terms for positively weighted objectives refuse.
+        for term in sorted(window.enabled_terms):
+            if float(window.weights.get(term, 0.0)) > 0 and window.denominator(term) <= 0:
+                raise TrainerStateError(
+                    f"objective term {term!r} weighted "
+                    f"{window.weights.get(term)} but has zero eligible data "
+                    "in this window; refusing silent zero loss")
         combined, route_report = route_window(window, sums)
         # ONE scaled backward for the whole window (no mixed scaled/unscaled).
         scaled = self.scaler.scale(combined) if self.use_amp else combined
@@ -234,14 +280,19 @@ class K8Trainer(Trainer):
             own_rows, swapped_rows = pair_rows
             if len(own_rows) != len(swapped_rows):
                 raise TrainerStateError("pair renderings must align within a micro batch")
+            if float(window.weights.get("pair", self.pair_loss_weight)) <= 0 \
+                    and float(self.pair_loss_weight) <= 0:
+                raise TrainerStateError(
+                    "pair renderings supplied while pair weight is zero "
+                    "(disabled terms must not contribute)")
             self._pending_pair_own.extend(own_rows)
             self._pending_pair_swapped.extend(swapped_rows)
         self._pending_targets += report.target_count
         self._pending_answer_sum += float(report.total.detach().item())
         self._pending_presentations += int(batch.batch_size)
-        # Mark normalized: finalize must NOT re-divide by answer count because
-        # each term already carries its own denominator (R04).
         self._pending_normalized = True
+        self._active_window_weights = dict(window.weights)
+        self._active_window_enabled = frozenset(window.enabled_terms)
         self._last_route_report = route_report
         self.counters.microbatches += 1
         self.counters.presentations += int(batch.batch_size)
@@ -260,57 +311,60 @@ class K8Trainer(Trainer):
         return "cpu"
 
     def finalize_update(self) -> StepReport:
-        """One optimizer boundary: unscale (AMP), check finiteness, clip,
-        step once. A nonfinite skip charges time/exposure but does not
-        increment successful optimizer updates or the schedule.
+        """One explicit optimizer boundary: steps exactly once (D2).
 
-        Per-term denominators were already applied at accumulation via
-        route_window (R04); this boundary does NOT re-divide already-
-        normalized gradients by the answer count. Legacy answer-only
-        accumulation (pending_normalized False) retains the single-denominator
-        division for backwards compatibility. A failed report publication
-        after a committed step never erases the step (counters increment
-        before report construction).
+        Gradients are already per-term normalized at accumulation (no
+        re-division here). Consumes pooled pair rows through the pair-margin
+        term when the pair weight is positive; refuses pair rows when the
+        pair weight is zero and refuses missing pair data when it is positive.
+        A failed report publication after a committed step never erases the
+        step.
         """
         self._admit_update()
         self.attempted_updates += 1
         if self._pending_targets <= 0:
             raise TrainerStateError("finalize_update called with no accumulated batches")
+        if not bool(getattr(self, "_pending_normalized", False)):
+            self._clear_pending()
+            raise TrainerStateError(
+                "pending gradients are not window-normalized; accumulate via "
+                "the canonical window boundary before finalize")
         if self.use_amp:
             self.scaler.unscale_(self.optimizer)
-        normalized = bool(getattr(self, "_pending_normalized", False))
-        if not normalized:
-            for parameter in self.model.parameters():
-                if parameter.grad is not None:
-                    if not torch.isfinite(parameter.grad).all():
-                        # Skip the update: charge exposure, keep counters honest.
-                        self.skipped_updates += 1
-                        self.optimizer.zero_grad(set_to_none=True)
-                        self._pending_targets = 0
-                        self._pending_answer_sum = 0.0
-                        self._pending_presentations = 0
-                        self._pending_pair_own = []
-                        self._pending_pair_swapped = []
-                        raise TrainerStateError(
-                            "nonfinite gradients after unscale; update skipped and "
-                            "charged (attempted but not committed)")
-                    parameter.grad.div_(self._pending_targets)
-        else:
-            for parameter in self.model.parameters():
-                if parameter.grad is not None:
-                    if not torch.isfinite(parameter.grad).all():
-                        self.skipped_updates += 1
-                        self.optimizer.zero_grad(set_to_none=True)
-                        self._pending_targets = 0
-                        self._pending_answer_sum = 0.0
-                        self._pending_presentations = 0
-                        self._pending_pair_own = []
-                        self._pending_pair_swapped = []
-                        self._pending_normalized = False
-                        raise TrainerStateError(
-                            "nonfinite gradients after unscale; update skipped and "
-                            "charged (attempted but not committed)")
-                    # No re-division: per-term denominators already applied.
+        for parameter in self.model.parameters():
+            if parameter.grad is not None and not torch.isfinite(parameter.grad).all():
+                self.skipped_updates += 1
+                self.optimizer.zero_grad(set_to_none=True)
+                self._clear_pending()
+                raise TrainerStateError(
+                    "nonfinite gradients after unscale; update skipped and "
+                    "charged (attempted but not committed)")
+            # No re-division: per-term denominators already applied at
+            # accumulation (single-window contract, no mean-of-means).
+        pair_loss_value: float | None = None
+        if self._pending_pair_own or self._pending_pair_swapped:
+            if float(self.pair_loss_weight) <= 0:
+                self._clear_pending()
+                raise TrainerStateError(
+                    "pair renderings pending while training.pair_loss_weight "
+                    "is zero (disabled terms must not contribute)")
+            if len(self._pending_pair_own) != len(self._pending_pair_swapped):
+                self._clear_pending()
+                raise TrainerStateError(
+                    "pair renderings must align across the accumulation window")
+            from bramastra_lab.research.experience.sequences import collocate as _collocate
+
+            max_seq = self.config.model.max_seq
+            own_batch = _collocate(list(self._pending_pair_own), max_seq=max_seq)
+            swapped_batch = _collocate(list(self._pending_pair_swapped), max_seq=max_seq)
+            pair_loss_value = self._apply_pair_term(
+                PairUpdateInput(own=own_batch, swapped=swapped_batch))
+        elif float(self.pair_loss_weight) > 0 and \
+                "pair" in getattr(self, "_active_window_enabled", frozenset()):
+            self._clear_pending()
+            raise TrainerStateError(
+                "pair term enabled with positive weight but no pair renderings "
+                "in this window; refusing silent zero pair loss")
         pre_norm = float(torch.nn.utils.clip_grad_norm_(
             self.model.parameters(), self.clip_norm))
         clipped = pre_norm > self.clip_norm
@@ -337,23 +391,23 @@ class K8Trainer(Trainer):
         report = StepReport(
             optimizer_update=self.counters.optimizer_updates,
             answer_loss_mean=self._pending_answer_sum / self._pending_targets,
-            pair_loss=None, lr=scheduled_lr,
+            pair_loss=pair_loss_value, lr=scheduled_lr,
             grad_norm=pre_norm, clipped=clipped,
             supervised_targets=self._pending_targets,
             presentations=self._pending_presentations)
         if self.diagnostics is not None:
             report.telemetry = self.diagnostics.collect(snapshot=snapshot)
         self.optimizer.zero_grad(set_to_none=True)
-        self._pending_targets = 0
-        self._pending_answer_sum = 0.0
-        self._pending_presentations = 0
-        self._pending_normalized = False
-        self._last_route_report = {}
+        self._clear_pending()
         return report
 
     # -- scaler state in checkpoints ------------------------------------------
 
     def state_payload(self) -> dict[str, Any]:
+        """Full checkpoint contract (D2): config, architecture, model,
+        optimizer, scaler, RNG, stream cursor, controller + allocation/job."""
+        import random as _random
+
         payload = super().state_payload()
         payload["precision"] = self.precision
         payload["use_amp"] = self.use_amp
@@ -364,11 +418,41 @@ class K8Trainer(Trainer):
                                   "job_id": self.allocation.job_id,
                                   "phase": self.allocation.phase}
                                  if self.allocation else None)
+        try:
+            payload["config_identity"] = self.config.identity()
+        except Exception:
+            payload["config_identity"] = None
+        try:
+            payload["architecture_id"] = getattr(
+                self.model, "architecture_id", "bramastra-base-decoder/v1")
+        except Exception:
+            payload["architecture_id"] = None
+        try:
+            import torch as _torch
+
+            payload["rng_state"] = {
+                "python": _random.getstate()[1][:8],
+                "torch": _torch.get_rng_state().tolist()[:16],
+                "torch_cuda": None,
+            }
+        except Exception:
+            payload["rng_state"] = None
+        payload["profile"] = getattr(getattr(self.config, "model", None),
+                                     "profile", None)
         return payload
 
-    def load_state_payload(self, payload: Mapping[str, Any]) -> None:
+    def load_state_payload(self, payload: Mapping[str, Any], *,
+                           expected_allocation: AllocationContext | None = None,
+                           expected_config_identity: str | None = None) -> None:
+        """Restore with contract validation (D2).
+
+        Validates precision/profile path, config identity when supplied, and a
+        live reservation (expected_allocation) instead of granting a new
+        allowance: device must match, deadline must be live, and remaining
+        updates must be non-negative. Sets the update baseline from the
+        restored counters (no new allowance).
+        """
         super().load_state_payload(payload)
-        self._k8_updates_at_start = self.counters.optimizer_updates
         if payload.get("use_amp") and not self.use_amp:
             raise TrainerStateError(
                 "checkpoint was trained with AMP on CUDA but this trainer is not "
@@ -376,9 +460,36 @@ class K8Trainer(Trainer):
                 "migration")
         if payload.get("scaler_state") and self.use_amp:
             self.scaler.load_state_dict(payload["scaler_state"])
+        if expected_config_identity is not None and payload.get("config_identity") \
+                and payload["config_identity"] != expected_config_identity:
+            raise TrainerStateError(
+                "checkpoint config identity does not match the declared "
+                "configuration; refusing cross-config resume")
+        if payload.get("profile") and getattr(getattr(self.config, "model", None),
+                                              "profile", None) \
+                and payload["profile"] != self.config.model.profile:
+            raise TrainerStateError(
+                f"checkpoint profile {payload['profile']!r} does not match "
+                f"trainer profile {self.config.model.profile!r}")
+        if expected_allocation is not None:
+            import time as _time
+
+            if self.allocation is None:
+                self.allocation = expected_allocation
+            if self.allocation.device != expected_allocation.device:
+                raise TrainerStateError(
+                    "checkpoint device does not match the live reservation")
+            if _time.time() > expected_allocation.deadline_unix:
+                raise TrainerStateError(
+                    "live reservation deadline already passed; refusing resume")
+            if expected_allocation.remaining_updates < 0:
+                raise TrainerStateError("live reservation has no remaining updates")
+        self._k8_updates_at_start = self.counters.optimizer_updates
         self.skipped_updates = int(payload.get("skipped_updates", 0))
         self.attempted_updates = int(payload.get("attempted_updates",
                                                  self.counters.optimizer_updates
                                                  + self.skipped_updates))
         self._pending_normalized = False
         self._last_route_report = {}
+        self._active_window_weights = {}
+        self._active_window_enabled = frozenset()
