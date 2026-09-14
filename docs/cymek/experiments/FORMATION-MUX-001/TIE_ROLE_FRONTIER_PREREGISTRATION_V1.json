@@ -1,0 +1,87 @@
+{
+  "schema": "anra.formation-mux-frontier-preregistration/v1",
+  "campaign": "FORMATION-MUX-001",
+  "extension": "TIE-ROLE-FRONTIER-001",
+  "written_before_any_official_formation_mux_outcomes": true,
+  "relationship_to_science_s5": {
+    "frozen_science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "independent_experiments": true,
+    "changes_s5_training": false,
+    "changes_s5_arms": false,
+    "changes_s5_primary_or_sealed_verdict": false,
+    "may_change_frozen_s5_verdict": false
+  },
+  "motivation": "Test whether tied input/output embedding roles create gradient interference that suppresses representation formation, and whether a forward-equivalent role-balanced gradient treatment transfers from the latent controlled surface to the frozen production-BPE rendering.",
+  "external_prior_used_only_to_nominate_mechanism": [
+    "Lopardo et al., ACL Findings 2026: weight tying can bias embeddings toward the output role through early output-gradient dominance",
+    "Huang et al., ICML 2025: input/output vocabulary roles can be usefully decoupled; this motivates treating representation and prediction roles separately rather than assuming one vocabulary intervention"
+  ],
+  "experiments": {
+    "TIE-ROLE-001": {
+      "surface": "same frozen S5 training/development latent rows; sealed rows remain coordinator-only",
+      "arms": {
+        "T0_CANONICAL": {"input_path_gradient_scale": 1.0, "output_path_gradient_scale": 1.0},
+        "T1_INPUT_X4": {"input_path_gradient_scale": 4.0, "output_path_gradient_scale": 1.0},
+        "T2_OUTPUT_X025": {"input_path_gradient_scale": 1.0, "output_path_gradient_scale": 0.25},
+        "T3_BALANCED_X4_X025": {"input_path_gradient_scale": 4.0, "output_path_gradient_scale": 0.25}
+      },
+      "forward_equivalence": "all four arms must be numerically forward-identical at initialization for matched seed and input; only backward gradient routing differs",
+      "optimizer": "same canonical V5 AdamW parameter groups and global clip in every arm",
+      "updates_per_arm": 2000,
+      "batch_rows": 16,
+      "development_eval_every_updates": 100,
+      "exact_resume_checkpoint_every_updates": 200,
+      "eligible_from_update": 600,
+      "primary_contrast": "T3_BALANCED_X4_X025 - T0_CANONICAL",
+      "secondary_contrasts": [
+        "T1_INPUT_X4 - T0_CANONICAL",
+        "T2_OUTPUT_X025 - T0_CANONICAL"
+      ],
+      "factorial_interaction": "(T3-T2) - (T1-T0)",
+      "primary_metric": "identity candidate-free exact+valid-EOS formation AUC",
+      "sealed_endpoint": "identity candidate-free exact+valid-EOS"
+    },
+    "TIE-ROLE-XFER-001": {
+      "surface": "same latent worlds rendered through frozen production tokenizer R0; sealed rows remain coordinator-only",
+      "arms": {
+        "X0_CANONICAL_R0": {"input_path_gradient_scale": 1.0, "output_path_gradient_scale": 1.0},
+        "X1_BALANCED_R0": {"input_path_gradient_scale": 4.0, "output_path_gradient_scale": 0.25}
+      },
+      "exposure_matching": "actual processed non-padding tokens",
+      "processed_token_budget_per_arm": 500000,
+      "development_eval_every_tokens": 25000,
+      "exact_resume_checkpoint_every_tokens": 10000,
+      "eligible_from_tokens": 150000,
+      "primary_contrast": "X1_BALANCED_R0 - X0_CANONICAL_R0",
+      "primary_metric": "identity candidate-free exact+valid-EOS formation AUC",
+      "sealed_endpoint": "identity candidate-free exact+valid-EOS"
+    }
+  },
+  "seeds": [73011, 73012, 73013, 73014],
+  "thresholds": {
+    "formation_auc_gap": 0.05,
+    "sealed_endpoint_gap": 0.05,
+    "sign_consistency": "3 of 4 matched seeds"
+  },
+  "mechanism_diagnostic": {
+    "when": "after all frontier development results are frozen and before any sealed regeneration",
+    "surface": "fixed development identity batch only",
+    "measurements": [
+      "input-only tied-matrix gradient norm",
+      "output-only tied-matrix gradient norm",
+      "output_to_input_gradient_norm_ratio",
+      "cosine_similarity(input_gradient, output_gradient)",
+      "combined tied-matrix gradient norm"
+    ],
+    "interpretation": "output dominance plus negative/low cosine, together with a balanced-arm formation improvement, supports destructive role interference as a causal mechanism"
+  },
+  "prospective_architecture_rules": {
+    "ROBUST_ROLE_INTERFERENCE": "T3 beats T0 prospectively on TIE-ROLE-001 and X1 beats X0 on TIE-ROLE-XFER-001, each meeting frozen paired thresholds, with development gradient diagnostics directionally consistent with output dominance/interference. Nominate role-balanced tying or an untied-input/output successor for a separate production-scale confirmation; do not change tokenizer or blocks from this alone.",
+    "LATENT_ONLY": "T3 beats T0 on latent but X1 does not beat X0 on production BPE. Treat the effect as representation-regime-specific; do not promote it to Core.",
+    "TRANSFER_ONLY_OR_INTERACTION": "production-BPE and latent outcomes disagree in any other way. Preserve as interaction evidence and isolate the smallest remaining representation/tying interaction.",
+    "NULL": "both primary contrasts are null. Stop tied-role gradient balancing as a Core mechanism and move to the next isolated bottleneck.",
+    "REVERSE": "balanced treatment is consistently worse. Record the reversed causal effect and keep canonical tying until another mechanism is prospectively tested."
+  },
+  "sealed_custody": "No frontier worker receives raw sealed rows. Frontier sealed scoring may occur only after both frontier development aggregates and all S5 development aggregates are frozen. Sealed rows are regenerated from the already frozen S5 deterministic surface and verified through the pre-existing S5 commitment before in-memory scoring. Raw sealed rows are never persisted.",
+  "claim_ceiling": "Development-scale and sealed controlled mechanism/transfer evidence. A positive result can nominate a next-Core training/output-parameterization candidate, but cannot by itself justify a V6 name, a 3x/6x capability claim, large-scale training authorization, cognition claim, or AGI claim."
+}
