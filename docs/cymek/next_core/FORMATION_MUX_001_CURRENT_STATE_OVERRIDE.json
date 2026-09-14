@@ -1,0 +1,28 @@
+{
+  "schema": "anra.next-core-current-state-override/v1",
+  "date": "2026-09-14",
+  "branch": "cymek-next-core-architecture",
+  "reason": "NEXT_CORE_SPEC.json was synchronized after CS-TRANSFER-001 but retained one stale numeric_symbol_representation blocking_experiment string pointing to the already-completed CS-TRANSFER-001.",
+  "authoritative_overrides": {
+    "vocabulary_size": {
+      "working_choice": 24576,
+      "state": "PROVISIONAL",
+      "cs_transfer_001_gate": "CLOSED",
+      "optimality": "NOT_ESTABLISHED",
+      "next_mechanism_gate": "CS-MECH-002"
+    },
+    "numeric_symbol_representation": {
+      "working_choice": "default production byte-BPE rendering",
+      "state": "PROVISIONAL",
+      "blocking_experiment": "REP-FORM-003A",
+      "note": "CS-TRANSFER-001 is complete and must not be treated as an open blocker"
+    }
+  },
+  "campaign": {
+    "name": "FORMATION-MUX-001",
+    "science_commit_S2": "534dcccfb8f96a30e80d71a30160e6a16eaa1ede",
+    "experiments": ["CS-MECH-002", "REP-FORM-003A"],
+    "runtime_state": "KAGGLE_T4X2_NOT_YET_RUN"
+  },
+  "precedence": "For the two fields above, this prospective current-state override supersedes stale blocking_experiment labels in generated NEXT_CORE_SPEC.json until that generator is regenerated. Historical evidence remains unchanged."
+}
