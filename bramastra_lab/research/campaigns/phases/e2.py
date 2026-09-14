@@ -30,36 +30,44 @@ CALL_BUDGET = 16
 
 
 def _resolve_parent(job: JobInput) -> dict[str, Any]:
-    """Resolve the E1 parent to a verified record or raise."""
+    """Resolve E1 parents to verified records or raise.
+
+    E2 compares the learned B arm against A controls, so the runner passes a
+    combined key such as "E1-B-1701/E1-A-1701". Every part must resolve by
+    exact lineage (ParentRef does exact job_id matching, never substring).
+    The B record is primary; A records are attached as controls. Any part
+    failing verification fails the job (never silently picks one arm).
+    """
     key = job.resolved_parent_key()
     if not key:
         raise ValueError("E2 requires an E1 parent reference; missing parent must fail")
-    # Support combined "E1-A-1701/E1-B-1701" style: prefer the B (learned) arm.
-    candidates = [c.strip() for c in str(key).split("/") if c.strip()]
-    # Prefer B arm when present, else first.
-    ordered = sorted(candidates, key=lambda c: ("/B-" not in f"/{c}", c))
-    last_error: Exception | None = None
-    for candidate in ordered:
-        ref = job.parent_ref
-        if ref is not None and ref.lookup_key == key:
-            # Structured ref already points at the combined key; try direct.
-            try:
-                resolved = ref.resolve(job.run_dir)
-                resolved["lookup_key"] = candidate
-                return resolved
-            except Exception as exc:
-                last_error = exc
-                continue
+    parts = [c.strip() for c in str(key).split("/") if c.strip()]
+    if not parts:
+        raise ValueError("E2 parent key is empty; refusing")
+    resolved_parts: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for candidate in parts:
         try:
-            resolved = ParentRef(lookup_key=candidate).resolve(job.run_dir)
-            resolved["lookup_key"] = candidate
-            return resolved
+            if job.parent_ref is not None and job.parent_ref.lookup_key == candidate:
+                rec = job.parent_ref.resolve(job.run_dir)
+            else:
+                rec = ParentRef(lookup_key=candidate).resolve(job.run_dir)
+            rec["lookup_key"] = candidate
+            resolved_parts.append(rec)
         except Exception as exc:
-            last_error = exc
-            continue
-    raise ValueError(
-        f"E2 parent {key!r} has no verified checkpoint; "
-        f"reinitializing with the same seed is forbidden ({last_error})")
+            errors.append(f"{candidate}: {exc}")
+    if errors:
+        raise ValueError(
+            f"E2 parent {key!r} has unverified parts {errors}; "
+            "reinitializing with the same seed is forbidden")
+    # Primary is the B (learned) arm by exact arm segment; fail if absent.
+    primary = next((r for r in resolved_parts if "-B-" in str(r.get("lookup_key", ""))), None)
+    if primary is None:
+        raise ValueError(
+            f"E2 parent {key!r} carries no learned B arm; refusing")
+    primary["control_parents"] = [
+        r for r in resolved_parts if r is not primary]
+    return primary
 
 
 def execute(job: JobInput, *, ops=None, eval_cases: int | None = 4) -> PhaseResult:

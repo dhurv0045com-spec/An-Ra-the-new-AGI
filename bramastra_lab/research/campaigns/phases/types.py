@@ -72,8 +72,10 @@ class ParentRef:
                     "manifest": manifest.to_dict(),
                     "payload_sha256": manifest.payload_sha256,
                     "config_identity": manifest.config_identity,
-                    "lineage": self.lineage}
-        # Lookup-key path: find a completed ledger receipt, then verify.
+                    "lineage": self.lineage,
+                    "run_dir": run_dir}
+        # Lookup-key path: exact job_id or checkpoint_id match only (never
+        # substring: E1-B-1701 must not match E1-B-17010 or combined A/B keys).
         ledger_path = os.path.join(run_dir, "campaign_ledger.sqlite")
         if not os.path.exists(ledger_path):
             raise ValueError(
@@ -87,14 +89,13 @@ class ParentRef:
         finally:
             conn.close()
         candidates = [(jid, cid) for jid, cid in rows
-                      if cid and (wanted in str(jid) or wanted == str(cid))]
+                      if cid and (str(jid) == wanted or str(cid) == wanted)]
         if not candidates:
             raise ValueError(
-                f"parent {wanted!r} has no qualified completed receipt; "
-                "missing parent must fail")
-        # Prefer an exact job-id match, else first candidate.
-        exact = [c for c in candidates if c[0] == wanted]
-        _job_id, checkpoint_id = (exact[0] if exact else candidates[0])
+                f"parent {wanted!r} has no qualified completed receipt with exact "
+                "lineage; missing parent must fail")
+        # Exact matches only; multiple exact hits (retries) use the latest.
+        _job_id, checkpoint_id = candidates[-1]
         try:
             _payload, manifest = load_checkpoint(
                 run_dir, checkpoint_id=checkpoint_id,
@@ -109,7 +110,8 @@ class ParentRef:
                 "manifest": manifest.to_dict(),
                 "payload_sha256": manifest.payload_sha256,
                 "config_identity": manifest.config_identity,
-                "lineage": self.lineage}
+                "lineage": self.lineage,
+                "run_dir": run_dir}
 
 
 @dataclass(frozen=True)
@@ -211,26 +213,27 @@ class PhaseResult:
                 raise ValueError(f"{name} must be a nonnegative integer")
         if self.status == "completed" and self.evidence_kind == EVIDENCE_LEARNED_CAMPAIGN:
             # Learned training receipts must carry real work; zero-work
-            # learned success is a fabricated counter. Frozen eval (E2)
-            # and export (E6) legitimately carry zero committed updates.
-            is_eval = ("evaluated_cases" in self.extra
-                       or "export_dir" in self.extra)
-            if not is_eval and self.phase_kind_is_training() \
-                    and self.committed_updates <= 0:
+            # learned success is a fabricated counter. Phase is explicit in
+            # extra["phase"]; E2 frozen eval and E6 export legitimately carry
+            # zero committed updates. Missing phase with zero work is refused.
+            phase = str(self.extra.get("phase", ""))
+            if phase in ("E2", "E6"):
+                pass
+            elif phase in ("E0", "E1", "E3", "E4", "E5"):
+                if self.committed_updates <= 0:
+                    raise ValueError(
+                        "learned-campaign training receipt with zero committed "
+                        "updates; refusing fabricated counter")
+            elif self.committed_updates <= 0:
                 raise ValueError(
-                    "learned-campaign training receipt with zero committed "
-                    "updates; refusing fabricated counter")
+                    "learned-campaign receipt without phase carries zero "
+                    "committed updates; refusing")
 
     def phase_kind_is_training(self) -> bool:
-        # E2 frozen eval and E6 export are not training phases. Phase is
-        # carried in extra["phase"] when known; otherwise assume training
-        # unless eval/export markers are present.
+        # Explicit phase only (no marker heuristics that can be spoofed by
+        # adding export_dir/evaluated_cases to extra).
         marker = str(self.extra.get("phase", ""))
-        if marker in ("E2", "E6"):
-            return False
-        if "evaluated_cases" in self.extra or "export_dir" in self.extra:
-            return False
-        return True
+        return marker not in ("E2", "E6")
 
     def qualifies_for_campaign(self) -> bool:
         """Fixture receipts never qualify for accepted aggregates."""

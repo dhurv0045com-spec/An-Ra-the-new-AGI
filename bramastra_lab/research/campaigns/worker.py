@@ -26,7 +26,11 @@ def run_worker_phase(*, phase: str, device: str, arm: str | None,
                      precision: str, deadline: float,
                      physical_device: str | None = None,
                      slot: int | None = None,
-                     parent: str | None = None) -> dict[str, Any]:
+                     parent: str | None = None,
+                     job_id: str | None = None,
+                     update_target: int | None = None,
+                     eval_cases: int | None = None,
+                     tasks_per_block: int | None = None) -> dict[str, Any]:
     """Execute one phase on one device (D4: real executors behind dispatch).
 
     Runs in a fresh spawn subprocess with CUDA_VISIBLE_DEVICES set before
@@ -61,6 +65,9 @@ def run_worker_phase(*, phase: str, device: str, arm: str | None,
         return _dispatch_phase_executor(
             phase=phase, device=device, physical_device=physical,
             arm=arm, seed=seed, slot=slot, parent=parent,
+            job_id=job_id,
+            update_target=update_target, eval_cases=eval_cases,
+            tasks_per_block=tasks_per_block,
             data_dir=data_dir, run_dir=run_dir, precision=precision,
             deadline=deadline, started=started)
     if phase == "E6":
@@ -78,14 +85,17 @@ def run_worker_phase(*, phase: str, device: str, arm: str | None,
 def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                              arm: str | None, seed: int | None,
                              slot: int | None, parent: str | None,
+                             job_id: str | None = None,
+                             update_target: int | None = None,
+                             eval_cases: int | None = None,
+                             tasks_per_block: int | None = None,
                              data_dir: str, run_dir: str, precision: str,
                              deadline: float, started: float) -> dict[str, Any]:
-    """Dispatch to the repository phase executor (D4).
+    """Dispatch to the repository phase executor (D4 + contracts S1).
 
-    Each phase module exists and performs real orchestration (validation,
-    parents, streams, checkpoints, evaluation, artifacts) with production ops
-    on GPU. Missing evidence returns failure with actual counts — never
-    zero-work success. Expensive model ops are test doubles only in tests.
+    Frozen protocol targets come from the runner spec (E0-calibrated when
+    available, otherwise campaign minimums). Missing training targets fail
+    here (never silent function defaults in the worker either).
     """
     from bramastra_lab.research.campaigns.phases.e1 import execute as execute_e1
     from bramastra_lab.research.campaigns.phases.e2 import execute as execute_e2
@@ -101,7 +111,8 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                 "status": "failed", "error": f"bundle manifest missing: {manifest}",
                 "committed_updates": 0, "attempted_updates": 0,
                 "supervised_exposure": 0, "device_seconds": elapsed,
-                "checkpoint_identity": None}
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
     executors = {"E1": execute_e1, "E2": execute_e2, "E3": execute_e3,
                  "E4": execute_e4, "E5": execute_e5}
     executor = executors.get(phase)
@@ -110,20 +121,41 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
                 "status": "failed", "error": f"no executor for phase {phase!r}",
                 "committed_updates": 0, "attempted_updates": 0,
                 "supervised_exposure": 0, "device_seconds": elapsed,
-                "checkpoint_identity": None}
-    # Frozen protocol targets (never silent function defaults). E0 calibration
-    # would refine these; minimum informative targets are the fail-closed
-    # floor (E1=200, E3/E4=80 per campaign.json). E5 uses 12 tasks/worker for
-    # archive blocks, E2 uses minimum 32 confirmation clusters.
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
+    # Training targets must come from the spec (runner binds frozen protocol
+    # minimums; E0 calibration refines them). The worker never invents 200/80
+    # silently: missing targets for training phases fail here.
+    if phase in ("E1", "E3", "E4") and update_target is None:
+        return {"phase": phase, "device": device, "arm": arm, "seed": seed,
+                "status": "failed",
+                "error": f"{phase} requires explicit update_target from the "
+                         "frozen protocol spec; refusing silent worker default",
+                "committed_updates": 0, "attempted_updates": 0,
+                "supervised_exposure": 0, "device_seconds": elapsed,
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
+    if phase == "E2" and eval_cases is None:
+        return {"phase": phase, "device": device, "arm": arm, "seed": seed,
+                "status": "failed",
+                "error": "E2 requires explicit eval_cases from the spec",
+                "committed_updates": 0, "attempted_updates": 0,
+                "supervised_exposure": 0, "device_seconds": elapsed,
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
+    if phase == "E5" and tasks_per_block is None:
+        return {"phase": phase, "device": device, "arm": arm, "seed": seed,
+                "status": "failed",
+                "error": "E5 requires explicit tasks_per_block from the spec",
+                "committed_updates": 0, "attempted_updates": 0,
+                "supervised_exposure": 0, "device_seconds": elapsed,
+                "checkpoint_identity": None,
+                "evidence_kind": "fixture"}
     from bramastra_lab.research.campaigns.phases.types import ParentRef
 
-    job_id = f"{phase}-{arm}-{seed}" if arm and seed is not None else \
-        (f"{phase}-{seed}" if seed is not None else phase)
-    update_target = None
-    if phase == "E1":
-        update_target = 200
-    elif phase in ("E3", "E4"):
-        update_target = 80
+    resolved_job_id = job_id or (
+        f"{phase}-{arm}-{seed}" if arm and seed is not None else
+        (f"{phase}-{seed}" if seed is not None else phase))
     parent_ref = ParentRef(lookup_key=parent) if parent else None
     try:
         from bramastra_lab.research.campaigns.phases.ops import k8_identities
@@ -134,7 +166,7 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
     job = JobInput(phase=phase, slot=slot, arm=arm, seed=seed, parent=parent,
                    physical_device=physical_device, local_device=device,
                    data_dir=data_dir, run_dir=run_dir, precision=precision,
-                   deadline=deadline, job_id=job_id,
+                   deadline=deadline, job_id=resolved_job_id,
                    update_target=update_target,
                    source_hash=identities.get("source_hash"),
                    data_hash=identities.get("data_identity"),
@@ -147,9 +179,9 @@ def _dispatch_phase_executor(*, phase: str, device: str, physical_device: str,
         elif phase in ("E3", "E4"):
             result = executor(job, update_target=update_target)
         elif phase == "E2":
-            result = executor(job, eval_cases=32)
+            result = executor(job, eval_cases=eval_cases)
         elif phase == "E5":
-            result = executor(job, tasks_per_block=12)
+            result = executor(job, tasks_per_block=tasks_per_block)
         else:
             result = executor(job)
     except Exception as exc:  # noqa: BLE001 - executor failure is a result

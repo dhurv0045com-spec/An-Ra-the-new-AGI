@@ -123,7 +123,8 @@ class ModelOps(Protocol):
         ...
 
     def apply_update(self, handle: Any, *, batch: Any, window: Any,
-                     extra: dict[str, Any] | None = None) -> dict[str, Any]:
+                     extra: dict[str, Any] | None = None,
+                     pair_rows: Any | None = None) -> dict[str, Any]:
         """One window, one normalization, one finalization; real events."""
         ...
 
@@ -422,11 +423,16 @@ class ProductionOps:
     def evaluate_episode(self, *, handle: Any, episode: dict[str, Any],
                          task_env: Any | None = None) -> dict[str, Any]:
         """Run model decisions through the environment; verifier decides."""
-        # Minimal production path: free generation + independent verifier
-        # supplied by the caller (family verifiers in k8_bundle). Observed
-        # actions/results/costs come from the episode's real history; the
-        # final verifier (not EOS) decides success.
-        prompt = episode.get("prompt_tokens") or [259]
+        # Production path: free generation on real prompt tokens + independent
+        # verifier supplied by the caller. Observed actions/results/costs come
+        # from the episode's real history; the final verifier (not EOS)
+        # decides success. No fixed-prompt fallback: callers must supply real
+        # prompt tokens compiled from the public goal.
+        prompt = episode.get("prompt_tokens")
+        if not prompt:
+            raise ValueError(
+                "evaluate_episode requires real prompt_tokens compiled from "
+                "the public goal; refusing fixed-prompt fallback")
         max_new = int(episode.get("max_new_tokens", 24))
         report = self.free_generation(handle, prompt=prompt,
                                       max_new_tokens=max_new)
@@ -604,29 +610,43 @@ class ProductionOps:
                 "optimizer_update": report.optimizer_update}
 
     def save_checkpoint(self, handle, *, path, fraction):
-        # Backward-compat wrapper: derive run_dir/update lineage from path
-        # and publish through the real API with full identities. The old
-        # signature carried no identities; we bind the frozen campaign ones
-        # plus writer fencing when available. Generic `k8` placeholders are
-        # refused inside publish_checkpoint.
+        # Deprecated backward-compat wrapper. The old (path, fraction)
+        # signature cannot supply tokenizer/data/code identities or fencing,
+        # so it derives run_dir/phase lineage from the path and requires the
+        # handle to carry data_dir. New code must call publish_checkpoint
+        # directly. Generic placeholders are refused inside publish.
         import os
 
-        run_dir = os.path.dirname(os.path.dirname(path))
-        # When path already points at run_dir/checkpoints/... the grandparent
-        # is run_dir; otherwise fall back to dirname.
-        if os.path.basename(os.path.dirname(path)) != "checkpoints" \
-                and os.path.basename(path) != "checkpoints":
-            # path like run_dir/checkpoints/E1/file.pt -> grandparent is run_dir
-            pass
+        parts = os.path.normpath(path).split(os.sep)
+        if "checkpoints" not in parts:
+            raise ValueError(
+                f"save_checkpoint path {path!r} carries no checkpoints segment; "
+                "use publish_checkpoint with explicit run_dir/phase/arm/seed")
+        idx = parts.index("checkpoints")
+        run_dir = os.sep.join(parts[:idx]) or os.path.dirname(
+            os.path.dirname(path))
+        # Path forms: run/checkpoints/<phase>/<file> or
+        # run/checkpoints/<phase>/<arm-seed>/<file>.
+        phase = parts[idx + 1] if len(parts) > idx + 1 else "E1"
+        arm_seed = parts[idx + 2] if len(parts) > idx + 3 else "compat-0"
+        if "-" in arm_seed:
+            arm, _, seed_text = arm_seed.partition("-")
+            try:
+                seed: int | None = int(seed_text.split("-")[0].split(".")[0])
+            except ValueError:
+                seed = handle.get("seed", 0)
+        else:
+            arm, seed = "compat", handle.get("seed", 0)
         try:
             update_index = int(handle["trainer"].counters.optimizer_updates)
         except Exception:
             update_index = 0
+        data_dir = handle.get("data_dir")
         return self.publish_checkpoint(
-            handle=handle, run_dir=run_dir, phase="E1", arm="compat",
-            seed=handle.get("seed", 0), update_index=update_index,
+            handle=handle, run_dir=run_dir, phase=phase, arm=arm,
+            seed=seed, update_index=update_index,
             parent_checkpoint_id=handle.get("parent_checkpoint_id"),
-            data_dir=None)
+            data_dir=data_dir)
 
     def free_generation(self, handle, *, prompt, max_new_tokens):
         from bramastra_lab.research.runtime.inference import generate_free_form
@@ -775,9 +795,15 @@ class RecordingDoubleOps:
             else "bramastra-base-decoder/v1+disabled-gate-slots"
         handle["migrated"] = True
         handle["gate_alpha"] = [0.0, 0.0]
-        # Optimizer inventory check on the very handle (fixture).
-        if gates_enabled and "gate_alpha" not in str(handle):
-            pass
+        # Optimizer inventory on the very handle: S1 must expose trainable
+        # gate slots, S0 must carry them fixed/disabled.
+        if gates_enabled:
+            if handle.get("gate_alpha") != [0.0, 0.0]:
+                raise ValueError("S1 fixture migration lost gate slots")
+        else:
+            if handle.get("architecture_id") != \
+                    "bramastra-base-decoder/v1+disabled-gate-slots":
+                raise ValueError("S0 fixture architecture must carry disabled slots")
         return handle
 
     def evaluate_episode(self, *, handle, episode, task_env=None):

@@ -31,14 +31,19 @@ from bramastra_lab.research.campaigns.phases.types import (
 
 def _resolve_anchor(job: JobInput) -> dict[str, Any]:
     key = job.resolved_parent_key()
-    # E5 anchor defaults to the seed's E1-B parent when no explicit parent.
+    # E5 requires an explicit adaptation anchor (the seed's E1-B parent).
+    # Synthesizing a default key would mask a missing anchor; fail instead
+    # and require the caller (worker/runner) to pass the exact parent.
     if not key:
-        if job.seed is None:
-            raise ValueError("E5 requires a seed for the default E1-B anchor")
-        key = f"E1-B-{job.seed}"
-    candidate = str(key).split("/")[0].strip()
+        raise ValueError(
+            "E5 requires an explicit adaptation anchor parent (e.g. E1-B-1701); "
+            "missing anchor must fail, never synthesize a default key")
+    if "/" in str(key):
+        raise ValueError(
+            f"E5 anchor {key!r} is combined; E5 requires a single anchor parent")
+    candidate = str(key).strip()
     try:
-        if job.parent_ref is not None:
+        if job.parent_ref is not None and job.parent_ref.lookup_key == candidate:
             return job.parent_ref.resolve(job.run_dir)
         return ParentRef(lookup_key=candidate).resolve(job.run_dir)
     except Exception as exc:
@@ -181,13 +186,15 @@ def execute(job: JobInput, *, ops=None,
             parent={**anchor_record, "run_dir": job.run_dir, "seed": job.seed},
             device=job.local_device, optimizer_policy="fresh")
         # Anchor identity (checkpoint + support order) is frozen for the job.
+        # The restored handle stays pristine (no in-place mutation); lineage
+        # is carried on forked children only, preserving sibling isolation.
         anchor_id = str(anchor_record.get("checkpoint_id"))
         anchor_support = tuple(f"E5-{job.seed}-support-{i}"
                                for i in range(tasks_per_block))
-        if isinstance(anchor, dict):
-            anchor["anchor_id"] = anchor_id
-            anchor["support_order"] = anchor_support
         proposer = ops.fork_child(parent_handle=anchor, optimizer_policy="fresh")
+        if isinstance(proposer, dict):
+            proposer["anchor_id"] = anchor_id
+            proposer["support_order"] = anchor_support
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E5 anchor/proposer restore refused: {exc}",
@@ -216,7 +223,6 @@ def execute(job: JobInput, *, ops=None,
                            extra={"phase": "E5"})
     archive_rows: list[dict[str, Any]] = []
     trial_lineages: list[str] = []
-    training_calls_before = _count_training_calls(ops)
     for task_index, task in enumerate(archive_tasks):
         task_id = str(task.get("meta_task_id", f"mt-{task_index}"))
         for method_id in ("M0", "M1", "M2"):
@@ -295,8 +301,9 @@ def execute(job: JobInput, *, ops=None,
                            error=f"E5 proposer capture refused: {exc}",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
-    # Changing the adaptation anchor must fail (stability check).
-    if isinstance(anchor, dict) and anchor.get("anchor_id") != anchor_id:
+    # Changing the adaptation anchor must fail (stability check against the
+    # verified record, not a mutated handle).
+    if str(anchor_record.get("checkpoint_id")) != anchor_id:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error="E5 adaptation anchor changed mid-job; refusing",
                            evidence_kind=EVIDENCE_FIXTURE,
@@ -379,35 +386,19 @@ def execute(job: JobInput, *, ops=None,
             confirmation_rows.append({"task_identity": task_id,
                                       "policy": policy, "method_id": method,
                                       "measured_success": measured})
-    # Counts derive from actual ops calls (never task counts). A no-training
-    # boundary must never produce a positive learned-update receipt.
-    training_calls_after = _count_training_calls(ops)
-    training_calls = max(0, training_calls_after - training_calls_before)
-    # For E5, committed/attempted come from trial measurements (each measured
-    # trial with updates>0 counts once), not from 3*tasks_per_block.
+    # Counts derive from measured trials (each measured trial with updates>0
+    # counts once), never from task-count arithmetic. Evidence is always
+    # fixture locally (no real optimizer steps); a GPU run with real deltas
+    # would derive learned evidence from durable update events (see HANDOFF
+    # pending checks). No type branching: doubles and production share the
+    # same scheduler; the double's method-sensitive trainer supplies
+    # fixture-labeled measurements, production requires real training (which
+    # refuses locally without an allocation, recording failed trials instead
+    # of invented successes).
     committed = sum(1 for r in archive_rows if int(r.get("measured_updates", 0)) > 0
                     and r.get("validation") == "measured")
     attempted = len([r for r in archive_rows if r.get("validation") in ("measured", "failed")])
-    # If the boundary forbids training (zero training calls) but we would
-    # report positive updates, refuse (fabricated counter).
-    if training_calls == 0 and isinstance(ops, _NoTrainingMarker):
-        # Probe path: training forbidden; must not report learned work.
-        committed = 0
-        attempted = 0
-    # Evidence kind: fixture for doubles (no real optimizer steps), learned
-    # only when real optimizer deltas exist (GPU). Locally always fixture.
-    try:
-        is_prod = type(ops).__name__ == "ProductionOps"
-    except Exception:
-        is_prod = False
-    # Avoid type-branch for evidence: use optimizer deltas when available.
     evidence = EVIDENCE_FIXTURE
-    try:
-        # Production GPU runs would show optimizer deltas via handles; local
-        # doubles show zero. Never claim learned locally.
-        pass
-    except Exception:
-        pass
     artifact_dir = os.path.join(job.run_dir, "phase_outputs", job.phase)
     os.makedirs(artifact_dir, exist_ok=True)
     with open(os.path.join(artifact_dir, f"E5-{job.seed}.json"), "w",
@@ -421,7 +412,6 @@ def execute(job: JobInput, *, ops=None,
                    "confirmation_rows": confirmation_rows,
                    "committed_updates": committed,
                    "attempted_updates": attempted,
-                   "training_calls": training_calls,
                    "evidence_kind": evidence,
                    "lineages": trial_lineages[:6]},
                   handle_file, indent=2, sort_keys=True)
@@ -440,7 +430,7 @@ def execute(job: JobInput, *, ops=None,
                          attempted_updates=attempted,
                          supervised_exposure=len(archive_rows),
                          device_seconds=time.monotonic() - started,
-                         checkpoint_identity=f"e5-archive-{job.seed}-{archive_identity[:12]}",
+                         checkpoint_identity=archive_identity,
                          evidence_kind=evidence,
                          extra={"phase": "E5", "trials": len(archive_rows),
                                 "archive_identity": archive_identity,
@@ -458,23 +448,15 @@ def execute(job: JobInput, *, ops=None,
     return result
 
 
-class _NoTrainingMarker:
-    pass
-
-
-def _count_training_calls(ops) -> int:
-    try:
-        calls = getattr(ops, "calls", None)
-        if isinstance(calls, list):
-            return sum(1 for name, _ in calls if name == "training_update")
-    except Exception:
-        pass
-    return 0
-
-
 def _measure_trial(ops, trial_handle: Any, task: dict, method_id: str,
                    job: JobInput) -> tuple[float, float, str]:
-    """Measured trial outcome with real task identity + checkpoint lineage."""
+    """Measured trial outcome with real task identity + checkpoint lineage.
+
+    Fixture doubles (dict handles with a method-sensitive trainer) supply a
+    deterministic fixture-labeled table. Real production handles (with a live
+    K8Trainer) require actual training under an allocation; locally without
+    one they refuse instead of inventing hash-based successes.
+    """
     task_id = str(task.get("meta_task_id", "mt-?"))
     # Cost from the declared 45s trial cap (plus overhead tracked by runner).
     cost = 45.0
@@ -484,27 +466,29 @@ def _measure_trial(ops, trial_handle: Any, task: dict, method_id: str,
     try:
         if isinstance(trial_handle, dict):
             fork_id = str(trial_handle.get("double_id", trial_handle.get("applied_method", "")))
-        else:
-            fork_id = str(getattr(trial_handle, "get", lambda *a: "")("seed", ""))
     except Exception:
         fork_id = ""
     lineage = hashlib.sha256(
         f"{task_id}:{method_id}:{fork_id}".encode()).hexdigest()[:16]
-    # For method-sensitive doubles, use their measured table (fixture).
-    try:
-        trainer = trial_handle.get("_e5_trainer") if isinstance(trial_handle, dict) else None
-        if trainer is not None and hasattr(trainer, "measured_success"):
-            return float(trainer.measured_success(task_id)), cost, lineage
-    except Exception:
-        pass
-    # Production GPU path would train + evaluate here; locally (no training)
-    # we refuse to invent learned outcomes – the double table above is the
-    # only local source, and it is fixture-labeled by the caller.
-    # Fallback deterministic table (fixture) to keep local integration
-    # exercising the scheduler without claiming learning.
-    digest = hashlib.sha256(f"{task_id}:{method_id}".encode()).hexdigest()
-    measured = round(0.3 + (int(digest[:4], 16) % 50) / 100.0, 4)
-    return measured, cost, lineage
+    # Fixture double path (dict handle): deterministic table, fixture-labeled
+    # by the caller. No real optimizer work occurs here.
+    if isinstance(trial_handle, dict):
+        try:
+            trainer = trial_handle.get("_e5_trainer")
+            if trainer is not None and hasattr(trainer, "measured_success"):
+                return float(trainer.measured_success(task_id)), cost, lineage
+        except Exception as exc:
+            raise ValueError(f"E5 double measurement refused: {exc}") from exc
+        raise ValueError(
+            "E5 double trial has no method-sensitive trainer; refusing "
+            "invented hash-based success")
+    # Production path: real training under an allocation is required. Locally
+    # (CPU without a live campaign allocation) the trainer refuses at the
+    # finalize boundary; surface that as a failed trial instead of inventing
+    # a hash-based measured_success.
+    raise ValueError(
+        "E5 production measurement requires a live GPU allocation with real "
+        "adaptation training; refusing invented outcomes locally")
 
 
 def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,

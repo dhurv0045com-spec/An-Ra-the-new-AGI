@@ -198,13 +198,21 @@ def publish_checkpoint(
     if not isinstance(run_id, str) or not run_id.strip():
         raise CheckpointError("run_id must be a nonempty string")
     # Bind lineage explicitly so `frozen-...` strings cannot masquerade as
-    # verified state.
+    # verified state. Matching is exact on hyphen-delimited segments (never
+    # substring: seed 1701 must not match 21701).
     lineage_parts = [p for p in (phase, arm, str(seed) if seed is not None else None)
                      if p]
-    if lineage_parts and not any(part in run_id for part in lineage_parts):
+    run_segments = set(run_id.split("-"))
+    if lineage_parts and not all(part in run_segments for part in lineage_parts):
         # Enforce lineage binding without breaking existing run_id callers
         # that already embed it: only append when missing.
         run_id = f"{run_id}-{'_'.join(lineage_parts)}"
+        run_segments = set(run_id.split("-"))
+    # Distinct directory per lineage to avoid cross-arm collisions at the
+    # same update_index in a shared run_dir.
+    dir_suffix = None
+    if phase or arm or seed is not None:
+        dir_suffix = "-".join([str(p) for p in (phase, arm, seed) if p is not None])
     manifest = save_checkpoint(
         run_dir, payload,
         run_id=run_id, update_index=update_index,
@@ -215,7 +223,8 @@ def publish_checkpoint(
         code_identity=code_identity,
         milestone=milestone or (f"{phase}-{arm}-{seed}" if phase else None),
         writer_token=writer_token,
-        expected_parent=expected_parent)
+        expected_parent=expected_parent,
+        dir_suffix=dir_suffix)
     return manifest
 
 
@@ -267,6 +276,7 @@ def save_checkpoint(
     milestone: str | None = None,
     writer_token: str | None = None,
     expected_parent: str | None = None,
+    dir_suffix: str | None = None,
 ) -> CheckpointManifest:
     """Publish one checkpoint atomically under a serialized publication
     boundary.
@@ -275,6 +285,11 @@ def save_checkpoint(
     against the live lock file), and ``expected_parent`` must equal the
     LATEST pointer as it exists at publication time: a stale writer cannot
     publish onto a lineage another writer has already advanced (B2.2 R4).
+
+    ``dir_suffix`` namespaces the publication directory for distinct
+    arm/seed/phase lineages sharing one run_dir (K8): without it the legacy
+    ``update-{index:012d}`` directory collides across arms at the same step.
+    Legacy callers omit it and keep exact legacy directory names.
     """
     if not isinstance(update_index, int) or isinstance(update_index, bool) or update_index < 0:
         raise CheckpointError("update_index must be a nonnegative integer")
@@ -334,7 +349,16 @@ def save_checkpoint(
             os.fsync(handle.fileno())
         _fsync_path(staging)
 
-        final = os.path.join(checkpoints, f"update-{update_index:012d}")
+        if dir_suffix:
+            # Namespace distinct lineages: update-{index}-{suffix}. Suffix is
+            # restricted to safe characters to keep the directory contained.
+            safe = "".join(c if (c.isalnum() or c in ("-", "_")) else "_"
+                           for c in str(dir_suffix))[:32]
+            if not safe:
+                raise CheckpointError("dir_suffix must be nonempty when supplied")
+            final = os.path.join(checkpoints, f"update-{update_index:012d}-{safe}")
+        else:
+            final = os.path.join(checkpoints, f"update-{update_index:012d}")
         if os.path.exists(final):
             raise CheckpointError(
                 f"checkpoint {final} already exists; checkpoints are never overwritten")

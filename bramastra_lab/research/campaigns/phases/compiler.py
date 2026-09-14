@@ -167,29 +167,67 @@ def compile_channels_for_row(row: dict[str, Any], batch,
                              "denominator": 1}
     # Action channel: legal candidates from row queries + teacher one-hot
     # from the history's actual first action (declared teacher policy).
+    # Matching is exact (query object contained in history action). When the
+    # bundle declares degenerate identical queries (e.g. program evaluate),
+    # the single real history action is the only legal candidate (teacher
+    # [1.0]); no invented token lists or uniformity over arbitrary IDs.
     if "action" in arm_enabled and float(arm_weights.get("action", 0.0)) > 0:
-        queries = row.get("queries") or []
-        if not queries:
-            raise ValueError(
-                "action enabled but trajectory carries no legal queries")
-        candidates: list[list[int]] = []
-        for query in queries[:4]:
-            text = json.dumps(query, sort_keys=True)
-            tokens = encode_text(text)[:8]
-            if not tokens:
-                raise ValueError("empty candidate encoding; refusing")
-            candidates.append(list(tokens))
-        # Teacher: index of the query matching the history action.
-        teacher_index = 0
-        action_text = json.dumps(action, sort_keys=True)
-        for idx, query in enumerate(queries[:len(candidates)]):
-            if json.dumps(query, sort_keys=True) in action_text \
-                    or action_text in json.dumps(query, sort_keys=True) \
-                    or query.get("kind") == action.get("kind"):
-                teacher_index = idx
-                break
-        teacher = [0.0] * len(candidates)
-        teacher[teacher_index] = 1.0
+        family = str(row.get("family", ""))
+        # Program family: bundle queries are placeholder inputs unrelated to
+        # the operations teacher. The single real history action (with actual
+        # operations) is the only declared legal action; no invented
+        # alternatives, no uniformity over arbitrary token lists.
+        if family == "program":
+            action_text_single = json.dumps(action, sort_keys=True)
+            tokens_single = encode_text(action_text_single)[:8]
+            if not tokens_single:
+                raise ValueError("empty history-action encoding; refusing")
+            candidates = [list(tokens_single)]
+            teacher = [1.0]
+        else:
+            queries = row.get("queries") or []
+            if not queries:
+                raise ValueError(
+                    "action enabled but trajectory carries no legal queries")
+            # Use all declared queries as candidates (not just the first 4)
+            # so shuffled exploration orders remain covered.
+            candidates = []
+            for query in queries[:8]:
+                text = json.dumps(query, sort_keys=True)
+                tokens = encode_text(text)[:8]
+                if not tokens:
+                    raise ValueError("empty candidate encoding; refusing")
+                candidates.append(list(tokens))
+            if not candidates:
+                raise ValueError("no action candidates; refusing")
+            query_texts = [json.dumps(q, sort_keys=True) for q in queries[:len(candidates)]]
+            if len(set(query_texts)) == 1:
+                # Degenerate identical queries: single real history action.
+                action_text_single = json.dumps(action, sort_keys=True)
+                tokens_single = encode_text(action_text_single)[:8]
+                if not tokens_single:
+                    raise ValueError("empty history-action encoding; refusing")
+                candidates = [list(tokens_single)]
+                teacher = [1.0]
+            else:
+                teacher_index = None
+                for idx, query in enumerate(queries[:len(candidates)]):
+                    if all(action.get(k) == v for k, v in query.items()):
+                        teacher_index = idx
+                        break
+                if teacher_index is None:
+                    action_text = json.dumps(action, sort_keys=True)
+                    for idx, query in enumerate(queries[:len(candidates)]):
+                        query_text = json.dumps(query, sort_keys=True)
+                        if query_text in action_text:
+                            teacher_index = idx
+                            break
+                if teacher_index is None:
+                    raise ValueError(
+                        f"trajectory {row.get('mechanism_id')} history action does not "
+                        "contain any legal query exactly; refusing invented teacher")
+                teacher = [0.0] * len(candidates)
+                teacher[teacher_index] = 1.0
         compiled["action"] = {"prefix_tokens": list(prefix_tokens),
                               "candidates": candidates,
                               "teacher_distribution": teacher,

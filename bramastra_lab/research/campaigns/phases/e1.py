@@ -201,16 +201,12 @@ def execute(job: JobInput, *, ops=None,
                     error=f"E1 pair row construction refused: {exc}",
                     evidence_kind=EVIDENCE_FIXTURE, extra={"phase": "E1"})
         try:
-            try:
-                outcome = ops.apply_update(
-                    handle, batch=batch, window=window,
-                    extra=extra, pair_rows=pair_rows)
-            except TypeError as exc:
-                if "pair_rows" not in str(exc) and "unexpected" not in str(exc).lower():
-                    raise
-                # Backward-compat double without pair_rows support.
-                outcome = ops.training_update(handle, batch=batch,
-                                              window=window, extra=extra)
+            # All supported ops expose apply_update(handle, *, batch, window,
+            # extra, pair_rows). No silent downgrade: a TypeError here is a
+            # real interface violation and must fail loudly.
+            outcome = ops.apply_update(
+                handle, batch=batch, window=window,
+                extra=extra, pair_rows=pair_rows)
         except Exception as exc:
             return PhaseResult(status="failed", committed_updates=committed,
                                attempted_updates=attempted,
@@ -372,53 +368,46 @@ def _evaluate_heldout(job: JobInput, ops, handle) -> dict[str, Any]:
         verifier = FAMILY_VERIFIERS.get(family)
         if verifier is None:
             continue
-        # Real public goal/history as prompt context (not a fixed prompt).
+        # Real public goal as prompt context (never a fixed prompt).
         prompt_text = json.dumps(row.get("public", {}), sort_keys=True)[:256]
+        if not prompt_text or prompt_text == "{}":
+            details.append({"mechanism_id": row.get("mechanism_id"),
+                            "family": family,
+                            "error": "empty public goal; refusing fixed prompt",
+                            "success": False})
+            continue
+        from bramastra_lab.research.experience.codec import encode_text
+        encoded = encode_text(prompt_text)[:32]
+        if not encoded:
+            details.append({"mechanism_id": row.get("mechanism_id"),
+                            "family": family,
+                            "error": "prompt encoding empty; refusing",
+                            "success": False})
+            continue
+        prompt = [259] + encoded
         try:
-            from bramastra_lab.research.experience.codec import encode_text
-            prompt = [259] + encode_text(prompt_text)[:32]
-        except Exception:
-            prompt = [259]
-        try:
-            if hasattr(ops, "evaluate_episode"):
-                outcome = ops.evaluate_episode(
-                    handle=handle,
-                    episode={"mechanism": row, "verifier": verifier,
-                             "prompt_tokens": prompt, "max_new_tokens": 8})
-                answer = str(outcome.get("answer", ""))
-                stopped = bool(outcome.get("stopped_on_eos", False))
-                success = outcome.get("success")
-                if success is None:
-                    # Fall back to verifier on the generated answer.
-                    try:
-                        success = bool(verifier(
-                            row, {"answer": answer, "sum": answer}))
-                    except Exception:
-                        success = False
-                evaluated += 1
-                successes += 1 if success else 0
-                details.append({"mechanism_id": row.get("mechanism_id"),
-                                "family": family, "answer": answer[:64],
-                                "stopped_on_eos": stopped,
-                                "success": bool(success),
-                                "model_calls": int(outcome.get("model_calls", 1)),
-                                "cost": float(outcome.get("cost", 1.0))})
-            else:
-                gen = ops.free_generation(handle, prompt=prompt,
-                                          max_new_tokens=8)
-                answer = str(gen.get("answer", ""))
-                stopped = bool(gen.get("stopped_on_eos", False))
+            outcome = ops.evaluate_episode(
+                handle=handle,
+                episode={"mechanism": row, "verifier": verifier,
+                         "prompt_tokens": prompt, "max_new_tokens": 8})
+            answer = str(outcome.get("answer", ""))
+            stopped = bool(outcome.get("stopped_on_eos", False))
+            success = outcome.get("success")
+            if success is None:
+                # Fall back to verifier on the generated answer.
                 try:
-                    success = bool(verifier(row, {"answer": answer,
-                                                  "sum": answer}))
+                    success = bool(verifier(
+                        row, {"answer": answer, "sum": answer}))
                 except Exception:
                     success = False
-                evaluated += 1
-                successes += 1 if success else 0
-                details.append({"mechanism_id": row.get("mechanism_id"),
-                                "family": family, "answer": answer[:64],
-                                "stopped_on_eos": stopped,
-                                "success": bool(success)})
+            evaluated += 1
+            successes += 1 if success else 0
+            details.append({"mechanism_id": row.get("mechanism_id"),
+                            "family": family, "answer": answer[:64],
+                            "stopped_on_eos": stopped,
+                            "success": bool(success),
+                            "model_calls": int(outcome.get("model_calls", 1)),
+                            "cost": float(outcome.get("cost", 1.0))})
         except Exception as exc:
             details.append({"mechanism_id": row.get("mechanism_id"),
                             "family": family, "error": str(exc)[:120],

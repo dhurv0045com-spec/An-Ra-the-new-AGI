@@ -242,6 +242,19 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                     continue
                 specs = []
                 for worker_entry in pending:
+                    # Frozen protocol minimums (E0 calibration refines them on
+                    # GPU; the worker refuses missing training targets).
+                    spec_update_target = None
+                    spec_eval_cases: int | None = None
+                    spec_tasks: int | None = None
+                    if phase == "E1":
+                        spec_update_target = 200
+                    elif phase in ("E3", "E4"):
+                        spec_update_target = 80
+                    elif phase == "E2":
+                        spec_eval_cases = 32
+                    elif phase == "E5":
+                        spec_tasks = 12
                     specs.append({
                         "job_id": worker_entry["job_id"],
                         "phase": phase,
@@ -251,6 +264,9 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                         "seed": worker_entry.get("seed"),
                         "slot": slot_index,
                         "parent": worker_entry.get("parent"),
+                        "update_target": spec_update_target,
+                        "eval_cases": spec_eval_cases,
+                        "tasks_per_block": spec_tasks,
                         "data_dir": data_dir, "run_dir": run_dir,
                         "precision": precision,
                         "deadline": min(deadline, phase_deadline),

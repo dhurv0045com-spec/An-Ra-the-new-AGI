@@ -109,7 +109,13 @@ def _child_main(result_queue, spec: dict[str, Any],
                   "run_dir": spec.get("run_dir"),
                   "precision": spec.get("precision"),
                   "deadline": spec.get("deadline"),
-                  "physical_device": physical}
+                  "physical_device": physical,
+                  "slot": spec.get("slot"),
+                  "parent": spec.get("parent"),
+                  "job_id": spec.get("job_id"),
+                  "update_target": spec.get("update_target"),
+                  "eval_cases": spec.get("eval_cases"),
+                  "tasks_per_block": spec.get("tasks_per_block")}
         # Backwards compatibility: workers without physical_device accept the
         # eight-arg call; try with physical first, fall back without it.
         try:
@@ -203,7 +209,13 @@ def _child_execute(
                   "run_dir": spec.get("run_dir"),
                   "precision": spec.get("precision"),
                   "deadline": spec.get("deadline"),
-                  "physical_device": physical}
+                  "physical_device": physical,
+                  "slot": spec.get("slot"),
+                  "parent": spec.get("parent"),
+                  "job_id": spec.get("job_id"),
+                  "update_target": spec.get("update_target"),
+                  "eval_cases": spec.get("eval_cases"),
+                  "tasks_per_block": spec.get("tasks_per_block")}
         try:
             output = worker_fn(**kwargs)
         except TypeError:

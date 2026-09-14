@@ -74,9 +74,17 @@ def execute(job: JobInput, *, ops=None) -> PhaseResult:
                            extra={"phase": "E6",
                                   "missing_artifacts": verification.get("missing", []),
                                   "export_dir": out_dir})
+    # Checkpoint identity is the content hash of the verified bundle manifest
+    # (never a fixed invented string like "e6-export-verified").
+    bundle_identity = verification.get("bundle_identity")
+    if not bundle_identity:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error="export verification produced no bundle identity",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E6", "export_dir": out_dir})
     return PhaseResult(status="completed",
                        device_seconds=time.monotonic() - started,
-                       checkpoint_identity="e6-export-verified",
+                       checkpoint_identity=bundle_identity,
                        evidence_kind=EVIDENCE_LEARNED_CAMPAIGN,
                        extra={"phase": "E6", "export_dir": out_dir,
                               "verified_files": verification.get("files", []),
@@ -178,5 +186,10 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     checkpoints = restore.get("checkpoints", [])
     if not checkpoints:
         return {"ok": False, "reason": "no checkpoint records in restore evidence"}
+    # Bundle identity is the content hash of the verified manifest digests
+    # (never a fixed invented string).
+    from bramastra_lab.research.contracts.core import content_identity
+    bundle_identity = content_identity(
+        {"files": digests, "parents": sorted(parents)})
     return {"ok": True, "files": files, "digests": digests,
-            "parents": sorted(parents)}
+            "parents": sorted(parents), "bundle_identity": bundle_identity}

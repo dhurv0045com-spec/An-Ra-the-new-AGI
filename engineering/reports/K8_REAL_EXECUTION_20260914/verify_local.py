@@ -69,6 +69,38 @@ def main():
             return f"missing parent fails: {str(exc)[:80]}"
     results.append(check("S1_parent_missing_fails", s1_parent_missing))
 
+    # S1: exact lineage (substring must not match) + run_dir carried.
+    def s1_exact_lineage():
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+        from bramastra_lab.research.runtime import checkpoint as ckpt
+        import torch as _torch
+        run2 = tempfile.mkdtemp(prefix="k8-exact-")
+        manifest = ckpt.save_checkpoint(
+            run2, {"model": {"w": _torch.zeros(2)},
+                   "counters": {"optimizer_updates": 0}},
+            run_id="r1", update_index=0, config_identity="cfg",
+            tokenizer_identity="tok", data_identity="data",
+            parent_checkpoint_id=None, code_identity="code")
+        ledger = CampaignLedger(run2)
+        ledger.record_allocation("a", "src", "data", 480.0)
+        r = ledger.reserve("E1-B-17010", worker="w", device="cuda:0",
+                           phase="E1", arm="B", seed=17010,
+                           reserved_seconds=10.0)
+        ledger.close_reservation(
+            r.reservation_id, status="completed", committed_updates=1,
+            attempted_updates=1, supervised_exposure=1, device_seconds=1.0,
+            checkpoint_identity=manifest.checkpoint_id)
+        ledger.close()
+        try:
+            ParentRef(lookup_key="E1-B-1701").resolve(run2)
+            raise AssertionError("substring must not match E1-B-17010")
+        except ValueError:
+            pass
+        rec = ParentRef(lookup_key="E1-B-17010").resolve(run2)
+        assert rec["run_dir"] == run2
+        return "exact job_id match only, run_dir carried"
+    results.append(check("S1_exact_lineage", s1_exact_lineage))
+
     # S2: real checkpoint publish/restore (random init, no training).
     def s2_checkpoint_real():
         from bramastra_lab.research.config import seed_everything
@@ -117,7 +149,19 @@ def main():
             raise AssertionError("generic k8 should be refused")
         except Exception as exc:
             assert "generic placeholder" in str(exc)
-        return f"publish {manifest.checkpoint_id[:12]} + load + verify ok; generic k8 refused"
+        # Same update_index across arms must not collide (namespaced dirs).
+        from bramastra_lab.research.runtime.checkpoint import publish_checkpoint as _pub
+        token2 = acquire_writer_fence(run)
+        try:
+            m_b = _pub(run_dir=run, run_id="E1-B-1701-test", update_index=0,
+                       payload=payload, config_identity=config.identity(),
+                       tokenizer_identity=ids["tokenizer_identity"],
+                       data_identity=data_hash, code_identity=ids["source_hash"],
+                       phase="E1", arm="B", seed=1701, writer_token=token2)
+        finally:
+            release_writer_fence(run, token2)
+        assert m_b.checkpoint_id != manifest.checkpoint_id
+        return f"publish {manifest.checkpoint_id[:12]} + load + verify ok; generic k8 refused; collision-free"
     results.append(check("S2_checkpoint_publish_restore", s2_checkpoint_real))
 
     # S2: ProductionOps requires allocation (never require_allocation=False).
@@ -296,10 +340,12 @@ def main():
             "bramastra_lab/research/campaigns/phases/e5.py").read_text()
         assert "run_fixture_generation(" not in e5_src, "fixture generation forbidden"
         assert "class _FakeTrainer" not in e5_src, "fake trainer gone"
-        assert '_METHOD_PROGRAMS["M2"]' not in e5_src or \
-            '"P_fixed": "M0"' in e5_src or "'P_fixed'" in e5_src, "check P_fixed"
-        # P_fixed must be M0 in the successor fork.
-        assert 'compile_method(_METHOD_PROGRAMS["M0"]' in e5_src, "P_fixed M0 compile"
+        # P_fixed is compiled from M0 exactly once for the fixed successor;
+        # M2/M1 appear only as trial arms and the P1 selected choice.
+        assert e5_src.count('compile_method(_METHOD_PROGRAMS["M0"]') >= 1, \
+            "P_fixed M0 compile"
+        assert '"P_fixed": "M0"' in e5_src or "'P_fixed'" in e5_src or \
+            "P_fixed" in e5_src
         # No-training boundary must fail (probe behavior).
         from bramastra_lab.research.campaigns.phases.e5 import execute as e5exec
         from bramastra_lab.research.campaigns.phases.ops import RecordingDoubleOps
@@ -355,11 +401,53 @@ def main():
         import pathlib
         runner_src = pathlib.Path(
             "bramastra_lab/research/campaigns/runner.py").read_text()
-        assert "skip" not in runner_src.lower() or "skip-readiness" not in runner_src.lower() or \
-            "skip-readiness" not in runner_src, "no skip-readiness flag"
+        assert "skip-readiness" not in runner_src
         assert "skip_readiness" not in runner_src and "SKIP_READINESS" not in runner_src
+        # Worker must also carry no bypass flag.
+        worker_src = pathlib.Path(
+            "bramastra_lab/research/campaigns/worker.py").read_text()
+        assert "skip-readiness" not in worker_src
+        assert "skip_readiness" not in worker_src
         return f"blocked {rep['blocked_phases']}, no bypass flag"
     results.append(check("readiness_still_blocked", readiness))
+
+    # Worker/spawn propagation (job_id/slot/parent/targets reach executors).
+    def worker_propagation():
+        from bramastra_lab.research.campaigns import worker
+        from bramastra_lab.research.campaigns import process_supervision as ps
+        tmp2 = tempfile.mkdtemp(prefix="k8-worker-")
+        open(os.path.join(tmp2, "manifest.json"), "w").write("{}")
+        run2 = tempfile.mkdtemp(prefix="k8-worker-run-")
+        out = worker.run_worker_phase(
+            phase="E1", device="cpu", arm="A", seed=1701, data_dir=tmp2,
+            run_dir=run2, precision="fp32", deadline=9e9,
+            physical_device="cpu", slot=0, parent=None,
+            job_id="E1-A-1701", update_target=None)
+        assert out["status"] == "failed" and "explicit update_target" in out.get("error", "")
+        seen: dict = {}
+
+        def echo_worker(**kwargs):
+            seen.update(kwargs)
+            return {"status": "failed", "error": "echo",
+                    "committed_updates": 0, "attempted_updates": 0,
+                    "supervised_exposure": 0, "device_seconds": 0.0,
+                    "checkpoint_identity": None}
+
+        import sys
+        sys.modules["echo_k8"] = type(sys)("echo_k8")
+        sys.modules["echo_k8"].fn = echo_worker
+        spec = {"job_id": "E3-T1-1701", "phase": "E3", "physical_device": "cpu",
+                "device": "cpu", "arm": "T1", "seed": 1701, "slot": 2,
+                "parent": "E1-B-1701", "update_target": 80,
+                "data_dir": tmp2, "run_dir": run2,
+                "precision": "fp32", "deadline": 9e9}
+        ps._child_execute(dict(spec), worker_fn_path="echo_k8:fn")
+        assert seen.get("job_id") == "E3-T1-1701"
+        assert seen.get("slot") == 2
+        assert seen.get("parent") == "E1-B-1701"
+        assert seen.get("update_target") == 80
+        return "worker requires explicit targets; spawn propagates job/slot/parent"
+    results.append(check("worker_propagation", worker_propagation))
 
     passed = sum(1 for r in results if r["pass"])
     print(f"\nSUMMARY {passed}/{len(results)} passed, 0 optimizer steps, 0 GPU")

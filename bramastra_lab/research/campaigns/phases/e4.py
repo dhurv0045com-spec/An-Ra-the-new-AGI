@@ -26,9 +26,12 @@ def _resolve_parent(job: JobInput) -> dict[str, Any]:
     key = job.resolved_parent_key()
     if not key:
         raise ValueError("E4 requires an E1-B parent; missing parent must fail")
-    candidate = str(key).split("/")[0].strip()
+    if "/" in str(key):
+        raise ValueError(
+            f"E4 parent {key!r} is combined; E4 requires a single E1-B parent")
+    candidate = str(key).strip()
     try:
-        if job.parent_ref is not None:
+        if job.parent_ref is not None and job.parent_ref.lookup_key == candidate:
             return job.parent_ref.resolve(job.run_dir)
         return ParentRef(lookup_key=candidate).resolve(job.run_dir)
     except Exception as exc:
@@ -133,13 +136,9 @@ def execute(job: JobInput, *, ops=None,
                                evidence_kind=EVIDENCE_FIXTURE,
                                extra={"phase": "E4"})
         try:
-            try:
-                outcome = ops.apply_update(
-                    child, batch=batch, window=window, extra=extra,
-                    pair_rows=None)
-            except TypeError:
-                outcome = ops.training_update(child, batch=batch,
-                                              window=window, extra=extra)
+            outcome = ops.apply_update(
+                child, batch=batch, window=window, extra=extra,
+                pair_rows=None)
         except Exception as exc:
             return PhaseResult(status="failed", committed_updates=committed,
                                attempted_updates=attempted,
