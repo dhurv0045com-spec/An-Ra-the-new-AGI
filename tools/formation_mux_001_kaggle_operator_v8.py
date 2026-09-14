@@ -3,9 +3,13 @@
 Runs the frozen campaign for as many Kaggle sessions as required. A session
 uses the available wall safely, checkpoints are exact-resume, and no scientific
 exposure is shortened to fit a session.
+
+Ops hardening in this revision is engineering-only: it adds explicit S5
+compile/test qualification inside Kaggle and a storage-capacity preflight
+against Kaggle's saved /kaggle/working volume. Frozen Science S5 is unchanged.
 """
 from __future__ import annotations
-import argparse, hashlib, json, subprocess, sys, time, zipfile
+import argparse, hashlib, json, shutil, subprocess, sys, time, zipfile
 from pathlib import Path
 from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -17,6 +21,7 @@ SCIENCE_COMMIT = "c15ad8beb409537db42d075684ea54847a074ebd"
 OPERATOR_NAME = "tools/formation_mux_001_kaggle_operator_v8.py"
 CAMPAIGN_ROOT = Path("/kaggle/working/FORMATION_MUX_001")
 BUNDLE_NAME = "FORMATION_MUX_001_RESULTS.zip"
+STORAGE_RESERVE_BYTES = 2 * 1024 ** 3
 
 SCIENCE_FILES = v7.SCIENCE_FILES + (
     "docs/cymek/experiments/FORMATION-MUX-001/AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY.md",
@@ -64,6 +69,60 @@ v7.worker_cmd = worker_cmd
 v7.base.worker_cmd = worker_cmd
 
 
+def qualify_s5(repo: Path, public_surface: Path, out: Path) -> dict[str, Any]:
+    """Fail fast on the actual S5 code path, then run the dual-T4 E2E qualifier."""
+    compile_files = [
+        "anra_v5/formation_mux_model_v3.py",
+        "anra_v5/formation_mux_train_v5.py",
+        "v5_experiments/formation_mux_protocol_v5.py",
+        "v5_experiments/formation_mux_surface_v5.py",
+        "tools/formation_mux_001_worker_v5.py",
+        OPERATOR_NAME,
+    ]
+    compile_run = subprocess.run(
+        [sys.executable, "-m", "py_compile", *compile_files],
+        cwd=repo, capture_output=True, text=True,
+    )
+    tests = subprocess.run(
+        [
+            sys.executable, "-m", "pytest", "-q",
+            "tests/test_formation_mux_001_v2.py",
+            "tests/test_formation_mux_001_v3.py",
+            "tests/test_formation_mux_001_v4.py",
+            "tests/test_formation_mux_001_v5.py",
+            "tests/test_formation_mux_surface_v2.py",
+        ],
+        cwd=repo, capture_output=True, text=True,
+    )
+    preflight = {
+        "s5_py_compile_returncode": compile_run.returncode,
+        "s5_py_compile_stderr_tail": compile_run.stderr[-4000:],
+        "s5_pytest_returncode": tests.returncode,
+        "s5_pytest_stdout_tail": tests.stdout[-12000:],
+        "s5_pytest_stderr_tail": tests.stderr[-6000:],
+    }
+    if compile_run.returncode != 0 or tests.returncode != 0:
+        v7.base._atomic_json(out / "QUALIFICATION.json", {
+            "schema": "anra.formation-mux-qualification/v5-kaggle",
+            "science_commit": SCIENCE_COMMIT,
+            **preflight,
+            "status": "S5_CPU_STATIC_FAIL",
+        })
+        raise v7.base.GlobalIntegrityError("Science S5 Kaggle CPU/static qualification failed")
+
+    receipt = v7.qualify(repo, public_surface, out)
+    receipt.update(preflight)
+    receipt.update({
+        "schema": "anra.formation-mux-qualification/v5-kaggle",
+        "science_commit": SCIENCE_COMMIT,
+        "s5_execution_files_compiled": compile_files,
+        "status": "CPU_STATIC_S5_PASS / GPU_E2E_PASS_ENGINEERING_ONLY",
+        "sealed_rows_visible_to_workers": False,
+    })
+    v7.base._atomic_json(out / "QUALIFICATION.json", receipt)
+    return receipt
+
+
 def calibrate_long_run(repo: Path, public_surface: Path, out: Path) -> dict[str, Any]:
     """Measure ETA but never truncate frozen science because of projected duration."""
     receipt = v7.base.calibrate(repo, public_surface, out)
@@ -77,6 +136,53 @@ def calibrate_long_run(repo: Path, public_surface: Path, out: Path) -> dict[str,
         "raw_sealed_rows_used": False,
     })
     v7.base._atomic_json(out / "CALIBRATION_RECEIPT.json", receipt)
+    return receipt
+
+
+def storage_preflight(out: Path) -> dict[str, Any]:
+    """Verify saved Kaggle working storage can hold remaining arm checkpoints.
+
+    Kaggle saves /kaggle/working between versions. We estimate the additional
+    official checkpoint footprint from the largest calibration checkpoint,
+    count already-created official checkpoint slots, and keep a 2 GiB reserve
+    for the public manifest, repository, logs, JSON results, and packaging.
+    """
+    target = Path("/kaggle/working") if Path("/kaggle/working").exists() else out.parent
+    usage = shutil.disk_usage(target)
+    calibration_ckpts = list((out / "calibration").rglob("resume.pt"))
+    if not calibration_ckpts:
+        raise v7.base.GlobalIntegrityError("storage preflight cannot find calibration checkpoints")
+    max_checkpoint_bytes = max(p.stat().st_size for p in calibration_ckpts)
+
+    existing_official = 0
+    for experiment, arms in ((proto.EXPERIMENT_A, proto.ARMS_A), (proto.EXPERIMENT_B, proto.ARMS_B)):
+        for arm in arms:
+            for index, _bundle in enumerate(proto.SEED_BUNDLES, start=1):
+                if (out / experiment / arm / f"S{index}" / "resume.pt").exists():
+                    existing_official += 1
+    remaining_slots = max(proto.total_official_arms() - existing_official, 0)
+    projected_additional = remaining_slots * max_checkpoint_bytes
+    required_free = projected_additional + STORAGE_RESERVE_BYTES
+    receipt = {
+        "schema": "anra.formation-mux-storage-preflight/v1",
+        "path": str(target),
+        "disk_total_bytes": usage.total,
+        "disk_used_bytes": usage.used,
+        "disk_free_bytes": usage.free,
+        "largest_calibration_checkpoint_bytes": max_checkpoint_bytes,
+        "official_checkpoint_slots_existing": existing_official,
+        "official_checkpoint_slots_remaining": remaining_slots,
+        "projected_additional_checkpoint_bytes": projected_additional,
+        "reserve_bytes": STORAGE_RESERVE_BYTES,
+        "required_free_bytes": required_free,
+        "pass": usage.free >= required_free,
+    }
+    v7.base._atomic_json(out / "STORAGE_PREFLIGHT.json", receipt)
+    if not receipt["pass"]:
+        raise v7.base.GlobalIntegrityError(
+            "insufficient /kaggle/working space for remaining exact-resume checkpoints: "
+            f"free={usage.free} required={required_free}"
+        )
     return receipt
 
 
@@ -242,8 +348,9 @@ def main(argv=None) -> int:
             "raw_sealed_rows_persisted": False,
             "sealed_commitments": public["sealed_commitments"],
         })
-        v7.qualify(repo, public_path, out)
+        qualify_s5(repo, public_path, out)
         calibration = calibrate_long_run(repo, public_path, out)
+        storage_preflight(out)
         state = v7.run_campaign(repo, public_path, out, calibration, operator_started=started)
         if state["status"] == "ARMS_COMPLETE":
             for experiment in proto.EXPERIMENTS:
