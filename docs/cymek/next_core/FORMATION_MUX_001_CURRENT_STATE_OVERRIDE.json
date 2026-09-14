@@ -1,8 +1,8 @@
 {
-  "schema": "anra.next-core-current-state-override/v2",
+  "schema": "anra.next-core-current-state-override/v3",
   "date": "2026-09-14",
   "branch": "cymek-next-core-architecture",
-  "reason": "NEXT_CORE_SPEC.json is a generated historical-current snapshot that still carries one stale numeric_symbol_representation blocking_experiment label pointing to completed CS-TRANSFER-001. This override records the current prospective FORMATION-MUX authority without rewriting historical evidence.",
+  "reason": "Generated NEXT_CORE_SPEC.json and NEXT_CORE_READINESS.json predate the completed CS-TRANSFER-001 consequence and still contain stale blocker text. This override records the current prospective FORMATION-MUX authority without rewriting historical evidence snapshots.",
   "authoritative_overrides": {
     "vocabulary_size": {
       "working_choice": 24576,
@@ -20,6 +20,24 @@
       "note": "CS-TRANSFER-001 is complete and must not be treated as an open blocker"
     }
   },
+  "readiness_overrides": {
+    "physical_vocabulary_output_geometry": {
+      "state": "CS_TRANSFER_CLOSED_RESIDUAL_MECHANISM_OPEN",
+      "note": "CS-TRANSFER-001 completed with PARTIAL_OR_INTERACTION; physical V4096 is not a robust remedy and V24576 remains the conservative working choice, not a proven optimum. Residual mechanism/representation questions are now FORMATION-MUX-001."
+    },
+    "r1c_consequence.next_decisive_test": "FORMATION-MUX-001: CS-MECH-002 + REP-FORM-003A under Science S4",
+    "blockers_to_ready_for_500m": {
+      "remove": ["CS-TRANSFER-001 executed + physical output-space consequence adopted per tree (U03)"],
+      "add": [
+        "FORMATION-MUX-001 adjudicated and architecture consequence recorded",
+        "production corpus materialized + attack-screened (U08)",
+        "canonical WSD executed once end-to-end",
+        "multi-seed formation demonstrated at the required transfer rung on the production representation",
+        "Citadel PRE500M green"
+      ],
+      "scale_authorization": "NOT_JUSTIFIED"
+    }
+  },
   "campaign": {
     "name": "FORMATION-MUX-001",
     "science_authority": "Science S4",
@@ -33,5 +51,5 @@
     "runtime_state": "KAGGLE_T4X2_NOT_YET_RUN",
     "scientific_outcomes_observed": false
   },
-  "precedence": "For the two fields above, this prospective current-state override supersedes stale blocker labels in generated NEXT_CORE_SPEC.json until that generator is regenerated. Historical evidence remains unchanged."
+  "precedence": "For the fields and readiness gates named here, this prospective current-state override supersedes stale blocker labels in generated NEXT_CORE_SPEC.json and NEXT_CORE_READINESS.json until those generators are regenerated. Historical evidence remains unchanged."
 }
