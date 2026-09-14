@@ -1,0 +1,189 @@
+{
+  "baseline_revision": "29df755",
+  "blocking_requirements": [
+    "F02",
+    "F04",
+    "F09",
+    "F13",
+    "F14",
+    "F20",
+    "F21",
+    "F22",
+    "F23",
+    "F24"
+  ],
+  "current_revision": "0db7495",
+  "generated": "2026-09-14",
+  "ready_for_owner_experiment": false,
+  "requirements": {
+    "F01": {
+      "evidence": "IntegratedModel + GatedReuseModel verified; 6,493,952 params confirmed by instantiation in tests/test_research_model_wrapper.py; consumer map documented in episode.py/executive.py/k8_scoring.py; consumer map test in test_research_k8.py::VerticalSliceTests",
+      "gap": "Full 8-layer width-256 model not instantiated locally (tiny profile used for tests)",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Shared from-scratch architecture"
+    },
+    "F02": {
+      "evidence": "Rule generators expanded to 4096 mechanisms (verified); K8LiveEnv created; information sufficiency witness NOT yet implemented; J01 (unidentifiable answers) still open",
+      "gap": "Public rule specification for base task; information sufficiency witness; teacher trajectory from same env contract",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Solvable task and label contracts"
+    },
+    "F03": {
+      "evidence": "build_k8_bundle generates manifest/splits/episodes/supervision/tools/meta/audit with file hashes; mechanism dedup by public content; verified 4096 rule mechanisms; CLI prepare command works",
+      "gap": "Full 4096-per-family bundle not generated locally (requires Kaggle session); tool heldout composition flag not exercised",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Full dataset and split closure"
+    },
+    "F04": {
+      "evidence": "render_event_sequence provides single canonical renderer with provenance rejection; _compact_history_entry rewritten as lossless bijective codec; _expand_history_entry added",
+      "gap": "DecisionExample typed record not yet implemented; six/eight-token cuts in compiler.py not yet removed (J02)",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Complete decision codec"
+    },
+    "F05": {
+      "evidence": "SupervisionWindow + route_window with separate denominators; K8Trainer with AMP/GradScaler/skip accounting; combine_window_losses verified; tests in test_research_master_m05_m06_m12.py",
+      "gap": "Trainer accumulate uses answer loss only; router not fully consumed for multi-objective backward (R04 partially fixed)",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Learning algorithms and windows"
+    },
+    "F06": {
+      "evidence": "score_candidates_trainable, value_estimate_trainable, world_transition_token_loss all return live gradient tensors; tests verify requires_grad and backward; vertical slice test proves consumer chain",
+      "gap": "Training/inference parity not fully verified; candidate batching not implemented",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Trained decision consumers"
+    },
+    "F07": {
+      "evidence": "CognitiveWorkspace with typed beliefs/evidence/subgoals/commitments/capability estimates; mark_conflicts with subject/predicate/temporal semantics; admit_observation_evidence; 23 cognition tests pass",
+      "gap": "Workspace rendering not yet consumed by E2 adapters",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Cognitive evidence state"
+    },
+    "F08": {
+      "evidence": "BoundedPlannerAdapter with breadth-first expansion, A5 Q formula (sp1 * best_sp2), excluded_root_ids, node budgets, _known_forecast; 4 branching tests + foundation F4 tests pass",
+      "gap": "Planner uses CannedWorldModel in tests; not yet connected to learned world prediction in production path",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Bounded planning and execution"
+    },
+    "F09": {
+      "evidence": "_planner_prediction_gap rewritten to return dict with joined/node_index/success_gap/feedback_match; E2 phase executor exists",
+      "gap": "A checkpoint not used by A controls (J08); empty predictions can appear calibrated (J07); matched evaluation test fails",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Actual controls and metrics"
+    },
+    "F10": {
+      "evidence": "campaigns/phases/e1.py implements four from-scratch formation runs with counterbalanced seeds; checkpoint stage publishing at 25/50/75/100%",
+      "gap": "Not locally verified with actual GPU execution",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Formation and parent lineage"
+    },
+    "F11": {
+      "evidence": "Tool mechanisms generated; K8LiveEnv implements read_table/filter_rows/sum_column/write_result/check_result; classify_failure for tool receipts",
+      "gap": "T0/T1 fork/replay logic in e3.py not locally verified with actual model",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Tools and retention"
+    },
+    "F12": {
+      "evidence": "GatedReuseModel with zero-gate migration equality, gate gradient checks, nonzero-gate reaches shared blocks; disabled slots for S0; tests pass",
+      "gap": "Not tested with the full 8-layer model on CUDA",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Architecture adaptation"
+    },
+    "F13": {
+      "evidence": "trial_service.py exists; dispatch_method_to_trainer implemented",
+      "gap": "JobInput/attribute mismatch (J12); reservation binding not production-tested",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Trial authority and evaluation"
+    },
+    "F14": {
+      "evidence": "MethodProposer/MethodArchive/dispatch implemented; fixture generation chain works; origin validation with forged-checkpoint rejection",
+      "gap": "E5 phase executor not consuming real proposer; P0/P1/P_fixed lineage not materialized",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Measured RSI chain"
+    },
+    "F15": {
+      "evidence": "CampaignLedger with immutable allocation, unique jobs, per-device occupancy, phase_receipts/phase_success/consumption; SQLite persistence across restarts",
+      "gap": "Ledger not tested with concurrent two-worker access",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Allocation and event reduction"
+    },
+    "F16": {
+      "evidence": "K8Trainer._run_e0 implements 3-vs-1+2 resume comparison with differentiable scoring; AllocationContext admission gates; E0 worker dispatch in runner.py",
+      "gap": "Uses tiny profile locally; full-profile calibration requires GPU",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "E0 implementation and calibration"
+    },
+    "F17": {
+      "evidence": "checkpoint.py with atomic publication, hash verification, writer fencing, expected-parent binding; restore with identity binding and safe loading; 14 checkpoint tests pass",
+      "gap": "Full-model checkpoint payloads not tested locally",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Checkpoint and restart code"
+    },
+    "F18": {
+      "evidence": "clustered_bootstrap_delta with case-id pairing; promotion with EvidenceBundle/protocol; retention_report with worst-family tracking; 35 evaluation tests pass",
+      "gap": "Not yet consumed by E2/E5 phase executors",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Statistics and claim logic"
+    },
+    "F19": {
+      "evidence": "notebooks/bramastra_k8.ipynb with 14 cells using subprocess.run (zero shell ! calls); calls repository CLI entry points",
+      "gap": "Notebook not executed by owner; hardcoded paths need resolution at runtime",
+      "required_for_ready_to_launch": true,
+      "status": "pass",
+      "title": "Owner notebook and inputs"
+    },
+    "F20": {
+      "evidence": "campaigns/k8.py export writes ledger JSON",
+      "gap": "Export missing checkpoint payloads, per-phase results, comparisons, frozen protocol, RESULT.json/REPORT.md",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Complete export"
+    },
+    "F21": {
+      "evidence": "verify-build command specified in FINAL_EXPERIMENT_EXECUTION.md but NOT implemented",
+      "gap": "New CLI surface with registered local checks, data/schema closure validation, and machine-readable report",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Evidence-backed build readiness"
+    },
+    "F22": {
+      "evidence": "619 tests pass but foundation/operational suites have gaps; integrated local rehearsal not run",
+      "gap": "Full E0-E6 control-interface rehearsal with no-step adapters",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Integrated local verification"
+    },
+    "F23": {
+      "evidence": "Source code committed but dependency lock/data artifact/release bundle not delivered",
+      "gap": "Runtime lock/constraints, offline data bundle, source archive",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Published release artifacts"
+    },
+    "F24": {
+      "evidence": "This handoff is the disposition document",
+      "gap": "BUILD_READINESS.json with all F01-F24 dispositions and RUN_EXPERIENCE.md",
+      "required_for_ready_to_launch": true,
+      "status": "fail",
+      "title": "Final operator handoff"
+    }
+  },
+  "schema": "bramastra-k8-build-readiness/v1"
+}

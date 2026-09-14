@@ -1000,8 +1000,14 @@ def encode_action_code(action: dict, legal_actions: list[dict]) -> str:
     for index, candidate in enumerate(legal_actions):
         if dict(candidate) == dict(action):
             import json as _json
-            code = _json.dumps({"a": index}, separators=(",", ":"))
-            return code
+            return _json.dumps({"a": index}, separators=(",", ":"))
+    # Fallback: match by kind when the action carries additional payload
+    # fields (e.g. submit with answer) not present in the template.
+    kind = action.get("kind")
+    for index, candidate in enumerate(legal_actions):
+        if candidate.get("kind") == kind:
+            import json as _json
+            return _json.dumps({"a": index}, separators=(",", ":"))
     raise ValueError(f"action not in legal set: {action}")
 
 
