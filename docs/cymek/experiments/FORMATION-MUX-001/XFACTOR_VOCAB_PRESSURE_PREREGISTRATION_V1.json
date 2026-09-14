@@ -1,0 +1,59 @@
+{
+  "schema": "anra.formation-mux-xfactor-preregistration/v1",
+  "campaign": "FORMATION-MUX-001",
+  "diagnostic": "VOCAB-PRESSURE-001",
+  "written_before_official_formation_mux_outcomes": true,
+  "relationship_to_science_s5": {
+    "frozen_science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "diagnostic_only": true,
+    "changes_training": false,
+    "adds_training_arms": false,
+    "changes_primary_or_sealed_verdict": false,
+    "may_change_frozen_verdict": false
+  },
+  "question": "When extra tied output rows hurt CS-MECH formation, how much is endpoint inference-time logit competition versus training-time denominator/representation damage?",
+  "scope": {
+    "experiment": "CS-MECH-002",
+    "surface": "development identity family only",
+    "development_rows": 80,
+    "sealed_rows_used": false,
+    "checkpoints": "final official checkpoints for all four arms and four matched seed bundles",
+    "physical_vocabulary": 24576,
+    "shared_rows": "0..4095",
+    "extra_rows": "4096..24575"
+  },
+  "measurements": [
+    "normal full-vocabulary candidate-free identity exact+valid-EOS",
+    "counterfactual shared-only eval identity exact+valid-EOS with rows 4096..24575 masked only during diagnostic decoding",
+    "counterfactual rescue = shared-only exact - full-vocabulary exact",
+    "teacher-forced probability mass assigned to extra rows",
+    "denominator tax in nats = logsumexp(full logits) - logsumexp(shared logits) = -log(1 - extra_probability_mass)",
+    "target-logit margin versus strongest extra-row logit",
+    "target rank under full vocabulary and shared-only vocabulary",
+    "shared-row and extra-row embedding norm summaries"
+  ],
+  "focus_arm": "M2_EXTRA_FROZEN",
+  "prospective_interpretation": {
+    "material_endpoint_competition": {
+      "rule": "mean M2 counterfactual rescue >= 0.05 and rescue > 0 in at least 3 of 4 seed bundles",
+      "meaning": "unused extra rows remain a material inference-time competitor at the endpoint",
+      "architecture_nominated_for_future_test": "output gating/partition treatment at inference or a function-preserving routed output treatment; D8 remains EXPERIMENT_ONLY until separately validated"
+    },
+    "small_endpoint_competition": {
+      "rule": "mean M2 counterfactual rescue < 0.05",
+      "meaning": "if the frozen S5 M2-vs-M3 contrast is material, the loss is more consistent with training-time denominator pressure/formation damage than endpoint decoding competition",
+      "architecture_nominated_for_future_test": "retain physical V=24576 and test the simplest training-only output-space treatment; this is the path toward ADOPT-TRAINING-TREATMENT, not a vocabulary shrink"
+    },
+    "mixed": {
+      "rule": "all other patterns",
+      "meaning": "endpoint competition and training-time formation effects are not cleanly separated",
+      "architecture_nominated_for_future_test": "do not change production output space; isolate tied-row geometry/scale next"
+    }
+  },
+  "architecture_targets": [
+    "D7 vocabulary field (currently BLOCKED)",
+    "D8 output-head field (currently BLOCKED/EXPERIMENT_ONLY)",
+    "DECIDE-OUTPUT-SPACE -> ADOPT-TRAINING-TREATMENT versus ADOPT-GEOMETRY-CHANGE"
+  ],
+  "claim_ceiling": "Mechanism-localization diagnostic on development data only. It cannot alter the frozen S5 verdict, cannot authorize a production vocabulary/tokenizer change, scale run, cognition claim, or AGI claim."
+}
