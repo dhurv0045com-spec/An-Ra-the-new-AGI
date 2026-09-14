@@ -1,5 +1,7 @@
 # H01 — Repair the data-to-action path in one focused execution session
 
+**Historical timebox; included repair recipe only.** The owner has superseded the one-hour stopping condition with [FINAL-K8](FINAL_EXPERIMENT_EXECUTION.md). Complete these repairs as applicable, then continue through every final requirement; the final architecture/consumer contract governs conflicts.
+
 **Assignment: change production code now.** Start a 60-minute engineering session. Read this file and AGENTS.md, then begin edits. You do not need to read the historical blueprint packets or ask the owner to prioritize. Time allocations below guide execution; finish early if the acceptance criteria pass. At 60 minutes deliver tested work and exact remaining failures; never claim unfinished work complete or wait idle to fill time.
 
 ## Required outcome

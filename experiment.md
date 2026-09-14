@@ -1,6 +1,6 @@
 # BRAMASTRA K8: cognition, tool transfer, architecture and recursive learning
 
-**Current code assignment:** [H01 — one focused hour of implementation](engineering/ONE_HOUR_EXECUTION.md). This experiment document is a design reference, not the implementation agent's reading queue. The owner campaign remains blocked pending code acceptance and GPU qualification.
+**Current execution authority:** [FINAL-K8](engineering/FINAL_EXPERIMENT_EXECUTION.md) assigns the complete model/data/cognition/RSI/runtime/notebook delivery and overrides conflicting historical implementation notices below. Preserve this campaign budget and registered comparisons; apply the final task/schema amendments before owner execution. No experiment has been qualified by writing this assignment.
 
 Chief experiment design, 2026-09-13. Inspected implementation: `edee72726706e0f8f46ec98bb3c979ebc2930233`. **Status: experiment specified; notebook/integration work required; no campaign results exist.** This is the next executable milestone after the M00–M24 build, not another expansion of its module list.
 

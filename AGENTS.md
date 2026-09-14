@@ -1,10 +1,12 @@
 # BRAMASTRA agent entry point
 
-## Active work: H01 — one focused hour of implementation
+## Active work: FINAL-K8 — complete the owner experiment build
 
-Start at [engineering/README.md](engineering/README.md), read [STATUS](engineering/STATUS.md), then execute [ONE_HOUR_EXECUTION.md](engineering/ONE_HOUR_EXECUTION.md). Those are the required entry reads. Begin code changes after reading them. Earlier multi-day packets are reference material, not prerequisites or competing assignments.
+Read [engineering/README.md](engineering/README.md), [STATUS](engineering/STATUS.md), [FINAL_EXPERIMENT_EXECUTION.md](engineering/FINAL_EXPERIMENT_EXECUTION.md) and [REQUIREMENTS.json](engineering/final_delivery/REQUIREMENTS.json), then implement. These contain the complete remaining assignment. Older blueprints are optional references for specific questions, not a prerequisite reading queue.
 
-The owner asks for execution. H01 specifies three production repairs, owned files, regression checks and a commit/push handoff. Do not substitute a blueprint, another review, import-only fixes or a workload estimate for implementation. Resolve routine choices yourself. If a real blocker remains, identify the exact failing criterion and continue independent assigned work. The 60-minute target is an engineering timebox, not authorization to pad work or claim unfinished work complete.
+The owner now requires the entire experiment-ready implementation, not only H01. Finish the model/learning consumers, data, cognition, tools, architecture adaptation, RSI, runtime, notebook, build verifier and delivery artifacts. There is no one-hour stopping condition. Continue across progress commits/checkpoints until all 24 requirements are verified or a precise external blocker is established. Do not return another plan, a passing subset or a workload estimate as completion.
+
+The final owner notebook must run without another code patch or design decision: validate the delivered build/data, qualify actual GPUs in E0, continue through E1–E6 under one allocation and export real evidence. Code readiness, hardware qualification and scientific support remain distinct.
 
 ## Mission and authority
 
@@ -23,6 +25,6 @@ The objective is general intelligence trained from scratch, including transferab
 
 ## Completion
 
-Verify every H01 criterion against the actual consumer. Run focused tests and the bounded acceptance script; no repeated full-suite runs without a reason. Write a concise handoff with exact commands, source identities, outcomes, measured time, limitations and next action. Distinguish implemented, CPU-tested, GPU-qualified and experimentally supported. Push scoped changes and report the commit. The chief retains broader readiness acceptance.
+Verify every FINAL-K8 requirement F01–F24 against the actual consumer. Run focused checks and the final build verifier/integrated rehearsal; no repeated full-suite runs without a reason. Write a concise handoff with exact commands, source identities, outcomes, measured time, limitations and next action. Distinguish implemented, CPU-tested, GPU-qualified and experimentally supported. Push scoped changes and report the commit. The chief gives standing conditional build-readiness authorization in FINAL_EXPERIMENT_EXECUTION.md section 22. Implement its evidence-backed gate; no new owner approval round is required after complete verification. Runtime GPU/allocation gates still apply.
 
-Earlier dispatch notices are preserved in Git at ba038c6; they are not active instructions.
+Earlier dispatches, including the one-hour stopping point, are historical references. FINAL-K8 is the only active assignment.

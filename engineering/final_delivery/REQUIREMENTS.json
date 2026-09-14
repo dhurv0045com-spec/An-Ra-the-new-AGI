@@ -1,0 +1,240 @@
+{
+  "schema": "bramastra-final-k8-requirements/v1",
+  "kind": "implementation_contract_not_readiness_evidence",
+  "baseline_revision": "29df755",
+  "active_assignment": "FINAL-K8",
+  "execution_document": "../FINAL_EXPERIMENT_EXECUTION.md",
+  "local_optimizer_updates_authorized": 0,
+  "completion_rule": "All F01-F24 implemented and locally verified, full owner inputs delivered; hardware qualification remains a mandatory automatic E0 runtime gate. H01 alone is not completion.",
+  "requirements": [
+    {
+      "id": "F01",
+      "title": "Shared from-scratch architecture",
+      "required_for_ready_to_launch": true,
+      "acceptance": "model geometry, paired initialization, declared priors and actual consumer map",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F02",
+      "title": "Solvable task and label contracts",
+      "required_for_ready_to_launch": true,
+      "acceptance": "information sufficiency witnesses, actual environment teacher replay and private-input separation",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F03",
+      "title": "Full dataset and split closure",
+      "required_for_ready_to_launch": true,
+      "acceptance": "required full bundle counts, canonical disjointness, references and offline artifact validation",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F04",
+      "title": "Complete decision codec",
+      "required_for_ready_to_launch": true,
+      "acceptance": "full input/target separation, typed action round trips, no semantic slicing and compatible schemas",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F05",
+      "title": "Learning algorithms and windows",
+      "required_for_ready_to_launch": true,
+      "acceptance": "all registered objectives, correct denominators, gradients, accumulation, optimizer/scaler contracts",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F06",
+      "title": "Trained decision consumers",
+      "required_for_ready_to_launch": true,
+      "acceptance": "actual action/world/value head consumers with shared training representations",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F07",
+      "title": "Cognitive evidence state",
+      "required_for_ready_to_launch": true,
+      "acceptance": "subject/predicate/time support, conflicts, supersession, omission and goal consistency",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F08",
+      "title": "Bounded planning and execution",
+      "required_for_ready_to_launch": true,
+      "acceptance": "composed state conditioning, real imagined transition, monotone counters and termination",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F09",
+      "title": "Actual controls and metrics",
+      "required_for_ready_to_launch": true,
+      "acceptance": "real A/B checkpoint consumers, frozen matched tasks and correct selected forecast joins",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F10",
+      "title": "Formation and parent lineage",
+      "required_for_ready_to_launch": true,
+      "acceptance": "actual E1 arms, paired starts, checkpoint fractions and held-out answer evaluation",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F11",
+      "title": "Tools and retention",
+      "required_for_ready_to_launch": true,
+      "acceptance": "executed tools, independent T0/T1 children, measured replay and protected exclusion",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F12",
+      "title": "Architecture adaptation",
+      "required_for_ready_to_launch": true,
+      "acceptance": "actual S0/S1 handles, zero-gate equivalence, nonzero effects, gradients, masks and restore",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F13",
+      "title": "Trial authority and evaluation",
+      "required_for_ready_to_launch": true,
+      "acceptance": "real binder contract, inherited deadlines, complete query/protected inputs and payload validation",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F14",
+      "title": "Measured RSI chain",
+      "required_for_ready_to_launch": true,
+      "acceptance": "trained P0, fresh archives, independent trained successors and pre-outcome confirmation captures",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F15",
+      "title": "Allocation and event reduction",
+      "required_for_ready_to_launch": true,
+      "acceptance": "one budget across restart, all child attempts/commits charged, phase/iteration caps and exact task schedule",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F16",
+      "title": "E0 implementation and calibration",
+      "required_for_ready_to_launch": true,
+      "acceptance": "full-profile qualification code, complete timing units, pilot charges, frozen protocol and failure refusal",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F17",
+      "title": "Checkpoint and restart code",
+      "required_for_ready_to_launch": true,
+      "acceptance": "complete real payloads, fresh-process load, source/parent consistency and corruption/fencing checks",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F18",
+      "title": "Statistics and claim logic",
+      "required_for_ready_to_launch": true,
+      "acceptance": "paired cluster intervals, registered thresholds, all outcomes and correct RSI attribution",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F19",
+      "title": "Owner notebook and inputs",
+      "required_for_ready_to_launch": true,
+      "acceptance": "pinned source/runtime, actual CLI, prebuilt data, E0-to-full single allocation and checked cells",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F20",
+      "title": "Complete export",
+      "required_for_ready_to_launch": true,
+      "acceptance": "required real payloads, source-bound inventory, restore checks, partial-run reporting and event reconciliation",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F21",
+      "title": "Evidence-backed build readiness",
+      "required_for_ready_to_launch": true,
+      "acceptance": "verify-build implemented, complete local evidence, matching closure and separate runtime qualification gate",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F22",
+      "title": "Integrated local verification",
+      "required_for_ready_to_launch": true,
+      "acceptance": "bounded no-update production rehearsals and relevant regression tests without concealed failures",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F23",
+      "title": "Published release artifacts",
+      "required_for_ready_to_launch": true,
+      "acceptance": "pushed code, full external data artifact, compact manifests, notebook and reproducible environment",
+      "status": "not_assessed_by_this_contract"
+    },
+    {
+      "id": "F24",
+      "title": "Final operator handoff",
+      "required_for_ready_to_launch": true,
+      "acceptance": "requirement matrix, verified build report, exact owner commands and no missing implementation",
+      "status": "not_assessed_by_this_contract"
+    }
+  ],
+  "runtime_qualification": [
+    {
+      "id": "G01",
+      "required_before": "E1",
+      "criterion": "two distinct actual T4 devices, correct worker-local mapping, compatible precision and live allowance"
+    },
+    {
+      "id": "G02",
+      "required_before": "E1",
+      "criterion": "full-profile real gradients/updates and fresh-process exact continuation, within E0 counters/deadline"
+    },
+    {
+      "id": "G03",
+      "required_before": "E1",
+      "criterion": "complete measured update/evaluation costs meet registered minima and fit frozen cases/settings"
+    },
+    {
+      "id": "G04",
+      "required_before": "E1",
+      "criterion": "current allocation, source/data/schema identities and frozen protocol verified by runner"
+    }
+  ],
+  "delivery_report_fields": [
+    "source_revision",
+    "implementation_closure_sha256",
+    "data_manifest_sha256",
+    "model_config_sha256",
+    "schema_identities",
+    "requirements",
+    "executed_commands",
+    "receipt_hashes",
+    "runtime_checks_pending",
+    "optimizer_updates_local",
+    "ready_for_owner_experiment",
+    "owner_notebook",
+    "data_artifact",
+    "runbook",
+    "remaining_blockers"
+  ],
+  "requirement_report_fields": [
+    "id",
+    "status",
+    "implemented_symbols",
+    "test_selectors",
+    "command_receipts",
+    "production_path_evidence",
+    "limitations"
+  ],
+  "valid_report_statuses": [
+    "pass",
+    "fail",
+    "not_run"
+  ],
+  "not_readiness_evidence": [
+    "specification file exists",
+    "manual PASS list",
+    "fixture-only production output",
+    "unvalidated payload name",
+    "selected seed result",
+    "test counts without relevant assertions"
+  ]
+}
