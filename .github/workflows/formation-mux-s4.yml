@@ -34,7 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest numpy 'tokenizers==0.23.0rc0'
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-      - name: Compile S5 execution surface
+      - name: Compile S5 execution surface and X-factor
         run: |
           python -m py_compile \
             anra_v5/formation_mux_model_v3.py \
@@ -42,7 +42,9 @@ jobs:
             v5_experiments/formation_mux_protocol_v5.py \
             v5_experiments/formation_mux_surface_v5.py \
             tools/formation_mux_001_worker_v5.py \
-            tools/formation_mux_001_kaggle_operator_v8.py
+            tools/formation_mux_001_vocab_pressure_v1.py \
+            tools/formation_mux_001_kaggle_operator_v8.py \
+            tools/formation_mux_001_kaggle_operator_v9.py
       - name: Run FORMATION-MUX qualification tests
         run: |
           python -m pytest -q \
@@ -50,20 +52,23 @@ jobs:
             tests/test_formation_mux_001_v3.py \
             tests/test_formation_mux_001_v4.py \
             tests/test_formation_mux_001_v5.py \
-            tests/test_formation_mux_surface_v2.py
-      - name: Verify immutable S5 and real-tokenizer 60k public surface
+            tests/test_formation_mux_surface_v2.py \
+            tests/test_formation_mux_vocab_pressure_v1.py
+      - name: Verify immutable S5, X-factor preregistration, and real-tokenizer 60k public surface
         run: |
           python - <<'PY'
           from pathlib import Path
-          from tools import formation_mux_001_kaggle_operator_v8 as op
+          from tools import formation_mux_001_kaggle_operator_v9 as op
           from v5_data.corpus_loading import _load_tokenizer
           from v5_experiments.formation_mux_surface_v5 import build_public_surface, regenerate_sealed_rows
 
           repo = Path('.').resolve()
-          hashes = op.v7.base.verify_science(repo)
-          assert set(hashes) == set(op.SCIENCE_FILES)
-          assert callable(op.qualify_s5)
-          assert callable(op.storage_preflight)
+          hashes = op.v8.v7.base.verify_science(repo)
+          assert set(hashes) == set(op.v8.SCIENCE_FILES)
+          receipt = op.verify_xfactor_preregistration(repo)
+          assert receipt['diagnostic'] == 'VOCAB-PRESSURE-001'
+          assert receipt['sha256'] == op.XFACTOR_SPEC_SHA256
+          assert receipt['sealed_rows_used'] is False
           tok, _ = _load_tokenizer(repo)
           public = build_public_surface(seed=73011, tokenizer=tok)
           assert set(public['splits']) == {'training', 'development'}
@@ -71,11 +76,11 @@ jobs:
           assert len(public['splits']['training']) == 60000
           assert len(public['splits']['development']) == 480
           assert public['training_rows_unique_before_stream_wrap'] == 60000
-          for exp in op.proto.EXPERIMENTS:
+          for exp in op.v8.proto.EXPERIMENTS:
               sealed = regenerate_sealed_rows(public_manifest=public, tokenizer=tok, experiment=exp)
               assert len(sealed) == 720
               del sealed
-          print('S5_IDENTITY_AND_REAL_TOKENIZER_SURFACE_PASS', len(hashes))
+          print('S5_XFACTOR_AND_REAL_TOKENIZER_SURFACE_PASS', len(hashes))
           PY
       - name: Validate canonical notebook JSON, code cells, and pins
         run: |
@@ -85,12 +90,13 @@ jobs:
           p = Path('notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb')
           nb = json.loads(p.read_text(encoding='utf-8'))
           assert nb['nbformat'] == 4
-          assert nb['metadata']['schema'] == 'anra.formation-mux-notebook/v7'
+          assert nb['metadata']['schema'] == 'anra.formation-mux-notebook/v8'
           assert nb['metadata']['science_commit'] == 'c15ad8beb409537db42d075684ea54847a074ebd'
-          assert nb['metadata']['operator_commit'] == 'fdc2483fed0bb1a80d4bfad376aac84a66db6055'
-          assert nb['metadata']['operator_blob'] == '58614bcab3d5a5ea4b3b28e00da56a834c321bba'
+          assert nb['metadata']['operator_commit'] == '8940cdef11f85c66499e49fcaf1ac55ac558883c'
+          assert nb['metadata']['operator_blob'] == 'ad79efd1ea4d875921be9ea359598953f4afb565'
+          assert nb['metadata']['xfactor'] == 'VOCAB-PRESSURE-001'
           for index, cell in enumerate(nb['cells']):
               if cell.get('cell_type') == 'code':
                   compile(''.join(cell.get('source', [])), f'notebook-cell-{index}', 'exec')
-          print('CANONICAL_NOTEBOOK_S5_PIN_PASS')
+          print('CANONICAL_NOTEBOOK_S5_XFACTOR_PIN_PASS')
           PY
