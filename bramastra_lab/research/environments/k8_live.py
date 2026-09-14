@@ -92,7 +92,7 @@ class RuleInquiryEnv(BaseEnvironment):
                         "distractors", [])]:
                 raise EnvironmentError(f"unknown variable {variable!r}")
             value = self._world.get(variable, False)
-            noise = self.mechanism.get("public", {}).get("obs_noise", "none")
+            noise = self.mechanism.get("public", {}).get("noise", "none")
             if noise == "flip_one" and variable not in self._reported:
                 value = not value
             self._reported[variable] = value

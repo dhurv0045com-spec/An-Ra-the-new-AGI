@@ -14,29 +14,42 @@ from bramastra_lab.research.contracts.core import content_identity
 
 BUNDLE_SCHEMA = "bramastra-k8-data/v1"
 
+# Registered inquiry budget: the number of permitted inspect/check actions
+# within the base evaluation episode (submit excluded). Every admitted
+# mechanism must carry an information-sufficiency witness within this budget.
+K8_INQUIRY_BUDGET = 4
+
 
 def _hash_file(path: str) -> str:
     return hashlib.sha256(open(path, "rb").read()).hexdigest()
 
 
 def generate_rule_inquiry_mechanism(rng: random.Random, mechanism_index: int) -> dict:
-    """Hidden Boolean rule with genuine semantic diversity for 4096 mechanisms.
+    """Hidden sampled values over a PUBLIC rule function (F02).
 
-    Diversity comes from genuine Boolean-function differences, NOT surface
-    names: variable count (2-6), rule type (10 types), relevant subset
-    (which variables actually matter), per-variable negation pattern,
-    threshold values, target values, distractor COUNT and observation noise.
-    Variable/distractor NAMES are randomized surface labels and are excluded
-    from the canonical semantic key (R06: do not invent diversity by counting
-    names). The dedup key is the canonical semantic equivalence class.
+    The public goal carries the complete rule function — rule type, which
+    variables are relevant, their negation pattern, threshold and target
+    polarity — while the per-episode sampled variable values stay hidden and
+    are revealed only by inspect actions. Because at most
+    K8_INQUIRY_BUDGET relevant variables exist, inspecting them always
+    determines the unique verifier ruling within budget (proved per
+    mechanism by `rule_information_witness`). Diversity comes from genuine
+    Boolean-function differences, NOT surface names: variable count (2-6),
+    rule type (10 types), relevant subset, negation pattern, threshold,
+    target polarity, distractor COUNT and observation noise. Names are
+    randomized surface labels excluded from the canonical semantic key.
     """
-    n_vars = rng.randint(2, 6)
+    n_vars = rng.randint(2, 5)
     rule_type = rng.choice([
         "and", "or", "xor", "nand", "nor", "xnor",
         "threshold", "majority", "exactly_one", "at_least_two"])
-    vars_ = [f"v{rng.randint(1000, 9999)}_{i}" for i in range(n_vars)]
-    # Relevant subset: which variables actually determine the output.
-    k_relevant = rng.randint(1, n_vars)
+    # Short surface names: variable identities are arbitrary labels (R06),
+    # and every token spent on them is taken from the evidence context.
+    vars_ = [f"v{i}" for i in range(n_vars)]
+    # Relevant subset: which variables actually determine the output. The
+    # count is capped at the inquiry budget so the function is always
+    # decidable from permitted observations (F02 sufficiency witness).
+    k_relevant = rng.randint(1, min(K8_INQUIRY_BUDGET, n_vars))
     relevant_idx = sorted(rng.sample(range(n_vars), k_relevant))
     # Per-variable negation pattern (genuine function difference).
     negations = [rng.choice([False, False, True]) for _ in range(n_vars)]
@@ -44,26 +57,173 @@ def generate_rule_inquiry_mechanism(rng: random.Random, mechanism_index: int) ->
         if rule_type in ("threshold", "at_least_two") else None
     target_value = rng.choice([True, False])
     n_distractors = rng.randint(1, 5)
-    distractors = [f"d{rng.randint(100, 999)}" for _ in range(n_distractors)]
-    obs_noise = rng.choice(["none", "flip_one", "extra_report"])
-    query_order = rng.sample(vars_, len(vars_))
+    distractors = [f"d{i}" for i in range(n_distractors)]
+    # Only implemented noise processes are generated (none, flip_one); the
+    # live environment executes exactly what the public spec declares.
+    obs_noise = rng.choice(["none", "flip_one"])
+    # Query order: relevant variables first, then non-relevant, then one
+    # distractor — so the declared order is a sufficient strategy.
+    non_relevant = [v for i, v in enumerate(vars_) if i not in relevant_idx]
+    query_order = [vars_[i] for i in relevant_idx] + non_relevant
     queries = [{"kind": "inspect", "variable": v} for v in query_order]
     queries.append({"kind": "inspect", "variable": rng.choice(distractors)})
+    rule = {"type": rule_type, "variables": vars_, "threshold": threshold,
+            "target_value": target_value, "relevant": relevant_idx,
+            "negations": negations}
+    # Public function spec (F02): rule type, relevant variables with their
+    # negation flags, threshold and target polarity. Non-relevant negation
+    # flags cannot affect the verifier ruling and are not part of the
+    # function; sampled values are the only hidden state. Keys are compact
+    # surface labels (same convention as the renderer's short keys) so the
+    # spec plus the inquiry evidence fits the 512-token campaign context.
+    # Cross-checked by `assert_public_function_matches` at build time.
+    public = {
+        "rt": rule_type,
+        "rel": [vars_[i] for i in relevant_idx],
+        "neg": [negations[i] for i in relevant_idx],
+        "tv": target_value,
+        "noise": obs_noise,
+        "nd": n_distractors,
+    }
+    if threshold is not None:
+        public["thr"] = threshold
     return {
         "mechanism_id": f"rule-{mechanism_index:06d}",
         "family": "rule-inquiry",
-        "rule": {"type": rule_type, "variables": vars_, "threshold": threshold,
-                 "target_value": target_value,
-                 "relevant": relevant_idx,
-                 "negations": negations},
+        "rule": rule,
         "queries": queries,
-        "complementary_pair": [{"variable": vars_[0]},
-                               {"variable": vars_[1]}] if n_vars >= 2 else [],
-        "public": {"variables": vars_, "rule_type": rule_type,
-                   "distractors": distractors, "obs_noise": obs_noise,
-                   "n_vars": n_vars, "n_distractors": n_distractors},
+        "complementary_pair": [{"variable": vars_[relevant_idx[0]]},
+                               {"variable": vars_[relevant_idx[1]]}]
+        if len(relevant_idx) >= 2 else [],
+        "public": public,
         "answer": str(target_value).lower(),
     }
+
+
+def rule_information_witness(public: dict, *,
+                             budget: int = K8_INQUIRY_BUDGET) -> dict:
+    """Bounded information-sufficiency witness for a rule-inquiry task (F02).
+
+    Proves from the PUBLIC function spec alone that some strategy within the
+    inquiry budget determines the unique verifier ruling for every hidden
+    world: no two hidden worlds whose permitted observation streams are
+    identical can demand different unique answers. The witness strategy
+    inspects exactly the public relevant variables in declared order; the
+    declared observation-noise process is applied to the stream exactly as
+    the live environment executes it.
+
+    Returns a witness record; raises ValueError when the task is not
+    solvable within budget (such mechanisms are refused, never admitted).
+    """
+    required = ("rel", "neg", "tv", "rt", "noise")
+    missing = [key for key in required if key not in public]
+    if missing:
+        raise ValueError(
+            f"public rule spec is incomplete (missing {missing}); the "
+            "function must be public for the task to be solvable")
+    relevant = list(public["rel"])
+    if not relevant or len(relevant) > budget:
+        raise ValueError(
+            f"witness refused: {len(relevant)} relevant variables exceed the "
+            f"{budget}-inquiry budget")
+    negations = list(public["neg"])
+    noise = public.get("noise", "none")
+    if noise not in ("none", "flip_one"):
+        raise ValueError(f"undeclared observation-noise process {noise!r}")
+
+    def render_stream(world: dict[str, bool]) -> tuple:
+        """Permitted observations under the declared noise process.
+
+        Mirrors RuleInquiryEnv._apply_action: flip_one inverts the value of
+        the first variable reported in the episode.
+        """
+        stream = []
+        for position, var in enumerate(relevant):
+            value = bool(world[var])
+            if noise == "flip_one" and position == 0:
+                value = not value
+            stream.append(value)
+        return tuple(stream)
+
+    def rule_verdict(world: dict[str, bool]) -> bool:
+        literals = []
+        for position, var in enumerate(relevant):
+            raw = bool(world[var])
+            neg = bool(negations[position]) if position < len(negations) \
+                else False
+            literals.append((not raw) if neg else raw)
+        # Reuse the independent verifier semantics over the relevant values
+        # (non-relevant variables cannot influence the ruling).
+        return verify_rule({"rule": _rule_from_public(public)},
+                           {"values": dict(world)})
+
+    stream_verdicts: dict[tuple, bool] = {}
+    checked = 0
+    for mask in range(1 << len(relevant)):
+        world = {var: bool((mask >> position) & 1)
+                 for position, var in enumerate(relevant)}
+        stream = render_stream(world)
+        verdict = rule_verdict(world)
+        checked += 1
+        if stream in stream_verdicts and stream_verdicts[stream] != verdict:
+            raise ValueError(
+                "information insufficiency: two hidden worlds with "
+                "indistinguishable permitted observations demand different "
+                "unique answers")
+        stream_verdicts[stream] = verdict
+    return {"sufficient": True, "strategy": [
+                {"kind": "inspect", "variable": var} for var in relevant],
+            "budget": budget, "checked_worlds": checked,
+            "noise_process": noise}
+
+
+def _rule_from_public(public: dict) -> dict:
+    """Rebuild a verifier-equivalent rule object from the public function spec.
+
+    The rebuilt rule carries only the relevant variables (non-relevant ones
+    cannot influence the ruling), so `verify_rule` executes the exact public
+    function the learner sees.
+    """
+    relevant = list(public["rel"])
+    negations = [bool(flag) for flag in public.get("neg", [])]
+    return {"type": public["rt"], "variables": list(relevant),
+            "threshold": public.get("thr"),
+            "target_value": public["tv"],
+            "relevant": list(range(len(relevant))),
+            "negations": negations}
+
+
+def assert_public_function_matches(mechanism: dict) -> None:
+    """The public function spec must equal the private rule function (F02).
+
+    Guards against drift between the task the learner sees and the function
+    the verifier executes — the base family admits no private function.
+    """
+    public = mechanism["public"]
+    private = mechanism["rule"]
+    variables = list(private["variables"])
+    relevant_idx = list(private.get("relevant", range(len(variables))))
+    private_relevant = [variables[i] for i in relevant_idx]
+    private_negations = [bool(private["negations"][i]) for i in relevant_idx]
+    if list(public["rel"]) != private_relevant:
+        raise ValueError(
+            f"public relevant-variable set disagrees with the private rule "
+            f"for {mechanism.get('mechanism_id')}; the base family must not "
+            "carry a private function")
+    if [bool(flag) for flag in public["neg"]] != private_negations:
+        raise ValueError(
+            f"public negation pattern disagrees with the private rule for "
+            f"{mechanism.get('mechanism_id')}")
+    if public.get("rt") != private.get("type"):
+        raise ValueError(
+            f"public rule type disagrees with the private rule for "
+            f"{mechanism.get('mechanism_id')}")
+    for public_key, private_key in (("thr", "threshold"), ("tv", "target_value")):
+        if public.get(public_key) != private.get(private_key):
+            raise ValueError(
+                f"public function spec disagrees with the private rule on "
+                f"{private_key!r} for {mechanism.get('mechanism_id')}; the "
+                "base family must not carry a private function")
 
 
 def canonical_rule_key(rule: dict) -> str:
@@ -96,19 +256,77 @@ def canonical_rule_key(rule: dict) -> str:
 
 
 def generate_inventory_mechanism(rng: random.Random, mechanism_index: int) -> dict:
-    """Resource dependency: which container/recipe satisfies the goal."""
+    """Resource dependency: which container/recipe satisfies the goal.
+
+    The dependency is the private state; one check on the (public) goal item
+    reveals it, so the task is always decidable within the inquiry budget.
+    Queries are ordered goal-item first so the declared order is a
+    sufficient strategy.
+    """
     n_items = rng.randint(2, 4)
     items = [f"item_{rng.randint(100, 999)}" for _ in range(n_items)]
     goal_item = rng.choice(items)
     dependency = rng.choice(items)
+    others = [item for item in items if item != goal_item]
+    queries = [{"kind": "check_dependency", "item": goal_item}] + [
+        {"kind": "check_dependency", "item": item} for item in others]
     return {
         "mechanism_id": f"inv-{mechanism_index:06d}",
         "family": "inventory",
         "items": items, "goal_item": goal_item, "dependency_item": dependency,
-        "queries": [{"kind": "check_dependency", "item": item} for item in items],
-        "public": {"items": items, "goal": f"secure {goal_item}"},
+        "queries": queries,
+        "public": {"items": items, "goal": f"secure {goal_item}",
+                   "goal_item": goal_item},
         "answer": dependency,
     }
+
+
+def inventory_information_witness(public: dict, *,
+                                  budget: int = K8_INQUIRY_BUDGET) -> dict:
+    """Sufficiency witness: checking the goal item reveals the dependency."""
+    goal_item = public.get("goal_item")
+    items = list(public.get("items", []))
+    if goal_item not in items:
+        raise ValueError("inventory witness refused: goal item not public")
+    if len(items) > budget + 1:
+        raise ValueError(
+            f"inventory witness refused: {len(items)} items cannot be "
+            f"covered within the {budget}-inquiry budget")
+    return {"sufficient": True, "strategy": [
+                {"kind": "check_dependency", "item": goal_item}],
+            "budget": budget, "checked_worlds": 2}
+
+
+def program_information_witness(public: dict, *,
+                                budget: int = K8_INQUIRY_BUDGET) -> dict:
+    """Sufficiency witness: one evaluate at the public start value reveals
+    the program result (the operations are public; the result is not)."""
+    if "start_value" not in public:
+        raise ValueError("program witness refused: start value not public")
+    return {"sufficient": True, "strategy": [
+                {"kind": "evaluate", "input": public["start_value"]}],
+            "budget": budget, "checked_worlds": 1}
+
+
+FAMILY_WITNESSES = {
+    "rule-inquiry": rule_information_witness,
+    "inventory": inventory_information_witness,
+    "program": program_information_witness,
+}
+
+
+def information_sufficiency_witness(family: str, public: dict, *,
+                                    budget: int = K8_INQUIRY_BUDGET) -> dict:
+    """Dispatch the family witness over the PUBLIC spec alone (F02).
+
+    Bundles deliberately store no mechanism bodies, so the witness must be
+    computable from the public payload — which is also the acceptance form
+    the build verifier replays.
+    """
+    witness = FAMILY_WITNESSES.get(family)
+    if witness is None:
+        raise ValueError(f"no information witness for family {family!r}")
+    return witness(public, budget=budget)
 
 
 def generate_program_mechanism(rng: random.Random, mechanism_index: int) -> dict:
@@ -309,9 +527,23 @@ def _mechanisms_for_family(family: str, count: int, seed: int, *,
         else:
             mechanism = generators[family](rng, len(mechanisms) + len(seen))
         canonical = _canonical_key_for_mechanism(family, mechanism)
-        if canonical in seen or canonical in exclude_canonical:
+        # Cross-pool separation is CLASS-level (execution structure): a held
+        # -out pool must never contain a mechanism class that training saw.
+        if canonical in exclude_canonical:
             continue
-        seen.add(canonical)
+        # Within-pool uniqueness is INSTANCE-level for tools: the class has
+        # only three single-filter predicates, so separate scored instances
+        # (distinct tables/answers) of the same class are legitimate pool
+        # content; every other family dedups at the semantic-class level.
+        instance_key = canonical if family != "tools" else \
+            "tool-instance:" + json.dumps(
+                {"composition": mechanism.get("composition"),
+                 "predicate": mechanism.get("predicate", {}),
+                 "table": mechanism.get("table", {})}, sort_keys=True,
+                default=str)
+        if instance_key in seen:
+            continue
+        seen.add(instance_key)
         mechanisms.append(mechanism)
     if len(mechanisms) < count:
         raise ValueError(
@@ -329,9 +561,8 @@ def _canonical_key_for_mechanism(family: str, mechanism: dict) -> str:
         # distractor NAMES are excluded (renamings group together).
         public = mechanism.get("public", {})
         structural = {
-            "n_distractors": public.get("n_distractors",
-                                        len(public.get("distractors", []))),
-            "obs_noise": public.get("obs_noise"),
+            "nd": public.get("nd", 0),
+            "noise": public.get("noise"),
         }
         return "rule:" + canonical_rule_key(mechanism["rule"]) + ":" + json.dumps(
             structural, sort_keys=True, default=str)
@@ -351,11 +582,16 @@ def _canonical_key_for_mechanism(family: str, mechanism: dict) -> str:
 
 def _materialize_trajectory(family: str, mechanism: dict,
                             trajectory_index: int, pool: str) -> dict:
-    """Genuine trajectory with actual action/result history (R06).
+    """Genuine trajectory replayed under live-environment semantics (F02).
 
     Each trajectory contains inquiries (inspect/check/evaluate actions with
-    feedback) plus a final submission with verifier outcome — not labels
-    alone. Teacher vs exploration modes differ in action selection.
+    the same feedback shape the live environment emits) plus a final
+    submission with the verdict the independent verifier rules on the actual
+    hidden world — computed by execution, never asserted. The scored
+    `answer` is the unique verifier ruling for THIS episode's hidden world
+    (rule-inquiry), or the mechanism's unique answer where it is
+    world-independent (inventory/program/tools). Teacher vs exploration
+    modes differ in action selection only.
     """
     mode = ["teacher", "fixed", "random", "teacher"][trajectory_index]
     history: list[dict] = []
@@ -365,44 +601,72 @@ def _materialize_trajectory(family: str, mechanism: dict,
         # Deterministic hidden world for this trajectory.
         world_rng = random.Random(f"{mechanism['mechanism_id']}:{trajectory_index}")
         world_values = {var: world_rng.choice([True, False]) for var in variables}
-        # Inquiries: inspect variables in query order (teacher inspects
-        # relevant first; random shuffles; fixed follows declared order).
+        # Inquiries: inspect variables in query order (relevant-first for
+        # teacher/fixed — the sufficient strategy; random shuffles).
         order = list(mechanism["queries"])
         if mode == "random":
             world_rng.shuffle(order)
-        for query in order[:3]:
+        noise = mechanism.get("public", {}).get("noise", "none")
+        reported: set[str] = set()
+        for query in order[:K8_INQUIRY_BUDGET]:
             var = query.get("variable")
+            value = world_values.get(var, False)
+            # Mirror RuleInquiryEnv: flip_one inverts the first report.
+            if noise == "flip_one" and not reported:
+                value = not value
+            reported.add(var)
             history.append({"action": {"kind": "inspect", "variable": var},
                             "feedback": {"kind": "observation",
                                          "variable": var,
-                                         "value": world_values.get(var)}})
-        predicted = verify_rule(mechanism, {"values": world_values})
-        history.append({"action": {"kind": "submit",
-                                   "answer": str(predicted).lower()},
+                                         "value": value}})
+        actual = verify_rule(mechanism, {"values": dict(world_values)})
+        submission = bool(actual)
+        # Verdict from actual verifier execution on the submitted answer —
+        # the same ruling the live environment emits for this world.
+        correct = submission == bool(verify_rule(
+            mechanism, {"values": dict(world_values)}))
+        history.append({"action": {"kind": "submit", "answer": submission},
                         "feedback": {"kind": "verdict",
-                                     "correct": predicted == (
-                                         mechanism["answer"] == "true")}})
+                                     "submitted_answer": submission,
+                                     "correct": correct}})
+        answer = str(actual).lower()
     elif family == "inventory":
         for query in mechanism["queries"][:2]:
+            item = query["item"]
+            requires = mechanism["dependency_item"] \
+                if item == mechanism["goal_item"] else "none"
             history.append({"action": {"kind": "check_dependency",
-                                       "item": query["item"]},
+                                       "item": item},
                             "feedback": {"kind": "observation",
-                                         "item": query["item"],
-                                         "dependency": mechanism["dependency_item"]}})
+                                         "item": item,
+                                         "requires": requires}})
         history.append({"action": {"kind": "submit",
-                                   "answer": mechanism["answer"]},
-                        "feedback": {"kind": "verdict", "correct": True}})
+                                   "item": mechanism["answer"]},
+                        "feedback": {"kind": "verdict",
+                                     "submitted_answer": mechanism["answer"],
+                                     "correct": bool(verify_inventory(
+                                         mechanism, {"dependency_item":
+                                                     mechanism["answer"]}))}})
+        answer = mechanism["answer"]
     elif family == "program":
         history.append({"action": {"kind": "evaluate",
-                                   "operations": mechanism["operations"]},
+                                   "input": mechanism["start_value"]},
                         "feedback": {"kind": "observation",
+                                     "input": mechanism["start_value"],
                                      "result": mechanism["answer"]}})
         history.append({"action": {"kind": "submit",
-                                   "answer": mechanism["answer"]},
-                        "feedback": {"kind": "verdict", "correct": True}})
+                                   "value": int(mechanism["answer"])},
+                        "feedback": {"kind": "verdict",
+                                     "submitted_answer": int(
+                                         mechanism["answer"]),
+                                     "correct": bool(verify_program(
+                                         mechanism, {"result":
+                                                     mechanism["answer"]}))}})
+        answer = mechanism["answer"]
     else:
         history.append({"action": {"kind": "read_table"},
                         "feedback": {"kind": "observation"}})
+        answer = mechanism["answer"]
     return {
         "mechanism_id": mechanism["mechanism_id"],
         "family": family, "pool": pool,
@@ -410,40 +674,52 @@ def _materialize_trajectory(family: str, mechanism: dict,
         "exploration_mode": mode,
         "queries": mechanism["queries"],
         "public": mechanism["public"],
-        "answer": mechanism["answer"],
+        "answer": answer,
         "history": history,
     }
 
 
 def _assert_public_separation(family: str, mechanism: dict, trajectory: dict) -> None:
-    """Leakage separation at the actual public renderer (D3).
+    """Leakage separation at the actual public renderer (D3/F02).
 
-    Teacher answers in labels and legitimate tool feedback are not
-    automatically leakage; what must hold is that hidden mechanism internals
-    (full rule bodies, dependency answers, program results beyond the public
-    view) never enter the public rows. The public payload may carry the task
-    display; it must not carry the answer label or private mechanism object.
+    For rule-inquiry the function is public BY DESIGN (F02): the hidden
+    state is the per-episode sampled values, which exist only in the
+    environment and never in any serialized row. What must hold everywhere:
+    no public payload carries an answer/verdict field, the private unique
+    answer (inventory/program/tools) never appears in public, and the rule
+    function the verifier executes equals the declared public function.
     """
     public = trajectory.get("public", {})
-    public_text = json.dumps(public, sort_keys=True, default=str)
-    answer = str(mechanism.get("answer", ""))
-    # The public display must not embed the exact answer string as a labeled
-    # field (labels live in answer_target/supervision, verified separately).
-    if isinstance(public, dict) and public.get("answer") == answer and answer:
+    if isinstance(public, dict) and ("answer" in public or "verdict" in public
+                                     or "correct" in public):
         raise ValueError(
-            f"public renderer leaks answer for {mechanism.get('mechanism_id')}")
+            f"public renderer carries an answer-like field for "
+            f"{mechanism.get('mechanism_id')}")
     if family == "rule-inquiry":
-        # Hidden rule thresholds/targets must not appear verbatim in public.
-        rule = mechanism.get("rule", {})
-        if "target_value" in public:
-            raise ValueError("public row carries hidden target_value")
-        _ = rule, public_text
+        # The verifier's function must equal the public function spec.
+        assert_public_function_matches(mechanism)
+        # The information witness must hold from the public spec alone.
+        rule_information_witness(public)
+        # Per-episode sampled values are hidden state: no value map in public.
+        for forbidden in ("values", "world", "sampled"):
+            if forbidden in public:
+                raise ValueError(
+                    f"public row carries hidden sampled state under {forbidden!r}")
     elif family == "inventory":
-        if public.get("dependency_item") == mechanism.get("dependency_item"):
-            # Public goal display names the goal item (legitimate); the
-            # dependency answer itself must be established by the verifier,
-            # not trusted from public. No hard fail here beyond structure.
-            pass
+        if "dependency_item" in public:
+            raise ValueError("public row carries the private dependency item")
+        if public.get("goal_item") != mechanism.get("goal_item"):
+            raise ValueError(
+                "inventory public must declare the goal item (witness input)")
+        inventory_information_witness(public)
+    elif family == "program":
+        # Operations are public by design (the function); the result is not.
+        if "result" in public or "answer" in public:
+            raise ValueError("public row carries the program result")
+        program_information_witness(public)
+    elif family == "tools":
+        if "expected_sum" in public or "check_pass" in public:
+            raise ValueError("public row carries the tool answer")
 
 
 def _verifier_consistent(family: str, mechanism: dict) -> bool:
@@ -514,13 +790,17 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
         claimed_canonical: set[str] = set()
         pool_mechanisms: dict[str, list[dict]] = {}
         for pool, count in split_pools.items():
+            # Cross-pool separation is class-level: a pool may hold several
+            # scored instances of one class (tools), but a class seen by an
+            # earlier pool is never admitted here.
+            previous_pools_claimed = set(claimed_canonical)
             mechanisms = _mechanisms_for_family(
                 family, count, generation_seed + mechanism_offset,
-                exclude_canonical=claimed_canonical)
+                exclude_canonical=previous_pools_claimed)
             mechanism_offset += count * 7 + 13
             for mechanism in mechanisms:
                 canonical = _canonical_key_for_mechanism(family, mechanism)
-                if canonical in claimed_canonical:
+                if canonical in previous_pools_claimed:
                     raise ValueError(
                         f"cross_pool_overlap: canonical {canonical[:32]}... "
                         f"appears in multiple pools for {family!r}; refusing")
@@ -549,7 +829,8 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                         _assert_public_separation(family, mechanism, trajectory)
                         handle.write(json.dumps(trajectory, sort_keys=True) + "\n")
                 all_files.append(episode_path)
-            # Supervision records with independently recomputed verifier flag.
+            # Supervision records with independently recomputed verifier flag
+            # and the F02 information-sufficiency witness receipt.
             supervision_path = os.path.join(out_dir, "supervision", f"{family}-{pool}.jsonl")
             with open(supervision_path, "w", encoding="utf-8", newline="\n") as handle:
                 for mechanism in mechanisms:
@@ -558,6 +839,8 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                         raise ValueError(
                             f"verifier_inconsistent: {mechanism['mechanism_id']} "
                             f"in {family}:{pool}; refusing unqualified bundle")
+                    witness = information_sufficiency_witness(
+                        family, dict(mechanism["public"]))
                     handle.write(json.dumps({
                         "mechanism_id": mechanism["mechanism_id"], "pool": pool,
                         "canonical_identity": mechanism["canonical_identity"],
@@ -566,6 +849,7 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                                          "answer": mechanism["answer"]}
                                         for v in ("primary", "swapped")],
                         "verifier_consistent": consistent,
+                        "information_witness": witness,
                     }, sort_keys=True) + "\n")
                 all_files.append(supervision_path)
         splits["families"][family] = family_splits
@@ -755,6 +1039,7 @@ def validate_bundle(bundle_dir: str, *, min_confirmation: int = 32) -> dict[str,
         issues.extend(_validate_verifier_flags(bundle_dir))
         issues.extend(_validate_tool_heldout(bundle_dir))
         issues.extend(_validate_meta(bundle_dir))
+        issues.extend(_validate_information_sufficiency(bundle_dir))
     except Exception as exc:  # noqa: BLE001 - validation must report, not crash
         issues.append(f"validator_error: {exc}")
     return {"valid": not issues, "issues": issues,
@@ -862,6 +1147,40 @@ def _validate_tool_heldout(bundle_dir: str) -> list[str]:
         issues.append("tool_heldout_execution_not_distinct: same step structure")
     if "filter_then_aggregate_then_check" not in heldout_comps:
         issues.append("tool_heldout_missing_expected_composition")
+    return issues
+
+
+def _validate_information_sufficiency(bundle_dir: str) -> list[str]:
+    """Replay the information-sufficiency witness from public rows (F02).
+
+    Every episode row's public payload must carry a sufficient bounded
+    strategy within the registered inquiry budget. The witness runs from
+    the public spec alone (bundles store no mechanism bodies), so this
+    validation is independent of generation.
+    """
+    issues: list[str] = []
+    episodes_dir = os.path.join(bundle_dir, "episodes")
+    if not os.path.isdir(episodes_dir):
+        return ["missing episodes directory"]
+    witnessed = 0
+    for name in sorted(os.listdir(episodes_dir)):
+        if not name.endswith(".jsonl"):
+            continue
+        for row in _iter_jsonl(os.path.join(episodes_dir, name)):
+            family = str(row.get("family", ""))
+            if family not in FAMILY_WITNESSES:
+                issues.append(
+                    f"no_witness_for_family: {family} ({row.get('mechanism_id')})")
+                return issues[:1]
+            try:
+                information_sufficiency_witness(
+                    family, dict(row.get("public") or {}))
+            except ValueError as exc:
+                issues.append(
+                    f"information_insufficient: {row.get('mechanism_id')}: "
+                    f"{exc}")
+                return issues[:1]
+            witnessed += 1
     return issues
 
 

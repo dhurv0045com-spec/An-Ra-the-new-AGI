@@ -121,14 +121,42 @@ def load_tool_rows(data_dir: str, *, split: str) -> list[dict[str, Any]]:
 
 def build_batch_for_trajectory(row: dict[str, Any], *,
                                max_seq: int = K8_MAX_SEQ):
-    """Real answer/EOS batch with canonical sidecars (no synthetic fallback)."""
+    """Real answer/EOS batch with canonical sidecars (no synthetic fallback).
+
+    The prompt compiles the goal PLUS the actual received history so the
+    supervised answer is decidable from permitted evidence — never from the
+    goal alone, never from future feedback. History entries use the SAME
+    compact observation projection the live episode renderer uses
+    (`render_public_state` -> `_compact_history_entry`), so training and
+    inference share one representation. The final submission and its verdict
+    never condition the answer target.
+    """
+    from bramastra_lab.research.cognition.episode import _compact_history_entry
     from bramastra_lab.research.experience.sequences import (
         build_answer_row, collocate)
 
     public = dict(row["public"])
     answer = str(row["answer"])
+    prompt_events: list[tuple[str, Any]] = [("goal", public)]
+    history = row.get("history") or []
+    for step in history:
+        action = step.get("action")
+        feedback = step.get("feedback")
+        if not isinstance(action, dict):
+            raise ValueError(
+                f"trajectory {row.get('mechanism_id')} history action must "
+                "be an object")
+        if action.get("kind") == "submit":
+            break
+        if not isinstance(feedback, dict):
+            raise ValueError(
+                f"trajectory {row.get('mechanism_id')} history feedback "
+                "must be an object")
+        prompt_events.append(("observation",
+                              _compact_history_entry(
+                                  {"action": action, "feedback": feedback})))
     seq = build_answer_row(
-        [("goal", public)], answer,
+        prompt_events, answer,
         provenance={"kind": "trajectory",
                     "episode_id": str(row["mechanism_id"]),
                     "task_semantic_id": str(row.get("family", "k8")),
