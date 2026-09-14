@@ -1,5 +1,7 @@
 # Branch assessment: 44e3905
 
+**Late-arriving debug update reviewed: ee5db78.** This implementation commit landed while the chief packet was being written and was preserved as its parent. The chief inspected the relevant delta: exact E5 anchor propagation and refusal of confirmation-to-validation fallback improve correctness. The production trial still refuses, proposer choice still uses a host Counter, and reservation admission/cognitive interaction remain unfinished, so O01–O10 and launch blocking remain applicable. Reran the same three selected test files on the updated tree: **18 passed in 3.04 seconds**, zero optimizer updates or accelerator work. The detailed baseline findings below refer to 44e3905; this addendum records the newer review without claiming a complete re-audit of every changed file.
+
 The chief fetched BRAMASTRA and verified local/remote agreement at 44e3905. Reviewed the real-execution handoff, phase operations, E1/E2/E5 code, runner target construction and checkpoint APIs. A bounded Luna review was requested but hit its usage limit before returning findings; this assessment is the chief's own source review. The chief ran:
 
 ```powershell
