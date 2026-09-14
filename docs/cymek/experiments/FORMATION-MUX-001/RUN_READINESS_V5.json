@@ -2,7 +2,7 @@
   "schema": "anra.formation-mux-readiness/v5",
   "campaign": "FORMATION-MUX-001",
   "branch": "cymek-next-core-architecture",
-  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / KAGGLE_T4X2_NOT_YET_RUN",
+  "status": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / KAGGLE_COMPATIBILITY_HARDENED / KAGGLE_T4X2_NOT_YET_RUN",
   "science": {
     "authority": "Science S5",
     "commit": "c15ad8beb409537db42d075684ea54847a074ebd",
@@ -12,7 +12,8 @@
       "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL",
       "AMENDMENT_1D_PREEXECUTION_LONG_RUN_DATA_CUSTODY"
     ],
-    "official_outcomes_observed": false
+    "official_outcomes_observed": false,
+    "science_files_changed_by_kaggle_hardening": false
   },
   "data": {
     "families": 6,
@@ -30,39 +31,68 @@
     "cs_mech_exact_resume_checkpoint_every_updates": 200,
     "rep_form_exact_resume_checkpoint_every_processed_tokens": 10000,
     "progress_snapshot_at_every_checkpoint": true,
-    "progress_files": ["LATEST_PROGRESS.json", "progress/UPDATE_*.json"],
+    "progress_files": [
+      "LATEST_PROGRESS.json",
+      "progress/UPDATE_*.json"
+    ],
     "campaign_may_span_multiple_kaggle_sessions": true,
     "science_is_not_shortened_to_fit_a_session": true
   },
+  "kaggle_compatibility": {
+    "checked_date_utc": "2026-09-15",
+    "documented_gpu_session_limit_hours": 12,
+    "documented_saved_working_storage_gb": 20,
+    "accelerator": "GPU T4 x2",
+    "visible_physical_gpus_expected": 2,
+    "ddp_used": false,
+    "p100_retirement_date": "2026-09-15",
+    "t4x2_remains_supported": true,
+    "ci_tokenizers_version_matched_to_current_kaggle_gpu_image": "0.23.0rc0"
+  },
   "execution": {
     "operator": "tools/formation_mux_001_kaggle_operator_v8.py",
-    "operator_commit": "4e3bb50c683d94a09801703dfb9f469debe64a50",
-    "operator_git_blob": "b427269f682322c9ce58f1677710c5979c76465c",
+    "operator_commit": "fdc2483fed0bb1a80d4bfad376aac84a66db6055",
+    "operator_git_blob": "58614bcab3d5a5ea4b3b28e00da56a834c321bba",
     "notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
-    "notebook_pin_commit": "c01970cf6afc5434cc6e48562faa4979fbab969a",
+    "notebook_pin_commit": "5b1f0fee6c45c722c8e2bc0305e5e18782761bdb",
+    "notebook_schema": "anra.formation-mux-notebook/v7",
     "accelerator_required": "Kaggle GPU T4 x2",
     "internet_required": true,
     "parallelism": "two independent matched-bundle workers; no DDP",
-    "per_session_policy": "run until actual wall guard, package exact-resume output, continue next session if PARTIAL_SESSION"
+    "per_session_policy": "run until actual wall guard, package exact-resume output, continue next session if PARTIAL_SESSION",
+    "kaggle_s5_compile_and_pytest_preflight": true,
+    "dual_t4_engineering_only_e2e_preflight": true,
+    "storage_capacity_preflight": {
+      "enabled": true,
+      "receipt": "STORAGE_PREFLIGHT.json",
+      "method": "measure largest calibration resume.pt, count remaining official checkpoint slots, require projected checkpoint bytes plus 2 GiB reserve to fit current /kaggle/working free space",
+      "reserve_bytes": 2147483648,
+      "fail_closed_before_official_arms": true
+    }
   },
   "sealed_firewall": {
-    "worker_visible_splits": ["training", "development"],
+    "worker_visible_splits": [
+      "training",
+      "development"
+    ],
     "raw_sealed_rows_persisted_before_or_during_training": false,
     "consumption": "regenerate and commitment-verify only after DEVELOPMENT_COMPLETE",
     "raw_sealed_rows_in_result_bundle": false
   },
   "qualification": {
-    "github_actions_run_id": 34900925973,
-    "qualification_commit": "af3d3e517fc2755dae1bfae3c42e9e794d44282e",
-    "py_compile": "PASS",
-    "targeted_tests": "28 passed in 7.59s",
-    "immutable_science_files_verified": 38,
+    "github_actions_run_id": 34903937319,
+    "qualification_commit": "1d52e6e6d82c642f42146c0ff4c3ec0729f93668",
+    "conclusion": "SUCCESS",
+    "kaggle_tokenizer_line_dependency_install": "PASS",
+    "py_compile_s5_execution_surface": "PASS",
+    "targeted_tests": "PASS",
+    "immutable_science_files_verified": true,
     "real_frozen_tokenizer_loaded": true,
     "public_surface_training_rows": 60000,
     "public_surface_development_rows": 480,
     "sealed_rows_regenerated_per_experiment_for_commitment_test": 720,
-    "canonical_notebook_json_and_pins": "PASS",
+    "canonical_notebook_json_code_cells_and_pins": "PASS",
     "kaggle_t4x2_execution": "NOT_YET_RUN"
   },
-  "claim_ceiling": "Pre-execution qualification only. This is not evidence of Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
+  "claim_ceiling": "Pre-execution qualification and Kaggle-environment compatibility hardening only. This is not evidence of actual Kaggle T4 x2 runtime success and contains no FORMATION-MUX scientific outcome."
 }
