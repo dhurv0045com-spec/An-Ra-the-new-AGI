@@ -1,0 +1,70 @@
+{
+  "schema": "anra.formation-baseline-gate-preregistration/v1",
+  "experiment": "FORMATION-BASELINE-GATE-001",
+  "status": "PROSPECTIVE_POSTMORTEM_DIAGNOSTIC",
+  "science_reference_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+  "source_observed_result": {
+    "campaign": "FORMATION-MUX-001",
+    "formal_verdicts_unchanged": {
+      "CS-MECH-002": "NULL",
+      "REP-FORM-003A": "NULL"
+    },
+    "failure_mode": "PRIMARY_IDENTITY_FLOOR_LIMITED_LOW_DISCRIMINATION_POWER"
+  },
+  "question": "Can the canonical M0 control reliably leave the identity floor under modestly extended exposure, strongly enough to justify another expensive causal mechanism campaign?",
+  "claim_ceiling": "Diagnostic capability gate only. It cannot alter FORMATION-MUX-001 S5 verdicts, promote a Core architecture, authorize TIE-ROLE, change tokenizer/vocabulary, or make cognition/AGI claims.",
+  "hardware_target": "single Google Colab T4",
+  "runtime_target": "approximately 2 to 3 wall-hours; adaptive Stage B uses the third hour only for the most decision-relevant disambiguation",
+  "surface": {
+    "seed": 73011,
+    "expected_public_surface_sha256": "f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c",
+    "training": "same frozen S5 60k six-family training rows for full-mixture controls",
+    "development": "same frozen S5 public development rows; primary scoring uses identity only",
+    "sealed": "no sealed score is read or used for any decision; raw sealed rows are not persisted"
+  },
+  "model_and_optimizer": {
+    "arm": "M0_STANDARD",
+    "architecture": "exact frozen S5 8L/256w V24576 tied-embedding control",
+    "optimizer_and_lr": "exact frozen S5 path; constant LR 1e-3 and global clip 1.0",
+    "engineering_only": true
+  },
+  "stage_a": {
+    "purpose": "test extended-horizon formation on one historically late-learning seed and one fresh seed",
+    "seeds": [73012, 91001],
+    "updates_per_seed": 3000,
+    "training_mixture": "full frozen six-family S5 mixture",
+    "measurements": [
+      "candidate-free identity exact+valid-EOS trajectory",
+      "teacher-forced identity target-token accuracy",
+      "target rank and margin",
+      "full-vocabulary versus shared-only greedy identity rescue",
+      "answer-length stratified identity exact",
+      "global clipping fraction"
+    ]
+  },
+  "adaptive_stage_b": {
+    "seed": 91002,
+    "rule_if_stage_a_decisively_floor_limited": "run identity-only M0 for 2000 updates to distinguish multitask/mixture interference from deeper substrate/optimization failure",
+    "decisive_floor_definition": "both Stage-A full-mixture endpoints below 0.10, mean teacher-forced token accuracy below 0.60, and mean shared-only rescue below 0.05",
+    "rule_if_stage_a_not_floor_and_not_ceiling": "run a third fresh full-mixture M0 control for 3000 updates to test reproducibility",
+    "rule_if_stage_a_ceiling": "if both Stage-A endpoints exceed 0.85, stop without Stage B and classify the regime as too close to ceiling for the old endpoint-gap design"
+  },
+  "final_decision_rules": {
+    "GO_MECHANISM_CAMPAIGN_WORTH_IT": "Stage B is a third full-mixture replication; both fresh seeds 91001 and 91002 reach at least 0.30 identity exact; overall mean identity exact is between 0.30 and 0.80; mean teacher-forced target-token accuracy is at least 0.80.",
+    "NO_GO_MIXTURE_INTERFERENCE_FIRST": "Stage A was decisively floor-limited, but the identity-only probe reaches at least 0.50 exact or at least 0.90 teacher-forced target-token accuracy.",
+    "NO_GO_SUBSTRATE_FORMATION": "Stage A was decisively floor-limited and the identity-only probe also fails to show strong token-level formation.",
+    "NO_GO_CEILING_RECALIBRATE": "at least two full-mixture controls exceed 0.85 exact.",
+    "NO_GO_OUTPUT_COMPETITION_FIRST": "mean full-to-shared-only counterfactual rescue is at least 0.10.",
+    "NO_GO_REALIZATION_OR_METRIC_FIRST": "mean teacher-forced target-token accuracy is at least 0.80 while mean free exact remains below 0.30.",
+    "BORDERLINE_SMALL_OPTIMIZATION_PROBE_FIRST": "some formation exists but the GO rule is not met; maximum exact is at least 0.15 or mean teacher-forced token accuracy at least 0.65.",
+    "NO_GO_FLOOR": "none of the above and the full-mixture control remains near floor."
+  },
+  "seed_selection_note": "Seed 73012 is deliberately historical and therefore selected post-outcome; it may diagnose whether the original late trajectory continues, but it cannot by itself license GO. GO requires both fresh seeds to pass.",
+  "durability": {
+    "exact_resume": true,
+    "google_drive_output": true,
+    "results_bundle_excludes_resume_pt": true,
+    "separate_checkpoint_bundle_required": true,
+    "sha256_receipts_required": true
+  }
+}
