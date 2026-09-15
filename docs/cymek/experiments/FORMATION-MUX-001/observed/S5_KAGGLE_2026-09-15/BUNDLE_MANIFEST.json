@@ -1,0 +1,43 @@
+{
+  "campaign_status": "ARMS_COMPLETE",
+  "canonical_operator_observed": "tools/formation_mux_001_kaggle_operator_v8.py",
+  "complete_arms": 24,
+  "elapsed_seconds": 29294.909707956,
+  "formal_experiment_verdicts": {
+    "CS-MECH-002": "NULL",
+    "REP-FORM-003A": "NULL"
+  },
+  "frontier_status": "NOT_RUN_IN_THIS_BUNDLE",
+  "global_failure": null,
+  "hardware": [
+    {
+      "index": 0,
+      "name": "Tesla T4",
+      "vram_gb": 14.56219482421875
+    },
+    {
+      "index": 1,
+      "name": "Tesla T4",
+      "vram_gb": 14.56219482421875
+    }
+  ],
+  "notes": [
+    "This bundle is the completed 24-arm Science S5 run under operator v8.",
+    "TIE-ROLE-FRONTIER-001 and VOCAB-PRESSURE-001 are not present in this observed bundle."
+  ],
+  "observed_date": "2026-09-15",
+  "operator_head": "fdc2483fed0bb1a80d4bfad376aac84a66db6055",
+  "required_arms": 24,
+  "schema": "anra.formation-mux-observed-s5-bundle-manifest/v1",
+  "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+  "sealed": {
+    "CS-MECH-002": "COMPLETE",
+    "REP-FORM-003A": "COMPLETE"
+  },
+  "source_bundle_contains_resume_pt": false,
+  "source_bundle_readme_statement": "Exact-resume checkpoints stay in Kaggle Output.",
+  "source_bundle_saved_by_user": true,
+  "source_bundle_sha256": "859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5",
+  "source_file": "FORMATION_MUX_001_RESULTS.zip",
+  "wall_guard_triggered": false
+}
