@@ -343,8 +343,16 @@ def execute(job: JobInput, *, ops=None,
     return result
 
 
-def _evaluate_heldout(job: JobInput, ops, handle) -> dict[str, Any]:
-    """Held-out development-measurement evaluation (verifier decides)."""
+def _evaluate_heldout(job: JobInput, ops, handle, *,
+                      heldout_eval_rows: int = 32) -> dict[str, Any]:
+    """Held-out development-measurement evaluation (verifier decides).
+
+    The evaluation scale is DECLARED (heldout_eval_rows), never a silent
+    sample; prompts use the exact training representation via
+    `prompt_tokens_for_row` (no JSON/char/token slicing); generation allows
+    the full typed answer length. The declared cap and evaluated count are
+    recorded in the receipt.
+    """
     import glob as _glob
 
     episode_dir = os.path.join(job.data_dir, "episodes")
@@ -366,11 +374,12 @@ def _evaluate_heldout(job: JobInput, ops, handle) -> dict[str, Any]:
                         heldout_rows.append(row)
         except OSError:
             continue
-        if len(heldout_rows) >= 8:
+        if len(heldout_rows) >= heldout_eval_rows:
             break
-    heldout_rows = heldout_rows[:8]
+    heldout_rows = heldout_rows[:heldout_eval_rows]
     if not heldout_rows:
-        return {"evaluated": 0, "note": "no heldout rows; evaluation empty"}
+        return {"evaluated": 0, "declared_eval_rows": heldout_eval_rows,
+                "note": "no heldout rows; evaluation empty"}
     try:
         from bramastra_lab.research.data.k8_bundle import FAMILY_VERIFIERS
     except Exception:
@@ -383,28 +392,23 @@ def _evaluate_heldout(job: JobInput, ops, handle) -> dict[str, Any]:
         verifier = FAMILY_VERIFIERS.get(family)
         if verifier is None:
             continue
-        # Real public goal as prompt context (never a fixed prompt).
-        prompt_text = json.dumps(row.get("public", {}), sort_keys=True)[:256]
-        if not prompt_text or prompt_text == "{}":
+        # Exact training representation (boundary + goal + received
+        # history) — never a sliced JSON blob of the goal alone.
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            prompt_tokens_for_row)
+        try:
+            prompt = prompt_tokens_for_row(row)
+        except Exception as exc:
             details.append({"mechanism_id": row.get("mechanism_id"),
                             "family": family,
-                            "error": "empty public goal; refusing fixed prompt",
+                            "error": f"prompt compilation refused: {exc}",
                             "success": False})
             continue
-        from bramastra_lab.research.experience.codec import encode_text
-        encoded = encode_text(prompt_text)[:32]
-        if not encoded:
-            details.append({"mechanism_id": row.get("mechanism_id"),
-                            "family": family,
-                            "error": "prompt encoding empty; refusing",
-                            "success": False})
-            continue
-        prompt = [259] + encoded
         try:
             outcome = ops.evaluate_episode(
                 handle=handle,
                 episode={"mechanism": row, "verifier": verifier,
-                         "prompt_tokens": prompt, "max_new_tokens": 8})
+                         "prompt_tokens": prompt, "max_new_tokens": 24})
             answer = str(outcome.get("answer", ""))
             stopped = bool(outcome.get("stopped_on_eos", False))
             success = outcome.get("success")
@@ -418,7 +422,7 @@ def _evaluate_heldout(job: JobInput, ops, handle) -> dict[str, Any]:
             evaluated += 1
             successes += 1 if success else 0
             details.append({"mechanism_id": row.get("mechanism_id"),
-                            "family": family, "answer": answer[:64],
+                            "family": family, "answer": answer,
                             "stopped_on_eos": stopped,
                             "success": bool(success),
                             "model_calls": int(outcome.get("model_calls", 1)),
@@ -428,6 +432,7 @@ def _evaluate_heldout(job: JobInput, ops, handle) -> dict[str, Any]:
                             "family": family, "error": str(exc)[:120],
                             "success": False})
     return {"evaluated": evaluated, "successes": successes,
+            "declared_eval_rows": heldout_eval_rows,
             "stopped_eos_count": sum(1 for d in details if d.get("stopped_on_eos")),
             "note": "EOS is stop evidence only; success comes from the "
                     "independent family verifier",

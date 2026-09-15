@@ -11,21 +11,21 @@
   "executed_commands": [
     {
       "command": "python -m bramastra_lab.research.campaigns.k8 verify-build --data <offline-bundle> --report-dir <new-dir> --no-updates",
-      "report_identity": "6bb004145242c11cb6572ea4f1c0bfd0387b584439bf1688dae6e49e38141017"
+      "report_identity": "4b66425e33d22eacdde47608fbf7eff0d7feaa4702f2f6230bfec18e2c1af940"
     }
   ],
-  "implementation_closure_sha256": "6d4e8dd23b559c8ad83b8d31cdafe22affa4ed2c33ac57dc83b36aa614973be1",
+  "implementation_closure_sha256": "c087138c780ec5c03a9db9c4eec9955b9a21962ffb27baf72330c3679271c110",
   "model_config_sha256": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade",
   "optimizer_updates_local": 0,
   "owner_notebook": "notebooks/bramastra_k8.ipynb",
   "ready_for_owner_experiment": true,
   "remaining_blockers": [],
-  "report_identity": "6bb004145242c11cb6572ea4f1c0bfd0387b584439bf1688dae6e49e38141017",
+  "report_identity": "4b66425e33d22eacdde47608fbf7eff0d7feaa4702f2f6230bfec18e2c1af940",
   "requirements": {
     "F01": {
       "command_receipts": [
         {
-          "duration_seconds": 7.984,
+          "duration_seconds": 13.594,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -66,7 +66,7 @@
     "F02": {
       "command_receipts": [
         {
-          "duration_seconds": 7.984,
+          "duration_seconds": 13.594,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -78,7 +78,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 5.86,
+          "duration_seconds": 9.14,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -117,7 +117,7 @@
     "F03": {
       "command_receipts": [
         {
-          "duration_seconds": 5.86,
+          "duration_seconds": 9.14,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -155,7 +155,7 @@
     "F04": {
       "command_receipts": [
         {
-          "duration_seconds": 7.984,
+          "duration_seconds": 13.594,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -167,7 +167,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 6.203,
+          "duration_seconds": 10.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -206,7 +206,7 @@
     "F05": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -248,7 +248,7 @@
     "F06": {
       "command_receipts": [
         {
-          "duration_seconds": 7.984,
+          "duration_seconds": 13.594,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -260,7 +260,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -318,7 +318,7 @@
     "F07": {
       "command_receipts": [
         {
-          "duration_seconds": 7.984,
+          "duration_seconds": 13.594,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -359,7 +359,7 @@
     "F08": {
       "command_receipts": [
         {
-          "duration_seconds": 7.984,
+          "duration_seconds": 13.594,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -400,7 +400,7 @@
     "F09": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -429,7 +429,7 @@
     "F10": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -443,7 +443,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 9.937,
+          "duration_seconds": 14.843,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -470,7 +470,7 @@
     "F11": {
       "command_receipts": [
         {
-          "duration_seconds": 5.86,
+          "duration_seconds": 9.14,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -481,7 +481,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -510,7 +510,7 @@
     "F12": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -540,7 +540,7 @@
     "F13": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -568,7 +568,7 @@
     "F14": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -582,7 +582,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 3.188,
+          "duration_seconds": 4.016,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -609,7 +609,7 @@
     "F15": {
       "command_receipts": [
         {
-          "duration_seconds": 9.937,
+          "duration_seconds": 14.843,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -620,7 +620,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -649,7 +649,7 @@
     "F16": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -692,7 +692,7 @@
     "F17": {
       "command_receipts": [
         {
-          "duration_seconds": 9.937,
+          "duration_seconds": 14.843,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -732,7 +732,7 @@
     "F18": {
       "command_receipts": [
         {
-          "duration_seconds": 3.188,
+          "duration_seconds": 4.016,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -756,7 +756,7 @@
     "F19": {
       "command_receipts": [
         {
-          "duration_seconds": 2.781,
+          "duration_seconds": 3.829,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -793,7 +793,7 @@
     "F20": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -807,7 +807,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 9.937,
+          "duration_seconds": 14.843,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -820,7 +820,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 21.234,
+            "duration_seconds": 27.421,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -835,7 +835,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "32db4774a2080f3907a7b81a06c99e2798470ab789de8eb00a7a870f581ee437"
+                "identity": "471825e8b59e51d6d4efbf10dd204a9d379dbb08c43af7101094345dc6d94a8b"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -928,7 +928,7 @@
     "F21": {
       "command_receipts": [
         {
-          "duration_seconds": 2.781,
+          "duration_seconds": 3.829,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -952,7 +952,7 @@
     "F22": {
       "command_receipts": [
         {
-          "duration_seconds": 20.5,
+          "duration_seconds": 40.891,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -966,7 +966,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 2.781,
+          "duration_seconds": 3.829,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -978,7 +978,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 21.234,
+            "duration_seconds": 27.421,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -993,7 +993,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "32db4774a2080f3907a7b81a06c99e2798470ab789de8eb00a7a870f581ee437"
+                "identity": "471825e8b59e51d6d4efbf10dd204a9d379dbb08c43af7101094345dc6d94a8b"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1086,7 +1086,7 @@
     "F23": {
       "command_receipts": [
         {
-          "duration_seconds": 2.781,
+          "duration_seconds": 3.829,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1123,7 +1123,7 @@
     "F24": {
       "command_receipts": [
         {
-          "duration_seconds": 2.781,
+          "duration_seconds": 3.829,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1135,7 +1135,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 21.234,
+            "duration_seconds": 27.421,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -1150,7 +1150,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "32db4774a2080f3907a7b81a06c99e2798470ab789de8eb00a7a870f581ee437"
+                "identity": "471825e8b59e51d6d4efbf10dd204a9d379dbb08c43af7101094345dc6d94a8b"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1268,5 +1268,5 @@
     "codec": "9df2e90c740e72835621b2270a98969c09eff230dc3b35bef076d2681bd5d383",
     "config": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade"
   },
-  "source_revision": "29fd2f7e3d614fb27581e460efdafb278096a448"
+  "source_revision": "06e80168f357d4bac301ca7eb451fee4bb661b03"
 }

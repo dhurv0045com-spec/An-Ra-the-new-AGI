@@ -119,6 +119,44 @@ def load_tool_rows(data_dir: str, *, split: str) -> list[dict[str, Any]]:
     return rows
 
 
+def prompt_tokens_for_row(row: dict[str, Any], *,
+                          max_seq: int = K8_MAX_SEQ) -> list[int]:
+    """Complete decision prompt for one trajectory row (single renderer).
+
+    Boundary + goal event + compact received-history events (pre-submission)
+    — byte-identical to the context portion of the training row built by
+    `build_batch_for_trajectory`. Evaluation MUST use this representation;
+    no JSON slicing, no token cuts, explicit overflow failure.
+    """
+    from bramastra_lab.research.cognition.episode import _compact_history_entry
+    from bramastra_lab.research.experience.codec import (
+        DEFAULT_MAX_EVENT_BYTES, SPECIAL_BOUNDARY, encode_event)
+
+    tokens = [SPECIAL_BOUNDARY] + list(encode_event(
+        "goal", dict(row["public"]),
+        max_event_bytes=DEFAULT_MAX_EVENT_BYTES))
+    for step in row.get("history") or []:
+        action = step.get("action")
+        if not isinstance(action, dict):
+            raise ValueError(
+                f"trajectory {row.get('mechanism_id')} history action must "
+                "be an object")
+        if action.get("kind") == "submit":
+            break
+        feedback = step.get("feedback")
+        if not isinstance(feedback, dict):
+            raise ValueError(
+                f"trajectory {row.get('mechanism_id')} history feedback "
+                "must be an object")
+        tokens += encode_event("observation", _compact_history_entry(
+            {"action": action, "feedback": feedback}))
+    if len(tokens) + 1 > max_seq:
+        raise ValueError(
+            f"decision prompt needs {len(tokens)} tokens; max_seq is "
+            f"{max_seq}")
+    return tokens
+
+
 def build_batch_for_trajectory(row: dict[str, Any], *,
                                max_seq: int = K8_MAX_SEQ):
     """Real answer/EOS batch with canonical sidecars (no synthetic fallback).

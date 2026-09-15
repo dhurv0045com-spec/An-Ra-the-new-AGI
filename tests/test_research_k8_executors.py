@@ -176,5 +176,23 @@ class E6ExecutorTests(unittest.TestCase):
         self.assertIn("E1-B-1702", (res.error or ""))
 
 
+class PromptParityTests(unittest.TestCase):
+    def test_eval_prompt_matches_training_representation(self) -> None:
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            build_batch_for_trajectory, load_training_trajectories,
+            prompt_tokens_for_row)
+
+        data_dir = _bundle_fixture()
+        rows = load_training_trajectories(data_dir, seed=3)
+        for row in rows[:6]:
+            prompt = prompt_tokens_for_row(row)
+            batch = build_batch_for_trajectory(row)
+            prefix = batch.input_ids[0][:len(prompt)].tolist()
+            self.assertEqual(prompt, prefix,
+                             "evaluation prompt diverges from the training "
+                             "representation")
+            self.assertGreater(len(prompt), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
