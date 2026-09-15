@@ -105,7 +105,6 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     # Hash every exported file recursively (the manifest includes nested
     # checkpoints/... rels, not just top-level names).
     digests: dict[str, str] = {}
-    top_files: list[str] = []
     for base, _dirs, names in os.walk(out_dir):
         for name in names:
             path = os.path.join(base, name)
@@ -120,11 +119,9 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
             except OSError:
                 continue
             digests[rel] = digest
-            if os.path.dirname(rel) == "":
-                top_files.append(rel)
-    files = sorted(top_files)
-    # Hash every exported file (tamper evidence) and compare against the
-    # independently generated artifact manifest (not just "whatever exists").
+    # Tamper evidence: the recursive digest map above covers EVERY exported
+    # file including nested checkpoints/ entries; compare it against the
+    # independently generated artifact manifest (not just top-level names).
     manifest_path = os.path.join(out_dir, "artifact_manifest.json")
     try:
         with open(manifest_path, encoding="utf-8") as fh:
@@ -132,13 +129,6 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     except Exception as exc:
         return {"ok": False, "reason": f"artifact manifest unreadable: {exc}"}
     expected = manifest.get("files", {})
-    digests: dict[str, str] = {}
-    for name in files:
-        path = os.path.join(out_dir, name)
-        if not os.path.isfile(path):
-            continue
-        digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
-        digests[name] = digest
     for name, record in expected.items():
         if name not in digests:
             return {"ok": False, "reason": f"manifest expects {name} but it is missing",
@@ -219,5 +209,5 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     from bramastra_lab.research.contracts.core import content_identity
     bundle_identity = content_identity(
         {"files": digests, "parents": sorted(parents)})
-    return {"ok": True, "files": files, "digests": digests,
+    return {"ok": True, "files": sorted(digests), "digests": digests,
             "parents": sorted(parents), "bundle_identity": bundle_identity}

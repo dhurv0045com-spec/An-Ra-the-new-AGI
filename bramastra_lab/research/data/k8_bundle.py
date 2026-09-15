@@ -390,6 +390,9 @@ def generate_tool_mechanism(rng: random.Random, index: int, *,
         }
     # Held-out: two-stage execution with a value-threshold second filter and
     # an explicit threshold check (different predicates + extra step).
+    # Distinct ID namespace: held-out mechanism IDs must never collide with
+    # training IDs, or the protected-exclusion proof cannot distinguish the
+    # pools (leak protection would be unpassable).
     value_threshold = rng.randint(10, 30)
     check_threshold = rng.randint(20, 80)
     stage1 = [r for r in rows if r["category"] == predicate_category]
@@ -397,7 +400,7 @@ def generate_tool_mechanism(rng: random.Random, index: int, *,
     filtered_sum = sum(r["value"] for r in stage2)
     check_pass = filtered_sum >= check_threshold
     return {
-        "mechanism_id": f"tool-{index:06d}",
+        "mechanism_id": f"toolh-{index:06d}",
         "family": "tools",
         "composition": "filter_then_aggregate_then_check",
         "execution": {"steps": ["filter_category", "filter_value_threshold",

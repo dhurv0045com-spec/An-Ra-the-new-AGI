@@ -46,7 +46,8 @@ CHECK_GROUPS: dict[str, dict[str, Any]] = {
         "targets": ["tests/test_e0_contracts.py", "tests/test_e0_results.py",
                     "tests/test_e0_scoring.py",
                     "tests/test_research_k8_real.py",
-                    "tests/test_research_k8_operational.py"],
+                    "tests/test_research_k8_operational.py",
+                    "tests/test_research_k8_executors.py"],
         "timeout_seconds": 900,
     },
     "data_and_splits": {

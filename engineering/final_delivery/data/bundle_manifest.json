@@ -44,7 +44,7 @@
     ]
   },
   "authorship": "bramastra-lab deterministic generators",
-  "created_unix": 1789487207.9857256,
+  "created_unix": 1789500565.1901214,
   "families": [
     "rule-inquiry",
     "inventory",
@@ -76,13 +76,13 @@
     "supervision\\rule-inquiry-sealed-confirmation.jsonl": "d10cc038144150a5289084a2ae70b8032d8fcc4e106749e73c79f73623c7fa35",
     "supervision\\rule-inquiry-training-controller.jsonl": "aa02eab7397cb09394a3b03f0fc831ca22fab10e40e1cebf7fd13336ea5023f6",
     "supervision\\rule-inquiry-training.jsonl": "c233a9f84a12f77adba04294c183499040f096c799665c3a7b6f9a2bdc302b51",
-    "tools\\tool_tasks.jsonl": "d9c81b189df87df365041b203502c81b9a545d7553547a3e59229b19b87f0b0e"
+    "tools\\tool_tasks.jsonl": "5333a3993e1a364cc60a20c9800ab2b2b8d8334842275ebb22812ddc60526226"
   },
   "generation_seed": 8609,
-  "identity": "d18be8735bdecd2605a92c61d7880fc53503a899fcaa2f2562103baa1c44e86b",
+  "identity": "7353315ab34c4e1e27212b7221af4eefe73b9fb941bc9749597fda68f508402e",
   "license": "repository-generated (BRAMASTRA K8 generators)",
   "schema": "bramastra-k8-data/v1",
-  "source_bytes_identity": "242818a23152245570c6876aee52b3f410b549e4e13502f00fc42a17a4944a32",
+  "source_bytes_identity": "6d4e8dd23b559c8ad83b8d31cdafe22affa4ed2c33ac57dc83b36aa614973be1",
   "split_pools": {
     "development-measurement": 256,
     "sealed-confirmation": 128,

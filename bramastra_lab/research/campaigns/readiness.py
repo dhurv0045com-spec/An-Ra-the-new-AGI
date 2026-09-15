@@ -17,8 +17,6 @@ identically when evidence is absent.
 """
 from __future__ import annotations
 
-from typing import Any
-
 from bramastra_lab.research.campaigns.verify_build import (
     BUILD_VERIFICATION_SCHEMA,
     ImplementationReadinessError,
@@ -33,6 +31,3 @@ __all__ = [
     "require_implementation_ready",
 ]
 
-
-def _unused() -> Any:  # pragma: no cover - typing anchor only
-    return None
