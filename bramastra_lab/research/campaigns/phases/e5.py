@@ -73,18 +73,10 @@ def _load_meta_tasks(data_dir: str, *, pool: str) -> list[dict[str, Any]]:
     return rows
 
 
-def resolve_mechanism_answer(data_dir: str, mechanism_id: str) -> str:
-    """Resolve a query mechanism's answer from prepared bundle data.
-
-    Searches episode rows for the mechanism ID and returns its recorded
-    answer, verifying consistency across rows. Meta-training feedback comes
-    from these prepared labels (never invented); confirmation scoring uses
-    the same lookup only AFTER choices are frozen (same-table scoring).
-    """
+def _iter_episode_rows(data_dir: str):
     import glob as _glob
     import json as _json
 
-    answers: set[str] = set()
     pattern = os.path.join(data_dir, "episodes", "*.jsonl")
     for path in sorted(_glob.glob(pattern)):
         try:
@@ -97,11 +89,30 @@ def resolve_mechanism_answer(data_dir: str, mechanism_id: str) -> str:
                         row = _json.loads(line)
                     except ValueError:
                         continue
-                    if str(row.get("mechanism_id", "")) == str(mechanism_id) \
-                            and "answer" in row:
-                        answers.add(str(row["answer"]))
+                    yield row
         except OSError:
             continue
+
+
+def resolve_mechanism_row(data_dir: str, mechanism_id: str) -> dict[str, Any]:
+    """Resolve a mechanism's prepared episode row (public + answer).
+
+    Fails explicitly when the mechanism has no prepared row (missing data),
+    inconsistent answers across rows, or no public state to render. A
+    missing protected reference must never silently shrink any evaluation
+    denominator.
+    """
+    if not mechanism_id:
+        raise ValueError("mechanism reference carries no mechanism_id; refusing")
+    row: dict[str, Any] | None = None
+    answers: set[str] = set()
+    for candidate in _iter_episode_rows(data_dir):
+        if str(candidate.get("mechanism_id", "")) != str(mechanism_id):
+            continue
+        if "answer" in candidate:
+            answers.add(str(candidate["answer"]))
+        if row is None and candidate.get("public") is not None:
+            row = candidate
     if not answers:
         raise ValueError(
             f"no prepared answer for mechanism {mechanism_id!r}; refusing "
@@ -110,7 +121,22 @@ def resolve_mechanism_answer(data_dir: str, mechanism_id: str) -> str:
         raise ValueError(
             f"mechanism {mechanism_id!r} has inconsistent answers "
             f"{sorted(answers)}; refusing")
-    return next(iter(answers))
+    if row is None or not isinstance(row.get("public"), dict):
+        raise ValueError(
+            f"mechanism {mechanism_id!r} has no prepared public state; "
+            "an evaluation prompt cannot be rendered without it")
+    return row
+
+
+def resolve_mechanism_answer(data_dir: str, mechanism_id: str) -> str:
+    """Resolve a query mechanism's answer from prepared bundle data.
+
+    Searches episode rows for the mechanism ID and returns its recorded
+    answer, verifying consistency across rows. Meta-training feedback comes
+    from these prepared labels (never invented); confirmation scoring uses
+    the same lookup only AFTER choices are frozen (same-table scoring).
+    """
+    return str(resolve_mechanism_row(data_dir, mechanism_id)["answer"])
 
 
 def _support_identities(task: dict, task_id: str) -> tuple[str, ...]:
@@ -147,7 +173,16 @@ def _run_archive_trial(ops: Any, job: JobInput, anchor_record: dict,
     protected_ids = tuple(
         str(ref.get("mechanism_id", "")) for ref in
         task.get("protected_references", ()))
+    # Child deadline: the MINIMUM of the trial cap, the job reservation
+    # deadline and the job's own phase deadline (spec 14: nested operations
+    # obey every parent deadline; a trial never outlives its allocation).
     trial_deadline = _time.time() + 45.0
+    for parent_deadline in (job.reservation_deadline_unix, job.deadline):
+        try:
+            if parent_deadline is not None:
+                trial_deadline = min(trial_deadline, float(parent_deadline))
+        except (TypeError, ValueError):
+            continue
     request = trial_service.TrialRequest(
         anchor_checkpoint_id=str(anchor_record.get("checkpoint_id")),
         anchor_run_dir=job.run_dir, method_id=method_id,
@@ -300,7 +335,20 @@ def _production_support_builder(task: dict) -> Any:
 
 def _production_query_evaluator(task: dict, data_dir: str,
                                task_id: str) -> Any:
-    """Query + protected measurement from resolved prepared answers (O08)."""
+    """Query + protected measurement from resolved prepared answers (O08).
+
+    Every query/protected prompt uses the COMPLETE canonical decision
+    representation: the same goal-prefix tokens the compiler builds for
+    training (no character slicing, no token slicing). If a complete valid
+    prompt cannot fit the configured context budget the trial fails
+    explicitly instead of discarding semantic content. Protected references
+    must ALL resolve against prepared data: an unresolved, inconsistent or
+    missing reference raises — it can never silently shrink the denominator
+    (an unresolved protected case must not make the model look better).
+    """
+    from bramastra_lab.research.campaigns.phases.compiler import (
+        K8_MAX_SEQ, goal_prefix_tokens)
+
     def evaluate(trial_handle: Any) -> Mapping[str, Any]:
         model = trial_handle.get("model") if isinstance(
             trial_handle, dict) else getattr(trial_handle, "model", None)
@@ -308,39 +356,83 @@ def _production_query_evaluator(task: dict, data_dir: str,
             trial_handle, dict) else getattr(trial_handle, "config", None)
         if model is None or config is None:
             raise ValueError("trial handle owns no model for query eval")
-        from bramastra_lab.research.experience.codec import encode_text
         from bramastra_lab.research.runtime.inference import generate_free_form
 
         queries = task.get("query_examples", ())
         if not queries:
             raise ValueError("no query examples; refusing")
         hits = 0
+        query_rows: list[dict[str, Any]] = []
         for example in queries:
-            expected = resolve_mechanism_answer(
-                data_dir, str(example.get("mechanism_id", "")))
-            prompt = [259] + encode_text(json.dumps(
-                example.get("public", {}), sort_keys=True)[:256])[:64]
+            mechanism_id = str(example.get("mechanism_id", ""))
+            expected = resolve_mechanism_answer(data_dir, mechanism_id)
+            public = example.get("public")
+            if not isinstance(public, dict):
+                row = resolve_mechanism_row(data_dir, mechanism_id)
+                public = row["public"]
+            prompt = goal_prefix_tokens(public)
+            if len(prompt) + 1 > K8_MAX_SEQ:
+                raise ValueError(
+                    f"query {mechanism_id!r} canonical prompt needs "
+                    f"{len(prompt)} tokens; context is {K8_MAX_SEQ}; "
+                    "refusing to truncate a decision-relevant representation")
             report = generate_free_form(model, config, prompt,
                                         max_new_tokens=16)
-            if str(report.answer).strip() == expected:
-                hits += 1
-        protected_hits = protected_total = 0
-        for ref in task.get("protected_references", ()):
+            correct = str(report.answer).strip() == expected
+            hits += 1 if correct else 0
+            query_rows.append({"mechanism_id": mechanism_id,
+                               "expected": expected,
+                               "prompt_tokens": len(prompt),
+                               "correct": bool(correct)})
+        refs = list(task.get("protected_references", ()))
+        protected_hits = protected_misses = 0
+        unresolved: list[str] = []
+        protected_rows: list[dict[str, Any]] = []
+        for ref in refs:
+            mechanism_id = str(ref.get("mechanism_id", ""))
             try:
-                expected = resolve_mechanism_answer(
-                    data_dir, str(ref.get("mechanism_id", "")))
-            except ValueError:
-                continue
-            protected_total += 1
-            prompt = [259] + encode_text(json.dumps(
-                {"protected": ref.get("mechanism_id")})[:128])[:32]
+                row = resolve_mechanism_row(data_dir, mechanism_id)
+            except ValueError as exc:
+                # Denominator integrity: a missing/inconsistent protected
+                # reference is an explicit failure, never a skipped case.
+                raise ValueError(
+                    f"protected reference {mechanism_id!r} in task "
+                    f"{task_id!r} did not resolve: {exc}") from exc
+            prompt = goal_prefix_tokens(row["public"])
+            if len(prompt) + 1 > K8_MAX_SEQ:
+                raise ValueError(
+                    f"protected {mechanism_id!r} canonical prompt needs "
+                    f"{len(prompt)} tokens; context is {K8_MAX_SEQ}; "
+                    "refusing to truncate a decision-relevant representation")
             report = generate_free_form(model, config, prompt,
                                         max_new_tokens=16)
-            if str(report.answer).strip() == expected:
-                protected_hits += 1
+            correct = str(report.answer).strip() == row["answer"]
+            protected_hits += 1 if correct else 0
+            protected_misses += 0 if correct else 1
+            protected_rows.append({"mechanism_id": mechanism_id,
+                                   "prompt_tokens": len(prompt),
+                                   "correct": bool(correct)})
+        expected_protected = len(refs)
+        evaluated_protected = protected_hits + protected_misses
+        if evaluated_protected != expected_protected or unresolved:
+            raise ValueError(
+                f"protected denominator integrity failure in task "
+                f"{task_id!r}: expected {expected_protected}, evaluated "
+                f"{evaluated_protected}, unresolved {sorted(unresolved)}")
         return {"measured_success": hits / len(queries),
-                "protected": {"hits": protected_hits,
-                              "total": protected_total}}
+                "query_hits": hits,
+                "query_total": len(queries),
+                "queries": query_rows,
+                "protected": {
+                    "expected": expected_protected,
+                    "evaluated": evaluated_protected,
+                    "hits": protected_hits,
+                    "misses": protected_misses,
+                    "unresolved": 0,
+                    "denominator": evaluated_protected,
+                    "mechanism_ids": [r["mechanism_id"]
+                                      for r in protected_rows],
+                    "rows": protected_rows}}
 
     return evaluate
 
@@ -417,6 +509,68 @@ def _apply_method_to_handle(ops, handle: Any, method_id: str, compiled: dict,
         raise ValueError("learner handle owns no trainer; refusing fake-trainer dispatch")
     return dispatch_method_to_trainer(method_id, compiled, trainer,
                                       task_identity=task_identity)
+
+
+def _measure_archive_block(ops: Any, job: JobInput, anchor_record: dict,
+                           anchor_id: str, anchor_support: tuple,
+                           tasks: list[dict[str, Any]], learning_boundary: str,
+                           *, block_label: str) -> dict[str, Any]:
+    """Measure all three methods on every task of ONE archive block.
+
+    Every (task, method) cell must be measured; failed trials are preserved
+    as auditable records but make the block incomplete (the phase cannot
+    continue with a partial measured archive). Returns rows/lineages/results
+    or an "error" describing the refusal.
+    """
+    from bramastra_lab.research.campaigns import trial_service
+
+    rows: list[dict[str, Any]] = []
+    lineages: list[str] = []
+    results: list[Any] = []
+    failures: list[str] = []
+    for task_index, task in enumerate(tasks):
+        task_id = str(task.get("meta_task_id", f"mt-{task_index}"))
+        for method_id in ("M0", "M1", "M2"):
+            try:
+                result = _run_archive_trial(
+                    ops, job, anchor_record, anchor_id, anchor_support,
+                    task, task_id, method_id, learning_boundary)
+            except Exception as exc:
+                # A failed trial is still an auditable archive record with
+                # its real cost signature (zero work if it never ran).
+                result = trial_service.TrialResult(
+                    task_identity=task_id, method_id=method_id,
+                    measured_updates=0, measured_success=None,
+                    elapsed_seconds=0.0, support_identities=(),
+                    query_identities=(), trial_checkpoint_id=None,
+                    validation="failed", detail={"error": str(exc)[:300]})
+                failures.append(f"{task_id}/{method_id}: {exc}")
+            results.append(result)
+            lineages.append(
+                result.trial_checkpoint_id or result.detail.get(
+                    "lineage", f"failed:{task_id}:{method_id}")[:64])
+            rows.append({
+                "task_identity": task_id, "method_id": method_id,
+                "block": block_label,
+                "measured_success": result.measured_success
+                if result.measured_success is not None else 0.0,
+                "measured_updates": result.measured_updates,
+                "elapsed_seconds": result.elapsed_seconds,
+                "support_identities": list(result.support_identities),
+                "query_identities": list(result.query_identities),
+                "trial_lineage": lineages[-1],
+                "validation": result.validation})
+    if not rows:
+        return {"error": f"E5 archive block {block_label} produced no trials"}
+    if failures:
+        # The archive must contain measured outcomes for every declared
+        # (task, method) cell; failed trials are preserved above, but the
+        # phase cannot continue with an incomplete measured archive.
+        return {"error": f"E5 archive block {block_label} trials incomplete: "
+                         + "; ".join(failures[:3]),
+                "rows": rows, "lineages": lineages, "results": results,
+                "failures": failures}
+    return {"rows": rows, "lineages": lineages, "results": results}
 
 
 def execute(job: JobInput, *, ops=None,
@@ -505,31 +659,17 @@ def execute(job: JobInput, *, ops=None,
     archive_rows: list[dict[str, Any]] = []
     trial_lineages: list[str] = []
     trial_results: list[Any] = []
-    for task_index, task in enumerate(archive_tasks):
-        task_id = str(task.get("meta_task_id", f"mt-{task_index}"))
-        for method_id in ("M0", "M1", "M2"):
-            result = _run_archive_trial(
-                ops, job, anchor_record, anchor_id, anchor_support,
-                task, task_id, method_id, learning_boundary)
-            trial_results.append(result)
-            trial_lineages.append(
-                result.trial_checkpoint_id or result.detail.get(
-                    "lineage", f"failed:{task_id}:{method_id}")[:64])
-            archive_rows.append({
-                "task_identity": task_id, "method_id": method_id,
-                "measured_success": result.measured_success
-                if result.measured_success is not None else 0.0,
-                "measured_updates": result.measured_updates,
-                "elapsed_seconds": result.elapsed_seconds,
-                "support_identities": list(result.support_identities),
-                "query_identities": list(result.query_identities),
-                "trial_lineage": trial_lineages[-1],
-                "validation": result.validation})
-    if not archive_rows:
+    measured_a = _measure_archive_block(
+        ops, job, anchor_record, anchor_id, anchor_support, archive_tasks,
+        learning_boundary, block_label="A")
+    if measured_a.get("error"):
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error="E5 archive block produced no trials",
+                           error=measured_a["error"],
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
+    archive_rows.extend(measured_a["rows"])
+    trial_lineages.extend(measured_a["lineages"])
+    trial_results.extend(measured_a["results"])
     # Immutable archive capability (cutoff frozen before choices).
     try:
         from bramastra_lab.research.metalearning.dispatch import (
@@ -547,16 +687,6 @@ def execute(job: JobInput, *, ops=None,
                            error=f"E5 archive capability refused: {exc}",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
-    # Block 2: P0 successor decision — capture actual decoder output BEFORE
-    # applying. P_fixed is M0 (never M2).
-    try:
-        p0_choice, p0_capture = _capture_proposer_choice(
-            ops, proposer, archive, archive_tasks, anchor_id, job)
-    except Exception as exc:
-        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"E5 proposer capture refused: {exc}",
-                           evidence_kind=EVIDENCE_FIXTURE,
-                           extra={"phase": "E5"})
     # Anchor stability: the requested parent key must match the resolved
     # record's lineage (a changed anchor key fails instead of silently
     # retargeting mid-job).
@@ -568,9 +698,9 @@ def execute(job: JobInput, *, ops=None,
                            error="E5 adaptation anchor key changed mid-job; refusing",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
-    # Block 2: train P0 on the measured archive, capture its choice, then
-    # fork the TRAINED P0 into P1 (selected recipe) and P_fixed (M0) with
-    # the same newly admitted archive/order and equal update allowances.
+    # Block 2: TRAIN P0 on the measured archive first, THEN capture its
+    # choice from the trained weights (U08 train-before-capture): the
+    # pretraining decoder output must never survive the training boundary.
     try:
         proposer_batches = _proposer_batches(archive_tasks, archive)
         p0_train = _train_method_selection(
@@ -586,6 +716,61 @@ def execute(job: JobInput, *, ops=None,
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
     try:
+        p0_choice, p0_capture = _capture_proposer_choice(
+            ops, proposer, archive, archive_tasks, anchor_id, job)
+        p0_capture["captured_after_training"] = True
+        p0_capture["p0_training_committed"] = int(
+            p0_train.get("committed_updates", 0))
+    except Exception as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E5 proposer capture refused: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E5"})
+    # Block B: a DISTINCT fresh archive measured on fresh meta-training
+    # tasks, admitted only after its cutoff; the trained successors learn
+    # method selection from this newly admitted archive (never Block A).
+    block_b_tasks = meta_training[tasks_per_block:2 * tasks_per_block]
+    if not block_b_tasks:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error="E5 Block B unavailable: meta-training pool "
+                                 "carries no fresh tasks beyond the Block A "
+                                 "slice; archives A and B must be distinct",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E5"})
+    measured_b = _measure_archive_block(
+        ops, job, anchor_record, anchor_id, anchor_support, block_b_tasks,
+        learning_boundary, block_label="B")
+    if measured_b.get("error"):
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=measured_b["error"],
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E5"})
+    archive_rows.extend(measured_b["rows"])
+    trial_lineages.extend(measured_b["lineages"])
+    trial_results.extend(measured_b["results"])
+    try:
+        outcomes_b = tuple(MethodTrialOutcome(
+            method_id=r["method_id"], task_identity=r["task_identity"],
+            measured_updates=int(r["measured_updates"]),
+            measured_success=float(r["measured_success"]),
+            elapsed_seconds=float(r["elapsed_seconds"]),
+            validation=str(r["validation"])) for r in measured_b["rows"])
+        archive_b = MethodArchive(rows=outcomes_b,
+                                  cutoff_event_index=len(outcomes_b))
+        archive_b_identity = archive_b.identity()
+        if archive_b_identity == archive_identity:
+            raise ValueError(
+                "Block B archive identity equals Block A; archives must be "
+                "distinct")
+        successor_tasks = block_b_tasks
+        successor_archive = archive_b
+        successor_batches = _proposer_batches(block_b_tasks, archive_b)
+    except Exception as exc:
+        return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                           error=f"E5 Block B archive refused: {exc}",
+                           evidence_kind=EVIDENCE_FIXTURE,
+                           extra={"phase": "E5"})
+    try:
         p1_handle = ops.fork_child(parent_handle=proposer, optimizer_policy="fresh")
         if isinstance(p1_handle, dict):
             p1_handle["anchor_id"] = anchor_id
@@ -595,7 +780,7 @@ def execute(job: JobInput, *, ops=None,
         _apply_method_to_handle(ops, p1_handle, p0_choice, p1_compiled,
                                 task_identity=f"E5-{job.seed}-P1")
         p1_train = _train_method_selection(
-            ops, p1_handle, proposer_batches, job,
+            ops, p1_handle, successor_batches, job,
             task_identity=f"E5-{job.seed}-P1-train",
             learning_boundary=learning_boundary)
         p_fixed_handle = ops.fork_child(parent_handle=proposer, optimizer_policy="fresh")
@@ -607,7 +792,7 @@ def execute(job: JobInput, *, ops=None,
         _apply_method_to_handle(ops, p_fixed_handle, "M0", p_fixed_compiled,
                                 task_identity=f"E5-{job.seed}-P_fixed")
         p_fixed_train = _train_method_selection(
-            ops, p_fixed_handle, proposer_batches, job,
+            ops, p_fixed_handle, successor_batches, job,
             task_identity=f"E5-{job.seed}-P_fixed-train",
             learning_boundary=learning_boundary)
         for label, record in (("P1", p1_train), ("P_fixed", p_fixed_train)):
@@ -661,11 +846,24 @@ def execute(job: JobInput, *, ops=None,
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
     # Capture choices from all five policies before any fresh method trial.
+    # P1 and P_fixed are trained proposers: each decodes its OWN choice from
+    # its own weights (never a copy of P0's choice; P_fixed is NOT the
+    # always-M0 controller — fixed_M0 is). Frozen P0 keeps its already
+    # captured choice; no policy is re-decided after outcomes.
     confirmation_choices: dict[str, str] = {}
+    successor_choice_captures: dict[str, dict] = {}
     try:
-        confirmation_choices["P1"] = p0_choice
-        confirmation_choices["P_fixed"] = "M0"
-        # Frozen P0 choice (same as captured, not re-decided after outcomes).
+        p1_choice, p1_capture = _capture_successor_choice(
+            p1_handle, successor_archive, successor_tasks, anchor_id, "P1")
+        p_fixed_choice, p_fixed_capture = _capture_successor_choice(
+            p_fixed_handle, successor_archive, successor_tasks, anchor_id,
+            "P_fixed")
+        successor_choice_captures["P1"] = p1_capture
+        successor_choice_captures["P_fixed"] = p_fixed_capture
+        confirmation_choices["P1"] = p1_choice
+        confirmation_choices["P_fixed"] = p_fixed_choice
+        # Frozen P0 choice (captured before successors trained; never
+        # re-decided after confirmation outcomes).
         confirmation_choices["P0"] = p0_choice
         confirmation_choices["fixed_M0"] = "M0"
         # Deterministic random (seeded, not outcome-dependent).
@@ -754,6 +952,7 @@ def execute(job: JobInput, *, ops=None,
                                    "checkpoint": successor_checkpoints.get(
                                        "P_fixed")}},
                    "anchors": {"P1": p0_choice, "P_fixed": "M0", "P0": p0_choice},
+                   "successor_choice_captures": successor_choice_captures,
                    "confirmation_choices": confirmation_choices,
                    "confirmation_rows": confirmation_rows,
                    "confirmation_summary": confirm_summary,
@@ -763,6 +962,21 @@ def execute(job: JobInput, *, ops=None,
                    "learning_boundary": learning_boundary,
                    "lineages": trial_lineages[:6]},
                   handle_file, indent=2, sort_keys=True)
+    # Attach the Block-B provenance (fresh successor archive).
+    try:
+        artifact_path = os.path.join(artifact_dir, f"E5-{job.seed}.json")
+        updated = json.load(open(artifact_path, encoding="utf-8"))
+        updated["archive_b_identity"] = archive_b_identity
+        updated["archive_b_rows"] = measured_b["rows"]
+        updated["archive_blocks"] = {
+            "A": {"tasks": len(archive_tasks),
+                  "identity": archive_identity},
+            "B": {"tasks": len(successor_tasks),
+                  "identity": archive_b_identity}}
+        with open(artifact_path, "w", encoding="utf-8") as handle_file:
+            json.dump(updated, handle_file, indent=2, sort_keys=True)
+    except Exception:
+        pass
     if committed <= 0:
         return PhaseResult(status="failed", committed_updates=committed,
                            attempted_updates=attempted,
@@ -1022,6 +1236,83 @@ def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
         "archive_cutoff": archive.cutoff_event_index,
         "recipe_identity": recipe_identity,
         "program_identity": program_identity,
+        "checkpoint_payload_identity": anchor_id[:16]}
+
+
+def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
+                              anchor_id: str, label: str) -> tuple[str, dict]:
+    """Independently decode a trained successor's method choice (Block C).
+
+    P1 and P_fixed are each trained proposers with their own weights. Each
+    decodes its OWN choice from its own model on the confirmation context;
+    P0's choice is never copied into a successor, and the always-M0
+    controller is the separate fixed_M0 policy. With local doubles (no real
+    model) the named teacher/control fallback is taken and labeled.
+    """
+    from bramastra_lab.research.metalearning.dispatch import MethodProposer
+
+    model = handle.get("model") if isinstance(handle, dict) else getattr(
+        handle, "model", None)
+    config = handle.get("config") if isinstance(handle, dict) else getattr(
+        handle, "config", None)
+    double = isinstance(handle, dict) and "double_id" in handle
+    if model is not None and config is not None and not double:
+        try:
+            method_proposer = MethodProposer(
+                model, config, checkpoint_payload_identity=anchor_id)
+            descriptor = {"task_identities": sorted(
+                str(t.get("meta_task_id")) for t in archive_tasks),
+                "family": "meta-confirmation"}
+            capture = method_proposer.capture_proposal(descriptor, archive)
+            from bramastra_lab.research.metalearning.dispatch import (
+                parse_method_selection)
+
+            method_id, program = parse_method_selection(capture.raw_output)
+            if method_id not in ("M0", "M1", "M2"):
+                raise ValueError(
+                    f"{label} decoded method {method_id!r} not in M0/M1/M2")
+            return method_id, {
+                "capture_origin": "model-decoder",
+                "raw_output": capture.raw_output,
+                "parsed_method": method_id,
+                "rendered_input_hash": capture.transcript_hash[:16],
+                "archive_identity": archive.identity(),
+                "archive_cutoff": archive.cutoff_event_index,
+                "checkpoint_payload_identity": anchor_id[:16]}
+        except Exception as exc:
+            fallback_reason = f"{label} decoder refused: {str(exc)[:200]}"
+    else:
+        fallback_reason = (
+            f"no model on {label} successor handle (double); teacher control")
+    # Named teacher/control fallback for doubles only. In production a
+    # trained successor that cannot decode fails the phase (never silently
+    # replaced by P0's choice or M0).
+    if not double:
+        raise ValueError(
+            f"{label} successor choice could not be decoded independently; "
+            f"copying another policy's choice is forbidden ({fallback_reason})")
+    choice = _teacher_majority_choice(archive, archive_tasks)
+    rendered_input = json.dumps(
+        {"label": label,
+         "task_identities": sorted(str(t.get("meta_task_id"))
+                                   for t in archive_tasks),
+         "archive_identity": archive.identity(),
+         "cutoff": archive.cutoff_event_index,
+         "anchor_id": anchor_id[:12]}, sort_keys=True)
+    forbidden = ("measured_success", "query_outcome", "label-outcome",
+                 "confirmation-outcome")
+    for token in forbidden:
+        if token in rendered_input:
+            raise ValueError(
+                f"current-task outcome {token!r} in proposal context; refusing")
+    return choice, {
+        "capture_origin": "teacher-majority-control",
+        "model_error": fallback_reason,
+        "raw_output": choice, "parsed_method": choice,
+        "rendered_input_hash": hashlib.sha256(
+            rendered_input.encode()).hexdigest()[:16],
+        "archive_identity": archive.identity(),
+        "archive_cutoff": archive.cutoff_event_index,
         "checkpoint_payload_identity": anchor_id[:16]}
 
 

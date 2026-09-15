@@ -59,6 +59,20 @@ def build_parser() -> argparse.ArgumentParser:
     export = subparsers.add_parser("export", help="write the result bundle")
     export.add_argument("--run-dir", required=True)
     export.add_argument("--out", required=True)
+
+    verify = subparsers.add_parser(
+        "verify-build",
+        help="run registered local checks, exercise real no-step interfaces, "
+             "and write an evidence-backed build report (zero optimizer commits)")
+    verify.add_argument("--data", required=True, help="prepared bundle directory")
+    verify.add_argument("--report-dir", required=True,
+                        help="NEW directory for build_verification.json")
+    verify.add_argument("--no-updates", action="store_true",
+                        help="required flag: enforces zero optimizer commits")
+    verify.add_argument("--notebook", default=None,
+                        help="owner notebook path (default: notebooks/bramastra_k8.ipynb)")
+    verify.add_argument("--skip-check-groups", action="store_true",
+                        help="internal: exercises only (used by focused tests)")
     return parser
 
 
@@ -313,10 +327,75 @@ def cmd_export(args: argparse.Namespace) -> int:
         print(json.dumps({"status": "EXPORT_REFUSED",
                           "reason": f"manifest verification error: {exc}"}))
         return 2
-    print(json.dumps({"status": "EXPORTED", "out": args.out,
-                      "files": sorted(os.listdir(args.out)),
-                      "payload_files": payload_count}, indent=2))
+    # Completeness verdict (F20/section 21): derived from real evidence —
+    # every required phase must carry a qualified receipt and every
+    # completed real checkpoint identity must have its restorable payload
+    # bytes in this export. Fixture/double identities never satisfy it.
+    exported_ids: set[str] = set()
+    for base_d, _dirs_c, names_c in os.walk(checkpoints_out):
+        if "manifest.json" in names_c:
+            try:
+                _m = json.load(open(os.path.join(base_d, "manifest.json"),
+                                    encoding="utf-8"))
+                if _m.get("checkpoint_id") and any(
+                        n.endswith(".pt") for n in names_c):
+                    exported_ids.add(str(_m["checkpoint_id"]))
+            except Exception:
+                continue
+    missing_phases = [p for p in ("E0", "E1", "E2", "E3", "E4", "E5")
+                      if phase_results[p]["qualified_receipts"] == 0]
+    fixture_identities = 0
+    unexported_identities = 0
+    for row in export.get("reservations", []):
+        try:
+            if len(row) >= 16 and row[10] == "completed" and row[15]:
+                identity = str(row[15])
+                if identity.startswith(("double-", "fixture-", "unpublished")):
+                    fixture_identities += 1
+                elif identity not in exported_ids:
+                    unexported_identities += 1
+        except Exception:
+            continue
+    complete = (not missing_phases and unexported_identities == 0
+                and payload_count > 0)
+    print(json.dumps({
+        "status": "EXPORTED_COMPLETE" if complete else "EXPORTED_PARTIAL",
+        "complete": complete,
+        "missing_phases": missing_phases,
+        "fixture_identities": fixture_identities,
+        "unexported_identities": unexported_identities,
+        "out": args.out,
+        "files": sorted(os.listdir(args.out)),
+        "payload_files": payload_count}, indent=2))
     return 0
+
+
+def cmd_verify_build(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.campaigns.verify_build import run_verify_build
+
+    if not args.no_updates:
+        print("error: verify-build requires --no-updates (zero optimizer "
+              "commits are enforced)", file=sys.stderr)
+        return 2
+    report = run_verify_build(
+        args.data, args.report_dir, no_updates=True,
+        notebook_path=args.notebook,
+        run_checks=not args.skip_check_groups)
+    failing = sorted(
+        req_id for req_id, row in report["requirements"].items()
+        if row["status"] != "pass")
+    print(json.dumps({
+        "status": "VERIFIED" if report["ready_for_owner_experiment"]
+        else "NOT_READY",
+        "report": os.path.join(os.path.abspath(args.report_dir),
+                               "build_verification.json"),
+        "source_closure_sha256": report["source_closure_sha256"],
+        "failing_requirements": failing,
+        "runtime_checks_pending": [gate["id"] for gate in
+                                   report["runtime_checks_pending"]],
+        "optimizer_updates_local": report["optimizer_updates_local"],
+    }, indent=2, sort_keys=True))
+    return 0 if report["ready_for_owner_experiment"] else 1
 
 
 HANDLERS = {
@@ -325,6 +404,7 @@ HANDLERS = {
     "run": cmd_run,
     "summarize": cmd_summarize,
     "export": cmd_export,
+    "verify-build": cmd_verify_build,
 }
 
 

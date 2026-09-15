@@ -186,6 +186,110 @@ class E5AnchorTests(unittest.TestCase):
         self.assertIn("explicit adaptation anchor", (res.error or ""))
 
 
+class E5OrderingTests(unittest.TestCase):
+    """U08 acceptance: train P0 BEFORE capture; no pretraining choice may
+    survive the training boundary; successors decode their own choices."""
+
+    def _e5_fixture(self):
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+
+        data_dir = tempfile.mkdtemp()
+        open(os.path.join(data_dir, "manifest.json"), "w").write("{}")
+        os.makedirs(os.path.join(data_dir, "meta"), exist_ok=True)
+        with open(os.path.join(data_dir, "meta", "meta_tasks.jsonl"), "w",
+                  encoding="utf-8") as handle:
+            # Two meta-training tasks: Block A (archive) and the distinct
+            # fresh Block B slice the successors train on.
+            handle.write(json.dumps({
+                "pool": "meta-training", "meta_task_id": "mt-0",
+                "family": "rule-inquiry"}) + "\n")
+            handle.write(json.dumps({
+                "pool": "meta-training", "meta_task_id": "mt-1",
+                "family": "rule-inquiry"}) + "\n")
+            handle.write(json.dumps({
+                "pool": "meta-confirmation", "meta_task_id": "mc-0",
+                "family": "rule-inquiry"}) + "\n")
+        run = tempfile.mkdtemp()
+        manifest = _save_tiny(run, "E1-B-1701", 3)
+        ledger = CampaignLedger(run)
+        ledger.record_allocation("alloc-e5", "src", "data", 480.0)
+        reservation = ledger.reserve(
+            "E1-B-1701", worker="w", device="cpu", phase="E1", arm="B",
+            seed=1701, reserved_seconds=60.0)
+        ledger.close_reservation(
+            reservation.reservation_id, status="completed",
+            committed_updates=1, attempted_updates=1, supervised_exposure=1,
+            device_seconds=1.0, checkpoint_identity=manifest.checkpoint_id)
+        ledger.close()
+        return data_dir, run
+
+    def test_p0_choice_captured_after_training_boundary(self) -> None:
+        from bramastra_lab.research.campaigns.phases import e5
+        from bramastra_lab.research.campaigns.phases.ops import (
+            RecordingDoubleOps)
+        from bramastra_lab.research.campaigns.phases.types import JobInput
+
+        data_dir, run = self._e5_fixture()
+        job = JobInput(phase="E5", slot=0, arm=None, seed=1701,
+                       parent="E1-B-1701", physical_device="cpu",
+                       local_device="cpu", data_dir=data_dir, run_dir=run,
+                       precision="fp32", deadline=9e9)
+        order: list[str] = []
+        real_capture = e5._capture_proposer_choice
+        real_train = e5._train_method_selection
+
+        def spy_capture(*args, **kwargs):
+            order.append("capture")
+            return real_capture(*args, **kwargs)
+
+        def spy_train(*args, **kwargs):
+            order.append("train")
+            return real_train(*args, **kwargs)
+
+        e5._capture_proposer_choice = spy_capture
+        e5._train_method_selection = spy_train
+        try:
+            res = e5.execute(job, ops=RecordingDoubleOps(),
+                             tasks_per_block=1)
+        finally:
+            e5._capture_proposer_choice = real_capture
+            e5._train_method_selection = real_train
+        self.assertEqual(res.status, "completed",
+                         f"E5 double run failed: {res.error}")
+        # The P0 choice was captured strictly AFTER P0 training ran.
+        self.assertIn("train", order)
+        self.assertIn("capture", order)
+        self.assertLess(order.index("train"), order.index("capture"))
+        artifact = json.load(open(
+            os.path.join(run, "phase_outputs", "E5", "E5-1701.json"),
+            encoding="utf-8"))
+        self.assertTrue(artifact["p0_capture"]["captured_after_training"])
+        # P1 applies the captured (post-training) recipe; P_fixed stays M0.
+        self.assertIn(artifact["successors"]["P1"]["method"],
+                      ("M0", "M1", "M2"))
+        self.assertEqual(artifact["successors"]["P1"]["method"],
+                         artifact["p0_choice"])
+        self.assertEqual(artifact["successors"]["P_fixed"]["method"], "M0")
+        # Independent per-policy confirmation choices exist (no copying).
+        self.assertIn("P1", artifact["confirmation_choices"])
+        self.assertIn("P_fixed", artifact["confirmation_choices"])
+        self.assertIn("P0", artifact["confirmation_choices"])
+        self.assertEqual(artifact["confirmation_choices"]["fixed_M0"], "M0")
+        self.assertIn("random", artifact["confirmation_choices"])
+        # Successor captures record their own decoding provenance.
+        self.assertIn("P1", artifact["successor_choice_captures"])
+        self.assertIn("P_fixed", artifact["successor_choice_captures"])
+        # Two DISTINCT measured archives: P0 trained on Block A, the
+        # successors on the fresh Block B (never the same archive twice).
+        self.assertIn("archive_b_identity", artifact)
+        self.assertNotEqual(artifact["archive_b_identity"],
+                            artifact["archive_identity"])
+        self.assertEqual(artifact["archive_blocks"]["A"]["tasks"], 1)
+        self.assertEqual(artifact["archive_blocks"]["B"]["tasks"], 1)
+        for row in artifact["archive_b_rows"]:
+            self.assertEqual(row["block"], "B")
+
+
 class ReceiptSpoofTests(unittest.TestCase):
     def test_extra_cannot_override_reserved_keys(self) -> None:
         from bramastra_lab.research.campaigns.phases.types import PhaseResult
