@@ -317,6 +317,13 @@ def _package(out: Path) -> dict[str, Any]:
     return receipts
 
 
+def _git_head(repo: Path) -> str:
+    """Full HEAD commit of the execution tree (fail closed on dirt)."""
+    return subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        text=True).strip()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
