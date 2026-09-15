@@ -112,6 +112,37 @@ class E3ExecutorTests(unittest.TestCase):
                             results["T1"].checkpoint_identity)
 
 
+    def test_t0_refuses_rows_carrying_heldout_identities(self) -> None:
+        """Negative control: the protected-exclusion proof must fire when a
+        training row carries a held-out mechanism identity."""
+        from bramastra_lab.research.campaigns.phases import e3
+        from bramastra_lab.research.campaigns.phases.ops import (
+            RecordingDoubleOps)
+
+        data_dir = _bundle_fixture()
+        run_dir = tempfile.mkdtemp()
+        _wire_parent(run_dir, "E1-B-1701", 1701, 1)
+        # Corrupt one tool-training row into a held-out identity.
+        tool_path = os.path.join(data_dir, "tools", "tool_tasks.jsonl")
+        rows = [json.loads(line) for line in open(tool_path, encoding="utf-8")
+                if line.strip()]
+        heldout_id = next(r["mechanism_id"] for r in rows
+                          if r.get("split") == "tool-heldout")
+        corrupted = 0
+        for row in rows:
+            if row.get("split") == "tool-training" and corrupted < 1:
+                row["mechanism_id"] = heldout_id
+                corrupted += 1
+        with open(tool_path, "w", encoding="utf-8", newline="\n") as handle:
+            for row in rows:
+                handle.write(json.dumps(row, sort_keys=True) + "\n")
+        res = e3.execute(_job("E3", arm="T0", seed=1701, parent="E1-B-1701",
+                              data_dir=data_dir, run_dir=run_dir),
+                         ops=RecordingDoubleOps(), update_target=2)
+        self.assertEqual(res.status, "failed")
+        self.assertIn("heldout mechanism", (res.error or ""))
+
+
 class E6ExecutorTests(unittest.TestCase):
     def test_export_executor_verifies_real_payload_bundle(self) -> None:
         from bramastra_lab.research.campaigns.phases import e6
