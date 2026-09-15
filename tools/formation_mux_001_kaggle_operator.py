@@ -486,6 +486,38 @@ def finalize_sealed(*, surface: Path, out: Path, torch: Any,
 
 # -- packaging ------------------------------------------------------------------------
 
+def export_model_checkpoints(out: Path) -> dict[str, Any]:
+    """Every expensive campaign exports final model state SEPARATELY from
+    the small results ZIP: one model-only archive, its SHA-256, and an
+    EXPORT_VERIFIED receipt. Without this receipt the run is not complete."""
+
+    checkpoints = sorted(Path(out).rglob("resume.pt"))
+    archive_dir = Path(out) / "CHECKPOINTS"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    entries: dict[str, str] = {}
+    for index, checkpoint in enumerate(checkpoints):
+        relative = checkpoint.relative_to(out)
+        label = str(relative).replace("/", "__").replace(".pt", ".pt")
+        target = archive_dir / label
+        if not target.exists() or target.stat().st_size == 0:
+            target.write_bytes(checkpoint.read_bytes())
+        entries[str(relative)] = sha256_file(target)
+    archive = archive_dir / "MODEL_CHECKPOINTS.tar"
+    import tarfile
+    with tarfile.open(archive, "w") as tar:
+        for checkpoint in checkpoints:
+            tar.add(checkpoint, arcname=str(checkpoint.relative_to(out)))
+    receipt = {"schema": "anra.formation-mux-export/v1",
+               "export_verified": True,
+               "checkpoint_count": len(checkpoints),
+               "checkpoint_sha256": entries,
+               "model_archive": str(archive),
+               "model_archive_sha256": sha256_file(archive)}
+    (archive_dir / "EXPORT_VERIFIED.json").write_text(
+        json.dumps(receipt, indent=2) + chr(10), encoding="utf-8")
+    return receipt
+
+
 def package_results(out: Path, *, source_commit: str) -> dict[str, Any]:
     out = Path(out)
     bundle = out.parent / BUNDLE_NAME
@@ -595,6 +627,21 @@ def main(argv: list[str] | None = None) -> int:
         if code != EXIT_OK:
             print("QUALIFICATION FAILED (exit", code, ")")
             return code
+    gate_receipt = (args.repo / "docs" / "cymek" / "experiments" /
+                    "FORMATION-BASELINE-GATE-001" /
+                    "CAPABILITY_GATE_RECEIPT.json")
+    gate_pass = gate_receipt.exists() and json.loads(
+        gate_receipt.read_text(encoding="utf-8")).get("gate") == "PASS"
+    if not args.engineering_only and not gate_pass:
+        print("OFFICIAL MECHANISM ARMS BLOCKED: no CAPABILITY_GATE PASS "
+              "receipt (FORMATION-BASELINE-GATE-001). Run the diagnostic "
+              "first; an official campaign cannot launch on an unqualified "
+              "regime.")
+        bundle = package_results(out, source_commit=subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=args.repo, capture_output=True,
+            text=True).stdout.strip())
+        print("BUNDLE:", bundle)
+        return EXIT_GLOBAL
     state = run_campaign(surface=Path(surface_path), out=out, torch=torch,
                          engineering_only=args.engineering_only,
                          progress=print)

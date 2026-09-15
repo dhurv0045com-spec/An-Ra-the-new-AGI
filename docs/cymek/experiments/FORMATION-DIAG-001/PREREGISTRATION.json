@@ -1,0 +1,65 @@
+{
+  "schema": "anra.formation-diag-preregistration/v1",
+  "experiment": "FORMATION-DIAG-001",
+  "status": "PROSPECTIVE_DIAGNOSTIC (nonofficial, fresh seeds, no sealed data)",
+  "relationship": {
+    "extends_panel_of": "FORMATION-BASELINE-GATE-001 (its decision rules are applied verbatim)",
+    "adds": [
+      "CE by family",
+      "teacher-forced accuracy by output position",
+      "clipping multiplier",
+      "tied-embedding input/output gradient decomposition",
+      "identity-only probe runs SIDE BY SIDE (not adaptively)",
+      "model-checkpoint export with EXPORT_VERIFIED receipt"
+    ],
+    "does_not_touch": [
+      "TIE-ROLE-PILOT-001",
+      "TIE-ROLE-FRONTIER-001 (historical, unexecuted)",
+      "official CS-MECH-002 / REP-FORM-003A receipts"
+    ],
+    "operator_plan": "the cheap diagnostic before any expensive mechanism science; decision tree: identity-only succeeds -> mixture/interference; token accuracy high + sequence exact low -> metric/decoding; shared-only rescue -> output competition; longer exposure -> horizon; LR/clip -> optimization; none -> scale the model"
+  },
+  "arms": {
+    "GPU0_SIX_FAMILY": {
+      "variant": "SIX_FAMILY",
+      "seed": 73012,
+      "updates": 3000,
+      "mixture": "full frozen six-family S5 mixture"
+    },
+    "GPU1_IDENTITY_ONLY": {
+      "variant": "IDENTITY_ONLY",
+      "seed": 91002,
+      "updates": 2000,
+      "mixture": "identity family only"
+    }
+  },
+  "canonical_control": "M0_STANDARD geometry/optimizer exactly as frozen in S5",
+  "measurements": [
+    "teacher_forced_token_accuracy",
+    "accuracy_by_position",
+    "accuracy_by_answer_length",
+    "sequence_exact",
+    "ce_by_family",
+    "target_rank_and_margin",
+    "full_vs_shared_only_rescue",
+    "grad_norm_pre_clip",
+    "clipping_multiplier",
+    "tied_input_output_gradient_decomposition"
+  ],
+  "sealed": "no sealed rows read, scored, or persisted",
+  "checkpoint_export": "per-arm model archives + SHA-256 + EXPORT_VERIFIED receipt",
+  "surface_seed_note": "surface generated from gate seed 73011 (same public surface identity as S5); training seeds are fresh and nonofficial",
+  "gate_reference": {
+    "prereg": "docs/cymek/experiments/FORMATION-BASELINE-GATE-001/PREREGISTRATION.json",
+    "decision_rules": [
+      "GO_MECHANISM_CAMPAIGN_WORTH_IT",
+      "NO_GO_MIXTURE_INTERFERENCE_FIRST",
+      "NO_GO_SUBSTRATE_FORMATION",
+      "NO_GO_CEILING_RECALIBRATE",
+      "NO_GO_OUTPUT_COMPETITION_FIRST",
+      "NO_GO_REALIZATION_OR_METRIC_FIRST",
+      "BORDERLINE_SMALL_OPTIMIZATION_PROBE_FIRST",
+      "NO_GO_FLOOR"
+    ]
+  }
+}
