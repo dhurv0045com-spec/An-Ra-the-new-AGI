@@ -1,6 +1,6 @@
 # FINAL-K8 handoff (generated from build evidence)
 
-- Source revision: `a46b7ec531a710d040ff36a4e78afb657750cddf`
+- Source revision: `5ee63e4b86377dcbacc8fae733f339fca6500c63`
 - Implementation closure: `66beb29e86c534ec...`
 - Data bundle identity: `d18be8735bdecd2605a92c61d7880fc53503a899fcaa2f2562103baa1c44e86b`
 - Requirements PASS: 24/24
