@@ -202,11 +202,16 @@ def _expand_history_entry(compact: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _compact_evidence_record(record: Mapping[str, Any]) -> dict[str, Any]:
-    """Lossless-compact evidence record for the shared renderer."""
+    """Lossless-compact evidence record for the shared renderer.
+
+    No field is sliced: the render budget is enforced at the token level by
+    `render_public_state`, which fails explicitly instead of discarding
+    semantic content.
+    """
     compact: dict[str, Any] = {}
     for key, value in record.items():
         if key == "observed_value":
-            compact["o"] = str(value)[:120] if isinstance(value, str) else value
+            compact["o"] = value
         elif key == "entity":
             compact["e"] = value
         elif key == "observation_id":
@@ -300,16 +305,36 @@ class ModelWorldModel:
 
     def __call__(self, *, state: Mapping[str, Any],
                  action: Mapping[str, Any], depth: int) -> Mapping[str, Any]:
-        from bramastra_lab.research.experience.codec import encode_text
+        from bramastra_lab.research.experience.codec import encode_event
 
-        prompt_text = json.dumps({
-            "goal": dict(state.get("goal", {})),
-            "history": [dict(entry) for entry in state.get("history", [])],
-            "workspace": [dict(entry) for entry in state.get("workspace", [])],
-            "action": dict(action),
-            "depth": depth,
-        }, sort_keys=True, default=str)[:512]
-        prompt = [259] + encode_text(prompt_text)[:256]
+        # Complete canonical representation: the SAME shared renderer used
+        # for training and for policy inference (goal + history + workspace
+        # + the applied action event). No character slicing, no token
+        # slicing; overflow fails explicitly instead of discarding the
+        # decision-relevant state.
+        try:
+            state_tokens, _omitted = render_public_state(
+                goal=dict(state.get("goal", {})),
+                history=[dict(entry) for entry in state.get("history", [])],
+                workspace=[dict(entry) for entry in state.get("workspace", [])],
+                budgets=None)
+        except EpisodeError as exc:
+            return {"feedback": {},
+                    "success_prob": None, "value": None,
+                    "origin": "representation-overflow",
+                    "prediction_failed": True,
+                    "error": f"world-model prompt refused: {exc}"}
+        action_tokens = encode_event("action", dict(action))
+        prompt = state_tokens + action_tokens
+        if len(prompt) + 1 > RENDER_MAX_TOKENS_DEFAULT:
+            return {"feedback": {},
+                    "success_prob": None, "value": None,
+                    "origin": "representation-overflow",
+                    "prediction_failed": True,
+                    "error": (f"world-model prompt needs {len(prompt)} "
+                              f"tokens; policy allows "
+                              f"{RENDER_MAX_TOKENS_DEFAULT}; refusing to "
+                              "truncate the imagined-transition input")}
         self.calls += 1
         try:
             out = self.model.generate(prompt, max_new_tokens=24)
@@ -499,7 +524,10 @@ def admit_observation_evidence(workspace: list[dict[str, Any]], *,
         "record_id": observation_id,
         "subject": subject,
         "predicate": predicate,
-        "value": value if value is not None else json.dumps(observation, sort_keys=True, default=str)[:120],
+        # Lossless: no semantic slicing of decision-relevant observation
+        # content (render budget is enforced explicitly by the renderer).
+        "value": value if value is not None else json.dumps(
+            observation, sort_keys=True, default=str),
         "valid_time": len(workspace),
         "source_event_id": observation_id,
         "status": "active",
