@@ -266,7 +266,7 @@ def _pairwise(control: Mapping[str, Any], treatment: Mapping[str, Any]) -> dict[
         "formation_auc_delta_treatment_minus_control": float(treatment["formation"]["formation_auc"]) - float(control["formation"]["formation_auc"]),
         "endpoint_control": float(control["formation"]["endpoint"]),
         "endpoint_treatment": float(treatment["formation"]["endpoint"]),
-        "endpoint_delta_treatment_minus_control": float(treatment["formation"]["endpoint"]) - float(control["formation"]["formation"]["endpoint"]),
+        "endpoint_delta_treatment_minus_control": float(treatment["formation"]["endpoint"]) - float(control["formation"]["endpoint"]),
         "teacher_forced_delta": float(treatment["teacher_forced_identity"]["target_token_accuracy"]) - float(control["teacher_forced_identity"]["target_token_accuracy"]),
         "gradient_output_to_input_ratio_control": float(control["gradient_diagnostic"]["output_to_input_gradient_norm_ratio"]),
         "gradient_output_to_input_ratio_treatment": float(treatment["gradient_diagnostic"]["output_to_input_gradient_norm_ratio"]),
