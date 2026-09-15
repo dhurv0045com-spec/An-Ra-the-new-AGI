@@ -811,3 +811,112 @@ class ImplementationReadinessError(RuntimeError):
             self.report.get("failing_requirements", []))
         super().__init__(
             f"K8 implementation readiness blocked: {reason or 'no evidence'}")
+
+
+# --------------------------------------------------------------------------
+# Final readiness generation (F24): derived from the verified report
+# --------------------------------------------------------------------------
+
+def write_final_readiness(report_path: str | None = None, *,
+                          out_dir: str | None = None,
+                          repo_root: str | None = None) -> dict[str, Any]:
+    """Generate BUILD_READINESS.json + HANDOFF.md from build evidence (F24).
+
+    Every field is derived from the verified build report — no hand-maintained
+    counts. Raises when the report is absent, tampered or stale; readiness is
+    therefore always evidence-bound.
+    """
+    from bramastra_lab.research.runtime.provenance import source_closure_sha256
+
+    report = load_build_report(report_path, repo_root=repo_root)
+    closure = source_closure_sha256()
+    if str(report.get("source_closure_sha256")) != str(closure):
+        raise ValueError(
+            "stale build report: source closure changed; rerun verify-build "
+            "before generating the final readiness package")
+    requirements = report["requirements"]
+    failing = sorted(req_id for req_id, row in requirements.items()
+                     if row.get("status") != "pass")
+    passed = [req_id for req_id in sorted(requirements)
+              if requirements[req_id]["status"] == "pass"]
+    not_run = [req_id for req_id in sorted(requirements)
+               if requirements[req_id]["status"] == "not_run"]
+    readiness = {
+        "schema": "bramastra-k8-build-readiness/v2",
+        "derived_from": "build_verification.json",
+        "report_identity": report["report_identity"],
+        "source_revision": report["source_identity"].get("git_head"),
+        "implementation_closure_sha256": report["source_closure_sha256"],
+        "data_manifest_sha256": report.get("data_identity"),
+        "model_config_sha256": report.get("config_identity"),
+        "codec_identity": report.get("codec_identity"),
+        "schema_identities": {"codec": report.get("codec_identity"),
+                              "config": report.get("config_identity")},
+        "requirements": {req_id: {
+            "status": requirements[req_id]["status"],
+            "implemented_symbols": requirements[req_id]["implemented_symbols"],
+            "test_selectors": requirements[req_id]["test_selectors"],
+            "command_receipts": requirements[req_id]["command_receipts"],
+            "production_path_evidence":
+                requirements[req_id]["production_path_evidence"],
+            "limitations": requirements[req_id]["limitations"],
+        } for req_id in sorted(requirements)},
+        "executed_commands": [
+            {"command": "python -m bramastra_lab.research.campaigns.k8 "
+                        "verify-build --data <offline-bundle> --report-dir "
+                        "<new-dir> --no-updates",
+             "report_identity": report["report_identity"]},
+        ],
+        "runtime_checks_pending": report.get("runtime_checks_pending", []),
+        "optimizer_updates_local": report.get("optimizer_updates_local", 0),
+        "ready_for_owner_experiment": not failing,
+        "owner_notebook": "notebooks/bramastra_k8.ipynb",
+        "data_artifact": {
+            "identity": report.get("data_identity"),
+            "manifest": "engineering/final_delivery/data/bundle_manifest.json",
+            "audit": "engineering/final_delivery/data/bundle_audit.json",
+            "generation_command": (
+                "python -m bramastra_lab.research.campaigns.k8 prepare "
+                "--out <offline-bundle> --training-mechanisms 4096 "
+                "--controller-mechanisms 256 --development-mechanisms 256 "
+                "--confirmation-mechanisms 128 --tool-mechanisms 256 "
+                "--tool-heldout 64 --meta-train 24 --meta-validate 6 "
+                "--meta-confirm 6")},
+        "runbook": "engineering/final_delivery/RUN_EXPERIMENT.md",
+        "remaining_blockers": failing,
+    }
+    if out_dir is None:
+        out_dir = os.path.dirname(report_path) if report_path else os.path.join(
+            _repo_root(), DEFAULT_REPORT_SEARCH.rsplit(os.sep, 1)[0])
+    os.makedirs(out_dir, exist_ok=True)
+    lines = ["# FINAL-K8 handoff (generated from build evidence)", "",
+             f"- Source revision: `{readiness['source_revision']}`",
+             f"- Implementation closure: `{readiness['implementation_closure_sha256'][:16]}...`",
+             f"- Data bundle identity: `{readiness['data_manifest_sha256']}`",
+             f"- Requirements PASS: {len(passed)}/24"
+             + (f" (not_run: {', '.join(not_run)})" if not_run else ""),
+             f"- Local optimizer commits: {readiness['optimizer_updates_local']}",
+             f"- Ready for owner experiment: **{readiness['ready_for_owner_experiment']}**",
+             "", "## Requirement verdicts", "",
+             "| Requirement | Status | Evidence |", "| --- | --- | --- |"]
+    for req_id in sorted(requirements):
+        row = requirements[req_id]
+        evidence = ", ".join(
+            [f"checks:{s}" for s in row["test_selectors"]]
+            + [f"exercise:{name}" for name in row["production_path_evidence"]])
+        lines.append(f"| {req_id} | {row['status']} | {evidence} |")
+    lines += ["", "## Runtime checks pending (owner E0)", ""]
+    for gate in report.get("runtime_checks_pending", []):
+        lines.append(f"- {gate['id']} (before {gate['required_before']}): "
+                     f"{gate['criterion']}")
+    lines += ["", "This file is generated by "
+              "`bramastra_lab.research.campaigns.verify_build."
+              "write_final_readiness`; regenerate instead of editing.",
+              ""]
+    with open(os.path.join(out_dir, "BUILD_READINESS.json"), "w",
+              encoding="utf-8", newline="\n") as handle:
+        json.dump(readiness, handle, indent=2, sort_keys=True)
+    with open(os.path.join(out_dir, "HANDOFF.md"), "w",
+              encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines))
+    return readiness

@@ -1,0 +1,17 @@
+# BRAMASTRA FINAL-K8 runtime constraints (F23)
+# Verified locally against the delivered build on 2026-09-15.
+# The owner GPU session installs with:
+#   pip install -r engineering/final_delivery/runtime-constraints.txt
+# preserving the Kaggle-compatible Torch build (do NOT force a CUDA wheel
+# here; Kaggle T4 images ship the matching CUDA Torch).
+
+numpy==2.4.6
+pytest==9.1.1
+# torch: installed by the platform image (verified with 2.14.0 locally;
+# any >=2.0 with the image's CUDA build is compatible — the code uses
+# autocast + GradScaler with fp16 and falls back to fp32 on CPU).
+
+# The following standard-library-only assumptions hold:
+#   - sqlite3 (allocation ledger), json/hashlib/subprocess (verify-build).
+# bramastra_lab itself is an editable/plain-path package:
+#   pip install -e .

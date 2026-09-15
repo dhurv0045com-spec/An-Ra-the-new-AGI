@@ -102,8 +102,14 @@ def run_rehearsal(*, repo_root: str | None = None,
                                "evidence": res.evidence_kind}
             if res.status != "completed":
                 break
-        phase_results["E4"] = e4_results.get("S1")
-        phase_results["E4"]["both_arms"] = e4_results
+        # Copied per-arm records (never aliased: a cyclic receipt would
+        # make the report body unhashable for content_identity).
+        phase_results["E4"] = {
+            "status": e4_results.get("S1", {}).get("status", "missing"),
+            "error": e4_results.get("S1", {}).get("error"),
+            "evidence": e4_results.get("S1", {}).get("evidence"),
+            "both_arms": {arm: dict(record)
+                          for arm, record in e4_results.items()}}
         e5_res = e5.execute(_job("E5", "E1-B-1701"), ops=ops,
                             tasks_per_block=1)
         phase_results["E5"] = {"status": e5_res.status,

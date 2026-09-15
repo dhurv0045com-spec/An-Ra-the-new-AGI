@@ -1,0 +1,92 @@
+{
+  "audit": {
+    "canonical_grouping": "one_declared_canonical_identity_all_pools",
+    "families": {
+      "inventory": {
+        "mechanisms_generated": 4736,
+        "pools": {
+          "development-measurement": 256,
+          "sealed-confirmation": 128,
+          "training": 4096,
+          "training-controller": 256
+        }
+      },
+      "program": {
+        "mechanisms_generated": 4736,
+        "pools": {
+          "development-measurement": 256,
+          "sealed-confirmation": 128,
+          "training": 4096,
+          "training-controller": 256
+        }
+      },
+      "rule-inquiry": {
+        "mechanisms_generated": 4736,
+        "pools": {
+          "development-measurement": 256,
+          "sealed-confirmation": 128,
+          "training": 4096,
+          "training-controller": 256
+        }
+      }
+    },
+    "leakage_check": "public_renderer_separation_plus_verifier_agreement",
+    "tool_heldout": 64,
+    "tool_heldout_composition": "filter_then_aggregate_then_check",
+    "tool_training": 256,
+    "tool_training_composition": "single_filter",
+    "verifier_consistent": "independently_recomputed_per_mechanism",
+    "verifier_coverage": [
+      "rule-inquiry",
+      "inventory",
+      "program",
+      "tools"
+    ]
+  },
+  "authorship": "bramastra-lab deterministic generators",
+  "created_unix": 1789487207.9857256,
+  "families": [
+    "rule-inquiry",
+    "inventory",
+    "program"
+  ],
+  "file_hashes": {
+    "episodes\\inventory-development-measurement.jsonl": "5a1ef502ec3e9187c6b6af6e55fb9cd5cf11f5727077a1d821d03607e565cd10",
+    "episodes\\inventory-sealed-confirmation.jsonl": "893f502936c7d094b2f984e07f0e8e59a58ebf0717008569bf0313a25e181b65",
+    "episodes\\inventory-training-controller.jsonl": "299dee6c4f71b6301459f43aa3eab7f0b866ceef7c84795b395ddf19b777eec7",
+    "episodes\\inventory-training.jsonl": "2b1ed8d284bb2cc569170eaae31d8fc8fd279a79bdf8c7f796a539b7bc11978a",
+    "episodes\\program-development-measurement.jsonl": "955021af639a1248c6fb4f53276f1a17a4b3082dcd771a4eec90d26ad0dc90e3",
+    "episodes\\program-sealed-confirmation.jsonl": "494fcbc37e9c40f8e7d146d8e2f19b643bcc7a2e2c20bda92d6a70220383c788",
+    "episodes\\program-training-controller.jsonl": "f8870f0c1423f0de0a08ab6fa4e3ae7e94ad769a200543c6b48c8ef01c4f3b9c",
+    "episodes\\program-training.jsonl": "a48a6951591d7612c0ef9995aab872e4c457e3de19cf2521e247ab22a1254ec5",
+    "episodes\\rule-inquiry-development-measurement.jsonl": "5d8729d9301085b6506029257dfbf9e20e29d1d4e2ef92baaed4f2423e698910",
+    "episodes\\rule-inquiry-sealed-confirmation.jsonl": "e23624943b7bf5a89abd807b4db3da771fa745a7e24ff9da9758c18dd9db53f4",
+    "episodes\\rule-inquiry-training-controller.jsonl": "fa8b9e60b1e53f303531a4a55735210edf615e9fb9c8aca9e706d545c7e3364d",
+    "episodes\\rule-inquiry-training.jsonl": "68a0ec4fa3234b27993ffd39b8b8ec2843dd2227a4826b66d008bc377e495aab",
+    "meta\\meta_tasks.jsonl": "8fd3613c84e54d1d4b6b5af41096feffd50f1b8a956013187cd092724c986a6a",
+    "supervision\\inventory-development-measurement.jsonl": "97816fd1494e2ce2620acc1a706dca4d055cb45c330e1ef26656561bb072a12c",
+    "supervision\\inventory-sealed-confirmation.jsonl": "31e3696f090d2eec978ec50acbfd45556e3156d8fd25fe6813dea68f6ed56672",
+    "supervision\\inventory-training-controller.jsonl": "ee3cf9197f27cf9651e6758e7ab7b1481cc7bcba0fb38b135d73a81dbf983fba",
+    "supervision\\inventory-training.jsonl": "aa25c3e11d31b83a089536b99fa883d498f8beeadc0839beb62ce3b02f98529c",
+    "supervision\\program-development-measurement.jsonl": "d932d243e6d3849e641ca379f341cccd1a019561347c61892d7f19a086566535",
+    "supervision\\program-sealed-confirmation.jsonl": "1702b17a3e277271f1a13da4cd78bce7326e29a3e92f2060c02670d1e00dd6a6",
+    "supervision\\program-training-controller.jsonl": "3286566dbc0ce71663799a3249366d3ddc46d97faf864a564179cea21d41df0e",
+    "supervision\\program-training.jsonl": "0d12760c73c2919a0d6775fc778e462a480485b6b8052bd8c28d35cbd917c855",
+    "supervision\\rule-inquiry-development-measurement.jsonl": "4667a5a6fde289184ed391ccbac57537495c3e89fd572078eb0ce0271c59af43",
+    "supervision\\rule-inquiry-sealed-confirmation.jsonl": "d10cc038144150a5289084a2ae70b8032d8fcc4e106749e73c79f73623c7fa35",
+    "supervision\\rule-inquiry-training-controller.jsonl": "aa02eab7397cb09394a3b03f0fc831ca22fab10e40e1cebf7fd13336ea5023f6",
+    "supervision\\rule-inquiry-training.jsonl": "c233a9f84a12f77adba04294c183499040f096c799665c3a7b6f9a2bdc302b51",
+    "tools\\tool_tasks.jsonl": "d9c81b189df87df365041b203502c81b9a545d7553547a3e59229b19b87f0b0e"
+  },
+  "generation_seed": 8609,
+  "identity": "d18be8735bdecd2605a92c61d7880fc53503a899fcaa2f2562103baa1c44e86b",
+  "license": "repository-generated (BRAMASTRA K8 generators)",
+  "schema": "bramastra-k8-data/v1",
+  "source_bytes_identity": "242818a23152245570c6876aee52b3f410b549e4e13502f00fc42a17a4944a32",
+  "split_pools": {
+    "development-measurement": 256,
+    "sealed-confirmation": 128,
+    "training": 4096,
+    "training-controller": 256
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "canonical_grouping": "one_declared_canonical_identity_all_pools",
+  "families": {
+    "inventory": {
+      "mechanisms_generated": 4736,
+      "pools": {
+        "development-measurement": 256,
+        "sealed-confirmation": 128,
+        "training": 4096,
+        "training-controller": 256
+      }
+    },
+    "program": {
+      "mechanisms_generated": 4736,
+      "pools": {
+        "development-measurement": 256,
+        "sealed-confirmation": 128,
+        "training": 4096,
+        "training-controller": 256
+      }
+    },
+    "rule-inquiry": {
+      "mechanisms_generated": 4736,
+      "pools": {
+        "development-measurement": 256,
+        "sealed-confirmation": 128,
+        "training": 4096,
+        "training-controller": 256
+      }
+    }
+  },
+  "leakage_check": "public_renderer_separation_plus_verifier_agreement",
+  "tool_heldout": 64,
+  "tool_heldout_composition": "filter_then_aggregate_then_check",
+  "tool_training": 256,
+  "tool_training_composition": "single_filter",
+  "verifier_consistent": "independently_recomputed_per_mechanism",
+  "verifier_coverage": [
+    "rule-inquiry",
+    "inventory",
+    "program",
+    "tools"
+  ]
+}
