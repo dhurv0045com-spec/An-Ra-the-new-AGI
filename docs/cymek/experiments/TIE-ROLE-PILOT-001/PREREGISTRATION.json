@@ -1,0 +1,91 @@
+{
+  "schema": "anra.tie-role-pilot-preregistration/v1",
+  "experiment": "TIE-ROLE-PILOT-001",
+  "status": "PROSPECTIVE_COMPUTE_GATE",
+  "question": "Is the already-preregistered TIE-ROLE-FRONTIER-001 mechanism campaign worth spending approximately 8+ hours of T4x2 compute on?",
+  "decision_target": "TIE-ROLE-FRONTIER-001",
+  "decision_rule": "This pilot must end with a binary RUN_FULL_TIE_ROLE or DO_NOT_RUN_FULL_TIE_ROLE decision. Ambiguous evidence is a NO-GO for the expensive campaign.",
+  "relationship_to_s5": {
+    "frozen_science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "s5_verdicts_unchanged": true,
+    "sealed_rows_used": false,
+    "sealed_rows_persisted": false
+  },
+  "relationship_to_frontier": {
+    "frontier_preregistration": "TIE_ROLE_FRONTIER_PREREGISTRATION_V1.json",
+    "frontier_preregistration_sha256": "c4bccc7aa56d2cdca03cfe454ece56dbbf9c5b73",
+    "pilot_does_not_modify_frontier": true,
+    "pilot_is_not_part_of_frontier_official_arms": true
+  },
+  "hardware_target": "single Google Colab T4",
+  "runtime_target": "approximately 2 to 3 wall-hours",
+  "surface": {
+    "source": "frozen S5 public surface",
+    "seed": 73011,
+    "expected_public_surface_sha256": "f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c",
+    "training": "same six-family S5 training mixture",
+    "development": "same S5 development rows; identity is the primary scored family",
+    "sealed": "never loaded or scored"
+  },
+  "model": {
+    "architecture": "TIE-ROLE exact frontier model: 8L/256w, V24576, tied embeddings, QK norm",
+    "optimizer": "same canonical V5 AdamW and global clip",
+    "learning_rate": 0.001,
+    "batch_rows": 16,
+    "updates_per_arm": 2000
+  },
+  "arms": {
+    "T0_CANONICAL": {"input_path_gradient_scale": 1.0, "output_path_gradient_scale": 1.0},
+    "T3_BALANCED_X4_X025": {"input_path_gradient_scale": 4.0, "output_path_gradient_scale": 0.25}
+  },
+  "seeds": {
+    "fresh_seed_a": 92001,
+    "fresh_seed_b": 92002,
+    "selection_rule": "Both seeds are fresh relative to S5 and the prior baseline-gate diagnostic; neither is eligible to be substituted by a historical seed after outcomes are observed."
+  },
+  "design": {
+    "lanes": 4,
+    "matched_pairs": "T0 and T3 use the same seed and must be forward-equivalent at initialization; only backward gradient routing differs.",
+    "primary_metric": "identity candidate-free exact+valid-EOS formation AUC",
+    "endpoint_metric": "identity candidate-free exact+valid-EOS at update 2000",
+    "secondary_metrics": [
+      "teacher-forced identity target-token accuracy",
+      "target rank",
+      "target margin",
+      "answer-length stratified exact accuracy",
+      "global clipping fraction",
+      "tied-matrix input/output gradient ratio",
+      "input/output gradient cosine",
+      "gradient cancellation fraction"
+    ]
+  },
+  "go_rule": {
+    "name": "RUN_FULL_TIE_ROLE",
+    "requires_all": [
+      "both fresh seeds have T3 minus T0 formation-AUC delta >= 0.05",
+      "both fresh seeds have T3 minus T0 endpoint delta >= 0.10",
+      "neither seed has a negative endpoint delta",
+      "mean T0 and T3 endpoints are below 0.85, avoiding a ceiling regime",
+      "forward-equivalence preflight passes for both matched pairs"
+    ],
+    "reason": "A two-seed pilot is being used only as a compute triage gate, so the effect threshold is deliberately stricter than the four-seed official frontier threshold."
+  },
+  "no_go_rules": {
+    "name": "DO_NOT_RUN_FULL_TIE_ROLE",
+    "conditions": [
+      "GO rule is not fully satisfied",
+      "either fresh seed shows a negative endpoint effect",
+      "either matched pair fails forward equivalence",
+      "both arms are too close to ceiling"
+    ],
+    "principle": "Ambiguous or weak pilot evidence does not justify the expensive 24-arm frontier. Preserve the pilot and diagnose the next bottleneck with a smaller experiment."
+  },
+  "claim_ceiling": "The pilot can only decide whether the full TIE-ROLE frontier is worth its compute. It cannot establish the TIE-ROLE mechanism, alter S5, promote an architecture, or make cognition/AGI claims.",
+  "durability": {
+    "google_drive": true,
+    "exact_resume": true,
+    "results_zip": true,
+    "checkpoint_zip": true,
+    "sha256_receipts": true
+  }
+}
