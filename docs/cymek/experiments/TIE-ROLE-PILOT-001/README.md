@@ -34,6 +34,12 @@ The pilot prints `RUN_FULL_TIE_ROLE` only when **both fresh seeds** satisfy all 
   duplicate or unregistered seed evidence is a NO-GO (enforced by `_decide`,
   `tools/tie_role_pilot_001_colab_v1.py`; regression-tested in
   `tests/test_tie_role_pilot_001_decision.py`).
+- Post-training pipeline (checkpoint write → identity-checked reload → greedy /
+  teacher-forced / tied-gradient diagnostics → pairwise decision → result and ZIP
+  packaging) is integration-covered on CPU with a tiny untrained model and zero
+  optimizer steps in `tests/test_tie_role_pilot_001_integration.py`. This is
+  engineering coverage only; it executes no training and produces no scientific
+  evidence.
 
 Anything else is `DO_NOT_RUN_FULL_TIE_ROLE`. Ambiguous evidence is intentionally treated as NO-GO for the expensive campaign.
 
