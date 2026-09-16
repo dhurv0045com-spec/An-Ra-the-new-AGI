@@ -30,6 +30,10 @@ The pilot prints `RUN_FULL_TIE_ROLE` only when **both fresh seeds** satisfy all 
 - Neither endpoint delta is negative.
 - No pilot arm is at/above `0.90` exact, avoiding a ceiling regime.
 - Forward-equivalence preflight passes.
+- The two scored pairs cover each registered fresh seed (`92001`, `92002`) exactly once —
+  duplicate or unregistered seed evidence is a NO-GO (enforced by `_decide`,
+  `tools/tie_role_pilot_001_colab_v1.py`; regression-tested in
+  `tests/test_tie_role_pilot_001_decision.py`).
 
 Anything else is `DO_NOT_RUN_FULL_TIE_ROLE`. Ambiguous evidence is intentionally treated as NO-GO for the expensive campaign.
 
@@ -37,7 +41,7 @@ The thresholds are deliberately stricter than the official four-seed frontier th
 
 ## What a GO means
 
-A GO licenses running the **existing preregistered TIE-ROLE-FRONTIER-001 unchanged**. It does not alter its arms, seeds, sealed protocol, or claim ceiling.
+A GO is evidence for user review, **not launch authorization**. The TIE-ROLE-FRONTIER-001 no-go gate stands until the user explicitly reviews and authorizes reopening it. If authorized, the existing preregistered frontier remains unchanged: the pilot does not alter its arms, seeds, sealed protocol, or claim ceiling.
 
 ## What a NO-GO means
 

@@ -282,6 +282,9 @@ def _decide(pairs: list[Mapping[str, Any]]) -> dict[str, Any]:
 
     if len(pairs) != 2:
         return {"decision": "DO_NOT_RUN_FULL_TIE_ROLE", "expensive_experiment_worth_running": False, "reason": "The pilot requires two complete fresh matched pairs; incomplete evidence is a NO-GO."}
+    seeds = [int(p["seed"]) for p in pairs]
+    if sorted(seeds) != sorted(int(s) for s in SEEDS):
+        return {"decision": "DO_NOT_RUN_FULL_TIE_ROLE", "expensive_experiment_worth_running": False, "reason": "Pilot pairs do not cover both registered fresh seeds exactly once; duplicate or unregistered seed evidence is a NO-GO."}
     if max(endpoints) >= MAX_ENDPOINT_FOR_DISCRIMINATION:
         return {"decision": "DO_NOT_RUN_FULL_TIE_ROLE", "expensive_experiment_worth_running": False, "reason": "A pilot arm reached the ceiling regime, so the existing frontier endpoint design cannot be discriminated reliably. Recalibrate before spending on the full campaign."}
     if any(x < 0.0 for x in endpoint):
