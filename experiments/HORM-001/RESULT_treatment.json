@@ -1,0 +1,12 @@
+﻿{
+    "claim_level":  "wiring-only",
+    "runtime":  "cpu",
+    "arm":  "treatment",
+    "scale":  1.012031212549996,
+    "threads":  2,
+    "max_abs_difference":  0.001830369234085083,
+    "timestamp":  "2026-09-17T20:06:21.9573699+05:30",
+    "smoke_sha256":  "6777c62c15ecc44068a2f4b4b5e2a1354d612e4c8af3db2db3198e1342e412b5",
+    "schema":  "anra-horm-001-result/v1",
+    "verdict":  "BOUNDED_NONZERO_VERIFIED"
+}
