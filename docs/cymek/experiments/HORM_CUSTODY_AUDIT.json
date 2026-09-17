@@ -1,0 +1,410 @@
+{
+  "diagnostic_sha256": "93502a178e4d18557fd1f07b9603dbbdb0a4379751696556530b474fb657fbf0",
+  "fail_closed_notes": [
+    "EOL reconstruction is diagnostic, never raw-byte verification.",
+    "Manifest hashes bind the observed manifests, not their historical authenticity.",
+    "Only declared artifact paths are inventoried; extra files, source identity, schema semantics, result validity and checkpoints are not validated.",
+    "Missing means absent at the expected checkout path; other storage was not searched.",
+    "Recorded verdicts are historical labels, not endorsements. No sealed data or model deserialization."
+  ],
+  "lines": {
+    "HORM-001": {
+      "artifacts": {
+        "PRERUN.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "045dbcbbe2128b3256401c33f5d00216783442d57d5486432abd6be690c05b8e",
+          "eol_reconstructed_sha256": "045dbcbbe2128b3256401c33f5d00216783442d57d5486432abd6be690c05b8e",
+          "observed_bytes": 5349,
+          "raw_sha256": "0526fc5c1a77b992af94e7b8dcaeaff2b816bd8f79a5c5601e3450756d318c6e",
+          "recovery": {
+            "declared_sha256": "045dbcbbe2128b3256401c33f5d00216783442d57d5486432abd6be690c05b8e",
+            "expected_path": "results/PRERUN.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_OFF_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "8c8cae49c744cd4744a8ea6d3cfc87c4a0a70e8f9c53fd88b0f40ed077ffa8bc",
+          "eol_reconstructed_sha256": "8c8cae49c744cd4744a8ea6d3cfc87c4a0a70e8f9c53fd88b0f40ed077ffa8bc",
+          "observed_bytes": 482866,
+          "raw_sha256": "9c5ec5a08474430e9cbf0b7d1b19574e83429dc400832ffa443b19f4a768fb13",
+          "recovery": {
+            "declared_sha256": "8c8cae49c744cd4744a8ea6d3cfc87c4a0a70e8f9c53fd88b0f40ed077ffa8bc",
+            "expected_path": "results/lane_HAL_OFF_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_OFF_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "210ebae5274cab034cbb577f943bedc3ef3001661de4e65b313a63eb5ef101f1",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "210ebae5274cab034cbb577f943bedc3ef3001661de4e65b313a63eb5ef101f1",
+            "expected_path": "results/lane_HAL_OFF_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_OFF_424243.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "577575f383c57e4e70caa1208f282659c1e8f0468601de1b80fb46b4b0f1e57d",
+          "eol_reconstructed_sha256": "577575f383c57e4e70caa1208f282659c1e8f0468601de1b80fb46b4b0f1e57d",
+          "observed_bytes": 483069,
+          "raw_sha256": "34b2ade49448e15bdfd8aa83990c0db2d570843abf16af308666b9c4dafb06c9",
+          "recovery": {
+            "declared_sha256": "577575f383c57e4e70caa1208f282659c1e8f0468601de1b80fb46b4b0f1e57d",
+            "expected_path": "results/lane_HAL_OFF_424243.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_OFF_424243.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "956f37340870789c3c24027d3e33bdbf323d1c29f491a168e228d6800a19f588",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "956f37340870789c3c24027d3e33bdbf323d1c29f491a168e228d6800a19f588",
+            "expected_path": "results/lane_HAL_OFF_424243.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_ON_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "d6209ec11bafb7f232fd021b460a4388a13261118457f97ecd75bf69b320a482",
+          "eol_reconstructed_sha256": "d6209ec11bafb7f232fd021b460a4388a13261118457f97ecd75bf69b320a482",
+          "observed_bytes": 845217,
+          "raw_sha256": "4f87fdc91ac69ac7c8bab0fd912637d04c7f95fade9fdf4e3565631f9b288b2e",
+          "recovery": {
+            "declared_sha256": "d6209ec11bafb7f232fd021b460a4388a13261118457f97ecd75bf69b320a482",
+            "expected_path": "results/lane_HAL_ON_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_ON_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "73e957b18e07f19af18802caccc3b5738a5bea8a0f9f3cbcc88fecd6e690fd84",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "73e957b18e07f19af18802caccc3b5738a5bea8a0f9f3cbcc88fecd6e690fd84",
+            "expected_path": "results/lane_HAL_ON_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_ON_424243.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "bd38d49c6d443bf364f3817031e91710a55ace6a5fd461d05ab4c529dd4b2bfd",
+          "eol_reconstructed_sha256": "bd38d49c6d443bf364f3817031e91710a55ace6a5fd461d05ab4c529dd4b2bfd",
+          "observed_bytes": 844426,
+          "raw_sha256": "86cf04b4fcc06e56fe373089b4a07d2a836eb0651048d9feca4904f63bf65178",
+          "recovery": {
+            "declared_sha256": "bd38d49c6d443bf364f3817031e91710a55ace6a5fd461d05ab4c529dd4b2bfd",
+            "expected_path": "results/lane_HAL_ON_424243.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "lane_HAL_ON_424243.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "bb05ac60394d009d998e0fd04804c6de62f2d5f4424b61085b29e2034140c261",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "bb05ac60394d009d998e0fd04804c6de62f2d5f4424b61085b29e2034140c261",
+            "expected_path": "results/lane_HAL_ON_424243.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        }
+      },
+      "experiment": "HORM-001",
+      "manifest_bytes": 2087,
+      "manifest_sha256": "458902c08373a5a2109757f8209f71f3035a8db216125ef7ab0e81198a228ad5",
+      "recorded_verdict_unvalidated": "NO_MEASURABLE_EFFECT_AT_THIS_SCALE",
+      "scientific_validation": "NOT_PERFORMED",
+      "status": "ARTIFACT_INTEGRITY_BLOCKED"
+    },
+    "HORM-002": {
+      "artifacts": {
+        "CALIBRATION.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "a02a43ac2c10c8c4668ddc9e704e7f2005bbdf98fde753355d453df0852f782f",
+          "eol_reconstructed_sha256": "a02a43ac2c10c8c4668ddc9e704e7f2005bbdf98fde753355d453df0852f782f",
+          "observed_bytes": 804,
+          "raw_sha256": "64729854c33b3ec22b606956c6f705ddaaf7cc3f5c785be20f4586f433477ee4",
+          "recovery": {
+            "declared_sha256": "a02a43ac2c10c8c4668ddc9e704e7f2005bbdf98fde753355d453df0852f782f",
+            "expected_path": "results/CALIBRATION.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "PRERUN.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "17221b30df2cd902b2dcd14f848e49b8022cb88eb97e218a3512ab6cc2bc2eba",
+          "eol_reconstructed_sha256": "17221b30df2cd902b2dcd14f848e49b8022cb88eb97e218a3512ab6cc2bc2eba",
+          "observed_bytes": 5568,
+          "raw_sha256": "2fdfc51121c9f15f5b438e498df0efb4c698e003717849726b0651ea4407bd60",
+          "recovery": {
+            "declared_sha256": "17221b30df2cd902b2dcd14f848e49b8022cb88eb97e218a3512ab6cc2bc2eba",
+            "expected_path": "results/PRERUN.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "calibration/mod23_updates12000/lane_HAL_OFF_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "c7bf9cf7203c9eefcfc1c107ff1d04e9ff092161a7e9556620b9854275bb9d57",
+          "eol_reconstructed_sha256": "c7bf9cf7203c9eefcfc1c107ff1d04e9ff092161a7e9556620b9854275bb9d57",
+          "observed_bytes": 4424258,
+          "raw_sha256": "b3d74596965bd8d45bd929d0e8066a8a06af22ad9c0e11315c5e08144d08cee6",
+          "recovery": {
+            "declared_sha256": "c7bf9cf7203c9eefcfc1c107ff1d04e9ff092161a7e9556620b9854275bb9d57",
+            "expected_path": "results/calibration/mod23_updates12000/lane_HAL_OFF_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "calibration/mod23_updates12000/lane_HAL_OFF_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "5f6f9aa4a019c29d642fbefd9c03d3b01b1040a9a92360336d435bd8637dae95",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "5f6f9aa4a019c29d642fbefd9c03d3b01b1040a9a92360336d435bd8637dae95",
+            "expected_path": "results/calibration/mod23_updates12000/lane_HAL_OFF_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "calibration/mod23_updates6000/lane_HAL_OFF_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "1f953667799a8c07094996f260dd90dd1f67aaa09923a6a1ac1eac8578f4b797",
+          "eol_reconstructed_sha256": "1f953667799a8c07094996f260dd90dd1f67aaa09923a6a1ac1eac8578f4b797",
+          "observed_bytes": 2217301,
+          "raw_sha256": "8f9317892a8e02a14e5ca08613b5253f4b77e005373d8f5cb6e20d8ee40bb71a",
+          "recovery": {
+            "declared_sha256": "1f953667799a8c07094996f260dd90dd1f67aaa09923a6a1ac1eac8578f4b797",
+            "expected_path": "results/calibration/mod23_updates6000/lane_HAL_OFF_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "calibration/mod23_updates6000/lane_HAL_OFF_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "c39616add935095028ed4723b1d1414ce94f1166e82f34815b959a880d61e24c",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "c39616add935095028ed4723b1d1414ce94f1166e82f34815b959a880d61e24c",
+            "expected_path": "results/calibration/mod23_updates6000/lane_HAL_OFF_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "calibration/mod97_updates12000/lane_HAL_OFF_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "7721bd6be1153f766ddb8519d67b967b80f1d5848e1f1e05ae19bf959ecf7727",
+          "eol_reconstructed_sha256": "7721bd6be1153f766ddb8519d67b967b80f1d5848e1f1e05ae19bf959ecf7727",
+          "observed_bytes": 4451764,
+          "raw_sha256": "d57a68e38327be3ab4bfefb5bd4d9ca2f62e2195bb02eca7df880b67a1b4c88e",
+          "recovery": {
+            "declared_sha256": "7721bd6be1153f766ddb8519d67b967b80f1d5848e1f1e05ae19bf959ecf7727",
+            "expected_path": "results/calibration/mod97_updates12000/lane_HAL_OFF_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "calibration/mod97_updates12000/lane_HAL_OFF_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "d2d67903891a38a5a89b264a224230ff3b6dde6495b0b0a071cea2818ce97f1b",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "d2d67903891a38a5a89b264a224230ff3b6dde6495b0b0a071cea2818ce97f1b",
+            "expected_path": "results/calibration/mod97_updates12000/lane_HAL_OFF_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_CONST_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "5c1fa11eea0c8308e022caba3ce053c97e9ff892173603c5b0220d8d6a92db9b",
+          "eol_reconstructed_sha256": "5c1fa11eea0c8308e022caba3ce053c97e9ff892173603c5b0220d8d6a92db9b",
+          "observed_bytes": 7287086,
+          "raw_sha256": "2e6c3e00739184b3abd2b587218c39ecafff8e3ce47728541fd1677a154395db",
+          "recovery": {
+            "declared_sha256": "5c1fa11eea0c8308e022caba3ce053c97e9ff892173603c5b0220d8d6a92db9b",
+            "expected_path": "results/causal/lane_HAL_CONST_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_CONST_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "4a9a2d521f6bfbf448b59d86ac892b1484ec7ecfa0c3b69a1c17cff262b03aa6",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "4a9a2d521f6bfbf448b59d86ac892b1484ec7ecfa0c3b69a1c17cff262b03aa6",
+            "expected_path": "results/causal/lane_HAL_CONST_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_CONST_424243.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "2e05f0d1a609d3263eeed3f4464a8ee5ab0cdd0fa674e0d00d7aa2a761807cff",
+          "eol_reconstructed_sha256": "2e05f0d1a609d3263eeed3f4464a8ee5ab0cdd0fa674e0d00d7aa2a761807cff",
+          "observed_bytes": 7287985,
+          "raw_sha256": "0e59070c7a457a8c1e0e36d4d5866f12025868fc0beb157e829519fecc9b052b",
+          "recovery": {
+            "declared_sha256": "2e05f0d1a609d3263eeed3f4464a8ee5ab0cdd0fa674e0d00d7aa2a761807cff",
+            "expected_path": "results/causal/lane_HAL_CONST_424243.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_CONST_424243.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "f630b68d9212e5cd59d032e99f6e2f3f962ee2408bd396225e38e1e21c8631e7",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "f630b68d9212e5cd59d032e99f6e2f3f962ee2408bd396225e38e1e21c8631e7",
+            "expected_path": "results/causal/lane_HAL_CONST_424243.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_OFF_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "1d7f91ab0bd1eed63653adcf38d3e762ec2ac60e12b85e6432b51275e395d06c",
+          "eol_reconstructed_sha256": "1d7f91ab0bd1eed63653adcf38d3e762ec2ac60e12b85e6432b51275e395d06c",
+          "observed_bytes": 4424257,
+          "raw_sha256": "ddc589247d50a3706f5b8d9a6298daed4fd84b8b2a75ad031985126c8d17bffd",
+          "recovery": {
+            "declared_sha256": "1d7f91ab0bd1eed63653adcf38d3e762ec2ac60e12b85e6432b51275e395d06c",
+            "expected_path": "results/causal/lane_HAL_OFF_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_OFF_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "5f6f9aa4a019c29d642fbefd9c03d3b01b1040a9a92360336d435bd8637dae95",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "5f6f9aa4a019c29d642fbefd9c03d3b01b1040a9a92360336d435bd8637dae95",
+            "expected_path": "results/causal/lane_HAL_OFF_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_OFF_424243.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "ac20460a6041c4885b3624e0d92961e365c6b48b92d1ecd6409f1fab95f11538",
+          "eol_reconstructed_sha256": "ac20460a6041c4885b3624e0d92961e365c6b48b92d1ecd6409f1fab95f11538",
+          "observed_bytes": 4426674,
+          "raw_sha256": "e6db822e0ae151295792872408f7d528b636398827bda2d952a81f1099efc021",
+          "recovery": {
+            "declared_sha256": "ac20460a6041c4885b3624e0d92961e365c6b48b92d1ecd6409f1fab95f11538",
+            "expected_path": "results/causal/lane_HAL_OFF_424243.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_OFF_424243.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "df6828ce2677ff4e5ab8f25dbbdd5d8b57e9fd271947d9f0b500a5278bb50941",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "df6828ce2677ff4e5ab8f25dbbdd5d8b57e9fd271947d9f0b500a5278bb50941",
+            "expected_path": "results/causal/lane_HAL_OFF_424243.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_ON_424242.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "685d7172871f4d8d3ae3806c348b0e544279160be9eac8ea6906ddc0c38bd87a",
+          "eol_reconstructed_sha256": "685d7172871f4d8d3ae3806c348b0e544279160be9eac8ea6906ddc0c38bd87a",
+          "observed_bytes": 7662391,
+          "raw_sha256": "eb884aed1202a6ddeb1582d595d6738bf39c695989a60062aa534b615e098300",
+          "recovery": {
+            "declared_sha256": "685d7172871f4d8d3ae3806c348b0e544279160be9eac8ea6906ddc0c38bd87a",
+            "expected_path": "results/causal/lane_HAL_ON_424242.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_ON_424242.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "3409f8f47566b5ab35d586c3f9e02e8e10caaec77fecfe6ed087c437e10519a4",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "3409f8f47566b5ab35d586c3f9e02e8e10caaec77fecfe6ed087c437e10519a4",
+            "expected_path": "results/causal/lane_HAL_ON_424242.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_ON_424243.json": {
+          "classification": "EOL_RECONSTRUCTION_MATCH_ONLY",
+          "declared_sha256": "c18daf789c8d6133f06b840818a1f4f99caf01fa7eef8ac49cd61cdf3bb69b38",
+          "eol_reconstructed_sha256": "c18daf789c8d6133f06b840818a1f4f99caf01fa7eef8ac49cd61cdf3bb69b38",
+          "observed_bytes": 7352054,
+          "raw_sha256": "638d60e6caa9b4c55adbbeb410b03a0c2f031c2acd836ac2ed24db8cfebeed57",
+          "recovery": {
+            "declared_sha256": "c18daf789c8d6133f06b840818a1f4f99caf01fa7eef8ac49cd61cdf3bb69b38",
+            "expected_path": "results/causal/lane_HAL_ON_424243.json",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        },
+        "causal/lane_HAL_ON_424243.pt": {
+          "classification": "MISSING_AT_EXPECTED_PATH",
+          "declared_sha256": "409a0eb51e437b8ae719fadc62b460d4f93eb264143b836de0ad6c3e6984db49",
+          "eol_reconstructed_sha256": null,
+          "observed_bytes": null,
+          "raw_sha256": null,
+          "recovery": {
+            "declared_sha256": "409a0eb51e437b8ae719fadc62b460d4f93eb264143b836de0ad6c3e6984db49",
+            "expected_path": "results/causal/lane_HAL_ON_424243.pt",
+            "owner_action": "Locate original bytes in original run storage or backup; verify raw SHA-256 before use. Do not retrain as recovery.",
+            "storage_location": "UNKNOWN"
+          }
+        }
+      },
+      "experiment": "HORM-002",
+      "manifest_bytes": 5228,
+      "manifest_sha256": "77923d08c080ac2d11a4a7c6f756577bf29d7d9a81911cc9fc78e2ad182fbe62",
+      "recorded_verdict_unvalidated": "COMPETENCE_GATE_FAILED",
+      "scientific_validation": "NOT_PERFORMED",
+      "status": "ARTIFACT_INTEGRITY_BLOCKED"
+    }
+  },
+  "schema": "anra-horm-custody/v1"
+}
