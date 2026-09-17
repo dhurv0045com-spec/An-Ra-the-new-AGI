@@ -438,6 +438,44 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
               and uninterrupted_committed == resumed_committed == 3)
     committed = uninterrupted_committed + resumed_committed
     attempted = uninterrupted_attempted + resumed_attempted
+    if not restore_proof.get("restored_ok", False):
+        detail = child_result.get("error") or restore_proof.get("error")
+        if not detail:
+            detail = restore_proof.get("stderr_tail") or \
+                restore_proof.get("stdout_tail") or \
+                f"resume child exited with return code {restore_proof.get('returncode')}"
+        return {
+            "status": "failed",
+            "error": f"E0 resume child failed: {str(detail)[:2000]}",
+            "committed_updates": committed,
+            "attempted_updates": attempted,
+            "supervised_exposure": uninterrupted_exposure + resumed_exposure,
+            "device_seconds": time.monotonic() - started,
+            "checkpoint_identity": payload_identity,
+            "resume_agrees": False,
+            "uninterrupted_checksum": uninterrupted_checksum,
+            "resumed_checksum": resumed_checksum,
+            "restore_proof": restore_proof,
+            "device_used": child_result.get("device_used", device),
+            "profile": profile,
+        }
+    if not agrees:
+        return {
+            "status": "failed",
+            "error": "E0 resume checksum divergence: uninterrupted and "
+                     "resumed trainer states differ",
+            "committed_updates": committed,
+            "attempted_updates": attempted,
+            "supervised_exposure": uninterrupted_exposure + resumed_exposure,
+            "device_seconds": time.monotonic() - started,
+            "checkpoint_identity": payload_identity,
+            "resume_agrees": False,
+            "uninterrupted_checksum": uninterrupted_checksum,
+            "resumed_checksum": resumed_checksum,
+            "restore_proof": restore_proof,
+            "device_used": child_result.get("device_used", device),
+            "profile": profile,
+        }
     # Full-profile pilot timing for E0 calibration (O03): heaviest-arm
     # update seconds + eval-loop throughput on the K8 configuration.
     # Accelerator-only: locally recorded as skipped (no local training and
@@ -676,6 +714,7 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
             return {"resumed_checksum": None, "committed_updates": 0,
                     "attempted_updates": 0, "supervised_exposure": 0,
                     "device_used": device,
+                    "error": f"{type(exc).__name__}: {exc}",
                     "restore_proof": {"restored_ok": False,
                                       "error": str(exc)}}
         marker = "RESUME_CHILD:"
@@ -695,7 +734,7 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
                     restored_ok = proc.returncode == 0 and bool(resumed_checksum)
                 except Exception:
                     pass
-        return {"resumed_checksum": resumed_checksum,
+        result = {"resumed_checksum": resumed_checksum,
                 "committed_updates": committed,
                 "attempted_updates": attempted,
                 "supervised_exposure": exposure,
@@ -704,6 +743,12 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
                                   "returncode": proc.returncode,
                                   "stdout_tail": proc.stdout[-500:],
                                   "stderr_tail": proc.stderr[-500:]}}
+        if proc.returncode != 0:
+            result["error"] = (proc.stderr or proc.stdout or
+                                f"resume child exited with code {proc.returncode}")[-2000:]
+        elif not resumed_checksum:
+            result["error"] = "resume child produced no RESUME_CHILD result marker"
+        return result
 
 
 def _verify_payload_in_subprocess(payload: dict) -> dict[str, Any]:
