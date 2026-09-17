@@ -27,6 +27,8 @@ def wrap_core_with_hal(core, *, torch, shared_projection, max_log_temperature=No
     config = core.config
     functional = torch.nn.functional
     max_log_temperature = MAX_LOG_T if max_log_temperature is None else float(max_log_temperature)
+    if not math.isfinite(max_log_temperature) or not 0 < max_log_temperature <= MAX_LOG_T:
+        raise ValueError("log-temperature bound must be finite in (0, 1.5]")
     if tuple(shared_projection.shape) != (config.query_heads, len(HORMONE_NAMES)):
         raise ValueError("projection must have shape [query_heads, 7]")
     if not torch.isfinite(shared_projection).all():

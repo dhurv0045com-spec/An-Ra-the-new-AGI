@@ -62,3 +62,44 @@
 - No outcomes yet. Live results append below with dates when the
   operator returns the bundle. Do NOT edit preregistered sections
   after execution starts.
+
+## CYR-GPU-011 / CYR-GPU-012 — status: both EXECUTED; discrepancy ledgered, cause UNKNOWN
+- 2026-09-17 (branch codex/cyhex-integrity-audit). Both original bundles
+  verify against their tracked receipts (SHA-256, byte count, exact member
+  list, JSON parse). The duplicate-member verifier defect repaired in this
+  branch does not affect either archive.
+- Machine-checkable difference ledger
+  (CYR-GPU-012/CYR011_VS_CYR012_LEDGER.json, schema
+  `anra-cyr-repro-ledger/v1`): 15 fields classified. PROVEN IDENTICAL:
+  torch 2.11.0+cu128, model_seed 3301, order_seed 4701, batch_rows 64,
+  semantic stream digest (identity, not row contents), initial_l2
+  46.88997268676758 (norm only), g90 null. PROVEN DIFFERENT: frozen
+  executable, GPU (Tesla T4 vs RTX 4050 Laptop), updates 8,081 vs 18,000,
+  row presentations 517,184 vs 1,152,000, g50_confirm_update 2,200 vs null
+  (outcome difference, not itself causal evidence), final_model_sha256.
+  UNKNOWN: initial_tensor_sha256 (replayed below), kernel_selection (no
+  kernel trace recorded in either bundle).
+- Initial-tensor replay (CYR-GPU-012/CYR011_VS_CYR012_INITIAL_REPLAY.json):
+  frozen-source CPU rebuild under seed 3301 matches the recorded anchor
+  exactly (norm_delta 0.0; byte-stable repeat digest
+  `e263801d…504df04`; seed 3302 digests differently). Verdict
+  INITIALIZATION_REPLAYS_MATCHING_NORM — supports, does not prove,
+  identical historical initialization; no initial-tensor hash exists in
+  either bundle.
+- Frozen-executable diff `0a97257e..1a1624e` touches only probes/stopping/
+  operator/tests — model, optimizer, and data math are byte-identical.
+  First OBSERVED divergence is bounded at the first scheduled evaluation
+  (update-200 traces: dev_controller 9.375% vs 4.6875% with near-identical
+  relative displacement 0.2367 vs 0.2280); no cause identified.
+- Remaining direct test of the environment hypothesis is a controlled
+  cross-GPU pair run (T4 vs RTX 4050, update 200) — requires owner
+  authorization; not launched. No causal ranking claimed; no retraining
+  performed; production/frontier gates unchanged.
+
+### Interpretation correction — applies to the entry above
+- Per `REPLAY_SOURCE_AUDIT.md`, historical initial-tensor identity remains
+  UNKNOWN after norm replay; kernel selection is not the only unknown.
+- Byte-identical source files do not establish identical runtime math;
+  similar displacement magnitudes do not establish similar trajectories.
+- A controlled cross-GPU comparison is one possible environment-hypothesis
+  test, not the only direct test. No such run was launched by this audit.

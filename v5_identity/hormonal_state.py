@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, replace
+from types import MappingProxyType
 from typing import Any, Mapping
 
 HORMONE_NAMES = (
@@ -97,6 +98,29 @@ class HALState:
             object.__setattr__(self, name, value)
         if isinstance(self.step, bool) or not isinstance(self.step, int) or self.step < 0:
             raise ValueError("step must be a nonnegative integer")
+        if not isinstance(self.log, (list, tuple)):
+            raise ValueError("log must be a list or tuple of mappings")
+        object.__setattr__(self, "log", tuple(self.log))
+        if self.log:
+            if len(self.log) > HISTORY_LIMIT:
+                raise ValueError(
+                    f"log must hold at most HISTORY_LIMIT ({HISTORY_LIMIT}) entries, "
+                    f"got {len(self.log)}")
+            frozen_entries = []
+            for entry in self.log:
+                if not isinstance(entry, Mapping):
+                    raise ValueError("log entries must be mappings of hormone levels")
+                unknown = set(entry) - set(HORMONE_DYNAMICS) - {"step"}
+                if unknown:
+                    raise ValueError(f"log entry has unknown keys: {sorted(unknown)}")
+                parsed: dict[str, float] = {}
+                for key, value in entry.items():
+                    value = float(value)
+                    if not math.isfinite(value):
+                        raise ValueError(f"log entry {key!r} must be finite, got {value}")
+                    parsed[key] = value
+                frozen_entries.append(MappingProxyType(parsed))
+            object.__setattr__(self, "log", tuple(frozen_entries))
 
     def as_dict(self) -> dict[str, float]:
         return {name: float(getattr(self, name)) for name in HORMONE_NAMES}
