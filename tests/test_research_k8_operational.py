@@ -892,7 +892,7 @@ class O10NotebookTests(unittest.TestCase):
         sources = ["".join(cell["source"]) for cell in notebook["cells"]
                    if cell["cell_type"] == "code"]
         joined = "\n".join(sources)
-        for command in ("validate", "run", "summarize", "export"):
+        for command in ("prepare", "validate", "run", "summarize", "export"):
             self.assertIn(f"'{command}'", joined)
         self.assertIn("source_identity", joined)
         self.assertIn("E0", joined)
@@ -902,6 +902,9 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("_is_source_tree", joined)
         self.assertIn("bramastra-k8-data/v1", joined)
         self.assertIn("BRAMASTRA_BUNDLE_DIR", joined)
+        self.assertIn("BRAMASTRA_GIT_URL", joined)
+        self.assertIn("git', 'clone'", joined)
+        self.assertIn("generated-k8-data", joined)
         self.assertIn("REQUIRED_MODULES", joined)
         self.assertIn("run_k8", joined)
         self.assertNotIn("shutil.rmtree", joined)

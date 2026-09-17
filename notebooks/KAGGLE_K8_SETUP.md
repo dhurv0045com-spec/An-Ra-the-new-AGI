@@ -1,13 +1,18 @@
 # K8 Kaggle launch setup
 
-The K8 notebook is designed to run from immutable Kaggle input artifacts. It
-does not clone a branch, install the repository, download packages or generate
-the full data bundle inside the GPU session. That keeps the run reproducible
-and makes a missing input fail before any campaign allocation.
+The K8 notebook can acquire its own source and generated input bundle. With
+Internet enabled, it clones the `BRAMASTRA` branch into `/kaggle/working` and,
+when no valid K8 bundle is attached, generates the full deterministic bundle
+before build verification or GPU training begins. The cloned revision and the
+generated bundle manifest become part of the run evidence.
 
 ## Attach these inputs
 
-Attach two Kaggle Datasets to the notebook.
+For the automatic path, select **GPU T4 x2** and enable **Internet** in Kaggle
+Session options, then run the notebook from its first cell. The notebook uses
+the public BRAMASTRA Git remote and branch by default.
+
+Attaching two Kaggle Datasets remains the offline/reproducible alternative.
 
 1. **BRAMASTRA source.** Its root, or a directory one level below its root,
    must contain both `pyproject.toml` and `bramastra_lab/`. Export the exact
@@ -22,8 +27,7 @@ Attach two Kaggle Datasets to the notebook.
    python -m bramastra_lab.research.campaigns.k8 validate --bundle <bundle>
    ```
 
-Select **GPU T4 x2**. Internet is not required for the notebook path. Kaggle
-mounts inputs below `/kaggle/input` and gives the notebook a writable
+Kaggle mounts inputs below `/kaggle/input` and gives the notebook a writable
 `/kaggle/working`; saving a notebook version retains working outputs.
 The setup cell also checks that the selected image supplies `torch>=2.6`,
 `numpy`, and `pytest`, which are required by the source and build verifier.
@@ -32,11 +36,13 @@ before starting the campaign; do not repair a dependency after E0 begins.
 
 ## Optional overrides
 
-If the source or bundle is mounted in an unusual location, set
-`BRAMASTRA_REPO` or `BRAMASTRA_BUNDLE_DIR` to its directory before running the
-first code cell. For an independent campaign, set `BRAMASTRA_RUN_ID` to a new
-safe filename token. Leave it unchanged for a restart of the same session so
-E0 and the full run use the same campaign ledger and allocation deadline.
+Set `BRAMASTRA_GIT_URL` or `BRAMASTRA_GIT_REF` only when intentionally using a
+different public Git remote or branch. If a source or bundle is mounted in an
+unusual location, set `BRAMASTRA_REPO` or `BRAMASTRA_BUNDLE_DIR` to its
+directory before running the first code cell. For an independent campaign, set
+`BRAMASTRA_RUN_ID` to a new safe filename token. Leave it unchanged for a
+restart of the same session so E0 and the full run use the same campaign ledger
+and allocation deadline.
 
 The setup cell prints the selected source root, bundle path, run ID, source
 identity, configuration identity and both visible CUDA devices. It fails early
