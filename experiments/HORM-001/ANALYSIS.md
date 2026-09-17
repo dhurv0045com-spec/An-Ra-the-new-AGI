@@ -109,3 +109,42 @@ convention.
 MECHANISM_PRESENT (replicated across 3 seeds); DIRECTIONAL_EFFECT:
 NONE_RESOLVABLE_AT_MINIATURE_SCALE. Any benefit/harm question requires
 training-scale compute and is out of scope without authorization.
+
+# HORM-003 ANALYSIS (2026-09-18)
+
+**Status: PROSPECTIVE RUN EXECUTED; verdict NOT_SUPPORTED (per preregistered rules)**
+
+## What was run
+- PLAN.md HORM-003 section written before execution (00:05:10+05:30);
+  runner mode added and guard-tested (overwrite refused; --force archives
+  .previous) before the real run.
+- 5 fresh seeds (707011-707015), corrected state binding (regression test
+  enforces logged scale == scale read by every attention layer), CPU only,
+  2 threads, no CUDA, real ProductionTrainingBackend path.
+- Result: RESULT_horm003_prospective.json (sha256 e196a6af...), provenance-
+  bound (runner + v5_identity sources + torch/python/platform).
+
+## Primary readout (preregistered): sign consistency >= 4/5
+- 707011: +1.91e-06 (treatment higher)
+- 707012: -7.15e-07 (treatment lower)
+- 707013: -2.21e-06 (treatment lower)
+- 707014: +4.89e-06 (treatment higher)
+- 707015: +3.58e-07 (treatment higher)
+- 3/5 positive, median +3.58e-07 -> NOT_SUPPORTED under H1 (needed >=4/5).
+
+## Interpretation (inference, labeled)
+With the state-binding bug fixed, the dynamic hormonal modulation still
+produces only ~1e-06-scale loss-trajectory perturbations at 8 updates /
+2048 tokens, with mixed signs. Under the preregistered decision rule, the
+directional hypothesis is NOT SUPPORTED at this scale. This is a real,
+prospective negative result under the repo's negative-results convention -
+it is a complete answer to the question asked, not a suppressed finding.
+
+## What would change the verdict
+- Longer horizons / more tokens per arm where per-update perturbations can
+  compound (requires compute authorization).
+- A live verifier signal driving appraisal (synthetic fixtures here).
+
+## What this does NOT establish
+- Any claim that hormonal modulation helps or harms training at any scale.
+- Nothing about capability, G90, or production behavior.

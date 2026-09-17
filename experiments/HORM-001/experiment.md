@@ -68,3 +68,21 @@ No capability, quality, or production-scale claim is made.
 Measured, not replicated (single seed, single A/B pair). Implementation is
 runtime-patched, not merged into v5_model; the frozen spec path is untouched
 (model_spec.py DFDCD883..., launch_readiness.json 95B2331A... unchanged).
+
+# HORM-003 experiment.md addendum (2026-09-18)
+
+**Preregistered then executed**: PLAN.md HORM-003 section (5 seeds 707011-15,
+sign-consistency >=4/5 primary readout) was committed to the working tree
+before the first real run; runner mode was guard-tested first (overwrite
+refused, --force archives .previous).
+
+**Result**: verdict NOT_SUPPORTED. Signs across seeds: +,-,-,+,+ (3/5
+positive, median +3.6e-07). All losses finite; all scales in [0.8,1.2].
+Provenance-bound result at RESULT_horm003_prospective.json
+(sha256 e196a6af...).
+
+**Honest reading**: prospective negative at miniature scale. The corrected
+mechanism measurably perturbs the loss trajectory (~1e-06) but shows no
+resolvable consistent direction at this scale. No benefit/harm claim. This
+closes the miniature-scale directional question asked; a longer-horizon
+protocol is the only escalation path and needs compute authorization.

@@ -75,3 +75,48 @@ capability, or production-scale behavior.
 ## What this cannot prove
 - Production-scale training dynamics, capability formation, G90, or any
   quality claim. It is a mechanism-presence measurement at miniature scale.
+
+# HORM-003 — Prospective multi-seed A/B with correctly-bound hormonal state
+
+## Status
+PREREGISTERED 2026-09-18T00:05:10+05:30, before any HORM-003 run and before
+any HORM-003 result exists. Written against the repaired runner (commit
+a76dae9c) in which attention layers provably read the logged scale.
+
+## Primary question
+With the state-binding bug fixed, does dynamic hormonal state (deterministic
+alternating synthetic appraisals, NOT live verifier outcomes) produce a
+consistent directional effect on mean training loss across matched seeds?
+
+## Hypothesis (falsifiable)
+H1: Across 5 fresh seeds (707011..707015), the treatment arm's mean loss
+differs from control with the SAME sign in at least 4 of 5 seeds.
+H0: sign is inconsistent (<=3/5), i.e. no resolvable directional effect.
+
+## Method
+- Real path (unchanged): v5_model.core.initialize + ProductionTrainingBackend
+  + trainer.train + CheckpointStore; v5_identity.attention_patch applies
+  bounded query-logit scaling (raw_alpha=0.35, bound=0.2, scale in [0.8,1.2]).
+- Same spec as HORM-002 (sha e4dc015a...), 8 updates x 256 tokens, CPU only,
+  2 threads, no CUDA.
+- Seeds 707011-707015; each seed runs control then treatment with identical
+  batches (seeded per seed), optimizer, and schedule.
+- Per-update synthetic schedule: reset to baseline, appraise success on even
+  updates / failure on odd, decay once; logged scale == scale read by layers
+  (enforced by tests/test_hormonal_integration.py regression).
+- Provenance: result JSON carries runner sha256, v5_identity file hashes,
+  torch/platform identity, seeds, per-seed loss vectors.
+
+## Primary readout (fixed before execution)
+sign_consistent_seeds / 5 and median mean-loss difference across seeds.
+
+## Verdict rules (no post-hoc reinterpretation)
+- SUPPORTED: >=4/5 seeds share one sign AND all losses finite.
+- NOT_SUPPORTED: otherwise. Result is recorded either way.
+- INVALID: any non-finite loss, scale outside [0.8,1.2], or protected-file
+  hash change; the run is discarded, not reinterpreted.
+
+## What this cannot prove
+- Live-verifier-driven appraisal value, capability, G90, production-scale
+  behavior. A SUPPORTED verdict justifies proposing a longer protocol; it is
+  not a quality claim.

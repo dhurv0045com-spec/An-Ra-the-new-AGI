@@ -43,6 +43,7 @@ from v5_training.state import (
 )
 from v5_identity import HORMONES, HormonalProjection, HormonalState
 from v5_identity.attention_patch import HormonalAttentionPatch
+from v5_tokenizer.artifact import sha256_file
 
 SCHEMA = "anra-horm-002-ab/v1"
 SEED = 707_001
@@ -216,6 +217,123 @@ def _run_arm(*, arm: str, seed: int, batches) -> dict[str, object]:
         "elapsed_seconds": elapsed,
     }
 
+def _run_horm003(output_dir: Path, *, force: bool = False) -> None:
+    """Preregistered HORM-003: 5 fresh seeds, provenance-bound, refuse overwrite."""
+
+    import platform
+    import sys
+
+    torch.set_num_threads(2)
+    if torch.cuda.is_available():
+        raise SystemExit(
+            "HORM-003 is CPU-only by preregistration; CUDA is available so refusing "
+            "to run. Set CUDA_VISIBLE_DEVICES='' to force CPU.")
+    seeds = [707011, 707012, 707013, 707014, 707015]
+    out = output_dir / "RESULT_horm003_prospective.json"
+    if out.exists() and not force:
+        raise SystemExit(
+            f"refusing to overwrite existing result: {out}; pass --force to replace")
+    if out.exists() and force:
+        backup = out.with_suffix(".json.previous")
+        backup.write_bytes(out.read_bytes())
+
+    pairs = []
+    invalid_reasons = []
+    for seed in seeds:
+        batches = _build_batches(seed=seed)
+        control = _run_arm(arm="control", seed=seed, batches=batches)
+        treatment = _run_arm(arm="treatment", seed=seed, batches=batches)
+        all_losses = [*control["losses"], *treatment["losses"]]
+        finite = all(value == value and abs(value) != float("inf") for value in all_losses)
+        scales_ok = all(
+            0.8 <= scale <= 1.2
+            for scale in [*control["scales"], *treatment["scales"]]
+        )
+        if not finite:
+            invalid_reasons.append(f"seed {seed}: non-finite loss")
+        if not scales_ok:
+            invalid_reasons.append(f"seed {seed}: scale out of [0.8, 1.2]")
+        difference = [abs(a - b) for a, b in zip(control["losses"], treatment["losses"])]
+        pairs.append({
+            "seed": seed,
+            "control_losses": control["losses"],
+            "treatment_losses": treatment["losses"],
+            "control_final_loss": control["final_loss"],
+            "treatment_final_loss": treatment["final_loss"],
+            "mean_loss_difference": treatment["mean_loss"] - control["mean_loss"],
+            "max_abs_loss_difference": max(difference),
+            "all_finite": finite,
+            "scales_in_bounds": scales_ok,
+            "control_scales": control["scales"],
+            "treatment_scales": treatment["scales"],
+        })
+
+    same_sign = 0
+    nonzero = [pair for pair in pairs if pair["mean_loss_difference"] != 0.0]
+    if len(nonzero) >= 2:
+        majority_sign = 1 if sum(
+            1 for pair in nonzero if pair["mean_loss_difference"] > 0) >= len(nonzero) / 2 else -1
+        consistent = sum(
+            1 for pair in nonzero
+            if (1 if pair["mean_loss_difference"] > 0 else -1) == majority_sign)
+    else:
+        majority_sign = 0
+        consistent = 0
+    median_difference = sorted(pair["mean_loss_difference"] for pair in pairs)[len(pairs) // 2]
+    verdict = (
+        "INVALID" if invalid_reasons
+        else "SUPPORTED" if consistent >= 4 and majority_sign != 0
+        else "NOT_SUPPORTED")
+    result = {
+        "schema": "anra-horm-003-prospective/v1",
+        "preregistration": "experiments/HORM-001/PLAN.md HORM-003 section "
+                           "(preregistered 2026-09-18T00:05:10+05:30)",
+        "seeds": seeds,
+        "pairs": pairs,
+        "sign_consistent_seeds": consistent,
+        "majority_sign": majority_sign,
+        "median_mean_loss_difference": median_difference,
+        "verdict": verdict,
+        "invalid_reasons": invalid_reasons,
+        "updates": UPDATES,
+        "tokens_per_update": TOKENS_PER_UPDATE,
+        "spec_sha256": HORM_SPEC.sha256(),
+        "provenance": {
+            "runner_sha256": sha256_file(Path(__file__).resolve()),
+            "source_file_sha256": {
+                path: sha256_file(Path(path))
+                for path in (
+                    "v5_identity/attention_patch.py",
+                    "v5_identity/hormonal_projection.py",
+                    "v5_identity/hormonal_state.py",
+                )
+            },
+            "torch_version": torch.__version__,
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+            "threads": 2,
+            "runtime": "cpu",
+        },
+        "claim_level": "miniature-scale-prospective",
+        "honesty_note": (
+            "5-seed prospective A/B with corrected state binding. Synthetic "
+            "appraisal fixtures, not live verifier outcomes. SUPPORTED means "
+            "only sign-consistent loss-trajectory difference; it is not a "
+            "capability or quality claim."),
+    }
+    payload = json.dumps(result, sort_keys=True, indent=2).encode("utf-8")
+    result["sha256"] = _hash_bytes(payload)
+    out.write_text(json.dumps(result, sort_keys=True, indent=2), encoding="utf-8")
+    print(json.dumps({
+        "verdict": verdict,
+        "sign_consistent_seeds": consistent,
+        "majority_sign": majority_sign,
+        "median_mean_loss_difference": median_difference,
+        "seeds": seeds,
+    }, indent=2))
+    print("wrote", out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path(__file__).parent)
@@ -223,7 +341,19 @@ def main() -> None:
     parser.add_argument(
         "--replication", action="store_true",
         help="run seeds 707001-707003 and write RESULT_horm002_replication.json")
+    parser.add_argument(
+        "--horm003", action="store_true",
+        help="preregistered HORM-003: seeds 707011-707015, provenance-bound, no overwrite")
+    parser.add_argument(
+        "--force", action="store_true",
+        help="HORM-003 only: overwrite a same-seed-count result (rejected by default)")
     args = parser.parse_args()
+
+    if args.horm003 and args.replication:
+        raise SystemExit("choose either --horm003 or --replication, not both")
+    if args.horm003:
+        _run_horm003(args.output, force=args.force)
+        return
 
     if torch.cuda.is_available():
         torch.cuda.set_device(0)
