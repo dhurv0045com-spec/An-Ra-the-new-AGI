@@ -30,7 +30,12 @@ H1 fails if: zero-state forward differs from baseline; scale leaves [0.8, 1.2]; 
 # HORM-002 — Miniature-scale A/B of hormonal attention-scale modulation
 
 ## Status
-PREREGISTERED 2026-09-17T22:00:00+05:30 (before RESULT_horm002_ab.json existed).
+CORRECTION: this HORM-002 section was written after the first diagnostic A/B
+run had already produced a result in the temporary directory. It was not a
+prospective preregistration. The original timestamp below is a historical
+claim, not evidence of chronology.
+
+Originally recorded: PREREGISTERED 2026-09-17T22:00:00+05:30 (before RESULT_horm002_ab.json existed).
 Amends HORM-001: HORM-001 measured attention OUTPUT scaling after the attention
 sublayer, not query-logit scaling. HORM-002 measures the corrected mechanism:
 bounded query-logit scaling inside attention after RoPE+QK-norm.

@@ -1,0 +1,21 @@
+﻿{
+    "claim_level":  "miniature-scale-replication",
+    "seeds":  [
+                  707001,
+                  707002,
+                  707003
+              ],
+    "verdict":  "INCONSISTENT_OR_NOISE_DOMINATED",
+    "runtime":  "cpu",
+    "timestamp":  null,
+    "consistent_sign":  false,
+    "schema":  "anra-horm-002-replication-receipt/v1",
+    "replication_sha256":  "c280c86072edae0b79a5e6bd484111f9bcce0ad3dcd7c00de0d60d56bfe5f19d",
+    "threads":  2,
+    "source_file_sha256":  {
+                               "experiments/HORM-001/run_horm002_ab.py":  "50444a987b88bf0687b056d896f46f73da837e4ce1ab9c7d4a4ab0a79497d7c5",
+                               "v5_identity/attention_patch.py":  "87fb98f9f6af2475149123de84d2313431714b8ad3987c13583e4ec0c79bdfa1",
+                               "v5_identity/hormonal_projection.py":  "16f922651ba4b22d31a18ce00196acae28f7e60e36d09c38d9dc87f9ab51c398",
+                               "v5_identity/hormonal_state.py":  "b83a6b68560a28e291295268e23b913d91406eecfb32ab837ea855c5fdd64872"
+                           }
+}

@@ -1,0 +1,39 @@
+{
+  "claim_level": "miniature-scale-replication",
+  "consistent_sign_across_seeds": false,
+  "consistent_sign_verdict": "INCONSISTENT_OR_NOISE_DOMINATED",
+  "honesty_note": "3-seed replication at miniature scale; sign consistency across seeds is the primary readout. Still no capability or production-scale claim.",
+  "pairs": [
+    {
+      "all_finite": true,
+      "control_final_loss": 6.250078201293945,
+      "max_abs_loss_difference": 1.3828277587890625e-05,
+      "mean_loss_difference": -1.6093254089355469e-06,
+      "seed": 707001,
+      "treatment_final_loss": 6.250082015991211
+    },
+    {
+      "all_finite": true,
+      "control_final_loss": 6.23197078704834,
+      "max_abs_loss_difference": 4.76837158203125e-06,
+      "mean_loss_difference": 2.980232238769531e-07,
+      "seed": 707002,
+      "treatment_final_loss": 6.231968879699707
+    },
+    {
+      "all_finite": true,
+      "control_final_loss": 6.237553596496582,
+      "max_abs_loss_difference": 4.76837158203125e-06,
+      "mean_loss_difference": -7.152557373046875e-07,
+      "seed": 707003,
+      "treatment_final_loss": 6.237558364868164
+    }
+  ],
+  "schema": "anra-horm-002-replication/v1",
+  "seeds": [
+    707001,
+    707002,
+    707003
+  ],
+  "sha256": "c280c86072edae0b79a5e6bd484111f9bcce0ad3dcd7c00de0d60d56bfe5f19d"
+}

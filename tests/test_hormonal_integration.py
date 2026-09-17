@@ -1,4 +1,4 @@
-﻿"""HORM-002 regression: runtime patch applies bounded effect and restores cleanly."""
+"""HORM-002 regression: runtime patch applies bounded effect and restores cleanly."""
 from __future__ import annotations
 
 import os
@@ -61,3 +61,34 @@ def test_inert_projection_is_noop() -> None:
         inert = model(tokens, positions, mask)
         patch.restore()
     assert torch.equal(inert, baseline)
+
+
+def test_runner_logs_the_scales_read_by_every_attention_layer(monkeypatch) -> None:
+    import runpy
+    from pathlib import Path
+
+    runner = runpy.run_path(str(
+        Path(__file__).resolve().parents[1]
+        / "experiments" / "HORM-001" / "run_horm002_ab.py"
+    ))
+    calls = []
+    original_scale = HormonalProjection.scale
+
+    def observe_scale(projection, vector):
+        scale = original_scale(projection, vector)
+        calls.append(scale)
+        return scale
+
+    monkeypatch.setattr(HormonalProjection, "scale", observe_scale)
+    result = runner["_run_arm"](
+        arm="treatment", seed=runner["SEED"],
+        batches=runner["_build_batches"](runner["SEED"]),
+    )
+    reads_per_update = runner["HORM_SPEC"].layers + 1
+    assert len(calls) == runner["UPDATES"] * reads_per_update
+    assert len(set(result["scales"])) == 2
+    for update, logged in enumerate(result["scales"]):
+        reads = calls[update * reads_per_update:(update + 1) * reads_per_update]
+        assert reads == [logged] * reads_per_update
+    assert result["cumulative_tokens"] == runner["UPDATES"] * runner["TOKENS_PER_UPDATE"]
+    assert all(torch.isfinite(torch.tensor(result["losses"])))

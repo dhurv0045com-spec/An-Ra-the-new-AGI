@@ -1,5 +1,25 @@
 ﻿# HORM-001 experiment.md
 
+## Current corrected status
+
+The historical HORM-002 results below used fixed baseline hormone state;
+the alternating scales were logged but not applied. They are not evidence
+of dynamic hormone conditioning, statistical noise, or benefit. HORM-001
+measured output scaling, not attention temperature. The HORM-002 plan was
+written after the first diagnostic run, not preregistered before it.
+
+The state/logging mismatch is repaired. Twelve focused tests passed (7.45 s,
+CPU-only, two threads), including eight tiny backend updates with direct
+verification that all attention layers consume the logged scales. No new
+30-seed experiment or capability evaluation was performed. Historical JSON
+results are preserved and must not be attributed to the repaired runner.
+
+Next: audit provenance and checkpointed state before any new prospective
+experiment. No production promotion or TIE-ROLE campaign is authorized here.
+
+Historical record (superseded where noted above):
+
+
 **Date:** 2026-09-17
 **Branch:** cymek-beta (worktree C:\Users\ankit\Downloads\An-Ra-cymek-beta)
 **Hardware used:** CPU only, 2 threads, RTX 4050 (6 GB) untouched. System RAM free at start: ~4.9 GiB of 15.3.
