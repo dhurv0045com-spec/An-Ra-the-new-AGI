@@ -707,8 +707,12 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
             "'device': str(next(trainer.model.parameters()).device)}))\n"
         )
         try:
+            child_env = os.environ.copy()
+            repo_root = os.path.abspath(os.getcwd())
+            child_env["PYTHONPATH"] = repo_root + os.pathsep + \
+                child_env.get("PYTHONPATH", "")
             proc = subprocess.run(
-                [sys.executable, "-c", code],
+                [sys.executable, "-c", code], cwd=repo_root, env=child_env,
                 capture_output=True, text=True, timeout=600)
         except Exception as exc:  # noqa: BLE001
             return {"resumed_checksum": None, "committed_updates": 0,
@@ -775,8 +779,12 @@ def _verify_payload_in_subprocess(payload: dict) -> dict[str, Any]:
             "print('RESTORE_OK:' + str(trainer.counters.optimizer_updates))"
         )
         try:
+            child_env = os.environ.copy()
+            repo_root = os.path.abspath(os.getcwd())
+            child_env["PYTHONPATH"] = repo_root + os.pathsep + \
+                child_env.get("PYTHONPATH", "")
             proc = subprocess.run(
-                [sys.executable, "-c", code],
+                [sys.executable, "-c", code], cwd=repo_root, env=child_env,
                 capture_output=True, text=True, timeout=120)
         except Exception as exc:  # noqa: BLE001
             return {"restored_ok": False, "error": str(exc)}
