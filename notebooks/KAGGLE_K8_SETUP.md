@@ -39,6 +39,15 @@ run exposed an FP16 loss-scale overflow before the first optimizer update.
 Do not switch the notebook to `fp16_autocast` without a separately successful
 AMP calibration and retry policy.
 
+## Downloading the completed run
+
+The final notebook cell packages the entire generated run root into a verified
+ZIP in `/kaggle/working`, writes a SHA-256 receipt beside it, and displays a
+download link when Kaggle exposes one. It also runs automatically after a
+registered command fails, so failure logs are not lost. Save a Kaggle notebook
+version and download the ZIP from the **Output** panel if the in-notebook link
+is not available. Kaggle cannot force a browser download without a user click.
+
 ## Optional overrides
 
 Set `BRAMASTRA_GIT_URL` or `BRAMASTRA_GIT_REF` only when intentionally using a

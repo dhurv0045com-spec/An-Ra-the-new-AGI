@@ -922,6 +922,9 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("run_k8", joined)
         self.assertIn("'--precision', 'fp32'", joined)
         self.assertNotIn("'--precision', 'fp16_autocast'", joined)
+        self.assertIn("package_run_artifacts", joined)
+        self.assertIn("shutil.make_archive", joined)
+        self.assertIn("FileLink", joined)
         self.assertNotIn("shutil.rmtree", joined)
         # Every mutating subprocess call checks its failure.
         self.assertGreaterEqual(joined.count("returncode"), 2)
@@ -939,6 +942,44 @@ class O10NotebookTests(unittest.TestCase):
                 source = "".join(cell["source"])
                 with self.subTest(cell=index):
                     ast.parse(source)
+
+    def test_notebook_artifact_packager_writes_verified_zip_and_receipt(self) -> None:
+        import ast
+        from pathlib import Path
+        import zipfile
+
+        notebook = json.load(open("notebooks/bramastra_k8.ipynb"))
+        source = next(
+            "".join(cell["source"])
+            for cell in notebook["cells"]
+            if cell["cell_type"] == "code" and
+            "def package_run_artifacts" in "".join(cell["source"]))
+        tree = ast.parse(source)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and
+            node.name == "package_run_artifacts")
+        with tempfile.TemporaryDirectory() as tmp:
+            working = Path(tmp)
+            run_root = working / "bramastra-k8" / "run-test"
+            run_root.mkdir(parents=True)
+            (run_root / "campaign_ledger.sqlite").write_text("ledger")
+            (run_root / "nested").mkdir()
+            (run_root / "nested" / "result.json").write_text("result")
+            namespace = {"RUN_ROOT": run_root, "WORKING": working,
+                         "RUN_ID": "run-test", "INSTANCE_ID": "instance",
+                         "Path": Path, "json": json}
+            exec(compile(ast.Module(body=[function], type_ignores=[]),
+                         "notebook-packager", "exec"), namespace)
+            archive = namespace["package_run_artifacts"]("test")
+            self.assertTrue(archive.is_file())
+            receipt = json.loads(archive.with_suffix(".json").read_text())
+            self.assertEqual(receipt["reason"], "test")
+            self.assertGreater(receipt["bytes"], 0)
+            with zipfile.ZipFile(archive) as bundle:
+                self.assertIsNone(bundle.testzip())
+                self.assertTrue(any(name.endswith("campaign_ledger.sqlite")
+                                    for name in bundle.namelist()))
 
     def test_export_reload_roundtrip_fresh_process(self) -> None:
         import subprocess
