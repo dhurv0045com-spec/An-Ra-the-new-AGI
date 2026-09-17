@@ -102,7 +102,7 @@ def _phase_success_for_output(phase: str, output: dict[str, Any]) -> bool:
 def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                  max_wall_minutes: float = 600.0,
                  devices: Sequence[str] = ("cuda:0", "cuda:1"),
-                 precision: str = "fp16_autocast",
+                 precision: str = "fp32",
                  build_report: str | None = None) -> int:
     from bramastra_lab.research.contracts.core import content_identity
 

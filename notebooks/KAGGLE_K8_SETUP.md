@@ -34,6 +34,11 @@ The setup cell also checks that the selected image supplies `torch>=2.6`,
 If one is absent, select a compatible image or add the pinned dependency
 before starting the campaign; do not repair a dependency after E0 begins.
 
+K8 uses **FP32** by default. This is intentional: its first live two-T4 E0
+run exposed an FP16 loss-scale overflow before the first optimizer update.
+Do not switch the notebook to `fp16_autocast` without a separately successful
+AMP calibration and retry policy.
+
 ## Optional overrides
 
 Set `BRAMASTRA_GIT_URL` or `BRAMASTRA_GIT_REF` only when intentionally using a

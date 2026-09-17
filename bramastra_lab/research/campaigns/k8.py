@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-wall-minutes", type=float, default=600.0,
                      help="owner wall budget (Kaggle GPU sessions allow 720)")
     run.add_argument("--devices", default="cuda:0,cuda:1")
-    run.add_argument("--precision", default="fp16_autocast",
+    run.add_argument("--precision", default="fp32",
                      choices=["fp32", "fp16_autocast"])
     run.add_argument("--build-report", default=None,
                      help="build_verification.json from the verify-build "

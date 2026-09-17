@@ -16,7 +16,11 @@ K8_CAMPAIGN_MODEL = {"profile": "development", "vocab": 260, "layers": 8,
                      "width": 256, "heads": 4, "ffn": 704, "max_seq": 512}
 K8_CAMPAIGN_TRAINING = {"learning_rate": 0.0003, "weight_decay": 0.01,
                         "clip_norm": 1.0}
-K8_CAMPAIGN_PRECISION = "fp16_autocast"
+# FP16 is an opt-in experiment, not the campaign default. The first live
+# two-T4 E0 run overflowed GradScaler's initial FP16 scale before its first
+# update; production must choose the stable precision until AMP has a
+# successful hardware-calibration receipt.
+K8_CAMPAIGN_PRECISION = "fp32"
 
 
 def k8_campaign_config():
@@ -171,7 +175,7 @@ def _frozen_config_for_profile(profile: str):
 class ProductionOps:
     """Real GPU ops (never executed locally per policy; owner launch only)."""
 
-    def __init__(self, *, precision: str = "fp16_autocast") -> None:
+    def __init__(self, *, precision: str = "fp32") -> None:
         self.precision = precision
 
     def _build_trainer(self, *, seed: int, device: str, profile: str):

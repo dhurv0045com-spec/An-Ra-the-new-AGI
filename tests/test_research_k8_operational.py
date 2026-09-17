@@ -887,6 +887,19 @@ class O07GateTests(unittest.TestCase):
 
 
 class O10NotebookTests(unittest.TestCase):
+    def test_campaign_defaults_to_fp32_until_amp_is_calibrated(self) -> None:
+        from bramastra_lab.research.campaigns.k8 import build_parser
+        from bramastra_lab.research.campaigns.runner import run_campaign
+        from bramastra_lab.research.campaigns.phases.ops import (
+            K8_CAMPAIGN_PRECISION, ProductionOps)
+
+        parsed = build_parser().parse_args(
+            ["run", "--mode", "e0", "--run-dir", "run", "--data", "data"])
+        self.assertEqual(parsed.precision, "fp32")
+        self.assertEqual(run_campaign.__kwdefaults__["precision"], "fp32")
+        self.assertEqual(K8_CAMPAIGN_PRECISION, "fp32")
+        self.assertEqual(ProductionOps().precision, "fp32")
+
     def test_notebook_backed_by_repo(self) -> None:
         notebook = json.load(open("notebooks/bramastra_k8.ipynb"))
         sources = ["".join(cell["source"]) for cell in notebook["cells"]
@@ -907,6 +920,8 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("generated-k8-data", joined)
         self.assertIn("REQUIRED_MODULES", joined)
         self.assertIn("run_k8", joined)
+        self.assertIn("'--precision', 'fp32'", joined)
+        self.assertNotIn("'--precision', 'fp16_autocast'", joined)
         self.assertNotIn("shutil.rmtree", joined)
         # Every mutating subprocess call checks its failure.
         self.assertGreaterEqual(joined.count("returncode"), 2)
