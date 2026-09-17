@@ -887,6 +887,17 @@ class O07GateTests(unittest.TestCase):
 
 
 class O10NotebookTests(unittest.TestCase):
+    def test_campaign_failure_summary_exposes_worker_error(self) -> None:
+        from bramastra_lab.research.campaigns.runner import _failure_summary
+
+        summary = _failure_summary({
+            "E0-w0": {"status": "failed", "error": "exact worker cause"},
+            "E0-w1": {"status": "completed"},
+            "E1-A": {"status": "timed_out", "reason": "deadline"},
+        })
+        self.assertEqual(summary, {"E0-w0": "exact worker cause",
+                                   "E1-A": "deadline"})
+
     def test_campaign_defaults_to_fp32_until_amp_is_calibrated(self) -> None:
         from bramastra_lab.research.campaigns.k8 import build_parser
         from bramastra_lab.research.campaigns.runner import run_campaign

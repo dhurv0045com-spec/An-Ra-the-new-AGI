@@ -374,7 +374,8 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
         print(json.dumps({"status": final_status, "mode": mode,
                           "remaining_minutes": round(remaining / 60.0, 1),
                           "results": {key: value.get("status")
-                                      for key, value in results.items()}}, indent=2))
+                                      for key, value in results.items()},
+                          "failures": _failure_summary(results)}, indent=2))
         return 1 if campaign_failed else 0
     finally:
         try:
@@ -407,6 +408,23 @@ def _load_usable_protocol(run_dir: str,
     except Exception:
         return None
     return protocol
+
+
+def _failure_summary(results: Mapping[str, Mapping[str, Any]]) -> dict[str, str]:
+    """Return actionable worker failures in the parent CLI result.
+
+    Spawned workers correctly keep their complete process state private, but
+    hiding even their returned exception forces an operator to inspect SQLite
+    after an E0 refusal. Preserve the full ledger evidence while exposing a
+    bounded, plain-text cause in the command that failed.
+    """
+    failures: dict[str, str] = {}
+    for job_id, output in sorted(results.items()):
+        if str(output.get("status")) == "completed":
+            continue
+        reason = output.get("error", output.get("reason", output.get("status")))
+        failures[str(job_id)] = str(reason)[:2000]
+    return failures
 
 
 def _maybe_freeze_protocol(ledger: Any, run_dir: str,
