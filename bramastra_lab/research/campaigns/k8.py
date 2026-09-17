@@ -48,10 +48,14 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-dir", required=True)
     run.add_argument("--mode", choices=["e0", "full"], required=True)
     run.add_argument("--data", required=True, help="prepared bundle directory")
-    run.add_argument("--max-wall-minutes", type=float, default=480.0)
+    run.add_argument("--max-wall-minutes", type=float, default=600.0,
+                     help="owner wall budget (Kaggle GPU sessions allow 720)")
     run.add_argument("--devices", default="cuda:0,cuda:1")
     run.add_argument("--precision", default="fp16_autocast",
                      choices=["fp32", "fp16_autocast"])
+    run.add_argument("--build-report", default=None,
+                     help="build_verification.json from the verify-build "
+                          "cell (the readiness gate consumes it)")
 
     summarize = subparsers.add_parser("summarize", help="aggregate the campaign ledger")
     summarize.add_argument("--run-dir", required=True)
@@ -107,7 +111,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     return run_campaign(run_dir=args.run_dir, mode=args.mode, data_dir=args.data,
                         max_wall_minutes=args.max_wall_minutes,
-                        devices=args.devices.split(","), precision=args.precision)
+                        devices=args.devices.split(","), precision=args.precision,
+                        build_report=os.path.join(args.build_report, "build_verification.json")
+                        if args.build_report else None)
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
@@ -197,9 +203,17 @@ def cmd_export(args: argparse.Namespace) -> int:
     # Frozen protocol (the exact plan + cutoffs the campaign ran under).
     from bramastra_lab.research.campaigns import process_supervision as ps
 
+    # The protocol records the allocation the campaign ACTUALLY ran under
+    # (from the ledger), never a constant.
+    try:
+        # Allocation row: (allocation_id, source_hash, data_hash, reserved_at,
+        # deadline_unix, wall_minutes).
+        recorded_wall = float(allocations[0][5])             if allocations and len(allocations[0]) > 5 else None
+    except (TypeError, ValueError, IndexError):
+        recorded_wall = None
     protocol = {
         "schema": "bramastra-k8-protocol/v1",
-        "wall_minutes": 480.0,
+        "wall_minutes": recorded_wall if recorded_wall else 600.0,
         "training_cutoff_minutes": ps.TRAINING_CUTOFF_MINUTES,
         "export_reserve_minutes": ps.EXPORT_RESERVE_MINUTES,
         "required_workers_e0": 2,

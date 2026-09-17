@@ -20,9 +20,12 @@ import queue
 import time
 from typing import Any, Callable, Sequence
 
-TRAINING_CUTOFF_MINUTES = 450.0
-CAMPAIGN_WALL_MINUTES = 480.0
-EXPORT_RESERVE_MINUTES = CAMPAIGN_WALL_MINUTES - TRAINING_CUTOFF_MINUTES
+# Registered campaign wall budget (owner-authorized 10-hour allocation)
+# and the fixed export reserve. Training phases fill wall minus reserve;
+# the E6 export window is the reserve.
+CAMPAIGN_WALL_MINUTES = 600.0
+EXPORT_RESERVE_MINUTES = 30.0
+TRAINING_CUTOFF_MINUTES = CAMPAIGN_WALL_MINUTES - EXPORT_RESERVE_MINUTES
 
 
 class SupervisionError(RuntimeError):
@@ -37,11 +40,21 @@ def campaign_training_cutoff(campaign_start_unix: float) -> float:
 def phase_absolute_deadlines(
     campaign_start_unix: float,
     plan: Sequence[dict[str, Any]],
+    *,
+    export_reserve_minutes: float = EXPORT_RESERVE_MINUTES,
 ) -> dict[str, float]:
-    """Absolute deadlines per phase derived from the original start."""
+    """Absolute deadlines per phase derived from the original start.
+
+    The wall budget is the SUM of the plan's declared caps (never a second
+    constant): E6 owns the export reserve at the end; every training phase
+    is additionally bounded by the training cutoff (wall minus reserve).
+    """
     deadlines: dict[str, float] = {}
     elapsed = 0.0
-    cutoff = campaign_training_cutoff(campaign_start_unix)
+    total = 0.0
+    for entry in plan:
+        total += float(entry.get("wall_cap_minutes", 0.0))
+    cutoff = campaign_start_unix + (total - export_reserve_minutes) * 60.0
     for entry in plan:
         phase = entry["phase"]
         cap_minutes = float(entry.get("wall_cap_minutes", 0.0))
@@ -49,8 +62,6 @@ def phase_absolute_deadlines(
         absolute = campaign_start_unix + elapsed
         if phase != "E6" and absolute > cutoff:
             absolute = cutoff
-        if phase == "E6":
-            absolute = campaign_start_unix + CAMPAIGN_WALL_MINUTES * 60.0
         deadlines[phase] = absolute
     return deadlines
 

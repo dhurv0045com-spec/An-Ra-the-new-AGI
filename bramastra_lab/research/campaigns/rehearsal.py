@@ -58,10 +58,10 @@ def run_rehearsal(*, repo_root: str | None = None,
         ledger = CampaignLedger(run_dir)
         ledger.record_allocation(
             "rehearsal-alloc", manifest["identity"],
-            manifest["identity"], 480.0)
+            manifest["identity"], 600.0)
         ledger.close()
         steps["allocation"] = {"allocation_id": "rehearsal-alloc",
-                               "wall_minutes": 480.0,
+                               "wall_minutes": 600.0,
                                "clock": "fake-deadline-no-waiting"}
 
         # 3. E1 parent wiring: real tiny payloads through the production

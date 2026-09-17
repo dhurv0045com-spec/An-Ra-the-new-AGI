@@ -21,7 +21,8 @@ from bramastra_lab.research.campaigns.supervisor import (
 )
 
 
-def _preflight(data_dir: str, mode: str) -> str | None:
+def _preflight(data_dir: str, mode: str, *,
+               build_report: str | None = None) -> str | None:
     """Validate bundle + handler availability before E0 (D5).
 
     Returns an error string when preflight fails, else None. Fails before
@@ -34,7 +35,10 @@ def _preflight(data_dir: str, mode: str) -> str | None:
     # Refuse known unqualified implementations before allocating GPU time.
     from bramastra_lab.research.campaigns.readiness import implementation_readiness
 
-    readiness = implementation_readiness()
+    # The gate consumes the build report the operator just generated with
+    # verify-build (owner notebook passes --build-report); the repository
+    # default is only a fallback for non-notebook callers.
+    readiness = implementation_readiness(report_path=build_report)
     if not readiness["ready"]:
         return "IMPLEMENTATION_NOT_READY: " + json.dumps(readiness, sort_keys=True)
     manifest_path = os.path.join(data_dir, "manifest.json")
@@ -96,15 +100,16 @@ def _phase_success_for_output(phase: str, output: dict[str, Any]) -> bool:
 
 
 def run_campaign(*, run_dir: str, mode: str, data_dir: str,
-                 max_wall_minutes: float = 480.0,
+                 max_wall_minutes: float = 600.0,
                  devices: Sequence[str] = ("cuda:0", "cuda:1"),
-                 precision: str = "fp16_autocast") -> int:
+                 precision: str = "fp16_autocast",
+                 build_report: str | None = None) -> int:
     from bramastra_lab.research.contracts.core import content_identity
 
     if mode not in ("e0", "full"):
         raise SupervisorError(f"unknown mode {mode!r}")
     os.makedirs(run_dir, exist_ok=True)
-    preflight_error = _preflight(data_dir, mode)
+    preflight_error = _preflight(data_dir, mode, build_report=build_report)
     if preflight_error:
         print(json.dumps({"status": "DATA_NOT_READY" if "bundle" in preflight_error
                           or "manifest" in preflight_error else "PREFLIGHT_REFUSED",
@@ -144,7 +149,8 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                                          "receipts on both workers (distinct devices, "
                                          "checkpoint + updates); run --mode e0 first"}))
             return 1
-        campaign_plan = _phase_plan(mode, deadline, devices)
+        campaign_plan = _phase_plan(mode, deadline, devices,
+                                    max_wall_minutes=max_wall_minutes)
         ledger.append_event("campaign_started", {"mode": mode,
                                                  "plan": campaign_plan,
                                                  "allocation_id": allocation_id})
@@ -446,9 +452,45 @@ def _maybe_freeze_protocol(ledger: Any, run_dir: str,
         "protocol": {key: protocol[key] for key in ("schema",)}})
 
 
+# Registered training-phase cap proportions over the wall-minus-reserve
+# pool (from the 480-minute plan: 30/120/45/60/60/135 training + 30 export).
+# The caps scale proportionally to the declared wall budget and must sum
+# EXACTLY to wall minus export reserve.
+TRAINING_CAP_PARTS = {"E0": 30.0, "E1": 120.0, "E2": 45.0,
+                      "E3": 60.0, "E4": 60.0, "E5": 135.0}
+
+
+def _phase_caps(max_wall_minutes: float,
+                export_reserve_minutes: float = 30.0) -> dict[str, float]:
+    """Scale the registered phase proportions to the declared wall budget.
+
+    The training pool is wall minus the export reserve; each phase takes
+    its proportional share with the largest-remainder rounding so the caps
+    sum exactly to the pool (never a silent minute short or over).
+    """
+    pool = float(max_wall_minutes) - float(export_reserve_minutes)
+    if pool <= 0:
+        raise ValueError(f"wall budget {max_wall_minutes} leaves no training "
+                         "pool after the export reserve")
+    total_parts = sum(TRAINING_CAP_PARTS.values())
+    raw = {phase: pool * part / total_parts
+           for phase, part in TRAINING_CAP_PARTS.items()}
+    floors = {phase: int(value) for phase, value in raw.items()}
+    remainder = int(round(pool)) - sum(floors.values())
+    # Largest-remainder distribution of the leftover whole minutes.
+    order = sorted(raw, key=lambda p: (raw[p] - floors[p], p), reverse=True)
+    for phase in order[:max(0, remainder)]:
+        floors[phase] += 1
+    return floors
+
+
 def _phase_plan(mode: str, deadline: float,
-                devices: Sequence[str]) -> list[dict[str, Any]]:
+                devices: Sequence[str], *,
+                max_wall_minutes: float = 600.0) -> list[dict[str, Any]]:
     """Phase plan with explicit ordered slots (D1).
+
+    Phase caps scale proportionally to the declared wall budget (exact sum
+    = wall minus the 30-minute export reserve).
 
     E1: slot1 A1701/gpu0 + B1701/gpu1; slot2 B1702/gpu0 + A1702/gpu1.
     E3: slot1 T0/seed1701/gpu0 + T1/seed1702/gpu1; slot2 T1/seed1701/gpu0 +
@@ -456,18 +498,34 @@ def _phase_plan(mode: str, deadline: float,
     E4: slot1 S0/seed1701/gpu0 + S1/seed1702/gpu1; slot2 S1/seed1701/gpu0 +
       S0/seed1702/gpu1. GPU0 owns seed1701, GPU1 owns seed1702.
     """
+    from bramastra_lab.research.campaigns.process_supervision import (
+        EXPORT_RESERVE_MINUTES)
+
+    caps = _phase_caps(max_wall_minutes, EXPORT_RESERVE_MINUTES)
+    plan_sum = sum(caps.values()) + EXPORT_RESERVE_MINUTES
+    if abs(plan_sum - float(max_wall_minutes)) > 1e-6:
+        raise ValueError(
+            f"phase caps sum to {plan_sum} but the declared wall is "
+            f"{max_wall_minutes}; refusing an unbalanced schedule")
+
+    def per_slot(phase: str) -> float:
+        # Each phase runs its slots sequentially on both devices; a
+        # worker's wall share is its slot's cap (cap / slot count).
+        slots_for_phase = 2 if phase in ("E1", "E3", "E4") else 1
+        return caps[phase] / slots_for_phase * 60.0
+
     device_list = list(devices)
     gpu0 = device_list[0] if len(device_list) > 0 else "cuda:0"
     gpu1 = device_list[1] if len(device_list) > 1 else "cuda:1"
     plan = []
     e0_workers = [
         {"job_id": "E0-w0", "worker": "w0", "device": gpu0, "phase": "E0",
-         "wall_seconds": 25 * 60.0},
+         "wall_seconds": (caps["E0"] - 5) * 60.0},
         {"job_id": "E0-w1", "worker": "w1", "device": gpu1, "phase": "E0",
-         "wall_seconds": 25 * 60.0},
+         "wall_seconds": (caps["E0"] - 5) * 60.0},
     ]
-    plan.append({"phase": "E0", "wall_cap_minutes": 30, "workers": e0_workers,
-                 "slots": [e0_workers]})
+    plan.append({"phase": "E0", "wall_cap_minutes": caps["E0"],
+                 "workers": e0_workers, "slots": [e0_workers]})
     if mode == "full":
         e1_slot1 = [
             {"job_id": "E1-A-1701", "worker": "w0", "device": gpu0,
@@ -482,7 +540,10 @@ def _phase_plan(mode: str, deadline: float,
              "phase": "E1", "arm": "A", "seed": 1702, "wall_seconds": 60 * 60.0},
         ]
         e1_workers = e1_slot1 + e1_slot2
-        plan.append({"phase": "E1", "wall_cap_minutes": 120,
+        e1_wall = per_slot("E1")
+        for worker in e1_workers:
+            worker["wall_seconds"] = e1_wall
+        plan.append({"phase": "E1", "wall_cap_minutes": caps["E1"],
                      "workers": e1_workers, "slots": [e1_slot1, e1_slot2]})
         e2_workers = [
             {"job_id": "E2-w0", "worker": "w0", "device": gpu0,
@@ -492,7 +553,10 @@ def _phase_plan(mode: str, deadline: float,
              "phase": "E2", "seed": 1702, "wall_seconds": 45 * 60.0,
              "parent": "E1-B-1702/E1-A-1702"},
         ]
-        plan.append({"phase": "E2", "wall_cap_minutes": 45,
+        e2_wall = per_slot("E2")
+        for worker in e2_workers:
+            worker["wall_seconds"] = e2_wall
+        plan.append({"phase": "E2", "wall_cap_minutes": caps["E2"],
                      "workers": e2_workers, "slots": [e2_workers]})
         e3_slot1 = [
             {"job_id": "E3-T0-1701", "worker": "w0", "device": gpu0,
@@ -511,7 +575,10 @@ def _phase_plan(mode: str, deadline: float,
              "wall_seconds": 30 * 60.0, "parent": "E1-B-1702"},
         ]
         e3_workers = e3_slot1 + e3_slot2
-        plan.append({"phase": "E3", "wall_cap_minutes": 60,
+        e3_wall = per_slot("E3")
+        for worker in e3_workers:
+            worker["wall_seconds"] = e3_wall
+        plan.append({"phase": "E3", "wall_cap_minutes": caps["E3"],
                      "workers": e3_workers, "slots": [e3_slot1, e3_slot2]})
         e4_slot1 = [
             {"job_id": "E4-S0-1701", "worker": "w0", "device": gpu0,
@@ -530,23 +597,28 @@ def _phase_plan(mode: str, deadline: float,
              "wall_seconds": 30 * 60.0, "parent": "E1-B-1702"},
         ]
         e4_workers = e4_slot1 + e4_slot2
-        plan.append({"phase": "E4", "wall_cap_minutes": 60,
+        e4_wall = per_slot("E4")
+        for worker in e4_workers:
+            worker["wall_seconds"] = e4_wall
+        plan.append({"phase": "E4", "wall_cap_minutes": caps["E4"],
                      "workers": e4_workers, "slots": [e4_slot1, e4_slot2]})
+        e5_wall = per_slot("E5")
         e5_workers = [
             {"job_id": "E5-w0", "worker": "w0", "device": gpu0,
-             "phase": "E5", "seed": 1701, "wall_seconds": 135 * 60.0,
+             "phase": "E5", "seed": 1701, "wall_seconds": e5_wall,
              "parent": "E1-B-1701"},
             {"job_id": "E5-w1", "worker": "w1", "device": gpu1,
-             "phase": "E5", "seed": 1702, "wall_seconds": 135 * 60.0,
+             "phase": "E5", "seed": 1702, "wall_seconds": e5_wall,
              "parent": "E1-B-1702"},
         ]
-        plan.append({"phase": "E5", "wall_cap_minutes": 135,
+        plan.append({"phase": "E5", "wall_cap_minutes": caps["E5"],
                      "workers": e5_workers, "slots": [e5_workers]})
         e6_workers = [
             {"job_id": "E6-export", "worker": "supervisor",
-             "device": gpu0, "phase": "E6", "wall_seconds": 30 * 60.0},
+             "device": gpu0, "phase": "E6",
+             "wall_seconds": EXPORT_RESERVE_MINUTES * 60.0},
         ]
-        plan.append({"phase": "E6", "wall_cap_minutes": 30,
+        plan.append({"phase": "E6", "wall_cap_minutes": EXPORT_RESERVE_MINUTES,
                      "workers": e6_workers, "slots": [e6_workers]})
     return plan
 
