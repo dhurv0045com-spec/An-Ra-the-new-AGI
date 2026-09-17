@@ -1,0 +1,18 @@
+﻿{
+    "claim_level":  "miniature-scale-only",
+    "runtime":  "cpu",
+    "result_sha256":  "24ce92abb4ac4d1a78cec2bed98b29c0d381ee1abb93464bfc8358944b4815f7",
+    "threads":  2,
+    "control_identical":  false,
+    "timestamp":  "2026-09-17T22:13:34.9733409+05:30",
+    "source_file_sha256":  {
+                               "experiments/HORM-001/run_horm002_ab.py":  "2f2ae15e981b3c99b011be7afe17aa406891949e7702eb55ef99ded1ec4b3180",
+                               "v5_identity/attention_patch.py":  "87fb98f9f6af2475149123de84d2313431714b8ad3987c13583e4ec0c79bdfa1",
+                               "v5_identity/hormonal_projection.py":  "16f922651ba4b22d31a18ce00196acae28f7e60e36d09c38d9dc87f9ab51c398",
+                               "v5_identity/hormonal_state.py":  "b83a6b68560a28e291295268e23b913d91406eecfb32ab837ea855c5fdd64872"
+                           },
+    "schema":  "anra-horm-002-result-receipt/v1",
+    "control_final_loss":  6.250078201293945,
+    "treatment_final_loss":  6.250082015991211,
+    "max_abs_loss_difference":  1.3828277587890625E-05
+}
