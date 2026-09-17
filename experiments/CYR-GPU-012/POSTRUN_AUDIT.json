@@ -1,0 +1,283 @@
+{
+  "bundle_sha256": "d2da6d18847c846bd1865d4069c5afe46309ced339350a0115e1c23f3049f2cc",
+  "bundle_verified": true,
+  "json_files_verified": 8,
+  "checkpoint_hashes_verified": true,
+  "final_checkpoint_receipt": {
+    "counters": {
+      "actual_real_tokens": 16128000,
+      "g90_confirm_update": null,
+      "g90_controller_confirm_update": null,
+      "label": "COMPACT_BRIDGE",
+      "model_seed": 3301,
+      "order_seed": 4701,
+      "row_presentations": 1152000,
+      "stream_sha256": "12e471f4eda1d20ae9fb9a29cb645e3795b04f88cb738aaf59f720e28f5560ea",
+      "updates": 18000
+    },
+    "model_sha256": "94e82920eaf03089630b85b9061bd0fa680b629c0bcd526e58bf301712127a99",
+    "optimizer_sha256": "d832c3e788efb1ace987acd00e659deba7677f763ba28c36925ae6367ffa6a2a",
+    "schema": "anra-cyr-research-checkpoint/v1"
+  },
+  "prediction_scores_recomputed": {
+    "CARRY": 0.0,
+    "COMMUTATION_MATCHED_BAND": 1.0,
+    "COMMUTATION_OOD_BAND": 0.0,
+    "COMMUTED": 1.0,
+    "LOCALITY": 0.0,
+    "STANDARD": 0.0,
+    "THREE_DIGIT": 0.0,
+    "TRIPLE_ADD": 0.0
+  },
+  "controller_max": 0.125,
+  "measurement_max": 0.09411764705882353,
+  "final_train_probe": {
+    "complete_exact_with_valid_stop": 1.0,
+    "content_exact": 1.0,
+    "eos_rate": 1.0,
+    "invalid_rate": 0.0,
+    "max_tokens_rate": 0.0,
+    "prefix_correct_extra": 0.0,
+    "total": 100
+  },
+  "min_free_ram_gib": 3.130950927734375,
+  "max_temperature_c": 57.0,
+  "final_environment": {
+    "cuda_available": true,
+    "device": "cuda",
+    "free_ram_gib": 4.400199890136719,
+    "gpu_free_gib": 4.953125,
+    "gpu_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "peak_vram_gib": 0.06801033020019531,
+    "schema": "anra-cyr-gpu011-environment/v1",
+    "temperature_c": 50.0,
+    "torch": "2.11.0+cu128",
+    "vram_gib": 5.99658203125,
+    "wall_minutes": 54.14321091000008,
+    "wall_seconds": 3248.5926546000046
+  },
+  "verdict": "NO_G90_AT_FULL_EXPOSURE",
+  "diagnostic_replay": {
+    "purpose": "POSTHOC_ENGINEERING_NOT_NEW_ENDPOINT",
+    "n": 8,
+    "all_match_official": true,
+    "samples": [
+      {
+        "world_id": "ark002b/test/37",
+        "prompt": "68 + 21 = ",
+        "expected": "89",
+        "raw_argmax_ids_8_steps": [
+          9,
+          12,
+          2,
+          2,
+          2,
+          2,
+          2,
+          11
+        ],
+        "symbols": [
+          "6",
+          "9",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "8"
+        ],
+        "before_first_eos": "69",
+        "official_generated": "69"
+      },
+      {
+        "world_id": "ark002b/test/81",
+        "prompt": "63 + 20 = ",
+        "expected": "83",
+        "raw_argmax_ids_8_steps": [
+          9,
+          6,
+          2,
+          2,
+          2,
+          2,
+          2,
+          10
+        ],
+        "symbols": [
+          "6",
+          "3",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "7"
+        ],
+        "before_first_eos": "63",
+        "official_generated": "63"
+      },
+      {
+        "world_id": "ark002b/test/193",
+        "prompt": "73 + 13 = ",
+        "expected": "86",
+        "raw_argmax_ids_8_steps": [
+          6,
+          11,
+          2,
+          2,
+          2,
+          2,
+          2,
+          11
+        ],
+        "symbols": [
+          "3",
+          "8",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "8"
+        ],
+        "before_first_eos": "38",
+        "official_generated": "38"
+      },
+      {
+        "world_id": "ark002b/test/175",
+        "prompt": "72 + 20 = ",
+        "expected": "92",
+        "raw_argmax_ids_8_steps": [
+          7,
+          10,
+          2,
+          2,
+          2,
+          2,
+          2,
+          11
+        ],
+        "symbols": [
+          "4",
+          "7",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "8"
+        ],
+        "before_first_eos": "47",
+        "official_generated": "47"
+      },
+      {
+        "world_id": "ark002b/test/189",
+        "prompt": "74 + 22 = ",
+        "expected": "96",
+        "raw_argmax_ids_8_steps": [
+          9,
+          12,
+          2,
+          2,
+          2,
+          2,
+          11,
+          11
+        ],
+        "symbols": [
+          "6",
+          "9",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "8",
+          "8"
+        ],
+        "before_first_eos": "69",
+        "official_generated": "69"
+      },
+      {
+        "world_id": "ark002b/test/186",
+        "prompt": "62 + 13 = ",
+        "expected": "75",
+        "raw_argmax_ids_8_steps": [
+          5,
+          9,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "symbols": [
+          "2",
+          "6",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>"
+        ],
+        "before_first_eos": "26",
+        "official_generated": "26"
+      },
+      {
+        "world_id": "ark002b/test/128",
+        "prompt": "65 + 30 = ",
+        "expected": "95",
+        "raw_argmax_ids_8_steps": [
+          10,
+          9,
+          2,
+          2,
+          2,
+          2,
+          2,
+          12
+        ],
+        "symbols": [
+          "7",
+          "6",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "9"
+        ],
+        "before_first_eos": "76",
+        "official_generated": "76"
+      },
+      {
+        "world_id": "ark002b/test/176",
+        "prompt": "62 + 37 = ",
+        "expected": "99",
+        "raw_argmax_ids_8_steps": [
+          18,
+          9,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "symbols": [
+          " ",
+          "6",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>",
+          "<eos>"
+        ],
+        "before_first_eos": " 6",
+        "official_generated": " 6"
+      }
+    ]
+  }
+}

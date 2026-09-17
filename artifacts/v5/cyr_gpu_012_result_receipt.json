@@ -1,0 +1,241 @@
+{
+  "bundle": {
+    "all_json_parsed": true,
+    "bytes": 41978,
+    "filename": "CYR_GPU_012_RESULTS.zip",
+    "json_files": [
+      "BATTERY.json",
+      "compact/acquisition.json",
+      "compact/progress.json",
+      "DECISION.json",
+      "ENVIRONMENT.json",
+      "PREREGISTRATION.json",
+      "RESOURCES.json",
+      "SEALED.json"
+    ],
+    "sha256": "d2da6d18847c846bd1865d4069c5afe46309ced339350a0115e1c23f3049f2cc"
+  },
+  "compact_bridge": {
+    "actual_real_tokens": 16128000,
+    "ark_exposure_fraction": 1.0,
+    "batch_rows": 64,
+    "carry_exact": 0.0,
+    "commuted_exact": 1.0,
+    "corrected_commutation": {
+      "COMMUTATION_MATCHED_BAND": {
+        "complete_exact_with_valid_stop": 1.0,
+        "content_exact": 1.0,
+        "n": 104,
+        "numeric_mae": 0.0,
+        "numeric_rate": 1.0,
+        "paired": {
+          "both_exact_with_eos": 1.0,
+          "content_consistency": 1.0,
+          "eos_valid_consistency": 1.0,
+          "pairs": 52
+        },
+        "per_band": {
+          "1": {"both_exact_with_eos": 1.0, "content_consistency": 1.0, "eos_valid_consistency": 1.0, "pairs": 14},
+          "2": {"both_exact_with_eos": 1.0, "content_consistency": 1.0, "eos_valid_consistency": 1.0, "pairs": 14},
+          "3": {"both_exact_with_eos": 1.0, "content_consistency": 1.0, "eos_valid_consistency": 1.0, "pairs": 13},
+          "4": {"both_exact_with_eos": 1.0, "content_consistency": 1.0, "eos_valid_consistency": 1.0, "pairs": 11}
+        }
+      },
+      "COMMUTATION_OOD_BAND": {
+        "complete_exact_with_valid_stop": 0.0,
+        "content_exact": 0.0,
+        "n": 100,
+        "numeric_mae": 51.25,
+        "numeric_rate": 1.0,
+        "paired": {
+          "both_exact_with_eos": 0.0,
+          "content_consistency": 0.36,
+          "eos_valid_consistency": 0.36,
+          "pairs": 50
+        },
+        "per_band": {
+          "6": {"both_exact_with_eos": 0.0, "content_consistency": 0.36, "eos_valid_consistency": 0.36, "pairs": 25},
+          "7": {"both_exact_with_eos": 0.0, "content_consistency": 0.36, "eos_valid_consistency": 0.36, "pairs": 25}
+        }
+      }
+    },
+    "dev_controller_final_exact": 0.0,
+    "dev_measurement_standard_exact": 0.0,
+    "g50_confirm_update": null,
+    "g90_confirm_update": null,
+    "locality_both_exact": 0.0,
+    "locality_relation_consistency": 0.3333333333333333,
+    "m99_confirm_update": 1400,
+    "parameters": 987392,
+    "row_presentations": 1152000,
+    "standard_digit_accuracy": {
+      "ones_digit_exact": 0.5411764705882353,
+      "tens_digit_exact": 0.0,
+      "two_digit_examples": 85
+    },
+    "status": "MAX_UPDATES_NO_G90",
+    "three_digit_exact": 0.0,
+    "triple_add_exact": 0.0,
+    "updates": 18000
+  },
+  "execution": {
+    "cuda_available": true,
+    "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "maximum_sampled_temperature_c": 57.0,
+    "minimum_sampled_free_ram_gib": 3.130950927734375,
+    "peak_tensor_vram_gib": 0.06801033020019531,
+    "status": "COMPLETE",
+    "status_semantics": "Completed compact-only full-exposure run; historical V11 status described its combined campaign",
+    "timing_comparable_to_t4": false,
+    "torch": "2.11.0+cu128",
+    "vram_gib": 5.99658203125,
+    "wall_minutes": 54.14321091000008,
+    "wall_scope": "Acquisition through final checkpoint and reserved evaluation; excludes startup and ZIP packaging",
+    "wall_seconds": 3248.5926546000046
+  },
+  "experiment": "CYR-GPU-012",
+  "frozen_executable_sha": "1a1624ed4c62e1a176dc4bed97e628f0b648a31b",
+  "historical_comparator": {
+    "compact_bridge": {
+      "actual_real_tokens": 7240576,
+      "ark_exposure_fraction": 0.4489444444444444,
+      "batch_rows": 64,
+      "carry_exact": 0.0,
+      "commuted_exact": 1.0,
+      "dev_controller_final_exact": 0.546875,
+      "dev_measurement_standard_exact": 0.5647058823529412,
+      "g50_confirm_update": 2200,
+      "g90_confirm_update": null,
+      "locality_both_exact": 0.6041666666666666,
+      "locality_relation_consistency": 0.8125,
+      "m99_confirm_update": 1400,
+      "parameters": 987392,
+      "row_presentations": 517184,
+      "standard_digit_accuracy": {
+        "ones_digit_exact": 0.8,
+        "tens_digit_exact": 0.5647058823529412,
+        "two_digit_examples": 85
+      },
+      "status": "TIMEBOX_NO_G90",
+      "three_digit_exact": 0.0,
+      "triple_add_exact": 0.375,
+      "updates": 8081
+    },
+    "experiment": "CYR-GPU-011",
+    "frozen_executable_sha": "0a97257e2b38db6dfa85cc6e58da0697591dde6b",
+    "production_primary_is_historical_not_rerun": true,
+    "receipt_bundle_sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5",
+    "receipt_path": "artifacts/v5/cyr_gpu_011_result_receipt.json",
+    "sealed_subject": "PRODUCTION_PRIMARY"
+  },
+  "official_decision": {
+    "branch": "B",
+    "broad_reasoning_claim_authorized": false,
+    "compact_controller_and_measurement_g90": false,
+    "compact_final_ark_exposure_fraction": 1.0,
+    "compact_g90_ark_exposure_fraction": null,
+    "compact_measurement_standard_final": 0.0,
+    "exposure_matched_for_divergence": false,
+    "interpretation": "Full dose was insufficient for this recreated compact run. No G50/G90; V11 early compact trajectory was not reproduced. Neither representation irrelevance nor hardware causation is established.",
+    "pre500m_authorized": false,
+    "production_primary_controller_and_measurement_g90": false,
+    "production_primary_final_ark_exposure_fraction": 1.0,
+    "production_primary_measurement_standard_final": 0.0,
+    "production_promotion_authorized": false,
+    "schema": "anra-cyr-gpu012-decision/v2",
+    "training_500m_authorized": false,
+    "verdict": "NO_G90_AT_FULL_EXPOSURE"
+  },
+  "postrun_audit": {
+    "all_json_matches_loose_evidence": true,
+    "bundle_hash_verified": true,
+    "checkpoint_hashes_verified": true,
+    "compact_was_exposure_complete": true,
+    "controller_max": 0.125,
+    "diagnostic_replay": {
+      "n": 8,
+      "purpose": "POSTHOC_ENGINEERING_NOT_NEW_ENDPOINT",
+      "raw_argmax_matches_official": true
+    },
+    "final_train_probe": {
+      "complete_exact_with_valid_stop": 1.0,
+      "content_exact": 1.0,
+      "eos_rate": 1.0,
+      "invalid_rate": 0.0,
+      "max_tokens_rate": 0.0,
+      "prefix_correct_extra": 0.0,
+      "total": 100
+    },
+    "measurement_max": 0.09411764705882353,
+    "pre500m_authorized": false,
+    "prediction_scores_recomputed": {
+      "CARRY": 0.0,
+      "COMMUTATION_MATCHED_BAND": 1.0,
+      "COMMUTATION_OOD_BAND": 0.0,
+      "COMMUTED": 1.0,
+      "LOCALITY": 0.0,
+      "STANDARD": 0.0,
+      "THREE_DIGIT": 0.0,
+      "TRIPLE_ADD": 0.0
+    },
+    "production_is_historical": true,
+    "production_promotion_authorized": false,
+    "production_was_exposure_complete": true,
+    "raw_bundle_unchanged": true,
+    "raw_commutation_flag_accepted": false,
+    "reproducibility_caveat": "No concrete training-path bug found in source audit. Follow-up verified the historical V11 ZIP: both acquisition records report sampling-index SHA256 12e471f4eda1d20ae9fb9a29cb645e3795b04f88cb738aaf59f720e28f5560ea and initial L2 norm 46.88997268676758. Initial tensors were not directly compared. Scores differ by the first evaluation at update 200. Hardware/runtime numerical equivalence and causation remain unestablished.",
+    "source_changes": [
+      "Sibling corrected paired-probe module",
+      "Sibling compact-only guarded operator",
+      "Inherited acquisition stop_on_g90 flag",
+      "Current-streak G90 qualification (not identical default stale-confirmation behavior)",
+      "Focused tests and preregistered PLAN"
+    ],
+    "training_500m_authorized": false,
+    "wall_budget_caveat": "Frozen operator does not reserve finalization time inside acquisition deadline; actual 54.14min result stayed below budget."
+  },
+  "preregistration": {
+    "batch_rows": 64,
+    "data_file_sha256": "3bd07b5ea1e1044bbac6dcecfb4bacbcd033f71cc8ff79acfb6a761129c06c82",
+    "frozen_executable_sha": "1a1624ed4c62e1a176dc4bed97e628f0b648a31b",
+    "model_seed": 3301,
+    "order_seed": 4701,
+    "plan_sha256": "e3f35721ab043f0a72cdfb8c5b5c4e4202e9d0a780705971eb4db26d77e5b730",
+    "production_promotion_authorized": false,
+    "purpose": "SCIENTIFIC_FULL_EXPOSURE",
+    "target_updates": 18000
+  },
+  "production_primary": {
+    "actual_real_tokens": 9216000,
+    "ark_exposure_fraction": 1.0,
+    "batch_rows": 64,
+    "carry_exact": 0.0,
+    "commuted_exact": 0.023529411764705882,
+    "dev_controller_final_exact": 0.0,
+    "dev_measurement_standard_exact": 0.0,
+    "g50_confirm_update": null,
+    "g90_confirm_update": null,
+    "locality_relation_consistency": 0.0,
+    "m99_confirm_update": 2200,
+    "parameters": 4130688,
+    "row_presentations": 1152000,
+    "standard_digit_accuracy": {
+      "ones_digit_exact": 0.12941176470588237,
+      "tens_digit_exact": 0.0,
+      "two_digit_examples": 85
+    },
+    "status": "MAX_UPDATES_NO_G90",
+    "three_digit_exact": 0.0,
+    "triple_add_exact": 0.041666666666666664,
+    "updates": 18000,
+    "verbal_exact": 0.0625
+  },
+  "schema": "anra-cyr-gpu012-result-receipt/v1",
+  "sealed": {
+    "exact": 0.0,
+    "independent_unseen_holdout": false,
+    "n": 48,
+    "status": "MEASURED_AFTER_DECISION",
+    "subject": "COMPACT_BRIDGE"
+  }
+}

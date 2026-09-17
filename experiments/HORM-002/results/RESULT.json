@@ -1,0 +1,151 @@
+{
+  "verdict": "COMPETENCE_GATE_FAILED",
+  "error": null,
+  "calibration": {
+    "ladder": [
+      [
+        97,
+        12000,
+        250
+      ],
+      [
+        23,
+        6000,
+        250
+      ],
+      [
+        23,
+        12000,
+        250
+      ]
+    ],
+    "competence_threshold": 0.5,
+    "calibration": [
+      {
+        "mod": 97,
+        "updates": 12000,
+        "final": 0.005859375,
+        "train": 0.01171875,
+        "passed": false
+      },
+      {
+        "mod": 23,
+        "updates": 6000,
+        "final": 0.009523809523809525,
+        "train": 0.05188679245283019,
+        "passed": false
+      },
+      {
+        "mod": 23,
+        "updates": 12000,
+        "final": 1.0,
+        "train": 0.9976415094339622,
+        "passed": true
+      }
+    ],
+    "frozen_config": {
+      "mod": 23,
+      "updates": 12000,
+      "eval_every": 250
+    },
+    "calibration_result_sha256": "320dba1af3b2acdc86b7a9790af0fe92432d166c40502c22ef9cf4b8f4a79e44"
+  },
+  "protected_unchanged": true,
+  "sources_unchanged": true,
+  "lanes": [
+    {
+      "seed": 424242,
+      "arm": "HAL_OFF",
+      "final_accuracy": 1.0,
+      "train_final_accuracy": 0.9976415094339622,
+      "formation_auc": 0.5824175824175825,
+      "appraisal_events": {
+        "success": 0,
+        "surprise": 0
+      },
+      "elapsed_seconds": 170.2293626999999
+    },
+    {
+      "seed": 424242,
+      "arm": "HAL_CONST",
+      "final_accuracy": 0.6285714285714286,
+      "train_final_accuracy": 0.7240566037735849,
+      "formation_auc": 0.2754578754578755,
+      "appraisal_events": {
+        "success": 0,
+        "surprise": 0
+      },
+      "elapsed_seconds": 177.4042018
+    },
+    {
+      "seed": 424242,
+      "arm": "HAL_ON",
+      "final_accuracy": 0.6285714285714286,
+      "train_final_accuracy": 0.9174528301886793,
+      "formation_auc": 0.22014652014652014,
+      "appraisal_events": {
+        "success": 838,
+        "surprise": 1
+      },
+      "elapsed_seconds": 172.7727363999984
+    },
+    {
+      "seed": 424243,
+      "arm": "HAL_OFF",
+      "final_accuracy": 0.047619047619047616,
+      "train_final_accuracy": 0.5754716981132075,
+      "formation_auc": 0.00934065934065934,
+      "appraisal_events": {
+        "success": 0,
+        "surprise": 0
+      },
+      "elapsed_seconds": 168.50951080000232
+    },
+    {
+      "seed": 424243,
+      "arm": "HAL_CONST",
+      "final_accuracy": 0.3619047619047619,
+      "train_final_accuracy": 0.7311320754716981,
+      "formation_auc": 0.22344322344322343,
+      "appraisal_events": {
+        "success": 0,
+        "surprise": 0
+      },
+      "elapsed_seconds": 179.63174929999877
+    },
+    {
+      "seed": 424243,
+      "arm": "HAL_ON",
+      "final_accuracy": 0.5523809523809524,
+      "train_final_accuracy": 0.8537735849056604,
+      "formation_auc": 0.2391941391941392,
+      "appraisal_events": {
+        "success": 1109,
+        "surprise": 0
+      },
+      "elapsed_seconds": 226.64747909999642
+    }
+  ],
+  "artifact_sha256": {
+    "calibration/mod23_updates12000/lane_HAL_OFF_424242.json": "c7bf9cf7203c9eefcfc1c107ff1d04e9ff092161a7e9556620b9854275bb9d57",
+    "calibration/mod23_updates12000/lane_HAL_OFF_424242.pt": "5f6f9aa4a019c29d642fbefd9c03d3b01b1040a9a92360336d435bd8637dae95",
+    "calibration/mod23_updates6000/lane_HAL_OFF_424242.json": "1f953667799a8c07094996f260dd90dd1f67aaa09923a6a1ac1eac8578f4b797",
+    "calibration/mod23_updates6000/lane_HAL_OFF_424242.pt": "c39616add935095028ed4723b1d1414ce94f1166e82f34815b959a880d61e24c",
+    "calibration/mod97_updates12000/lane_HAL_OFF_424242.json": "7721bd6be1153f766ddb8519d67b967b80f1d5848e1f1e05ae19bf959ecf7727",
+    "calibration/mod97_updates12000/lane_HAL_OFF_424242.pt": "d2d67903891a38a5a89b264a224230ff3b6dde6495b0b0a071cea2818ce97f1b",
+    "CALIBRATION.json": "a02a43ac2c10c8c4668ddc9e704e7f2005bbdf98fde753355d453df0852f782f",
+    "causal/lane_HAL_CONST_424242.json": "5c1fa11eea0c8308e022caba3ce053c97e9ff892173603c5b0220d8d6a92db9b",
+    "causal/lane_HAL_CONST_424242.pt": "4a9a2d521f6bfbf448b59d86ac892b1484ec7ecfa0c3b69a1c17cff262b03aa6",
+    "causal/lane_HAL_CONST_424243.json": "2e05f0d1a609d3263eeed3f4464a8ee5ab0cdd0fa674e0d00d7aa2a761807cff",
+    "causal/lane_HAL_CONST_424243.pt": "f630b68d9212e5cd59d032e99f6e2f3f962ee2408bd396225e38e1e21c8631e7",
+    "causal/lane_HAL_OFF_424242.json": "1d7f91ab0bd1eed63653adcf38d3e762ec2ac60e12b85e6432b51275e395d06c",
+    "causal/lane_HAL_OFF_424242.pt": "5f6f9aa4a019c29d642fbefd9c03d3b01b1040a9a92360336d435bd8637dae95",
+    "causal/lane_HAL_OFF_424243.json": "ac20460a6041c4885b3624e0d92961e365c6b48b92d1ecd6409f1fab95f11538",
+    "causal/lane_HAL_OFF_424243.pt": "df6828ce2677ff4e5ab8f25dbbdd5d8b57e9fd271947d9f0b500a5278bb50941",
+    "causal/lane_HAL_ON_424242.json": "685d7172871f4d8d3ae3806c348b0e544279160be9eac8ea6906ddc0c38bd87a",
+    "causal/lane_HAL_ON_424242.pt": "3409f8f47566b5ab35d586c3f9e02e8e10caaec77fecfe6ed087c437e10519a4",
+    "causal/lane_HAL_ON_424243.json": "c18daf789c8d6133f06b840818a1f4f99caf01fa7eef8ac49cd61cdf3bb69b38",
+    "causal/lane_HAL_ON_424243.pt": "409a0eb51e437b8ae719fadc62b460d4f93eb264143b836de0ad6c3e6984db49",
+    "PRERUN.json": "17221b30df2cd902b2dcd14f848e49b8022cb88eb97e218a3512ab6cc2bc2eba"
+  }
+}

@@ -305,7 +305,8 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
                     tokenizer: Any, special: Mapping[str, int], batch_rows: int,
                     data: Mapping[str, Any], battery: Mapping[str, Any],
                     torch: Any, device: Any, deadline: float, out: Path,
-                    include_verbal: bool, progress: Callable[[str], None] | None = None) -> dict[str, Any]:
+                    include_verbal: bool, progress: Callable[[str], None] | None = None,
+                    stop_on_g90: bool = True) -> dict[str, Any]:
     from v5_training.optimizer import build_adamw_optimizer
     model = _build_model(spec, model_seed, torch=torch, device=device)
     optimizer = build_adamw_optimizer(model, torch_module=torch, lr=core.CYR11_HIGH_LR,
@@ -378,7 +379,7 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
                     "measurement_standard": float(measurement["complete_exact_with_valid_stop"])})
 
         measurement_standard = float(measurement["complete_exact_with_valid_stop"])
-        if (confirms["G90"] is not None and qualified_g90_update is None
+        if (streaks["G90"] >= core.CYR11_CONFIRMATIONS and qualified_g90_update is None
                 and measurement_standard >= core.CYR11_G90):
             qualified_g90_update = updates
             reasons.append("G90_QUALIFIED")
@@ -412,7 +413,7 @@ def run_acquisition(*, label: str, model_seed: int, order_seed: int, spec: Any,
             "first_cross": first_cross, "controller_confirmed": confirms,
             "g90_qualified_update": qualified_g90_update,
             "trace": trace, "milestones": milestones})
-        if qualified_g90_update is not None:
+        if stop_on_g90 and qualified_g90_update is not None:
             break
 
     final_battery = reasoning_battery(model, tokenizer, battery, torch=torch, device=device,

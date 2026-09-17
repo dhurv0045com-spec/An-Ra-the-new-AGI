@@ -1,0 +1,49 @@
+{
+  "ladder": [
+    [
+      97,
+      12000,
+      250
+    ],
+    [
+      23,
+      6000,
+      250
+    ],
+    [
+      23,
+      12000,
+      250
+    ]
+  ],
+  "competence_threshold": 0.5,
+  "calibration": [
+    {
+      "mod": 97,
+      "updates": 12000,
+      "final": 0.005859375,
+      "train": 0.01171875,
+      "passed": false
+    },
+    {
+      "mod": 23,
+      "updates": 6000,
+      "final": 0.009523809523809525,
+      "train": 0.05188679245283019,
+      "passed": false
+    },
+    {
+      "mod": 23,
+      "updates": 12000,
+      "final": 1.0,
+      "train": 0.9976415094339622,
+      "passed": true
+    }
+  ],
+  "frozen_config": {
+    "mod": 23,
+    "updates": 12000,
+    "eval_every": 250
+  },
+  "calibration_result_sha256": "320dba1af3b2acdc86b7a9790af0fe92432d166c40502c22ef9cf4b8f4a79e44"
+}

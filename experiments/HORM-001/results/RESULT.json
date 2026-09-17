@@ -1,0 +1,55 @@
+{
+  "verdict": "NO_MEASURABLE_EFFECT_AT_THIS_SCALE",
+  "error": null,
+  "protected_unchanged": true,
+  "sources_unchanged": true,
+  "lanes": [
+    {
+      "seed": 424242,
+      "arm": "HAL_OFF",
+      "final_accuracy": 0.005859375,
+      "train_final_accuracy": 0.00390625,
+      "formation_auc_450_1500": 0.00953311011904762,
+      "spike_events": 0,
+      "elapsed_seconds": 24.52807010000106
+    },
+    {
+      "seed": 424242,
+      "arm": "HAL_ON",
+      "final_accuracy": 0.005859375,
+      "train_final_accuracy": 0.00390625,
+      "formation_auc_450_1500": 0.00953311011904762,
+      "spike_events": 0,
+      "elapsed_seconds": 24.568099200001598
+    },
+    {
+      "seed": 424243,
+      "arm": "HAL_OFF",
+      "final_accuracy": 0.005859375,
+      "train_final_accuracy": 0.00390625,
+      "formation_auc_450_1500": 0.010184151785714286,
+      "spike_events": 0,
+      "elapsed_seconds": 23.42007469999953
+    },
+    {
+      "seed": 424243,
+      "arm": "HAL_ON",
+      "final_accuracy": 0.005859375,
+      "train_final_accuracy": 0.00390625,
+      "formation_auc_450_1500": 0.009905133928571428,
+      "spike_events": 0,
+      "elapsed_seconds": 25.222176499999478
+    }
+  ],
+  "artifact_sha256": {
+    "lane_HAL_OFF_424242.json": "8c8cae49c744cd4744a8ea6d3cfc87c4a0a70e8f9c53fd88b0f40ed077ffa8bc",
+    "lane_HAL_OFF_424242.pt": "210ebae5274cab034cbb577f943bedc3ef3001661de4e65b313a63eb5ef101f1",
+    "lane_HAL_OFF_424243.json": "577575f383c57e4e70caa1208f282659c1e8f0468601de1b80fb46b4b0f1e57d",
+    "lane_HAL_OFF_424243.pt": "956f37340870789c3c24027d3e33bdbf323d1c29f491a168e228d6800a19f588",
+    "lane_HAL_ON_424242.json": "d6209ec11bafb7f232fd021b460a4388a13261118457f97ecd75bf69b320a482",
+    "lane_HAL_ON_424242.pt": "73e957b18e07f19af18802caccc3b5738a5bea8a0f9f3cbcc88fecd6e690fd84",
+    "lane_HAL_ON_424243.json": "bd38d49c6d443bf364f3817031e91710a55ace6a5fd461d05ab4c529dd4b2bfd",
+    "lane_HAL_ON_424243.pt": "bb05ac60394d009d998e0fd04804c6de62f2d5f4424b61085b29e2034140c261",
+    "PRERUN.json": "045dbcbbe2128b3256401c33f5d00216783442d57d5486432abd6be690c05b8e"
+  }
+}

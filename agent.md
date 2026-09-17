@@ -4,6 +4,22 @@ Branch: `cymek-500m-readiness`.
 
 ## CURRENT SCIENTIFIC STATE
 
+CYR-GPU-012 has **EXECUTED** locally (RTX 4050 Laptop, torch 2.11.0+cu128, 54.14 min) on 2026-09-17.
+Registered plan: `experiments/CYR-GPU-012/PLAN.md` (preregistered before execution).
+Result: `docs/cymek/experiments/CYR-GPU-012/RESULT.md`; receipt:
+`artifacts/v5/cyr_gpu_012_result_receipt.json`. Frozen executable:
+`1a1624ed4c62e1a176dc4bed97e628f0b648a31b`, isolated descendant of V11.
+**Official verdict: `NO_G90_AT_FULL_EXPOSURE` (Branch B).** Compact at the full
+1,152,000-presentation ARK-002B dose: train M99 confirmed (1,400), but G50/G90
+never reached; final DEV_CONTROLLER 0% (maximum 12.5%); final STANDARD 0%; sealed 0/48.
+Corrected same-band commutation: 52/52 pairs exact in both orders (narrow in-band
+transfer only). V11's compact G50-at-2,200 trajectory was NOT reproduced.
+No concrete training-path defect was found in the independent source audit.
+The cause is unresolved; hardware/numerics have not been demonstrated causal.
+Follow-up hash-verification of the original V11 ZIP confirms matching recorded
+sampling-index digests and initial weight norms; scores already differ at update
+200. Initial tensor identity remains unverified. No repeat training launched.
+
 `CYR-GPU-011` has **EXECUTED** on a Google Colab Tesla T4. Do not describe it as pending.
 
 Frozen executable: `0a97257e2b38db6dfa85cc6e58da0697591dde6b`.
@@ -70,19 +86,19 @@ The correction is preserved in `RESULT.md`.
 
 Capability formation remains the immediate bottleneck, not retention.
 
-The large gap between compact partial generalization and production zero-generalization implicates representation/tokenization/output-space burden inside Cymek, but does not isolate vocabulary size, BPE segmentation, number-token atomization, tied-embedding/output competition, or another correlated representation factor.
+The historical V11 gap motivates representation/tokenization/output-space hypotheses inside Cymek, but CYR-GPU-012 did not reproduce that compact trajectory. Neither result isolates vocabulary size, BPE segmentation, number-token atomization, tied-embedding/output competition, or another correlated representation factor.
 
 Do not claim that the tokenizer is proven causal yet.
 
 ## NEXT HIGHEST-INFORMATION EXPERIMENT
 
+CYR-GPU-012 executed and returned **Branch B**: compact at full ARK-002B exposure reached NO_G90_AT_FULL_EXPOSURE on local hardware, with V11's early compact trajectory unreproduced. This fixed dose was insufficient for this seed/configuration/run. Per the CYR-GPU-012 preregistration, shift discovery toward Cymek-vs-Arkenstone objective/BOS supervision, initialization, optimizer grouping/precision, and architecture differences rather than vocabulary alone.
+
+Before any factorial consumes compact-vs-production as ground truth, the CYR-GPU-011-compact vs CYR-GPU-012 reproducibility gap (same nominal seeds, same core training source, different environment) must be closed or explained. No causal explanation has been established.
+
+The corrected paired commutation result (52/52 in-band exact vs 0/50 unseen-band, with 0% STANDARD) is a concrete partial-transfer phenomenon worth a dedicated preregistered probe experiment; it is not a G90 and does not authorize anything.
+
 Do **not** rerun the whole V11 campaign and do not return immediately to HIGH-vs-LOW retention.
-
-Production already consumed the full ARK-002B semantic box. The cheapest decisive closure is to continue/recreate only the compact bridge to the full 1,152,000 row presentations / 18,000 batch-64 updates with corrected structural probes.
-
-If compact reaches G90 at full exposure while production remains at the already-observed 0%, the next experiment should be a representation-factorial that separates compact-vs-production vocabulary/tokenization/output-space effects one at a time.
-
-If compact also fails at full exposure, shift attention toward Cymek-vs-Arkenstone objective, initialization, optimizer grouping/precision, or architectural differences rather than vocabulary alone.
 
 ## HISTORY
 
@@ -92,6 +108,7 @@ If compact also fails at full exposure, shift attention toward Cymek-vs-Arkensto
 - CYR-GPU-009: executed on T4; TINY memorized but no candidate-free held-out G90 at 2M real tokens per parent. Source bundle SHA `dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216`.
 - CYR-GPU-010: superseded before execution after semantic-dose audit.
 - CYR-GPU-011: executed; distilled result described above. Raw ZIP not tracked in git.
+- CYR-GPU-012: executed locally (RTX 4050, 54.14 min); **Branch B — NO_G90_AT_FULL_EXPOSURE**. Compact at full 1,152,000-presentation dose: M99 yes (1,400), G50/G90 never; final controller/STANDARD 0%; corrected in-band commutation 52/52 exact both orders; V11 compact trajectory unreproduced (cause unresolved). Frozen executable `1a1624ed4c62e1a176dc4bed97e628f0b648a31b`. Raw ZIP not tracked in git. Receipt `artifacts/v5/cyr_gpu_012_result_receipt.json`; RESULT `docs/cymek/experiments/CYR-GPU-012/RESULT.md`.
 
 ## PRODUCTION / TPU BOUNDARY
 

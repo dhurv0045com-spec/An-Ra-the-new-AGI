@@ -1,0 +1,10 @@
+{
+  "experiment": "CYR-GPU-012",
+  "status": "COMPLETED_AND_HASH_VERIFIED",
+  "frozen_executable_sha": "1a1624ed4c62e1a176dc4bed97e628f0b648a31b",
+  "output_directory": "C:/Users/ankit/cyr012-evidence/full01",
+  "updates": 18000,
+  "row_presentations": 1152000,
+  "verdict": "NO_G90_AT_FULL_EXPOSURE",
+  "production_promotion_authorized": false
+}

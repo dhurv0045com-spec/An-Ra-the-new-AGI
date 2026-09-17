@@ -108,10 +108,11 @@ def test_real_v5_compact_acquisition_executes_one_cpu_update(tmp_path, monkeypat
     assert controller["prediction_receipt"]["rows"][0]["world_id"] == "dc"
 
 
-def test_controller_g90_does_not_stop_before_measurement_support(tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize('stop_on_g90, expected_updates', [(True, 2), (False, 3)])
+def test_controller_g90_does_not_stop_before_measurement_support(tmp_path, monkeypatch, stop_on_g90, expected_updates) -> None:
     """A small-controller hit cannot truncate the larger measurement qualification."""
     torch = pytest.importorskip("torch")
-    monkeypatch.setattr(core, "CYR11_MAX_UPDATES", 2)
+    monkeypatch.setattr(core, "CYR11_MAX_UPDATES", 3)
     monkeypatch.setattr(core, "CYR11_EVAL_EVERY_ROW_PRESENTATIONS", 1)
     monkeypatch.setattr(core, "CYR11_CONFIRMATIONS", 1)
 
@@ -157,9 +158,10 @@ def test_controller_g90_does_not_stop_before_measurement_support(tmp_path, monke
             deadline=time.monotonic() + 120.0,
             out=tmp_path / "qualification",
             include_verbal=False,
+            stop_on_g90=stop_on_g90,
         )
 
-    assert receipt["updates"] == 2
+    assert receipt["updates"] == expected_updates
     assert receipt["g90_controller_confirm_update"] == 1
     assert receipt["g90_confirm_update"] == 2
     assert receipt["status"] == "G90_CONFIRMED"
