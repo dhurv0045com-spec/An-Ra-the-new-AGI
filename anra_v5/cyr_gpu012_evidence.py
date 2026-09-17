@@ -24,6 +24,8 @@ def verify_bundle(path, declared):
         raise ValueError('missing or invalid declared JSON file list')
     with zipfile.ZipFile(path) as z:
         names = z.namelist()
+        if len(set(names)) != len(names):
+            raise ValueError('duplicate bundle member names')
         if sorted(names) != sorted(expected):
             raise ValueError('bundle file list mismatch')
         for name in names:
