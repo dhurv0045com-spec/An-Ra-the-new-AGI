@@ -44,10 +44,15 @@ def _restore_frozen(saved):
 
 def build_initial_flat(seed: int = _MODEL_SEED):
     """Rebuild the compact initial flat parameter vector from frozen sources."""
+    for relative in ('v5_model/core.py', 'v5_model/initialize.py',
+                     'v5_experiments/cyr_gpu011.py'):
+        source = FROZEN_ROOT / relative
+        if not source.is_file():
+            raise FileNotFoundError(f'missing frozen source: {relative}')
     torch = __import__('torch')
     saved = _frozen_state()
     try:
-        sys.path.insert(0, str(FROZEN_ROOT))
+        _purge_frozen(saved)
         core = __import__('importlib').import_module('v5_model.core')
         experiments = __import__('importlib').import_module(
             'v5_experiments.cyr_gpu011')

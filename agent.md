@@ -1,6 +1,12 @@
 # Agent brief: CYMEK research + readiness handoff
 
-Branch: `cymek-500m-readiness`.
+Branch: `codex/cyhex-integrity-audit` (audit baseline `d2abbdf`).
+
+Current interpretation corrections: `docs/cymek/experiments/REPLAY_SOURCE_AUDIT.md`.
+Historical initial-tensor identity and kernel selection both remain UNKNOWN.
+The CPU norm replay is not a historical replication. FORMATION-MUX remains
+`INCONCLUSIVE_AT_ZERO_BASELINE`; zero-baseline contrasts exonerate no mechanism.
+No training, pilot/frontier launch, PRE500M, or production authorization follows.
 
 ## CURRENT SCIENTIFIC STATE
 

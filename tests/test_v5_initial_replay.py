@@ -35,6 +35,33 @@ def test_tensor_digest_is_stable_and_seed_sensitive(torch=None):
     assert len(digest_a) == 64
 
 
+def test_replay_does_not_reuse_cached_worktree_builder(monkeypatch):
+    pytest.importorskip('torch')
+    cached = importlib.import_module('v5_model.core')
+
+    def contaminated(*args, **kwargs):
+        raise AssertionError('cached worktree builder used')
+
+    monkeypatch.setattr(cached, 'initialize', contaminated)
+    saved_path = list(sys.path)
+    flat = initial_replay.build_initial_flat(seed=3301)
+    assert flat.numel() == initial_replay.COMPACT_PARAMETER_COUNT
+    assert sys.modules['v5_model.core'] is cached
+    assert cached.initialize is contaminated
+    assert sys.path == saved_path
+
+
+def test_missing_frozen_source_fails_without_worktree_fallback(tmp_path, monkeypatch):
+    pytest.importorskip('torch')
+    cached = importlib.import_module('v5_model.core')
+    monkeypatch.setattr(initial_replay, 'FROZEN_ROOT', tmp_path / 'absent')
+    saved_path = list(sys.path)
+    with pytest.raises(FileNotFoundError):
+        initial_replay.build_initial_flat()
+    assert sys.modules['v5_model.core'] is cached
+    assert sys.path == saved_path
+
+
 def test_build_initial_flat_norm_is_finite_and_positive():
     pytest.importorskip('torch')
     flat = initial_replay.build_initial_flat(seed=3301)
