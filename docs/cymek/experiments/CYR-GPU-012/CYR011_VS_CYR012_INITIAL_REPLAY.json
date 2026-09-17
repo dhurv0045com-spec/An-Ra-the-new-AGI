@@ -1,0 +1,31 @@
+{
+  "left": {
+    "bundle_sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5",
+    "experiment": "CYR-GPU-011",
+    "receipt_sha256": "54eeeb1237a3356652364e4c29a0637d0100d7ccba57a17ceed114faa74a34ca",
+    "recorded_initial_l2": 46.88997268676758
+  },
+  "limits": "matching initial norm with identical in-process replay supports but does not prove historical tensor identity; a mismatch rejects this replay, not seed determinism",
+  "replay": {
+    "computed_initial_l2": 46.88997268676758,
+    "computed_tensor_sha256": "e263801d1b48d4f7a1d33d1e1be24f8296c6fa023268546a868ae25c9504df04",
+    "device": "cpu",
+    "element_count": 987392,
+    "frozen_root": "C:\\Users\\ankit\\cyr012-frozen",
+    "repeat_tensor_sha256": "e263801d1b48d4f7a1d33d1e1be24f8296c6fa023268546a868ae25c9504df04",
+    "seed": 3301,
+    "torch_version": "2.11.0+cu128"
+  },
+  "right": {
+    "bundle_sha256": "d2da6d18847c846bd1865d4069c5afe46309ced339350a0115e1c23f3049f2cc",
+    "experiment": "CYR-GPU-012",
+    "receipt_sha256": "0906c6b9d6f50d5986e899a901357e0ca39a22eece462176cd19b2446bb79d69",
+    "recorded_initial_l2": 46.88997268676758
+  },
+  "schema": "anra-cyr-initial-replay/v1",
+  "verdict": {
+    "in_process_deterministic": true,
+    "norm_delta": 0.0,
+    "verdict": "INITIALIZATION_REPLAYS_MATCHING_NORM"
+  }
+}
