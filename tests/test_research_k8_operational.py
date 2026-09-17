@@ -892,16 +892,35 @@ class O10NotebookTests(unittest.TestCase):
         sources = ["".join(cell["source"]) for cell in notebook["cells"]
                    if cell["cell_type"] == "code"]
         joined = "\n".join(sources)
-        for command in ("prepare", "validate", "run", "summarize", "export"):
+        for command in ("validate", "run", "summarize", "export"):
             self.assertIn(f"'{command}'", joined)
         self.assertIn("source_identity", joined)
         self.assertIn("E0", joined)
+        # Kaggle mounts operator-supplied source/data datasets below input;
+        # the notebook must never rely on an unstated checkout in working.
+        self.assertIn("/kaggle/input", joined)
+        self.assertIn("_is_source_tree", joined)
+        self.assertIn("bramastra-k8-data/v1", joined)
+        self.assertIn("BRAMASTRA_BUNDLE_DIR", joined)
+        self.assertIn("REQUIRED_MODULES", joined)
+        self.assertIn("run_k8", joined)
+        self.assertNotIn("shutil.rmtree", joined)
         # Every mutating subprocess call checks its failure.
         self.assertGreaterEqual(joined.count("returncode"), 2)
         self.assertIn("raise RuntimeError", joined)
         # E0 and full share one RUN_DIR/allocation (no E0 cost reset).
         run_dir_uses = joined.count("RUN_DIR")
         self.assertGreaterEqual(run_dir_uses, 3)
+
+    def test_notebook_code_cells_parse(self) -> None:
+        import ast
+
+        notebook = json.load(open("notebooks/bramastra_k8.ipynb"))
+        for index, cell in enumerate(notebook["cells"]):
+            if cell["cell_type"] == "code":
+                source = "".join(cell["source"])
+                with self.subTest(cell=index):
+                    ast.parse(source)
 
     def test_export_reload_roundtrip_fresh_process(self) -> None:
         import subprocess
