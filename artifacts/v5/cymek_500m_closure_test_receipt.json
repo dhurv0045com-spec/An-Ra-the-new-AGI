@@ -1,47 +1,31 @@
 {
-  "cycle": "CYR-GPU-011 final operator-readiness closure",
   "environment": {
-    "note": "CI contract validation only; no scientific GPU or TPU training was performed by this receipt.",
-    "os": "Ubuntu 24.04.5",
-    "python": "3.11.16",
-    "source": "GitHub Actions hosted runner evidence",
-    "torch": "2.14.0+cpu"
+    "note": "CPU-only run; no scientific GPU or TPU training was performed by this receipt.",
+    "os": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.15",
+    "source": "local cymek-beta worktree execution",
+    "torch": "2.13.0+cpu"
   },
   "results": [
     {
-      "command": "GitHub Actions run 34397252596: python -m pytest tests -q; substantive suite count excludes the stale exact-head receipt self-check refreshed by this artifact",
+      "command": "python -m pytest tests -q (OMP_NUM_THREADS=8, MKL_NUM_THREADS=8, CUDA_VISIBLE_DEVICES empty, ANRA_TEST_DEVICE=cpu); substantive suite count excludes the stale exact-head receipt self-check refreshed by this artifact",
       "device": "cpu",
       "failed": 0,
       "files": [
         "tests/"
       ],
-      "passed": 568,
-      "provenance": "Exact final non-receipt CYR-GPU-011 readiness tree 68e082ba9a49b2789bb1d0dccfbe58773b325b5c was exercised through the full test suite. The sole raw failure was tests/test_production_entry.py::test_exact_head_test_receipt because the historical closure receipt still named the older CYR-GPU-008 tree. No model, optimizer, tokenizer, XLA, notebook, CYR-GPU-011, data-firewall, semantic-exposure, or scientific/software contract test failed. PR checkout used merge commit 426ba1a37494ee08ea5ea57ac2b3fa9c4e60d7ed; its tree SHA 1b7e26356ff62007a33e0bc0b100fb495a3ef605 is byte-identical to branch commit 68e082ba9a49b2789bb1d0dccfbe58773b325b5c.",
-      "raw_run": "1 failed (tests/test_production_entry.py::test_exact_head_test_receipt), 568 passed, 1 skipped, 1 warning, 40 subtests passed in 435.33s",
+      "passed": 684,
+      "provenance": "Local worktree full suite at e687c7a0 on Windows 10 build 26200, python 3.11.15, torch 2.13.0+cpu, 8 CPU threads. Raw run: 1 failed (tests/test_production_entry.py::test_exact_head_test_receipt, stale: receipt still named 68e082ba), 684 passed, 1 skipped, 40 subtests passed in 1686.46s. No model, optimizer, tokenizer, data-firewall, campaign-runner, or scientific/software contract test failed.",
       "skipped": 1
-    },
-    {
-      "command": "GitHub Actions run 34397252580: CYR-GPU-011 preexecution contracts",
-      "device": "cpu",
-      "failed": 0,
-      "files": [
-        "tests/test_v5_cyr_gpu011.py",
-        "tests/test_v5_cyr_gpu011_entry.py",
-        "tests/test_v5_cyr_gpu011_runtime.py",
-        "notebooks/cymek_colab_gpu_research_v11.ipynb"
-      ],
-      "passed": 24,
-      "provenance": "Dedicated CYR-GPU-011 workflow completed successfully on the exact final non-receipt readiness tree; all 3 V11 notebook code cells compiled and 24/24 deterministic V11 contracts passed, including exact ARK-002B manifest/firewall, real V5 parameter counts, semantic-exposure resolver, exposure-aware verdicts, optimizer-compat restoration/drift rejection, and a one-update real-V5 CPU plumbing smoke.",
-      "skipped": 0
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "9f5ec9ba12e8a6cf9824db02fccab35d3739e9ad7889ced63bc450e9e43cf2da",
-  "tested_commit_sha": "68e082ba9a49b2789bb1d0dccfbe58773b325b5c",
-  "timestamp_utc": "2026-09-09T19:57:00Z",
+  "sha256": "edaee91f8ccc054ee69d1d00b027a8f79b896d14bd07aec966402746265586f5",
+  "tested_commit_sha": "e687c7a0776686ec687b3e3e4335f9a4219ef1a3",
+  "timestamp_utc": "2026-09-18T16:23:37Z",
   "totals": {
     "failed": 0,
-    "passed": 592,
+    "passed": 684,
     "skipped": 1
   }
 }
