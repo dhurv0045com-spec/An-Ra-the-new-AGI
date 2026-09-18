@@ -55,9 +55,13 @@ def test_cell1_runs_only_committed_commands():
     cell1 = _cells()[1]
     for required in ("test_hormonal_state.py", "test_hormonal_integration.py",
                       "test_hormonal_session.py", "--horm003", "--horm004",
-                      "--force", "-m\", \"pytest\", \"tests",
+                      "--force", "PYTEST = [\"-m\", \"pytest\", \"-q\"",
+                      "\"tests\",",
                       "--ignore=tests/test_production_entry.py",
+                      "--ignore=tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py",
+                      "tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py",
                       "tests/test_production_entry.py",
+                      "horm-logs", "threads=",
                       "CUDA_VISIBLE_DEVICES", "ANRA_TEST_DEVICE",
                       "v5_contracts.import_boundaries"):
         assert required in cell1, f"CELL 1 missing {required}"
@@ -66,7 +70,7 @@ def test_cell1_runs_only_committed_commands():
 def test_cell2_packages_hash_bound_bundle():
     cell2 = _cells()[2]
     for required in ("RESULT", "sha256", "COLAB_BUNDLE_MANIFEST.json",
-                      "HORM-COLAB-RESULTS.zip"):
+                      "colab-logs", "HORM-COLAB-RESULTS.zip"):
         assert required in cell2, f"CELL 2 missing {required}"
 
 
