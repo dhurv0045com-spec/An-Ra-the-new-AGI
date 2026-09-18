@@ -56,10 +56,14 @@ class CampaignLedger:
     def __init__(self, run_dir: str) -> None:
         os.makedirs(run_dir, exist_ok=True)
         self.path = os.path.join(run_dir, "campaign_ledger.sqlite")
+        # Rollback-journal (delete) mode, NOT WAL: WAL's shared-memory
+        # mmap breaks on exotic filesystems (Kaggle /kaggle/working gave
+        # fresh-connection "disk I/O error" while the original connection
+        # kept working). busy_timeout alone handles brief lock contention.
         self.conn = sqlite3.connect(self.path, timeout=60.0,
                                     check_same_thread=False)
         try:
-            self.conn.execute("PRAGMA journal_mode=WAL;")
+            self.conn.execute("PRAGMA journal_mode=DELETE;")
             self.conn.execute("PRAGMA busy_timeout=60000;")
         except Exception:
             pass
