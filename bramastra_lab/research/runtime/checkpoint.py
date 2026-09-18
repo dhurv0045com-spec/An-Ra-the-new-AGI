@@ -262,6 +262,32 @@ def restore_verify(
             "parent_checkpoint_id": manifest.parent_checkpoint_id}
 
 
+def _read_complete_manifest(directory: str) -> CheckpointManifest | None:
+    """Existing COMPLETE checkpoint manifest, or None when absent/invalid."""
+    try:
+        complete_path = os.path.join(directory, COMPLETE_MARKER)
+        manifest_path = os.path.join(directory, MANIFEST_NAME)
+        if not (os.path.isfile(complete_path) and os.path.isfile(manifest_path)):
+            return None
+        with open(manifest_path, encoding="utf-8") as handle:
+            raw = json.load(handle)
+        manifest = CheckpointManifest.from_dict(raw)
+        with open(complete_path, encoding="utf-8") as handle:
+            if handle.read().strip() != manifest.checkpoint_id:
+                return None
+        return manifest
+    except (OSError, ValueError):
+        return None
+
+
+def _manifests_identical(left: CheckpointManifest, right: CheckpointManifest) -> bool:
+    """Identity-determining fields equal (created_unix excluded)."""
+    fields = ("checkpoint_id", "update_index", "run_id", "parent_checkpoint_id",
+              "config_identity", "tokenizer_identity", "data_identity",
+              "code_identity", "payload_sha256")
+    return all(getattr(left, field) == getattr(right, field) for field in fields)
+
+
 def save_checkpoint(
     run_dir: str,
     payload: Mapping[str, Any],
@@ -363,8 +389,18 @@ def save_checkpoint(
         else:
             final = os.path.join(checkpoints, f"update-{update_index:012d}")
         if os.path.exists(final):
+            # Idempotent retry: an identical re-publication (same lineage,
+            # identities, parent and payload bytes — e.g. a retried job that
+            # already published this update) returns the existing identity
+            # instead of failing the campaign. Genuinely divergent content
+            # at the same path still refuses: that needs a fresh run dir.
+            existing = _read_complete_manifest(final)
+            if existing is not None and _manifests_identical(existing, manifest):
+                return existing
             raise CheckpointError(
-                f"checkpoint {final} already exists; checkpoints are never overwritten")
+                f"checkpoint {final} already exists with different content; "
+                "checkpoints are never overwritten (use a fresh run directory "
+                "for a divergent campaign)")
         os.rename(staging, final)
     finally:
         if os.path.exists(staging):

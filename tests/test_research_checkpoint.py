@@ -241,5 +241,34 @@ class FreshProcessResumeTests(unittest.TestCase):
         self.assertEqual(verdict["tolerance"], "1e-5 relative / 1e-7 absolute")
 
 
+class IdempotentRetryTests(unittest.TestCase):
+    """Kaggle retry regression: an identical re-publication (retried job)
+    returns the existing identity; divergent content still refuses."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.run_dir = os.path.join(self.tmp.name, "run")
+        os.makedirs(self.run_dir)
+
+    def _publish(self, payload: dict, **overrides):
+        args = dict(run_id="E1-A-1702-0-1702", update_index=0,
+                    config_identity="cfg-1", tokenizer_identity="tok-1",
+                    data_identity="data-1", parent_checkpoint_id=None,
+                    dir_suffix="E1-A-1702")
+        args.update(overrides)
+        return ckpt.save_checkpoint(self.run_dir, payload, **args)
+
+    def test_identical_republication_returns_existing(self) -> None:
+        first = self._publish(make_payload(0))
+        second = self._publish(make_payload(0))
+        self.assertEqual(first.checkpoint_id, second.checkpoint_id)
+
+    def test_divergent_republication_refuses(self) -> None:
+        self._publish(make_payload(0))
+        with self.assertRaises(CheckpointError):
+            self._publish(make_payload(1))
+
+
 if __name__ == "__main__":
     unittest.main()
