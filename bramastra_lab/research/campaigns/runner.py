@@ -386,11 +386,23 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
             _safety_sweep(ledger, run_dir, reason=f"phase-{phase}-done")
         remaining = (ledger.deadline() or time.time()) - time.time()
         final_status = "CAMPAIGN_FAILED" if campaign_failed else "CAMPAIGN_PHASE_COMPLETE"
-        print(json.dumps({"status": final_status, "mode": mode,
-                          "remaining_minutes": round(remaining / 60.0, 1),
-                          "results": {key: value.get("status")
-                                      for key, value in results.items()},
-                          "failures": _failure_summary(results)}, indent=2))
+        final_report: dict[str, Any] = {
+            "status": final_status, "mode": mode,
+            "remaining_minutes": round(remaining / 60.0, 1),
+            "results": {key: value.get("status")
+                        for key, value in results.items()},
+            "failures": _failure_summary(results)}
+        if campaign_failed:
+            # Recovery contract: completed jobs are reusable (E0 skip works),
+            # but failed jobs never silently rebind. Recovery is a fresh
+            # RUN_ID reusing the same bundle; completed artifacts survive via
+            # the safety snapshot written below.
+            final_report["recovery"] = (
+                "completed jobs are kept; failed jobs cannot retry in this "
+                "run directory (closed reservations never rebind). Recover "
+                "with a fresh BRAMASTRA_RUN_ID reusing the same bundle, then "
+                "rerun verify (if needed), e0 and full in order.")
+        print(json.dumps(final_report, indent=2))
         return 1 if campaign_failed else 0
     finally:
         try:
