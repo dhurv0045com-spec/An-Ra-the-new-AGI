@@ -1,4 +1,4 @@
-﻿"""Bounded hormonal-to-attention-scale projection (HORM-001 sibling)."""
+"""Bounded hormonal-to-attention-scale projection (HORM-001 sibling)."""
 
 from __future__ import annotations
 

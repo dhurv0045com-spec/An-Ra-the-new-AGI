@@ -1,4 +1,4 @@
-﻿"""HORM-001 regression tests (CPU-only, tiny, thread-capped)."""
+"""HORM-001 regression tests (CPU-only, tiny, thread-capped)."""
 
 from __future__ import annotations
 

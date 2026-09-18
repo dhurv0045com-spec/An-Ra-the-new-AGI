@@ -1,4 +1,4 @@
-﻿"""External hormonal state for the HORM-001 V5 sibling (heuristic, out-of-graph)."""
+"""External hormonal state for the HORM-001 V5 sibling (heuristic, out-of-graph)."""
 
 from __future__ import annotations
 
@@ -88,3 +88,28 @@ class HormonalState:
     def sha256(self) -> str:
         payload = json.dumps(self.values, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(payload).hexdigest()
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize session state for checkpointing (HORM-004 prerequisite)."""
+
+        return {
+            "schema": "anra-hormonal-state/v1",
+            "values": {name: self.values[name] for name in HORMONES},
+            "sha256": self.sha256(),
+        }
+
+    @classmethod
+    def from_dict(cls, value: object) -> "HormonalState":
+        """Restore session state; fail closed on schema, shape, or hash drift."""
+
+        if not isinstance(value, dict):
+            raise ValueError("hormonal session state must be a mapping")
+        if value.get("schema") != "anra-hormonal-state/v1":
+            raise ValueError("unsupported hormonal session-state schema")
+        values = value.get("values")
+        if not isinstance(values, dict) or set(values) != set(HORMONES):
+            raise ValueError("hormonal session state must carry exactly the seven hormones")
+        state = cls(values={name: float(values[name]) for name in HORMONES})
+        if value.get("sha256") != state.sha256():
+            raise ValueError("hormonal session-state hash mismatch; refusing resume")
+        return state

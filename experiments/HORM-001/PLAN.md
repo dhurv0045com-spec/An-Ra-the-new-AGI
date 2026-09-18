@@ -120,3 +120,71 @@ sign_consistent_seeds / 5 and median mean-loss difference across seeds.
 - Live-verifier-driven appraisal value, capability, G90, production-scale
   behavior. A SUPPORTED verdict justifies proposing a longer protocol; it is
   not a quality claim.
+
+# HORM-004 — Longer-horizon A/B with live-verifier appraisal (PROPOSED, GATED)
+
+## Status
+PROPOSED 2026-09-18T23:21:03+05:30. No HORM-004 code exists, no HORM-004 run
+has occurred, no HORM-004 result exists. This section is a preregistration
+draft awaiting explicit user authorization AND a compute budget before any
+execution. It must not be executed by default, by a background process, or
+as a follow-on to any other command.
+
+## Motivation (why this, why now)
+- HORM-001: wiring verified (with corrected integration-point record).
+- HORM-002: mechanism measurably present at miniature scale; historical
+  artifacts marked non-evidence for dynamic conditioning (state-binding bug).
+- HORM-003 (prospective, repaired runner): NOT_SUPPORTED — ~1e-06-scale
+  perturbations, 3/5 sign consistency, median +3.6e-07 across 5 fresh seeds.
+- Open gaps HORM-004 must close: (a) 8-update horizon too short for
+  per-update perturbations to compound; (b) appraisal driven by synthetic
+  alternating fixtures, never by a live verifier signal.
+
+## Primary question
+Over a horizon where per-update effects can compound (64+ updates), with
+appraisal driven by live evaluator-verified outcomes (gold firewall intact:
+committed outputs joined to truth only after freezing), does the bounded
+hormonal query-scale modulation produce a sign-consistent mean-loss
+difference versus matched control?
+
+## Hypothesis (falsifiable)
+H1: Across 5 fresh seeds (707021..707025), at 64 updates x 256 tokens with
+live-verifier appraisal, treatment mean loss differs from control with the
+SAME sign in at least 4 of 5 seeds.
+H0: sign inconsistent (<=3/5) — no resolvable directional effect even at
+compounding horizon with real appraisal signal.
+
+## Method (frozen before execution)
+- Same real path and tiny spec as HORM-003 (spec sha e4dc015a...);
+  v5_identity.attention_patch unchanged (raw_alpha=0.35, bound=0.2).
+- Appraisal source swap ONLY: per-update outcome comes from scoring
+  committed probe outputs against EvaluatorTruth via score_committed
+  (v5_evaluation/firewall.py), never from model self-report; probe outputs
+  frozen before truth is joined. Fixture schedule retired.
+- Hormonal state persists across updates within an arm (no per-update
+  reset); checkpoint/resume support for session state is a prerequisite
+  task, tested before the A/B.
+- CPU only, thread cap set at authorization time; no CUDA; budgets fixed.
+
+## Primary readout (fixed before execution)
+sign_consistent_seeds / 5 and median mean-loss difference, same as HORM-003.
+
+## Verdict rules (no post-hoc reinterpretation)
+- SUPPORTED: >=4/5 seeds share one sign AND all losses finite.
+- NOT_SUPPORTED: otherwise. Recorded either way under the negative-results
+  convention.
+- INVALID: non-finite loss, scale outside [0.8,1.2], firewall leak
+  (any truth field on the model-visible path), or protected-file change.
+
+## Authorization gate (blocks execution)
+1. User explicitly authorizes HORM-004 execution with a stated compute
+   budget (threads, wall-clock cap, RAM ceiling).
+2. Session-state checkpoint/resume is implemented AND covered by a
+   regression test.
+3. Live-verifier appraisal path is reviewed for firewall integrity.
+Until all three hold, this plan is a document, not an instruction.
+
+## What this cannot prove (even if SUPPORTED)
+- Capability, G90, production-scale behavior, or training benefit in any
+  operational sense. SUPPORTED only motivates a training-scale protocol
+  proposal, itself requiring separate authorization.

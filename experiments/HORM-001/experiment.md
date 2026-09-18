@@ -86,3 +86,26 @@ mechanism measurably perturbs the loss trajectory (~1e-06) but shows no
 resolvable consistent direction at this scale. No benefit/harm claim. This
 closes the miniature-scale directional question asked; a longer-horizon
 protocol is the only escalation path and needs compute authorization.
+
+# HORM-004 prerequisite build log (2026-09-18, uncommitted)
+
+Prerequisites #2 (session-state checkpoint/resume) and #3 (live-verifier
+appraisal path) implemented on cymek-beta; HORM-004 remains PROPOSED and
+unexecuted (authorization gate in PLAN.md still closed).
+
+- v5_identity/hormonal_state.py: HormonalState.to_dict/from_dict with
+  schema anra-hormonal-state/v1 and sha256 resume binding; tampered or
+  misshapen payloads refuse resume.
+- v5_identity/appraisal.py (new): appraise_committed(state, scored) accepts
+  only post-truth shape (task_id str + correct exact bool); VisibleTask and
+  CommittedOutput shapes rejected, truthy non-bools rejected. Duck-typed:
+  no import of the evaluation plane, firewall direction preserved
+  (appraisal consumes only committed, truth-joined outcomes).
+- v5_identity/attention_patch.py: HormonalAttentionPatch.set_state for
+  in-place resume so patched closures keep reading the restored state.
+- tests/test_hormonal_session.py (new, 8 tests): round-trip exactness,
+  tamper/shape refusal, resume-identical forward outputs, firewall
+  accept/reject matrix.
+- Validation: 20 hormonal tests pass (~8 s, CPU, 2 threads); static_check
+  0 findings on all touched files; import boundaries PASS. BOM prefixes
+  stripped from session-touched .py files (Write/Set-Content default).

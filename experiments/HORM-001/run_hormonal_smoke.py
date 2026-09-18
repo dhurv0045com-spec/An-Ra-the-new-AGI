@@ -1,4 +1,4 @@
-﻿"""CPU smoke: frozen counterfactual pair, tiny packed V5-style core (HORM-001).
+"""CPU smoke: frozen counterfactual pair, tiny packed V5-style core (HORM-001).
 
 Control: hormonal projection inert (raw_alpha=0) -> scale exactly 1.0.
 Treatment: same seed/data; nonzero hormonal state -> bounded scale != 1.0.

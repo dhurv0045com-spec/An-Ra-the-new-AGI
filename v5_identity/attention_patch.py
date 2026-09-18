@@ -1,4 +1,4 @@
-﻿"""Runtime attention patch for HORM-002 experiments only.
+"""Runtime attention patch for HORM-002 experiments only.
 
 Patches an initialized V5 model's attention forward to scale queries by
 1 + B*tanh(alpha * w.h) after RoPE/QK-norm. Does NOT modify v5_model source.
@@ -54,6 +54,13 @@ class HormonalAttentionPatch:
                     batch, length, cfg.width))
 
             attention.forward = patched
+
+    def set_state(self, state: HormonalState) -> None:
+        """Resume checkpointed values in place; patched closures keep reading them."""
+
+        if tuple(state.values) != tuple(self.state.values):
+            raise ValueError("resumed state must carry exactly the seven hormones")
+        self.state.values.update(state.values)
 
     def restore(self) -> None:
         for attention, original in self._originals:

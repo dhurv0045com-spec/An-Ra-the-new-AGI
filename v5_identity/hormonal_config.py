@@ -1,4 +1,4 @@
-﻿"""Frozen HORM-001 experimental spec (sibling of V5A_250M; never a mutation)."""
+"""Frozen HORM-001 experimental spec (sibling of V5A_250M; never a mutation)."""
 
 from __future__ import annotations
 
