@@ -45,6 +45,7 @@ def test_cell0_implements_the_freeze_sequence():
     cell0 = _cells()[0]
     for required in ("git", "clone", "checkout", "cymek-beta", "HEAD_SHA",
                       "DFDCD883", "95B2331A", "launch_readiness",
+                      ".upper().startswith",
                       "torch.cuda.is_available",
                       "HORM COLAB PREEXECUTION GATE: PASS"):
         assert required in cell0, f"CELL 0 missing {required}"
