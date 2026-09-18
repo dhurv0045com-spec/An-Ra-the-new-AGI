@@ -232,6 +232,11 @@ def stepping_readiness(run_dir: str,
     if not _os.path.exists(ledger_path):
         return {"allowed": False, "reason": f"no ledger at {ledger_path}"}
     try:
+        ledger_stat = _os.stat(ledger_path)
+        ledger_sig = f"size={ledger_stat.st_size} mtime={ledger_stat.st_mtime}"
+    except OSError:
+        ledger_sig = "stat-unavailable"
+    try:
         conn = _sqlite.connect(ledger_path, timeout=60.0)
         try:
             allocation = conn.execute(
@@ -240,29 +245,58 @@ def stepping_readiness(run_dir: str,
             if allocation is None:
                 return {"allowed": False,
                         "reason": "allocation row missing for "
-                                  f"{reservation.get('allocation_id')}"}
-            row = conn.execute(
+                                  f"{reservation.get('allocation_id')}",
+                        "ledger_path": ledger_path, "ledger": ledger_sig}
+            rows = conn.execute(
                 "SELECT status, reserved_at_unix, reserved_seconds "
-                "FROM reservations WHERE job_id=? ORDER BY rowid DESC LIMIT 1",
-                (str(reservation.get("job_id")),)).fetchone()
-            if row is None:
+                "FROM reservations WHERE job_id=? ORDER BY rowid DESC",
+                (str(reservation.get("job_id")),)).fetchall()
+            if not rows:
                 return {"allowed": False,
-                        "reason": f"no ledger row for job {reservation.get('job_id')}"}
+                        "reason": f"no ledger row for job {reservation.get('job_id')} "
+                                  f"(ledger {ledger_path} [{ledger_sig}])",
+                        "ledger_path": ledger_path, "ledger": ledger_sig}
+            row = rows[0]
             if row[0] != "open":
                 return {"allowed": False,
                         "reason": f"reservation for job {reservation.get('job_id')} "
                                   f"is {row[0]!r}, not 'open' (stale rebinding "
-                                  "never authorizes steps)"}
+                                  "never authorizes steps)",
+                        "ledger_path": ledger_path, "ledger": ledger_sig}
             live_until = min(float(allocation[0]), float(row[1]) + float(row[2]))
             if not time.time() < live_until:
                 return {"allowed": False,
-                        "reason": "reservation deadline passed"}
+                        "reason": "reservation deadline passed",
+                        "ledger_path": ledger_path, "ledger": ledger_sig}
             return {"allowed": True, "reservation_status": row[0],
-                    "live_until_unix": live_until}
+                    "live_until_unix": live_until,
+                    "ledger_path": ledger_path, "ledger": ledger_sig}
         finally:
             conn.close()
     except Exception as exc:
         return {"allowed": False, "reason": f"ledger unreadable: {exc}"}
+
+
+def await_stepping_allowed(run_dir: str,
+                           reservation: Mapping[str, Any] | None, *,
+                           attempts: int = 3,
+                           pause_seconds: float = 5.0) -> dict[str, Any]:
+    """Stepping readiness with transient-lock tolerance.
+
+    Retries the read a few times (a writer may briefly hold the ledger
+    lock at spawn time); returns the LAST readiness dict either way so
+    persistent refusal still fails with full diagnostics, never silently.
+    """
+    last: dict[str, Any] = {"allowed": False, "reason": "no attempts made"}
+    for _ in range(max(1, int(attempts))):
+        last = stepping_readiness(run_dir, reservation)
+        if last.get("allowed", False):
+            return last
+        try:
+            time.sleep(max(0.0, float(pause_seconds)))
+        except Exception:
+            break
+    return last
 
 
 def step_or_noop(ops: Any, handle: Any, job: Any, *,

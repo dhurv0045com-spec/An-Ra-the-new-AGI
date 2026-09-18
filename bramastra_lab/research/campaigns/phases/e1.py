@@ -156,8 +156,8 @@ def execute(job: JobInput, *, ops=None,
             # must refuse here with the concrete ledger cause, not burn its
             # wall and die later on checkpoint confusion.
             from bramastra_lab.research.campaigns.phases.session import (
-                stepping_readiness)
-            readiness = stepping_readiness(job.run_dir, reservation)
+                await_stepping_allowed)
+            readiness = await_stepping_allowed(job.run_dir, reservation)
             if not readiness.get("allowed", False):
                 return PhaseResult(
                     status="failed", committed_updates=0, attempted_updates=0,

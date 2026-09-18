@@ -242,6 +242,23 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                         "phase": phase, "slot": slot_index,
                         "reason": "reservation_refused"})
                     continue
+                # Fresh-connection verification: re-read every just-reserved
+                # row through a NEW connection (the way spawned workers
+                # will read it). Catches path/visibility divergence here,
+                # loudly, instead of 100 silent worker noops later.
+                try:
+                    _verify_reservations_readable(
+                        ledger, run_dir,
+                        [entry["job_id"] for entry in pending])
+                except SupervisorError as exc:
+                    ledger.append_event("phase_failed", {
+                        "phase": phase, "slot": slot_index,
+                        "reason": f"reservation_visibility_refused: {exc}"})
+                    for entry in pending:
+                        results[entry["job_id"]] = {
+                            "status": "failed", "error": str(exc)}
+                    campaign_failed = True
+                    continue
                 now = time.time()
                 phase_deadline = phase_deadlines.get(phase, deadline)
                 slot_cap = float(phase_entry.get("wall_cap_minutes", 30.0)) * 60.0
@@ -439,6 +456,52 @@ def _load_usable_protocol(run_dir: str,
     except Exception:
         return None
     return protocol
+
+
+def _verify_reservations_readable(ledger: Any, run_dir: str,
+                                  job_ids: list[str]) -> None:
+    """Fresh-connection re-read of just-reserved rows (spawn visibility).
+
+    Opens a NEW sqlite connection to the ledger file — exactly like a
+    spawned worker would — and requires every job_id to resolve to an
+    open row. Raises SupervisorError naming the file, so a path or
+    visibility divergence fails the slot here instead of stranding
+    workers in silent no-op boundaries.
+    """
+    import os as _os
+    import sqlite3 as _sqlite
+
+    ledger_path = _os.path.join(run_dir, "campaign_ledger.sqlite")
+    try:
+        conn = _sqlite.connect(ledger_path, timeout=60.0)
+    except Exception as exc:
+        raise SupervisorError(
+            f"reservation re-read refused: cannot open {ledger_path}: {exc}")
+    try:
+        try:
+            missing = []
+            for job_id in job_ids:
+                row = conn.execute(
+                    "SELECT status FROM reservations WHERE job_id=? "
+                    "ORDER BY rowid DESC LIMIT 1", (str(job_id),)).fetchone()
+                if row is None:
+                    missing.append(str(job_id))
+                elif row[0] != "open":
+                    raise SupervisorError(
+                        f"reservation for job {job_id!r} is {row[0]!r}, "
+                        f"not 'open' (ledger {ledger_path})")
+            if missing:
+                raise SupervisorError(
+                    f"just-reserved jobs have no ledger rows: {missing} "
+                    f"(ledger {ledger_path}); refusing to spawn workers "
+                    "that could never step")
+        finally:
+            conn.close()
+    except SupervisorError:
+        raise
+    except Exception as exc:
+        raise SupervisorError(
+            f"reservation re-read refused ({ledger_path}): {exc}")
 
 
 def _safety_sweep(ledger: Any, run_dir: str, reason: str) -> None:

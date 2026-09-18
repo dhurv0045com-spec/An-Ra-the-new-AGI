@@ -562,6 +562,7 @@ class O08TrialTests(unittest.TestCase):
 
     def test_stepping_readiness_explains_dead_authority(self) -> None:
         from bramastra_lab.research.campaigns.phases.session import (
+            await_stepping_allowed,
             stepping_readiness)
         from bramastra_lab.research.campaigns.supervisor import CampaignLedger
 
@@ -575,14 +576,39 @@ class O08TrialTests(unittest.TestCase):
             record = {"allocation_id": "alloc-1", "job_id": "job-9"}
             ready = stepping_readiness(run, record)
             self.assertTrue(ready["allowed"])
+            self.assertIn("ledger_path", ready)
             ledger.close_reservation(res.reservation_id, status="failed")
-            dead = stepping_readiness(run, record)
+            dead = await_stepping_allowed(run, record, attempts=2,
+                                          pause_seconds=0.01)
             self.assertFalse(dead["allowed"])
             self.assertIn("failed", dead["reason"])
+            self.assertIn("ledger_path", dead)
             self.assertFalse(stepping_readiness(run, None)["allowed"])
             self.assertFalse(
                 stepping_readiness(run, {"allocation_id": "missing",
                                          "job_id": "job-9"})["allowed"])
+        finally:
+            ledger.close()
+
+    def test_runner_verifies_reservations_readable(self) -> None:
+        from bramastra_lab.research.campaigns.runner import (
+            _verify_reservations_readable,
+        )
+        from bramastra_lab.research.campaigns.supervisor import (
+            CampaignLedger,
+            SupervisorError,
+        )
+
+        run = tempfile.mkdtemp()
+        ledger = CampaignLedger(run)
+        try:
+            ledger.record_allocation("alloc-1", "src", "data", 60.0)
+            ledger.reserve("job-9", worker="w0", device="cuda:0",
+                           phase="E1", arm="B", seed=1702,
+                           reserved_seconds=300.0)
+            _verify_reservations_readable(ledger, run, ["job-9"])
+            with self.assertRaises(SupervisorError):
+                _verify_reservations_readable(ledger, run, ["job-9", "ghost"])
         finally:
             ledger.close()
 
