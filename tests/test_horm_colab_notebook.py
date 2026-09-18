@@ -62,6 +62,9 @@ def test_cell1_runs_only_committed_commands():
                       "tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py",
                       "tests/test_production_entry.py",
                       "horm-logs", "threads=",
+                      "junitxml", "build_receipt",
+                      "test_exact_head_test_receipt", "--deselect",
+                      "v5a_exact",
                       "CUDA_VISIBLE_DEVICES", "ANRA_TEST_DEVICE",
                       "v5_contracts.import_boundaries"):
         assert required in cell1, f"CELL 1 missing {required}"
