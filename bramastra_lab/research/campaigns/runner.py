@@ -246,17 +246,34 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                 # row through a NEW connection (the way spawned workers
                 # will read it). Catches path/visibility divergence here,
                 # loudly, instead of 100 silent worker noops later.
-                try:
-                    _verify_reservations_readable(
-                        ledger, run_dir,
-                        [entry["job_id"] for entry in pending])
-                except SupervisorError as exc:
+                # Transient cloud-disk hiccups get a few spaced retries;
+                # a persistent refusal closes the slot reservations (so no
+                # leaked open row poisons later slots) and fails the slot.
+                visibility_error: str | None = None
+                for _attempt in range(3):
+                    try:
+                        _verify_reservations_readable(
+                            ledger, run_dir,
+                            [entry["job_id"] for entry in pending])
+                        visibility_error = None
+                        break
+                    except SupervisorError as exc:
+                        visibility_error = str(exc)
+                        time.sleep(5.0)
+                if visibility_error is not None:
                     ledger.append_event("phase_failed", {
                         "phase": phase, "slot": slot_index,
-                        "reason": f"reservation_visibility_refused: {exc}"})
+                        "reason": f"reservation_visibility_refused: {visibility_error}"})
                     for entry in pending:
-                        results[entry["job_id"]] = {
-                            "status": "failed", "error": str(exc)}
+                        job_id = entry["job_id"]
+                        results[job_id] = {
+                            "status": "failed", "error": visibility_error}
+                        try:
+                            ledger.close_reservation(
+                                reservations[job_id].reservation_id,
+                                status="failed")
+                        except Exception:
+                            pass
                     campaign_failed = True
                     continue
                 now = time.time()
