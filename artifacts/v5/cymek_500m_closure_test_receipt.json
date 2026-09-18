@@ -8,24 +8,24 @@
   },
   "results": [
     {
-      "command": "python -m pytest tests -q (OMP_NUM_THREADS=8, MKL_NUM_THREADS=8, CUDA_VISIBLE_DEVICES empty, ANRA_TEST_DEVICE=cpu); substantive suite count excludes the stale exact-head receipt self-check refreshed by this artifact",
+      "command": "python -m pytest tests -q (OMP_NUM_THREADS=6, MKL_NUM_THREADS=6, CUDA_VISIBLE_DEVICES empty, ANRA_TEST_DEVICE=cpu); substantive suite count excludes the stale exact-head receipt self-check refreshed by this artifact",
       "device": "cpu",
       "failed": 0,
       "files": [
         "tests/"
       ],
-      "passed": 684,
-      "provenance": "Local worktree full suite at e687c7a0 on Windows 10 build 26200, python 3.11.15, torch 2.13.0+cpu, 8 CPU threads. Raw run: 1 failed (tests/test_production_entry.py::test_exact_head_test_receipt, stale: receipt still named 68e082ba), 684 passed, 1 skipped, 40 subtests passed in 1686.46s. No model, optimizer, tokenizer, data-firewall, campaign-runner, or scientific/software contract test failed.",
+      "passed": 692,
+      "provenance": "Local worktree full suite at 0d40823 on Windows 10 build 26200, python 3.11.15, torch 2.13.0+cpu, 6 CPU threads. Raw run: 1 failed (tests/test_production_entry.py::test_exact_head_test_receipt, stale: receipt still named e687c7a0), 692 passed, 1 skipped, 40 subtests passed in 1884.81s. No model, optimizer, tokenizer, data-firewall, campaign-runner, or scientific/software contract test failed.",
       "skipped": 1
     }
   ],
   "schema": "anra-v5-test-receipt/v1",
-  "sha256": "edaee91f8ccc054ee69d1d00b027a8f79b896d14bd07aec966402746265586f5",
-  "tested_commit_sha": "e687c7a0776686ec687b3e3e4335f9a4219ef1a3",
-  "timestamp_utc": "2026-09-18T16:23:37Z",
+  "sha256": "c99296187d5c5b6ded1f37140b6c7fe6235318390dc65812d2a0468ed8e1bf81",
+  "tested_commit_sha": "0d408238d5b115ff486b6471f6eea973f6efec1d",
+  "timestamp_utc": "2026-09-18T18:31:07Z",
   "totals": {
     "failed": 0,
-    "passed": 684,
+    "passed": 692,
     "skipped": 1
   }
 }
