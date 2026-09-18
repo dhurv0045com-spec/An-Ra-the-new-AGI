@@ -222,8 +222,11 @@ def test_pair_batches_and_firewall():
     assert_split_firewall(splits)
 
 
-def test_guard_and_packaging_v2():
+def test_guard_and_packaging_v2(monkeypatch):
     import argparse
+    # Refusal is environment-independent: without COLAB_GPU, full mode
+    # without the override fails closed on every machine (local or Colab).
+    monkeypatch.delenv("COLAB_GPU", raising=False)
     args = argparse.Namespace(mode="full", allow_non_colab=False)
     try:
         guard_full_mode(args)
@@ -231,6 +234,10 @@ def test_guard_and_packaging_v2():
         assert "COLAB_GPU" in str(exc)
     else:
         raise AssertionError("full mode was allowed locally")
+    # Allow-branch is pinned too: on the Colab GPU runtime (COLAB_GPU=1,
+    # set by the platform) the guard deliberately permits full mode.
+    monkeypatch.setenv("COLAB_GPU", "1")
+    guard_full_mode(argparse.Namespace(mode="full", allow_non_colab=False))
     from v5_experiments.cyr_tournament import package_bundle_v2
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "run"
