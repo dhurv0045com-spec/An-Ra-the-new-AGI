@@ -1,0 +1,148 @@
+"""Builds the HORM Colab GPU runner notebook (thin operator wrapper only).
+
+The notebook contains ZERO science logic: cell 0 freezes the repo and
+environment, cell 1 executes committed commands, cell 2 packages results.
+Regenerate with: python experiments/COLAB/build_horm_colab.py
+"""
+import json
+from pathlib import Path
+
+REPO = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
+BRANCH = "cymek-beta"
+REPO_DIR = "/content/repo"
+
+cells = []
+
+cells.append({"cell_type": "markdown", "metadata": {}, "source": [
+    "# HORM Colab GPU runner (cymek-beta)\n",
+    "\n",
+    "**Runtime: GPU (any Colab GPU runtime).** Runtime -> Change runtime type\n",
+    "-> **GPU** -> Run all. Expects ~30-60 min, ends with an auto-download.\n",
+    "\n",
+    "What runs, in order (all commands are committed repo code, unmodified):\n",
+    "1. Fast gate: hormonal unit/integration/session tests (seconds).\n",
+    "2. HORM-003 prospective A/B (`--horm003 --force`: prior committed result\n",
+    "   is archived to `.previous`, never silently overwritten).\n",
+    "3. HORM-004 live-appraisal A/B (`--horm004 --force`, same archive rule).\n",
+    "4. Full test suite + import boundaries.\n",
+    "5. Packaging: every RESULT/manifest hashed, bundle zipped for download.\n",
+    "\n",
+    "Head commit is recorded into the bundle at runtime for provenance.\n",
+]})
+
+cells.append({"cell_type": "code", "metadata": {}, "source": [
+    "# CELL 0: FREEZE repo + environment (fail closed)\n",
+    "import hashlib\n",
+    "import os\n",
+    "import subprocess\n",
+    "import sys\n",
+    "\n",
+    "REPO = \"https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git\"\n",
+    "BRANCH = \"cymek-beta\"\n",
+    "REPO_DIR = \"/content/repo\"\n",
+    "\n",
+    "subprocess.run([\"git\", \"clone\", \"--branch\", BRANCH, REPO, REPO_DIR],\n",
+    "               check=True)\n",
+    "os.chdir(REPO_DIR)\n",
+    "subprocess.run([\"git\", \"checkout\", BRANCH], check=True)\n",
+    "subprocess.run([\"git\", \"status\", \"--short\"], check=True)\n",
+    "subprocess.run([sys.executable, \"-m\", \"pip\", \"install\", \"-q\",\n",
+    "                \"tokenizers\", \"pytest\"], check=True)\n",
+    "\n",
+    "import torch\n",
+    "assert torch.cuda.is_available(), \"HORM Colab run requires Google Colab GPU\"\n",
+    "print(\"GPU:\", torch.cuda.get_device_name(0))\n",
+    "print(\"torch:\", torch.__version__)\n",
+    "\n",
+    "HEAD_SHA = subprocess.run([\"git\", \"rev-parse\", \"HEAD\"], check=True,\n",
+    "                          capture_output=True, text=True).stdout.strip()\n",
+    "print(\"HEAD_SHA:\", HEAD_SHA)\n",
+    "\n",
+    "def _sha256_file(path):\n",
+    "    digest = hashlib.sha256()\n",
+    "    with open(path, \"rb\") as handle:\n",
+    "        for chunk in iter(lambda: handle.read(1024 * 1024), b\"\"):\n",
+    "            digest.update(chunk)\n",
+    "    return digest.hexdigest()\n",
+    "\n",
+    "SPEC_SHA = _sha256_file(\"v5_contracts/model_spec.py\")\n",
+    "GATE_SHA = _sha256_file(\"artifacts/v5/launch_readiness.json\")\n",
+    "assert SPEC_SHA.startswith(\"DFDCD883\"), \"frozen model_spec.py drifted: \" + SPEC_SHA\n",
+    "assert GATE_SHA.startswith(\"95B2331A\"), \"launch_readiness.json drifted: \" + GATE_SHA\n",
+    "print(\"frozen model_spec.py + launch_readiness.json: VERIFIED\")\n",
+    "print(\"HORM COLAB PREEXECUTION GATE: PASS\")\n",
+], "outputs": [], "execution_count": None})
+
+cells.append({"cell_type": "code", "metadata": {}, "source": [
+    "# CELL 1: RUN (committed commands only; --force archives prior results)\n",
+    "import os\n",
+    "import subprocess\n",
+    "import sys\n",
+    "\n",
+    "ENV = dict(os.environ, PYTHONPATH=\"/content/repo\")\n",
+    "\n",
+    "def run(*args):\n",
+    "    print(\"\\n=== \", \" \".join(args), \" ===\", flush=True)\n",
+    "    subprocess.run([sys.executable, \"-u\", *args], check=True, env=ENV)\n",
+    "\n",
+    "run(\"-m\", \"pytest\", \"tests/test_hormonal_state.py\",\n",
+    "    \"tests/test_hormonal_integration.py\",\n",
+    "    \"tests/test_hormonal_session.py\", \"-q\")\n",
+    "run(\"experiments/HORM-001/run_horm002_ab.py\", \"--horm003\",\n",
+    "    \"--output\", \"experiments/HORM-001\", \"--force\")\n",
+    "run(\"experiments/HORM-001/run_horm002_ab.py\", \"--horm004\",\n",
+    "    \"--output\", \"experiments/HORM-001\", \"--force\")\n",
+    "run(\"-m\", \"pytest\", \"tests\", \"-q\")\n",
+    "run(\"-m\", \"v5_contracts.import_boundaries\")\n",
+    "print(\"\\nALL HORM COLAB STAGES COMPLETE\")\n",
+], "outputs": [], "execution_count": None})
+
+cells.append({"cell_type": "code", "metadata": {}, "source": [
+    "# CELL 2: PACKAGE + DOWNLOAD (hash-bound bundle)\n",
+    "import glob\n",
+    "import hashlib\n",
+    "import json\n",
+    "import os\n",
+    "import shutil\n",
+    "import subprocess\n",
+    "\n",
+    "HEAD_SHA = subprocess.run([\"git\", \"rev-parse\", \"HEAD\"], check=True,\n",
+    "                          capture_output=True, text=True).stdout.strip()\n",
+    "manifest = {\"head_sha\": HEAD_SHA, \"files\": { }}\n",
+    "for path in sorted(glob.glob(\"experiments/HORM-001/RESULT*.json\")):\n",
+    "    digest = hashlib.sha256(open(path, \"rb\").read()).hexdigest()\n",
+    "    document = json.load(open(path, encoding=\"utf-8\"))\n",
+    "    manifest[\"files\"][os.path.basename(path)] = {\n",
+    "        \"sha256\": digest,\n",
+    "        \"verdict\": document.get(\"verdict\"),\n",
+    "        \"result_sha256\": document.get(\"sha256\"),\n",
+    "    }\n",
+    "    print(os.path.basename(path), \"->\", document.get(\"verdict\"))\n",
+    "with open(\"experiments/HORM-001/COLAB_BUNDLE_MANIFEST.json\", \"w\",\n",
+    "           encoding=\"utf-8\") as handle:\n",
+    "    json.dump(manifest, handle, indent=2, sort_keys=True)\n",
+    "    handle.write(\"\\n\")\n",
+    "shutil.make_archive(\"/content/HORM-COLAB-RESULTS\", \"zip\",\n",
+    "                    \"experiments/HORM-001\")\n",
+    "print(\"bundle:\", \"/content/HORM-COLAB-RESULTS.zip\")\n",
+    "try:\n",
+    "    from google.colab import files\n",
+    "    files.download(\"/content/HORM-COLAB-RESULTS.zip\")\n",
+    "except Exception as exc:\n",
+    "    print(\"manual download from experiments/HORM-001/:\", exc)\n",
+], "outputs": [], "execution_count": None})
+
+notebook = {"nbformat": 4, "nbformat_minor": 5,
+            "metadata": {"colab": {"provenance": [], "name": "HORM-colab-gpu.ipynb"},
+                         "kernelspec": {"name": "python3", "display_name": "Python 3"},
+                         "language_info": {"name": "python"}, "accelerator": "GPU"},
+            "cells": cells}
+
+out = Path("notebooks/HORM-colab-gpu.ipynb")
+out.write_text(json.dumps(notebook, indent=1), encoding="utf-8")
+parsed = json.loads(out.read_text(encoding="utf-8"))
+code = [cell for cell in parsed["cells"] if cell["cell_type"] == "code"]
+assert len(code) == 3, f"expected 3 code cells, got {len(code)}"
+for cell in code:
+    compile("".join(cell["source"]), "cell", "exec")
+print(f"notebook written: {out} | cells: {len(parsed['cells'])} | all compile")
