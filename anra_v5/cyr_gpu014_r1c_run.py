@@ -74,13 +74,15 @@ def setup_reproducibility(torch: Any) -> None:
 
 
 def environment(torch: Any, device: Any) -> dict[str, Any]:
+    cuda_available = bool(torch.cuda.is_available())
     return {
         "schema": "anra-cyr-gpu014-r1c-environment/v1",
         "torch": torch.__version__,
         "device": str(device),
-        "cuda_available": bool(torch.cuda.is_available()),
-        "gpu_name": torch.cuda.get_device_name(0),
-        "vram_gib": torch.cuda.get_device_properties(0).total_memory / 2**30,
+        "cuda_available": cuda_available,
+        "gpu_name": torch.cuda.get_device_name(0) if cuda_available else None,
+        "vram_gib": (torch.cuda.get_device_properties(0).total_memory / 2**30
+                     if cuda_available else None),
         "deterministic_algorithms": bool(torch.are_deterministic_algorithms_enabled()),
         "tf32_allowed": bool(torch.backends.cuda.matmul.allow_tf32),
     }
