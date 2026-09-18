@@ -135,6 +135,71 @@ def _fake_batch():
     return collocate([row], max_seq=64)
 
 
+def _fake_pair_rows():
+    from bramastra_lab.research.experience.sequences import build_answer_row
+
+    def _row(answer: str, episode: str):
+        return build_answer_row(
+            [("goal", {"q": "1+1?"})], answer,
+            provenance={"kind": "trajectory", "episode_id": episode,
+                        "task_semantic_id": "t", "split": "training",
+                        "source": "test", "collection_policy": "fixed",
+                        "family": "f"},
+            max_tokens=64)
+
+    return [_row("2", "e-pair-own")], [_row("3", "e-pair-swapped")]
+
+
+class EffectivePairWeightTests(unittest.TestCase):
+    """Kaggle E0 regression: campaign default pair weight is 0.0 while arm-B
+    windows carry pair 0.1. Pooled pair rows must finalize (scaled by the
+    window weight); both-zero must still refuse."""
+
+    def test_arm_window_pair_weight_authorizes_finalize(self) -> None:
+        from bramastra_lab.research.models import IntegratedModel
+
+        seed_everything(7)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        model = IntegratedModel(config)
+        trainer = K8Trainer(config, model, device="cpu")
+        self.assertEqual(trainer.pair_loss_weight, 0.0)
+        self.assertEqual(trainer._effective_pair_weight(), 0.0)
+        batch = _fake_batch()
+        own_rows, swapped_rows = _fake_pair_rows()
+        window = SupervisionWindow(
+            weights={"token": 1.0, "world": 0.0, "action": 0.0,
+                     "value": 0.0, "pair": 0.1, "pg": 0.0},
+            enabled_terms=frozenset({"token", "pair"}))
+        window.add("token", batch.target_count)
+        window.add("pair", 1)
+        trainer.accumulate_full_window(
+            batch, window_builder=lambda _: window,
+            pair_rows=(own_rows, swapped_rows))
+        self.assertAlmostEqual(trainer._effective_pair_weight(), 0.1)
+        report = trainer.finalize_update()
+        self.assertEqual(trainer.counters.optimizer_updates, 1)
+        self.assertIsNotNone(report.pair_loss)
+
+    def test_both_zero_pair_weight_still_refuses(self) -> None:
+        from bramastra_lab.research.models import IntegratedModel
+
+        seed_everything(9)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        model = IntegratedModel(config)
+        trainer = K8Trainer(config, model, device="cpu")
+        batch = _fake_batch()
+        own_rows, swapped_rows = _fake_pair_rows()
+        window = SupervisionWindow(
+            weights={"token": 1.0, "world": 0.0, "action": 0.0,
+                     "value": 0.0, "pair": 0.0, "pg": 0.0},
+            enabled_terms=frozenset({"token"}))
+        window.add("token", batch.target_count)
+        with self.assertRaises(Exception):
+            trainer.accumulate_full_window(
+                batch, window_builder=lambda _: window,
+                pair_rows=(own_rows, swapped_rows))
+
+
 class VerticalSliceTests(unittest.TestCase):
     """One tiny episode through preparation -> objective routing -> trainer
     backward -> checkpoint serialization -> scorer -> executive -> tool path.

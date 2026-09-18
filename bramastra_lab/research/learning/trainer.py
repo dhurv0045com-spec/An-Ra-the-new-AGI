@@ -209,7 +209,30 @@ class Trainer:
         return {"answer_loss_sum": self._pending_answer_sum,
                 "pending_targets": float(self._pending_targets)}
 
-    def _apply_pair_term(self, pair_input: PairUpdateInput) -> float:
+    def _effective_pair_weight(self) -> float:
+        """Pair weight governing the current window: the trainer default
+        raised by the active accumulation window's arm weight.
+
+        Arms carry their own pair weight in the SupervisionWindow (arm B
+        0.1, arm A 0.0); the campaign config default is 0.0. Either source
+        being positive authorizes pair consumption — mirroring the
+        accumulate-time OR-gate — so a positively-weighted arm window is
+        never refused at the boundary. Refusal happens only when both are
+        zero (disabled terms must not contribute).
+        """
+        try:
+            trainer_weight = float(self.pair_loss_weight)
+        except (TypeError, ValueError):
+            trainer_weight = 0.0
+        try:
+            window_weight = float(
+                dict(getattr(self, "_active_window_weights", {}) or {}).get("pair", 0.0))
+        except (TypeError, ValueError):
+            window_weight = 0.0
+        return max(trainer_weight, window_weight)
+
+    def _apply_pair_term(self, pair_input: PairUpdateInput,
+                         *, weight: float | None = None) -> float:
         own_output = self.model(pair_input.own.input_ids.to(self.device),
                                 pair_input.own.padding_mask.to(self.device),
                                 segment_ids=pair_input.own.segment_ids.to(self.device))
@@ -227,7 +250,8 @@ class Trainer:
         loss_pair, counted = pair_margin_loss(swapped_scores, own_scores, self.pair_margin)
         if counted == 0:
             return 0.0
-        (self.pair_loss_weight * loss_pair).backward()
+        applied = self.pair_loss_weight if weight is None else weight
+        (float(applied) * loss_pair).backward()
         return float(loss_pair.detach().item())
 
     # -- update boundary ------------------------------------------------------
@@ -248,9 +272,11 @@ class Trainer:
                 parameter.grad.div_(self._pending_targets)
         pair_loss_value: float | None = None
         if self._pending_pair_own or self._pending_pair_swapped:
-            if self.pair_loss_weight <= 0:
+            effective_pair_weight = self._effective_pair_weight()
+            if effective_pair_weight <= 0:
                 raise TrainerStateError(
-                    "pair renderings accumulated while training.pair_loss_weight is zero")
+                    "pair renderings accumulated while the effective pair weight "
+                    "(trainer default and active window) is zero")
             if len(self._pending_pair_own) != len(self._pending_pair_swapped):
                 raise TrainerStateError(
                     "pair renderings must align across the accumulation group")
@@ -260,7 +286,8 @@ class Trainer:
             own_batch = _collocate(list(self._pending_pair_own), max_seq=max_seq)
             swapped_batch = _collocate(list(self._pending_pair_swapped), max_seq=max_seq)
             pair_loss_value = self._apply_pair_term(
-                PairUpdateInput(own=own_batch, swapped=swapped_batch))
+                PairUpdateInput(own=own_batch, swapped=swapped_batch),
+                weight=effective_pair_weight)
             self._pending_pair_own = []
             self._pending_pair_swapped = []
 

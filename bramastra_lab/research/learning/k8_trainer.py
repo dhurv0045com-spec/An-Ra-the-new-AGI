@@ -343,11 +343,13 @@ class K8Trainer(Trainer):
             # accumulation (single-window contract, no mean-of-means).
         pair_loss_value: float | None = None
         if self._pending_pair_own or self._pending_pair_swapped:
-            if float(self.pair_loss_weight) <= 0:
+            effective_pair_weight = self._effective_pair_weight()
+            if effective_pair_weight <= 0:
                 self._clear_pending()
                 raise TrainerStateError(
-                    "pair renderings pending while training.pair_loss_weight "
-                    "is zero (disabled terms must not contribute)")
+                    "pair renderings pending while the effective pair weight "
+                    "(trainer default and active window) is zero "
+                    "(disabled terms must not contribute)")
             if len(self._pending_pair_own) != len(self._pending_pair_swapped):
                 self._clear_pending()
                 raise TrainerStateError(
@@ -358,8 +360,9 @@ class K8Trainer(Trainer):
             own_batch = _collocate(list(self._pending_pair_own), max_seq=max_seq)
             swapped_batch = _collocate(list(self._pending_pair_swapped), max_seq=max_seq)
             pair_loss_value = self._apply_pair_term(
-                PairUpdateInput(own=own_batch, swapped=swapped_batch))
-        elif float(self.pair_loss_weight) > 0 and \
+                PairUpdateInput(own=own_batch, swapped=swapped_batch),
+                weight=effective_pair_weight)
+        elif self._effective_pair_weight() > 0 and \
                 "pair" in getattr(self, "_active_window_enabled", frozenset()):
             self._clear_pending()
             raise TrainerStateError(
