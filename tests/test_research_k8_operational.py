@@ -924,8 +924,19 @@ class O10NotebookTests(unittest.TestCase):
         # the notebook must never rely on an unstated checkout in working.
         self.assertIn("/kaggle/input", joined)
         self.assertIn("_is_source_tree", joined)
-        self.assertIn("bramastra-k8-data/v1", joined)
-        self.assertIn("BRAMASTRA_BUNDLE_DIR", joined)
+        # Bundle schema validation lives in the hard-architecture module
+        # (kaggle_env.is_k8_bundle), not inline: the notebook must call it
+        # and the module must pin the registered schema and honor the
+        # operator bundle override.
+        self.assertIn("is_k8_bundle", joined)
+        self.assertIn("discover_bundle", joined)
+        import inspect as _inspect
+
+        from bramastra_lab.research.campaigns import kaggle_env as _kenv
+
+        _module_source = _inspect.getsource(_kenv)
+        self.assertIn("bramastra-k8-data/v1", _module_source)
+        self.assertIn("BRAMASTRA_BUNDLE_DIR", _module_source)
         self.assertIn("BRAMASTRA_GIT_URL", joined)
         self.assertIn("git', 'clone'", joined)
         self.assertIn("generated-k8-data", joined)
@@ -933,8 +944,12 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("run_k8", joined)
         self.assertIn("'--precision', 'fp32'", joined)
         self.assertNotIn("'--precision', 'fp16_autocast'", joined)
-        self.assertIn("package_run_artifacts", joined)
-        self.assertIn("shutil.make_archive", joined)
+        # Artifact packaging lives in kaggle_env.package_artifacts (hard
+        # architecture); the notebook must call it and the module must keep
+        # the verified-zip + receipt + make_archive contract.
+        self.assertIn("package_artifacts", joined)
+        self.assertIn("shutil.make_archive", _module_source)
+        self.assertIn("testzip", _module_source)
         self.assertIn("FileLink", joined)
         self.assertNotIn("shutil.rmtree", joined)
         # Every mutating subprocess call checks its failure.
@@ -955,21 +970,11 @@ class O10NotebookTests(unittest.TestCase):
                     ast.parse(source)
 
     def test_notebook_artifact_packager_writes_verified_zip_and_receipt(self) -> None:
-        import ast
-        from pathlib import Path
         import zipfile
+        from pathlib import Path
 
-        notebook = json.load(open("notebooks/bramastra_k8.ipynb", encoding="utf-8"))
-        source = next(
-            "".join(cell["source"])
-            for cell in notebook["cells"]
-            if cell["cell_type"] == "code" and
-            "def package_run_artifacts" in "".join(cell["source"]))
-        tree = ast.parse(source)
-        function = next(
-            node for node in tree.body
-            if isinstance(node, ast.FunctionDef) and
-            node.name == "package_run_artifacts")
+        from bramastra_lab.research.campaigns.kaggle_env import package_artifacts
+
         with tempfile.TemporaryDirectory() as tmp:
             working = Path(tmp)
             run_root = working / "bramastra-k8" / "run-test"
@@ -977,17 +982,12 @@ class O10NotebookTests(unittest.TestCase):
             (run_root / "campaign_ledger.sqlite").write_text("ledger")
             (run_root / "nested").mkdir()
             (run_root / "nested" / "result.json").write_text("result")
-            namespace = {"RUN_ROOT": run_root, "WORKING": working,
-                         "RUN_ID": "run-test", "INSTANCE_ID": "instance",
-                         "Path": Path, "json": json}
-            exec(compile(ast.Module(body=[function], type_ignores=[]),
-                         "notebook-packager", "exec"), namespace)
-            archive = namespace["package_run_artifacts"]("test")
-            self.assertTrue(archive.is_file())
-            receipt = json.loads(archive.with_suffix(".json").read_text())
+            packed = package_artifacts(run_root, working, "run-test", "instance", "test")
+            self.assertTrue(packed.archive.is_file())
+            receipt = json.loads(packed.receipt.read_text(encoding="utf-8"))
             self.assertEqual(receipt["reason"], "test")
             self.assertGreater(receipt["bytes"], 0)
-            with zipfile.ZipFile(archive) as bundle:
+            with zipfile.ZipFile(packed.archive) as bundle:
                 self.assertIsNone(bundle.testzip())
                 self.assertTrue(any(name.endswith("campaign_ledger.sqlite")
                                     for name in bundle.namelist()))
