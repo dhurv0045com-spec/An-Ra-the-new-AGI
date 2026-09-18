@@ -64,7 +64,7 @@ def test_cell1_runs_only_committed_commands():
                       "horm-logs", "threads=",
                       "junitxml", "build_receipt",
                       "test_exact_head_test_receipt", "--deselect",
-                      "v5a_exact",
+                      "v5a_exact", "pea1", "pea2", "tail of",
                       "CUDA_VISIBLE_DEVICES", "ANRA_TEST_DEVICE",
                       "v5_contracts.import_boundaries"):
         assert required in cell1, f"CELL 1 missing {required}"
