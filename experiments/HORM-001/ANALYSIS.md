@@ -148,3 +148,43 @@ it is a complete answer to the question asked, not a suppressed finding.
 ## What this does NOT establish
 - Any claim that hormonal modulation helps or harms training at any scale.
 - Nothing about capability, G90, or production behavior.
+
+# HORM-004 ANALYSIS (2026-09-19)
+
+**Status: PROSPECTIVE RUN EXECUTED; verdict NOT_SUPPORTED (per preregistered rules)**
+
+## What was run
+- PLAN.md HORM-004 preregistered 2026-09-18T23:21:03+05:30; implementation
+  note frozen 2026-09-19T00:08:57+05:30 before execution. Assumed budget
+  stated at execution: CPU-only, 2 threads, 30-min cap (actual: minutes).
+- 5 fresh seeds (707021-707025) x 64 updates x 256 tokens, real
+  ProductionTrainingBackend, corrected state binding, persistent hormonal
+  state, live appraisal through the real gold firewall
+  (VisibleTask -> CommittedOutput -> EvaluatorTruth -> score_committed ->
+  appraise_committed).
+- Result: RESULT_horm004_prospective.json (sha256 379d0d95...),
+  provenance-bound.
+
+## Primary readout (preregistered): sign consistency >= 4/5
+- 707021: +1.08e-05 | 707022: +9.39e-07 | 707023: -4.93e-06
+  707024: -3.79e-06 | 707025: +1.16e-06
+- 3/5 positive, median +9.39e-07 -> NOT_SUPPORTED (needed >= 4/5).
+
+## Critical interpretation caveat (pre-declared entropy caveat realized)
+- Treatment success fraction was 0.00 on ALL five seeds: the miniature
+  model predicted every fixed probe wrong, so appraisal was all-failure
+  and state saturated to a fixed point (8 distinct scales of 64 updates).
+- What was actually tested: persistent-state CONSTANT-failure modulation
+  at a compounding horizon — not rich dynamic hormonal conditioning. The
+  verdict answers the preregistered directional question (no consistent
+  sign), but cannot distinguish "hormonal state is irrelevant to loss"
+  from "the appraisal signal carried zero variance."
+- Any follow-up claiming to test dynamic appraisal must first demonstrate
+  a live signal with nonzero entropy (success fraction away from 0/1)
+  before running the A/B. That check is now a gating requirement, not an
+  afterthought.
+
+## What this does NOT establish
+- Any claim that hormonal modulation helps or harms training, or that
+  dynamic appraisal is worthless — the signal never varied.
+- Nothing about capability, G90, or production behavior.

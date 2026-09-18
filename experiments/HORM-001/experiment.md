@@ -109,3 +109,20 @@ unexecuted (authorization gate in PLAN.md still closed).
 - Validation: 20 hormonal tests pass (~8 s, CPU, 2 threads); static_check
   0 findings on all touched files; import boundaries PASS. BOM prefixes
   stripped from session-touched .py files (Write/Set-Content default).
+
+# HORM-004 experiment.md addendum (2026-09-19)
+
+**Preregistered then executed** (PLAN.md HORM-004 + pre-execution
+implementation note, both timestamped before the run). Assumed budget:
+CPU-only, 2 threads, 30-min cap.
+
+**Result**: verdict NOT_SUPPORTED. Signs +,+,-,-,+ (3/5 positive, median
++9.4e-07). All losses finite; all scales in [0.8,1.2]. Provenance-bound
+result RESULT_horm004_prospective.json (sha256 379d0d95...).
+
+**Honest reading**: prospective negative on the directional question, with
+a material caveat — live success fraction was 0.00 on every seed, so the
+arm tested constant-failure modulation, not varying hormonal dynamics.
+Next experiment on this line must gate on demonstrated signal entropy
+first. No benefit/harm claim. HORM-004 execution gate now closed (run
+complete); any HORM-005 needs a fresh preregistration.

@@ -127,3 +127,27 @@ class TestLiveAppraisalFirewall:
             appraise_committed(state, SimpleNamespace(task_id="t6", correct="yes"))
         with pytest.raises(ValueError, match="task id"):
             appraise_committed(state, SimpleNamespace(correct=True))
+
+
+def test_live_appraisal_path_scores_through_firewall_and_persists() -> None:
+    import runpy
+    from pathlib import Path
+
+    runner = runpy.run_path(str(
+        Path(__file__).resolve().parents[1]
+        / "experiments" / "HORM-001" / "run_horm002_ab.py"
+    ))
+    assert len(runner["HORM004_PROBES"]) == 4
+    result = runner["_run_arm"](
+        arm="treatment", seed=runner["SEED"],
+        batches=runner["_build_batches"](runner["SEED"]),
+        appraisal_mode="live", probes=runner["HORM004_PROBES"],
+    )
+    assert result["appraisal_mode"] == "live"
+    assert len(result["outcomes"]) == runner["UPDATES"]
+    for step in result["outcomes"]:
+        assert step and all(label in ("success", "failure") for label in step)
+        assert len(step) == len(runner["HORM004_PROBES"])
+    assert result["cumulative_tokens"] == runner["UPDATES"] * runner["TOKENS_PER_UPDATE"]
+    assert all(torch.isfinite(torch.tensor(result["losses"])))
+    assert all(0.8 <= scale <= 1.2 for scale in result["scales"])

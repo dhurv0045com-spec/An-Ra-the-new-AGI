@@ -188,3 +188,23 @@ Until all three hold, this plan is a document, not an instruction.
 - Capability, G90, production-scale behavior, or training benefit in any
   operational sense. SUPPORTED only motivates a training-scale protocol
   proposal, itself requiring separate authorization.
+
+## HORM-004 implementation note (pre-execution, 2026-09-19T00:08:57+05:30)
+- Runner: `run_horm002_ab.py --horm004` (new mode; existing --horm003 and
+  default paths byte-identical in behavior: new `updates`/`appraisal_mode`
+  parameters default to legacy values).
+- Probes: 4 FIXED synthetic probes (constant 8-token prompts + gold
+  next-tokens in the vocab-512 world, `HORM004_PROBES`), identical for every
+  seed and arm, so appraisal inputs are fully matched.
+- Per update (treatment only): each probe is predicted single-step
+  (argmax last-position logits, eval mode, restored after), committed via
+  `CommittedOutput`, joined to `EvaluatorTruth`, scored via the real
+  `score_committed`, and each scored outcome appraised via
+  `appraise_committed`; exactly one `decay()` per update; state persists
+  across updates (the HORM-002/003 per-update reset is retired).
+- Control: inert projection, no probes, scale 1.0 (unchanged).
+- Entropy caveat (declared in advance): a near-random miniature model will
+  predict wrong almost always, so the live signal may be low-entropy
+  (~all-failure). Per-update outcome labels are recorded in results and the
+  observed success fraction reported; a low-entropy signal limits
+  interpretation to constant-ish modulation, stated in ANALYSIS either way.

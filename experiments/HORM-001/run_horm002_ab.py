@@ -23,7 +23,7 @@ from pathlib import Path
 import torch
 
 from v5_contracts.model_spec import ModelSpec
-from v5_model.core import initialize
+from v5_model.core import initialize, packed_layout
 from v5_training.optimizer import build_adamw_optimizer
 from v5_training.production_backend import (
     ProductionTrainingBackend,
@@ -41,7 +41,7 @@ from v5_training.state import (
     IdentityBindings,
     TrainingState,
 )
-from v5_identity import HORMONES, HormonalProjection, HormonalState
+from v5_identity import HORMONES, HormonalProjection, HormonalState, appraise_committed
 from v5_identity.attention_patch import HormonalAttentionPatch
 from v5_tokenizer.artifact import sha256_file
 
@@ -83,12 +83,12 @@ def _pack_manifest(documents: list[list[int]]) -> str:
     return _hash_bytes(json.dumps(documents, sort_keys=True).encode("utf-8"))
 
 
-def _build_batches(seed: int):
+def _build_batches(seed: int, updates: int = UPDATES):
     """Deterministic packed batches (tokens, segment_ids) at tiny scale."""
 
     generator = torch.Generator().manual_seed(seed)
     batches = []
-    for update in range(UPDATES):
+    for update in range(updates):
         tokens = torch.randint(4, VOCAB, (SEQUENCES_PER_UPDATE, SEQ_LEN), generator=generator)
         # reserve 0 (PAD) never used; BOS/EOS/PAD excluded from loss by causal_lm_loss
         segment_ids = torch.zeros((SEQUENCES_PER_UPDATE, SEQ_LEN), dtype=torch.int32)
@@ -101,7 +101,69 @@ def _build_batches(seed: int):
         batches.append((tokens, segment_ids, tokens_by_source))
     return batches
 
-def _run_arm(*, arm: str, seed: int, batches) -> dict[str, object]:
+HORM004_SEEDS = [707021, 707022, 707023, 707024, 707025]
+HORM004_UPDATES = 64
+
+# Fixed synthetic probes in the miniature vocab-512 world: constant prompt
+# token ids and gold next-tokens, identical for every seed and arm, so the
+# appraisal *inputs* are fully matched and only the evolving model differs.
+HORM004_PROBES = [
+    {"task_id": "horm004-probe-0", "prompt": [4, 5, 6, 7, 8, 9, 10, 11], "gold": 12},
+    {"task_id": "horm004-probe-1", "prompt": [20, 21, 22, 23, 24, 25, 26, 27], "gold": 28},
+    {"task_id": "horm004-probe-2", "prompt": [100, 101, 102, 103, 104, 105, 106, 107], "gold": 108},
+    {"task_id": "horm004-probe-3", "prompt": [200, 201, 202, 203, 204, 205, 206, 207], "gold": 208},
+]
+
+
+def _score_live_probes(model, probes) -> list[object]:
+    """Run fixed probes through the live model and the real gold firewall.
+
+    Single-step prediction (argmax of last-position logits) per probe;
+    outputs committed, joined to evaluator truth, and scored through
+    ``score_committed``. Returns scored results for appraisal. The model is
+    briefly switched to eval mode (dropout is 0.0 regardless) and restored.
+    """
+
+    import torch as torch_module
+    from v5_evaluation.firewall import (
+        CommittedOutput,
+        build_evaluator_truth,
+        build_visible_tasks,
+        score_committed,
+    )
+
+    records = [
+        {"task_id": probe["task_id"],
+         "prompt": f"synthetic miniature probe {index}",
+         "gold": str(probe["gold"])}
+        for index, probe in enumerate(probes)
+    ]
+    visible = {task.task_id: task for task in build_visible_tasks(records)}
+    truth = {item.task_id: item for item in build_evaluator_truth(records)}
+    was_training = model.training
+    model.eval()
+    try:
+        scored = []
+        with torch_module.no_grad():
+            for probe in probes:
+                tokens = torch_module.tensor([probe["prompt"]], dtype=torch_module.long)
+                segment_ids = torch_module.zeros((1, len(probe["prompt"])), dtype=torch_module.int32)
+                positions, mask = packed_layout(segment_ids, torch_module=torch_module)
+                logits = model(tokens, positions, mask)
+                predicted = int(logits[0, -1].argmax().item())
+                committed = CommittedOutput(
+                    task_id=probe["task_id"], output=str(predicted),
+                    candidate_scores=None)
+                scored.append(score_committed(
+                    committed, visible[probe["task_id"]], truth[probe["task_id"]]))
+    finally:
+        if was_training:
+            model.train()
+    return scored
+
+
+def _run_arm(*, arm: str, seed: int, batches, appraisal_mode: str = "synthetic",
+             probes: list | None = None, updates: int = UPDATES) -> dict[str, object]:
     torch.set_num_threads(2)
     torch.manual_seed(seed)
     model = initialize(HORM_SPEC, seed=seed)
@@ -132,7 +194,7 @@ def _run_arm(*, arm: str, seed: int, batches) -> dict[str, object]:
     )
     state = TrainingState.initial(
         lineage_id=f"horm002-{arm}",
-        token_budget=UPDATES * TOKENS_PER_UPDATE,
+        token_budget=updates * TOKENS_PER_UPDATE,
         tokens_per_update=TOKENS_PER_UPDATE,
         cursor=CursorState(CURSOR_SCHEMA, identities.pack_manifest_sha256, 0, 0, 0),
         rng_state_sha256="0" * 64,
@@ -152,6 +214,7 @@ def _run_arm(*, arm: str, seed: int, batches) -> dict[str, object]:
     losses: list[float] = []
     scales: list[float] = []
     grad_norms: list[float] = []
+    outcomes: list[list[str]] = []
 
     def backend_step(current: TrainingState):
         tokens, segment_ids, tokens_by_source = batches[current.global_update]
@@ -173,24 +236,36 @@ def _run_arm(*, arm: str, seed: int, batches) -> dict[str, object]:
             rng_state_sha256=_hash_bytes(f"{arm}-{current.global_update}".encode()),
         )
         if hormonal is not None:
-            patch.state.values.update(HormonalState.baseline().values)
-            outcome = "success" if current.global_update % 2 == 0 else "failure"
-            patch.state.appraise(outcome)
-            patch.state.decay()
+            if appraisal_mode == "live":
+                if probes is None:
+                    raise ValueError("live appraisal requires probes")
+                step_outcomes = [
+                    appraise_committed(patch.state, scored)
+                    for scored in _score_live_probes(model, probes)
+                ]
+                patch.state.decay()
+            else:
+                patch.state.values.update(HormonalState.baseline().values)
+                outcome = "success" if current.global_update % 2 == 0 else "failure"
+                patch.state.appraise(outcome)
+                patch.state.decay()
+                step_outcomes = [outcome]
             applied_scale = hormonal.scale(patch.state.vector())
         else:
             applied_scale = 1.0
+            step_outcomes = []
         report = backend.step(current, batch)
         losses.append(float(backend.last_receipt["loss"]))
         grad_norms.append(float(report.grad_norm_post_clip))
         scales.append(applied_scale)
+        outcomes.append(step_outcomes)
         return report
 
     import tempfile
 
     with tempfile.TemporaryDirectory() as tmp:
         store = CheckpointStore(Path(tmp), state.lineage_id)
-        controller = RunController(target_update=UPDATES)
+        controller = RunController(target_update=updates)
         controller.start()
         started = time.perf_counter()
         final_state = train(
@@ -199,17 +274,19 @@ def _run_arm(*, arm: str, seed: int, batches) -> dict[str, object]:
             store=store,
             payload_builder=lambda s: production_payloads(backend, state=s),
             backend_step=backend_step,
-            updates=UPDATES,
-            checkpoint_every=UPDATES,
+            updates=updates,
+            checkpoint_every=updates,
         )
         elapsed = time.perf_counter() - started
 
     return {
         "arm": arm,
         "seed": seed,
+        "appraisal_mode": appraisal_mode,
         "losses": losses,
         "scales": scales,
         "grad_norms": grad_norms,
+        "outcomes": outcomes,
         "final_loss": losses[-1],
         "mean_loss": sum(losses) / len(losses),
         "cumulative_tokens": final_state.cumulative_tokens,
@@ -334,6 +411,125 @@ def _run_horm003(output_dir: Path, *, force: bool = False) -> None:
     print("wrote", out)
 
 
+def _run_horm004(output_dir: Path, *, force: bool = False) -> None:
+    """Preregistered HORM-004: 5 fresh seeds x 64 updates, live appraisal."""
+
+    torch.set_num_threads(2)
+    if torch.cuda.is_available():
+        raise SystemExit(
+            "HORM-004 is CPU-only by preregistration; CUDA is available so refusing "
+            "to run. Set CUDA_VISIBLE_DEVICES='' to force CPU.")
+    out = output_dir / "RESULT_horm004_prospective.json"
+    if out.exists() and not force:
+        raise SystemExit(
+            f"refusing to overwrite existing result: {out}; pass --force to replace")
+    if out.exists() and force:
+        backup = out.with_suffix(".json.previous")
+        backup.write_bytes(out.read_bytes())
+
+    pairs = []
+    invalid_reasons = []
+    for seed in HORM004_SEEDS:
+        batches = _build_batches(seed, HORM004_UPDATES)
+        control = _run_arm(arm="control", seed=seed, batches=batches,
+                           updates=HORM004_UPDATES)
+        treatment = _run_arm(arm="treatment", seed=seed, batches=batches,
+                             appraisal_mode="live", probes=HORM004_PROBES,
+                             updates=HORM004_UPDATES)
+        all_losses = [*control["losses"], *treatment["losses"]]
+        finite = all(value == value and abs(value) != float("inf") for value in all_losses)
+        scales_ok = all(
+            0.8 <= scale <= 1.2
+            for scale in [*control["scales"], *treatment["scales"]]
+        )
+        if not finite:
+            invalid_reasons.append(f"seed {seed}: non-finite loss")
+        if not scales_ok:
+            invalid_reasons.append(f"seed {seed}: scale out of [0.8, 1.2]")
+        flat_outcomes = [label for step in treatment["outcomes"] for label in step]
+        success_fraction = (
+            sum(1 for label in flat_outcomes if label == "success") / len(flat_outcomes)
+            if flat_outcomes else 0.0)
+        difference = [abs(a - b) for a, b in zip(control["losses"], treatment["losses"])]
+        pairs.append({
+            "seed": seed,
+            "control_final_loss": control["final_loss"],
+            "treatment_final_loss": treatment["final_loss"],
+            "mean_loss_difference": treatment["mean_loss"] - control["mean_loss"],
+            "max_abs_loss_difference": max(difference),
+            "all_finite": finite,
+            "scales_in_bounds": scales_ok,
+            "treatment_success_fraction": success_fraction,
+            "treatment_distinct_scales": len(set(treatment["scales"])),
+        })
+
+    nonzero = [pair for pair in pairs if pair["mean_loss_difference"] != 0.0]
+    if len(nonzero) >= 2:
+        majority_sign = 1 if sum(
+            1 for pair in nonzero if pair["mean_loss_difference"] > 0) >= len(nonzero) / 2 else -1
+        consistent = sum(
+            1 for pair in nonzero
+            if (1 if pair["mean_loss_difference"] > 0 else -1) == majority_sign)
+    else:
+        majority_sign = 0
+        consistent = 0
+    median_difference = sorted(pair["mean_loss_difference"] for pair in pairs)[len(pairs) // 2]
+    verdict = (
+        "INVALID" if invalid_reasons
+        else "SUPPORTED" if consistent >= 4 and majority_sign != 0
+        else "NOT_SUPPORTED")
+    result = {
+        "schema": "anra-horm-004-prospective/v1",
+        "preregistration": "experiments/HORM-001/PLAN.md HORM-004 section",
+        "seeds": HORM004_SEEDS,
+        "updates": HORM004_UPDATES,
+        "tokens_per_update": TOKENS_PER_UPDATE,
+        "probes": HORM004_PROBES,
+        "appraisal": "live firewall-scored single-step probes; per-probe "
+                     "appraisal, one decay per update; persistent state",
+        "pairs": pairs,
+        "sign_consistent_seeds": consistent,
+        "majority_sign": majority_sign,
+        "median_mean_loss_difference": median_difference,
+        "verdict": verdict,
+        "invalid_reasons": invalid_reasons,
+        "spec_sha256": HORM_SPEC.sha256(),
+        "provenance": {
+            "runner_sha256": sha256_file(Path(__file__).resolve()),
+            "source_file_sha256": {
+                path: sha256_file(Path(path))
+                for path in (
+                    "v5_identity/attention_patch.py",
+                    "v5_identity/appraisal.py",
+                    "v5_identity/hormonal_projection.py",
+                    "v5_identity/hormonal_state.py",
+                )
+            },
+            "torch_version": torch.__version__,
+            "runtime": "cpu",
+            "threads": 2,
+        },
+        "claim_level": "miniature-scale-prospective",
+        "honesty_note": (
+            "5-seed prospective A/B with corrected state binding and live "
+            "firewall appraisal. Probes are fixed synthetic token sequences "
+            "in the miniature vocab-512 world, not capability probes. "
+            "SUPPORTED means only sign-consistent loss-trajectory difference; "
+            "it is not a capability or quality claim."),
+    }
+    payload = json.dumps(result, sort_keys=True, indent=2).encode("utf-8")
+    result["sha256"] = _hash_bytes(payload)
+    out.write_text(json.dumps(result, sort_keys=True, indent=2), encoding="utf-8")
+    print(json.dumps({
+        "verdict": verdict,
+        "sign_consistent_seeds": consistent,
+        "majority_sign": majority_sign,
+        "median_mean_loss_difference": median_difference,
+        "seeds": HORM004_SEEDS,
+    }, indent=2))
+    print("wrote", out)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path(__file__).parent)
@@ -345,14 +541,21 @@ def main() -> None:
         "--horm003", action="store_true",
         help="preregistered HORM-003: seeds 707011-707015, provenance-bound, no overwrite")
     parser.add_argument(
+        "--horm004", action="store_true",
+        help="preregistered HORM-004: seeds 707021-707025 x 64 updates, live firewall appraisal")
+    parser.add_argument(
         "--force", action="store_true",
-        help="HORM-003 only: overwrite a same-seed-count result (rejected by default)")
+        help="prospective runs only: overwrite an existing result (rejected by default)")
     args = parser.parse_args()
 
-    if args.horm003 and args.replication:
-        raise SystemExit("choose either --horm003 or --replication, not both")
+    modes = [args.horm003, args.horm004, args.replication]
+    if sum(1 for mode in modes if mode) > 1:
+        raise SystemExit("choose at most one of --horm003, --horm004, --replication")
     if args.horm003:
         _run_horm003(args.output, force=args.force)
+        return
+    if args.horm004:
+        _run_horm004(args.output, force=args.force)
         return
 
     if torch.cuda.is_available():

@@ -1,0 +1,150 @@
+{
+  "appraisal": "live firewall-scored single-step probes; per-probe appraisal, one decay per update; persistent state",
+  "claim_level": "miniature-scale-prospective",
+  "honesty_note": "5-seed prospective A/B with corrected state binding and live firewall appraisal. Probes are fixed synthetic token sequences in the miniature vocab-512 world, not capability probes. SUPPORTED means only sign-consistent loss-trajectory difference; it is not a capability or quality claim.",
+  "invalid_reasons": [],
+  "majority_sign": 1,
+  "median_mean_loss_difference": 9.387731552124023e-07,
+  "pairs": [
+    {
+      "all_finite": true,
+      "control_final_loss": 6.236793518066406,
+      "max_abs_loss_difference": 8.440017700195312e-05,
+      "mean_loss_difference": 1.0751187801361084e-05,
+      "scales_in_bounds": true,
+      "seed": 707021,
+      "treatment_distinct_scales": 8,
+      "treatment_final_loss": 6.236804485321045,
+      "treatment_success_fraction": 0.0
+    },
+    {
+      "all_finite": true,
+      "control_final_loss": 6.246501445770264,
+      "max_abs_loss_difference": 7.915496826171875e-05,
+      "mean_loss_difference": 9.387731552124023e-07,
+      "scales_in_bounds": true,
+      "seed": 707022,
+      "treatment_distinct_scales": 8,
+      "treatment_final_loss": 6.24651575088501,
+      "treatment_success_fraction": 0.0
+    },
+    {
+      "all_finite": true,
+      "control_final_loss": 6.242593288421631,
+      "max_abs_loss_difference": 5.817413330078125e-05,
+      "mean_loss_difference": -4.932284355163574e-06,
+      "scales_in_bounds": true,
+      "seed": 707023,
+      "treatment_distinct_scales": 8,
+      "treatment_final_loss": 6.24253511428833,
+      "treatment_success_fraction": 0.0
+    },
+    {
+      "all_finite": true,
+      "control_final_loss": 6.249540328979492,
+      "max_abs_loss_difference": 6.866455078125e-05,
+      "mean_loss_difference": -3.7923455238342285e-06,
+      "scales_in_bounds": true,
+      "seed": 707024,
+      "treatment_distinct_scales": 8,
+      "treatment_final_loss": 6.249551296234131,
+      "treatment_success_fraction": 0.0
+    },
+    {
+      "all_finite": true,
+      "control_final_loss": 6.246050834655762,
+      "max_abs_loss_difference": 5.7220458984375e-05,
+      "mean_loss_difference": 1.1622905731201172e-06,
+      "scales_in_bounds": true,
+      "seed": 707025,
+      "treatment_distinct_scales": 8,
+      "treatment_final_loss": 6.246042251586914,
+      "treatment_success_fraction": 0.0
+    }
+  ],
+  "preregistration": "experiments/HORM-001/PLAN.md HORM-004 section",
+  "probes": [
+    {
+      "gold": 12,
+      "prompt": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "task_id": "horm004-probe-0"
+    },
+    {
+      "gold": 28,
+      "prompt": [
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27
+      ],
+      "task_id": "horm004-probe-1"
+    },
+    {
+      "gold": 108,
+      "prompt": [
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107
+      ],
+      "task_id": "horm004-probe-2"
+    },
+    {
+      "gold": 208,
+      "prompt": [
+        200,
+        201,
+        202,
+        203,
+        204,
+        205,
+        206,
+        207
+      ],
+      "task_id": "horm004-probe-3"
+    }
+  ],
+  "provenance": {
+    "runner_sha256": "0e0dccb838308c0485ea81686aa3b922211f045f881ea746cd94882b03a3f55d",
+    "runtime": "cpu",
+    "source_file_sha256": {
+      "v5_identity/appraisal.py": "690716202462712e5974f149083052b02e319d82ac88003e44b4b7250827b783",
+      "v5_identity/attention_patch.py": "9928671fa71501699c12920c4c988aff9cce14bfea5739dad83c567a3d9c0226",
+      "v5_identity/hormonal_projection.py": "ad015d3e3055a669a730cd1c4603c03ee045e00e573360757905639d637a99d4",
+      "v5_identity/hormonal_state.py": "df542d11fb042b2cf86977214ec2b6b669bedb7530fa7c936868148f7168a57c"
+    },
+    "threads": 2,
+    "torch_version": "2.13.0+cpu"
+  },
+  "schema": "anra-horm-004-prospective/v1",
+  "seeds": [
+    707021,
+    707022,
+    707023,
+    707024,
+    707025
+  ],
+  "sha256": "379d0d95d7f756af73785606d8d9326f6412d587d7b35a6d00873ef1da5879e9",
+  "sign_consistent_seeds": 3,
+  "spec_sha256": "e4dc015a4b3f5f4e91c95aaf6b44f08c4a203373d86334c53af76ab712e7c201",
+  "tokens_per_update": 256,
+  "updates": 64,
+  "verdict": "NOT_SUPPORTED"
+}
