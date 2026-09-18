@@ -56,6 +56,8 @@ def test_cell1_runs_only_committed_commands():
     for required in ("test_hormonal_state.py", "test_hormonal_integration.py",
                       "test_hormonal_session.py", "--horm003", "--horm004",
                       "--force", "-m\", \"pytest\", \"tests",
+                      "--ignore=tests/test_production_entry.py",
+                      "tests/test_production_entry.py",
                       "CUDA_VISIBLE_DEVICES", "ANRA_TEST_DEVICE",
                       "v5_contracts.import_boundaries"):
         assert required in cell1, f"CELL 1 missing {required}"
