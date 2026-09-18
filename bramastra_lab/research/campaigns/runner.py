@@ -130,7 +130,11 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                                                 data_hash, max_wall_minutes)
         except SupervisorError as exc:
             print(json.dumps({"status": "ALLOCATION_REJECTED",
-                              "error": str(exc)}))
+                              "error": str(exc),
+                              "hint": "keep --data bundle bytes, source revision "
+                                      "and --max-wall-minutes identical between "
+                                      "e0 and full cells; regenerate nothing "
+                                      "mid-campaign (new BRAMASTRA_RUN_ID = new campaign)"}))
             return 2
         campaign_start = deadline - max_wall_minutes * 60.0
         completed_jobs = {row[0] for row in ledger.conn.execute(
@@ -157,7 +161,7 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
         from bramastra_lab.research.campaigns import process_supervision as ps
 
         phase_deadlines = ps.phase_absolute_deadlines(campaign_start, campaign_plan)
-        training_cutoff = ps.campaign_training_cutoff(campaign_start)
+        training_cutoff = ps.campaign_training_cutoff(campaign_start, max_wall_minutes)
         device_report = ps.verify_physical_devices(list(devices))
         ledger.append_event("device_verification", device_report)
 
@@ -173,6 +177,16 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                 ledger.append_event("phase_skipped", {
                     "phase": phase, "reason": "training_cutoff_exceeded",
                     "cutoff_unix": training_cutoff})
+                campaign_failed = True
+                continue
+            if phase != "E6" and (deadline - time.time()) < 15 * 60.0:
+                # Last-window guard: under 15 minutes of wall remain. Never
+                # start new training that the session cap would kill mid-write;
+                # snapshot completed work and stop gracefully instead.
+                _safety_sweep(ledger, run_dir, reason=f"last-window-before-{phase}")
+                ledger.append_event("phase_skipped", {
+                    "phase": phase, "reason": "last_window_exceeded",
+                    "remaining_seconds": round(deadline - time.time(), 1)})
                 campaign_failed = True
                 continue
             slots: list[list[dict[str, Any]]] = phase_entry.get(
@@ -369,6 +383,7 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                     ledger.append_event("phase_failed", {
                         "phase": phase, "slot": slot_index})
                     break
+            _safety_sweep(ledger, run_dir, reason=f"phase-{phase}-done")
         remaining = (ledger.deadline() or time.time()) - time.time()
         final_status = "CAMPAIGN_FAILED" if campaign_failed else "CAMPAIGN_PHASE_COMPLETE"
         print(json.dumps({"status": final_status, "mode": mode,
@@ -378,6 +393,10 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                           "failures": _failure_summary(results)}, indent=2))
         return 1 if campaign_failed else 0
     finally:
+        try:
+            _safety_sweep(ledger, run_dir, reason="campaign-exit")
+        except Exception:
+            pass
         try:
             if ledger is not None:
                 ledger.close()
@@ -408,6 +427,26 @@ def _load_usable_protocol(run_dir: str,
     except Exception:
         return None
     return protocol
+
+
+def _safety_sweep(ledger: Any, run_dir: str, reason: str) -> None:
+    """Best-effort safety snapshot; never fails the campaign.
+
+    Writes a results-only snapshot of completed work into
+    <run_dir>/safety/ and records a ledger event. All errors are
+    swallowed: a snapshot is a survival net, never a gate.
+    """
+    try:
+        from bramastra_lab.research.campaigns.results_pack import snapshot_run_dir
+        receipt = snapshot_run_dir(run_dir, reason)
+        try:
+            ledger.append_event("safety_snapshot", {
+                "reason": reason, "archive": receipt["archive"],
+                "files": receipt["files"], "bytes": receipt["bytes"]})
+        except Exception:
+            pass
+    except Exception:
+        pass
 
 
 def _failure_summary(results: Mapping[str, Mapping[str, Any]]) -> dict[str, str]:
@@ -519,6 +558,15 @@ def _phase_plan(mode: str, deadline: float,
     from bramastra_lab.research.campaigns.process_supervision import (
         EXPORT_RESERVE_MINUTES)
 
+    from bramastra_lab.research.campaigns.kaggle_env import (
+        K8EnvironmentError,
+        normalize_devices,
+    )
+    try:
+        gpu0, gpu1 = normalize_devices(list(devices))
+    except K8EnvironmentError as exc:
+        raise ValueError(str(exc)) from exc
+    device_list = [gpu0, gpu1]
     caps = _phase_caps(max_wall_minutes, EXPORT_RESERVE_MINUTES)
     plan_sum = sum(caps.values()) + EXPORT_RESERVE_MINUTES
     if abs(plan_sum - float(max_wall_minutes)) > 1e-6:
@@ -532,15 +580,15 @@ def _phase_plan(mode: str, deadline: float,
         slots_for_phase = 2 if phase in ("E1", "E3", "E4") else 1
         return caps[phase] / slots_for_phase * 60.0
 
-    device_list = list(devices)
-    gpu0 = device_list[0] if len(device_list) > 0 else "cuda:0"
-    gpu1 = device_list[1] if len(device_list) > 1 else "cuda:1"
+    gpu0 = device_list[0]
+    gpu1 = device_list[1]
     plan = []
+    e0_wall = max(60.0, (caps["E0"] - 5) * 60.0)
     e0_workers = [
         {"job_id": "E0-w0", "worker": "w0", "device": gpu0, "phase": "E0",
-         "wall_seconds": (caps["E0"] - 5) * 60.0},
+         "wall_seconds": e0_wall},
         {"job_id": "E0-w1", "worker": "w1", "device": gpu1, "phase": "E0",
-         "wall_seconds": (caps["E0"] - 5) * 60.0},
+         "wall_seconds": e0_wall},
     ]
     plan.append({"phase": "E0", "wall_cap_minutes": caps["E0"],
                  "workers": e0_workers, "slots": [e0_workers]})

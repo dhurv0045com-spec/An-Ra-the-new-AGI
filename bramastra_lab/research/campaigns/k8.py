@@ -64,6 +64,31 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--run-dir", required=True)
     export.add_argument("--out", required=True)
 
+    xprobe = subparsers.add_parser(
+        "xprobe",
+        help="read-only X-factor probe pack: architecture review + utilization "
+             "accounting (no allocation, zero optimizer updates)")
+    xprobe.add_argument("--run-dir", required=True, help="existing campaign run directory")
+    xprobe.add_argument("--out", required=True, help="NEW directory for xprobe_report.json")
+    xprobe.add_argument("--device", default="cuda:0",
+                        help="probe device (falls back to cpu when unavailable)")
+
+    pack = subparsers.add_parser(
+        "package-results",
+        help="pack all experiment results (no payload bytes) into one small ZIP")
+    pack.add_argument("--run-dir", required=True, help="campaign run directory")
+    pack.add_argument("--out", required=True, help="NEW output .zip path")
+    pack.add_argument("--extra", action="append", default=[],
+                      help="additional result file/dir to include (repeatable)")
+    pack.add_argument("--run-id", default="results", help="receipt run label")
+
+    snap = subparsers.add_parser(
+        "safety-snapshot",
+        help="write a timestamped results-only safety snapshot into <run-dir>/safety/")
+    snap.add_argument("--run-dir", required=True, help="campaign run directory")
+    snap.add_argument("--reason", default="manual",
+                      help="snapshot reason recorded in the receipt")
+
     verify = subparsers.add_parser(
         "verify-build",
         help="run registered local checks, exercise real no-step interfaces, "
@@ -103,20 +128,42 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
     report = validate_bundle(args.bundle)
     print(json.dumps(report, indent=2, sort_keys=True))
-    return 0 if report["valid"] else 2
+    if not report["valid"]:
+        print(json.dumps({"hint": "CLI validate requires the FULL bundle "
+                                  "(--confirmation-mechanisms 128, --training-mechanisms 4096, "
+                                  "--meta-confirm 6). The notebook generates it automatically; "
+                                  "reduced local bundles fail this gate by design."}))
+        return 2
+    return 0
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.campaigns.kaggle_env import (
+        K8EnvironmentError,
+        normalize_devices,
+        resolve_build_report_arg,
+    )
     from bramastra_lab.research.campaigns.runner import run_campaign
 
+    try:
+        gpu0, gpu1 = normalize_devices(str(args.devices))
+        build_report_path = resolve_build_report_arg(args.build_report)
+    except K8EnvironmentError as exc:
+        print(json.dumps({"status": "BAD_REQUEST", "message": str(exc)}))
+        return 2
     return run_campaign(run_dir=args.run_dir, mode=args.mode, data_dir=args.data,
                         max_wall_minutes=args.max_wall_minutes,
-                        devices=args.devices.split(","), precision=args.precision,
-                        build_report=os.path.join(args.build_report, "build_verification.json")
-                        if args.build_report else None)
+                        devices=[gpu0, gpu1], precision=args.precision,
+                        build_report=build_report_path)
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
+    ledger_path = os.path.join(args.run_dir, "campaign_ledger.sqlite")
+    if not os.path.exists(ledger_path):
+        print(json.dumps({"status": "NO_LEDGER",
+                          "message": f"no campaign ledger at {ledger_path}; "
+                                     "run --mode e0 first with the same --run-dir"}))
+        return 2
     ledger = CampaignLedger(args.run_dir)
     deadline = ledger.deadline()
     report = {"deadline_unix": deadline,
@@ -157,7 +204,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         except Exception:
             pass
     os.makedirs(args.out, exist_ok=True)
-    with open(os.path.join(args.out, "campaign_ledger.json"), "w") as handle:
+    with open(os.path.join(args.out, "campaign_ledger.json"), "w", encoding="utf-8") as handle:
         json.dump(export, handle, indent=2, sort_keys=True)
     # Per-phase results with qualified-receipt accounting.
     phases = ("E0", "E1", "E2", "E3", "E4", "E5", "E6")
@@ -184,9 +231,9 @@ def cmd_export(args: argparse.Namespace) -> int:
             ledger2.close()
         except Exception:
             pass
-    with open(os.path.join(args.out, "phase_results.json"), "w") as handle:
+    with open(os.path.join(args.out, "phase_results.json"), "w", encoding="utf-8") as handle:
         json.dump(phase_results, handle, indent=2, sort_keys=True)
-    with open(os.path.join(args.out, "allocation.json"), "w") as handle:
+    with open(os.path.join(args.out, "allocation.json"), "w", encoding="utf-8") as handle:
         json.dump({"allocations": allocations}, handle, indent=2, sort_keys=True,
                   default=str)
     # Failures (failed-run records preserved, never dropped).
@@ -211,16 +258,17 @@ def cmd_export(args: argparse.Namespace) -> int:
         recorded_wall = float(allocations[0][5])             if allocations and len(allocations[0]) > 5 else None
     except (TypeError, ValueError, IndexError):
         recorded_wall = None
+    protocol_wall = recorded_wall if recorded_wall else 600.0
     protocol = {
         "schema": "bramastra-k8-protocol/v1",
-        "wall_minutes": recorded_wall if recorded_wall else 600.0,
-        "training_cutoff_minutes": ps.TRAINING_CUTOFF_MINUTES,
+        "wall_minutes": protocol_wall,
+        "training_cutoff_minutes": protocol_wall - ps.EXPORT_RESERVE_MINUTES,
         "export_reserve_minutes": ps.EXPORT_RESERVE_MINUTES,
         "required_workers_e0": 2,
         "phases": ["E0", "E1", "E2", "E3", "E4", "E5", "E6"],
         "admission": "qualified E0 receipts on distinct devices + checkpoint + updates",
     }
-    with open(os.path.join(args.out, "protocol.json"), "w") as handle:
+    with open(os.path.join(args.out, "protocol.json"), "w", encoding="utf-8") as handle:
         json.dump(protocol, handle, indent=2, sort_keys=True)
     # Source/data identities (real hashes, never generic `k8`).
     try:
@@ -237,11 +285,11 @@ def cmd_export(args: argparse.Namespace) -> int:
         data_hash = allocations[0][2] if allocations and len(allocations[0]) > 2 else "unavailable"
     except Exception:
         data_hash = "unavailable"
-    with open(os.path.join(args.out, "source.json"), "w") as handle:
+    with open(os.path.join(args.out, "source.json"), "w", encoding="utf-8") as handle:
         json.dump({"source_closure_sha256": source_hash,
                    "tokenizer_identity": tokenizer_id,
                    "config_identity": config_id}, handle, indent=2, sort_keys=True)
-    with open(os.path.join(args.out, "data.json"), "w") as handle:
+    with open(os.path.join(args.out, "data.json"), "w", encoding="utf-8") as handle:
         json.dump({"data_hash": data_hash,
                    "note": "Preserve the prepared bundle alongside this export; "
                            "resume across changed data requires explicit migration."},
@@ -257,12 +305,12 @@ def cmd_export(args: argparse.Namespace) -> int:
                 transcripts.append(json.load(open(path, encoding="utf-8")))
             except Exception:
                 continue
-        with open(os.path.join(args.out, "proposer_transcripts.json"), "w") as handle:
+        with open(os.path.join(args.out, "proposer_transcripts.json"), "w", encoding="utf-8") as handle:
             json.dump({"transcripts": transcripts}, handle, indent=2, sort_keys=True)
     except Exception:
-        with open(os.path.join(args.out, "proposer_transcripts.json"), "w") as handle:
+        with open(os.path.join(args.out, "proposer_transcripts.json"), "w", encoding="utf-8") as handle:
             json.dump({"transcripts": []}, handle, indent=2, sort_keys=True)
-    with open(os.path.join(args.out, "comparisons.json"), "w") as handle:
+    with open(os.path.join(args.out, "comparisons.json"), "w", encoding="utf-8") as handle:
         json.dump({"phase_results": phase_results}, handle, indent=2, sort_keys=True)
     # Checkpoint payload bytes (not metadata only): copy real .pt payloads +
     # manifests into the export when present.
@@ -286,7 +334,7 @@ def cmd_export(args: argparse.Namespace) -> int:
     # Source/data artifacts: copy bundle manifest when the run records one.
     # The run_dir does not store the data path; record the ledger's data_hash
     # binding and require the caller to preserve the bundle alongside export.
-    with open(os.path.join(args.out, "restore_evidence.json"), "w") as handle:
+    with open(os.path.join(args.out, "restore_evidence.json"), "w", encoding="utf-8") as handle:
         checkpoints = []
         for row in export.get("reservations", []):
             # Reservation rows: (reservation_id, job_id, parent, worker, device,
@@ -322,7 +370,7 @@ def cmd_export(args: argparse.Namespace) -> int:
             except OSError:
                 continue
     manifest_path = os.path.join(args.out, "artifact_manifest.json")
-    with open(manifest_path, "w") as handle:
+    with open(manifest_path, "w", encoding="utf-8") as handle:
         json.dump({"schema": "bramastra-k8-artifact-manifest/v1",
                    "files": manifest_records,
                    "payload_files": payload_count,
@@ -412,6 +460,52 @@ def cmd_verify_build(args: argparse.Namespace) -> int:
     return 0 if report["ready_for_owner_experiment"] else 1
 
 
+def cmd_xprobe(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.campaigns.xprobe import run_xprobe, XProbeError
+
+    try:
+        report = run_xprobe(args.run_dir, args.out, device=args.device)
+    except XProbeError as exc:
+        print(json.dumps({"status": "XPROBE_REFUSED", "error": str(exc)}))
+        return 2
+    print(json.dumps({
+        "status": "XPROBE_PASS" if report["xprobe_pass"] else "XPROBE_FAIL",
+        "report": os.path.join(os.path.abspath(args.out), "xprobe_report.json"),
+        "failing": report["failing"],
+        "optimizer_updates": 0,
+    }, indent=2, sort_keys=True))
+    return 0 if report["xprobe_pass"] else 1
+
+
+def cmd_package_results(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.campaigns.results_pack import _build, ResultsPackError
+
+    sources: list[str] = [args.run_dir]
+    sources.extend(args.extra or [])
+    try:
+        receipt = _build(sources, args.out, run_id=args.run_id)
+    except ResultsPackError as exc:
+        print(json.dumps({"status": "PACK_REFUSED", "error": str(exc)}))
+        return 2
+    print(json.dumps({"status": "PACKED", **receipt}, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_safety_snapshot(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.campaigns.results_pack import (
+        ResultsPackError,
+        snapshot_run_dir,
+    )
+
+    try:
+        receipt = snapshot_run_dir(args.run_dir, args.reason)
+    except ResultsPackError as exc:
+        print(json.dumps({"status": "SNAPSHOT_REFUSED", "error": str(exc)}))
+        return 2
+    print(json.dumps({"status": "SNAPSHOT_WRITTEN", **receipt}, indent=2, sort_keys=True))
+    return 0
+
+
 HANDLERS = {
     "prepare": cmd_prepare,
     "validate": cmd_validate,
@@ -419,6 +513,9 @@ HANDLERS = {
     "summarize": cmd_summarize,
     "export": cmd_export,
     "verify-build": cmd_verify_build,
+    "xprobe": cmd_xprobe,
+    "package-results": cmd_package_results,
+    "safety-snapshot": cmd_safety_snapshot,
 }
 
 
@@ -432,6 +529,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return HANDLERS[args.command](args)
     except (SupervisorError,) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except (OSError, RuntimeError) as exc:
+        # SQLite locking, CUDA/OOM and other runtime failures surface here
+        # with a stable envelope instead of a bare traceback.
+        print(json.dumps({"status": "RUNTIME_ERROR",
+                          "command": args.command,
+                          "error": str(exc)[:2000]}))
         return 2
 
 

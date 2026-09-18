@@ -2,6 +2,8 @@
 
 ## Active work: FINAL-K8 — complete the owner experiment build
 
+**Execution schedule and continuity:** [Ten-day handoff, 15–24 September](engineering/ten_day_handoff_20260915/README.md) records the latest source review, daily work and reusable prompts. Follow it while completing the unchanged FINAL-K8 technical requirements. Maintain engineering/FINAL_K8_PROGRESS.md so work can resume without another chief conversation.
+
 Read [engineering/README.md](engineering/README.md), [STATUS](engineering/STATUS.md), [FINAL_EXPERIMENT_EXECUTION.md](engineering/FINAL_EXPERIMENT_EXECUTION.md) and [REQUIREMENTS.json](engineering/final_delivery/REQUIREMENTS.json), then implement. These contain the complete remaining assignment. Older blueprints are optional references for specific questions, not a prerequisite reading queue.
 
 The owner now requires the entire experiment-ready implementation, not only H01. Finish the model/learning consumers, data, cognition, tools, architecture adaptation, RSI, runtime, notebook, build verifier and delivery artifacts. There is no one-hour stopping condition. Continue across progress commits/checkpoints until all 24 requirements are verified or a precise external blocker is established. Do not return another plan, a passing subset or a workload estimate as completion.

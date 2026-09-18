@@ -70,10 +70,10 @@ class LedgerAccountingTests(unittest.TestCase):
         path = os.path.join(tmp.name, "SESSION_LEDGER.json")
         SessionLedger(path)
         if used_updates or used_seconds:
-            state = json.load(open(path))
+            state = json.load(open(path, encoding="utf-8"))
             state["cpu_optimizer_updates"] = used_updates
             state["cpu_learned_smoke_seconds"] = used_seconds
-            json.dump(state, open(path, "w"), indent=2, sort_keys=True)
+            json.dump(state, open(path, "w", encoding="utf-8"), indent=2, sort_keys=True)
         return path
 
     def test_pre_execution_accounting_refuses_over_budget(self) -> None:

@@ -29,6 +29,36 @@ ARM_WEIGHTS = {
     "B": {"token": 1.0, "world": 0.5, "action": 0.5, "value": 0.1,
           "pair": 0.1, "pg": 0.0},
 }
+
+
+def _write_partial_receipt(job: JobInput, *, committed: int, attempted: int,
+                           exposure: int, checkpoint_ids: list[str],
+                           parent_for_next: str | None, step: int,
+                           stream_id: str) -> None:
+    """Best-effort partial receipt: interruption never loses completed steps.
+
+    Written alongside every mid-phase checkpoint publication (~200 steps).
+    A killed session resumes from ledger receipts, but this file is the
+    human-readable proof of how far the arm reached. Never raises: receipt
+    IO must not fail training.
+    """
+    try:
+        artifact_dir = os.path.join(job.run_dir, "phase_outputs", job.phase)
+        os.makedirs(artifact_dir, exist_ok=True)
+        partial = {"partial": True, "job": {"phase": job.phase, "arm": job.arm,
+                                            "seed": job.seed, "job_id": job.job_id,
+                                            "update_target": job.update_target},
+                   "stream_id": stream_id,
+                   "completed_steps": step + 1,
+                   "committed_updates": committed, "attempted_updates": attempted,
+                   "supervised_exposure": exposure,
+                   "checkpoint_identities": list(checkpoint_ids),
+                   "checkpoint_identity": parent_for_next}
+        with open(os.path.join(artifact_dir, f"{job.arm}-{job.seed}-partial.json"),
+                  "w", encoding="utf-8") as handle_file:
+            json.dump(partial, handle_file, indent=2, sort_keys=True)
+    except Exception:
+        pass
 ARM_ENABLED = {
     "A": frozenset({"token"}),
     "B": frozenset({"token", "world", "action", "value", "pair"}),
@@ -167,6 +197,15 @@ def execute(job: JobInput, *, ops=None,
     checkpoint_ids: list[str] = []
     parent_for_next: str | None = None
     fractions = {max(1, target * p // 100) for p in (25, 50, 75, 100)}
+    # Declared mid-phase save cadence (owner request: "every ~200 steps"):
+    # a checkpoint is published each time 200 loop steps elapse or 200
+    # optimizer updates accumulate since the last publication, in addition
+    # to the registered 25/50/75/100% lineage fractions. A session that
+    # dies loses at most this many steps/updates of the active arm.
+    checkpoint_every_updates = 200
+    checkpoint_every_steps = 200
+    committed_since_checkpoint = 0
+    steps_since_checkpoint = 0
     # Pair support: need distinct-answer lookahead for B.
     for step in range(target):
         row = trajectories[step % len(trajectories)]
@@ -242,7 +281,12 @@ def execute(job: JobInput, *, ops=None,
         attempted += int(outcome.get("attempted", 0))
         exposure += int(outcome.get("exposure", 0))
         noop_boundaries += 1 if outcome.get("boundary") == "noop" else 0
-        if (step + 1) in fractions or (step + 1) == target:
+        committed_since_checkpoint += int(outcome.get("committed", 0))
+        steps_since_checkpoint += 1
+        if (step + 1) in fractions or (step + 1) == target or (
+                steps_since_checkpoint >= checkpoint_every_steps) or (
+                committed_since_checkpoint >= checkpoint_every_updates
+                and committed_since_checkpoint > 0):
             try:
                 checkpoint_id = ops.publish_checkpoint(
                     handle=handle, run_dir=job.run_dir, phase="E1",
@@ -259,6 +303,12 @@ def execute(job: JobInput, *, ops=None,
                     device_seconds=time.monotonic() - started,
                     error=f"E1 checkpoint publication refused: {exc}",
                     evidence_kind=EVIDENCE_FIXTURE, extra={"phase": "E1"})
+            committed_since_checkpoint = 0
+            steps_since_checkpoint = 0
+            _write_partial_receipt(job, committed=committed, attempted=attempted,
+                                   exposure=exposure, checkpoint_ids=checkpoint_ids,
+                                   parent_for_next=parent_for_next, step=step,
+                                   stream_id=stream_id)
     # Final checkpoint (100%) if not already published.
     try:
         after_updates = int(ops.optimizer_updates(handle))

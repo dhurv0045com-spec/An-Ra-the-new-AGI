@@ -1,0 +1,11 @@
+# Ten-day engineering handoff: 15–24 September 2026
+
+The owner is conserving remaining assistant usage. This packet records the current findings, next ten days of execution and reusable agent prompts so work can continue without another chief conversation. These are ten planning days in Asia/Kolkata, not scheduled automation or ten already completed days. Advance earlier when criteria pass; do not wait to fill calendar time.
+
+**Mission remains FINAL-K8:** finish the complete owner experiment build. Read [CURRENT_REVIEW.md](CURRENT_REVIEW.md), [TEN_DAY_EXECUTION.md](TEN_DAY_EXECUTION.md) and [AGENT_PROMPTS.md](AGENT_PROMPTS.md). Use [FINAL_EXPERIMENT_EXECUTION.md](../FINAL_EXPERIMENT_EXECUTION.md) for the complete technical specification and [REQUIREMENTS.json](../final_delivery/REQUIREMENTS.json) for all 24 acceptance requirements. This packet schedules that assignment; it does not replace it with more architecture writing.
+
+Checked implementation: `58e517b`, following `5d335c1`, on 15 September. Current readiness: **false**. The newest report acknowledges unfinished implementation. Its fourteen PASS labels are not fourteen chief-accepted requirements: several have explicitly missing consumers or verification. Source inspection confirms unresolved compiler slicing, copied RSI choices and the static false readiness gate. No tests or training were rerun for this usage-conserving review.
+
+Begin with production edits. After each useful work session, commit scoped code and write a small durable progress record. Do not spend the next ten days rewriting plans, rerunning broad suites or reclassifying missing integration as GPU-only. At the end deliver the runnable notebook, complete compatible offline data artifact, evidence-backed build verification, full export/restart behavior and operator guide. If implementation is ready sooner, proceed through final checks sooner.
+
+The owner alone launches the registered GPU campaign. No local optimizer updates; no paid compute; no additional sessions. The campaign remains one two-T4 allocation of at most 480 elapsed minutes, training stops at 450, export reserve 30. Actual hardware qualification is automatic E0 work within that allowance. Calendar dates never authorize a launch or a new allocation.

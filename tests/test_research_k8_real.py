@@ -101,7 +101,7 @@ class WorkerPropagationTests(unittest.TestCase):
         from bramastra_lab.research.campaigns import worker
 
         tmp = tempfile.mkdtemp()
-        open(os.path.join(tmp, "manifest.json"), "w").write("{}")
+        open(os.path.join(tmp, "manifest.json"), "w", encoding="utf-8").write("{}")
         run = tempfile.mkdtemp()
         out = worker.run_worker_phase(
             phase="E1", device="cpu", arm="A", seed=1701, data_dir=tmp,
@@ -173,9 +173,9 @@ class E5AnchorTests(unittest.TestCase):
         from bramastra_lab.research.campaigns.phases import e5
 
         tmp = tempfile.mkdtemp()
-        open(os.path.join(tmp, "manifest.json"), "w").write("{}")
+        open(os.path.join(tmp, "manifest.json"), "w", encoding="utf-8").write("{}")
         os.makedirs(os.path.join(tmp, "meta"), exist_ok=True)
-        open(os.path.join(tmp, "meta", "meta_tasks.jsonl"), "w").write("")
+        open(os.path.join(tmp, "meta", "meta_tasks.jsonl"), "w", encoding="utf-8").write("")
         run = tempfile.mkdtemp()
         job = JobInput(phase="E5", slot=0, arm=None, seed=1701, parent=None,
                        physical_device="cpu", local_device="cpu",
@@ -194,7 +194,7 @@ class E5OrderingTests(unittest.TestCase):
         from bramastra_lab.research.campaigns.supervisor import CampaignLedger
 
         data_dir = tempfile.mkdtemp()
-        open(os.path.join(data_dir, "manifest.json"), "w").write("{}")
+        open(os.path.join(data_dir, "manifest.json"), "w", encoding="utf-8").write("{}")
         os.makedirs(os.path.join(data_dir, "meta"), exist_ok=True)
         with open(os.path.join(data_dir, "meta", "meta_tasks.jsonl"), "w",
                   encoding="utf-8") as handle:
@@ -322,7 +322,7 @@ class E2ExplicitTests(unittest.TestCase):
         from bramastra_lab.research.campaigns.phases import e2
 
         tmp = tempfile.mkdtemp()
-        open(os.path.join(tmp, "manifest.json"), "w").write("{}")
+        open(os.path.join(tmp, "manifest.json"), "w", encoding="utf-8").write("{}")
         run = tempfile.mkdtemp()
         job = JobInput(phase="E2", slot=0, arm=None, seed=1701,
                        parent="E1-B-1701", physical_device="cpu",

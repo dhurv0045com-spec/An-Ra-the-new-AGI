@@ -98,6 +98,19 @@ def build_parser() -> argparse.ArgumentParser:
     package.add_argument("--run-dir", required=True, help="existing run directory")
     package.add_argument("--out", required=True, help="output package manifest JSON path")
 
+    verify_build = subparsers.add_parser(
+        "verify-build", help="run registered local checks and write an "
+                             "evidence-backed build report (zero optimizer commits)")
+    verify_build.add_argument("--data", required=True, help="prepared bundle directory")
+    verify_build.add_argument("--report-dir", required=True,
+                              help="NEW directory for build_verification.json")
+    verify_build.add_argument("--no-updates", action="store_true",
+                              help="required flag: enforces zero optimizer commits")
+    verify_build.add_argument("--notebook", default=None,
+                              help="owner notebook path (default: notebooks/bramastra_k8.ipynb)")
+    verify_build.add_argument("--skip-check-groups", action="store_true",
+                              help="internal: exercises only (used by focused tests)")
+
     return parser
 
 
@@ -183,6 +196,30 @@ def cmd_collect(args: argparse.Namespace) -> int:
                    seed=args.seed)
 
 
+def cmd_verify_build(args: argparse.Namespace) -> int:
+    from bramastra_lab.research.campaigns.verify_build import run_verify_build
+
+    if not args.no_updates:
+        print("error: verify-build requires --no-updates (zero optimizer "
+              "commits are enforced)", file=sys.stderr)
+        return 2
+    report = run_verify_build(
+        args.data, args.report_dir, no_updates=True,
+        notebook_path=args.notebook,
+        run_checks=not args.skip_check_groups)
+    failing = sorted(
+        req_id for req_id, row in report["requirements"].items()
+        if row["status"] != "pass")
+    print(json.dumps({
+        "status": "VERIFIED" if report["ready_for_owner_experiment"]
+        else "NOT_READY",
+        "report": report.get("report_path", args.report_dir),
+        "failing_requirements": failing,
+        "optimizer_updates_local": report.get("optimizer_updates_local", 0),
+    }, indent=2, sort_keys=True))
+    return 0 if report["ready_for_owner_experiment"] else 1
+
+
 HANDLERS = {
     "inspect": cmd_inspect,
     "prepare-data": cmd_prepare_data,
@@ -192,6 +229,7 @@ HANDLERS = {
     "evaluate": cmd_evaluate,
     "package": cmd_package,
     "collect": cmd_collect,
+    "verify-build": cmd_verify_build,
 }
 
 

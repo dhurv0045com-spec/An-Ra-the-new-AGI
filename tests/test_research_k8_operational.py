@@ -752,7 +752,7 @@ class O05MatchedEvaluationTests(unittest.TestCase):
         from bramastra_lab.research.campaigns.phases.types import JobInput
 
         data_dir = tempfile.mkdtemp()
-        open(os.path.join(data_dir, "manifest.json"), "w").write("{}")
+        open(os.path.join(data_dir, "manifest.json"), "w", encoding="utf-8").write("{}")
         run = tempfile.mkdtemp()
         ckpts = self._ledger_with_parents(run)
         job = JobInput(phase="E2", slot=0, arm=None, seed=1701,
@@ -764,7 +764,7 @@ class O05MatchedEvaluationTests(unittest.TestCase):
         self.assertEqual(res.status, "completed")
         self.assertEqual(res.evidence_kind, "fixture")
         artifact = _json.load(open(os.path.join(
-            run, "phase_outputs", "E2", "E2-1701.json")))
+            run, "phase_outputs", "E2", "E2-1701.json"), encoding="utf-8"))
         self.assertEqual(artifact["matched_groups"], 1)
         self.assertEqual(artifact["mechanism_source"], "k8-live-eval/v1")
         for mode in ("b-policy", "b-workspace", "b-planner", "a-direct",
@@ -787,7 +787,7 @@ class O05MatchedEvaluationTests(unittest.TestCase):
         from bramastra_lab.research.runtime import checkpoint as ckpt
 
         data_dir = tempfile.mkdtemp()
-        open(os.path.join(data_dir, "manifest.json"), "w").write("{}")
+        open(os.path.join(data_dir, "manifest.json"), "w", encoding="utf-8").write("{}")
         run = tempfile.mkdtemp()
         manifest = ckpt.save_checkpoint(
             run, {"model": {"w": torch.zeros(2)},
@@ -912,7 +912,7 @@ class O10NotebookTests(unittest.TestCase):
         self.assertEqual(ProductionOps().precision, "fp32")
 
     def test_notebook_backed_by_repo(self) -> None:
-        notebook = json.load(open("notebooks/bramastra_k8.ipynb"))
+        notebook = json.load(open("notebooks/bramastra_k8.ipynb", encoding="utf-8"))
         sources = ["".join(cell["source"]) for cell in notebook["cells"]
                    if cell["cell_type"] == "code"]
         joined = "\n".join(sources)
@@ -947,7 +947,7 @@ class O10NotebookTests(unittest.TestCase):
     def test_notebook_code_cells_parse(self) -> None:
         import ast
 
-        notebook = json.load(open("notebooks/bramastra_k8.ipynb"))
+        notebook = json.load(open("notebooks/bramastra_k8.ipynb", encoding="utf-8"))
         for index, cell in enumerate(notebook["cells"]):
             if cell["cell_type"] == "code":
                 source = "".join(cell["source"])
@@ -959,7 +959,7 @@ class O10NotebookTests(unittest.TestCase):
         from pathlib import Path
         import zipfile
 
-        notebook = json.load(open("notebooks/bramastra_k8.ipynb"))
+        notebook = json.load(open("notebooks/bramastra_k8.ipynb", encoding="utf-8"))
         source = next(
             "".join(cell["source"])
             for cell in notebook["cells"]

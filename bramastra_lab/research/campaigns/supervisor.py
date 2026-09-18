@@ -56,7 +56,13 @@ class CampaignLedger:
     def __init__(self, run_dir: str) -> None:
         os.makedirs(run_dir, exist_ok=True)
         self.path = os.path.join(run_dir, "campaign_ledger.sqlite")
-        self.conn = sqlite3.connect(self.path)
+        self.conn = sqlite3.connect(self.path, timeout=60.0,
+                                    check_same_thread=False)
+        try:
+            self.conn.execute("PRAGMA journal_mode=WAL;")
+            self.conn.execute("PRAGMA busy_timeout=60000;")
+        except Exception:
+            pass
         self.conn.executescript("""
             CREATE TABLE IF NOT EXISTS allocation (
                 allocation_id TEXT PRIMARY KEY,
@@ -122,7 +128,12 @@ class CampaignLedger:
             raise SupervisorError(
                 f"run directory already bound to allocation {other[0]!r}; "
                 f"refusing second allocation {allocation_id!r} in the same "
-                "directory (use a new run directory for a new campaign)")
+                "directory (use a new run directory for a new campaign). "
+                "Common causes: regenerated data bundle (new manifest bytes), "
+                "changed source revision (git pull), or a different "
+                "--max-wall-minutes between e0 and full cells. Keep bundle, "
+                "source and --max-wall-minutes identical, or set a new "
+                "BRAMASTRA_RUN_ID for an independent campaign.")
         started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         deadline = time.time() + max_wall_minutes * 60.0
         self.conn.execute(

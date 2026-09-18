@@ -32,9 +32,11 @@ class SupervisionError(RuntimeError):
     """Process supervision violated its contract."""
 
 
-def campaign_training_cutoff(campaign_start_unix: float) -> float:
+def campaign_training_cutoff(campaign_start_unix: float,
+                             wall_minutes: float = CAMPAIGN_WALL_MINUTES,
+                             export_reserve_minutes: float = EXPORT_RESERVE_MINUTES) -> float:
     """Absolute unix time by which all training (E0-E5) must stop."""
-    return campaign_start_unix + TRAINING_CUTOFF_MINUTES * 60.0
+    return campaign_start_unix + (wall_minutes - export_reserve_minutes) * 60.0
 
 
 def phase_absolute_deadlines(
@@ -87,8 +89,9 @@ def physical_to_local_device(physical_device: str) -> tuple[str, str]:
     addresses locally as cuda:0. CPU maps to no mask and local cpu.
     Returns (visible_devices_env, local_device_for_torch).
     """
+    physical_device = str(physical_device).strip()
     if physical_device.startswith("cuda:"):
-        suffix = physical_device.split(":", 1)[1]
+        suffix = physical_device.split(":", 1)[1].strip()
         if suffix.isdigit():
             return suffix, "cuda:0"
     if physical_device == "cpu":

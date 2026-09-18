@@ -192,7 +192,7 @@ def main():
         # Empty must fail (never synthesize).
         import tempfile as tf
         empty = tf.mkdtemp()
-        open(os.path.join(empty, "manifest.json"), "w").write("{}")
+        open(os.path.join(empty, "manifest.json"), "w", encoding="utf-8").write("{}")
         os.makedirs(os.path.join(empty, "episodes"), exist_ok=True)
         try:
             load_training_trajectories(empty, seed=1701)
@@ -291,7 +291,7 @@ def main():
         # Falsified tool output must be rejected by the verifier.
         import json as _json
         tool_path = os.path.join(tmp, "tools", "tool_tasks.jsonl")
-        row = next(_json.loads(l) for l in open(tool_path)
+        row = next(_json.loads(l) for l in open(tool_path, encoding="utf-8")
                    if '"split": "tool-training"' in l and "single_filter" in l)
         assert verify_tool(row, {"sum": "WRONG_FALSIFIED"}) is False, \
             "falsified tool output must fail verification"
@@ -416,7 +416,7 @@ def main():
         from bramastra_lab.research.campaigns import worker
         from bramastra_lab.research.campaigns import process_supervision as ps
         tmp2 = tempfile.mkdtemp(prefix="k8-worker-")
-        open(os.path.join(tmp2, "manifest.json"), "w").write("{}")
+        open(os.path.join(tmp2, "manifest.json"), "w", encoding="utf-8").write("{}")
         run2 = tempfile.mkdtemp(prefix="k8-worker-run-")
         out = worker.run_worker_phase(
             phase="E1", device="cpu", arm="A", seed=1701, data_dir=tmp2,

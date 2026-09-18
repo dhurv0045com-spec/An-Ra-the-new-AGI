@@ -89,7 +89,7 @@ def test_response_profile_no_labels():
 
 
 def test_registry_schema():
-    reg = json.load(open(Path(_XF) / "registry" / "checkpoints.json"))
+    reg = json.load(open(Path(_XF) / "registry" / "checkpoints.json", encoding="utf-8"))
     assert reg["schema"] == "anra-checkpoint-registry/v2"
     assert "UNQUALIFIED_NEW" in reg["roles"]
     for c in reg["checkpoints"]:

@@ -1,17 +1,17 @@
 # Current engineering state
 
-## Active: FINAL-K8 complete delivery
+## Active: finish FINAL-K8 using the ten-day handoff
 
-Execute [FINAL_EXPERIMENT_EXECUTION.md](FINAL_EXPERIMENT_EXECUTION.md) and close every entry in [REQUIREMENTS.json](final_delivery/REQUIREMENTS.json). The latest owner instruction replaces the one-hour stopping point with complete experiment implementation. H01 remains included as initial repair work; the full assignment continues through final build verification, notebook and artifacts.
+Read [the 15–24 September handoff](ten_day_handoff_20260915/README.md), execute its schedule, and satisfy [FINAL_EXPERIMENT_EXECUTION.md](FINAL_EXPERIMENT_EXECUTION.md) plus [all 24 requirements](final_delivery/REQUIREMENTS.json). The owner is conserving assistant usage; use the stored prompts and progress cursor to continue without another chief design round.
 
-## Checked baseline
+## Source checked on 15 September
 
-At dispatch creation, HEAD and origin/BRAMASTRA were 29df755 with no later implementation push. The scorer device/context/mask repair has four chief-verified CPU passes and two CUDA tests not run. Compiler information slicing, compact submission/consumer defects and the wider integration issues remain unaccepted. The old audit aborts on real submission encoding; it is not a passing audit.
+Latest implementation: 58e517b after 5d335c1. The agent report correctly says ready_for_owner_experiment=false. Its claimed fourteen PASS requirements are not fourteen chief-accepted completions: several gap fields describe missing production consumers or verification. The [current review](ten_day_handoff_20260915/CURRENT_REVIEW.md) explains the distinctions and preserves the preceding milestones.
 
-The final runbook audit confirmed that current run modes are blocked by readiness.py's unconditional false disposition, full mode requires E0, and the notebook hardcodes a source path and generates data inside the GPU session. A bounded Luna regression selection reported 36 passes and one E2 matched-evaluation failure. These are assigned repairs, not reasons to leave the completed notebook unusable.
+Source inspection confirms compiler six/eight-token slicing, copied P0/P1 confirmation choices and an always-false readiness gate. The verify-build CLI is still absent. No tests or training were rerun for this usage-conserving review. Preserve valid prior evidence, fix test setup and execute valid-parent/liveness paths rather than retaining permanent exclusions.
 
-## Readiness and completion
+## Completion and authority
 
-Current experiment build: **not ready**. This update supplies the complete execution contract; it does not claim those implementations already exist. All 24 requirements must have real local evidence and delivered owner inputs before ready-to-launch can be true. The implementing agent is conditionally authorized to maintain the evidence-backed build gate under section 22; no extra chief code-edit round is needed after acceptance criteria pass.
+Current experiment build: **not ready**. Complete the actual model/learning, data, cognition, tools, architecture, RSI, runtime and release requirements. The full offline data bundle, source-bound build verification, runnable notebook and real export/restart behavior must be delivered before ready-to-launch is true. FINAL-K8 section 22 permits conditional evidence-backed build-readiness maintenance without another manual chief code-edit round.
 
-Only hardware-dependent qualification and scientific outcomes remain for the actual owner run. E0 must verify real T4 geometry, precision, updates/resume and calibrated budget before E1. No local optimizer updates are allocated. Preserve the single 480-minute campaign, training stop 450 and export 30.
+The next ten days are an execution schedule, not a new compute allocation or a guarantee of completion. No local optimizer updates. Only the owner launches the single two-T4 campaign: maximum 480 minutes, training stop 450, export reserve 30. Automatic E0 hardware qualification precedes learning phases. Scientific results remain unestablished until the actual experiment.

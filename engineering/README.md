@@ -1,5 +1,7 @@
 # BRAMASTRA engineering headquarters
 
+**Start with the [15–24 September execution handoff](ten_day_handoff_20260915/README.md)** for the current review, next ten days, continuation prompts and cursor format. FINAL-K8 remains the complete technical assignment.
+
 **Active assignment: [FINAL-K8 — complete the experiment implementation](FINAL_EXPERIMENT_EXECUTION.md).** Read [STATUS.md](STATUS.md), that execution document and the [24 requirements](final_delivery/REQUIREMENTS.json), then implement through final delivery.
 
 H01 is the first included repair, not the stopping point. All remaining AI/model, learning, cognition, architecture, RSI and operational requirements are in the final assignment. It includes exact implementation behavior, verification, conditional build-readiness authorization and owner commands. No additional owner prioritization is needed.

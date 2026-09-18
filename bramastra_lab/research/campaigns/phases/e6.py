@@ -140,8 +140,13 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
                               f"{digests[name][:12]}",
                     "missing": [name]}
     # Required parent checkpoints by EXACT lineage (never substring).
-    conn = sqlite3.connect(os.path.join(run_dir, "campaign_ledger.sqlite"))
+    conn = sqlite3.connect(os.path.join(run_dir, "campaign_ledger.sqlite"),
+                           timeout=60.0, check_same_thread=False)
     try:
+        try:
+            conn.execute("PRAGMA busy_timeout=60000;")
+        except Exception:
+            pass
         rows = conn.execute(
             "SELECT job_id, checkpoint_identity FROM reservations "
             "WHERE status='completed' AND phase='E1'").fetchall()

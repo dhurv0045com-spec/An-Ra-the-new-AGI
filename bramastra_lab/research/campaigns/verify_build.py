@@ -921,3 +921,54 @@ def write_final_readiness(report_path: str | None = None, *,
               encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(lines))
     return readiness
+
+
+def build_parser() -> "argparse.ArgumentParser":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="bramastra-verify-build",
+        description="Evidence-backed build verification (zero optimizer commits).",
+    )
+    parser.add_argument("--data", required=True, help="prepared bundle directory")
+    parser.add_argument("--report-dir", required=True,
+                        help="NEW directory for build_verification.json")
+    parser.add_argument("--no-updates", action="store_true",
+                        help="required flag: enforces zero optimizer commits")
+    parser.add_argument("--notebook", default=None,
+                        help="owner notebook path (default: notebooks/bramastra_k8.ipynb)")
+    parser.add_argument("--skip-check-groups", action="store_true",
+                        help="internal: exercises only (used by focused tests)")
+    return parser
+
+
+def main(argv: "list[str] | None" = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not args.no_updates:
+        print("error: verify-build requires --no-updates (zero optimizer "
+              "commits are enforced)", file=sys.stderr)
+        return 2
+    report = run_verify_build(
+        args.data, args.report_dir, no_updates=True,
+        notebook_path=args.notebook,
+        run_checks=not args.skip_check_groups)
+    failing = sorted(
+        req_id for req_id, row in report["requirements"].items()
+        if row["status"] != "pass")
+    print(json.dumps({
+        "status": "VERIFIED" if report["ready_for_owner_experiment"]
+        else "NOT_READY",
+        "report": os.path.join(os.path.abspath(args.report_dir),
+                               REPORT_FILENAME),
+        "source_closure_sha256": report["source_closure_sha256"],
+        "failing_requirements": failing,
+        "runtime_checks_pending": [gate["id"] for gate in
+                                   report["runtime_checks_pending"]],
+        "optimizer_updates_local": report["optimizer_updates_local"],
+    }, indent=2, sort_keys=True))
+    return 0 if report["ready_for_owner_experiment"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
