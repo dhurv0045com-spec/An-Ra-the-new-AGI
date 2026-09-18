@@ -34,7 +34,8 @@ ARM_WEIGHTS = {
 def _write_partial_receipt(job: JobInput, *, committed: int, attempted: int,
                            exposure: int, checkpoint_ids: list[str],
                            parent_for_next: str | None, step: int,
-                           stream_id: str) -> None:
+                           stream_id: str, noop_boundaries: int = 0,
+                           authority: str | None = None) -> None:
     """Best-effort partial receipt: interruption never loses completed steps.
 
     Written alongside every mid-phase checkpoint publication (~200 steps).
@@ -52,6 +53,8 @@ def _write_partial_receipt(job: JobInput, *, committed: int, attempted: int,
                    "completed_steps": step + 1,
                    "committed_updates": committed, "attempted_updates": attempted,
                    "supervised_exposure": exposure,
+                   "noop_boundaries": noop_boundaries,
+                   "authority": authority,
                    "checkpoint_identities": list(checkpoint_ids),
                    "checkpoint_identity": parent_for_next}
         with open(os.path.join(artifact_dir, f"{job.arm}-{job.seed}-partial.json"),
@@ -149,6 +152,20 @@ def execute(job: JobInput, *, ops=None,
             # (backstop: well-formed fields alone never authorize steps).
             reservation = job_reservation_record(
                 job, remaining_updates=target)
+            # Fail fast on dead authority: a job that would noop every step
+            # must refuse here with the concrete ledger cause, not burn its
+            # wall and die later on checkpoint confusion.
+            from bramastra_lab.research.campaigns.phases.session import (
+                stepping_readiness)
+            readiness = stepping_readiness(job.run_dir, reservation)
+            if not readiness.get("allowed", False):
+                return PhaseResult(
+                    status="failed", committed_updates=0, attempted_updates=0,
+                    supervised_exposure=0,
+                    device_seconds=time.monotonic() - started,
+                    error="E1 stepping refused: "
+                          f"{readiness.get('reason', 'unknown')}",
+                    evidence_kind=EVIDENCE_FIXTURE, extra={"phase": "E1"})
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E1 authority refused: {exc}",
@@ -308,7 +325,9 @@ def execute(job: JobInput, *, ops=None,
             _write_partial_receipt(job, committed=committed, attempted=attempted,
                                    exposure=exposure, checkpoint_ids=checkpoint_ids,
                                    parent_for_next=parent_for_next, step=step,
-                                   stream_id=stream_id)
+                                   stream_id=stream_id,
+                                   noop_boundaries=noop_boundaries,
+                                   authority=authority)
     # Final checkpoint (100%) if not already published.
     try:
         after_updates = int(ops.optimizer_updates(handle))

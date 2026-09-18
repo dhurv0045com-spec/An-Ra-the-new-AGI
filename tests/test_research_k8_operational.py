@@ -560,6 +560,32 @@ class O08TrialTests(unittest.TestCase):
         self.assertFalse(ledger_stepping_allowed(
             run, {"allocation_id": "nope", "job_id": "nope"}))
 
+    def test_stepping_readiness_explains_dead_authority(self) -> None:
+        from bramastra_lab.research.campaigns.phases.session import (
+            stepping_readiness)
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+
+        run = tempfile.mkdtemp()
+        ledger = CampaignLedger(run)
+        try:
+            ledger.record_allocation("alloc-1", "src", "data", 60.0)
+            res = ledger.reserve("job-9", worker="w0", device="cuda:0",
+                                 phase="E1", arm="B", seed=1702,
+                                 reserved_seconds=300.0)
+            record = {"allocation_id": "alloc-1", "job_id": "job-9"}
+            ready = stepping_readiness(run, record)
+            self.assertTrue(ready["allowed"])
+            ledger.close_reservation(res.reservation_id, status="failed")
+            dead = stepping_readiness(run, record)
+            self.assertFalse(dead["allowed"])
+            self.assertIn("failed", dead["reason"])
+            self.assertFalse(stepping_readiness(run, None)["allowed"])
+            self.assertFalse(
+                stepping_readiness(run, {"allocation_id": "missing",
+                                         "job_id": "job-9"})["allowed"])
+        finally:
+            ledger.close()
+
     def test_production_trial_reaches_boundary_locally(self) -> None:
         from bramastra_lab.research.campaigns import trial_service
 

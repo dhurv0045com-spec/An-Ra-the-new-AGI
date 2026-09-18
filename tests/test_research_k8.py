@@ -408,6 +408,36 @@ class SupervisorTests(unittest.TestCase):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    def test_closed_row_rebinding_refuses_loudly(self) -> None:
+        import shutil
+        from bramastra_lab.research.campaigns.supervisor import (
+            CampaignLedger,
+            SupervisorError,
+        )
+
+        tmp = tempfile.mkdtemp()
+        try:
+            ledger = CampaignLedger(tmp)
+            ledger.record_allocation("alloc-1", "src", "data", 60.0)
+            res = ledger.reserve("job-9", worker="w0", device="cuda:0",
+                                 phase="E1", arm="B", seed=1702,
+                                 reserved_seconds=300.0)
+            # Crash-recovery while still open: same fields rebind fine.
+            again = ledger.reserve("job-9", worker="w0", device="cuda:0",
+                                   phase="E1", arm="B", seed=1702,
+                                   reserved_seconds=300.0)
+            self.assertEqual(again.reservation_id, res.reservation_id)
+            ledger.close_reservation(res.reservation_id, status="failed")
+            # Closed rows must never silently rebind (workers bound to them
+            # would noop every step, then die on checkpoint confusion).
+            with self.assertRaises(SupervisorError):
+                ledger.reserve("job-9", worker="w0", device="cuda:0",
+                               phase="E1", arm="B", seed=1702,
+                               reserved_seconds=300.0)
+            ledger.close()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

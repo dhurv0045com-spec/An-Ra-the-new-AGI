@@ -121,6 +121,15 @@ def execute(job: JobInput, *, ops=None,
         if authority == "bound":
             reservation = job_reservation_record(
                 job, remaining_updates=target)
+            from bramastra_lab.research.campaigns.phases.session import (
+                stepping_readiness)
+            readiness = stepping_readiness(job.run_dir, reservation)
+            if not readiness.get("allowed", False):
+                return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
+                                   error="E3 stepping refused: "
+                                         f"{readiness.get('reason', 'unknown')}",
+                                   evidence_kind=EVIDENCE_FIXTURE,
+                                   extra={"phase": "E3"})
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E3 parent restore/fork refused: {exc}",

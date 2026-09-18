@@ -210,32 +210,59 @@ def ledger_stepping_allowed(run_dir: str,
     local training impossible by construction, even with well-formed
     reservation fields.
     """
+    return bool(stepping_readiness(run_dir, reservation).get("allowed", False))
+
+
+def stepping_readiness(run_dir: str,
+                       reservation: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Explain the stepping decision (fail-fast diagnostics).
+
+    Same contract as `ledger_stepping_allowed` but returns the reason:
+    executors call this once after binding so a dead authority fails the
+    job in seconds with the concrete cause (missing allocation row,
+    reservation not open, deadline passed, ledger unreadable) instead of
+    noop-ing hundreds of steps into a confusing downstream failure.
+    """
     import os as _os
     import sqlite3 as _sqlite
 
+    if not isinstance(reservation, Mapping):
+        return {"allowed": False, "reason": "no reservation record"}
     ledger_path = _os.path.join(run_dir, "campaign_ledger.sqlite")
     if not _os.path.exists(ledger_path):
-        return False
+        return {"allowed": False, "reason": f"no ledger at {ledger_path}"}
     try:
-        conn = _sqlite.connect(ledger_path)
+        conn = _sqlite.connect(ledger_path, timeout=60.0)
         try:
             allocation = conn.execute(
                 "SELECT deadline_unix FROM allocation WHERE allocation_id=?",
                 (str(reservation.get("allocation_id")),)).fetchone()
             if allocation is None:
-                return False
+                return {"allowed": False,
+                        "reason": "allocation row missing for "
+                                  f"{reservation.get('allocation_id')}"}
             row = conn.execute(
                 "SELECT status, reserved_at_unix, reserved_seconds "
                 "FROM reservations WHERE job_id=? ORDER BY rowid DESC LIMIT 1",
                 (str(reservation.get("job_id")),)).fetchone()
-            if row is None or row[0] != "open":
-                return False
-            return time.time() < min(float(allocation[0]),
-                                     float(row[1]) + float(row[2]))
+            if row is None:
+                return {"allowed": False,
+                        "reason": f"no ledger row for job {reservation.get('job_id')}"}
+            if row[0] != "open":
+                return {"allowed": False,
+                        "reason": f"reservation for job {reservation.get('job_id')} "
+                                  f"is {row[0]!r}, not 'open' (stale rebinding "
+                                  "never authorizes steps)"}
+            live_until = min(float(allocation[0]), float(row[1]) + float(row[2]))
+            if not time.time() < live_until:
+                return {"allowed": False,
+                        "reason": "reservation deadline passed"}
+            return {"allowed": True, "reservation_status": row[0],
+                    "live_until_unix": live_until}
         finally:
             conn.close()
-    except Exception:
-        return False
+    except Exception as exc:
+        return {"allowed": False, "reason": f"ledger unreadable: {exc}"}
 
 
 def step_or_noop(ops: Any, handle: Any, job: Any, *,

@@ -197,6 +197,15 @@ class CampaignLedger:
                 raise SupervisorError(
                     f"incompatible retry for job {job_id!r}: "
                     + "; ".join(mismatches))
+            if prior.status != "open":
+                # A closed row must never silently rebind: workers bound to
+                # it would take the no-op boundary for the whole job (zero
+                # commits) and die later on checkpoint confusion. Recovery
+                # is a fresh run directory, never a quiet re-reserve.
+                raise SupervisorError(
+                    f"job {job_id!r} already closed as {prior.status!r}; "
+                    "refusing rebinding (use a fresh run directory to retry "
+                    "a failed job)")
             return prior
         deadline = self.deadline()
         now = time.time()
