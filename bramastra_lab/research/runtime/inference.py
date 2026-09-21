@@ -25,6 +25,14 @@ class InferenceError(RuntimeError):
     """Inference was invoked against its declared contract."""
 
 
+def _model_device(model: Any) -> torch.device:
+    """Device owning the model parameters (CPU when unknown/empty)."""
+    try:
+        return next(model.parameters()).device
+    except (StopIteration, AttributeError):
+        return torch.device("cpu")
+
+
 @dataclass(frozen=True)
 class GenerationReport:
     answer: str
@@ -74,9 +82,10 @@ def generate_free_form(
     stopped_on_eos = False
     hit_cap = False
     model.eval()
+    device = _model_device(model)
     while len(tokens) < context_limit and len(tokens) - len(prompt_tokens) < cap:
         window = tokens[-context_limit + 1:]
-        inputs = torch.tensor([window], dtype=torch.long)
+        inputs = torch.tensor([window], dtype=torch.long, device=device)
         logits = model(inputs).logits[0, -1]
         if greedy:
             next_token = int(torch.argmax(logits).item())
@@ -126,9 +135,10 @@ def score_finite_actions(
         raise InferenceError("at least one legal candidate is required")
     if len(sequence_tokens) > config.model.max_seq:
         raise InferenceError("sequence exceeds the configured context limit")
-    tokens = torch.tensor([sequence_tokens], dtype=torch.long)
-    spans = torch.tensor([candidate_span_ends], dtype=torch.long)
-    mask = torch.tensor([legal_mask], dtype=torch.bool)
+    device = _model_device(model)
+    tokens = torch.tensor([sequence_tokens], dtype=torch.long, device=device)
+    spans = torch.tensor([candidate_span_ends], dtype=torch.long, device=device)
+    mask = torch.tensor([legal_mask], dtype=torch.bool, device=device)
     output = model(tokens, action_span_ends=spans, action_mask=mask)
     scores = output.action_scores[0]
     legal_indices = [index for index, legal in enumerate(legal_mask) if legal]

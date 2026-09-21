@@ -200,6 +200,30 @@ class EffectivePairWeightTests(unittest.TestCase):
                 pair_rows=(own_rows, swapped_rows))
 
 
+class InferenceDeviceTests(unittest.TestCase):
+    """Kaggle E2 regression: inference helpers must place input tensors on
+    the model's device (CPU-built inputs into a CUDA model died in
+    index_select on the T4s). Skipped where no accelerator exists."""
+
+    @unittest.skipUnless(torch.cuda.is_available(), "requires a CUDA device")
+    def test_generation_and_scoring_run_on_cuda_model(self) -> None:
+        from bramastra_lab.research.models import IntegratedModel
+        from bramastra_lab.research.runtime.inference import (
+            generate_free_form,
+            score_finite_actions,
+        )
+
+        seed_everything(11)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        model = IntegratedModel(config).to("cuda:0")
+        report = generate_free_form(model, config, [1, 2, 3], max_new_tokens=4)
+        self.assertGreaterEqual(report.new_tokens, 0)
+        scored = score_finite_actions(model, config, [1, 2, 3, 4],
+                                       [2, 3], [True, True])
+        self.assertIn(scored.selected_index, (0, 1))
+        self.assertEqual(len(scored.scores), 2)
+
+
 class VerticalSliceTests(unittest.TestCase):
     """One tiny episode through preparation -> objective routing -> trainer
     backward -> checkpoint serialization -> scorer -> executive -> tool path.
