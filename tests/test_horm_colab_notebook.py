@@ -62,15 +62,39 @@ def test_cell1_runs_only_committed_commands():
                       "--ignore=tests/test_production_entry.py",
                       "--ignore=tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py",
                       "tests/test_v5_cyr_gpu014_r1c_e2e_preflight.py",
-                      "tests/test_production_entry.py",
+                      "PE_NODES", "run_each", "assert len(PE_NODES) == 51",
                       "horm-logs", "threads=",
                       "junitxml", "build_receipt",
-                      "test_exact_head_test_receipt", "--deselect",
-                      "v5a_exact", "pea1", "pea2a", "pea2b", "tail of",
-                      "\"-rf\"",
+                      "test_exact_head_test_receipt",
+                      "tail of", "\"-rf\"",
                       "CUDA_VISIBLE_DEVICES", "ANRA_TEST_DEVICE",
                       "v5_contracts.import_boundaries"):
         assert required in cell1, f"CELL 1 missing {required}"
+
+
+def _notebook_pe_nodes() -> list[str]:
+    import re
+    body = json.loads(NOTEBOOK.read_text("utf-8"))
+    sources = "".join(
+        "".join(cell["source"]) for cell in body["cells"]
+        if cell["cell_type"] == "code")
+    return sorted(set(
+        re.findall(r"tests/test_production_entry\.py::(test_\w+)", sources)))
+
+
+def _file_pe_tests() -> list[str]:
+    tree = ast.parse(
+        (REPO / "tests" / "test_production_entry.py").read_text("utf-8"))
+    return sorted(node.name for node in ast.walk(tree)
+                  if isinstance(node, ast.FunctionDef)
+                  and node.name.startswith("test_"))
+
+
+def test_pe_node_coverage_exact():
+    excluded = "test_exact_head_test_receipt"
+    expected = [name for name in _file_pe_tests() if name != excluded]
+    got = [name for name in _notebook_pe_nodes() if name != excluded]
+    assert got == expected
 
 
 def test_cell2_packages_hash_bound_bundle():
