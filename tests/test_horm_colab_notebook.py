@@ -43,7 +43,9 @@ def test_notebook_contains_no_science_logic():
 
 def test_cell0_implements_the_freeze_sequence():
     cell0 = _cells()[0]
-    for required in ("git", "clone", "checkout", "cymek-beta", "HEAD_SHA",
+    for required in ("git", "clone", "fetch", "checkout", "reset",
+                      "--hard",
+                      "cymek-beta", "HEAD_SHA",
                       "DFDCD883", "95B2331A", "launch_readiness",
                       ".upper().startswith",
                       "torch.cuda.is_available",
