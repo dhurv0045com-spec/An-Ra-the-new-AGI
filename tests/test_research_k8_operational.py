@@ -1004,6 +1004,10 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("testzip", _module_source)
         self.assertIn("FileLink", joined)
         self.assertNotIn("shutil.rmtree", joined)
+        self.assertNotIn("globals()", joined)
+        self.assertNotIn("RESULTS_ZIP.unlink", joined)
+        self.assertIn("new_results_zip", joined)
+        self.assertIn("'-u', '-m'", joined)
         # Every mutating subprocess call checks its failure.
         self.assertGreaterEqual(joined.count("returncode"), 2)
         self.assertIn("raise RuntimeError", joined)

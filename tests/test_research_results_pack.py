@@ -49,6 +49,12 @@ class ResultsPackContracts(unittest.TestCase):
             self.assertIsNone(zipfile.ZipFile(out).testzip())
             self.assertTrue(os.path.isfile(os.path.join(tmp, "results.json")))
 
+    def test_hashes_archives_without_reading_the_full_zip(self) -> None:
+        import inspect
+        from bramastra_lab.research.campaigns import results_pack
+
+        self.assertIn("handle.read(1024 * 1024)", inspect.getsource(results_pack._sha256_file))
+
     def test_refuses_overwrite_and_empty(self) -> None:
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:

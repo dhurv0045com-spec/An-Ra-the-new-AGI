@@ -39,6 +39,18 @@ class ResultsPackError(RuntimeError):
     """Results packaging refused."""
 
 
+def _sha256_file(path: str | os.PathLike[str]) -> str:
+    """Hash a ZIP incrementally instead of loading its whole contents into RAM."""
+    digest = hashlib.sha256()
+    try:
+        with Path(path).open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+    except OSError as exc:
+        raise ResultsPackError(f"cannot hash archive {path}: {exc}") from exc
+    return digest.hexdigest()
+
+
 def _allowed(relative: str) -> bool:
     lowered = relative.replace(os.sep, "/").lower()
     parts = lowered.split("/")
@@ -123,7 +135,7 @@ def _build(sources: Sequence[str | os.PathLike[str]], out_zip: str | os.PathLike
             bad = bundle.testzip()
         if bad is not None:
             raise ResultsPackError(f"pack verification failed at {bad}")
-        digest = hashlib.sha256(Path(tmp_name).read_bytes()).hexdigest()
+        digest = _sha256_file(tmp_name)
         try:
             shutil.move(tmp_name, destination)
         except OSError as exc:
@@ -199,7 +211,7 @@ def snapshot_run_dir(run_dir: str | os.PathLike[str], reason: str) -> dict[str, 
             bad = bundle.testzip()
         if bad is not None:
             raise ResultsPackError(f"safety snapshot verification failed at {bad}")
-        digest = hashlib.sha256(Path(tmp_name).read_bytes()).hexdigest()
+        digest = _sha256_file(tmp_name)
         try:
             shutil.move(tmp_name, destination)
         except OSError as exc:
@@ -279,7 +291,7 @@ def build_safety_snapshot(run_dir: str | os.PathLike[str],
             bad = bundle.testzip()
         if bad is not None:
             raise ResultsPackError(f"safety snapshot verification failed at {bad}")
-        digest = hashlib.sha256(Path(tmp_name).read_bytes()).hexdigest()
+        digest = _sha256_file(tmp_name)
         try:
             shutil.move(tmp_name, destination)
         except OSError as exc:

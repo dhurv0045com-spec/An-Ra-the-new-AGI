@@ -319,16 +319,25 @@ def gpu_contract(*, required: int = 2) -> dict[str, object]:
     except Exception:
         version = "unknown"
     report: dict[str, object] = {"count": count, "names": names, "torch": version}
+    version_match = re.match(r"^(\d+)\.(\d+)", version)
+    if version_match is None or tuple(map(int, version_match.groups())) < (2, 6):
+        raise K8EnvironmentError(
+            f"K8 requires torch>=2.6 (found {version!r}). Select a current Kaggle GPU image "
+            "and restart the session before running this notebook.")
     if count != required:
         raise K8EnvironmentError(
             f"K8 requires exactly {required} visible GPUs (found {count}: {names}). "
             "In Kaggle Settings > Accelerator select GPU T4 x2 and restart the session. "
             "Kaggle offers T4 x2 (2 GPUs) or P100 (1 GPU); there is no 3-GPU option, "
             "and API-submitted runs default to P100.")
+    if any("t4" not in name.lower() for name in names):
+        raise K8EnvironmentError(
+            f"K8 is calibrated for two Kaggle T4 GPUs (found {names}). "
+            "In Kaggle Settings > Accelerator select GPU T4 x2 and restart the session.")
     return report
 
 
-def disk_contract(path: str | os.PathLike[str], *, minimum_gib: float = 2.0) -> dict[str, object]:
+def disk_contract(path: str | os.PathLike[str], *, minimum_gib: float = 8.0) -> dict[str, object]:
     """Free-space contract for the working root."""
     try:
         usage = shutil.disk_usage(str(path))
@@ -341,6 +350,20 @@ def disk_contract(path: str | os.PathLike[str], *, minimum_gib: float = 2.0) -> 
             f"only {free_gib:.1f} GiB free under {path} (need >= {minimum_gib:.0f} GiB); "
             "clean /kaggle/working or start a fresh session")
     return report
+
+
+def _sha256_file(path: Path) -> str:
+    """Hash an artifact incrementally so a large ZIP never becomes RAM pressure."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(block)
+    except OSError as exc:
+        raise K8EnvironmentError(f"cannot hash artifact {path}: {exc}") from exc
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -367,7 +390,6 @@ def package_artifacts(run_root: str | os.PathLike[str], working: str | os.PathLi
     testzip, hashes it, atomically promotes the partial file, and writes a
     JSON receipt beside the archive.
     """
-    import hashlib
     import shutil
     import zipfile
 
@@ -376,9 +398,13 @@ def package_artifacts(run_root: str | os.PathLike[str], working: str | os.PathLi
     if not root.exists():
         return None
     safe_run = SAFE_LABEL_PATTERN.sub("-", run_id).strip("-") or "run"
-    archive = work / f"{safe_run}-artifacts-{instance_id}.zip"
+    safe_reason = SAFE_LABEL_PATTERN.sub("-", reason).strip("-") or "archive"
+    # A recovery package and a completed package must never share a name:
+    # reusing a failure archive after more work exists would silently return
+    # stale evidence to the owner.
+    archive = work / f"{safe_run}-artifacts-{instance_id}-{safe_reason}.zip"
     if archive.exists():
-        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        digest = _sha256_file(archive)
         return ArtifactArchive(archive=archive, receipt=archive.with_suffix(".json"),
                                sha256=digest, bytes=archive.stat().st_size)
     partial_base = work / f".{safe_run}-artifacts-{instance_id}.partial"
@@ -392,7 +418,7 @@ def package_artifacts(run_root: str | os.PathLike[str], working: str | os.PathLi
         except OSError:
             pass
         raise K8EnvironmentError(f"artifact archive verification failed at {bad_member}")
-    digest = hashlib.sha256(partial_archive.read_bytes()).hexdigest()
+    digest = _sha256_file(partial_archive)
     try:
         partial_archive.replace(archive)
     except OSError as exc:
@@ -428,6 +454,7 @@ def stream_command(label: str, argv: Sequence[str], *, cwd: str | os.PathLike[st
         raise K8EnvironmentError(f"cannot create log dir {out_dir}: {exc}") from exc
     log_path = out_dir / f"k8-{safe}.log"
     environment = os.environ.copy()
+    environment.setdefault("PYTHONUNBUFFERED", "1")
     if extra_env:
         environment.update(extra_env)
     try:
