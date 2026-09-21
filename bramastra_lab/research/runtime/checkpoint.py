@@ -444,22 +444,73 @@ def mark_milestone(run_dir: str, checkpoint_id: str, label: str, *,
     former checkpoint for that label is superseded once the next complete
     checkpoint is durably published.  Keeping every intermediate payload
     defeats rotation and can exhaust a bounded Kaggle output volume.
+
+    Concurrent publishers share this file: the update is a bounded
+    compare-and-swap (re-read, re-apply, atomic replace) so a sibling's
+    entry is never silently clobbered. After a few contended attempts the
+    write proceeds with the freshest view rather than failing the job.
     """
     checkpoints = checkpoint_root(run_dir)
     path = os.path.join(checkpoints, MILESTONES_NAME)
-    existing = {"milestones": []}
-    if os.path.exists(path):
+    entry = {"checkpoint_id": checkpoint_id, "label": label,
+             "update_index": update_index, "directory": directory}
+    try:
+        os.makedirs(checkpoints, exist_ok=True)
+    except OSError:
+        pass
+    for _ in range(8):
+        existing = {"milestones": []}
+        before = None
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    before = handle.read()
+                existing = json.loads(before)
+            except (OSError, json.JSONDecodeError):
+                before = None
+                existing = {"milestones": []}
+        existing["milestones"] = [
+            entry for entry in existing["milestones"]
+            if entry["checkpoint_id"] != checkpoint_id and entry.get("label") != label]
+        existing["milestones"].append(entry)
+        body = json.dumps(existing, indent=2, sort_keys=True)
+        tmp_path = path + f".tmp-{uuid.uuid4().hex}"
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as handle:
+                handle.write(body)
+            if before is not None:
+                try:
+                    with open(path, "r", encoding="utf-8") as handle:
+                        if handle.read() != before:
+                            continue
+                except OSError:
+                    continue
+            os.replace(tmp_path, path)
+            return
+        except OSError:
+            pass
+        finally:
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except OSError:
+                pass
+    # Contended beyond the retry budget: persist the freshest merged view
+    # without failing publication (rotation coverage yields to progress).
+    try:
         with open(path, "r", encoding="utf-8") as handle:
             existing = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        existing = {"milestones": []}
     existing["milestones"] = [
         entry for entry in existing["milestones"]
         if entry["checkpoint_id"] != checkpoint_id and entry.get("label") != label]
-    existing["milestones"].append({"checkpoint_id": checkpoint_id, "label": label,
-                                   "update_index": update_index, "directory": directory})
-    tmp_path = path + f".tmp-{uuid.uuid4().hex}"
-    with open(tmp_path, "w", encoding="utf-8") as handle:
-        json.dump(existing, handle, indent=2, sort_keys=True)
-    os.replace(tmp_path, path)
+    existing["milestones"].append(entry)
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(existing, handle, indent=2, sort_keys=True)
+    except OSError:
+        pass
 
 
 def read_milestones(run_dir: str) -> list[dict[str, Any]]:
@@ -488,7 +539,23 @@ def prune_checkpoints(run_dir: str, *, keep_latest: int = 2) -> list[str]:
     removable = removable[:-keep_latest] if keep_latest else removable
     removed = []
     for name in removable:
-        shutil.rmtree(os.path.join(checkpoints, name))
+        # Concurrent publishers prune the same tree: a sibling may have
+        # already removed this entry (missing means pruned: the desired end
+        # state), or hold it open mid-removal (Windows file locking). Retry
+        # briefly, then leave the directory for the next prune rather than
+        # failing the training job over housekeeping.
+        target = os.path.join(checkpoints, name)
+        for _ in range(3):
+            try:
+                shutil.rmtree(target)
+                break
+            except FileNotFoundError:
+                break
+            except PermissionError:
+                time.sleep(0.1)
+                continue
+            except OSError:
+                break
         removed.append(name)
     return removed
 

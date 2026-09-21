@@ -286,5 +286,60 @@ class IdempotentRetryTests(unittest.TestCase):
             self._publish(make_payload(1))
 
 
+class ConcurrentPublishHousekeepingTests(unittest.TestCase):
+    """Two workers publishing/pruning concurrently (Kaggle E1 slots) must
+    never fail each other: missing-at-prune is already-pruned, and the
+    milestone file stays valid with exactly one entry per label."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.run_dir = os.path.join(self.tmp.name, "run")
+        os.makedirs(self.run_dir)
+
+    def test_concurrent_prune_never_raises(self) -> None:
+        import threading
+
+        for index in range(4):
+            ckpt.save_checkpoint(
+                self.run_dir, make_payload(index), run_id=f"r{index}",
+                update_index=index, config_identity="cfg-1",
+                tokenizer_identity="tok-1", data_identity="data-1",
+                parent_checkpoint_id=None,
+                dir_suffix=f"E1-A-1701-{index}")
+        errors: list = []
+
+        def _prune() -> None:
+            try:
+                ckpt.prune_checkpoints(self.run_dir, keep_latest=0)
+            except Exception as exc:  # noqa: BLE001 - collected, asserted empty
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_prune) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(errors, [])
+
+    def test_concurrent_milestones_keep_one_entry_per_label(self) -> None:
+        import threading
+
+        def _mark(index: int) -> None:
+            ckpt.mark_milestone(self.run_dir, f"id-{index}", label="E1-B-1702",
+                                update_index=index,
+                                directory=f"update-{index:012d}-E1-B-1702")
+
+        threads = [threading.Thread(target=_mark, args=(index,)) for index in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        milestones = ckpt.read_milestones(self.run_dir)
+        labels = [entry["label"] for entry in milestones]
+        self.assertEqual(len(labels), 1)
+        self.assertEqual(labels[0], "E1-B-1702")
+
+
 if __name__ == "__main__":
     unittest.main()
