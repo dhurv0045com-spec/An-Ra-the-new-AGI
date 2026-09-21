@@ -487,6 +487,15 @@ class ProductionOps:
             writer_token=writer_token, expected_parent=expected_parent,
             milestone=f"{phase}-{arm}-{seed}",
             phase=phase, arm=arm, seed=seed)
+        # Kaggle output has a hard finite quota.  A milestone label tracks
+        # only this lineage's newest complete checkpoint, so rotate every
+        # superseded payload immediately after its replacement is durable.
+        # This preserves all live lineage heads and accepted parents while
+        # preventing long E1/E5 runs from retaining an unbounded history of
+        # model-plus-optimizer blobs.
+        from bramastra_lab.research.runtime.checkpoint import prune_checkpoints
+
+        prune_checkpoints(run_dir, keep_latest=0)
         # Also mirror a human-readable pointer under phase/arm/seed dirs.
         try:
             mirror_dir = os.path.join(run_dir, "checkpoints", phase,

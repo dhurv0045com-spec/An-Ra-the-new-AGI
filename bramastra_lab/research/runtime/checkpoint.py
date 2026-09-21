@@ -437,7 +437,14 @@ def read_pointer(run_dir: str, name: str) -> dict[str, Any] | None:
 
 def mark_milestone(run_dir: str, checkpoint_id: str, label: str, *,
                    update_index: int, directory: str) -> None:
-    """Record a durable milestone reference; rotation must retain it."""
+    """Advance one durable milestone reference; rotation retains its latest state.
+
+    A label names a logical lineage position (for example ``E1-A-1701``),
+    not every transient publication made while progressing through it.  The
+    former checkpoint for that label is superseded once the next complete
+    checkpoint is durably published.  Keeping every intermediate payload
+    defeats rotation and can exhaust a bounded Kaggle output volume.
+    """
     checkpoints = checkpoint_root(run_dir)
     path = os.path.join(checkpoints, MILESTONES_NAME)
     existing = {"milestones": []}
@@ -445,7 +452,8 @@ def mark_milestone(run_dir: str, checkpoint_id: str, label: str, *,
         with open(path, "r", encoding="utf-8") as handle:
             existing = json.load(handle)
     existing["milestones"] = [
-        entry for entry in existing["milestones"] if entry["checkpoint_id"] != checkpoint_id]
+        entry for entry in existing["milestones"]
+        if entry["checkpoint_id"] != checkpoint_id and entry.get("label") != label]
     existing["milestones"].append({"checkpoint_id": checkpoint_id, "label": label,
                                    "update_index": update_index, "directory": directory})
     tmp_path = path + f".tmp-{uuid.uuid4().hex}"

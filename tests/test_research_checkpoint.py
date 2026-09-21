@@ -155,6 +155,22 @@ class RotationAndMilestoneTests(unittest.TestCase):
             self.run_dir, checkpoint_id=milestone.checkpoint_id)
         self.assertEqual(payload["counters"]["optimizer_updates"], 2)
 
+    def test_repeated_lineage_milestone_supersedes_old_payload(self) -> None:
+        first = self._save(1, milestone="E1-A-1701")
+        second = self._save(2, milestone="E1-A-1701")
+        removed = ckpt.prune_checkpoints(self.run_dir, keep_latest=0)
+        self.assertIn("update-000000000001", removed)
+        milestones = ckpt.read_milestones(self.run_dir)
+        self.assertEqual(len(milestones), 1)
+        self.assertEqual(milestones[0]["checkpoint_id"], second.checkpoint_id)
+        self.assertFalse(os.path.exists(os.path.join(
+            self.run_dir, "checkpoints", "update-000000000001")))
+        payload, manifest = ckpt.load_checkpoint(
+            self.run_dir, checkpoint_id=second.checkpoint_id)
+        self.assertEqual(manifest.checkpoint_id, second.checkpoint_id)
+        self.assertEqual(payload["counters"]["optimizer_updates"], 2)
+        self.assertNotEqual(first.checkpoint_id, second.checkpoint_id)
+
     def test_accepted_parent_pointer_separate_from_latest(self) -> None:
         self._save(1)
         promoted = ckpt.promote_accepted_parent(self.run_dir)
