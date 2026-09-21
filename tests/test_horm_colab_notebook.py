@@ -66,6 +66,8 @@ def test_cell1_runs_only_committed_commands():
                       "horm-logs", "threads=",
                       "junitxml", "build_receipt",
                       "test_exact_head_test_receipt",
+                      "PE_HEAVY", "pe_light", "pe_heavy",
+                      "MemAvailable", "RAM GATE", "RAM_EXCLUDED",
                       "tail of", "\"-rf\"",
                       "CUDA_VISIBLE_DEVICES", "ANRA_TEST_DEVICE",
                       "v5_contracts.import_boundaries"):
