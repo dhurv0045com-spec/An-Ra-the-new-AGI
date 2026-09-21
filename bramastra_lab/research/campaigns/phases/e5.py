@@ -674,12 +674,20 @@ def execute(job: JobInput, *, ops=None,
     try:
         from bramastra_lab.research.metalearning.dispatch import (
             MethodArchive, MethodTrialOutcome)
-        outcomes = tuple(MethodTrialOutcome(
-            method_id=r["method_id"], task_identity=r["task_identity"],
-            measured_updates=int(r["measured_updates"]),
-            measured_success=float(r["measured_success"]),
-            elapsed_seconds=float(r["elapsed_seconds"]),
-            validation=str(r["validation"])) for r in archive_rows)
+        outcome_list = []
+        for r in archive_rows:
+            if r["measured_success"] is None:
+                raise ValueError(
+                    f"archive row {r.get('task_identity')}/"
+                    f"{r.get('method_id')} carries no measured success; "
+                    "refusing to fabricate an archive best")
+            outcome_list.append(MethodTrialOutcome(
+                method_id=r["method_id"], task_identity=r["task_identity"],
+                measured_updates=int(r["measured_updates"]),
+                measured_success=float(r["measured_success"]),
+                elapsed_seconds=float(r["elapsed_seconds"]),
+                validation=str(r["validation"])))
+        outcomes = tuple(outcome_list)
         archive = MethodArchive(rows=outcomes, cutoff_event_index=len(outcomes))
         archive_identity = archive.identity()
     except Exception as exc:
@@ -1042,11 +1050,13 @@ def _proposer_batches(archive_tasks: list, archive: Any) -> list[Any]:
         build_answer_row, collocate)
 
     batches = []
+    measured_count = 0
     for task in archive_tasks:
         task_id = str(task.get("meta_task_id", "mt-?"))
         best = archive.best_measured(task_id)
         if best is None:
             continue
+        measured_count += 1
         descriptor = json.dumps(
             {"task_identity": task_id,
              "family": str(task.get("family", "")),
@@ -1065,7 +1075,14 @@ def _proposer_batches(archive_tasks: list, archive: Any) -> list[Any]:
             max_tokens=512)
         batches.append(collocate([row], max_seq=512))
     if not batches:
-        raise ValueError("no measured archive bests for proposer training")
+        validations: dict[str, int] = {}
+        for row in archive.rows:
+            key = str(getattr(row, "validation", "?"))
+            validations[key] = validations.get(key, 0) + 1
+        raise ValueError(
+            "no measured archive bests for proposer training "
+            f"(tasks={len(archive_tasks)} measured_tasks={measured_count} "
+            f"archive_rows={len(archive.rows)} validations={validations})")
     return batches
 
 
