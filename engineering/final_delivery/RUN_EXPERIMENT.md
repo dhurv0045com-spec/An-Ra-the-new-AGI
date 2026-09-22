@@ -1,16 +1,16 @@
 # RUN_EXPERIMENT — owner operating guide (FINAL-K8)
 
 Everything except the final GPU launch is already done. The single owner
-action is the two-T4 Kaggle notebook session (one allocation, 600 minutes,
-training stops at 570, export reserve 30).
+action is the two-T4 Kaggle notebook session (one allocation, 480 minutes,
+training stops at 450, export reserve 30).
 
 ## Inputs (verified)
 
-- Source: branch `BRAMASTRA`, revision recorded in
-  `engineering/reports/FINAL_K8/build_verification.json`
-  (`source_identity.git_head` + `source_closure_sha256`).
+- Source: branch `Gandiva`; the fresh no-update verification is archived at
+  `engineering/reports/FINAL_K8/gandiva-20260923/build_verification.json`.
+  Its source identity records the exact code closure and Git revision.
 - Data: the offline bundle `bramastra-k8-data` (identity
-  `7353315ab34c4e1e27212b7221af4eefe73b9fb941bc9749597fda68f508402e`),
+  `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`),
   generated with the registered command below and validated
   (`validate_bundle`: hashes, splits, information-sufficiency witnesses).
   Keep it outside Git; its manifest/audit are committed under
@@ -19,7 +19,7 @@ training stops at 570, export reserve 30).
 Reproducible generation command (already executed; rerun only to rebuild):
 
 ```
-python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle>   --training-mechanisms 4096 --controller-mechanisms 256   --development-mechanisms 256 --confirmation-mechanisms 128   --tool-mechanisms 256 --tool-heldout 64   --meta-train 24 --meta-validate 6 --meta-confirm 6
+python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 4096 --tool-heldout 256 --meta-train 24 --meta-validate 6 --meta-confirm 6
 ```
 
 ## Notebook
@@ -42,14 +42,14 @@ session with two T4s. The cells:
 ```
 python -m bramastra_lab.research.campaigns.k8 validate --bundle <offline-bundle>
 python -m bramastra_lab.research.campaigns.k8 verify-build     --data <offline-bundle> --report-dir <new-build-report-dir> --no-updates
-python -m bramastra_lab.research.campaigns.k8 run --mode e0  --run-dir <run>     --data <offline-bundle> --max-wall-minutes 600     --devices cuda:0,cuda:1 --precision fp16_autocast
-python -m bramastra_lab.research.campaigns.k8 run --mode full --run-dir <same-run>     --data <same-bundle> --max-wall-minutes 600     --devices cuda:0,cuda:1 --precision fp16_autocast
+python -m bramastra_lab.research.campaigns.k8 run --mode e0  --run-dir <run>     --data <offline-bundle> --max-wall-minutes 480     --devices cuda:0,cuda:1 --precision fp16_autocast
+python -m bramastra_lab.research.campaigns.k8 run --mode full --run-dir <same-run>     --data <same-bundle> --max-wall-minutes 480     --devices cuda:0,cuda:1 --precision fp16_autocast
 python -m bramastra_lab.research.campaigns.k8 summarize --run-dir <same-run>
 python -m bramastra_lab.research.campaigns.k8 export --run-dir <same-run> --out <new-export>
 ```
 
 `run --mode e0` and `--mode full` share the original deadline: E0
-qualification is automatic inside the 600-minute window and a failed gate
+qualification is automatic inside the 480-minute window and a failed gate
 stops dependent training with evidence preserved.
 
 ## Runtime environment

@@ -47,7 +47,7 @@ The rule information change is an explicit protocol/schema amendment. Update the
 
 ## 4. Dataset and split closure [F03]
 
-Deliver an offline generated K8 bundle containing manifest, split/canonical identities, real trajectories, supervision channels, tool fixtures, meta-task definitions and a data audit. Target per initial family: 4096 training mechanisms × four trajectories, 256 controller mechanisms, 256 development mechanisms and at least 128 sealed confirmation mechanisms. Families are rule inquiry, inventory and program composition. Tool inventory is 256 training tasks plus 64 held-out compositions. Meta inventory per seed is 24 training, six validation and six confirmation tasks, with two disjoint 12-task training blocks.
+Deliver an offline generated K8 bundle containing manifest, split/canonical identities, real trajectories, supervision channels, tool fixtures, meta-task definitions and a data audit. Target per initial family: 4096 training mechanisms × four trajectories, 256 controller mechanisms, 256 development mechanisms and at least 128 sealed confirmation mechanisms. Families are rule inquiry, inventory and program composition. Tool inventory is 4096 training tasks plus 256 held-out compositions. The larger training pool lets calibrated E3-T0 consume any registered target up to 4000 without repeating or fabricating examples. Meta inventory per seed is 24 training, six validation and six confirmation tasks, with two disjoint 12-task training blocks.
 
 Mechanism uniqueness must survive the declared equivalence relation; new names/UUIDs do not create new mechanisms. If a generator cannot supply the required distinct, solvable mechanisms, improve the generator before declaring the bundle complete. Document finite-domain/diversity audits and actual counts. Do not quietly lower counts in the owner notebook or inherit CLI smoke defaults. The full data bundle is a delivery artifact outside Git; commit its manifest, compact audit and reproducible generation command.
 
@@ -191,7 +191,7 @@ At the reviewed source the real CLI has these flags. Preserve compatible command
 
 ```text
 python -m pip install -e ".[bramastra]"
-python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 256 --tool-heldout 64 --meta-train 24 --meta-validate 6 --meta-confirm 6
+python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 4096 --tool-heldout 256 --meta-train 24 --meta-validate 6 --meta-confirm 6
 python -m bramastra_lab.research.campaigns.k8 validate --bundle <offline-bundle>
 python -m bramastra_lab.research.campaigns.k8 verify-build --data <offline-bundle> --report-dir <new-build-report> --no-updates
 python -m bramastra_lab.research.campaigns.k8 run --mode e0 --run-dir <run> --data <bundle> --max-wall-minutes 480 --devices cuda:0,cuda:1 --precision fp16_autocast
