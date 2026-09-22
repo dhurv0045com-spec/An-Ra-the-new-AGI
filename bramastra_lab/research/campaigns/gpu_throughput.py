@@ -156,7 +156,12 @@ def _worker(*, device_index: int, batch_sizes: tuple[int, ...], seconds: float,
             except torch.cuda.OutOfMemoryError:
                 if optimizer is not None:
                     optimizer.zero_grad(set_to_none=True)
-                device_rows.append({"batch_size": batch_size, "status": "oom"})
+                device_rows.append({
+                    "batch_size": batch_size, "status": "oom",
+                    "peak_allocated_mib": round(
+                        torch.cuda.max_memory_allocated(device) / 2**20, 1),
+                })
+                torch.cuda.reset_peak_memory_stats(device)
             except Exception as exc:
                 device_rows.append({"batch_size": batch_size, "status": "error",
                                     "error": f"{type(exc).__name__}: {exc}"[:500]})
@@ -269,7 +274,10 @@ def run(*, devices: tuple[int, int] = (0, 1), batch_sizes: tuple[int, ...] = (1,
         "quality_warning": "Random-token throughput probe only; it does not test task quality, speech transcription, or the frozen K8 objectives.",
     }
     report["status"] = "complete" if not errors and all(
-        len(outputs.get(str(index), [])) == len(batch_sizes) for index in devices) else "partial"
+        len(outputs.get(str(index), [])) == len(batch_sizes)
+        and all(row.get("status") in {"complete", "oom"}
+                for row in outputs.get(str(index), []))
+        for index in devices) else "partial"
     return report
 
 
