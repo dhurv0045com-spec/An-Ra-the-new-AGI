@@ -939,6 +939,61 @@ class O07GateTests(unittest.TestCase):
 
 
 class O10NotebookTests(unittest.TestCase):
+    def test_failure_export_keeps_details_and_filters_by_event_name(self) -> None:
+        from bramastra_lab.research.campaigns.k8 import (
+            _failure_report_records)
+
+        reservation = ("r1", "E4-S0", None, "w0", "cuda:0", "E4", "S0",
+                       1701, 60.0, 1.0, "failed", 0, 0, 0, 4.9, None)
+        failure = {"index": 7, "at_unix": 123.0, "event": "worker_failed",
+                   "payload": {"job_id": "E4-S0",
+                               "error": "root cause: migration refused"}}
+        unrelated = {"index": 8, "at_unix": 999999.0,
+                     "event": "worker_started", "payload": {}}
+        reservations, events = _failure_report_records({
+            "reservations": [reservation], "events": [failure, unrelated]})
+
+        self.assertEqual(reservations[0]["job_id"], "E4-S0")
+        self.assertEqual(events, [failure])
+        self.assertEqual(events[0]["payload"]["error"],
+                         "root cause: migration refused")
+
+    def test_dual_gpu_proof_preserves_primary_worker_error(self) -> None:
+        from bramastra_lab.research.campaigns.process_supervision import (
+            _apply_dual_gpu_proof)
+
+        results = {
+            "E4-S0": {"status": "failed", "error": "E4 migration failed: CUDA OOM"},
+            "E4-S1": {"status": "failed", "error": "E4 stream refused: bad manifest"},
+        }
+        specs = [{"job_id": "E4-S0"}, {"job_id": "E4-S1"}]
+        _apply_dual_gpu_proof(results, specs)
+
+        self.assertEqual(results["E4-S0"]["error"], "E4 migration failed: CUDA OOM")
+        self.assertEqual(results["E4-S1"]["error"], "E4 stream refused: bad manifest")
+        for row in results.values():
+            self.assertEqual(row["supervision"]["dual_gpu_proof"], "failed")
+            self.assertIn("dual_gpu_proof_error", row["supervision"])
+
+    def test_dual_gpu_proof_fails_successful_peer_without_mutating_failure(self) -> None:
+        from bramastra_lab.research.campaigns.process_supervision import (
+            _apply_dual_gpu_proof)
+
+        results = {
+            "E4-S0": {"status": "failed", "error": "actual child exception"},
+            "E4-S1": {"status": "completed", "supervision": {}},
+        }
+        _apply_dual_gpu_proof(
+            results, [{"job_id": "E4-S0"}, {"job_id": "E4-S1"}])
+
+        self.assertEqual(results["E4-S0"]["error"], "actual child exception")
+        self.assertEqual(results["E4-S1"]["status"], "failed")
+        self.assertIn("dual-GPU proof unavailable",
+                      results["E4-S1"]["error"])
+        self.assertEqual(
+            results["E4-S1"]["supervision"]["dual_gpu_peer_failures"][0]["error"],
+            "actual child exception")
+
     def test_campaign_failure_summary_exposes_worker_error(self) -> None:
         from bramastra_lab.research.campaigns.runner import _failure_summary
 
@@ -1008,6 +1063,7 @@ class O10NotebookTests(unittest.TestCase):
         self.assertNotIn("globals()", joined)
         self.assertNotIn("RESULTS_ZIP.unlink", joined)
         self.assertIn("new_results_zip", joined)
+        self.assertIn("failures.jsonl", joined)
         self.assertIn("'-u', '-m'", joined)
         # Every mutating subprocess call checks its failure.
         self.assertGreaterEqual(joined.count("returncode"), 2)

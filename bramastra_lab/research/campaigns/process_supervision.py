@@ -517,14 +517,32 @@ def _apply_dual_gpu_proof(results: dict[str, dict[str, Any]],
             proof_error = "dual-GPU workers did not overlap in time"
     if proof_error is None:
         return
+    # Keep the worker's own failure as the primary diagnosis.  The proof is
+    # a second, slot-level result; replacing ``error`` here used to erase the
+    # exception that actually stopped both workers (and made failed runs
+    # impossible to debug from the compact Kaggle safety archive).
+    peer_failures = [
+        {"job_id": str(spec.get("job_id", "?")),
+         "status": str(results.get(str(spec.get("job_id", "?")), {}).get(
+             "status", "missing")),
+         "error": results.get(str(spec.get("job_id", "?")), {}).get("error")}
+        for spec in specs
+        if str(results.get(str(spec.get("job_id", "?")), {}).get(
+            "status", "missing")) != "completed"
+    ]
     for spec in specs:
         job_id = str(spec.get("job_id", "?"))
         output = results.get(job_id)
         if output is None:
             continue
-        output["status"] = "failed"
-        output["error"] = proof_error
-        output.setdefault("supervision", {})["dual_gpu_proof"] = "failed"
+        supervision = output.setdefault("supervision", {})
+        supervision["dual_gpu_proof"] = "failed"
+        supervision["dual_gpu_proof_error"] = proof_error
+        if peer_failures:
+            supervision["dual_gpu_peer_failures"] = peer_failures
+        if str(output.get("status")) == "completed":
+            output["status"] = "failed"
+            output["error"] = proof_error
 
 
 def verify_physical_devices(expected: Sequence[str]) -> dict[str, Any]:

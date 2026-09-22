@@ -11,7 +11,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Sequence
+from typing import Any, Sequence
 
 from bramastra_lab.research.campaigns.supervisor import (
     CampaignLedger,
@@ -175,6 +175,26 @@ def cmd_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _failure_report_records(export: dict[str, Any]) -> tuple[list[dict[str, Any]],
+                                                              list[dict[str, Any]]]:
+    """Return compact, actionable reservation and event failure records."""
+    reservations = [
+        {"reservation_id": row[0], "job_id": row[1], "worker": row[3],
+         "device": row[4], "phase": row[5], "arm": row[6], "seed": row[7],
+         "status": row[10], "committed_updates": row[11],
+         "attempted_updates": row[12], "supervised_exposure": row[13],
+         "device_seconds": row[14]}
+        for row in export.get("reservations", [])
+        if len(row) >= 15 and row[10] in ("failed", "timed_out")
+    ]
+    events = [
+        event for event in export.get("events", [])
+        if isinstance(event, dict) and event.get("event") in {
+            "worker_failed", "phase_failed", "slot_failed", "campaign_failed"}
+    ]
+    return reservations, events
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     """Write the full restorable result bundle (R08 + contracts S7).
 
@@ -236,17 +256,20 @@ def cmd_export(args: argparse.Namespace) -> int:
     with open(os.path.join(args.out, "allocation.json"), "w", encoding="utf-8") as handle:
         json.dump({"allocations": allocations}, handle, indent=2, sort_keys=True,
                   default=str)
-    # Failures (failed-run records preserved, never dropped).
-    try:
-        failures = [row for row in export.get("reservations", [])
-                    if len(row) >= 11 and row[10] in ("failed", "timed_out")]
-        worker_failures = [e for e in events if isinstance(e, (list, tuple))
-                           and len(e) >= 2 and "failed" in str(e[1])]
-    except Exception:
-        failures, worker_failures = [], []
+    # Keep actionable failure details in the compact results archive.  The
+    # previous implementation counted failed reservations but dropped their
+    # IDs/errors, and tested the event timestamp rather than the event name.
+    failures, worker_failures = _failure_report_records(export)
     with open(os.path.join(args.out, "failures.jsonl"), "w", encoding="utf-8") as handle:
         handle.write(json.dumps({"failed_reservations": len(failures),
-                                 "worker_failed_events": len(worker_failures)}) + "\n")
+                                 "worker_failed_events": len(worker_failures),
+                                 "schema": "bramastra-k8-failures/v2"}) + "\n")
+        for failure in failures:
+            handle.write(json.dumps({"kind": "reservation", **failure},
+                                    sort_keys=True) + "\n")
+        for event in worker_failures:
+            handle.write(json.dumps({"kind": "event", **event},
+                                    sort_keys=True) + "\n")
     # Frozen protocol (the exact plan + cutoffs the campaign ran under).
     from bramastra_lab.research.campaigns import process_supervision as ps
 
