@@ -21,6 +21,71 @@ SCHEMA = "anra-v5-target-preflight/v1"
 V5A_TARGET_SCHEMA = "anra-v5-v5a-target-receipt/v1"
 
 
+class UnsupportedXlaRuntimeError(RuntimeError):
+    """The installed torch_xla runtime lacks the current topology API."""
+
+
+def discover_xla_topology(*, runtime_module: Any, xla_model_module: Any) -> dict[str, object]:
+    """Discover topology through the current ``torch_xla.runtime`` API.
+
+    The old ``xla_model.xrt_world_size`` and ``xla_model.get_ordinal`` calls
+    are deliberately not accepted here.  A target with only those legacy
+    helpers must fail closed instead of producing a receipt with ambiguous
+    topology semantics.
+    """
+
+    required = (
+        "device_type",
+        "world_size",
+        "global_ordinal",
+        "global_runtime_device_count",
+        "addressable_runtime_device_count",
+    )
+    missing = [name for name in required if not callable(getattr(runtime_module, name, None))]
+    if missing:
+        raise UnsupportedXlaRuntimeError(
+            "torch_xla.runtime lacks the required current topology API: "
+            f"{', '.join(missing)}. Legacy xla_model topology helpers are "
+            "intentionally unsupported; use a compatible torch_xla runtime."
+        )
+    if not callable(getattr(xla_model_module, "xla_device", None)):
+        raise UnsupportedXlaRuntimeError(
+            "torch_xla.core.xla_model lacks xla_device(); cannot initialize the target device."
+        )
+
+    return {
+        "device": xla_model_module.xla_device(),
+        "device_type": str(runtime_module.device_type()),
+        "world_size": int(runtime_module.world_size()),
+        "ordinal": int(runtime_module.global_ordinal()),
+        "global_device_count": int(runtime_module.global_runtime_device_count()),
+        "addressable_device_count": int(runtime_module.addressable_runtime_device_count()),
+    }
+
+
+def topology_checks(*, topology: dict[str, object], expected_world_size: int,
+                    expected_global_device_count: int | None = None) -> dict[str, bool]:
+    """Validate the discovered topology before running device smoke checks."""
+
+    device_type = str(topology["device_type"])
+    world_size = int(topology["world_size"])
+    ordinal = int(topology["ordinal"])
+    checks = {
+        "xla_device": str(topology["device"]).startswith("xla"),
+        "device_type_present": bool(device_type),
+        "device_type_is_tpu": device_type.upper() == "TPU",
+        "global_device_count_positive": int(topology["global_device_count"]) > 0,
+        "addressable_device_count_positive": int(topology["addressable_device_count"]) > 0,
+        "world_size_matches": world_size == expected_world_size,
+        "ordinal_in_range": 0 <= ordinal < world_size,
+    }
+    if expected_global_device_count is not None:
+        checks["global_device_count_matches"] = (
+            int(topology["global_device_count"]) == expected_global_device_count
+        )
+    return checks
+
+
 def v5a_target_receipt() -> dict[str, object]:
     """PRE500M-facing target receipt for the frozen V5A_250M production model.
 
@@ -62,11 +127,14 @@ def v5a_target_receipt() -> dict[str, object]:
 @dataclass(frozen=True, slots=True)
 class PreflightConfig:
     expected_world_size: int = 1
+    expected_global_device_count: int | None = None
     seed: int = 47_101
     matrix_size: int = 128
 
     def assert_valid(self) -> None:
-        if self.expected_world_size <= 0 or self.seed < 0 or self.matrix_size <= 0:
+        if (self.expected_world_size <= 0 or self.seed < 0 or self.matrix_size <= 0
+                or (self.expected_global_device_count is not None
+                    and self.expected_global_device_count <= 0)):
             raise ValueError("invalid target preflight configuration")
 
 
@@ -102,6 +170,7 @@ def run_preflight(config: PreflightConfig) -> dict[str, object]:
             "implementation_sha256": _sha256_file(Path(__file__)),
         }
     try:
+        import torch_xla.runtime as xruntime
         import torch_xla.core.xla_model as xm
     except ImportError as exc:
         missing_dependencies.append("torch_xla")
@@ -115,9 +184,27 @@ def run_preflight(config: PreflightConfig) -> dict[str, object]:
         }
 
     try:
-        device = xm.xla_device()
-        world_size = int(xm.xrt_world_size())
-        ordinal = int(xm.get_ordinal())
+        topology = discover_xla_topology(
+            runtime_module=xruntime,
+            xla_model_module=xm,
+        )
+        device = topology["device"]
+        device_type = str(topology["device_type"])
+        world_size = int(topology["world_size"])
+        ordinal = int(topology["ordinal"])
+        global_device_count = int(topology["global_device_count"])
+        addressable_device_count = int(topology["addressable_device_count"])
+    except UnsupportedXlaRuntimeError as exc:
+        return {
+            "schema": SCHEMA,
+            "status": "BLOCKED_UNSUPPORTED_TORCH_XLA_RUNTIME",
+            "scope": "target TPU/XLA runtime preflight; no model training",
+            "phase": "runtime_api",
+            "error_type": type(exc).__name__,
+            "reason": str(exc),
+            "config": asdict(config),
+            "implementation_sha256": _sha256_file(Path(__file__)),
+        }
     except Exception as exc:
         return {
             "schema": SCHEMA,
@@ -129,11 +216,18 @@ def run_preflight(config: PreflightConfig) -> dict[str, object]:
             "config": asdict(config),
             "implementation_sha256": _sha256_file(Path(__file__)),
         }
-    checks: dict[str, bool] = {
-        "xla_device": str(device).startswith("xla"),
-        "world_size_matches": world_size == config.expected_world_size,
-        "ordinal_in_range": 0 <= ordinal < world_size,
-    }
+    checks: dict[str, bool] = topology_checks(
+        topology={
+            "device": device,
+            "device_type": device_type,
+            "world_size": world_size,
+            "ordinal": ordinal,
+            "global_device_count": global_device_count,
+            "addressable_device_count": addressable_device_count,
+        },
+        expected_world_size=config.expected_world_size,
+        expected_global_device_count=config.expected_global_device_count,
+    )
     torch.manual_seed(config.seed + ordinal)
     try:
         started = time.perf_counter()
@@ -163,8 +257,11 @@ def run_preflight(config: PreflightConfig) -> dict[str, object]:
             "error_type": type(exc).__name__,
             "reason": str(exc),
             "device": str(device),
+            "device_type": device_type,
             "world_size": world_size,
             "ordinal": ordinal,
+            "global_device_count": global_device_count,
+            "addressable_device_count": addressable_device_count,
             "config": asdict(config),
             "implementation_sha256": _sha256_file(Path(__file__)),
         }
@@ -177,8 +274,11 @@ def run_preflight(config: PreflightConfig) -> dict[str, object]:
         "torch_xla_version": getattr(__import__("torch_xla"), "__version__", "unknown"),
         "platform": platform.platform(),
         "device": str(device),
+        "device_type": device_type,
         "world_size": world_size,
         "ordinal": ordinal,
+        "global_device_count": global_device_count,
+        "addressable_device_count": addressable_device_count,
         "config": asdict(config),
         "device_rng_probe_sha256_1": rng_hash_1,
         "device_rng_probe_sha256_2": rng_hash_2,
@@ -194,11 +294,17 @@ def run_preflight(config: PreflightConfig) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-world-size", type=int, default=1)
+    parser.add_argument("--expected-global-device-count", type=int)
     parser.add_argument("--seed", type=int, default=47_101)
     parser.add_argument("--matrix-size", type=int, default=128)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    result = run_preflight(PreflightConfig(args.expected_world_size, args.seed, args.matrix_size))
+    result = run_preflight(PreflightConfig(
+        expected_world_size=args.expected_world_size,
+        expected_global_device_count=args.expected_global_device_count,
+        seed=args.seed,
+        matrix_size=args.matrix_size,
+    ))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(args.output), "status": result["status"]}, sort_keys=True))
