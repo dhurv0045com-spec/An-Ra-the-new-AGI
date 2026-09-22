@@ -71,10 +71,18 @@ def probe_attention_geometry(*, device: str = "cuda:0") -> dict[str, Any]:
         config = k8_campaign_config()
         ops = ProductionOps()
         handle = ops.init_model(seed=1701, profile="k8-campaign", device=use_device)
-        model = handle.model if hasattr(handle, "model") else handle
+        # ProductionOps returns a mapping handle.  Keep the attribute fallback
+        # for compatible callers, but never treat the handle itself as a model:
+        # doing so made P1 call ``dict.eval()`` in the owner run.
+        model = handle.get("model") if isinstance(handle, dict) else \
+            (handle.model if hasattr(handle, "model") else handle)
+        if model is None or not hasattr(model, "eval"):
+            raise ValueError("production model handle carries no eval-capable model")
         model.eval()
         vocab = int(getattr(config, "vocab_size", 260))
-        seq = int(getattr(config, "max_seq", 64))
+        # Keep the probe cheap while binding its synthetic sequence length to
+        # the frozen model context contract (BuildConfig stores it in model).
+        seq = min(64, int(config.model.max_seq))
         generator = torch.Generator(device="cpu").manual_seed(1701)
         batch = torch.randint(0, vocab, (4, seq), generator=generator)
         if use_device.startswith("cuda"):
@@ -133,20 +141,37 @@ def probe_checkpoint_lineage(run_dir: str) -> dict[str, Any]:
             pass
     completed = [row for row in rows if row[2] == "completed"]
     with_identity = [row for row in completed if row[3]]
+    # A checkpoint id is stored in each checkpoint's manifest, not its file
+    # name.  E2 intentionally references an E1 parent and E6 is export-only;
+    # only model-producing phases require a restorable payload.  The earlier
+    # filename search therefore reported false misses for every valid K8 run.
+    manifests: dict[str, bool] = {}
+    root = os.path.join(run_dir, "checkpoints")
+    for base, _dirs, names in os.walk(root):
+        if "manifest.json" not in names:
+            continue
+        manifest_path = os.path.join(base, "manifest.json")
+        try:
+            with open(manifest_path, encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            identity = str(manifest.get("checkpoint_id", ""))
+            if len(identity) == 64:
+                manifests[identity] = os.path.isfile(os.path.join(base, "payload.pt"))
+        except (OSError, ValueError, TypeError):
+            continue
     payload_hits = 0
     payload_miss = 0
-    for row in with_identity:
-        identity = str(row[3])
-        if len(identity) == 64:
-            found = False
-            for base, _dirs, names in os.walk(os.path.join(run_dir, "checkpoints")):
-                if identity in names or identity + ".json" in names:
-                    found = True
-                    break
-            if found:
-                payload_hits += 1
-            else:
-                payload_miss += 1
+    model_phases = {"E1", "E3", "E4", "E5"}
+    for _job_id, phase, _status, checkpoint_identity in with_identity:
+        if str(phase) not in model_phases:
+            continue
+        identity = str(checkpoint_identity)
+        if len(identity) != 64:
+            continue
+        if manifests.get(identity, False):
+            payload_hits += 1
+        else:
+            payload_miss += 1
     phases = sorted({str(row[1]) for row in completed})
     status = "pass" if completed and payload_miss == 0 else "fail"
     return {"status": status, "reservations": len(rows),

@@ -880,8 +880,8 @@ def write_final_readiness(report_path: str | None = None, *,
                 "python -m bramastra_lab.research.campaigns.k8 prepare "
                 "--out <offline-bundle> --training-mechanisms 4096 "
                 "--controller-mechanisms 256 --development-mechanisms 256 "
-                "--confirmation-mechanisms 128 --tool-mechanisms 256 "
-                "--tool-heldout 64 --meta-train 24 --meta-validate 6 "
+                "--confirmation-mechanisms 128 --tool-mechanisms 4096 "
+                "--tool-heldout 256 --meta-train 24 --meta-validate 6 "
                 "--meta-confirm 6")},
         "runbook": "engineering/final_delivery/RUN_EXPERIMENT.md",
         "remaining_blockers": failing,

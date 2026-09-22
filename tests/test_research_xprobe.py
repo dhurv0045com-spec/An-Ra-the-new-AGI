@@ -9,6 +9,7 @@ from bramastra_lab.research.campaigns.xprobe import (
     XPROBE_SCHEMA,
     build_parser,
     probe_allocation_fidelity,
+    probe_attention_geometry,
     probe_checkpoint_lineage,
     probe_phase_accounting,
     probe_tokenizer_roundtrip,
@@ -59,6 +60,12 @@ class XProbeContracts(unittest.TestCase):
         result = probe_tokenizer_roundtrip()
         self.assertIn(result["status"], ("pass", "error"))
         self.assertIn("status", result)
+
+    def test_attention_probe_uses_model_inside_production_handle(self) -> None:
+        result = probe_attention_geometry(device="cpu")
+        self.assertEqual(result["status"], "pass")
+        self.assertTrue(result["hidden_finite"])
+        self.assertEqual(result["hidden_shape"][:2], [4, 64])
 
 
 if __name__ == "__main__":

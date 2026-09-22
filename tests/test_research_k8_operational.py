@@ -992,6 +992,7 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("BRAMASTRA_GIT_URL", joined)
         self.assertIn("git', 'clone'", joined)
         self.assertIn("generated-k8-data", joined)
+        self.assertIn("'--tool-mechanisms', '4096'", joined)
         self.assertIn("REQUIRED_MODULES", joined)
         self.assertIn("run_k8", joined)
         self.assertIn("'--precision', 'fp32'", joined)
