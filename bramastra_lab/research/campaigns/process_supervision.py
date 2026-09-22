@@ -104,6 +104,7 @@ def _child_main(result_queue, spec: dict[str, Any],
     """Spawn-child entry: isolate GPUs BEFORE torch import, run, report."""
     import importlib
 
+    started_unix = time.time()
     physical = str(spec.get("physical_device",
                             spec.get("device", "cpu")))
     visible, local = physical_to_local_device(physical)
@@ -152,6 +153,8 @@ def _child_main(result_queue, spec: dict[str, Any],
             "local_device": local,
             "visible_devices": visible,
             "device_uuid": _local_device_uuid(local),
+            "worker_started_unix": started_unix,
+            "worker_finished_unix": time.time(),
         })
         output["supervision"] = supervision
         # Preserve physical identity for ledger accounting.
@@ -478,7 +481,50 @@ def run_phase_concurrently(
                     "supervised_exposure": 0, "device_seconds": timeout_seconds,
                     "checkpoint_identity": None,
                 })
+    if require_overlap_proof and len(specs) > 1:
+        _apply_dual_gpu_proof(results_sub, specs)
     return results_sub
+
+
+def _apply_dual_gpu_proof(results: dict[str, dict[str, Any]],
+                          specs: Sequence[dict[str, Any]]) -> None:
+    """Fail a two-GPU slot if child placement or lifetime is not proven.
+
+    The scheduler's requested device names are insufficient evidence: a child
+    can accidentally expose the wrong physical GPU and still call it
+    ``cuda:0`` locally.  Every successful worker must report a real physical
+    UUID, and the two process intervals must overlap.  This proof is applied
+    only to the production spawn path, after all child outputs are collected.
+    """
+    active = [results.get(str(spec.get("job_id", "")), {}) for spec in specs]
+    proof_error: str | None = None
+    if len(active) != 2 or any(str(row.get("status")) != "completed"
+                               for row in active):
+        proof_error = "dual-GPU proof unavailable because a slot worker did not complete"
+    else:
+        supervision = [dict(row.get("supervision") or {}) for row in active]
+        uuids = [str(item.get("device_uuid", "")) for item in supervision]
+        starts = [item.get("worker_started_unix") for item in supervision]
+        ends = [item.get("worker_finished_unix") for item in supervision]
+        if any(not value or value in {"unknown", "unavailable", "cpu-no-uuid"}
+               for value in uuids):
+            proof_error = f"dual-GPU proof missing physical UUIDs: {uuids}"
+        elif len(set(uuids)) != 2:
+            proof_error = f"dual-GPU proof found duplicate physical UUID: {uuids}"
+        elif any(not isinstance(value, (int, float)) for value in starts + ends):
+            proof_error = "dual-GPU proof missing worker lifetime timestamps"
+        elif max(float(value) for value in starts) >= min(float(value) for value in ends):
+            proof_error = "dual-GPU workers did not overlap in time"
+    if proof_error is None:
+        return
+    for spec in specs:
+        job_id = str(spec.get("job_id", "?"))
+        output = results.get(job_id)
+        if output is None:
+            continue
+        output["status"] = "failed"
+        output["error"] = proof_error
+        output.setdefault("supervision", {})["dual_gpu_proof"] = "failed"
 
 
 def verify_physical_devices(expected: Sequence[str]) -> dict[str, Any]:

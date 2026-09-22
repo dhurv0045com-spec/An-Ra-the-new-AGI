@@ -359,6 +359,7 @@ def run_campaign(*, run_dir: str, mode: str, data_dir: str,
                 outputs = ps.run_phase_concurrently(
                     specs, timeout_seconds=timeout_seconds,
                     worker_fn_path="bramastra_lab.research.campaigns.worker:run_worker_phase",
+                    require_overlap_proof=len(specs) == 2 and phase != "E6",
                 )
                 slot_failed = False
                 for worker_entry in pending:
