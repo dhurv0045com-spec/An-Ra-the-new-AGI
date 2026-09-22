@@ -1,7 +1,8 @@
 # FINAL-K8 progress cursor
 
-Source revision: `be946613d415751bf8cd6e227d7624040f1c9d6a` on `Gandiva`, based
-on `BRAMASTRA`. The only pre-existing local edit is the user's change to
+Branch tip: `561a937297b361795f6d9d1e9dd0a68b59cd3072` on `Gandiva`, based on
+`BRAMASTRA`. The verified implementation revision in the build report is
+`be946613d415751bf8cd6e227d7624040f1c9d6a`. The only pre-existing local edit is the user's change to
 `tests/test_research_k8_real.py`; it was preserved and not included in the
 Gandiva implementation commit.
 
