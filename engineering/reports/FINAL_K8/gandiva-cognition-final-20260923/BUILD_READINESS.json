@@ -1,0 +1,1272 @@
+{
+  "codec_identity": "9df2e90c740e72835621b2270a98969c09eff230dc3b35bef076d2681bd5d383",
+  "data_artifact": {
+    "audit": "engineering/final_delivery/data/bundle_audit.json",
+    "generation_command": "python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 4096 --tool-heldout 256 --meta-train 24 --meta-validate 6 --meta-confirm 6",
+    "identity": "6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6",
+    "manifest": "engineering/final_delivery/data/bundle_manifest.json"
+  },
+  "data_manifest_sha256": "6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6",
+  "derived_from": "build_verification.json",
+  "executed_commands": [
+    {
+      "command": "python -m bramastra_lab.research.campaigns.k8 verify-build --data <offline-bundle> --report-dir <new-dir> --no-updates",
+      "report_identity": "876f42a2ccdea2119d0c69532bc3df643040c4f49c1750fd925d02815ffafc04"
+    }
+  ],
+  "implementation_closure_sha256": "cb005c2cbb3a02da888a5cf271805b6751954e403cbee1de6794ba82482963b7",
+  "model_config_sha256": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade",
+  "optimizer_updates_local": 0,
+  "owner_notebook": "notebooks/bramastra_k8.ipynb",
+  "ready_for_owner_experiment": true,
+  "remaining_blockers": [],
+  "report_identity": "876f42a2ccdea2119d0c69532bc3df643040c4f49c1750fd925d02815ffafc04",
+  "requirements": {
+    "F01": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.375,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_foundation.py",
+            "tests/test_research_k8.py",
+            "tests/test_research_cognition.py",
+            "tests/test_research_scoring_device_contract.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "base_parameters": 6493952,
+            "config_identity": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade",
+            "layers": 8,
+            "max_seq": 512,
+            "width": 256
+          },
+          "kind": "real-interface-exercise",
+          "selector": "campaign_architecture",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.models:IntegratedModel",
+        "bramastra_lab.research.campaigns.phases.ops:k8_campaign_config"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:campaign_architecture"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "foundation"
+      ]
+    },
+    "F02": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.375,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_foundation.py",
+            "tests/test_research_k8.py",
+            "tests/test_research_cognition.py",
+            "tests/test_research_scoring_device_contract.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 6.641,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e3_data_objective.py",
+            "tests/test_research_data.py",
+            "tests/test_research_environments.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "bundle_identity": "6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6",
+            "compiled_rows": 12,
+            "witnessed_rows": 56832
+          },
+          "kind": "real-interface-exercise",
+          "selector": "bundle_contracts",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.data.k8_bundle:rule_information_witness",
+        "bramastra_lab.research.data.k8_bundle:information_sufficiency_witness"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:bundle_contracts"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "foundation",
+        "data_and_splits"
+      ]
+    },
+    "F03": {
+      "command_receipts": [
+        {
+          "duration_seconds": 6.641,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e3_data_objective.py",
+            "tests/test_research_data.py",
+            "tests/test_research_environments.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "bundle_identity": "6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6",
+            "compiled_rows": 12,
+            "witnessed_rows": 56832
+          },
+          "kind": "real-interface-exercise",
+          "selector": "bundle_contracts",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.data.k8_bundle:build_k8_bundle",
+        "bramastra_lab.research.data.k8_bundle:validate_bundle"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:bundle_contracts"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "data_and_splits"
+      ]
+    },
+    "F04": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.375,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_foundation.py",
+            "tests/test_research_k8.py",
+            "tests/test_research_cognition.py",
+            "tests/test_research_scoring_device_contract.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 7.75,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_experience.py",
+            "tests/test_research_contracts.py",
+            "tests/test_research_config.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "bundle_identity": "6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6",
+            "compiled_rows": 12,
+            "witnessed_rows": 56832
+          },
+          "kind": "real-interface-exercise",
+          "selector": "bundle_contracts",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.phases.compiler:goal_prefix_tokens",
+        "bramastra_lab.research.experience.codec:encode_event"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:bundle_contracts"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "foundation",
+        "experience_codec"
+      ]
+    },
+    "F05": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "attempted_updates": 0,
+            "boundary": "backward-only-gradients-discarded",
+            "grad_finite_params": 60,
+            "optimizer_updates": 0
+          },
+          "kind": "real-interface-exercise",
+          "selector": "no_update_boundary",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.learning.trainer:Trainer",
+        "bramastra_lab.research.experience.supervision:SupervisionWindow"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:no_update_boundary"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts"
+      ]
+    },
+    "F06": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.375,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_foundation.py",
+            "tests/test_research_k8.py",
+            "tests/test_research_cognition.py",
+            "tests/test_research_scoring_device_contract.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "attempted_updates": 0,
+            "boundary": "backward-only-gradients-discarded",
+            "grad_finite_params": 60,
+            "optimizer_updates": 0
+          },
+          "kind": "real-interface-exercise",
+          "selector": "no_update_boundary",
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "events": 18,
+            "families": 2,
+            "model_origin": "random-init-real-calls",
+            "optimizer_updates": 0,
+            "profile": "k8-campaign"
+          },
+          "kind": "real-interface-exercise",
+          "selector": "live_episode_no_update",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.learning.k8_scoring:score_candidates_trainable",
+        "bramastra_lab.research.learning.k8_scoring:value_estimate_trainable",
+        "bramastra_lab.research.learning.k8_scoring:world_transition_token_loss"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:no_update_boundary",
+        "exercise:live_episode_no_update"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "foundation",
+        "phase_contracts"
+      ]
+    },
+    "F07": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.375,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_foundation.py",
+            "tests/test_research_k8.py",
+            "tests/test_research_cognition.py",
+            "tests/test_research_scoring_device_contract.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "events": 18,
+            "families": 2,
+            "model_origin": "random-init-real-calls",
+            "optimizer_updates": 0,
+            "profile": "k8-campaign"
+          },
+          "kind": "real-interface-exercise",
+          "selector": "live_episode_no_update",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.cognition.episode:mark_conflicts",
+        "bramastra_lab.research.cognition.episode:admit_observation_evidence"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:live_episode_no_update"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "foundation"
+      ]
+    },
+    "F08": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.375,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_foundation.py",
+            "tests/test_research_k8.py",
+            "tests/test_research_cognition.py",
+            "tests/test_research_scoring_device_contract.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "events": 18,
+            "families": 2,
+            "model_origin": "random-init-real-calls",
+            "optimizer_updates": 0,
+            "profile": "k8-campaign"
+          },
+          "kind": "real-interface-exercise",
+          "selector": "live_episode_no_update",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.cognition.episode:BoundedPlannerAdapter",
+        "bramastra_lab.research.cognition.episode:run_episode"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:live_episode_no_update"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "foundation"
+      ]
+    },
+    "F09": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.phases.e2:execute"
+      ],
+      "limitations": [
+        "owner E2 loads the trained E1 A/B checkpoints on T4"
+      ],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts"
+      ]
+    },
+    "F10": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 10.469,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_checkpoint.py",
+            "tests/test_research_ledger_replay.py",
+            "tests/test_research_accounting.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.phases.e1:execute"
+      ],
+      "limitations": [
+        "owner E1 training on T4"
+      ],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts",
+        "checkpoint_and_ledger"
+      ]
+    },
+    "F11": {
+      "command_receipts": [
+        {
+          "duration_seconds": 6.641,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e3_data_objective.py",
+            "tests/test_research_data.py",
+            "tests/test_research_environments.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.environments.k8_live:ToolEnv",
+        "bramastra_lab.research.campaigns.phases.e3:execute"
+      ],
+      "limitations": [],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "data_and_splits",
+        "phase_contracts"
+      ]
+    },
+    "F12": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.models.gated:GatedReuseModel",
+        "bramastra_lab.research.campaigns.phases.e4:execute"
+      ],
+      "limitations": [
+        "owner E4 gated training on T4"
+      ],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts"
+      ]
+    },
+    "F13": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.trial_service",
+        "bramastra_lab.research.campaigns.phases.session:bind_job_reservation"
+      ],
+      "limitations": [],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts"
+      ]
+    },
+    "F14": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 2.266,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_evaluation.py",
+            "tests/test_research_meta_rsi.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.phases.e5:execute",
+        "bramastra_lab.research.metalearning.dispatch:MethodArchive"
+      ],
+      "limitations": [
+        "owner E5 proposer training on T4"
+      ],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts",
+        "statistics_and_evaluation"
+      ]
+    },
+    "F15": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.469,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_checkpoint.py",
+            "tests/test_research_ledger_replay.py",
+            "tests/test_research_accounting.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.supervisor:CampaignLedger",
+        "bramastra_lab.research.campaigns.runner:Runner"
+      ],
+      "limitations": [],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "checkpoint_and_ledger",
+        "phase_contracts"
+      ]
+    },
+    "F16": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "attempted_updates": 0,
+            "boundary": "backward-only-gradients-discarded",
+            "grad_finite_params": 60,
+            "optimizer_updates": 0
+          },
+          "kind": "real-interface-exercise",
+          "selector": "no_update_boundary",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.worker:_run_e0"
+      ],
+      "limitations": [
+        "owner E0: full-profile CUDA qualification, fresh-process resume, complete timing units"
+      ],
+      "production_path_evidence": [
+        "exercise:no_update_boundary"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts"
+      ]
+    },
+    "F17": {
+      "command_receipts": [
+        {
+          "duration_seconds": 10.469,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_checkpoint.py",
+            "tests/test_research_ledger_replay.py",
+            "tests/test_research_accounting.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "checkpoint_id": "3b65f1845ea4a4b4e924429be1dd895af7e2a3a38f396890965760fd1d1642ae",
+            "optimizer_updates": 0,
+            "payload_sha256": "fddebf945b7adb9d277174d7eb661aae2f25505c1889c63aa2a57c53384383c4",
+            "restored": true
+          },
+          "kind": "real-interface-exercise",
+          "selector": "checkpoint_roundtrip",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.runtime.checkpoint:publish_checkpoint"
+      ],
+      "limitations": [
+        "owner E0 CUDA/AMP checkpoint resume"
+      ],
+      "production_path_evidence": [
+        "exercise:checkpoint_roundtrip"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "checkpoint_and_ledger"
+      ]
+    },
+    "F18": {
+      "command_receipts": [
+        {
+          "duration_seconds": 2.266,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_evaluation.py",
+            "tests/test_research_meta_rsi.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.evaluation.scoring:decide_promotion",
+        "bramastra_lab.research.evaluation.scoring:clustered_bootstrap_delta"
+      ],
+      "limitations": [],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "statistics_and_evaluation"
+      ]
+    },
+    "F19": {
+      "command_receipts": [
+        {
+          "duration_seconds": 2.828,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_launch_gate.py",
+            "tests/test_research_k8_readiness.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "cells": 24,
+            "code_cells": 12,
+            "hardcoded_paths": 0,
+            "shell_magics": 0
+          },
+          "kind": "real-interface-exercise",
+          "selector": "notebook_inputs",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.k8:build_parser"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:notebook_inputs"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "gate_and_readiness"
+      ]
+    },
+    "F20": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 10.469,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_checkpoint.py",
+            "tests/test_research_ledger_replay.py",
+            "tests/test_research_accounting.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "duration_seconds": 26.64,
+            "note": "engineering rehearsal; not learned-campaign evidence",
+            "rehearsal": "passed",
+            "steps": {
+              "allocation": {
+                "allocation_id": "rehearsal-alloc",
+                "clock": "fake-deadline-no-waiting",
+                "wall_minutes": 600.0
+              },
+              "bundle": {
+                "families": [
+                  "rule-inquiry",
+                  "inventory",
+                  "program"
+                ],
+                "identity": "546b0708afc1936a8634dfbc2ebbc267e4ee09f206f647325f22f68471442c97"
+              },
+              "e1_parents": {
+                "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
+                "E1-B": "f84765addf39b370a8badcafb4d2223fedbf32a813f75e33bd7b3c522b70c96b",
+                "payloads": "real-random-init-zero-commits"
+              },
+              "export": {
+                "complete": false,
+                "exit_code": 0,
+                "honest_incomplete": true,
+                "missing_phases": [
+                  "E0",
+                  "E1",
+                  "E2",
+                  "E3",
+                  "E4",
+                  "E5"
+                ],
+                "status": "EXPORTED_PARTIAL"
+              },
+              "live_episode": {
+                "events": 18,
+                "families": 2,
+                "model_origin": "random-init-real-calls",
+                "optimizer_updates": 0,
+                "profile": "k8-campaign"
+              },
+              "no_update_boundary": {
+                "attempted_updates": 0,
+                "boundary": "backward-only-gradients-discarded",
+                "grad_finite_params": 60,
+                "optimizer_updates": 0
+              },
+              "optimizer_updates_committed": 0,
+              "phase_executors": {
+                "E2": {
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                },
+                "E4": {
+                  "both_arms": {
+                    "S0": {
+                      "error": null,
+                      "evidence": "fixture",
+                      "status": "completed"
+                    },
+                    "S1": {
+                      "error": null,
+                      "evidence": "fixture",
+                      "status": "completed"
+                    }
+                  },
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                },
+                "E5": {
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                }
+              },
+              "statistics": {
+                "ci": null,
+                "consumer": "clustered_bootstrap_delta",
+                "delta_estimate": 0.0,
+                "rows_consumed": 1
+              }
+            }
+          },
+          "kind": "real-interface-exercise",
+          "selector": "integrated_rehearsal",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.export:build_export"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:integrated_rehearsal"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts",
+        "checkpoint_and_ledger"
+      ]
+    },
+    "F21": {
+      "command_receipts": [
+        {
+          "duration_seconds": 2.828,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_launch_gate.py",
+            "tests/test_research_k8_readiness.py"
+          ],
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.verify_build:run_verify_build",
+        "bramastra_lab.research.campaigns.readiness:implementation_readiness"
+      ],
+      "limitations": [],
+      "production_path_evidence": [],
+      "status": "pass",
+      "test_selectors": [
+        "gate_and_readiness"
+      ]
+    },
+    "F22": {
+      "command_receipts": [
+        {
+          "duration_seconds": 24.344,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_e0_contracts.py",
+            "tests/test_e0_results.py",
+            "tests/test_e0_scoring.py",
+            "tests/test_research_k8_real.py",
+            "tests/test_research_k8_operational.py",
+            "tests/test_research_k8_executors.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "duration_seconds": 2.828,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_launch_gate.py",
+            "tests/test_research_k8_readiness.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "duration_seconds": 26.64,
+            "note": "engineering rehearsal; not learned-campaign evidence",
+            "rehearsal": "passed",
+            "steps": {
+              "allocation": {
+                "allocation_id": "rehearsal-alloc",
+                "clock": "fake-deadline-no-waiting",
+                "wall_minutes": 600.0
+              },
+              "bundle": {
+                "families": [
+                  "rule-inquiry",
+                  "inventory",
+                  "program"
+                ],
+                "identity": "546b0708afc1936a8634dfbc2ebbc267e4ee09f206f647325f22f68471442c97"
+              },
+              "e1_parents": {
+                "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
+                "E1-B": "f84765addf39b370a8badcafb4d2223fedbf32a813f75e33bd7b3c522b70c96b",
+                "payloads": "real-random-init-zero-commits"
+              },
+              "export": {
+                "complete": false,
+                "exit_code": 0,
+                "honest_incomplete": true,
+                "missing_phases": [
+                  "E0",
+                  "E1",
+                  "E2",
+                  "E3",
+                  "E4",
+                  "E5"
+                ],
+                "status": "EXPORTED_PARTIAL"
+              },
+              "live_episode": {
+                "events": 18,
+                "families": 2,
+                "model_origin": "random-init-real-calls",
+                "optimizer_updates": 0,
+                "profile": "k8-campaign"
+              },
+              "no_update_boundary": {
+                "attempted_updates": 0,
+                "boundary": "backward-only-gradients-discarded",
+                "grad_finite_params": 60,
+                "optimizer_updates": 0
+              },
+              "optimizer_updates_committed": 0,
+              "phase_executors": {
+                "E2": {
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                },
+                "E4": {
+                  "both_arms": {
+                    "S0": {
+                      "error": null,
+                      "evidence": "fixture",
+                      "status": "completed"
+                    },
+                    "S1": {
+                      "error": null,
+                      "evidence": "fixture",
+                      "status": "completed"
+                    }
+                  },
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                },
+                "E5": {
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                }
+              },
+              "statistics": {
+                "ci": null,
+                "consumer": "clustered_bootstrap_delta",
+                "delta_estimate": 0.0,
+                "rows_consumed": 1
+              }
+            }
+          },
+          "kind": "real-interface-exercise",
+          "selector": "integrated_rehearsal",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.rehearsal:run_rehearsal"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:integrated_rehearsal"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "phase_contracts",
+        "gate_and_readiness"
+      ]
+    },
+    "F23": {
+      "command_receipts": [
+        {
+          "duration_seconds": 2.828,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_launch_gate.py",
+            "tests/test_research_k8_readiness.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "cells": 24,
+            "code_cells": 12,
+            "hardcoded_paths": 0,
+            "shell_magics": 0
+          },
+          "kind": "real-interface-exercise",
+          "selector": "notebook_inputs",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.verify_build:run_verify_build"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:notebook_inputs"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "gate_and_readiness"
+      ]
+    },
+    "F24": {
+      "command_receipts": [
+        {
+          "duration_seconds": 2.828,
+          "exit_code": 0,
+          "kind": "pytest-group",
+          "selector": [
+            "tests/test_research_k8_launch_gate.py",
+            "tests/test_research_k8_readiness.py"
+          ],
+          "status": "passed"
+        },
+        {
+          "error": null,
+          "evidence": {
+            "duration_seconds": 26.64,
+            "note": "engineering rehearsal; not learned-campaign evidence",
+            "rehearsal": "passed",
+            "steps": {
+              "allocation": {
+                "allocation_id": "rehearsal-alloc",
+                "clock": "fake-deadline-no-waiting",
+                "wall_minutes": 600.0
+              },
+              "bundle": {
+                "families": [
+                  "rule-inquiry",
+                  "inventory",
+                  "program"
+                ],
+                "identity": "546b0708afc1936a8634dfbc2ebbc267e4ee09f206f647325f22f68471442c97"
+              },
+              "e1_parents": {
+                "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
+                "E1-B": "f84765addf39b370a8badcafb4d2223fedbf32a813f75e33bd7b3c522b70c96b",
+                "payloads": "real-random-init-zero-commits"
+              },
+              "export": {
+                "complete": false,
+                "exit_code": 0,
+                "honest_incomplete": true,
+                "missing_phases": [
+                  "E0",
+                  "E1",
+                  "E2",
+                  "E3",
+                  "E4",
+                  "E5"
+                ],
+                "status": "EXPORTED_PARTIAL"
+              },
+              "live_episode": {
+                "events": 18,
+                "families": 2,
+                "model_origin": "random-init-real-calls",
+                "optimizer_updates": 0,
+                "profile": "k8-campaign"
+              },
+              "no_update_boundary": {
+                "attempted_updates": 0,
+                "boundary": "backward-only-gradients-discarded",
+                "grad_finite_params": 60,
+                "optimizer_updates": 0
+              },
+              "optimizer_updates_committed": 0,
+              "phase_executors": {
+                "E2": {
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                },
+                "E4": {
+                  "both_arms": {
+                    "S0": {
+                      "error": null,
+                      "evidence": "fixture",
+                      "status": "completed"
+                    },
+                    "S1": {
+                      "error": null,
+                      "evidence": "fixture",
+                      "status": "completed"
+                    }
+                  },
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                },
+                "E5": {
+                  "error": null,
+                  "evidence": "fixture",
+                  "status": "completed"
+                }
+              },
+              "statistics": {
+                "ci": null,
+                "consumer": "clustered_bootstrap_delta",
+                "delta_estimate": 0.0,
+                "rows_consumed": 1
+              }
+            }
+          },
+          "kind": "real-interface-exercise",
+          "selector": "integrated_rehearsal",
+          "status": "passed"
+        }
+      ],
+      "implemented_symbols": [
+        "bramastra_lab.research.campaigns.readiness:require_implementation_ready"
+      ],
+      "limitations": [],
+      "production_path_evidence": [
+        "exercise:integrated_rehearsal"
+      ],
+      "status": "pass",
+      "test_selectors": [
+        "gate_and_readiness"
+      ]
+    }
+  },
+  "runbook": "engineering/final_delivery/RUN_EXPERIMENT.md",
+  "runtime_checks_pending": [
+    {
+      "criterion": "two distinct actual T4 devices, worker-local mapping, compatible precision and live allowance",
+      "id": "G01",
+      "required_before": "E1"
+    },
+    {
+      "criterion": "full-profile real gradients/updates and fresh-process exact continuation within E0 counters/deadline",
+      "id": "G02",
+      "required_before": "E1"
+    },
+    {
+      "criterion": "complete measured update/evaluation costs meet registered minima and fit frozen cases/settings",
+      "id": "G03",
+      "required_before": "E1"
+    },
+    {
+      "criterion": "current allocation, source/data/schema identities and frozen protocol verified by the runner",
+      "id": "G04",
+      "required_before": "E1"
+    }
+  ],
+  "schema": "bramastra-k8-build-readiness/v2",
+  "schema_identities": {
+    "codec": "9df2e90c740e72835621b2270a98969c09eff230dc3b35bef076d2681bd5d383",
+    "config": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade"
+  },
+  "source_revision": "bd6bfb091b68679fcfdd9f544384b3b8cbd9c0f1"
+}

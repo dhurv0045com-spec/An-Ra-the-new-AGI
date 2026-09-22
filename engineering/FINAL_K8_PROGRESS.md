@@ -1,10 +1,9 @@
 # FINAL-K8 progress cursor
 
-Branch tip: `561a937297b361795f6d9d1e9dd0a68b59cd3072` on `Gandiva`, based on
-`BRAMASTRA`. The verified implementation revision in the build report is
-`be946613d415751bf8cd6e227d7624040f1c9d6a`. The only pre-existing local edit is the user's change to
-`tests/test_research_k8_real.py`; it was preserved and not included in the
-Gandiva implementation commit.
+Implementation revision: `bd6bfb091b68679fcfdd9f544384b3b8cbd9c0f1` on
+`Gandiva`, based on `BRAMASTRA`. The only pre-existing local edit is the user's
+change to `tests/test_research_k8_real.py`; it was preserved and not included
+in the implementation commit.
 
 Active assignment: FINAL-K8, requirements F01–F24. The older ten-day schedule
 and 15 September source review are history; their defect lists and readiness
@@ -26,13 +25,36 @@ labels predate the current implementation.
   `C:\Users\ankit\AppData\Local\Temp\bramastra-k8-data-6fb94b7018406632.zip`
   (integrity checked, 2,171,411 bytes).
 - Fresh `verify-build --no-updates` passed all F01–F24 checks and the integrated
-  rehearsal. Report:
-  [`reports/FINAL_K8/gandiva-20260923/build_verification.json`](reports/FINAL_K8/gandiva-20260923/build_verification.json).
-  Seven groups passed: foundation (75 passed, 3 skipped), data/splits (34),
-  experience/codec (65), checkpoint/ledger (39, 1 skipped), gate/readiness (10),
-  phase contracts (91 plus 12 subtests), statistics/evaluation (53). Zero
-  optimizer updates were committed. `ready_for_owner_experiment` is
-  evidence-backed true; E0 checks G01–G04 remain mandatory at runtime.
+  rehearsal against the committed implementation. Report:
+  [`reports/FINAL_K8/gandiva-cognition-final-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-final-20260923/build_verification.json).
+  Its source closure is `cb005c2cbb3a02da888a5cf271805b6751954e403cbee1de6794ba82482963b7`,
+  data identity is `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`,
+  and measured verifier duration is 130.563 seconds. All seven groups passed:
+  foundation (75 passed, 3 skipped), data/splits (34), experience/codec (65),
+  checkpoint/ledger (39 passed, 1 skipped), gate/readiness (10), phase
+  contracts (91 plus 12 subtests), and statistics/evaluation (53). F01–F24
+  are all PASS, local optimizer updates are zero, and evidence-backed
+  `ready_for_owner_experiment` is true. The generated readiness and handoff
+  are beside the report; runtime checks G01–G04 remain mandatory in E0.
+- Cognition is now exercised on the production E2 episode path. E2 builds a
+  frozen exemplar index solely from the exact `training` split and compares
+  `b-memory` against the same learner/environment/seed in `b-policy`.
+  Retrieved content is inserted through the shared renderer, ineligible
+  scopes are filtered before ranking, per-decision record aliases and byte-
+  codec token costs are traced, and an overflow drops whole records rather
+  than slicing evidence. New focused coverage:
+  `python -m pytest tests/test_research_gandiva_rsi_cognition.py -q
+  --maxfail=1` → 6 passed. This establishes execution and leakage boundaries,
+  not that memory improves task accuracy.
+- RSI evidence is stronger and more honest: E5's compiled objective weights
+  now reach support windows; currently unsupported supervision terms are
+  rejected instead of silently ignored. M2 applies its declared 0.5 clip
+  bound. Proposer/successor captures are checked against exact restorable
+  payloads and provenance; P0/P1/P_fixed checkpoint ancestry and the fixture-
+  labeled M24 generation receipt chain are recorded. Gated migration probes
+  preserve global RNG, model mode, and existing gradients. These changes have
+  focused regression coverage in the new Gandiva test file and the full
+  verifier groups.
 - All 12 notebook code cells compile and the 24-cell notebook parses as JSON.
 
 ## Remaining owner work and limits
@@ -44,7 +66,8 @@ both actual T4s, full-profile update/resume, measured timing, and the live
 allocation before E1–E6 can train. No local optimizer update, CUDA qualification
 or learned campaign was run; no AGI or scientific outcome is claimed.
 
-Immutable evidence is stored in the report directory above. The compact bundle
+Evidence and implementation notes are in the report directory above. The
+compact bundle
 manifest/audit are committed under `engineering/final_delivery/data/`; the
 full bundle remains outside Git. Do not overwrite old reports. Continue any
 new work from this cursor and the active FINAL-K8 contract.

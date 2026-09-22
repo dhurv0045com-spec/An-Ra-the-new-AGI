@@ -7,8 +7,12 @@ training stops at 450, export reserve 30).
 ## Inputs (verified)
 
 - Source: branch `Gandiva`; the fresh no-update verification is archived at
-  `engineering/reports/FINAL_K8/gandiva-20260923/build_verification.json`.
-  Its source identity records the exact code closure and Git revision.
+  `engineering/reports/FINAL_K8/gandiva-cognition-final-20260923/build_verification.json`.
+  It verifies source revision `bd6bfb091b68679fcfdd9f544384b3b8cbd9c0f1`,
+  all F01–F24, and zero local optimizer updates. The adjacent
+  `BUILD_READINESS.json` and `HANDOFF.md` were generated from that report.
+- Cognition/RSI changes and their measured verification are documented in
+  `engineering/reports/FINAL_K8/gandiva-cognition-final-20260923/COGNITION_RSI_IMPLEMENTATION.md`.
 - Data: the offline bundle `bramastra-k8-data` (identity
   `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`),
   generated with the registered command below and validated
@@ -64,6 +68,13 @@ gradients/updates + fresh-process resume, measured update/evaluation
 costs, live allocation + identity verification) and the actual learned
 outcomes of E1-E5. They are listed as `runtime_checks_pending` in the
 build report; they are not local blockers.
+
+The cognition memory arm is an experimentally active implementation, not a
+claimed performance gain: E2 compares matched `b-policy` and `b-memory`
+episodes. The Kaggle result must decide whether training-only lexical memory
+helps on held-out tasks. Likewise, E5's RSI method-selection receipts do not
+establish recursive self-improvement until an owner run produces valid learned
+evidence and independent confirmation.
 
 ## Recovery
 
