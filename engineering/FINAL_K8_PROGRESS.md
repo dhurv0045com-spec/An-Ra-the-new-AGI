@@ -1,17 +1,49 @@
 # FINAL-K8 progress cursor
 
-Source reviewed: 58e517b. This cursor was initialized by the chief on 15 September; it does not record implementation completion.
+Source revision: `be946613d415751bf8cd6e227d7624040f1c9d6a` on `Gandiva`, based
+on `BRAMASTRA`. The only pre-existing local edit is the user's change to
+`tests/test_research_k8_real.py`; it was preserved and not included in the
+Gandiva implementation commit.
 
-Active checkpoint: Day 1 of engineering/ten_day_handoff_20260915/TEN_DAY_EXECUTION.md. Earliest targets: F02/F04 task/label and complete decision contracts, followed by trained consumer integration.
+Active assignment: FINAL-K8, requirements F01–F24. The older ten-day schedule
+and 15 September source review are history; their defect lists and readiness
+labels predate the current implementation.
 
-Read the current review before trusting existing PASS labels. Confirmed remaining source issues: compiler six/eight-token slicing; P1 confirmation copied from P0; readiness always false; verify-build absent.
+## Completed and verified
 
-Next concrete edit: repair public task/teacher contracts and compiler decision prefixes/candidates in coordinated owned paths. Use FINAL_EXPERIMENT_EXECUTION.md for exact behavior and requirements.
+- The normal self-sustaining notebook
+  [`notebooks/bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb) now clones
+  `Gandiva` by default, generates its own complete bundle if no Kaggle input is
+  attached, and follows the registered 480-minute / two-T4 plan: 450 minutes
+  for training and 30 minutes reserved for export.
+- The data contract now contains 4096 tool-training rows and 256 held-out
+  compositions, allowing E3-T0 to consume any calibrated target up to 4000
+  without replacement or synthetic padding. Full bundle identity:
+  `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`.
+- `validate` passed with no issues. The generated 29-file bundle is 73,321,319
+  bytes; its ZIP is outside Git at
+  `C:\Users\ankit\AppData\Local\Temp\bramastra-k8-data-6fb94b7018406632.zip`
+  (integrity checked, 2,171,411 bytes).
+- Fresh `verify-build --no-updates` passed all F01–F24 checks and the integrated
+  rehearsal. Report:
+  [`reports/FINAL_K8/gandiva-20260923/build_verification.json`](reports/FINAL_K8/gandiva-20260923/build_verification.json).
+  Seven groups passed: foundation (75 passed, 3 skipped), data/splits (34),
+  experience/codec (65), checkpoint/ledger (39, 1 skipped), gate/readiness (10),
+  phase contracts (91 plus 12 subtests), statistics/evaluation (53). Zero
+  optimizer updates were committed. `ready_for_owner_experiment` is
+  evidence-backed true; E0 checks G01–G04 remain mandatory at runtime.
+- All 12 notebook code cells compile and the 24-cell notebook parses as JSON.
 
-Owned paths: no implementation lane assigned by this cursor. Inspect current Git status and establish ownership before editing.
+## Remaining owner work and limits
 
-Current evidence: engineering/reports/FINAL_K8/ (agent report, ready=false); engineering/ten_day_handoff_20260915/CURRENT_REVIEW.md (chief source review). Preserve both; create a unique report for new execution.
+Attach no inputs if desired: the normal notebook clones the pinned branch and
+builds its data automatically, so it needs Kaggle Internet access and a
+`GPU T4 x2` session. Run all cells in order. The single E0 gate must validate
+both actual T4s, full-profile update/resume, measured timing, and the live
+allocation before E1–E6 can train. No local optimizer update, CUDA qualification
+or learned campaign was run; no AGI or scientific outcome is claimed.
 
-Local optimizer updates in this review: 0. Owner accelerator run: not launched by this review. Ready for owner experiment: false.
-
-Update this cursor after each useful session using AGENT_PROMPTS.md. Keep immutable commands/results in unique report directories, not only here.
+Immutable evidence is stored in the report directory above. The compact bundle
+manifest/audit are committed under `engineering/final_delivery/data/`; the
+full bundle remains outside Git. Do not overwrite old reports. Continue any
+new work from this cursor and the active FINAL-K8 contract.

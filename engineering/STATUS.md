@@ -1,17 +1,31 @@
-# Current engineering state
+# FINAL-K8 engineering status
 
-## Active: finish FINAL-K8 using the ten-day handoff
+## Current source and readiness
 
-Read [the 15–24 September handoff](ten_day_handoff_20260915/README.md), execute its schedule, and satisfy [FINAL_EXPERIMENT_EXECUTION.md](FINAL_EXPERIMENT_EXECUTION.md) plus [all 24 requirements](final_delivery/REQUIREMENTS.json). The owner is conserving assistant usage; use the stored prompts and progress cursor to continue without another chief design round.
+Active execution branch: `Gandiva`, based on `BRAMASTRA`. The implementation at
+`be946613d415751bf8cd6e227d7624040f1c9d6a` passed a fresh zero-optimizer-update
+build verification with all F01–F24 requirements passing. The source-code
+closure is `fa9a41453967e5ae89c3b8a4c12484ef47f2be1985a27bfb655f05426fc1974b`.
+The immutable report is
+[`reports/FINAL_K8/gandiva-20260923/build_verification.json`](reports/FINAL_K8/gandiva-20260923/build_verification.json).
 
-## Source checked on 15 September
+The owner-facing notebook is
+[`../notebooks/bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb). It defaults
+to cloning `Gandiva`, builds the full data bundle if no Kaggle Dataset is
+attached, and uses one two-T4 allocation capped at 480 minutes (450 training,
+30 export). No local optimizer updates or accelerator campaign were run.
 
-Latest implementation: 58e517b after 5d335c1. The agent report correctly says ready_for_owner_experiment=false. Its claimed fourteen PASS requirements are not fourteen chief-accepted completions: several gap fields describe missing production consumers or verification. The [current review](ten_day_handoff_20260915/CURRENT_REVIEW.md) explains the distinctions and preserves the preceding milestones.
+The matching offline bundle identity is
+`6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`; its
+compact manifest and audit are in `final_delivery/data/`. The local bundle ZIP
+is outside Git, as required by the delivery contract. E0 must still qualify the
+owner's actual pair of T4s, precision, resume, timing, and live allocation
+(G01–G04). A passing build report is not an AGI or learned-result claim.
 
-Source inspection confirms compiler six/eight-token slicing, copied P0/P1 confirmation choices and an always-false readiness gate. The verify-build CLI is still absent. No tests or training were rerun for this usage-conserving review. Preserve valid prior evidence, fix test setup and execute valid-parent/liveness paths rather than retaining permanent exclusions.
+## Resume instructions
 
-## Completion and authority
-
-Current experiment build: **not ready**. Complete the actual model/learning, data, cognition, tools, architecture, RSI, runtime and release requirements. The full offline data bundle, source-bound build verification, runnable notebook and real export/restart behavior must be delivered before ready-to-launch is true. FINAL-K8 section 22 permits conditional evidence-backed build-readiness maintenance without another manual chief code-edit round.
-
-The next ten days are an execution schedule, not a new compute allocation or a guarantee of completion. No local optimizer updates. Only the owner launches the single two-T4 campaign: maximum 480 minutes, training stop 450, export reserve 30. Automatic E0 hardware qualification precedes learning phases. Scientific results remain unestablished until the actual experiment.
+Continue from [`FINAL_K8_PROGRESS.md`](FINAL_K8_PROGRESS.md) and the active
+contract [`FINAL_EXPERIMENT_EXECUTION.md`](FINAL_EXPERIMENT_EXECUTION.md). The
+15–24 September handoff is supporting history; do not rely on its old status
+snapshots. Preserve the pre-existing uncommitted change to
+`tests/test_research_k8_real.py` unless its owner directs otherwise.
