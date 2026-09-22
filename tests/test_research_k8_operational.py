@@ -939,6 +939,28 @@ class O07GateTests(unittest.TestCase):
 
 
 class O10NotebookTests(unittest.TestCase):
+    def test_e0_only_deadline_does_not_consume_missing_export_reserve(self) -> None:
+        from bramastra_lab.research.campaigns.process_supervision import (
+            phase_absolute_deadlines)
+
+        start = 1_000_000.0
+        e0_only = [{"phase": "E0", "wall_cap_minutes": 30.0}]
+        self.assertEqual(phase_absolute_deadlines(start, e0_only)["E0"],
+                         start + 30 * 60)
+
+        full_plan = [
+            {"phase": "E0", "wall_cap_minutes": 30.0},
+            {"phase": "E1", "wall_cap_minutes": 120.0},
+            {"phase": "E2", "wall_cap_minutes": 45.0},
+            {"phase": "E3", "wall_cap_minutes": 60.0},
+            {"phase": "E4", "wall_cap_minutes": 60.0},
+            {"phase": "E5", "wall_cap_minutes": 135.0},
+            {"phase": "E6", "wall_cap_minutes": 30.0},
+        ]
+        deadlines = phase_absolute_deadlines(start, full_plan)
+        self.assertEqual(deadlines["E5"], start + 450 * 60)
+        self.assertEqual(deadlines["E6"], start + 480 * 60)
+
     def test_failure_export_keeps_details_and_filters_by_event_name(self) -> None:
         from bramastra_lab.research.campaigns.k8 import (
             _failure_report_records)

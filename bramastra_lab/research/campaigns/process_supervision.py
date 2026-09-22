@@ -53,10 +53,16 @@ def phase_absolute_deadlines(
     """
     deadlines: dict[str, float] = {}
     elapsed = 0.0
-    total = 0.0
-    for entry in plan:
-        total += float(entry.get("wall_cap_minutes", 0.0))
-    cutoff = campaign_start_unix + (total - export_reserve_minutes) * 60.0
+    # Derive the training cutoff from actual training entries, rather than
+    # subtracting the export reserve unconditionally.  E0-only runs have no
+    # E6 entry: subtracting 30 minutes from their 30-minute plan collapsed
+    # the E0 deadline to campaign_start and the runner silently assigned a
+    # one-second worker timeout.
+    training_minutes = sum(
+        float(entry.get("wall_cap_minutes", 0.0))
+        for entry in plan if str(entry.get("phase")) != "E6"
+    )
+    cutoff = campaign_start_unix + training_minutes * 60.0
     for entry in plan:
         phase = entry["phase"]
         cap_minutes = float(entry.get("wall_cap_minutes", 0.0))
