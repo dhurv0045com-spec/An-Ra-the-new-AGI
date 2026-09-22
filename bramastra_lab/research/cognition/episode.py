@@ -90,6 +90,7 @@ class ImaginedNode:
 def render_public_state(*, goal: Mapping[str, Any],
                         history: Sequence[Mapping[str, Any]],
                         workspace: Sequence[Mapping[str, Any]] | None = None,
+                        memory_context: Any | None = None,
                         budgets: Mapping[str, Any] | None = None,
                         max_tokens: int = RENDER_MAX_TOKENS_DEFAULT
                         ) -> tuple[list[int], list[str]]:
@@ -109,6 +110,20 @@ def render_public_state(*, goal: Mapping[str, Any],
     for entry in list(history):
         tokens += encode_event("observation", _compact_history_entry(entry))
     records = list(workspace or [])
+    if memory_context is not None:
+        # Retrieval provenance stays in the trace. The prompt receives only
+        # stable episode-local aliases and eligible public training content.
+        import hashlib as _hashlib
+
+        for record in memory_context.records:
+            alias = _hashlib.sha256(
+                (f"{memory_context.index_identity}:"
+                 f"{record.content_identity()}").encode()).hexdigest()[:12]
+            records.append({
+                "observation_id": f"memory-{alias}",
+                "predicate": "retrieved_training_example",
+                "value": record.content,
+                "status": "memory"})
     priority = [r for r in records if r.get("status") == "conflicting"]
     rest = [r for r in records if r.get("status") != "conflicting"]
     # Compact budget block (list form saves ~35 bytes vs named keys).
@@ -843,7 +858,10 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                 max_new_tokens: int = 24,
                 session_job_id: str = "local",
                 checkpoint_id: str | None = None,
-                track_workspace: bool | None = None
+                track_workspace: bool | None = None,
+                memory_index: Any | None = None,
+                memory_top_k: int = 2,
+                memory_token_budget: int = 192
                 ) -> dict[str, Any]:
     """Run one live episode; return the durable trace and summary.
 
@@ -855,6 +873,15 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
     import random as _random
 
     rng = _random.Random(seed)
+    if memory_index is not None:
+        from bramastra_lab.research.memory.store import MemoryIndex
+
+        if not isinstance(memory_index, MemoryIndex):
+            raise TypeError("memory_index must be a frozen MemoryIndex")
+        if not isinstance(memory_top_k, int) or memory_top_k <= 0:
+            raise ValueError("memory_top_k must be a positive integer")
+        if not isinstance(memory_token_budget, int) or memory_token_budget < 0:
+            raise ValueError("memory_token_budget must be a nonnegative integer")
     episode_id = f"ep-{seed}-{rng.randint(0, 999999):06d}"
     observation = env.reset(episode_id=episode_id)
     # Workspace state exists only for workspace-consuming treatments (plus
@@ -869,6 +896,8 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
     events: list[EpisodeEvent] = []
     imagined: list[ImaginedNode] = []
     model_calls = tool_calls = invalid = 0
+    inference_input_tokens = memory_retrievals = memory_records_read = 0
+    memory_token_cost = 0
     event_index = 0
 
     def emit(kind: str, **fields: Any) -> EpisodeEvent:
@@ -907,15 +936,76 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
         budgets = {"actions_left": max(
             0, action_budget - inquiries_used), "calls_left": calls_left,
             "nodes_left": node_budget - len(imagined)}
+        memory_context = None
+        memory_budget_limited = False
+        memory_query = None
+        if memory_index is not None:
+            query = json.dumps({
+                "goal": base_goal,
+                "history": [] if omit_history else history,
+                "workspace": workspace}, sort_keys=True, default=str)
+            memory_query = query
+            excluded_episodes = set()
+            if mechanism is not None and mechanism.get("mechanism_id"):
+                excluded_episodes.add(str(mechanism["mechanism_id"]))
+            # Reserve part of the remaining model context for the role tag,
+            # memory alias and future observed history. The renderer remains
+            # the final authority and retries with memory disabled if the
+            # complete retrieved record would overflow.
+            base_rendered, _base_omitted = render_public_state(
+                goal=base_goal,
+                history=[] if omit_history else history,
+                workspace=workspace, budgets=budgets)
+            available = max(0, RENDER_MAX_TOKENS_DEFAULT
+                            - len(base_rendered) - 64)
+            retrieval_budget = min(memory_token_budget, available)
+            memory_context = memory_index.retrieve(
+                query, scope_allowlist={"training", "controller"},
+                top_k=memory_top_k, exclude_episodes=excluded_episodes,
+                token_budget=retrieval_budget)
         try:
             rendered, omitted = render_public_state(
                 goal=base_goal,
                 history=[] if omit_history else history,
-                workspace=workspace, budgets=budgets)
-        except EpisodeError as exc:
-            truncated = True
-            emit("truncation", observed_result={"reason": str(exc)[:200]})
-            break
+                workspace=workspace, memory_context=memory_context,
+                budgets=budgets)
+        except EpisodeError:
+            if memory_index is None:
+                truncated = True
+                emit("truncation", observed_result={"reason":
+                     "public context overflow"})
+                break
+            # Retrieval is optional computation. If a complete memory item
+            # cannot fit alongside the current state, omit it as a whole and
+            # report the budget decision; never slice its content.
+            memory_context = memory_index.retrieve(
+                memory_query or "", scope_allowlist={"training", "controller"},
+                top_k=memory_top_k, token_budget=0)
+            memory_budget_limited = True
+            try:
+                rendered, omitted = render_public_state(
+                    goal=base_goal,
+                    history=[] if omit_history else history,
+                    workspace=workspace, memory_context=memory_context,
+                    budgets=budgets)
+            except EpisodeError as exc:
+                truncated = True
+                emit("truncation", observed_result={"reason": str(exc)[:200]})
+                break
+        if memory_index is not None:
+            memory_retrievals += 1
+            memory_records_read += len(memory_context.records)
+            memory_token_cost += int(memory_context.token_cost)
+            emit("memory_retrieval", planner_meta={
+                "origin": "fixed_scope_lexical",
+                "index_identity": memory_context.index_identity,
+                "retrieval_rule_identity": memory_context.retrieval_rule_identity,
+                "record_count": len(memory_context.records),
+                "record_aliases": [
+                    _hash_mapping({"identity": record.content_identity()})[:16]
+                    for record in memory_context.records],
+                "token_cost": int(memory_context.token_cost),
+                "budget_limited": memory_budget_limited})
         if omitted:
             # Explicit render-window record (never silent): older active
             # evidence left the prompt but stays in workspace state.
@@ -923,10 +1013,14 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                  observed_result={"kind": "render_window",
                                   "omitted_workspace_ids": omitted},
                  resource_delta=0.0)
+        inference_input_tokens += len(rendered)
         legal = env.legal_actions()
         state_view = {"goal": base_goal,
                       "history": list(history),
                       "workspace": list(workspace),
+                      "memory_index_identity": (
+                          memory_context.index_identity
+                          if memory_context is not None else None),
                       "budgets": dict(budgets)}
         try:
             action = adapter.select(legal_actions=legal, rendered=rendered,
@@ -1015,6 +1109,18 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
             break
     summary = {"actions": len(history) + invalid,
                "model_calls": model_calls,
+               "inference_input_tokens": inference_input_tokens,
+               "memory": {
+                   "enabled": memory_index is not None,
+                   "origin": "fixed_scope_lexical"
+                   if memory_index is not None else None,
+                   "index_identity": memory_index.identity
+                   if memory_index is not None else None,
+                   "retrieval_rule_identity": memory_index.retrieval_rule_identity
+                   if memory_index is not None else None,
+                   "retrievals": memory_retrievals,
+                   "records_read": memory_records_read,
+                   "token_cost": memory_token_cost},
                "tool_calls": tool_calls,
                "invalid_actions": invalid,
                "imagined_nodes": len(imagined),

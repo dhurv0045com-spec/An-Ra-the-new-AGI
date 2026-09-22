@@ -207,7 +207,8 @@ def _run_archive_trial(ops: Any, job: JobInput, anchor_record: dict,
             request, task, task_id, method_id, migrate_for_trial)
     return trial_service.run_trial(
         ops, request, job=job, learning_boundary="production",
-        build_support_batch=_production_support_builder(task),
+        build_support_batch=_production_support_builder(
+            task, request.compiled_recipe),
         evaluate_queries=_production_query_evaluator(
             task, job.data_dir, task_id),
         prepare_trial_handle=(
@@ -289,14 +290,35 @@ def _restore_anchor_handle(ops: Any, job: JobInput,
         device=job.local_device, optimizer_policy="fresh")
 
 
-def _production_support_builder(task: dict) -> Any:
-    """Token-objective support batches from real support examples (O08).
+def _production_support_builder(task: dict, compiled_recipe: dict | None = None) -> Any:
+    """Build the E5 token-only batch using the compiled method coefficients.
 
-    Adaptation varies optimizer/architecture via the dispatched recipe, not
-    labels: support answers are real prepared labels; the objective is
-    answer-token likelihood (method choice changes LR/gates, never gold
-    answers or eval rules).
+    The current E5 bundle supplies public question/answer pairs only. Reject
+    any method that weights a cognitive objective without matching targets;
+    never label answer-only training as world/action/value/pair learning.
     """
+    from bramastra_lab.research.experience.supervision import (
+        OBJECTIVE_TERMS)
+
+    if not isinstance(compiled_recipe, dict):
+        raise ValueError("compiled E5 method recipe is required")
+    raw_weights = compiled_recipe.get("objective_coefficients")
+    if not isinstance(raw_weights, dict):
+        raise ValueError("compiled E5 method has no objective coefficients")
+    weights = {term: float(raw_weights.get(term, 0.0))
+               for term in OBJECTIVE_TERMS}
+    if any(value < 0 or not __import__("math").isfinite(value)
+           for value in weights.values()):
+        raise ValueError("compiled E5 objective weights must be finite/nonnegative")
+    unsupported = [term for term, value in weights.items()
+                   if term != "token" and value > 0]
+    if unsupported:
+        raise ValueError(
+            "E5 support bundle has no eligible targets for objectives: "
+            + ", ".join(unsupported))
+    if weights["token"] <= 0:
+        raise ValueError("E5 method must positively weight answer-token targets")
+
     def build(trial_handle: Any) -> Any:
         from bramastra_lab.research.experience.sequences import (
             build_answer_row, collocate)
@@ -324,8 +346,7 @@ def _production_support_builder(task: dict) -> Any:
             raise ValueError("no support rows; refusing empty adaptation")
         batch = collocate(rows, max_seq=512)
         window = SupervisionWindow(
-            weights={"token": 1.0, "world": 0.0, "action": 0.0,
-                     "value": 0.0, "pair": 0.0, "pg": 0.0},
+            weights=weights,
             enabled_terms=frozenset({"token"}))
         window.add("token", batch.target_count)
         return batch, window, {}, None
@@ -723,15 +744,26 @@ def execute(job: JobInput, *, ops=None,
                            error=f"E5 P0 training refused: {exc}",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
+    # Bind P0's learned proposal to a durable payload before asking it to
+    # choose. The adaptation anchor initialized this proposer, but it is not
+    # the model that emitted the post-training proposal.
     try:
+        p0_checkpoint_id = ops.publish_checkpoint(
+            handle=proposer, run_dir=job.run_dir, phase="E5", arm="P0",
+            seed=job.seed,
+            update_index=int(ops.optimizer_updates(proposer)),
+            parent_checkpoint_id=anchor_id, data_dir=job.data_dir)
+        if not isinstance(p0_checkpoint_id, str) or not p0_checkpoint_id.strip():
+            raise ValueError("checkpoint publisher returned no P0 identity")
         p0_choice, p0_capture = _capture_proposer_choice(
-            ops, proposer, archive, archive_tasks, anchor_id, job)
+            ops, proposer, archive, archive_tasks, anchor_id,
+            job, proposer_checkpoint_id=p0_checkpoint_id)
         p0_capture["captured_after_training"] = True
         p0_capture["p0_training_committed"] = int(
             p0_train.get("committed_updates", 0))
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
-                           error=f"E5 proposer capture refused: {exc}",
+                           error=f"E5 P0 checkpoint/capture refused: {exc}",
                            evidence_kind=EVIDENCE_FIXTURE,
                            extra={"phase": "E5"})
     # Block B: a DISTINCT fresh archive measured on fresh meta-training
@@ -809,17 +841,18 @@ def execute(job: JobInput, *, ops=None,
                     f"{label} successor training refused: {record.get('error')}")
         # Publish successor checkpoints (real payloads on GPU; fixture
         # receipts for doubles locally).
-        successor_checkpoints: dict[str, Any] = {}
+        successor_checkpoints: dict[str, str] = {}
         for label, handle in (("P1", p1_handle), ("P_fixed", p_fixed_handle)):
-            try:
-                successor_checkpoints[label] = ops.publish_checkpoint(
-                    handle=handle, run_dir=job.run_dir, phase="E5",
-                    arm=label, seed=job.seed,
-                    update_index=int(ops.optimizer_updates(handle)),
-                    parent_checkpoint_id=anchor_id,
-                    data_dir=job.data_dir)
-            except Exception as exc:
-                successor_checkpoints[label] = f"unpublished:{exc}"[:120]
+            checkpoint_id = ops.publish_checkpoint(
+                handle=handle, run_dir=job.run_dir, phase="E5",
+                arm=label, seed=job.seed,
+                update_index=int(ops.optimizer_updates(handle)),
+                parent_checkpoint_id=p0_checkpoint_id,
+                data_dir=job.data_dir)
+            if not isinstance(checkpoint_id, str) or not checkpoint_id.strip():
+                raise ValueError(
+                    f"{label} checkpoint publisher returned no identity")
+            successor_checkpoints[label] = checkpoint_id
     except Exception as exc:
         return PhaseResult(status="failed", device_seconds=time.monotonic() - started,
                            error=f"E5 successor fork/apply refused: {exc}",
@@ -862,10 +895,13 @@ def execute(job: JobInput, *, ops=None,
     successor_choice_captures: dict[str, dict] = {}
     try:
         p1_choice, p1_capture = _capture_successor_choice(
-            p1_handle, successor_archive, successor_tasks, anchor_id, "P1")
+            p1_handle, successor_archive, successor_tasks, anchor_id, "P1",
+            ops=ops, job=job,
+            proposer_checkpoint_id=successor_checkpoints["P1"])
         p_fixed_choice, p_fixed_capture = _capture_successor_choice(
             p_fixed_handle, successor_archive, successor_tasks, anchor_id,
-            "P_fixed")
+            "P_fixed", ops=ops, job=job,
+            proposer_checkpoint_id=successor_checkpoints["P_fixed"])
         successor_choice_captures["P1"] = p1_capture
         successor_choice_captures["P_fixed"] = p_fixed_capture
         confirmation_choices["P1"] = p1_choice
@@ -943,6 +979,18 @@ def execute(job: JobInput, *, ops=None,
     # Confirmation comparison: P1 beats P0 but not P_fixed attributes gains
     # to extra meta-training, not to the selected method (experiment.md).
     confirm_summary = _summarize_confirmation(confirmation_rows)
+    generation_chain = _build_e5_generation_chain(
+        seed=int(job.seed), p0_checkpoint_id=p0_checkpoint_id,
+        p0_choice=p0_choice, p0_capture=p0_capture,
+        p1_checkpoint_id=successor_checkpoints["P1"],
+        p1_choice=p1_choice,
+        p1_capture=successor_choice_captures["P1"],
+        anchor_id=anchor_id, archive_identity=archive_identity,
+        archive_b_identity=archive_b_identity,
+        confirmation_rows=confirmation_rows,
+        confirmation_summary=confirm_summary,
+        confirmation_trial_count=len(confirmation_table),
+        fixture=(evidence != EVIDENCE_LEARNED_CAMPAIGN))
     artifact_dir = os.path.join(job.run_dir, "phase_outputs", job.phase)
     os.makedirs(artifact_dir, exist_ok=True)
     with open(os.path.join(artifact_dir, f"E5-{job.seed}.json"), "w",
@@ -951,6 +999,16 @@ def execute(job: JobInput, *, ops=None,
                    "archive_rows": archive_rows,
                    "p0_choice": p0_choice,
                    "p0_capture": p0_capture,
+                   "checkpoint_lineage": {
+                       "adaptation_anchor": anchor_id,
+                       "P0": {"checkpoint_id": p0_checkpoint_id,
+                              "parent_checkpoint_id": anchor_id},
+                       "P1": {"checkpoint_id": successor_checkpoints["P1"],
+                              "parent_checkpoint_id": p0_checkpoint_id},
+                       "P_fixed": {
+                           "checkpoint_id": successor_checkpoints["P_fixed"],
+                           "parent_checkpoint_id": p0_checkpoint_id}},
+                   "generation_chain": generation_chain,
                    "p0_training": p0_train,
                    "successors": {
                        "P1": {"method": p0_choice, "training": p1_train,
@@ -1171,7 +1229,9 @@ def _train_method_selection(ops: Any, handle: Any, batches: list,
 
 
 def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
-                             anchor_id: str, job: JobInput) -> tuple[str, dict]:
+                             anchor_id: str, job: JobInput, *,
+                             proposer_checkpoint_id: str | None = None
+                             ) -> tuple[str, dict]:
     """Capture P0's choice: real decoder first, named teacher fallback.
 
     The production path invokes the proposer decoder through the model
@@ -1192,10 +1252,15 @@ def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
         proposer, "config", None)
     model_usable = model is not None and config is not None and not (
         isinstance(proposer, dict) and "double_id" in proposer)
+    payload_id = proposer_checkpoint_id or anchor_id
     if model_usable:
         try:
+            if not proposer_checkpoint_id:
+                raise ValueError(
+                    "model-origin capture requires its published checkpoint")
             method_proposer = MethodProposer(
-                model, config, checkpoint_payload_identity=anchor_id)
+                model, config,
+                checkpoint_payload_identity=proposer_checkpoint_id)
             descriptor = {"task_identities": sorted(
                 t["task_identity"] for t in task_descriptors),
                 "family": "meta-training"}
@@ -1204,6 +1269,9 @@ def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
             from bramastra_lab.research.metalearning.dispatch import (
                 parse_method_selection)
             method_id, program = parse_method_selection(capture.raw_output)
+            _validate_e5_model_capture(
+                ops, job, capture, capture.raw_output,
+                proposer_checkpoint_id)
             return method_id, {
                 "capture_origin": "model-decoder",
                 "raw_output": capture.raw_output,
@@ -1215,7 +1283,8 @@ def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
                 if hasattr(program, "identity") else method_id,
                 "program_identity": program.identity()
                 if hasattr(program, "identity") else method_id,
-                "checkpoint_payload_identity": anchor_id[:16]}
+                "checkpoint_payload_identity": proposer_checkpoint_id,
+                "adaptation_anchor_identity": anchor_id}
         except Exception as exc:
             teacher_error = str(exc)[:200]
     else:
@@ -1253,11 +1322,15 @@ def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
         "archive_cutoff": archive.cutoff_event_index,
         "recipe_identity": recipe_identity,
         "program_identity": program_identity,
-        "checkpoint_payload_identity": anchor_id[:16]}
+        "checkpoint_payload_identity": payload_id,
+        "adaptation_anchor_identity": anchor_id}
 
 
 def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
-                              anchor_id: str, label: str) -> tuple[str, dict]:
+                              anchor_id: str, label: str, *, ops=None,
+                              job: JobInput | None = None,
+                              proposer_checkpoint_id: str | None = None
+                              ) -> tuple[str, dict]:
     """Independently decode a trained successor's method choice (Block C).
 
     P1 and P_fixed are each trained proposers with their own weights. Each
@@ -1273,10 +1346,16 @@ def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
     config = handle.get("config") if isinstance(handle, dict) else getattr(
         handle, "config", None)
     double = isinstance(handle, dict) and "double_id" in handle
+    payload_id = proposer_checkpoint_id or anchor_id
     if model is not None and config is not None and not double:
         try:
+            if not proposer_checkpoint_id or ops is None or job is None:
+                raise ValueError(
+                    f"{label} model-origin capture requires a published, "
+                    "verifiable checkpoint")
             method_proposer = MethodProposer(
-                model, config, checkpoint_payload_identity=anchor_id)
+                model, config,
+                checkpoint_payload_identity=proposer_checkpoint_id)
             descriptor = {"task_identities": sorted(
                 str(t.get("meta_task_id")) for t in archive_tasks),
                 "family": "meta-confirmation"}
@@ -1288,6 +1367,9 @@ def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
             if method_id not in ("M0", "M1", "M2"):
                 raise ValueError(
                     f"{label} decoded method {method_id!r} not in M0/M1/M2")
+            _validate_e5_model_capture(
+                ops, job, capture, capture.raw_output,
+                proposer_checkpoint_id)
             return method_id, {
                 "capture_origin": "model-decoder",
                 "raw_output": capture.raw_output,
@@ -1295,7 +1377,8 @@ def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
                 "rendered_input_hash": capture.transcript_hash[:16],
                 "archive_identity": archive.identity(),
                 "archive_cutoff": archive.cutoff_event_index,
-                "checkpoint_payload_identity": anchor_id[:16]}
+                "checkpoint_payload_identity": proposer_checkpoint_id,
+                "adaptation_anchor_identity": anchor_id}
         except Exception as exc:
             fallback_reason = f"{label} decoder refused: {str(exc)[:200]}"
     else:
@@ -1330,7 +1413,137 @@ def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
             rendered_input.encode()).hexdigest()[:16],
         "archive_identity": archive.identity(),
         "archive_cutoff": archive.cutoff_event_index,
-        "checkpoint_payload_identity": anchor_id[:16]}
+        "checkpoint_payload_identity": payload_id,
+        "adaptation_anchor_identity": anchor_id}
+
+
+def _validate_e5_model_capture(ops, job: JobInput, capture: Any,
+                               raw_output: str,
+                               expected_checkpoint_id: str) -> str:
+    """Validate AST and prove the referenced proposer payload is restorable."""
+    from bramastra_lab.research.metalearning.dispatch import (
+        parse_method_selection)
+    from bramastra_lab.research.metalearning.generations import validate_origin
+
+    if capture.checkpoint_payload_identity != expected_checkpoint_id:
+        raise ValueError("capture checkpoint identity differs from published payload")
+    proof = ops.restore_verify(
+        run_dir=job.run_dir, checkpoint_id=expected_checkpoint_id)
+    if not isinstance(proof, dict) or proof.get("restored_ok") is not True \
+            or proof.get("checkpoint_id") != expected_checkpoint_id:
+        raise ValueError("proposer checkpoint did not pass restore verification")
+    _method_id, reparsed = parse_method_selection(raw_output)
+    return validate_origin(
+        capture, reparsed_program=reparsed,
+        checkpoint_registry={expected_checkpoint_id: "model"})
+
+
+def _build_e5_generation_chain(*, seed: int, p0_checkpoint_id: str,
+                               p0_choice: str, p0_capture: dict,
+                               p1_checkpoint_id: str, p1_choice: str,
+                               p1_capture: dict, anchor_id: str,
+                               archive_identity: str,
+                               archive_b_identity: str,
+                               confirmation_rows: list[dict],
+                               confirmation_summary: dict,
+                               confirmation_trial_count: int,
+                               fixture: bool) -> dict[str, Any]:
+    """Bind E5's trained proposer and independent confirmation into M24.
+
+    This records the recursive-selection lineage without promoting a learned
+    parent. Publication remains a separate chief-approved operation.
+    """
+    from bramastra_lab.research.contracts.core import content_identity
+    from bramastra_lab.research.metalearning.dispatch import (
+        _METHOD_PROGRAMS)
+    from bramastra_lab.research.metalearning.generations import (
+        GenerationReceipt, GenerationRegistry)
+    from bramastra_lab.research.metalearning.method_language import (
+        compile_method)
+
+    attempted = tuple(_METHOD_PROGRAMS[name].identity()
+                      for name in ("M0", "M1", "M2"))
+    registry = GenerationRegistry()
+    first = GenerationReceipt(
+        generation_id=f"E5-{seed}-P0-{p0_checkpoint_id[:12]}",
+        predecessor_receipt_id=None,
+        proposer_checkpoint=p0_checkpoint_id,
+        proposer_origin=("model" if p0_capture.get("capture_origin")
+                         == "model-decoder" else "symbolic_teacher"),
+        parent_method=_METHOD_PROGRAMS[p0_choice].to_dict(),
+        candidate_program=None, compiled_identity=None,
+        comparison_identity=archive_identity,
+        attempted_candidates=attempted,
+        consumed_resources={"archive_blocks": 1.0},
+        status="compared", fixture=fixture)
+    first_id = registry.record(first)
+
+    candidate = None if p1_choice == "M0" else _METHOD_PROGRAMS[p1_choice]
+    compiled_identity = (compile_method(
+        candidate, runtime_config={"profile": "k8-campaign"})["identity"]
+        if candidate is not None else None)
+    comparison_identity = content_identity({
+        "archive_a": archive_identity,
+        "archive_b": archive_b_identity,
+        "confirmation_rows": confirmation_rows,
+        "confirmation_summary": confirmation_summary})
+    model_origin = p1_capture.get("capture_origin") == "model-decoder"
+    confirmed_gain = confirmation_summary.get("attribution") \
+        == "recursive-benefit-supported"
+    second = GenerationReceipt(
+        generation_id=f"E5-{seed}-P1-{p1_checkpoint_id[:12]}",
+        predecessor_receipt_id=first_id,
+        proposer_checkpoint=p1_checkpoint_id,
+        proposer_origin="model" if model_origin else "symbolic_teacher",
+        parent_method=_METHOD_PROGRAMS["M0"].to_dict(),
+        candidate_program=candidate,
+        compiled_identity=compiled_identity,
+        comparison_identity=comparison_identity,
+        attempted_candidates=attempted,
+        consumed_resources={
+            "confirmation_trials": float(confirmation_trial_count)},
+        status=("confirmed" if confirmed_gain and model_origin else "rejected"),
+        fixture=fixture)
+    second_id = registry.record(second)
+    if second.predecessor_receipt_id not in registry.receipts:
+        raise ValueError("E5 M24 receipt chain lost its predecessor")
+    return {
+        "schema": "bramastra-generation-chain/v1",
+        "registry_namespace": "fixture" if fixture else "learned",
+        "adaptation_anchor": anchor_id,
+        "p0_choice": p0_choice,
+        "p1_choice": p1_choice,
+        "p1_successor_checkpoint": p1_checkpoint_id,
+        "p1_model_origin": model_origin,
+        "p1_confirmation_support": confirmed_gain,
+        "publication_state": (
+            "fixture-only" if fixture else
+            "awaiting-chief-approval" if second.status == "confirmed" else
+            "rejected"),
+        "receipt_ids": [first_id, second_id],
+        "receipts": [
+            {"receipt_id": first_id,
+             "generation_id": first.generation_id,
+             "predecessor_receipt_id": first.predecessor_receipt_id,
+             "proposer_checkpoint": first.proposer_checkpoint,
+             "proposer_origin": first.proposer_origin,
+             "comparison_identity": first.comparison_identity,
+             "status": first.status,
+             "fixture": first.fixture},
+            {"receipt_id": second_id,
+             "generation_id": second.generation_id,
+             "predecessor_receipt_id": second.predecessor_receipt_id,
+             "proposer_checkpoint": second.proposer_checkpoint,
+             "proposer_origin": second.proposer_origin,
+             "parent_method": dict(second.parent_method),
+             "candidate_program": (None if second.candidate_program is None
+                                   else second.candidate_program.to_dict()),
+             "compiled_identity": second.compiled_identity,
+             "comparison_identity": second.comparison_identity,
+             "attempted_candidates": list(second.attempted_candidates),
+             "consumed_resources": dict(second.consumed_resources),
+             "status": second.status,
+             "fixture": second.fixture}]}
 
 
 def _teacher_majority_choice(archive: Any,

@@ -534,8 +534,10 @@ class ProductionOps:
         """
         from bramastra_lab.research.models.gated import (
             GatedReuseModel,
+            _isolated_device_rng,
             check_gate_gradients,
             migrate_from_parent,
+            qualification_probe_tokens,
         )
         import torch
 
@@ -544,11 +546,23 @@ class ProductionOps:
         device = handle.get("device", "cpu")
         child_model = migrate_from_parent(
             parent_model, config, gates_enabled=gates_enabled)
+        # Qualify on the actual destination device. The input is generated
+        # from a private seeded generator by the gated-model helper, keeping
+        # matched training RNG streams unchanged.
+        child_model = child_model.to(device)
         # Head/segment contract on the migrated handle.
-        probe = torch.randint(0, config.model.vocab, (2, 12))
-        out = child_model(probe, torch.ones_like(probe, dtype=torch.bool),
-                          segment_ids=torch.ones_like(probe),
-                          return_hidden=True, return_value=True)
+        was_training = child_model.training
+        child_model.eval()
+        try:
+            with _isolated_device_rng(child_model):
+                probe = qualification_probe_tokens(
+                    child_model, config.model.vocab)
+                out = child_model(
+                    probe, torch.ones_like(probe, dtype=torch.bool),
+                    segment_ids=torch.ones_like(probe),
+                    return_hidden=True, return_value=True)
+        finally:
+            child_model.train(was_training)
         assert out.logits is not None and out.hidden is not None \
             and out.value is not None
         # Gate inventory on the migrated handle.
@@ -564,7 +578,6 @@ class ProductionOps:
         # preserving the frozen campaign precision/allocation semantics.
         from bramastra_lab.research.learning.k8_trainer import K8Trainer
 
-        child_model = child_model.to(device)
         new_trainer = K8Trainer(
             config, child_model, device=device,
             precision="fp32" if not str(device).startswith("cuda") else self.precision,
@@ -879,7 +892,8 @@ class RecordingDoubleOps:
         # fraction publishes distinct (optimizer never advances for doubles).
         self.calls.append(("publish_checkpoint", {
             "phase": phase, "arm": arm, "seed": seed,
-            "update_index": update_index}))
+            "update_index": update_index,
+            "parent_checkpoint_id": parent_checkpoint_id}))
         seq = int(handle.get("_fixture_seq", 0)) + 1
         handle["_fixture_seq"] = seq
         mirror = _os.path.join(run_dir, "checkpoints", phase, f"{arm}-{seed}")
@@ -888,7 +902,9 @@ class RecordingDoubleOps:
         with open(_os.path.join(mirror, f"{update_index:06d}-{seq:03d}.json"), "w",
                   encoding="utf-8") as fh:
             _json.dump({"checkpoint_id": identity, "evidence_kind": "fixture",
-                        "update_index": update_index, "seq": seq}, fh, indent=2)
+                        "update_index": update_index, "seq": seq,
+                        "parent_checkpoint_id": parent_checkpoint_id},
+                       fh, indent=2)
         return identity
 
     def restore_verify(self, *, run_dir, checkpoint_id):

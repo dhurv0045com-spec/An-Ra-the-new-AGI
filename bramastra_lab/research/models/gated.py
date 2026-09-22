@@ -150,7 +150,13 @@ def migrate_from_parent(parent: IntegratedModel, config, *,
     """Zero-gate migration: the child must be functionally equal to the
     parent at alpha=0, share block storage (not clones), and carry an
     explicitly changed architecture identity."""
-    child = GatedReuseModel(config, gates_enabled=gates_enabled)
+    parent_device = next(parent.parameters()).device
+    # Model construction initializes tensors even though their values will
+    # immediately be replaced by the parent. Isolate that initialization so
+    # qualification cannot advance the training/sampler RNG stream.
+    with torch.random.fork_rng(devices=[]):
+        child = GatedReuseModel(config, gates_enabled=gates_enabled)
+    child = child.to(parent_device)
     # Copy parent weights into the child (same architecture backbone).
     parent_state = parent.state_dict()
     child_state = child.state_dict()
@@ -163,12 +169,18 @@ def migrate_from_parent(parent: IntegratedModel, config, *,
         with torch.no_grad():
             child.gate_alpha.zero_()
     # Functionally equal at zero gates: same logits on a probe batch.
-    probe = torch.randint(0, config.model.vocab, (2, 12))
+    probe = qualification_probe_tokens(parent, config.model.vocab)
+    parent_training = parent.training
+    child_training = child.training
     parent.eval()
     child.eval()
-    with torch.no_grad():
-        parent_logits = parent(probe).logits
-        child_logits = child(probe).logits
+    try:
+        with torch.no_grad(), _isolated_device_rng(parent):
+            parent_logits = parent(probe).logits
+            child_logits = child(probe).logits
+    finally:
+        parent.train(parent_training)
+        child.train(child_training)
     max_diff = float((parent_logits - child_logits).abs().max().item())
     if max_diff > tolerance:
         raise ArchitectureError(
@@ -187,21 +199,33 @@ def check_gate_gradients(child: GatedReuseModel) -> dict[str, bool]:
     tanh(0)=0 so gate gradients flow through tanh's derivative (=1) only if
     the block difference is nonzero; the shared blocks receive gradients
     through the main pass regardless. Split named checks, not one assertion."""
-    probe = torch.randint(0, child.build_config.model.vocab, (2, 12))
-    logits = child(probe).logits
-    loss = logits.float().square().mean()
-    loss.backward()
-    results = {
-        "gate_gradients_present": child.gate_alpha.grad is not None
-        and bool(torch.isfinite(child.gate_alpha.grad).all())
-        if child.gates_enabled else False,
-        "shared_block_gradients_present": any(
-            parameter.grad is not None
-            for name, parameter in child.decoder.blocks[-2:].named_parameters()),
-        "embedding_gradients_present": child.decoder.embedding.weight.grad is not None,
-    }
-    child.zero_grad(set_to_none=True)
-    return results
+    parameters = list(child.parameters())
+    saved_grads = [None if parameter.grad is None else parameter.grad.detach().clone()
+                   for parameter in parameters]
+    was_training = child.training
+    try:
+        child.zero_grad(set_to_none=True)
+        child.train()
+        with _isolated_device_rng(child):
+            probe = qualification_probe_tokens(
+                child, child.build_config.model.vocab)
+            logits = child(probe).logits
+            loss = logits.float().square().mean()
+            loss.backward()
+        results = {
+            "gate_gradients_present": child.gate_alpha.grad is not None
+            and bool(torch.isfinite(child.gate_alpha.grad).all())
+            if child.gates_enabled else False,
+            "shared_block_gradients_present": any(
+                parameter.grad is not None
+                for name, parameter in child.decoder.blocks[-2:].named_parameters()),
+            "embedding_gradients_present": child.decoder.embedding.weight.grad is not None,
+        }
+        return results
+    finally:
+        for parameter, gradient in zip(parameters, saved_grads):
+            parameter.grad = gradient
+        child.train(was_training)
 
 
 def nonzero_gate_reaches_shared_blocks(child: GatedReuseModel) -> bool:
@@ -209,15 +233,41 @@ def nonzero_gate_reaches_shared_blocks(child: GatedReuseModel) -> bool:
     block's weights must change the output when |gate| > 0."""
     if not child.gates_enabled:
         return False
-    with torch.no_grad():
-        child.gate_alpha.fill_(0.5)
-    probe = torch.randint(0, child.build_config.model.vocab, (2, 12))
-    with torch.no_grad():
-        before = child(probe).logits.clone()
-        block = child.decoder.blocks[-1]
-        saved = block.attention.output.weight.detach().clone()
-        block.attention.output.weight.add_(0.01)
-        after = child(probe).logits
-        block.attention.output.weight.copy_(saved)
-        child.gate_alpha.zero_()
-    return bool((before - after).abs().max().item() > 0.0)
+    was_training = child.training
+    old_gate = child.gate_alpha.detach().clone()
+    block = child.decoder.blocks[-1]
+    old_weight = block.attention.output.weight.detach().clone()
+    child.eval()
+    try:
+        with _isolated_device_rng(child), torch.no_grad():
+            child.gate_alpha.fill_(0.5)
+            probe = qualification_probe_tokens(
+                child, child.build_config.model.vocab)
+            before = child(probe).logits.clone()
+            block.attention.output.weight.add_(0.01)
+            after = child(probe).logits
+            return bool((before - after).abs().max().item() > 0.0)
+    finally:
+        with torch.no_grad():
+            block.attention.output.weight.copy_(old_weight)
+            child.gate_alpha.copy_(old_gate)
+        child.train(was_training)
+
+
+def qualification_probe_tokens(model: IntegratedModel, vocab: int, *,
+                               batch: int = 2, length: int = 12) -> Tensor:
+    """Deterministic qualification input using a private device RNG."""
+    device = next(model.parameters()).device
+    generator = torch.Generator(device=device)
+    generator.manual_seed(0)
+    return torch.randint(0, vocab, (batch, length),
+                         device=device, generator=generator)
+
+
+def _isolated_device_rng(model: IntegratedModel):
+    """Context preserving CPU and the model's CUDA RNG, if any."""
+    device = next(model.parameters()).device
+    devices = ([device.index if device.index is not None
+                else torch.cuda.current_device()]
+               if device.type == "cuda" else [])
+    return torch.random.fork_rng(devices=devices)

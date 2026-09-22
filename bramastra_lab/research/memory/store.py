@@ -109,13 +109,15 @@ def retrieve(index: MemoryIndex, query: str, *, scope_allowlist: set[str],
         key=lambda item: (item[0], item[1]))  # stable tie break by content hash
     chosen = [record for _score, _hash, record in scored[:top_k]]
     omitted = tuple(record.identity for record in eligible[len(chosen):])
-    token_cost = sum(len(record.content.split()) for record in chosen)
+    from bramastra_lab.research.experience.codec import encode_text
+
+    token_cost = sum(len(encode_text(record.content)) for record in chosen)
     if token_budget is not None:
         kept: list[MemoryRecord] = []
         used = 0
         omitted = tuple(record.identity for record in chosen)
         for record in chosen:
-            cost = len(record.content.split())
+            cost = len(encode_text(record.content))
             if used + cost > token_budget:
                 continue
             kept.append(record)

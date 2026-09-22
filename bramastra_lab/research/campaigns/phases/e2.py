@@ -5,7 +5,7 @@ MATCHED live episodes: every mode runs the same mechanism+seed through the
 real episode kernel and real environments. Modes select different declared
 adapters with their own traces (never one shared generation path relabeled):
 
-- b-policy / b-workspace / b-planner: restored B model behind the model
+- b-policy / b-workspace / b-planner / b-memory: restored B model behind the model
   interface (learned arms under test).
 - a-direct / a-fixed / a-random: model-free scripted controls.
 - symbolic-reference: named oracle control (diagnostic ceiling, excluded
@@ -41,7 +41,7 @@ EVAL_FAMILIES = ("rule-inquiry", "inventory", "program")
 # this are counted as rejected-length (experiment.md: reject-or-count over
 # context512 records and report the fraction), never silently truncated.
 GOAL_FIT_TOKENS = 320
-MODES_B = ("b-policy", "b-workspace", "b-planner")
+MODES_B = ("b-policy", "b-workspace", "b-planner", "b-memory")
 MODES_A = ("a-direct", "a-fixed", "a-random")
 
 
@@ -209,6 +209,20 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                            extra={"phase": "E2"})
     from bramastra_lab.research.cognition import episode as kernel
 
+    try:
+        memory_index = _build_training_memory_index(job)
+        memory_status = {"status": "enabled",
+                         "index_identity": memory_index.identity,
+                         "record_count": len(memory_index.records),
+                         "scope_allowlist": ["controller", "training"]}
+    except Exception as exc:
+        # Keep reduced fixture bundles usable, while recording that the
+        # cognition memory ablation did not run. Production manifests require
+        # the full exact training split, so a missing split is visible here.
+        memory_index = None
+        memory_status = {"status": "unavailable",
+                         "reason": str(exc)[:240]}
+
     b_bridge = _OpsModelBridge(ops, b_handle)
     b_checkpoint = parent_record.get("checkpoint_id")
     a_checkpoint = (controls[0].get("checkpoint_id") if controls else None)
@@ -230,7 +244,8 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
         try:
             episodes = _run_matched_group(
                 group, b_bridge=b_bridge, job=job,
-                b_checkpoint=b_checkpoint, a_checkpoint=a_checkpoint)
+                b_checkpoint=b_checkpoint, a_checkpoint=a_checkpoint,
+                memory_index=memory_index)
         except Exception as exc:
             violations.append(
                 f"group {group['mechanism_id']}: matched run refused: {exc}")
@@ -248,11 +263,17 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                         event.get("model_origin") or "").startswith("model"):
                     model_origin_seen = True
             stat = mode_stats.setdefault(mode, {"episodes": 0, "successes": 0,
-                                                "cost": 0.0, "truncated": 0})
+                                                "cost": 0.0, "truncated": 0,
+                                                "inference_input_tokens": 0,
+                                                "memory_token_cost": 0})
             stat["episodes"] += 1
             stat["successes"] += 1 if summary.get("success") else 0
             stat["cost"] += float(summary.get("cost", 0.0))
             stat["truncated"] += 1 if summary.get("truncated") else 0
+            stat["inference_input_tokens"] += int(
+                summary.get("inference_input_tokens", 0))
+            stat["memory_token_cost"] += int(
+                summary.get("memory", {}).get("token_cost", 0))
             group_result["modes"][mode] = {
                 "success": bool(summary.get("success", False)),
                 "actions": summary.get("actions"),
@@ -260,6 +281,8 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                 "imagined_nodes": summary.get("imagined_nodes"),
                 "truncated": summary.get("truncated"),
                 "cost": summary.get("cost"),
+                "inference_input_tokens": summary.get("inference_input_tokens"),
+                "memory": summary.get("memory"),
                 "checkpoint": trace.get("checkpoint_id"),
                 "adapter": trace.get("adapter")}
             if mode == "b-planner":
@@ -374,6 +397,7 @@ def execute(job: JobInput, *, ops=None, eval_cases: int | None = None) -> PhaseR
                    "a_parent_checkpoint": a_checkpoint,
                    "a_restore_error": a_restore_error,
                    "mechanism_source": "k8-live-eval/v1",
+                   "cognition_memory": memory_status,
                    "matched_groups": len(group_details),
                    "total_episodes": evaluated_episodes,
                    "evaluated_cases": len(group_details),
@@ -460,11 +484,12 @@ def _select_matched_groups(seed: int, count: int) -> tuple[list[dict], int]:
 
 
 def _adapters_for_group(group: dict, *, b_bridge: Any,
-                        job: JobInput) -> dict[str, Any]:
+                        job: JobInput,
+                        memory_index: Any | None = None) -> dict[str, Any]:
     """One fresh adapter instance per mode (no shared mutable policy state)."""
     from bramastra_lab.research.cognition import episode as kernel
 
-    return {
+    adapters = {
         "b-policy": kernel.LearnedPolicyAdapter(),
         "b-workspace": kernel.WorkspacePolicyAdapter(),
         "b-planner": kernel.BoundedPlannerAdapter(
@@ -473,15 +498,22 @@ def _adapters_for_group(group: dict, *, b_bridge: Any,
         "a-fixed": kernel.FixedInquiryAdapter(),
         "a-random": kernel.RandomInquiryAdapter(seed=job.seed or 0),
     }
+    if memory_index is not None:
+        # Same frozen learner and environment, with an explicit training-only
+        # nonparametric memory ablation routed through run_episode's renderer.
+        adapters["b-memory"] = kernel.LearnedPolicyAdapter()
+    return adapters
 
 
 def _run_matched_group(group: dict, *, b_bridge: Any, job: JobInput,
-                       b_checkpoint: Any, a_checkpoint: Any) -> dict[str, Any]:
+                       b_checkpoint: Any, a_checkpoint: Any,
+                       memory_index: Any | None = None) -> dict[str, Any]:
     """Run every mode on matched copies of one mechanism+seed."""
     from bramastra_lab.research.cognition import episode as kernel
     from bramastra_lab.research.environments.k8_live import build_live_env
 
-    adapters = _adapters_for_group(group, b_bridge=b_bridge, job=job)
+    adapters = _adapters_for_group(group, b_bridge=b_bridge, job=job,
+                                   memory_index=memory_index)
     episodes: dict[str, Any] = {}
     for mode, adapter in adapters.items():
         env = build_live_env(group["mechanism"], budget=6,
@@ -496,7 +528,8 @@ def _run_matched_group(group: dict, *, b_bridge: Any, job: JobInput,
         trace = kernel.run_episode(
             env, adapter, model=model, seed=group["env_seed"],
             mechanism=group["mechanism"], session_job_id=str(job.job_id),
-            checkpoint_id=checkpoint)
+            checkpoint_id=checkpoint,
+            memory_index=memory_index if mode == "b-memory" else None)
         trace["checkpoint_id"] = checkpoint
         episodes[mode] = trace
     # Symbolic oracle control on its own matched copy (diagnostic ceiling).
@@ -510,6 +543,37 @@ def _run_matched_group(group: dict, *, b_bridge: Any, job: JobInput,
     trace["checkpoint_id"] = None
     episodes["symbolic"] = trace
     return episodes
+
+
+def _build_training_memory_index(job: JobInput):
+    """Freeze an exact-training-split exemplar index for the E2 ablation."""
+    from bramastra_lab.research.campaigns.phases.compiler import (
+        load_training_trajectories)
+    from bramastra_lab.research.memory.store import MemoryIndex, MemoryRecord
+
+    rows = load_training_trajectories(job.data_dir, seed=int(job.seed or 0))
+    records = []
+    seen_mechanisms: set[str] = set()
+    for row in rows:
+        if row.get("pool") != "training":
+            raise ValueError(
+                f"memory source {row.get('mechanism_id')} is outside the "
+                "exact training split")
+        mechanism_id = str(row["mechanism_id"])
+        if mechanism_id in seen_mechanisms:
+            continue  # four trajectories from one mechanism share one exemplar
+        seen_mechanisms.add(mechanism_id)
+        content = json.dumps({"public_example": row["public"],
+                              "answer": str(row["answer"])},
+                             sort_keys=True, separators=(",", ":"))
+        records.append(MemoryRecord(
+            content=content,
+            identity=f"{row.get('family', 'k8')}:{mechanism_id}",
+            scope="training", episode_id=mechanism_id,
+            kind="training_trajectory"))
+    if not records:
+        raise ValueError("exact training split produced an empty memory index")
+    return MemoryIndex(tuple(records))
 
 
 def _trace_has_model_origin(trace: dict) -> bool:

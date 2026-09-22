@@ -24,22 +24,23 @@ from bramastra_lab.research.metalearning.method_language import (
 METHOD_TOKEN_VOCABULARY = frozenset({"M0", "M1", "M2"})
 
 # P0/P1/P_fixed lineages (R07): three distinct typed method programs with
-# choices captured before fresh confirmation outcomes. M0/P0 is the anchor
-# baseline; M1/P1 halves the effective LR via distinct coefficients AND the
-# trainer dispatch (both must agree); M2/P_fixed is the gradient-clip variant.
-# M0 and M1 are intentionally different programs (identical entries would make
-# the LR-semantics claim unverifiable).
+# choices captured before fresh confirmation outcomes. E5's support data
+# currently contains answer-token supervision only, so the compiled programs
+# must not claim world/action/value/pair labels that are absent from that data.
+# M0 is the token baseline; M1 changes both token scale and LR (a bundled
+# intervention); M2 keeps the baseline objective and adds tighter clipping.
 _METHOD_PROGRAMS = {
     "M0": MethodProgram(
         objective_coefficients=ObjectiveCoefficients(
-            token=1.0, world=0.5, action=0.5, value=0.1, pair=0.1),
+            token=1.0),
         comparison_protocol="e5-anchor/v1"),
     "M1": MethodProgram(
         objective_coefficients=ObjectiveCoefficients(
-            token=0.8, world=0.4, action=0.4, value=0.2, pair=0.1),
+            token=0.8),
         comparison_protocol="e5-anchor/v1"),
     "M2": MethodProgram(
-        gradient_transform=GradientTransform(kind="clip_norm", bound=1.0),
+        objective_coefficients=ObjectiveCoefficients(token=1.0),
+        gradient_transform=GradientTransform(kind="clip_norm", bound=0.5),
         comparison_protocol="e5-anchor/v1"),
 }
 
@@ -162,21 +163,29 @@ def _program_to_method_id(program: MethodProgram) -> str:
     a loose check — unknown coefficient sets raise instead of mapping to M0.
     """
     if program.gradient_transform is not None:
+        coefficients = program.objective_coefficients
+        baseline_objective = coefficients is not None and (
+            float(coefficients.token), float(coefficients.world),
+            float(coefficients.action), float(coefficients.value),
+            float(coefficients.pair)) == (1.0, 0.0, 0.0, 0.0, 0.0)
         if program.gradient_transform.kind == "clip_norm" \
-                and float(program.gradient_transform.bound) == 1.0:
+                and float(program.gradient_transform.bound) == 0.5 \
+                and baseline_objective:
             return "M2"
         raise DispatchError(
             f"unknown gradient_transform {program.gradient_transform!r}; "
-            "only the declared M2 clip_norm/1.0 is admitted")
+            "only M2's baseline objective plus clip_norm/0.5 is admitted")
     coefficients = program.objective_coefficients
     if coefficients is not None:
         token, world, action, value, pair = (
             float(coefficients.token), float(coefficients.world),
             float(coefficients.action), float(coefficients.value),
             float(coefficients.pair))
-        if (token, world, action, value, pair) == (1.0, 0.5, 0.5, 0.1, 0.1):
+        if (token, world, action, value, pair) == (1.0, 0.0, 0.0, 0.0, 0.0) \
+                and program.gradient_transform is None:
             return "M0"
-        if (token, world, action, value, pair) == (0.8, 0.4, 0.4, 0.2, 0.1):
+        if (token, world, action, value, pair) == (0.8, 0.0, 0.0, 0.0, 0.0) \
+                and program.gradient_transform is None:
             return "M1"
         raise DispatchError(
             f"objective coefficients {(token, world, action, value, pair)} "
@@ -224,7 +233,7 @@ def dispatch_method_to_trainer(method_id: str, compiled: Mapping[str, Any],
     semantic recipe and applied trainer state: the compiled identity must
     match the declared lineage program (recompiled here), otherwise the
     caller-supplied recipe is rejected as mismatched. M1 halves LR; M2
-    requires enabled gates.
+    applies the declared clipping bound and requires enabled gates.
     """
     if method_id not in METHOD_TOKEN_VOCABULARY:
         raise DispatchError(f"unknown method id {method_id!r}")
@@ -252,6 +261,13 @@ def dispatch_method_to_trainer(method_id: str, compiled: Mapping[str, Any],
         if not getattr(trainer.model, "gates_enabled", False):
             raise DispatchError(
                 "M2 dispatched but the trainer model has no enabled gates")
+        transform = compiled.get("gradient_transform")
+        if not isinstance(transform, Mapping) \
+                or transform.get("kind") != "clip_norm" \
+                or float(transform.get("bound", -1.0)) != 0.5:
+            raise DispatchError(
+                "M2 compiled recipe must declare clip_norm bound 0.5")
+        trainer.clip_norm = 0.5
     trainer.set_controller_multiplier(
         1.0, f"method:{method_id}:{compiled['identity'][:12]}")
     return f"applied:{method_id}:{task_identity}"
