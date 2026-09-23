@@ -927,8 +927,8 @@ def test_recovery_notebook_matches_deterministic_builder() -> None:
     )
     assert notebook == builder.build()
     metadata = notebook["metadata"]
-    assert metadata["recovery_commit"] == "bef905b7e7318c1659d2e56bb2806429460a21f5"
-    assert metadata["recovery_preflight_blob"] == "6595a1e076a54505adf65fbd86e4e1ba051265fb"
+    assert metadata["recovery_commit"] == "8609ba95f4e978cf3cdf8d20bd8a907eea8f6728"
+    assert metadata["recovery_preflight_blob"] == "b507c2350a885e5e3432cac6f135fa58df52b69e"
     assert metadata["preflight_schema"] == recovery.SCHEMA
     assert metadata["operator_commit"] == recovery.OPERATOR_COMMIT
     assert metadata["operator_blob"] == recovery.OPERATOR_BLOB

@@ -9,8 +9,8 @@ from textwrap import dedent
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "notebooks" / "CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb"
 REMOTE = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
-RECOVERY_COMMIT = "bef905b7e7318c1659d2e56bb2806429460a21f5"
-RECOVERY_BLOB = "6595a1e076a54505adf65fbd86e4e1ba051265fb"
+RECOVERY_COMMIT = "8609ba95f4e978cf3cdf8d20bd8a907eea8f6728"
+RECOVERY_BLOB = "b507c2350a885e5e3432cac6f135fa58df52b69e"
 PREFLIGHT_SCHEMA = "anra.formation-mux-recovery-preflight/v2"
 OPERATOR_COMMIT = "4ee05f6e386f15d34f9dfa7bd7f3300a496b9896"
 OPERATOR_BLOB = "e9e1f701b0d4edc509194da55fe1ba37ed62ef86"
@@ -72,8 +72,8 @@ if any('T4' not in name.upper() for name in gpu_names):
     raise RuntimeError('exact recovery requires two NVIDIA T4 devices: ' + repr(gpu_names))
 
 REMOTE = 'https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git'
-RECOVERY_COMMIT = 'bef905b7e7318c1659d2e56bb2806429460a21f5'
-RECOVERY_BLOB = '6595a1e076a54505adf65fbd86e4e1ba051265fb'
+RECOVERY_COMMIT = '8609ba95f4e978cf3cdf8d20bd8a907eea8f6728'
+RECOVERY_BLOB = 'b507c2350a885e5e3432cac6f135fa58df52b69e'
 PREFLIGHT_SCHEMA = 'anra.formation-mux-recovery-preflight/v2'
 OPERATOR_COMMIT = '4ee05f6e386f15d34f9dfa7bd7f3300a496b9896'
 OPERATOR_BLOB = 'e9e1f701b0d4edc509194da55fe1ba37ed62ef86'
@@ -220,7 +220,7 @@ if subprocess.run(
     capture_output=True,
     text=True,
     check=True,
-).stdout.strip() != 'bef905b7e7318c1659d2e56bb2806429460a21f5':
+).stdout.strip() != '8609ba95f4e978cf3cdf8d20bd8a907eea8f6728':
     raise RuntimeError('recovery checkout moved')
 if subprocess.run(
     ['git', '-C', str(OPERATOR_REPO), 'rev-parse', 'HEAD'],

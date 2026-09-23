@@ -1,7 +1,7 @@
 # FORMATION-MUX-001 recovery runbook
 
 Status: **BLOCKED ON THE ORIGINAL KAGGLE SAVED OUTPUT**
-Recovery qualification: **PENDING FOCUSED CI ON THE PINNED RECOVERY COMMIT**
+Recovery qualification: **PENDING REPLACEMENT FOCUSED CI AFTER FAILED RUN `35923273288`**
 Campaign snapshot: 24/24 S5 development arms; 2/24 TIE-ROLE frontier arms; no sealed evaluation
 Recovery rule: no retraining, no new seeds, no protocol changes, and no sealed access until custody passes
 
@@ -46,8 +46,8 @@ A Kaggle-downloaded archive is acceptable only if it contains the checkpoint tre
 The recovered state must bind all of the following:
 
 - Science S5 commit: `c15ad8beb409537db42d075684ea54847a074ebd`
-- recovery preflight commit: `bef905b7e7318c1659d2e56bb2806429460a21f5`
-- recovery preflight Git blob: `6595a1e076a54505adf65fbd86e4e1ba051265fb`
+- recovery preflight commit: `8609ba95f4e978cf3cdf8d20bd8a907eea8f6728`
+- recovery preflight Git blob: `b507c2350a885e5e3432cac6f135fa58df52b69e`
 - operator v12 commit: `4ee05f6e386f15d34f9dfa7bd7f3300a496b9896`
 - operator v12 Git blob: `e9e1f701b0d4edc509194da55fe1ba37ed62ef86`
 - public surface identity: `f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c`
@@ -55,7 +55,7 @@ The recovered state must bind all of the following:
 
 ## Recovery preflight
 
-Preferred and canonical path: open `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb` in a fresh Kaggle T4×2 notebook, attach the complete saved Output under **Add Data**, and run all cells in order. The notebook is pinned to recovery commit `bef905b7e7318c1659d2e56bb2806429460a21f5`, preflight Git blob `6595a1e076a54505adf65fbd86e4e1ba051265fb`, and receipt schema `anra.formation-mux-recovery-preflight/v2`. It verifies both immutable checkouts, requires two T4s and the frozen tokenizer line, validates the real S5 public surface and official checkpoint payloads, installs only through fresh staging with atomic no-replace semantics, binds a same-kernel recovery nonce, and requires `RECOVERY_PREFLIGHT.json: PASS` before invoking the already-frozen operator v12. After the operator returns, it proves every previously completed checkpoint and `ARM_RESULT.json` remained byte-identical. Do not edit its pins, reconstruct it manually, or bypass its cells.
+Preferred and canonical path: open `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb` in a fresh Kaggle T4×2 notebook, attach the complete saved Output under **Add Data**, and run all cells in order. The notebook is pinned to recovery commit `8609ba95f4e978cf3cdf8d20bd8a907eea8f6728`, preflight Git blob `b507c2350a885e5e3432cac6f135fa58df52b69e`, and receipt schema `anra.formation-mux-recovery-preflight/v2`. It verifies both immutable checkouts, requires two T4s and the frozen tokenizer line, validates the real S5 public surface and official checkpoint payloads, installs only through fresh staging with atomic no-replace semantics, binds a same-kernel recovery nonce, and requires `RECOVERY_PREFLIGHT.json: PASS` before invoking the already-frozen operator v12. After the operator returns, it proves every previously completed checkpoint and `ARM_RESULT.json` remained byte-identical. Do not edit its pins, reconstruct it manually, or bypass its cells.
 
 The pinned v12 command is the full frozen continuation: if the frontier reaches 24/24, it automatically runs the two development-only diagnostics, then the preregistered sealed finalization and architecture gate. The canonical recovery notebook is not a development-only launcher. No sealed row is read before custody passes and all development prerequisites are complete under the frozen operator.
 
