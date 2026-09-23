@@ -1,0 +1,39 @@
+name: ROLE-TRANSFER-001 preregistration qualification
+
+on:
+  push:
+    branches: [cymek-beta]
+    paths:
+      - 'v5_experiments/role_transfer_protocol_v1.py'
+      - 'tests/test_role_transfer_protocol_v1.py'
+      - 'docs/cymek/experiments/ROLE-TRANSFER-001/**'
+      - '.github/workflows/role-transfer-preregistration.yml'
+  pull_request:
+    branches: [cymek-beta]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install protocol test dependency
+        run: python -m pip install --upgrade pip && pip install pytest
+      - name: Compile protocol
+        run: python -m py_compile v5_experiments/role_transfer_protocol_v1.py
+      - name: Validate protocol and execution blockers
+        run: python -m pytest -q tests/test_role_transfer_protocol_v1.py
+      - name: Print canonical protocol hash
+        run: |
+          python - <<'PY'
+          from v5_experiments import role_transfer_protocol_v1 as protocol
+          protocol.assert_protocol()
+          print('ROLE_TRANSFER_PROTOCOL_SHA256=' + protocol.protocol_sha256())
+          PY

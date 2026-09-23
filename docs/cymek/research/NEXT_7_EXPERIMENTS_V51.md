@@ -5,12 +5,13 @@ Updated: 2026-09-15. One canonical queue; older roadmaps are historical.
 | # | Campaign | Question | State |
 |---|----------|----------|-------|
 | 1 | **FORMATION-MUX-001** (CS-MECH-002 + REP-FORM-003A) | tied-row mechanism dissection (decay / trainability / denominator) + rendering (BPE vs isomorphic) at fixed V24576 | **2026-09-23 S5 development arms complete 24/24; TIE-ROLE frontier partial 2/24; sealed evidence not consumed; checkpoint-bearing saved Output required for exact continuation** |
-| 2 | REP-FORM-003B | only if Stage A leaves representation insufficiently explained | gated |
-| 3 | P35-TRANSFER-004 | does the adjudicated mechanism survive the P35 finalist geometry | gated |
-| 4 | COG-MIX-OBJ-005 | cognition-mixture and objective interaction at fixed geometry | gated |
-| 5 | OPT-WSD-006 | optimization/WSD schedule at the winning configuration | gated |
-| 6 | TPU-SYSTEM-007 | early TPU systems qualification (engineering, parallel track) | parallel |
-| 7 | M102-INTEGRATED-008 | integrated mid-scale pilot; NOT authorized until 1-5 earn it | gated |
+| 2 | **ROLE-TRANSFER-001** | norm-matched tied-gradient role allocation on independently held-out production-BPE downstream tasks | **Preregistered design; execution blocked pending upstream recovery/completion, implementation, evaluator freeze, and remote qualification** |
+| 3 | REP-FORM-003B | only if the new held-out transfer design leaves representation insufficiently explained | gated |
+| 4 | P35-TRANSFER-004 | does the adjudicated mechanism survive the P35 finalist geometry | gated |
+| 5 | COG-MIX-OBJ-005 | cognition-mixture and objective interaction at fixed geometry | gated |
+| 6 | OPT-WSD-006 | optimization/WSD schedule at the winning configuration | gated |
+| 7 | TPU-SYSTEM-007 | early TPU systems qualification (engineering, parallel track) | parallel |
+| 8 | M102-INTEGRATED-008 | integrated mid-scale pilot; NOT authorized until the preceding causal campaigns earn it | gated |
 
 ## FORMATION-MUX-001 current binding
 
@@ -41,5 +42,11 @@ Durability is now explicit: CS-MECH exact-resume checkpoints every **200 updates
 Pre-execution qualification on GitHub Actions run `34900925973` passed: S5 sources compiled, **28 targeted tests passed**, all **38 immutable science files** matched S5, the real frozen V24576 tokenizer produced the expected 60,000/480 public surface and reproducible 720-row sealed commitments for each experiment, and the canonical notebook pins validated. This remains pre-execution engineering evidence; it is not a scientific outcome.
 
 The next discriminating action is conditional custody recovery, not a new experiment: recover the original checkpoint-bearing Kaggle Output, pass the pinned same-kernel recovery notebook, verify all completed-arm checkpoint/result hashes and pinned identities, then continue the remaining 22 frozen TIE-ROLE frontier development arms. If development reaches 24/24, the same pinned operator automatically performs the frozen diagnostics, sealed finalization, and architecture gate. If the saved Output cannot be recovered, retain the partial archive as development evidence and do not relabel, silently rerun, or consume sealed data.
+
+## ROLE-TRANSFER-001 current binding
+
+`ROLE-TRANSFER-001` is a new prospective campaign motivated by the upstream floor-bound identity endpoint, universal CS clipping, narrow synthetic evaluator, and incomplete frontier. It rejects a literal 10,000× brute-force multiplier. Its confirmatory set contains `T0_CANONICAL`, `T3_RAW`, full-preclip-norm-matched `T3_NORM`, and magnitude placebo `P_NORM` on 12 fresh seed blocks split into two independent replications, at a fixed two million processed tokens per arm. The primary endpoint is production-BPE downstream macro-success within a new synthetic ontology, not an external benchmark or the original identity proxy.
+
+The frozen design is in `docs/cymek/experiments/ROLE-TRANSFER-001/PREREGISTRATION_V1.json`; execution readiness in `docs/cymek/experiments/ROLE-TRANSFER-001/RUN_READINESS_V1.json` remains blocked. It may use remote Kaggle T4×2 compute only after upstream recovery/completion, new generator/trainer/evaluator implementation, clean-room leakage checks, protocol canonicalization, and independent remote qualification. No local training, local model execution, official ROLE-TRANSFER arm, sealed evaluation, architecture promotion, capability claim, or AGI claim is authorized.
 
 Operational note: later campaigns may be multiplexed onto shared sessions when compatible, but each keeps separate preregistrations, data identities, sealed sets, verdicts, and claim ceilings.

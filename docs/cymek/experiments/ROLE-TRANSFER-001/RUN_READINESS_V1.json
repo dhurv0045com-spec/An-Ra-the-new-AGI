@@ -1,0 +1,125 @@
+{
+  "schema": "anra.role-transfer-readiness/v1",
+  "campaign": "ROLE-TRANSFER-001",
+  "date": "2026-09-24",
+  "branch": "cymek-beta",
+  "status": "DESIGN_PREREGISTERED_EXECUTION_BLOCKED",
+  "protocol_source": "v5_experiments/role_transfer_protocol_v1.py",
+  "preregistration": "docs/cymek/experiments/ROLE-TRANSFER-001/PREREGISTRATION_V1.json",
+  "protocol_sha256": "PENDING_REMOTE_CANONICALIZATION",
+  "upstream_evidence": {
+    "formation_mux_science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "formation_mux_recovery_commit": "8609ba95f4e978cf3cdf8d20bd8a907eea8f6728",
+    "partial_archive_sha256": "3e3ad68cd7f80bd242733b61153d4bb8f3fedbb1e4fba8fbc0f3ebc5d904423f",
+    "s5_development_arms": "24/24 complete",
+    "frontier_development_arms": "2/24 complete",
+    "current_campaign_must_remain_frozen": true
+  },
+  "why_this_is_better": [
+    "replaces identity-formation-only inference with independently generated held-out production-BPE task success within a new ontology",
+    "uses pair-specific synchronized reference trajectories to match full pre-clip norms on every update and records post-clip norm, clip decisions, and parameter displacement",
+    "runs T3_RAW and P_NORM at the same fixed confirmatory exposure as the primary arms",
+    "uses 12 fresh seed blocks split into two independent replications instead of four fragile blocks",
+    "uses a fixed 2M-token dose with no outcome-dependent dose selection",
+    "requires every official seed-arm clipping fraction to be at most five percent",
+    "adds clean-room evaluator controls, zero unauthorized actions, guard regressions, and explicit magnitude-placebo falsification"
+  ],
+  "scale_request": {
+    "literal_10000x_multiplier_rejected": true,
+    "reason": "arbitrary brute-force scale does not repair a floor-bound metric, weak validity, universal clipping, or confounding between gradient role and magnitude",
+    "planned_multiplier_relative_to_current_token_budget_per_arm": 4,
+    "mandatory_processed_token_exposures": 120000000,
+    "compute_estimate": "PENDING_PRE_OUTCOME_T4X2_ENGINEERING_CALIBRATION"
+  },
+  "blocking_requirements": [
+    "recover and finish the original checkpoint-bearing FORMATION-MUX Output",
+    "implement the new isolated generator, four-arm trainer, pair-specific full-preclip norm matching, and exact-resume checkpoints",
+    "emit a hash-chained per-update norm/clip/displacement receipt and checkpoint-index every update",
+    "implement and freeze the clean-room within-ontology downstream evaluator before official outcomes",
+    "freeze the latent-development manifest and evaluator SHA-256 receipts before Stage 1",
+    "prove no overlap with upstream rows, checkpoints, seeds, or sealed commitments",
+    "prove no overlap among calibration, mechanism-engineering, confirmatory, and optional seed roles",
+    "pass remote CPU/static and Kaggle T4x2 engineering qualification",
+    "canonicalize and bind the protocol hash in remote CI",
+    "freeze generator, evaluator, source manifest, and sealed commitments before Stage 1"
+  ],
+  "remote_execution_policy": {
+    "local_training_authorized": false,
+    "local_tests_authorized": false,
+    "official_kaggle_t4x2_execution_authorized": false,
+    "required_accelerator": "Kaggle NVIDIA T4 x2",
+    "internet_required": true,
+    "exact_resume_required": true,
+    "early_stopping_forbidden": true,
+    "dose_selection_forbidden": true,
+    "separate_output_namespace": "ROLE_TRANSFER_001",
+    "must_not_import_or_mutate_formation_mux_output": true
+  },
+  "stage_1_control_only_calibration": {
+    "seeds": [
+      74101,
+      74102,
+      74103,
+      74104
+    ],
+    "fixed_token_dose": 2000000,
+    "lower_dose_runs": "diagnostic_only_cannot_select_confirmatory_dose",
+    "passing_control_success_range": [
+      0.3,
+      0.7
+    ],
+    "maximum_clip_fraction_each_seed": 0.05,
+    "failure_label": "INCONCLUSIVE_SUBSTRATE"
+  },
+  "stage_2_mechanism_engineering": {
+    "seeds": [
+      74201,
+      74202
+    ],
+    "arms": [
+      "T0_CANONICAL",
+      "T3_RAW",
+      "T3_NORM",
+      "P_NORM"
+    ],
+    "fixed_token_dose_per_arm": 2000000,
+    "purpose": "verify gradient manipulation and norm-matching receipts only",
+    "efficacy_outcomes_cannot_change_protocol": true
+  },
+  "confirmatory_experiment": {
+    "arms": [
+      "T0_CANONICAL",
+      "T3_RAW",
+      "T3_NORM",
+      "P_NORM"
+    ],
+    "seed_blocks": 12,
+    "replications": 2,
+    "seeds_per_replication": 6,
+    "fixed_processed_tokens_per_arm": 2000000,
+    "primary_contrast": [
+      "T3_NORM",
+      "T0_CANONICAL"
+    ],
+    "role_specificity_contrast": [
+      "T3_RAW",
+      "P_NORM"
+    ],
+    "primary_endpoint": "production_bpe_within_ontology_downstream_macro_success",
+    "minimum_gain_percentage_points": 8,
+    "maximum_exact_permutation_p": 0.05,
+    "confidence_interval_excludes_zero": true,
+    "minimum_positive_blocks": 9,
+    "minimum_positive_blocks_per_replication": 4,
+    "both_replication_means_positive": true,
+    "maximum_clip_fraction_each_seed_arm": 0.05,
+    "paired_clip_decisions_must_match": true,
+    "minimum_output_to_input_norm_ratio_reduction": 0.25,
+    "role_specificity_interval_lower_bound_above_zero": true,
+    "magnitude_placebo_interval_upper_bound_below": 0.05,
+    "maximum_unauthorized_actions": 0,
+    "missing_seed_policy": "INCONCLUSIVE_PROTOCOL_no_imputation"
+  },
+  "scope_limit": "within_synthetic_ontology_not_external_benchmark_validity",
+  "claim_ceiling": "No official ROLE-TRANSFER-001 outcome, sealed evaluation, external benchmark claim, architecture promotion, capability claim, or AGI claim exists. This file authorizes design review and implementation only."
+}
