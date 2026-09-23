@@ -402,9 +402,12 @@ def exercise_no_update_boundary(data_dir: str) -> dict[str, Any]:
             "boundary": "backward-only-gradients-discarded"}
 
 
-def exercise_live_episode_no_update() -> dict[str, Any]:
+def exercise_live_episode_no_update(data_dir: str) -> dict[str, Any]:
+    from types import SimpleNamespace
+
     from bramastra_lab.research.cognition import episode as kernel
-    from bramastra_lab.research.campaigns.phases.e2 import EVAL_FAMILIES
+    from bramastra_lab.research.campaigns.phases.e2 import (
+        EVAL_FAMILIES, _build_training_memory_index)
     from bramastra_lab.research.campaigns.phases.ops import k8_campaign_config
     from bramastra_lab.research.environments.k8_live import (
         build_live_env, generate_live_mechanism)
@@ -414,35 +417,74 @@ def exercise_live_episode_no_update() -> dict[str, Any]:
     model_core = IntegratedModel(config)
     model_core.eval()
     model = kernel.FreeGenerationModel(model_core, config)
+    memory_index = _build_training_memory_index(
+        SimpleNamespace(data_dir=data_dir, seed=8609))
+    call_caps = {"b-policy": 2, "b-workspace": 2,
+                 "b-planner": 4, "b-memory": 2}
     family_traces = []
     for index, family in enumerate(EVAL_FAMILIES, start=3):
         episode_seed = 8609 + index
         mechanism = generate_live_mechanism(family, index, seed=8609)
-        env = build_live_env(mechanism, budget=6, seed=episode_seed)
-        trace = kernel.run_episode(
-            env, kernel.LearnedPolicyAdapter(), model=model, seed=episode_seed,
-            mechanism=mechanism, session_job_id="verify-build",
-            checkpoint_id=None, action_budget=1, call_budget=4,
-            node_budget=4)
-        model_calls = int(trace["summary"].get("model_calls", 0))
-        if not trace.get("events") or model_calls <= 0:
-            raise ValueError(
-                f"{family} live episode produced no model-origin call trace")
-        if model_calls > 4:
-            raise ValueError(
-                f"{family} live episode exceeded its four-call diagnostic cap")
-        family_traces.append({
-            "family": family, "seed": episode_seed,
-            "events": len(trace["events"]),
-            "model_calls": model_calls,
-            "terminated": trace["summary"].get("terminated"),
-            "truncated": trace["summary"].get("truncated"),
-            "success": trace["summary"].get("success"),
-            "model_origins": sorted({
+        adapters = {
+            "b-policy": kernel.LearnedPolicyAdapter(),
+            "b-workspace": kernel.WorkspacePolicyAdapter(),
+            "b-planner": kernel.BoundedPlannerAdapter(
+                world_model=kernel.ModelWorldModel(model), max_depth=2,
+                max_nodes=call_caps["b-planner"]),
+            "b-memory": kernel.LearnedPolicyAdapter(),
+        }
+        for mode, adapter in adapters.items():
+            env = build_live_env(mechanism, budget=6, seed=episode_seed)
+            call_cap = call_caps[mode]
+            trace = kernel.run_episode(
+                env, adapter, model=model, seed=episode_seed,
+                mechanism=mechanism, session_job_id="verify-build",
+                checkpoint_id=None, action_budget=1,
+                call_budget=call_cap, node_budget=call_cap,
+                memory_index=memory_index if mode == "b-memory" else None,
+                memory_top_k=1, memory_token_budget=400)
+            model_calls = int(trace["summary"].get("model_calls", 0))
+            if not trace.get("events") or model_calls <= 0:
+                raise ValueError(
+                    f"{family}/{mode} episode produced no model call trace")
+            if model_calls > call_cap:
+                raise ValueError(
+                    f"{family}/{mode} episode exceeded its "
+                    f"{call_cap}-call diagnostic cap")
+            origins = {
                 str(event.get("model_origin"))
                 for event in trace["events"]
-                if event.get("model_origin") is not None}),
-        })
+                if event.get("model_origin") is not None}
+            origins.update(
+                str(node.get("predicted_outcome", {}).get("origin"))
+                for node in trace.get("imagined", [])
+                if node.get("predicted_outcome", {}).get("origin") is not None)
+            if not any(origin.startswith("model") for origin in origins):
+                raise ValueError(
+                    f"{family}/{mode} trace lost its real model-call origin")
+            memory_records_read = int(trace["summary"].get(
+                "memory", {}).get("records_read", 0))
+            if mode == "b-memory" and memory_records_read <= 0:
+                raise ValueError(
+                    f"{family}/b-memory read no training-split examples")
+            family_traces.append({
+                "family": family, "mode": mode, "seed": episode_seed,
+                "events": len(trace["events"]),
+                "model_calls": model_calls, "call_cap": call_cap,
+                "terminated": trace["summary"].get("terminated"),
+                "truncated": trace["summary"].get("truncated"),
+                "success": trace["summary"].get("success"),
+                "model_origins": sorted(origins),
+                "planner_nodes": trace["summary"].get("imagined_nodes", 0),
+                "memory_records_read": memory_records_read,
+            })
+    expected = {(family, mode) for family in EVAL_FAMILIES
+                for mode in call_caps}
+    observed = {(row["family"], row["mode"]) for row in family_traces}
+    if observed != expected:
+        raise ValueError(
+            f"no-update traces do not cover every E2 family/mode: "
+            f"missing={sorted(expected - observed)}")
     non_null_gradients = sum(
         parameter.grad is not None for parameter in model_core.parameters())
     if non_null_gradients:
@@ -450,10 +492,12 @@ def exercise_live_episode_no_update() -> dict[str, Any]:
             f"inference diagnostic retained gradients on "
             f"{non_null_gradients} parameters")
     return {"families": list(EVAL_FAMILIES),
+            "modes": list(call_caps),
             "model_origin": "random-init-real-calls",
             "profile": "k8-campaign",
             "family_traces": family_traces,
-            "call_cap_per_family": 4,
+            "training_memory_identity": memory_index.identity,
+            "max_call_cap_per_trace": max(call_caps.values()),
             "non_null_gradients": non_null_gradients,
             "model_training_mode": bool(model_core.training),
             "optimizer_updates": 0}
@@ -618,14 +662,16 @@ def run_verify_build(data_dir: str, report_dir: str, *, no_updates: bool = True,
         "no_update_boundary",
         lambda: exercise_no_update_boundary(data_dir))
     exercise_results["live_episode_no_update"] = _exercise_receipt(
-        "live_episode_no_update", exercise_live_episode_no_update)
+        "live_episode_no_update",
+        lambda: exercise_live_episode_no_update(data_dir))
     exercise_results["checkpoint_roundtrip"] = _exercise_receipt(
         "checkpoint_roundtrip", exercise_checkpoint_roundtrip)
     notebook_default = os.path.join(repo_root, "notebooks", "bramastra_k8.ipynb")
     exercise_results["notebook_inputs"] = _exercise_receipt(
         "notebook_inputs",
         lambda: exercise_notebook_inputs(notebook_path or notebook_default))
-    exercise_results["integrated_rehearsal"] = _rehearsal_receipt(repo_root)
+    exercise_results["integrated_rehearsal"] = _rehearsal_receipt(
+        repo_root, data_dir)
 
     # Registered local check groups (bounded children).
     check_results: dict[str, dict[str, Any]] = {}
@@ -722,7 +768,7 @@ def _exercise_receipt(name: str, fn: Callable[[], dict[str, Any]]) -> dict[str, 
                 "error": str(exc)[:400]}
 
 
-def _rehearsal_receipt(repo_root: str) -> dict[str, Any]:
+def _rehearsal_receipt(repo_root: str, data_dir: str) -> dict[str, Any]:
     """Run the bounded integrated no-update rehearsal (F22) if available."""
     try:
         from bramastra_lab.research.campaigns.rehearsal import run_rehearsal
@@ -731,7 +777,9 @@ def _rehearsal_receipt(repo_root: str) -> dict[str, Any]:
                 "evidence": None,
                 "error": f"rehearsal runner unavailable: {exc}"[:200]}
     return _exercise_receipt(
-        "integrated_rehearsal", lambda: run_rehearsal(repo_root=repo_root))
+        "integrated_rehearsal",
+        lambda: run_rehearsal(repo_root=repo_root,
+                              live_data_dir=data_dir))
 
 
 def _repo_root() -> str:

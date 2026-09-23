@@ -392,12 +392,14 @@ class ModelWorldModel:
                               "truncate the imagined-transition input")}
         self.calls += 1
         out: Mapping[str, Any] = {}
+        base_origin = "unknown"
         output_tokens = 0
         try:
             raw_output = self.model.generate(prompt, max_new_tokens=24)
             if not isinstance(raw_output, Mapping):
                 raise ValueError("model prediction response is not an object")
             out = raw_output
+            base_origin = str(out.get("origin", "model"))
             raw_token_count = out.get("new_tokens", 0)
             if (isinstance(raw_token_count, int)
                     and not isinstance(raw_token_count, bool)
@@ -417,7 +419,8 @@ class ModelWorldModel:
                 if not (0.0 <= sp <= 1.0):
                     return {"feedback": {},
                             "success_prob": None, "value": None,
-                            "origin": "out-of-range",
+                            "origin": base_origin + "-out-of-range",
+                            "generation_origin": base_origin,
                             "model_calls": 1, "input_tokens": len(prompt),
                             "output_tokens": output_tokens,
                             "prediction_failed": True,
@@ -428,18 +431,19 @@ class ModelWorldModel:
             value = float(raw_value)
             if not math.isfinite(value):
                 raise ValueError("predicted value must be finite")
-            base_origin = str(out.get("origin", "model"))
             return {"feedback": dict(feedback),
                     "success_prob": sp,
                     "value": value,
                     "origin": base_origin + "-imagined",
+                    "generation_origin": base_origin,
                     "model_calls": 1, "input_tokens": len(prompt),
                     "output_tokens": output_tokens,
                     "prediction_failed": False}
         except (json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
             return {"feedback": {},
                     "success_prob": None, "value": None,
-                    "origin": "parse-failure",
+                    "origin": base_origin + "-parse-failure",
+                    "generation_origin": base_origin,
                     "model_calls": 1, "input_tokens": len(prompt),
                     "output_tokens": output_tokens,
                     "prediction_failed": True,
@@ -447,7 +451,8 @@ class ModelWorldModel:
         except Exception as exc:
             return {"feedback": {},
                     "success_prob": None, "value": None,
-                    "origin": "neutral-fallback",
+                    "origin": base_origin + "-neutral-fallback",
+                    "generation_origin": base_origin,
                     "model_calls": 1, "input_tokens": len(prompt),
                     "output_tokens": output_tokens,
                     "prediction_failed": True,

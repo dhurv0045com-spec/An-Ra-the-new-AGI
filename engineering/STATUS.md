@@ -1,5 +1,42 @@
 # Gandiva engineering status
 
+## Four-mode cognition matrix and full build — 23 September 2026
+
+The latest no-update diagnostic covers all 12 registered E2 family/mode
+pairs: rule-inquiry, inventory, and program across `b-policy`, `b-workspace`,
+`b-planner`, and `b-memory`. Each trace has a two-call cap, except bounded
+planning at four calls. The `b-memory` index is sourced only from the training
+split. Coverage, genuine model-call provenance, memory reads, eval mode,
+discarded gradients, and zero optimizer updates are checked.
+
+The first expanded run caught an integration error: the live episode now
+requires the data directory, while the integrated rehearsal still called the
+old zero-argument helper. That failed report remains preserved. The rehearsal
+now receives the verified bundle for this production diagnostic and continues
+to build its separate small fixture bundle for phase wiring. The fixed,
+source-bound report
+[`reports/FINAL_K8/gandiva-cognition-modes-fixed-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-modes-fixed-20260923/build_verification.json)
+passes F01–F24, all seven test groups, all seven real-interface exercises, and
+the 24-cell owner-notebook interface check. Duration was 223.015 seconds; the
+integrated rehearsal took 55.578 seconds. Data identity is
+`79c9706d122050cc1e8f5e6a3363af68005fc1206db0451b40ea807121c8d7f8`, source
+closure is
+`9f41d8e6424e719eba5c286a8f9a81521d35335575e41ff2f9f178e7f998307c`, and
+report identity is
+`0f2455901507661219e7d1926a0da4c432796bdcec287db89026d3fbf20e81b9`. The
+full handoff records exact commands and outcomes:
+[`reports/FINAL_K8/gandiva-cognition-modes-fixed-20260923/HANDOFF.md`](reports/FINAL_K8/gandiva-cognition-modes-fixed-20260923/HANDOFF.md).
+
+This matrix is execution evidence, not a positive cognition result. The model
+was randomly initialized: all planner traces ended unsuccessfully after model
+parse failures and fallback actions, while the other modes exhausted their
+small call caps without an environment outcome. `b-memory` read two training
+records per trace. No local training or GPU qualification occurred;
+optimizer updates remain zero. The user's existing edit to
+`tests/test_research_k8_real.py` remains preserved and excluded from scoped
+publication. Runtime gates G01–G04 still require the owner Kaggle two-T4 E0
+run.
+
 ## Three-family cognition rehearsal — 23 September 2026
 
 Source revision `ec39a32811492f31047f504e4d066c8bbc74936e` expands the

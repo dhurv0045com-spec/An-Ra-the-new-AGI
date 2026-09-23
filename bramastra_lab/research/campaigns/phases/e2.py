@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any
+from typing import Any, Mapping
 
 from bramastra_lab.research.campaigns.phases.types import (
     EVIDENCE_FIXTURE,
@@ -579,6 +579,19 @@ def _build_training_memory_index(job: JobInput):
 def _trace_has_model_origin(trace: dict) -> bool:
     for event in trace.get("events", ()):
         if str(event.get("model_origin", "")).startswith("model"):
+            return True
+    # Planner model calls are attached to their imagined nodes, while the
+    # selected real action may be a fallback after every forecast fails. Keep
+    # that genuine model failure in the provenance classification.
+    for node in trace.get("imagined", ()):
+        if not isinstance(node, Mapping):
+            continue
+        outcome = node.get("predicted_outcome", {})
+        if not isinstance(outcome, Mapping):
+            continue
+        generation_origin = outcome.get(
+            "generation_origin", outcome.get("origin", ""))
+        if str(generation_origin).startswith("model"):
             return True
     return False
 

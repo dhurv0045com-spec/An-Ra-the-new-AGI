@@ -110,6 +110,25 @@ class CognitionPlanningTests(unittest.TestCase):
         self.assertGreater(result["input_tokens"], 0)
         self.assertEqual(result["output_tokens"], 0)
 
+    def test_parse_failure_retains_model_origin_in_e2_trace_classification(self) -> None:
+        from bramastra_lab.research.campaigns.phases.e2 import (
+            _trace_has_model_origin)
+
+        class MalformedModel(ModelInterface):
+            def generate(self, prompt_tokens, *, max_new_tokens):
+                return {"answer": "not-json", "origin": "model",
+                        "new_tokens": 2}
+
+        failure = ModelWorldModel(MalformedModel())(
+            state={"goal": {"target": "finish"}, "history": []},
+            action={"kind": "submit", "answer": "x"}, depth=1)
+        self.assertTrue(failure["prediction_failed"])
+        self.assertEqual(failure["generation_origin"], "model")
+        self.assertEqual(failure["origin"], "model-parse-failure")
+        trace = {"events": [{"model_origin": "fallback"}],
+                 "imagined": [{"predicted_outcome": failure}]}
+        self.assertTrue(_trace_has_model_origin(trace))
+
     def test_depth_two_prediction_uses_imagined_successor_not_original_state(self) -> None:
         states = []
 

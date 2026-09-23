@@ -1,5 +1,41 @@
 # FINAL-K8 progress cursor
 
+## 23 September continuation: all-family, all-mode cognition verification
+
+The latest CPU-only live diagnostic exercises the Cartesian product of the
+three registered E2 families and four cognition modes: 12 traces total. Each
+trace uses at most two model calls, except `b-planner` at four. The memory index
+uses the `training` split only, and the verifier enforces real model-call
+provenance, training-memory reads, zero retained gradients, eval mode, and
+zero optimizer commits.
+
+This run exposed and fixed one real integration regression: the expanded
+episode helper needed the data directory for memory-index construction, but
+the rehearsal passed none. The fixed verifier now passes its validated bundle
+to that production trace, while leaving the rehearsal's separate fixture
+bundle intact. The initial failed report is retained for audit; see the fixed
+report and full evidence in
+[`reports/FINAL_K8/gandiva-cognition-modes-fixed-20260923/HANDOFF.md`](reports/FINAL_K8/gandiva-cognition-modes-fixed-20260923/HANDOFF.md).
+
+Current source-bound result: **F01–F24 pass**, all seven check groups and all
+seven interface exercises pass, notebook interface check passes (24 cells,
+12 code cells, zero hard-coded host paths or shell magics), and local optimizer
+updates are zero. The verifier took 223.015 seconds; its integrated rehearsal
+took 55.578 seconds. Bundle identity:
+`79c9706d122050cc1e8f5e6a3363af68005fc1206db0451b40ea807121c8d7f8`; source
+closure: `9f41d8e6424e719eba5c286a8f9a81521d35335575e41ff2f9f178e7f998307c`;
+report identity: `0f2455901507661219e7d1926a0da4c432796bdcec287db89026d3fbf20e81b9`.
+
+The random-initialized model did not show useful cognition. The three planner
+traces had parse failures, used fallback actions, and ended unsuccessfully;
+policy, workspace, and memory traces stopped at small call caps before an
+outcome. Each memory trace read two training records. Treat this as bounded
+plumbing evidence only: no local training, GPU use, learned result, or AGI
+capability is claimed. Preserve the user edit to
+`tests/test_research_k8_real.py`; it remains outside the implementation
+commit. **Next owner action:** run the normal notebook's E0 on Kaggle with two
+T4 GPUs and require G01–G04 before E1–E6.
+
 ## 23 September continuation: all-family cognition verification
 
 Commit `ec39a32811492f31047f504e4d066c8bbc74936e` removes a family-coverage

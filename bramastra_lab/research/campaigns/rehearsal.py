@@ -30,6 +30,7 @@ from typing import Any
 
 
 def run_rehearsal(*, repo_root: str | None = None,
+                  live_data_dir: str | None = None,
                   timeout_seconds: float = 900.0) -> dict[str, Any]:
     """Execute the bounded rehearsal and return its receipt."""
     started = time.monotonic()
@@ -131,8 +132,11 @@ def run_rehearsal(*, repo_root: str | None = None,
         from bramastra_lab.research.campaigns.verify_build import (
             exercise_live_episode_no_update, exercise_no_update_boundary)
 
-        steps["no_update_boundary"] = exercise_no_update_boundary(data_dir)
-        steps["live_episode"] = exercise_live_episode_no_update()
+        episode_data_dir = live_data_dir or data_dir
+        steps["no_update_boundary"] = exercise_no_update_boundary(
+            episode_data_dir)
+        steps["live_episode"] = exercise_live_episode_no_update(
+            episode_data_dir)
 
         # 6. Statistics consumers fed by the E2 phase output.
         with open(os.path.join(run_dir, "phase_outputs", "E2", "E2-1701.json"),
