@@ -10,13 +10,14 @@ from __future__ import annotations
 import itertools
 import math
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from bramastra_lab.research.experience.trajectory import PROVENANCE_ONLY_FIELDS
 from bramastra_lab.research.cognition.beliefs import (
     BELIEF_STATUSES,
     Belief,
     BeliefError,
+    BeliefRevision,
     EvidenceRecord,
     corroboration_roots_for,
     reference_finite_support_update,
@@ -78,6 +79,7 @@ class CognitiveWorkspace:
     budget: int
     evidence: dict[str, EvidenceRecord] = field(default_factory=dict)
     beliefs: dict[str, Belief] = field(default_factory=dict)
+    belief_revision_log: list[BeliefRevision] = field(default_factory=list)
     subgoals: dict[str, Subgoal] = field(default_factory=dict)
     commitments: dict[str, PendingCommitment] = field(default_factory=dict)
     capability_estimates: list[CapabilityEstimate] = field(default_factory=list)
@@ -193,9 +195,39 @@ class CognitiveWorkspace:
 
         cited_aliases = tuple(sorted(set(belief.evidence_aliases)
                                      | {record.alias for record in admitted}))
+        support = dict(belief.support)
+        if not support:
+            if not likelihood:
+                raise WorkspaceError("belief revision has no hypotheses to update")
+            support = {h: 1.0 / len(likelihood) for h in likelihood}
+        if set(likelihood) != set(support):
+            raise WorkspaceError(
+                "likelihood hypotheses must exactly match the belief support")
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool)
+               or not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0
+               for value in likelihood.values()):
+            raise WorkspaceError("likelihood values must be finite probabilities in [0, 1]")
         if not new_roots:
             # Preserve the new alias in the audit trail without changing the
             # posterior: a duplicate/corroborating copy is not new evidence.
+            duplicate_roots = tuple(sorted(incoming_roots))
+            duplicate_reliability = None
+            if len(duplicate_roots) == 1:
+                duplicate_root = duplicate_roots[0]
+                root_record = self.evidence.get(duplicate_root)
+                duplicate_reliability = (
+                    root_record.reliability if root_record is not None
+                    else min(record.reliability
+                             for record in incoming_roots[duplicate_root]))
+            self.belief_revision_log.append(BeliefRevision(
+                index=len(self.belief_revision_log),
+                belief_alias=belief_alias,
+                evidence_aliases=tuple(sorted(record.alias for record in admitted)),
+                evidence_roots=duplicate_roots,
+                outcome="duplicate", prior_support=support,
+                likelihood={k: float(v) for k, v in likelihood.items()},
+                effective_likelihood=None, posterior=support,
+                reliability=duplicate_reliability))
             self.beliefs[belief_alias] = Belief(
                 alias=belief.alias, proposition=belief.proposition,
                 status=belief.status, support=dict(belief.support),
@@ -210,17 +242,6 @@ class CognitiveWorkspace:
                        if source_record is not None
                        and source_record.status == "admitted"
                        else min(record.reliability for record in root_records))
-        support = dict(belief.support) or {
-            h: 1.0 / max(1, len(likelihood)) for h in likelihood}
-        if not support:
-            raise WorkspaceError("belief revision has no hypotheses to update")
-        if set(likelihood) != set(support):
-            raise WorkspaceError(
-                "likelihood hypotheses must exactly match the belief support")
-        if any(not isinstance(value, (int, float)) or isinstance(value, bool)
-               or not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0
-               for value in likelihood.values()):
-            raise WorkspaceError("likelihood values must be finite probabilities in [0, 1]")
 
         # Reliability is the probability that this source's stated likelihood
         # model is trustworthy. The complement contributes a hypothesis-
@@ -234,6 +255,15 @@ class CognitiveWorkspace:
         next_support, status = reference_finite_support_update(
             support, effective_likelihood)
         if status == "MODEL_MISMATCH":
+            self.belief_revision_log.append(BeliefRevision(
+                index=len(self.belief_revision_log),
+                belief_alias=belief_alias,
+                evidence_aliases=tuple(sorted(record.alias for record in admitted)),
+                evidence_roots=(source_root,), outcome="model_mismatch",
+                prior_support=support,
+                likelihood={k: float(v) for k, v in likelihood.items()},
+                effective_likelihood=effective_likelihood,
+                posterior=support, reliability=reliability))
             # Retain the evidence and the prior belief; flag the mismatch.
             self.beliefs[belief_alias] = Belief(
                 alias=belief.alias, proposition=belief.proposition,
@@ -246,6 +276,15 @@ class CognitiveWorkspace:
                 "MODEL_MISMATCH: support/likelihood assumptions are inconsistent "
                 "with the observation; evidence retained, broader hypothesis "
                 "proposal required")
+        self.belief_revision_log.append(BeliefRevision(
+            index=len(self.belief_revision_log),
+            belief_alias=belief_alias,
+            evidence_aliases=tuple(sorted(record.alias for record in admitted)),
+            evidence_roots=(source_root,), outcome="updated",
+            prior_support=support,
+            likelihood={k: float(v) for k, v in likelihood.items()},
+            effective_likelihood=effective_likelihood,
+            posterior=next_support, reliability=reliability))
         new_status = belief.status
         lead = _leading(next_support)
         prior_lead = _leading(support)
@@ -374,6 +413,21 @@ class CognitiveWorkspace:
                          "evidence_aliases": list(belief.evidence_aliases),
                          "conflicting_aliases": list(belief.conflicting_aliases)}
                         for belief in self.beliefs.values()],
+            # Expose only episode-local evidence aliases. Private ancestry
+            # roots remain in the durable snapshot, not the model-facing view.
+            "belief_revisions": [
+                {"index": revision.index,
+                 "belief_alias": revision.belief_alias,
+                 "evidence_aliases": list(revision.evidence_aliases),
+                 "outcome": revision.outcome,
+                 "prior_support": dict(revision.prior_support),
+                 "likelihood": dict(revision.likelihood),
+                 "effective_likelihood": (
+                     dict(revision.effective_likelihood)
+                     if revision.effective_likelihood is not None else None),
+                 "posterior": dict(revision.posterior),
+                 "reliability": revision.reliability}
+                for revision in self.belief_revision_log],
             "subgoals": [{"id": s.subgoal_id, "parent": s.parent,
                           "description": s.description, "status": s.status,
                           "dependencies": list(s.dependencies), "check": s.check}
@@ -399,7 +453,7 @@ class CognitiveWorkspace:
         # serialized JSON byte budget.
         omitted: dict[str, int] = {}
         view = dict(view)
-        for key in ("capability_estimates", "evidence", "subgoals",
+        for key in ("belief_revisions", "capability_estimates", "evidence", "subgoals",
                     "commitments", "beliefs"):
             while view[key] and len(_stable_size(view)) > budget:
                 view[key].pop(0)
@@ -421,6 +475,7 @@ class CognitiveWorkspace:
                           "conflict_state": r.conflict_state}
                          for r in self.evidence.values()],
             "beliefs": [b.__dict__ | {"support": dict(b.support)} for b in self.beliefs.values()],
+            "belief_revision_log": [r.to_dict() for r in self.belief_revision_log],
             "subgoals": [vars(s) | {"dependencies": list(s.dependencies)}
                          for s in self.subgoals.values()],
             "commitments": [vars(c) for c in self.commitments.values()],
@@ -445,6 +500,18 @@ class CognitiveWorkspace:
                 status=belief["status"], support=dict(belief["support"]),
                 evidence_aliases=tuple(belief.get("evidence_aliases", ())),
                 conflicting_aliases=tuple(belief.get("conflicting_aliases", ())))
+        workspace.belief_revision_log = [
+            BeliefRevision.from_dict(record)
+            for record in raw.get("belief_revision_log", ())]
+        for index, revision in enumerate(workspace.belief_revision_log):
+            if revision.index != index:
+                raise WorkspaceError("belief revision log indexes must be contiguous")
+            if revision.belief_alias not in workspace.beliefs:
+                raise WorkspaceError(
+                    f"belief revision references missing belief {revision.belief_alias!r}")
+            if any(alias not in workspace.evidence
+                   for alias in revision.evidence_aliases):
+                raise WorkspaceError("belief revision references missing evidence")
         for subgoal in raw["subgoals"]:
             workspace.subgoals[subgoal["subgoal_id"]] = Subgoal(
                 subgoal_id=subgoal["subgoal_id"], parent=subgoal.get("parent"),

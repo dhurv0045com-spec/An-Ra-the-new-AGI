@@ -91,6 +91,112 @@ class Belief:
                                      self.conflicting_aliases)})
 
 
+@dataclass(frozen=True)
+class BeliefRevision:
+    """Append-only audit record for one attempted evidence revision.
+
+    ``updated`` records an applied Bayesian update, ``duplicate`` records a
+    replay/correlated copy that correctly left support unchanged, and
+    ``model_mismatch`` records evidence that contradicted the declared finite
+    support. Evidence aliases are episode-local; ancestry roots are retained
+    only in the private snapshot, never in the model-visible rendering.
+    """
+
+    index: int
+    belief_alias: str
+    evidence_aliases: tuple[str, ...]
+    evidence_roots: tuple[str, ...]
+    outcome: str
+    prior_support: Mapping[str, float]
+    likelihood: Mapping[str, float]
+    effective_likelihood: Mapping[str, float] | None
+    posterior: Mapping[str, float]
+    reliability: float | None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.index, int) or isinstance(self.index, bool) or self.index < 0:
+            raise BeliefError("belief revision index must be a nonnegative integer")
+        if not self.belief_alias:
+            raise BeliefError("belief revision must name a belief")
+        if not self.evidence_aliases or not self.evidence_roots:
+            raise BeliefError("belief revision must retain its evidence references")
+        if self.outcome not in {"updated", "duplicate", "model_mismatch"}:
+            raise BeliefError(f"unknown belief revision outcome {self.outcome!r}")
+        for label, values in (("prior", self.prior_support),
+                              ("likelihood", self.likelihood),
+                              ("posterior", self.posterior)):
+            if not isinstance(values, Mapping):
+                raise BeliefError(f"revision {label} must be a mapping")
+            if any(not isinstance(value, (int, float)) or isinstance(value, bool)
+                   or not math.isfinite(float(value)) or float(value) < 0.0
+                   for value in values.values()):
+                raise BeliefError(f"revision {label} values must be finite and nonnegative")
+            if label == "likelihood" and any(float(value) > 1.0
+                                              for value in values.values()):
+                raise BeliefError("revision likelihood values must lie in [0, 1]")
+            if label in {"prior", "posterior"} and values and not (
+                    0.99 <= sum(float(value) for value in values.values()) <= 1.01):
+                raise BeliefError(f"revision {label} must be a normalized distribution")
+        if self.effective_likelihood is not None and any(
+                not isinstance(value, (int, float)) or isinstance(value, bool)
+                or not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0
+                for value in self.effective_likelihood.values()):
+            raise BeliefError("effective likelihoods must be finite probabilities")
+        if not self.prior_support or not self.posterior:
+            raise BeliefError("revision prior and posterior must be nonempty")
+        if set(self.likelihood) != set(self.prior_support):
+            raise BeliefError("revision likelihood must align with its prior support")
+        if (self.effective_likelihood is not None
+                and set(self.effective_likelihood) != set(self.prior_support)):
+            raise BeliefError("effective likelihood must align with its prior support")
+        if self.outcome == "updated" and (
+                self.effective_likelihood is None
+                or set(self.posterior) != set(self.prior_support)
+                or self.reliability is None):
+            raise BeliefError("updated revision is missing its applied calculation")
+        if self.outcome in {"duplicate", "model_mismatch"} and dict(
+                self.posterior) != dict(self.prior_support):
+            raise BeliefError(f"{self.outcome} revision cannot change support")
+        if self.outcome == "duplicate" and self.effective_likelihood is not None:
+            raise BeliefError("duplicate revision cannot apply a likelihood")
+        if self.reliability is not None and (
+                not isinstance(self.reliability, (int, float))
+                or isinstance(self.reliability, bool)
+                or not math.isfinite(float(self.reliability))
+                or not 0.0 <= float(self.reliability) <= 1.0):
+            raise BeliefError("revision reliability must lie in [0, 1]")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"index": self.index, "belief_alias": self.belief_alias,
+                "evidence_aliases": list(self.evidence_aliases),
+                "evidence_roots": list(self.evidence_roots),
+                "outcome": self.outcome,
+                "prior_support": dict(self.prior_support),
+                "likelihood": dict(self.likelihood),
+                "effective_likelihood": (dict(self.effective_likelihood)
+                                          if self.effective_likelihood is not None
+                                          else None),
+                "posterior": dict(self.posterior),
+                "reliability": self.reliability}
+
+    @classmethod
+    def from_dict(cls, raw: Mapping[str, Any]) -> "BeliefRevision":
+        return cls(index=raw["index"], belief_alias=raw["belief_alias"],
+                   evidence_aliases=tuple(raw.get("evidence_aliases", ())),
+                   evidence_roots=tuple(raw.get("evidence_roots", ())),
+                   outcome=raw["outcome"],
+                   prior_support=dict(raw.get("prior_support", {})),
+                   likelihood=dict(raw.get("likelihood", {})),
+                   effective_likelihood=(
+                       dict(raw["effective_likelihood"])
+                       if raw.get("effective_likelihood") is not None else None),
+                   posterior=dict(raw.get("posterior", {})),
+                   reliability=raw.get("reliability"))
+
+    def identity(self) -> str:
+        return content_identity(self.to_dict())
+
+
 def reference_finite_support_update(
     support: Mapping[str, float],
     likelihood: Mapping[str, float],

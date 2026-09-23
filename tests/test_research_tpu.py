@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import types
 import unittest
 from unittest.mock import patch
@@ -19,10 +20,14 @@ from bramastra_lab.research.learning.router import route_window
 from bramastra_lab.research.runtime.tpu import (
     TPU_RUNTIME_NOT_SELECTED,
     XLAReplicaBackend,
+    broadcast_replica_parameters,
     inspect_tpu_runtime,
     launch_tpu_workers,
     make_xla_data_loader,
     replica_training_sampler,
+    state_dict_sha256,
+    verify_replica_initialization,
+    write_replica_initialization_receipt,
 )
 
 
@@ -130,6 +135,99 @@ class TPUContractTests(unittest.TestCase):
             launch_tpu_workers(lambda: None)
             self.assertIsNone(os.environ.get("BRAMASTRA_XLA_REPLICA_LAUNCH"))
         self.assertEqual(observed, ["1"])
+
+    def test_parameter_broadcast_uses_xla_master_and_flushes(self) -> None:
+        xla = types.ModuleType("torch_xla")
+        xla.__path__ = []
+        core = types.ModuleType("torch_xla.core")
+        core.__path__ = []
+        xm = types.ModuleType("torch_xla.core.xla_model")
+        calls = []
+        xm.broadcast_master_param = lambda model: calls.append(("broadcast", model))
+        xm.mark_step = lambda: calls.append(("mark_step", None))
+        core.xla_model = xm
+        modules = {"torch_xla": xla, "torch_xla.core": core,
+                   "torch_xla.core.xla_model": xm}
+        model = torch.nn.Linear(3, 2)
+        with patch.dict(sys.modules, modules), patch.dict(
+                os.environ,
+                {"PJRT_DEVICE": "TPU",
+                 "BRAMASTRA_XLA_REPLICA_LAUNCH": "1"}, clear=True):
+            broadcast_replica_parameters(model)
+        self.assertEqual(calls, [("broadcast", model), ("mark_step", None)])
+
+    def test_parameter_broadcast_refuses_outside_replica_launch(self) -> None:
+        with patch.dict(os.environ, {"PJRT_DEVICE": "TPU"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "only allowed inside"):
+                broadcast_replica_parameters(torch.nn.Linear(2, 2))
+
+    def test_state_fingerprint_covers_tensor_names_shapes_dtypes_and_values(self) -> None:
+        state = {"weight": torch.tensor([[1.0, 2.0]], dtype=torch.float32),
+                 "bias": torch.tensor([0.5], dtype=torch.float32)}
+        same = {name: tensor.clone() for name, tensor in state.items()}
+        changed = {name: tensor.clone() for name, tensor in state.items()}
+        changed["weight"][0, 1] = 3.0
+        changed_dtype = {"weight": state["weight"].to(torch.bfloat16),
+                         "bias": state["bias"].to(torch.bfloat16)}
+        self.assertEqual(state_dict_sha256(state), state_dict_sha256(same))
+        self.assertNotEqual(state_dict_sha256(state), state_dict_sha256(changed))
+        self.assertNotEqual(state_dict_sha256(state),
+                            state_dict_sha256(changed_dtype))
+        self.assertNotEqual(
+            state_dict_sha256({"scalar": torch.tensor(1.0)}),
+            state_dict_sha256({"scalar": torch.tensor(2.0)}))
+
+    def test_replica_initialization_requires_exact_identical_receipts(self) -> None:
+        class TinyModel(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = torch.nn.Linear(2, 2)
+
+        model = TinyModel()
+        with tempfile.TemporaryDirectory() as directory:
+            for rank in range(2):
+                write_replica_initialization_receipt(
+                    directory, rank=rank, world_size=2,
+                    config_identity="cfg-sha256", model=model)
+            report = verify_replica_initialization(
+                directory, expected_replicas=2)
+            self.assertEqual(report["status"], "REPLICAS_IDENTICAL")
+            self.assertFalse(report["training_started"])
+            self.assertEqual(report["parameter_count"], 6)
+            with self.assertRaises(FileExistsError):
+                write_replica_initialization_receipt(
+                    directory, rank=0, world_size=2,
+                    config_identity="cfg-sha256", model=model)
+
+    def test_replica_verifier_rejects_boolean_rank_and_missing_directory(self) -> None:
+        model = torch.nn.Linear(2, 2)
+        with tempfile.TemporaryDirectory() as directory:
+            write_replica_initialization_receipt(
+                directory, rank=0, world_size=1,
+                config_identity="cfg-sha256", model=model)
+            path = os.path.join(directory, "replica-000.json")
+            with open(path, encoding="utf-8") as handle:
+                receipt = __import__("json").load(handle)
+            receipt["rank"] = True
+            with open(path, "w", encoding="utf-8") as handle:
+                __import__("json").dump(receipt, handle)
+            with self.assertRaisesRegex(RuntimeError, "receipt mismatch"):
+                verify_replica_initialization(directory, expected_replicas=1)
+        with self.assertRaisesRegex(RuntimeError, "directory does not exist"):
+            verify_replica_initialization(os.path.join(directory, "missing"))
+
+    def test_replica_initialization_detects_divergent_model(self) -> None:
+        model0 = torch.nn.Linear(2, 2)
+        model1 = torch.nn.Linear(2, 2)
+        with tempfile.TemporaryDirectory() as directory:
+            write_replica_initialization_receipt(
+                directory, rank=0, world_size=2,
+                config_identity="cfg-sha256", model=model0)
+            write_replica_initialization_receipt(
+                directory, rank=1, world_size=2,
+                config_identity="cfg-sha256", model=model1)
+            with self.assertRaisesRegex(RuntimeError, "do not share exact"):
+                verify_replica_initialization(directory, expected_replicas=2)
 
     def test_training_sampler_splits_without_replica_overlap_or_padding(self) -> None:
         dataset = torch.utils.data.TensorDataset(torch.arange(19))

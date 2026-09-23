@@ -7,6 +7,8 @@ validated model fit or a completed training run.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import os
 from typing import Any, Mapping
 
@@ -276,3 +278,168 @@ def launch_tpu_workers(worker: Any, *, args: tuple[Any, ...] = ()) -> None:
             os.environ.pop(_XLA_LAUNCH_MARKER, None)
         else:
             os.environ[_XLA_LAUNCH_MARKER] = previous
+
+
+def broadcast_replica_parameters(model: Any) -> None:
+    """Make the master replica's initialized weights authoritative.
+
+    TPU v2/v3 PJRT can run multiple threads inside one process; repeating
+    ``torch.manual_seed`` per worker is not sufficient to guarantee identical
+    initialization. Call this after moving the model to its worker-local XLA
+    device and before constructing or stepping the optimizer.
+    """
+    if os.environ.get("PJRT_DEVICE", "").strip().upper() != "TPU":
+        raise RuntimeError("parameter broadcast requires PJRT_DEVICE=TPU")
+    if os.environ.get(_XLA_LAUNCH_MARKER) != "1":
+        raise RuntimeError(
+            "parameter broadcast is only allowed inside launch_tpu_workers")
+    try:
+        import torch_xla.core.xla_model as xm
+    except Exception as exc:
+        raise RuntimeError(f"PyTorch/XLA is unavailable: {exc}") from exc
+    broadcast = getattr(xm, "broadcast_master_param", None)
+    if not callable(broadcast):
+        try:
+            from torch_xla.experimental.pjrt import broadcast_master_param as broadcast
+        except Exception as exc:
+            raise RuntimeError(
+                "installed PyTorch/XLA has no supported master-parameter "
+                f"broadcast API: {exc}") from exc
+    broadcast(model)
+    xm.mark_step()
+
+
+def state_dict_sha256(state: Mapping[str, Any]) -> str:
+    """Hash exact tensor names, shapes, dtypes and bytes without a byte copy."""
+    import torch
+
+    if not isinstance(state, Mapping) or not state:
+        raise ValueError("model state must be a nonempty mapping")
+    if not all(isinstance(name, str) for name in state):
+        raise ValueError("model state keys must be strings")
+    digest = hashlib.sha256()
+    for name in sorted(state):
+        tensor = state[name]
+        if not isinstance(name, str) or not isinstance(tensor, torch.Tensor):
+            raise ValueError("model state must map string names to tensors")
+        if tensor.layout != torch.strided:
+            raise ValueError(f"unsupported non-strided state tensor {name!r}")
+        host = tensor.detach().to(device="cpu").contiguous()
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(tuple(host.shape)).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(str(host.dtype).encode("ascii"))
+        digest.update(b"\0")
+        # flatten() handles both scalar buffers and empty tensors before the
+        # dtype reinterpretation; view(uint8) on a zero-dimensional float
+        # raises even though its exact bytes are hashable.
+        raw = host.flatten().view(torch.uint8).numpy()
+        digest.update(memoryview(raw).cast("B"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def write_replica_initialization_receipt(
+    report_dir: str, *, rank: int, world_size: int,
+    config_identity: str, model: Any,
+) -> dict[str, Any]:
+    """Persist one worker's exact initial model fingerprint atomically."""
+    if not isinstance(rank, int) or isinstance(rank, bool) or rank < 0:
+        raise ValueError("rank must be a nonnegative integer")
+    if (not isinstance(world_size, int) or isinstance(world_size, bool)
+            or world_size < 1 or rank >= world_size):
+        raise ValueError("rank must be below a positive world_size")
+    if not isinstance(config_identity, str) or not config_identity:
+        raise ValueError("config_identity must be nonempty")
+    state = model.state_dict()
+    receipt = {
+        "schema": "bramastra-tpu-replica-init/v1",
+        "rank": rank,
+        "world_size": world_size,
+        "config_identity": config_identity,
+        "parameter_count": sum(int(param.numel())
+                                for param in model.parameters()),
+        "state_sha256": state_dict_sha256(state),
+    }
+    os.makedirs(report_dir, exist_ok=True)
+    path = os.path.join(report_dir, f"replica-{rank:03d}.json")
+    temp = f"{path}.{os.getpid()}.tmp"
+    try:
+        with open(temp, "x", encoding="utf-8") as handle:
+            json.dump(receipt, handle, sort_keys=True, separators=(",", ":"))
+            handle.write("\n")
+        # A hard-link publishes the fully written file atomically and fails
+        # if another writer already published this rank. os.replace would
+        # silently let a duplicate writer overwrite the original receipt.
+        os.link(temp, path)
+    finally:
+        try:
+            os.unlink(temp)
+        except FileNotFoundError:
+            pass
+    return receipt
+
+
+def verify_replica_initialization(report_dir: str, *,
+                                  expected_replicas: int = 8
+                                  ) -> dict[str, Any]:
+    """Require one identical config/state fingerprint from every TPU rank."""
+    if (not isinstance(expected_replicas, int)
+            or isinstance(expected_replicas, bool) or expected_replicas < 1):
+        raise ValueError("expected_replicas must be a positive integer")
+    expected_files = {f"replica-{rank:03d}.json"
+                      for rank in range(expected_replicas)}
+    try:
+        names = os.listdir(report_dir)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"TPU initialization report directory does not exist: {report_dir}") from exc
+    observed_files = {name for name in names
+                      if name.startswith("replica-") and name.endswith(".json")}
+    if observed_files != expected_files:
+        raise RuntimeError(
+            "TPU initialization report directory must contain exactly one "
+            f"receipt per rank; expected={sorted(expected_files)}, "
+            f"observed={sorted(observed_files)}")
+    receipts = []
+    for rank in range(expected_replicas):
+        path = os.path.join(report_dir, f"replica-{rank:03d}.json")
+        try:
+            with open(path, encoding="utf-8") as handle:
+                receipt = json.load(handle)
+        except Exception as exc:
+            raise RuntimeError(
+                f"missing or unreadable TPU initialization receipt for rank "
+                f"{rank}: {exc}") from exc
+        if (not isinstance(receipt, dict)
+                or not isinstance(receipt.get("rank"), int)
+                or isinstance(receipt.get("rank"), bool)
+                or receipt.get("rank") != rank
+                or not isinstance(receipt.get("world_size"), int)
+                or isinstance(receipt.get("world_size"), bool)
+                or receipt.get("world_size") != expected_replicas
+                or receipt.get("schema") != "bramastra-tpu-replica-init/v1"):
+            raise RuntimeError(f"TPU initialization receipt mismatch at rank {rank}")
+        if (not isinstance(receipt.get("config_identity"), str)
+                or not receipt["config_identity"]
+                or not isinstance(receipt.get("state_sha256"), str)
+                or len(receipt["state_sha256"]) != 64
+                or any(char not in "0123456789abcdef"
+                       for char in receipt["state_sha256"])
+                or not isinstance(receipt.get("parameter_count"), int)
+                or isinstance(receipt.get("parameter_count"), bool)
+                or receipt["parameter_count"] <= 0):
+            raise RuntimeError(f"TPU initialization receipt is incomplete at rank {rank}")
+        receipts.append(receipt)
+    identities = {(r.get("config_identity"), r.get("state_sha256"),
+                   r.get("parameter_count")) for r in receipts}
+    if len(identities) != 1:
+        raise RuntimeError(
+            "TPU replicas do not share exact initialized config and weights")
+    config_identity, state_sha256, parameter_count = next(iter(identities))
+    return {"status": "REPLICAS_IDENTICAL", "replicas": expected_replicas,
+            "config_identity": config_identity,
+            "state_sha256": state_sha256,
+            "parameter_count": parameter_count,
+            "training_started": False}

@@ -113,6 +113,38 @@ class BeliefRevisionTests(unittest.TestCase):
         self.assertEqual(
             set(workspace.beliefs[alias].evidence_aliases),
             {source.alias, derived_copy.alias})
+        self.assertEqual([row.outcome for row in workspace.belief_revision_log],
+                         ["updated", "duplicate", "duplicate"])
+        self.assertEqual(workspace.belief_revision_log[0].prior_support,
+                         {"noon": 0.5, "night": 0.5})
+        self.assertEqual(workspace.belief_revision_log[0].posterior, first)
+        self.assertIsNone(workspace.belief_revision_log[1].effective_likelihood)
+
+    def test_revision_audit_round_trips_and_hides_private_ancestry(self) -> None:
+        workspace = new_workspace()
+        source = workspace.admit_evidence(
+            {"obs": "alarm at noon"}, ancestry=("private-event-123",),
+            reliability=0.7)
+        belief = workspace.propose_belief({"hypothesis": "vault opens"})
+        workspace.beliefs[belief.alias] = Belief(
+            alias=belief.alias, proposition=belief.proposition,
+            status="hypothesis", support={"noon": 0.5, "night": 0.5})
+        workspace.revise_belief(
+            belief.alias, {"noon": 0.9, "night": 0.1}, [source.alias])
+
+        raw = workspace.to_dict()
+        restored = CognitiveWorkspace.from_dict(raw)
+        self.assertEqual(restored.to_dict(), raw)
+        self.assertEqual(restored.belief_revision_log[0].identity(),
+                         workspace.belief_revision_log[0].identity())
+        rendered = restored.rendered_view(budget=8192)
+        self.assertEqual(rendered["belief_revisions"][0]["outcome"], "updated")
+        self.assertNotIn("evidence_roots", rendered["belief_revisions"][0])
+        self.assertNotIn("private-event-123", str(rendered))
+        tampered = __import__("copy").deepcopy(raw)
+        tampered["belief_revision_log"][0]["index"] = 7
+        with self.assertRaisesRegex(WorkspaceError, "indexes must be contiguous"):
+            CognitiveWorkspace.from_dict(tampered)
 
     def test_independent_evidence_updates_once_and_reliability_tempers_it(self) -> None:
         likelihood = {"h1": 0.9, "h2": 0.1}
@@ -206,6 +238,10 @@ class BeliefRevisionTests(unittest.TestCase):
         self.assertIn("MODEL_MISMATCH", str(caught.exception))
         self.assertEqual(workspace.beliefs[alias].status, "unresolved")
         self.assertIn(record.alias, workspace.evidence)
+        self.assertEqual(workspace.belief_revision_log[-1].outcome,
+                         "model_mismatch")
+        self.assertEqual(workspace.belief_revision_log[-1].posterior,
+                         {"h1": 0.5, "h2": 0.5})
 
     def test_correlated_copies_count_once(self) -> None:
         records = [
