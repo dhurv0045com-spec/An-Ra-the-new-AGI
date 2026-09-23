@@ -39,6 +39,7 @@ CHECK_GROUPS: dict[str, dict[str, Any]] = {
         "targets": ["tests/test_research_k8_foundation.py",
                     "tests/test_research_k8.py",
                     "tests/test_research_cognition.py",
+                    "tests/test_research_cognition_runtime.py",
                     "tests/test_research_scoring_device_contract.py"],
         "timeout_seconds": 900,
     },
@@ -156,7 +157,10 @@ REQUIREMENT_REGISTRY: dict[str, dict[str, Any]] = {
     "F07": {"checks": ["foundation"], "exercises": ["live_episode_no_update"],
             "hardware_pending": [], "implemented_symbols": [
                 "bramastra_lab.research.cognition.episode:mark_conflicts",
-                "bramastra_lab.research.cognition.episode:admit_observation_evidence"]},
+                "bramastra_lab.research.cognition.episode:admit_observation_evidence",
+                "bramastra_lab.research.cognition.episode:admit_typed_observation",
+                "bramastra_lab.research.cognition.episode:sync_typed_conflict_states",
+                "bramastra_lab.research.cognition.workspace:CognitiveWorkspace"]},
     "F08": {"checks": ["foundation"], "exercises": ["live_episode_no_update"],
             "hardware_pending": [], "implemented_symbols": [
                 "bramastra_lab.research.cognition.episode:BoundedPlannerAdapter",

@@ -123,6 +123,15 @@ class BuildConfigTests(unittest.TestCase):
         self.assertEqual(config.base_decoder_parameter_count(), 38_681_088)
         self.assertEqual(config.parameter_count(), 38_681_088 + 2 * 512)
 
+    def test_tpu_100m_profile_is_analytic_and_exact(self) -> None:
+        config = BuildConfig.from_dict({"model": {"profile": "tpu_100m"}})
+        self.assertEqual(
+            (config.model.layers, config.model.width, config.model.heads,
+             config.model.ffn, config.model.max_seq),
+            (15, 640, 10, 2624, 512))
+        self.assertEqual(config.parameter_count(), 100_334_720)
+        self.assertEqual(config.base_decoder_parameter_count(), 100_333_440)
+
 
 class ParameterAccountingTests(unittest.TestCase):
     """Analytic counts derived independently of the decoder implementation."""

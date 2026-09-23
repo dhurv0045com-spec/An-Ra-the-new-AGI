@@ -1,5 +1,30 @@
 # FINAL-K8 engineering status
 
+## 23 September cognition integration update
+
+Use the fresh report
+[`reports/FINAL_K8/gandiva-cognition-runtime-r2-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-runtime-r2-20260923/build_verification.json)
+for the current implementation closure
+`cd4b02d77bbde04772989b6c8e8533a1d1d0c076a4d897e4d6289351aa69c8e6` and data
+identity `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`.
+It passes F01–F24 with zero local optimizer updates. The production E2
+workspace-policy arm now consumes a typed, persistent-per-episode evidence
+ledger with explicit conflict/supersession status. G01–G04 still require the
+owner's two-T4 E0 run, so build readiness remains distinct from accelerator
+qualification and learned results.
+
+## 23 September continuation note
+
+The K8 verifier now has a newer zero-update report at
+[`reports/FINAL_K8/gandiva-cognition-tpu-r3-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-tpu-r3-20260923/build_verification.json):
+F01–F24 pass for the existing 6,493,952-parameter K8 architecture; real
+hardware checks G01–G04 remain pending. Cognition and the experimental 100M
+Kaggle TPU path continue in
+[`TPU_100M_COGNITION_PROGRESS.md`](TPU_100M_COGNITION_PROGRESS.md). The new
+`tpu_100m` profile and XLA trainer/data helpers are not yet wired into the
+production E1–E6 campaign or a Kaggle TPU notebook, and have not been run on a
+TPU. Do not interpret K8 build verification as 100M TPU qualification.
+
 ## Current source and readiness
 
 Active execution branch: `Gandiva`, based on `BRAMASTRA`. The implementation at

@@ -24,6 +24,10 @@ PROFILE_SPECS: Mapping[str, Mapping[str, int]] = {
     "tiny": {"vocab": 260, "layers": 2, "width": 64, "heads": 4, "ffn": 176, "max_seq": 128},
     "development": {"vocab": 260, "layers": 8, "width": 256, "heads": 4, "ffn": 704, "max_seq": 256},
     "future_capacity": {"vocab": 260, "layers": 12, "width": 512, "heads": 8, "ffn": 1408, "max_seq": 512},
+    # Configuration-only Kaggle TPU candidate. Exact integrated count is
+    # 100,334,720 (decoder + action/value heads); runtime fit is not implied.
+    "tpu_100m": {"vocab": 260, "layers": 15, "width": 640, "heads": 10,
+                  "ffn": 2624, "max_seq": 512},
 }
 
 LOGIT_TREATMENTS = frozenset({"full", "participating_mask", "inactive_offset"})

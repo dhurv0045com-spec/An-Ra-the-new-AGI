@@ -51,6 +51,27 @@ class BeliefRevisionTests(unittest.TestCase):
         self.assertAlmostEqual(sum(next_support.values()), 1.0)
         self.assertGreater(next_support["h1"], next_support["h2"])
 
+    def test_cognitive_identities_cover_reliability_and_conflict_trace(self) -> None:
+        trusted = EvidenceRecord(alias="e1", content={"obs": "blue"},
+                                 ancestry=("e1",), reliability=1.0)
+        untrusted = EvidenceRecord(alias="e1", content={"obs": "blue"},
+                                   ancestry=("e1",), reliability=0.0)
+        self.assertNotEqual(trusted.identity(), untrusted.identity())
+        self.assertNotEqual(
+            trusted.identity(),
+            EvidenceRecord(alias="e1", content={"obs": "blue"},
+                           ancestry=("e1",), status="retracted",
+                           reliability=1.0).identity())
+
+        belief = Belief(alias="b1", proposition={"claim": "blue"},
+                        status="hypothesis", support={"yes": 1.0},
+                        evidence_aliases=("e1",))
+        contradicted = Belief(alias="b1", proposition={"claim": "blue"},
+                              status="hypothesis", support={"yes": 1.0},
+                              evidence_aliases=("e1",),
+                              conflicting_aliases=("e2",))
+        self.assertNotEqual(belief.identity(), contradicted.identity())
+
     def test_zero_normalizer_is_model_mismatch_not_reset(self) -> None:
         support = {"h1": 0.5, "h2": 0.5}
         likelihood = {"h1": 0.0, "h2": 0.0}
@@ -71,6 +92,94 @@ class BeliefRevisionTests(unittest.TestCase):
         next_support = workspace.revise_belief(
             belief_alias, {"noon": 0.9, "night": 0.1}, [record.alias])
         self.assertGreater(next_support["noon"], next_support["night"])
+
+    def test_revision_is_idempotent_for_duplicate_and_derived_evidence(self) -> None:
+        workspace = new_workspace()
+        source = workspace.admit_evidence({"obs": "alarm at noon"})
+        workspace.propose_belief({"hypothesis": "vault opens at noon"})
+        alias = next(iter(workspace.beliefs))
+        workspace.beliefs[alias] = Belief(
+            alias=alias, proposition={"hypothesis": "vault opens at noon"},
+            status="hypothesis", support={"noon": 0.5, "night": 0.5})
+        likelihood = {"noon": 0.9, "night": 0.1}
+        first = workspace.revise_belief(alias, likelihood, [source.alias])
+        repeated = workspace.revise_belief(
+            alias, likelihood, [source.alias, source.alias])
+        derived_copy = workspace.admit_evidence(
+            {"summary": "alarm at noon"}, ancestry=(source.alias,), reliability=0.1)
+        copied = workspace.revise_belief(alias, likelihood, [derived_copy.alias])
+        self.assertEqual(repeated, first)
+        self.assertEqual(copied, first)
+        self.assertEqual(
+            set(workspace.beliefs[alias].evidence_aliases),
+            {source.alias, derived_copy.alias})
+
+    def test_independent_evidence_updates_once_and_reliability_tempers_it(self) -> None:
+        likelihood = {"h1": 0.9, "h2": 0.1}
+
+        def revise(reliability: float) -> dict[str, float]:
+            workspace = new_workspace()
+            record = workspace.admit_evidence(
+                {"obs": "source observation"}, reliability=reliability)
+            workspace.propose_belief({"hypothesis": "h1"})
+            alias = next(iter(workspace.beliefs))
+            workspace.beliefs[alias] = Belief(
+                alias=alias, proposition={"hypothesis": "h1"},
+                status="hypothesis", support={"h1": 0.5, "h2": 0.5})
+            return workspace.revise_belief(alias, likelihood, [record.alias])
+
+        trusted = revise(1.0)
+        weak = revise(0.1)
+        self.assertAlmostEqual(trusted["h1"], 0.9)
+        self.assertAlmostEqual(weak["h1"], 0.54)
+        self.assertLess(weak["h1"], trusted["h1"])
+
+        no_trust = revise(0.0)
+        self.assertEqual(no_trust, {"h1": 0.5, "h2": 0.5})
+
+        workspace = new_workspace()
+        first = workspace.admit_evidence({"obs": "first source"})
+        second = workspace.admit_evidence({"obs": "independent source"})
+        workspace.propose_belief({"hypothesis": "h1"})
+        alias = next(iter(workspace.beliefs))
+        workspace.beliefs[alias] = Belief(
+            alias=alias, proposition={"hypothesis": "h1"},
+            status="hypothesis", support={"h1": 0.5, "h2": 0.5})
+        once = workspace.revise_belief(alias, likelihood, [first.alias])
+        twice = workspace.revise_belief(alias, likelihood, [second.alias])
+        self.assertGreater(twice["h1"], once["h1"])
+
+    def test_multiple_independent_roots_must_be_revised_separately(self) -> None:
+        workspace = new_workspace()
+        first = workspace.admit_evidence({"obs": "source 1"})
+        second = workspace.admit_evidence({"obs": "source 2"})
+        workspace.propose_belief({"hypothesis": "h1"})
+        alias = next(iter(workspace.beliefs))
+        workspace.beliefs[alias] = Belief(
+            alias=alias, proposition={"hypothesis": "h1"},
+            status="hypothesis", support={"h1": 0.5, "h2": 0.5})
+        with self.assertRaisesRegex(WorkspaceError, "one independent evidence root"):
+            workspace.revise_belief(
+                alias, {"h1": 0.9, "h2": 0.1}, [first.alias, second.alias])
+
+    def test_contradictory_source_is_recorded_and_likelihood_is_validated(self) -> None:
+        workspace = new_workspace()
+        first = workspace.admit_evidence({"obs": "supports h1"})
+        second = workspace.admit_evidence({"obs": "supports h2"})
+        workspace.propose_belief({"hypothesis": "h1"})
+        alias = next(iter(workspace.beliefs))
+        workspace.beliefs[alias] = Belief(
+            alias=alias, proposition={"hypothesis": "h1"},
+            status="hypothesis", support={"h1": 0.5, "h2": 0.5})
+        workspace.revise_belief(alias, {"h1": 0.9, "h2": 0.1}, [first.alias])
+        workspace.revise_belief(alias, {"h1": 0.01, "h2": 0.99}, [second.alias])
+        self.assertIn(second.alias, workspace.beliefs[alias].conflicting_aliases)
+        with self.assertRaises(BeliefError):
+            reference_finite_support_update(
+                {"h1": 0.5, "h2": 0.5}, {"h1": 2.0, "h2": 0.1})
+        with self.assertRaises(BeliefError):
+            reference_finite_support_update(
+                {"h1": 0.5, "h2": 0.5}, {"h1": 0.9})
 
     def test_contradiction_marks_status_and_confidence_cannot_promote(self) -> None:
         workspace = new_workspace()
@@ -165,6 +274,40 @@ class WorkspacePersistenceTests(unittest.TestCase):
             workspace.add_capability_estimate(CapabilityEstimate(
                 operation="QUERY", family="f", recent_validated_performance=0.5,
                 source_pool="sealed", model_checkpoint="m1"))
+
+    def test_render_rejects_nested_provenance_before_model_exposure(self) -> None:
+        for field in ("split", "task_semantic_id", "source", "family"):
+            with self.subTest(field=field):
+                workspace = new_workspace()
+                workspace.admit_evidence({"observation": {
+                    "value": "blue", "audit": {field: "test-only"}}})
+                with self.assertRaisesRegex(
+                        WorkspaceError, "provenance-only field"):
+                    workspace.rendered_view()
+
+    def test_render_budget_is_enforced_and_omissions_are_explicit(self) -> None:
+        import json
+
+        workspace = new_workspace()
+        for index in range(12):
+            workspace.admit_evidence({"observation": "x" * 80,
+                                      "index": index})
+        for index in range(4):
+            workspace.propose_belief({"hypothesis": "y" * 60,
+                                      "index": index})
+        view = workspace.rendered_view(budget=512)
+        self.assertLessEqual(len(json.dumps(view, sort_keys=True, default=str)), 512)
+        self.assertIn("omitted", view)
+        self.assertGreater(sum(view["omitted"].values()), 0)
+        self.assertTrue(all(len(record["content"]["observation"]) == 80
+                            for record in view["evidence"]))
+
+    def test_render_refuses_when_irreducible_goal_exceeds_budget(self) -> None:
+        workspace = CognitiveWorkspace(
+            goal={"task": "x" * 128}, success_predicate="valid",
+            budget=1)
+        with self.assertRaisesRegex(WorkspaceError, "exceed render budget"):
+            workspace.rendered_view(budget=24)
 
 
 class ExecutiveTests(unittest.TestCase):

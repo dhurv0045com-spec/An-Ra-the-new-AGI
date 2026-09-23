@@ -8,14 +8,17 @@ enters rendered tokens. Belief confidence cannot change epistemic status.
 from __future__ import annotations
 
 import itertools
+import math
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
+from bramastra_lab.research.experience.trajectory import PROVENANCE_ONLY_FIELDS
 from bramastra_lab.research.cognition.beliefs import (
     BELIEF_STATUSES,
     Belief,
     BeliefError,
     EvidenceRecord,
+    corroboration_roots_for,
     reference_finite_support_update,
     unique_corroboration_roots,
 )
@@ -24,6 +27,11 @@ OPERATION_VERBS = frozenset({"RETRIEVE", "PREDICT", "COMPARE", "DECOMPOSE", "DER
                              "QUERY", "EXECUTE", "VERIFY", "REVISE", "ABSTAIN", "SUBMIT"})
 SUBGOAL_STATUSES = frozenset({"pending", "verified", "failed", "unknown", "cancelled"})
 POOL_ELIGIBLE_FOR_WORKSPACE = frozenset({"training", "controller"})
+COGNITION_PRIVATE_FIELDS = PROVENANCE_ONLY_FIELDS | frozenset({
+    "task_semantic_id", "source", "collection_policy", "family",
+    "mechanism_cluster", "trainable", "pool", "pair_group_id",
+    "model_checkpoint",
+})
 
 RENDER_BUDGET_DEFAULT = 512
 
@@ -100,7 +108,27 @@ class CognitiveWorkspace:
         self.evidence[alias] = EvidenceRecord(
             alias=alias, content=self.evidence[alias].content,
             ancestry=self.evidence[alias].ancestry, status="retracted",
-            reliability=self.evidence[alias].reliability)
+            reliability=self.evidence[alias].reliability,
+            conflict_state=self.evidence[alias].conflict_state)
+
+    def set_evidence_conflict_state(self, alias: str, state: str) -> None:
+        """Mirror deterministic temporal-conflict analysis into typed state.
+
+        Admission/retraction is orthogonal to contradiction/supersession:
+        conflict states remain visible in the audit ledger but are not new
+        admitted evidence for Bayesian revision.
+        """
+        if alias not in self.evidence:
+            raise WorkspaceError(f"unknown evidence alias {alias!r}")
+        if state not in {"active", "conflicting", "superseded"}:
+            raise WorkspaceError(f"unknown evidence conflict state {state!r}")
+        record = self.evidence[alias]
+        if record.status != "admitted":
+            raise WorkspaceError("retracted evidence cannot be reclassified")
+        self.evidence[alias] = EvidenceRecord(
+            alias=record.alias, content=record.content,
+            ancestry=record.ancestry, status=record.status,
+            reliability=record.reliability, conflict_state=state)
 
     # -- beliefs --------------------------------------------------------------
 
@@ -120,39 +148,104 @@ class CognitiveWorkspace:
 
     def revise_belief(self, belief_alias: str, likelihood: Mapping[str, float],
                       evidence_aliases: Sequence[str]) -> dict[str, float]:
-        """Reference finite-support revision over admitted, distinct evidence."""
+        """Apply one source-observation update to a finite-support belief.
+
+        Revisions are idempotent by evidence ancestry: replaying the same
+        observation or a derived copy cannot amplify its likelihood. Each
+        call accepts exactly one new independent source root; callers with
+        several observations must submit them as separate updates so each
+        source's reliability is applied explicitly.
+        """
         if belief_alias not in self.beliefs:
             raise WorkspaceError(f"unknown belief {belief_alias!r}")
         belief = self.beliefs[belief_alias]
-        admitted = []
+        admitted: list[EvidenceRecord] = []
+        seen_aliases: set[str] = set()
         for alias in evidence_aliases:
             record = self.evidence.get(alias)
             if record is None:
                 raise WorkspaceError(f"revision references missing evidence {alias!r}")
-            if record.status == "admitted":
+            if record.status == "admitted" and alias not in seen_aliases:
                 admitted.append(record)
+                seen_aliases.add(alias)
         if not admitted:
             raise WorkspaceError("revision requires at least one admitted evidence record")
-        support = dict(belief.support) or {h: 1.0 / max(1, len(likelihood))
-                                           for h in likelihood}
-        next_support, status = reference_finite_support_update(support, likelihood)
+
+        # Resolve lineage against the complete workspace so derived copies
+        # still point to their original source even when that source alias was
+        # not repeated in this call.
+        prior_records = [self.evidence[alias]
+                         for alias in belief.evidence_aliases
+                         if alias in self.evidence
+                         and self.evidence[alias].status == "admitted"]
+        prior_roots = unique_corroboration_roots(
+            prior_records, universe=self.evidence)
+        incoming_roots: dict[str, list[EvidenceRecord]] = {}
+        for record in admitted:
+            for root in corroboration_roots_for(record, self.evidence):
+                incoming_roots.setdefault(root, []).append(record)
+        new_roots = sorted(set(incoming_roots) - prior_roots)
+        if len(new_roots) > 1:
+            raise WorkspaceError(
+                "revise one independent evidence root per call; split this "
+                "update so each observation's likelihood and reliability "
+                "remain auditable")
+
+        cited_aliases = tuple(sorted(set(belief.evidence_aliases)
+                                     | {record.alias for record in admitted}))
+        if not new_roots:
+            # Preserve the new alias in the audit trail without changing the
+            # posterior: a duplicate/corroborating copy is not new evidence.
+            self.beliefs[belief_alias] = Belief(
+                alias=belief.alias, proposition=belief.proposition,
+                status=belief.status, support=dict(belief.support),
+                evidence_aliases=cited_aliases,
+                conflicting_aliases=tuple(sorted(set(belief.conflicting_aliases))))
+            return dict(belief.support)
+
+        source_root = new_roots[0]
+        root_records = incoming_roots[source_root]
+        source_record = self.evidence.get(source_root)
+        reliability = (source_record.reliability
+                       if source_record is not None
+                       and source_record.status == "admitted"
+                       else min(record.reliability for record in root_records))
+        support = dict(belief.support) or {
+            h: 1.0 / max(1, len(likelihood)) for h in likelihood}
+        if not support:
+            raise WorkspaceError("belief revision has no hypotheses to update")
+        if set(likelihood) != set(support):
+            raise WorkspaceError(
+                "likelihood hypotheses must exactly match the belief support")
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool)
+               or not math.isfinite(float(value)) or not 0.0 <= float(value) <= 1.0
+               for value in likelihood.values()):
+            raise WorkspaceError("likelihood values must be finite probabilities in [0, 1]")
+
+        # Reliability is the probability that this source's stated likelihood
+        # model is trustworthy. The complement contributes a hypothesis-
+        # independent likelihood equal to the model's mean likelihood. At
+        # reliability 1 this is ordinary Bayes; lower values temper the update
+        # without letting one low-trust zero likelihood erase a hypothesis.
+        baseline = sum(float(value) for value in likelihood.values()) / len(likelihood)
+        effective_likelihood = {
+            hypothesis: reliability * float(value) + (1.0 - reliability) * baseline
+            for hypothesis, value in likelihood.items()}
+        next_support, status = reference_finite_support_update(
+            support, effective_likelihood)
         if status == "MODEL_MISMATCH":
             # Retain the evidence and the prior belief; flag the mismatch.
             self.beliefs[belief_alias] = Belief(
                 alias=belief.alias, proposition=belief.proposition,
                 status="unresolved", support=belief.support,
-                evidence_aliases=tuple(set(belief.evidence_aliases) | set(evidence_aliases)),
-                conflicting_aliases=tuple(set(belief.conflicting_aliases)
-                                          | set(evidence_aliases)))
+                evidence_aliases=cited_aliases,
+                conflicting_aliases=tuple(sorted(
+                    set(belief.conflicting_aliases)
+                    | {record.alias for record in root_records})))
             raise BeliefError(
                 "MODEL_MISMATCH: support/likelihood assumptions are inconsistent "
                 "with the observation; evidence retained, broader hypothesis "
                 "proposal required")
-        roots = unique_corroboration_roots(admitted)
-        conflicting = sorted(root for root in roots
-                             if any(root in (record.ancestry or ())
-                                    for record in admitted if record is not None)
-                             and next_support.get(_leading(next_support)) == next_support.get(_leading(next_support)))
         new_status = belief.status
         lead = _leading(next_support)
         prior_lead = _leading(support)
@@ -162,11 +255,17 @@ class CognitiveWorkspace:
         lowered = next_support.get(prior_lead, 0.0) < support.get(prior_lead, 0.0)
         if lowered:
             new_status = "contradicted" if belief.status == "observed_report" else belief.status
+        conflicting_aliases = set(belief.conflicting_aliases)
+        if prior_lead is not None and any(
+                float(effective_likelihood.get(prior_lead, 0.0))
+                < float(effective_likelihood.get(hypothesis, 0.0))
+                for hypothesis in support if hypothesis != prior_lead):
+            conflicting_aliases.update(record.alias for record in root_records)
         self.beliefs[belief_alias] = Belief(
             alias=belief_alias, proposition=belief.proposition, status=new_status,
             support=next_support,
-            evidence_aliases=tuple(set(belief.evidence_aliases) | set(evidence_aliases)),
-            conflicting_aliases=tuple(set(belief.conflicting_aliases)))
+            evidence_aliases=cited_aliases,
+            conflicting_aliases=tuple(sorted(conflicting_aliases)))
         return next_support
 
     def contradict_belief(self, belief_alias: str) -> None:
@@ -254,36 +353,62 @@ class CognitiveWorkspace:
     # -- rendering / persistence ---------------------------------------------
 
     def rendered_view(self, budget: int = RENDER_BUDGET_DEFAULT) -> dict[str, Any]:
-        """Deterministic model-visible view: aliases, no provenance."""
+        """Return a bounded JSON-byte view: evidence links, no private provenance."""
+        if (not isinstance(budget, int) or isinstance(budget, bool)
+                or budget < 1):
+            raise WorkspaceError("render budget must be a positive integer")
         view = {
             "goal": dict(self.goal),
             "success_predicate": self.success_predicate,
             "remaining_budget": max(0, self.budget - self.step_counter),
             "evidence": [{"alias": record.alias, "content": dict(record.content),
-                          "status": record.status}
-                         for alias, record in sorted(self.evidence.items())],
+                          "status": (record.conflict_state
+                                     if record.status == "admitted"
+                                     else record.status)}
+                         for record in self.evidence.values()],
             "beliefs": [{"alias": belief.alias,
                          "proposition": dict(belief.proposition),
                          "status": belief.status,
                          "support": {k: round(belief.support[k], 6)
-                                     for k in sorted(belief.support)}}
-                        for alias, belief in sorted(self.beliefs.items())],
+                                     for k in sorted(belief.support)},
+                         "evidence_aliases": list(belief.evidence_aliases),
+                         "conflicting_aliases": list(belief.conflicting_aliases)}
+                        for belief in self.beliefs.values()],
             "subgoals": [{"id": s.subgoal_id, "parent": s.parent,
                           "description": s.description, "status": s.status,
                           "dependencies": list(s.dependencies), "check": s.check}
                          for s in self.subgoals.values()],
+            "commitments": [{"id": c.commitment_id, "verb": c.verb,
+                             "expected_return": c.expected_return,
+                             "deadline_step": c.deadline_step,
+                             "status": c.status}
+                            for c in self.commitments.values()],
             "capability_estimates": [
                 {"operation": e.operation, "family": e.family,
                  "performance": round(e.recent_validated_performance, 4)}
                 for e in self.capability_estimates],
         }
-        # Deterministic context budget: truncate whole items, never silently
-        # chop structured entries.
-        serialized = len(_stable_size(view))
-        if serialized > budget:
-            trimmed = dict(view)
-            trimmed["evidence"] = view["evidence"][-max(1, budget // 64):]
-            return trimmed
+        _reject_provenance(view)
+        if len(_stable_size(view)) <= budget:
+            return view
+
+        # Keep the stable goal frame, active commitments, and current beliefs
+        # when possible. Evict complete low-priority capability estimates,
+        # then oldest evidence and completed planning state. Report every
+        # omission. Never return a render that still exceeds its declared
+        # serialized JSON byte budget.
+        omitted: dict[str, int] = {}
+        view = dict(view)
+        for key in ("capability_estimates", "evidence", "subgoals",
+                    "commitments", "beliefs"):
+            while view[key] and len(_stable_size(view)) > budget:
+                view[key].pop(0)
+                omitted[key] = omitted.get(key, 0) + 1
+                view["omitted"] = dict(omitted)
+        if len(_stable_size(view)) > budget:
+            raise WorkspaceError(
+                "goal frame and omission receipt exceed render budget; "
+                "increase the budget or shorten the goal")
         return view
 
     def to_dict(self) -> dict[str, Any]:
@@ -292,7 +417,8 @@ class CognitiveWorkspace:
             "budget": self.budget,
             "evidence": [{"alias": r.alias, "content": dict(r.content),
                           "ancestry": list(r.ancestry), "status": r.status,
-                          "reliability": r.reliability}
+                          "reliability": r.reliability,
+                          "conflict_state": r.conflict_state}
                          for r in self.evidence.values()],
             "beliefs": [b.__dict__ | {"support": dict(b.support)} for b in self.beliefs.values()],
             "subgoals": [vars(s) | {"dependencies": list(s.dependencies)}
@@ -311,7 +437,8 @@ class CognitiveWorkspace:
             workspace.evidence[record["alias"]] = EvidenceRecord(
                 alias=record["alias"], content=record["content"],
                 ancestry=tuple(record["ancestry"]), status=record["status"],
-                reliability=record["reliability"])
+                reliability=record["reliability"],
+                conflict_state=record.get("conflict_state", "active"))
         for belief in raw["beliefs"]:
             workspace.beliefs[belief["alias"]] = Belief(
                 alias=belief["alias"], proposition=belief["proposition"],
@@ -346,3 +473,17 @@ def _stable_size(view: Mapping[str, Any]) -> str:
     import json
 
     return json.dumps(view, sort_keys=True, default=str)
+
+
+def _reject_provenance(value: Any, path: str = "view") -> None:
+    """Fail closed when internal audit fields are embedded in model-visible data."""
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            if str(key) in COGNITION_PRIVATE_FIELDS:
+                raise WorkspaceError(
+                    f"provenance-only field {key!r} cannot enter rendered cognition "
+                    f"state at {path}")
+            _reject_provenance(child, f"{path}.{key}")
+    elif isinstance(value, (list, tuple)):
+        for index, child in enumerate(value):
+            _reject_provenance(child, f"{path}[{index}]")

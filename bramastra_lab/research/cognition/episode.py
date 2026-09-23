@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
@@ -251,8 +252,25 @@ def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
     (e.g. contains) accumulate without conflict.
     """
     conflicts: list[tuple[str, str]] = []
+
+    def time_order(value: Any) -> tuple[int, Any]:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return (0, float(value))
+        return (1, str(value))
+
+    # Recompute derived labels from the append-only evidence ledger on every
+    # call. This avoids stale "active" or "superseded" marks when a later
+    # observation changes how a time group is resolved.
+    for record in workspace:
+        if record.get("status", "active") in {
+                "active", "conflicting", "superseded"}:
+            record["status"] = "active"
+            record.pop("supersedes", None)
+
     groups: dict[tuple, list[dict[str, Any]]] = {}
     for record in workspace:
+        if record.get("status") == "retracted":
+            continue
         if record.get("predicate") == "contains":
             continue  # multivalued: accumulate without conflict
         key = (record.get("subject"), record.get("predicate"))
@@ -261,38 +279,36 @@ def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
     for (subject, predicate), members in groups.items():
         if len(members) < 2:
             continue
-        members.sort(key=lambda r: r.get("valid_time", 0))
-        # Check for same-time contradictions.
         by_time: dict[Any, list[dict[str, Any]]] = {}
         for member in members:
             by_time.setdefault(member.get("valid_time", 0), []).append(member)
-        has_contradiction = False
-        for _time, same_time in by_time.items():
+        ordered_times = sorted(by_time, key=time_order)
+        for time_index, valid_time in enumerate(ordered_times):
+            same_time = by_time[valid_time]
+            if time_index > 0:
+                prior_time_records = by_time[ordered_times[time_index - 1]]
+                superseded_id = prior_time_records[0].get("record_id", "?")
+                for record in same_time:
+                    record["supersedes"] = superseded_id
             values = set(json.dumps(r.get("value"), sort_keys=True, default=str)
                          for r in same_time)
             if len(values) > 1:
-                has_contradiction = True
                 for r in same_time:
                     r["status"] = "conflicting"
                 for i in range(len(same_time)):
                     for j in range(i + 1, len(same_time)):
-                        conflicts.append((same_time[i].get("record_id", "?"),
-                                          same_time[j].get("record_id", "?")))
-        if has_contradiction:
-            continue
-        # Temporal supersession: later valid_time supersedes earlier.
-        sorted_members = sorted(members, key=lambda r: r.get("valid_time", 0))
-        for i in range(len(sorted_members) - 1):
-            earlier = sorted_members[i]
-            later = sorted_members[i + 1]
-            if earlier.get("value") != later.get("value"):
-                earlier["status"] = "superseded"
-                later["supersedes"] = earlier.get("record_id")
-                later["status"] = "active"
+                        if same_time[i].get("value") != same_time[j].get("value"):
+                            conflicts.append((same_time[i].get("record_id", "?"),
+                                              same_time[j].get("record_id", "?")))
+            elif time_index == len(ordered_times) - 1:
+                # Exact duplicates at the current time remain separately
+                # auditable and jointly active; they do not corroborate a
+                # proposition more than one source root.
+                for record in same_time:
+                    record["status"] = "active"
             else:
-                earlier["status"] = "superseded"
-                later["supersedes"] = earlier.get("record_id")
-                later["status"] = "active"
+                for record in same_time:
+                    record["status"] = "superseded"
     return conflicts
 
 
@@ -535,6 +551,13 @@ def admit_observation_evidence(workspace: list[dict[str, Any]], *,
     value = observation.get("value")
     subject = f"variable:{variable}" if variable else f"observation:{observation_id}"
     predicate = observation.get("kind", "value")
+    valid_time = observation.get("valid_time", len(workspace))
+    if (isinstance(valid_time, bool)
+            or not isinstance(valid_time, (int, float, str))
+            or (isinstance(valid_time, float)
+                and not math.isfinite(valid_time))
+            or (isinstance(valid_time, str) and not valid_time)):
+        raise EpisodeError("observation valid_time must be a finite scalar")
     record = {
         "record_id": observation_id,
         "subject": subject,
@@ -543,12 +566,45 @@ def admit_observation_evidence(workspace: list[dict[str, Any]], *,
         # content (render budget is enforced explicitly by the renderer).
         "value": value if value is not None else json.dumps(
             observation, sort_keys=True, default=str),
-        "valid_time": len(workspace),
+        "valid_time": valid_time,
         "source_event_id": observation_id,
         "status": "active",
     }
     workspace.append(record)
     return record
+
+
+def admit_typed_observation(cognitive_workspace: Any,
+                            workspace: list[dict[str, Any]], *,
+                            observation: Mapping[str, Any],
+                            observation_id: str) -> dict[str, Any]:
+    """Admit one received event to the typed ledger and its prompt projection.
+
+    The event identifier is retained only as typed ancestry. Model-visible
+    records use workspace-local aliases, so episode/task provenance does not
+    leak through the renderer.
+    """
+    record = admit_observation_evidence(
+        workspace, observation=observation, observation_id=observation_id)
+    source_event_id = str(record.pop("source_event_id"))
+    typed = cognitive_workspace.admit_evidence(
+        {"subject": record["subject"], "predicate": record["predicate"],
+         "value": record["value"], "valid_time": record["valid_time"]},
+        ancestry=(source_event_id,))
+    record["record_id"] = typed.alias
+    record["observation_id"] = typed.alias
+    return record
+
+
+def sync_typed_conflict_states(cognitive_workspace: Any,
+                               workspace: Sequence[Mapping[str, Any]]) -> None:
+    """Copy the renderer's deterministic conflict/supersession labels."""
+    for record in workspace:
+        alias = str(record["record_id"])
+        state = str(record.get("status", "active"))
+        if state not in {"active", "conflicting", "superseded"}:
+            raise EpisodeError(f"unexpected evidence render state {state!r}")
+        cognitive_workspace.set_evidence_conflict_state(alias, state)
 
 
 class _AttrDict(dict):
@@ -891,6 +947,13 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
         else bool(track_workspace)
     base_goal = dict(goal_override) if goal_override is not None else dict(
         observation.observable_values)
+    cognitive_workspace = None
+    if build_workspace:
+        from bramastra_lab.research.cognition.workspace import CognitiveWorkspace
+
+        cognitive_workspace = CognitiveWorkspace(
+            goal=base_goal, success_predicate="environment.verified_success",
+            budget=action_budget)
     history: list[dict[str, Any]] = []
     workspace: list[dict[str, Any]] = []
     events: list[EpisodeEvent] = []
@@ -1022,6 +1085,9 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                           memory_context.index_identity
                           if memory_context is not None else None),
                       "budgets": dict(budgets)}
+        if cognitive_workspace is not None:
+            state_view["cognitive_workspace"] = cognitive_workspace.rendered_view(
+                budget=64 * 1024)
         try:
             action = adapter.select(legal_actions=legal, rendered=rendered,
                                     model=model, workspace=workspace,
@@ -1097,16 +1163,27 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
         # planner nodes stay in the separate imagined list.
         history.append({"action": dict(action),
                         "feedback": dict(next_obs.feedback)})
-        if build_workspace:
-            admit_observation_evidence(
-                workspace, observation=dict(next_obs.feedback),
+        if cognitive_workspace is not None:
+            admit_typed_observation(
+                cognitive_workspace, workspace,
+                observation=dict(next_obs.feedback),
                 observation_id=f"{episode_id}:{len(history)}")
+            mark_conflicts(workspace)
+            sync_typed_conflict_states(cognitive_workspace, workspace)
+            cognitive_workspace.step_counter += 1
         observation = next_obs
         if terminated or truncated:
             feedback = dict(observation.feedback)
             if isinstance(feedback.get("success"), bool):
                 success = feedback["success"]
             break
+    cognitive_state = cognitive_workspace.to_dict() \
+        if cognitive_workspace is not None else None
+    cognitive_identity = None
+    if cognitive_state is not None:
+        from bramastra_lab.research.contracts.core import content_identity
+
+        cognitive_identity = content_identity(cognitive_state)
     summary = {"actions": len(history) + invalid,
                "model_calls": model_calls,
                "inference_input_tokens": inference_input_tokens,
@@ -1124,6 +1201,21 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                "tool_calls": tool_calls,
                "invalid_actions": invalid,
                "imagined_nodes": len(imagined),
+               "cognition": {
+                   "enabled": cognitive_workspace is not None,
+                   "state_identity": cognitive_identity,
+                   "evidence_count": len(cognitive_workspace.evidence)
+                   if cognitive_workspace is not None else 0,
+                   "conflicting_evidence": sum(
+                       record.conflict_state == "conflicting"
+                       for record in cognitive_workspace.evidence.values())
+                   if cognitive_workspace is not None else 0,
+                   "superseded_evidence": sum(
+                       record.conflict_state == "superseded"
+                       for record in cognitive_workspace.evidence.values())
+                   if cognitive_workspace is not None else 0,
+                   "step_counter": cognitive_workspace.step_counter
+                   if cognitive_workspace is not None else 0},
                "truncated": truncated, "terminated": terminated,
                "success": success,
                "cost": sum(event.resource_delta for event in events)}
@@ -1133,7 +1225,9 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
             "summary": summary,
             "adapter": adapter.name,
             "goal": base_goal,
-            "episode_id": episode_id}
+            "episode_id": episode_id,
+            "cognitive_state": cognitive_state,
+            "cognitive_state_identity": cognitive_identity}
 
 
 # --- I02/K8 additions: action coding and history expansion -------------------
