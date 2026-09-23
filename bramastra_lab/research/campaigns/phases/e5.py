@@ -18,7 +18,7 @@ import hashlib
 import json
 import os
 import time
-from typing import Any
+from typing import Any, Mapping
 
 from bramastra_lab.research.campaigns.phases.types import (
     EVIDENCE_FIXTURE,
@@ -94,7 +94,70 @@ def _iter_episode_rows(data_dir: str):
             continue
 
 
-def resolve_mechanism_row(data_dir: str, mechanism_id: str) -> dict[str, Any]:
+def _load_meta_labels(data_dir: str) -> dict[tuple[str, str], dict[str, Any]]:
+    """Prepared meta-pool labels keyed by (family, mechanism_id).
+
+    The meta pool is generated independently of every split pool and its ids
+    are namespaced, so a meta reference can only be resolved here. Split
+    episode rows are a DIFFERENT set of mechanisms that may share a surface
+    name: resolving a meta label against them is a wrong-label bug, not a
+    fallback.
+    """
+    labels: dict[tuple[str, str], dict[str, Any]] = {}
+    path = os.path.join(data_dir, "meta", "meta_labels.jsonl")
+    if not os.path.exists(path):
+        return labels
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            key = (str(row.get("family", "")), str(row.get("mechanism_id", "")))
+            if not key[1]:
+                continue
+            existing = labels.get(key)
+            if existing is not None and existing.get("answer") != row.get("answer"):
+                raise ValueError(
+                    f"meta label {key[1]!r} in family {key[0]!r} is ambiguous; "
+                    "refusing")
+            labels[key] = row
+    return labels
+
+
+def _meta_label_row(data_dir: str, family: str, mechanism_id: str, *,
+                    public: Any = None, queries: Any = None) -> dict[str, Any] | None:
+    """The prepared label row for one meta mechanism, or None.
+
+    When the caller supplies the example's public state or queries, they must
+    match the prepared label exactly: a reference that points at a different
+    instance of the same id is a wrong-label bug and is refused.
+    """
+    labels = _load_meta_labels(data_dir)
+    row = labels.get((str(family or ""), str(mechanism_id)))
+    if row is None:
+        return None
+    if public is not None and isinstance(row.get("public"), dict) \
+            and isinstance(public, dict):
+        if json.dumps(row["public"], sort_keys=True) != json.dumps(
+                public, sort_keys=True):
+            raise ValueError(
+                f"meta label {mechanism_id!r} in family {family!r} does not "
+                "match the example's public state; refusing a wrong label")
+    if queries is not None and row.get("queries") is not None:
+        prepared = list(row.get("queries") or [])
+        asked = list(queries)
+        if asked and asked != prepared[:len(asked)]:
+            raise ValueError(
+                f"meta label {mechanism_id!r} in family {family!r} does not "
+                "match the example's queries; refusing a wrong label")
+    return row
+
+
+def resolve_mechanism_row(data_dir: str, mechanism_id: str, *,
+                          family: str | None = None,
+                          public: Any = None,
+                          queries: Any = None) -> dict[str, Any]:
     """Resolve a mechanism's prepared episode row (public + answer).
 
     Fails explicitly when the mechanism has no prepared row (missing data),
@@ -104,6 +167,21 @@ def resolve_mechanism_row(data_dir: str, mechanism_id: str) -> dict[str, Any]:
     """
     if not mechanism_id:
         raise ValueError("mechanism reference carries no mechanism_id; refusing")
+    # A meta-pool reference resolves ONLY against prepared meta labels: the
+    # split episode rows are different mechanisms that may share the surface
+    # name, and borrowing their answer is a wrong label.
+    label = _meta_label_row(data_dir, family or "", mechanism_id,
+                            public=public, queries=queries)
+    if label is not None:
+        if label.get("answer") in (None, ""):
+            raise ValueError(
+                f"prepared meta label for {mechanism_id!r} carries no answer; "
+                "refusing invented query labels")
+        if not isinstance(label.get("public"), dict):
+            raise ValueError(
+                f"prepared meta label for {mechanism_id!r} has no public "
+                "state; an evaluation prompt cannot be rendered without it")
+        return label
     row: dict[str, Any] | None = None
     answers: set[str] = set()
     for candidate in _iter_episode_rows(data_dir):
@@ -128,15 +206,21 @@ def resolve_mechanism_row(data_dir: str, mechanism_id: str) -> dict[str, Any]:
     return row
 
 
-def resolve_mechanism_answer(data_dir: str, mechanism_id: str) -> str:
+def resolve_mechanism_answer(data_dir: str, mechanism_id: str, *,
+                             family: str | None = None,
+                             public: Any = None,
+                             queries: Any = None) -> str:
     """Resolve a query mechanism's answer from prepared bundle data.
 
-    Searches episode rows for the mechanism ID and returns its recorded
-    answer, verifying consistency across rows. Meta-training feedback comes
-    from these prepared labels (never invented); confirmation scoring uses
-    the same lookup only AFTER choices are frozen (same-table scoring).
+    Meta-pool references resolve from the prepared meta label table; split
+    mechanisms resolve from episode rows and must agree across them.
+    Meta-training feedback comes from these prepared labels (never invented);
+    confirmation scoring uses the same lookup only AFTER choices are frozen
+    (same-table scoring).
     """
-    return str(resolve_mechanism_row(data_dir, mechanism_id)["answer"])
+    return str(resolve_mechanism_row(
+        data_dir, mechanism_id, family=family, public=public,
+        queries=queries)["answer"])
 
 
 def _support_identities(task: dict, task_id: str) -> tuple[str, ...]:
@@ -386,10 +470,18 @@ def _production_query_evaluator(task: dict, data_dir: str,
         query_rows: list[dict[str, Any]] = []
         for example in queries:
             mechanism_id = str(example.get("mechanism_id", ""))
-            expected = resolve_mechanism_answer(data_dir, mechanism_id)
+            family = str(example.get("family", ""))
             public = example.get("public")
+            asked = example.get("queries")
+            # The label belongs to THIS example: the prepared meta label for
+            # its family and mechanism, verified against the example's own
+            # public state and queries.
+            expected = resolve_mechanism_answer(
+                data_dir, mechanism_id, family=family, public=public,
+                queries=asked)
             if not isinstance(public, dict):
-                row = resolve_mechanism_row(data_dir, mechanism_id)
+                row = resolve_mechanism_row(
+                    data_dir, mechanism_id, family=family, queries=asked)
                 public = row["public"]
             prompt = goal_prefix_tokens(public)
             if len(prompt) + 1 > K8_MAX_SEQ:
@@ -412,7 +504,9 @@ def _production_query_evaluator(task: dict, data_dir: str,
         for ref in refs:
             mechanism_id = str(ref.get("mechanism_id", ""))
             try:
-                row = resolve_mechanism_row(data_dir, mechanism_id)
+                row = resolve_mechanism_row(
+                    data_dir, mechanism_id,
+                    family=str(ref.get("family", "")))
             except ValueError as exc:
                 # Denominator integrity: a missing/inconsistent protected
                 # reference is an explicit failure, never a skipped case.
@@ -580,7 +674,12 @@ def _measure_archive_block(ops: Any, job: JobInput, anchor_record: dict,
                 "support_identities": list(result.support_identities),
                 "query_identities": list(result.query_identities),
                 "trial_lineage": lineages[-1],
-                "validation": result.validation})
+                "validation": result.validation,
+                # The trial's own outcome detail (budget stop, evaluation
+                # receipt or refusal reason) travels with the row: a
+                # count-only archive makes an E5 refusal undiagnosable from
+                # the campaign log alone.
+                "detail": dict(result.detail)})
     if not rows:
         return {"error": f"E5 archive block {block_label} produced no trials"}
     if failures:
@@ -1135,14 +1234,43 @@ def _proposer_batches(archive_tasks: list, archive: Any) -> list[Any]:
         batches.append(collocate([row], max_seq=512))
     if not batches:
         validations: dict[str, int] = {}
+        reasons: list[str] = []
         for row in archive.rows:
             key = str(getattr(row, "validation", "?"))
             validations[key] = validations.get(key, 0) + 1
+            detail = getattr(row, "detail", None) or {}
+            reason = str(detail.get("error") or detail.get("budget_stop") or "")
+            if reason and reason not in reasons:
+                reasons.append(reason)
         raise ValueError(
             "no measured archive bests for proposer training "
             f"(tasks={len(archive_tasks)} measured_tasks={measured_count} "
-            f"archive_rows={len(archive.rows)} validations={validations})")
+            f"archive_rows={len(archive.rows)} validations={validations}"
+            + (f" reasons={reasons[:3]}" if reasons else "") + ")")
     return batches
+
+
+class _ProposerJob:
+    """Job view for the phase's own proposer training (O09).
+
+    Mirrors the trial service's job view: the ledger record fields plus the
+    `reservation_deadline_unix` attribute the authority binding reads. The
+    proposer's child reservation id stays auditable while stepping authority
+    is still decided by the phase's own OPEN ledger reservation.
+    """
+
+    def __init__(self, job: Any, reservation: Mapping[str, Any]) -> None:
+        self._job = job
+        self._reservation = reservation
+
+    def __getattr__(self, name: str) -> Any:
+        if name in ("allocation_id", "reservation_id", "job_id", "phase",
+                    "physical_device", "source_hash"):
+            return self._reservation["job_id" if name == "job_id" else name] \
+                if name != "physical_device" else self._reservation["device"]
+        if name == "reservation_deadline_unix":
+            return self._reservation["deadline_unix"]
+        return getattr(self._job, name)
 
 
 def _train_method_selection(ops: Any, handle: Any, batches: list,
@@ -1195,8 +1323,12 @@ def _train_method_selection(ops: Any, handle: Any, batches: list,
         "deadline_unix": job.reservation_deadline_unix or 9e9,
         "remaining_updates": len(batches),
         "source_hash": job.source_hash or "unbound-source"}
+    # bind_job_reservation reads the JOB view (reservation_deadline_unix),
+    # not the ledger record shape; handing it the record silently fails the
+    # authority check and no proposer update can ever run.
+    proposer_job = _ProposerJob(job, reservation)
     try:
-        bind_job_reservation(handle, dict(reservation),
+        bind_job_reservation(handle, proposer_job,
                              remaining_updates=len(batches))
     except Exception as exc:
         return {"validation": "failed",

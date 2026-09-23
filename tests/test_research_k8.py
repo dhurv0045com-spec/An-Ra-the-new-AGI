@@ -100,9 +100,9 @@ class AllocationGateTests(unittest.TestCase):
         trainer.begin_campaign(AllocationContext(
             allocation_id="test", device="cpu", deadline_unix=time.time() + 60,
             remaining_updates=0, job_id="j1", phase="E0"))
-        trainer.accumulate(_fake_batch())
         with self.assertRaises(Exception):
-            trainer.finalize_update()
+            trainer.accumulate(_fake_batch())
+        self.assertEqual(trainer.counters.optimizer_updates, 0)
 
     def test_expired_deadline_refuses(self) -> None:
         seed_everything(1)
@@ -114,9 +114,39 @@ class AllocationGateTests(unittest.TestCase):
         trainer.begin_campaign(AllocationContext(
             allocation_id="test", device="cpu", deadline_unix=0.0,
             remaining_updates=10, job_id="j1", phase="E0"))
-        trainer.accumulate(_fake_batch())  # accumulation proceeds
+        # Admission fires at the window start: no new work begins once the
+        # allocation's wall budget is gone, and no step is ever taken.
         with self.assertRaises(Exception):
-            trainer.finalize_update()  # admission check fires at the boundary
+            trainer.accumulate(_fake_batch())
+        self.assertEqual(trainer.counters.optimizer_updates, 0)
+
+    def test_admitted_window_completes_after_the_deadline_passes(self) -> None:
+        """A window admitted before expiry must still finalize.
+
+        Refusing at the boundary would strand accumulated gradients with no
+        legal way to step them, leaving the trainer unpublishable.
+        """
+        import time
+
+        seed_everything(1)
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        from bramastra_lab.research.models import IntegratedModel
+
+        model = IntegratedModel(config)
+        trainer = K8Trainer(config, model, device="cpu")
+        trainer.begin_campaign(AllocationContext(
+            allocation_id="test", device="cpu",
+            deadline_unix=time.time() + 60, remaining_updates=10,
+            job_id="j1", phase="E0"))
+        trainer.accumulate(_fake_batch())
+        # The budget expires between accumulation and the optimizer step.
+        trainer.allocation = AllocationContext(
+            allocation_id="test", device="cpu", deadline_unix=0.0,
+            remaining_updates=10, job_id="j1", phase="E0")
+        trainer._k8_updates_at_start = trainer.counters.optimizer_updates
+        report = trainer.finalize_update()
+        self.assertEqual(trainer.counters.optimizer_updates, 1)
+        self.assertIsNotNone(report)
 
 
 def _fake_batch():
@@ -347,6 +377,100 @@ class K8BundleTests(unittest.TestCase):
             self.assertIn("identity", manifest)
             report = validate_bundle(tmp, min_confirmation=1)
             self.assertTrue(report["valid"], report.get("issues"))
+
+    def test_meta_labels_publish_and_resolve_for_every_reference(self) -> None:
+        """Query/protected labels must exist in prepared data.
+
+        Regression: the meta pool is generated separately from every split
+        pool, so its answers were never published and its ids collided with
+        split mechanism names. E5 resolved labels from split episode rows
+        and refused (or silently borrowed a wrong label) for every query.
+        """
+        from bramastra_lab.research.data.k8_bundle import (
+            build_k8_bundle, validate_bundle)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = build_k8_bundle(
+                tmp, training_mechanisms=4, controller_mechanisms=2,
+                development_mechanisms=2, confirmation_mechanisms=2,
+                tool_mechanisms=3, tool_heldout=1, meta_train=2,
+                meta_validate=1, meta_confirm=1)
+            label_path = os.path.join(tmp, "meta", "meta_labels.jsonl")
+            self.assertTrue(os.path.exists(label_path))
+            self.assertTrue(
+                any(key.replace("\\", "/") == "meta/meta_labels.jsonl"
+                    for key in manifest["file_hashes"]),
+                sorted(manifest["file_hashes"]))
+            labels = {}
+            with open(label_path, encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        row = json.loads(line)
+                        labels[(row["family"], row["mechanism_id"])] = row
+            self.assertTrue(labels)
+            for (_family, mechanism_id), row in labels.items():
+                self.assertIn("-meta-", mechanism_id,
+                              "meta ids must be namespaced")
+                self.assertIsInstance(row["public"], dict)
+                self.assertNotIn(row["answer"], (None, ""))
+            referenced = 0
+            with open(os.path.join(tmp, "meta", "meta_tasks.jsonl"),
+                      encoding="utf-8") as handle:
+                for line in handle:
+                    if not line.strip():
+                        continue
+                    task = json.loads(line)
+                    for example in task["query_examples"]:
+                        key = (example["family"], example["mechanism_id"])
+                        self.assertIn(key, labels)
+                        self.assertNotIn("answer", example)
+                        referenced += 1
+                    for ref in task["protected_references"]:
+                        self.assertIn(
+                            (ref["family"], ref["mechanism_id"]), labels)
+            self.assertGreater(referenced, 0)
+            report = validate_bundle(tmp, min_confirmation=1)
+            self.assertTrue(report["valid"], report.get("issues"))
+
+    def test_validate_reports_a_missing_meta_label(self) -> None:
+        from bramastra_lab.research.contracts.core import content_identity
+        from bramastra_lab.research.data.k8_bundle import (
+            _hash_file, build_k8_bundle, validate_bundle)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            build_k8_bundle(tmp, training_mechanisms=2,
+                            controller_mechanisms=1, development_mechanisms=1,
+                            confirmation_mechanisms=1, tool_mechanisms=1,
+                            tool_heldout=1, meta_train=1, meta_validate=1,
+                            meta_confirm=1)
+            label_path = os.path.join(tmp, "meta", "meta_labels.jsonl")
+            with open(label_path, encoding="utf-8") as handle:
+                rows = [line for line in handle if line.strip()]
+            dropped = json.loads(rows[0])
+            with open(label_path, "w", encoding="utf-8") as handle:
+                handle.writelines(rows[1:])
+            # Re-hash so the meta rule, not tampering, is what fails.
+            manifest_path = os.path.join(tmp, "manifest.json")
+            with open(manifest_path, encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            manifest["file_hashes"] = {
+                key.replace("\\", "/"): value
+                for key, value in manifest["file_hashes"].items()}
+            manifest["file_hashes"]["meta/meta_labels.jsonl"] = _hash_file(
+                label_path)
+            manifest["identity"] = content_identity({
+                key: value for key, value in manifest.items()
+                if key not in ("identity", "created_unix")})
+            with open(manifest_path, "w", encoding="utf-8") as handle:
+                json.dump(manifest, handle, indent=2, sort_keys=True)
+            report = validate_bundle(tmp, min_confirmation=1)
+            self.assertFalse(report["valid"])
+            self.assertTrue(
+                any("meta_label_missing" in issue
+                    for issue in report["issues"]),
+                report["issues"])
+            self.assertIn(dropped["mechanism_id"],
+                          " ".join(report["issues"]))
 
     def test_bundle_rejects_tampered_rows(self) -> None:
         from bramastra_lab.research.data.k8_bundle import build_k8_bundle, validate_bundle

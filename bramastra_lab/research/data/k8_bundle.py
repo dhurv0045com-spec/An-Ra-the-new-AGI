@@ -907,6 +907,38 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                 meta_excluded.add(_canonical_key_for_mechanism(family, mech))
         except ValueError:
             meta_index[family] = []
+    # The meta pool is generated separately from every split pool, so its
+    # mechanism ids restart at 000000 and can collide by NAME with a split
+    # mechanism that is a different instance entirely. Namespace the ids so
+    # a meta reference can never be resolved against split episode rows.
+    for family, mechs in meta_index.items():
+        for mech in mechs:
+            mech["mechanism_id"] = f"{mech['mechanism_id'].split('-')[0]}-meta-" \
+                                   f"{mech['mechanism_id'].split('-')[-1]}"
+    # Prepared labels for every referenced meta mechanism. Query examples
+    # deliberately carry no answer, so the label MUST exist in published
+    # prepared data (never invented by the learner, never borrowed from a
+    # same-named split mechanism).
+    meta_labels: dict[tuple[str, str], dict] = {}
+
+    def _record_meta_label(family: str, mech: dict, pool: str) -> None:
+        key = (family, str(mech["mechanism_id"]))
+        label = {"mechanism_id": mech["mechanism_id"], "family": family,
+                 "pool": pool,
+                 "canonical_identity": _canonical_key_for_mechanism(
+                     family, mech),
+                 "public": mech.get("public", {}),
+                 "queries": list(mech.get("queries", [])),
+                 "answer": mech.get("answer")}
+        existing = meta_labels.get(key)
+        if existing is not None and (
+                existing["answer"] != label["answer"]
+                or existing["canonical_identity"] != label["canonical_identity"]):
+            raise ValueError(
+                f"meta mechanism {key[1]!r} in family {family!r} has two "
+                "prepared labels; refusing an ambiguous reference")
+        meta_labels[key] = label
+
     with open(meta_path, "w", encoding="utf-8", newline="\n") as handle:
         for pool, count, prefix in (("meta-training", meta_train, "mt"),
                                     ("meta-validation", meta_validate, "mv"),
@@ -921,6 +953,7 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                     if mech is None:
                         support_examples.append({"unresolved": True})
                     else:
+                        _record_meta_label(family, mech, pool)
                         support_examples.append({
                             "mechanism_id": mech["mechanism_id"],
                             "family": family,
@@ -935,27 +968,38 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
                     if mech is None:
                         query_examples.append({"unresolved": True})
                     else:
+                        _record_meta_label(family, mech, pool)
                         query_examples.append({
                             "mechanism_id": mech["mechanism_id"],
                             "family": family,
                             "public": mech.get("public", {}),
                             "queries": mech.get("queries", [])[:2],
                         })
+                protected_family = families[(index + 1) % len(families)]
+                protected_mechs = meta_index.get(protected_family, [])
+                protected_mech = protected_mechs[0] if protected_mechs else None
+                if protected_mech is not None:
+                    _record_meta_label(protected_family, protected_mech, pool)
                 meta_task = {
                     "meta_task_id": f"{prefix}-{index:04d}",
                     "pool": pool,
                     "family": family,
                     "support_examples": support_examples,
                     "query_examples": query_examples,
-                    "protected_family_ids": [families[(index + 1) % len(families)]],
+                    "protected_family_ids": [protected_family],
                     "protected_references": [
-                        {"family": families[(index + 1) % len(families)],
-                         "mechanism_id": (meta_index.get(
-                             families[(index + 1) % len(families)], [{}])[0].get(
-                             "mechanism_id", "none"))}],
+                        {"family": protected_family,
+                         "mechanism_id": (protected_mech or {}).get(
+                             "mechanism_id", "none")}],
                 }
                 handle.write(json.dumps(meta_task, sort_keys=True) + "\n")
     all_files.append(meta_path)
+
+    meta_label_path = os.path.join(out_dir, "meta", "meta_labels.jsonl")
+    with open(meta_label_path, "w", encoding="utf-8", newline="\n") as handle:
+        for (family, mechanism_id), label in sorted(meta_labels.items()):
+            handle.write(json.dumps(label, sort_keys=True) + "\n")
+    all_files.append(meta_label_path)
 
     # Audit: leakage, dedup, solvability checks.
     audit = {
@@ -1190,10 +1234,40 @@ def _validate_information_sufficiency(bundle_dir: str) -> list[str]:
     return issues
 
 
+def _load_meta_labels(bundle_dir: str) -> dict[tuple[str, str], dict]:
+    """Prepared labels for the meta pool, keyed by (family, mechanism_id).
+
+    The meta pool is generated independently of every split pool, so its
+    mechanism ids are namespaced; these labels are the ONLY legitimate
+    source for a query example's answer.
+    """
+    path = os.path.join(bundle_dir, "meta", "meta_labels.jsonl")
+    labels: dict[tuple[str, str], dict] = {}
+    if not os.path.exists(path):
+        return labels
+    for row in _iter_jsonl(path):
+        key = (str(row.get("family", "")), str(row.get("mechanism_id", "")))
+        if not key[1]:
+            continue
+        existing = labels.get(key)
+        if existing is not None and existing.get("answer") != row.get("answer"):
+            raise ValueError(
+                f"meta label {key[1]!r} in family {key[0]!r} is ambiguous")
+        labels[key] = row
+    return labels
+
+
 def _validate_meta(bundle_dir: str) -> list[str]:
     path = os.path.join(bundle_dir, "meta", "meta_tasks.jsonl")
     if not os.path.exists(path):
         return ["missing meta/meta_tasks.jsonl"]
+    try:
+        labels = _load_meta_labels(bundle_dir)
+    except ValueError as exc:
+        return [f"meta_label_ambiguous: {exc}"]
+    if not labels:
+        return ["missing meta/meta_labels.jsonl: no prepared meta labels"]
+    issues: list[str] = []
     for row in _iter_jsonl(path):
         for key in ("support_examples", "query_examples"):
             for example in row.get(key, []):
@@ -1202,4 +1276,30 @@ def _validate_meta(bundle_dir: str) -> list[str]:
                 if "mechanism_id" not in example or "answer" not in example \
                         and key == "support_examples":
                     return [f"meta_example_not_executable: {row.get('meta_task_id')}:{key}"]
-    return []
+        # Every query label and protected reference must resolve to exactly
+        # one prepared label: E5 may never invent a label or borrow one from
+        # a same-named mechanism in another pool.
+        referenced: list[tuple[str, str, str]] = []
+        for example in row.get("query_examples", []):
+            referenced.append((str(row.get("meta_task_id")), "query",
+                               str(example.get("mechanism_id", ""))))
+        for ref in row.get("protected_references", []):
+            referenced.append((str(row.get("meta_task_id")), "protected",
+                               str(ref.get("mechanism_id", ""))))
+        for task_id, kind, mechanism_id in referenced:
+            family = None
+            for example in list(row.get("query_examples", [])) + list(
+                    row.get("support_examples", [])):
+                if str(example.get("mechanism_id", "")) == mechanism_id:
+                    family = str(example.get("family", ""))
+            for ref in row.get("protected_references", []):
+                if str(ref.get("mechanism_id", "")) == mechanism_id:
+                    family = str(ref.get("family", family or ""))
+            label = labels.get((family or "", mechanism_id))
+            if label is None:
+                issues.append(
+                    f"meta_label_missing: {task_id}:{kind}:{mechanism_id}")
+            elif label.get("answer") in (None, ""):
+                issues.append(
+                    f"meta_label_empty: {task_id}:{kind}:{mechanism_id}")
+    return issues

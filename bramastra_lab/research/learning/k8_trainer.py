@@ -31,6 +31,16 @@ from bramastra_lab.research.learning.objectives import (
 )
 
 
+class AllocationBudgetExpired(TrainerStateError):
+    """The bound allocation's wall deadline passed before a new update.
+
+    A distinct type because this is a BUDGET stop, not a contract violation:
+    every update already committed under the allocation stays valid, and a
+    deadline-bounded caller (a measured trial, for example) must degrade to
+    the partial result it actually measured instead of discarding it.
+    """
+
+
 @dataclass(frozen=True)
 class AllocationContext:
     """The active campaign allocation; updates are admitted only when the
@@ -131,7 +141,7 @@ class K8Trainer(Trainer):
                 f"{self.allocation.remaining_updates}-update reservation for job "
                 f"{self.allocation.job_id!r}")
         if time.time() > self.allocation.deadline_unix:
-            raise TrainerStateError(
+            raise AllocationBudgetExpired(
                 f"allocation {self.allocation.allocation_id!r} deadline passed")
 
     @property
@@ -185,6 +195,9 @@ class K8Trainer(Trainer):
         accumulate before finalize.
         """
         self._require_clean_boundary()
+        # Window admission (budget/deadline) is decided here, at the start;
+        # an admitted window always completes at finalize.
+        self._admit_update()
         if self.replica_backend is not None and pair_rows is not None:
             raise TrainerStateError(
                 "replica pair objectives require accumulate_full_window so "
@@ -275,6 +288,12 @@ class K8Trainer(Trainer):
         from bramastra_lab.research.learning.router import route_window
 
         self._require_clean_boundary()
+        # Admission belongs to the START of an update window: a deadline or
+        # exhaustion that passes mid-window must not strand accumulated
+        # gradients with no legal way to finalize them (an unpublishable
+        # trainer). An admitted window always completes; no NEW window may
+        # start once the budget is gone.
+        self._admit_update()
         if batch.target_count == 0:
             raise TrainerStateError("micro batch declares zero supervised targets")
         if self.treatment != "full" and self.schema is not None:
@@ -507,9 +526,10 @@ class K8Trainer(Trainer):
         term when the pair weight is positive; refuses pair rows when the
         pair weight is zero and refuses missing pair data when it is positive.
         A failed report publication after a committed step never erases the
-        step.
+        step. Admission was already granted at window start
+        (`accumulate_full_window`), so this boundary completes the admitted
+        window rather than re-deciding whether it may exist.
         """
-        self._admit_update()
         self.attempted_updates += 1
         if self._pending_targets <= 0:
             raise TrainerStateError("finalize_update called with no accumulated batches")

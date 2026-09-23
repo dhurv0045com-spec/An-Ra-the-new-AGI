@@ -29,6 +29,149 @@ def _save_tiny(run_dir, run_id, update_index, *, suffix=None):
         dir_suffix=suffix)
 
 
+class TrialBudgetStopTests(unittest.TestCase):
+    """A trial whose wall budget expires keeps the work it measured.
+
+    Regression: the deadline race between the trial loop's check and the
+    trainer's admission check raised through the service's catch-all, so a
+    trial that ran its full budget reported validation="failed" with
+    measured_updates=0 and the archive lost every cell.
+    """
+
+    def test_expired_trial_budget_keeps_measured_work(self) -> None:
+        import time
+
+        from bramastra_lab.research.campaigns import trial_service
+        from bramastra_lab.research.campaigns.phases.session import (
+            bind_job_reservation)
+        from bramastra_lab.research.campaigns.supervisor import CampaignLedger
+        from bramastra_lab.research.learning.k8_trainer import (
+            AllocationBudgetExpired, AllocationContext)
+        from bramastra_lab.research.metalearning.dispatch import _METHOD_PROGRAMS
+        from bramastra_lab.research.metalearning.method_language import (
+            compile_method)
+
+        class _BudgetTrainer:
+            """Admits one window, then reports the trial budget exhausted."""
+
+            def __init__(self) -> None:
+                self.updates = 0
+                self.allocation = None
+
+            def begin_campaign(self, allocation) -> None:
+                self.allocation = allocation
+
+            def accumulate_full_window(self, batch, **kwargs) -> dict:
+                return {}
+
+            def dispatch(self, *args, **kwargs) -> None:
+                return None
+
+            def set_controller_multiplier(self, multiplier,
+                                         reason=None) -> None:
+                return None
+
+            def measured_success(self, task_id: str) -> float:
+                return 1.0
+
+        class _Ops:
+            def __init__(self) -> None:
+                self.trainer = _BudgetTrainer()
+                self.handle = {"trainer": self.trainer}
+                self.steps = 0
+
+            def restore_parent(self, **kwargs):
+                return self.handle
+
+            def fork_child(self, **kwargs):
+                return self.handle
+
+            def optimizer_updates(self, handle) -> int:
+                return self.trainer.updates
+
+            def apply_update(self, handle, *, batch, window, extra=None,
+                             pair_rows=None) -> dict:
+                self.steps += 1
+                if self.steps > 1:
+                    raise AllocationBudgetExpired(
+                        "allocation 'alloc-trial' deadline passed")
+                self.trainer.updates += 1
+                return {"committed": 1, "attempted": 1}
+
+            def publish_checkpoint(self, **kwargs) -> str:
+                return "trial-checkpoint-id"
+
+        run = tempfile.mkdtemp()
+        anchor = _save_tiny(run, "E1-B-1701", 3)
+        ledger = CampaignLedger(run)
+        ledger.record_allocation("alloc-trial", "src", "data", 480.0)
+        anchor_reservation = ledger.reserve(
+            "E1-B-1701", worker="w", device="cpu", phase="E1", arm="B",
+            seed=1701, reserved_seconds=600.0)
+        ledger.close_reservation(
+            anchor_reservation.reservation_id, status="completed",
+            committed_updates=3, attempted_updates=3,
+            supervised_exposure=3, device_seconds=1.0,
+            checkpoint_identity=anchor.checkpoint_id)
+        reservation = ledger.reserve(
+            "E5-1701", worker="w", device="cpu", phase="E5", seed=1701,
+            reserved_seconds=600.0)
+        compiled = compile_method(_METHOD_PROGRAMS["M0"],
+                                  runtime_config={"profile": "k8-campaign"})
+        horizon = time.time() + 600.0
+
+        class _Job:
+            job_id = "E5-1701"
+            physical_device = "cpu"
+            local_device = "cpu"
+            phase = "E5"
+            seed = 1701
+            run_dir = run
+            data_dir = run
+            deadline = horizon
+            source_hash = "src"
+            reservation_id = reservation.reservation_id
+            allocation_id = "alloc-trial"
+            reservation_deadline_unix = horizon
+
+        job = _Job()
+        request = trial_service.TrialRequest(
+            anchor_checkpoint_id=anchor.checkpoint_id, anchor_run_dir=run,
+            method_id="M0", compiled_recipe=dict(compiled),
+            support_identities=("s0",), query_identities=("q0",),
+            protected_identities=(), seed=1701,
+            reservation={"allocation_id": "alloc-trial",
+                         "reservation_id": reservation.reservation_id,
+                         "job_id": "E5-1701", "device": "cpu", "phase": "E5",
+                         "deadline_unix": horizon, "remaining_updates": 400,
+                         "source_hash": "src"},
+            deadline_unix=horizon, max_updates=400,
+            task_identity="E5-1701-mt-0-M0")
+        ops = _Ops()
+        bind_job_reservation(ops.handle, trial_service._TrialJob(
+            job, request), remaining_updates=400)
+        ops.trainer.begin_campaign(AllocationContext(
+            allocation_id="alloc-trial", device="cpu",
+            deadline_unix=time.time() + 600.0, remaining_updates=400,
+            job_id="E5-1701", phase="E5"))
+        result = trial_service.run_trial(
+            ops, request, job=job, learning_boundary="production",
+            build_support_batch=lambda handle: ("batch", "window", {}, None),
+            evaluate_queries=lambda handle: {"measured_success": 1.0,
+                                             "protected": {}})
+        ledger.close_reservation(
+            reservation.reservation_id, status="completed",
+            committed_updates=1, attempted_updates=2,
+            supervised_exposure=1, device_seconds=0.1,
+            checkpoint_identity="trial-checkpoint-id")
+        ledger.close()
+        self.assertEqual(result.validation, "measured", result.detail)
+        self.assertEqual(result.measured_updates, 1)
+        self.assertEqual(result.measured_success, 1.0)
+        self.assertEqual(result.trial_checkpoint_id, "trial-checkpoint-id")
+        self.assertEqual(result.detail.get("budget_stop"), "deadline")
+
+
 class ParentExactMatchTests(unittest.TestCase):
     def test_substring_does_not_match(self) -> None:
         from bramastra_lab.research.campaigns.phases.types import ParentRef
@@ -164,6 +307,92 @@ class EvidenceKindTests(unittest.TestCase):
         PhaseResult(status="completed", committed_updates=0,
                     evidence_kind=EVIDENCE_LEARNED_CAMPAIGN,
                     extra={"phase": "E6", "export_dir": "/tmp/x"}).validate()
+
+
+class E5MetaLabelResolutionTests(unittest.TestCase):
+    """E5 query/protected labels resolve from prepared meta labels only."""
+
+    def _bundle(self, tmp):
+        from bramastra_lab.research.data.k8_bundle import build_k8_bundle
+
+        build_k8_bundle(tmp, training_mechanisms=4, controller_mechanisms=2,
+                        development_mechanisms=2, confirmation_mechanisms=2,
+                        tool_mechanisms=3, tool_heldout=1, meta_train=2,
+                        meta_validate=1, meta_confirm=1)
+        tasks = [json.loads(line) for line in open(
+            os.path.join(tmp, "meta", "meta_tasks.jsonl"), encoding="utf-8")
+            if line.strip()]
+        return tasks
+
+    def test_query_label_resolves_from_prepared_meta_labels(self) -> None:
+        from bramastra_lab.research.campaigns.phases import e5
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tasks = self._bundle(tmp)
+            example = tasks[0]["query_examples"][0]
+            answer = e5.resolve_mechanism_answer(
+                tmp, example["mechanism_id"], family=example["family"],
+                public=example["public"], queries=example["queries"])
+            self.assertIsInstance(answer, str)
+            self.assertNotIn(answer, ("", "None"))
+            # The label belongs to THIS example: a different public state for
+            # the same id is a wrong-label reference and must be refused.
+            with self.assertRaises(ValueError):
+                e5.resolve_mechanism_answer(
+                    tmp, example["mechanism_id"], family=example["family"],
+                    public={"rt": "nand", "rel": ["v9"], "neg": [True],
+                            "tv": True, "thr": 99, "nd": 7, "noise": "none"},
+                    queries=example["queries"])
+
+    def test_split_mechanism_with_many_answers_still_refuses(self) -> None:
+        """Episode-row resolution stays fail-closed for split mechanisms."""
+        from bramastra_lab.research.campaigns.phases import e5
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._bundle(tmp)
+            answers: dict[str, set] = {}
+            episodes = os.path.join(tmp, "episodes")
+            for name in os.listdir(episodes):
+                path = os.path.join(episodes, name)
+                if not os.path.isfile(path):
+                    continue
+                for line in open(path, encoding="utf-8"):
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    answers.setdefault(row["mechanism_id"], set()).add(
+                        str(row.get("answer")))
+            ambiguous = [mid for mid, seen in answers.items() if len(seen) > 1]
+            self.assertTrue(ambiguous, "fixture must contain a multi-answer "
+                                       "split mechanism")
+            with self.assertRaises(ValueError) as caught:
+                e5.resolve_mechanism_answer(tmp, ambiguous[0])
+            self.assertIn("inconsistent answers", str(caught.exception))
+
+    def test_meta_reference_never_resolves_from_split_rows(self) -> None:
+        """A namespaced meta id resolves from meta labels, not episodes."""
+        from bramastra_lab.research.campaigns.phases import e5
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tasks = self._bundle(tmp)
+            episode_ids = set()
+            episodes = os.path.join(tmp, "episodes")
+            for name in os.listdir(episodes):
+                path = os.path.join(episodes, name)
+                if not os.path.isfile(path):
+                    continue
+                for line in open(path, encoding="utf-8"):
+                    if line.strip():
+                        episode_ids.add(json.loads(line)["mechanism_id"])
+            for task in tasks:
+                for example in task["query_examples"]:
+                    self.assertNotIn(example["mechanism_id"], episode_ids)
+                    row = e5.resolve_mechanism_row(
+                        tmp, example["mechanism_id"],
+                        family=example["family"], public=example["public"],
+                        queries=example["queries"])
+                    self.assertEqual(
+                        row["mechanism_id"], example["mechanism_id"])
 
 
 class E5AnchorTests(unittest.TestCase):

@@ -19,6 +19,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from bramastra_lab.research.learning.k8_trainer import AllocationBudgetExpired
 from bramastra_lab.research.metalearning.dispatch import (
     dispatch_method_to_trainer)
 
@@ -184,18 +185,35 @@ def run_trial(ops: Any, request: TrialRequest, *,
 
         committed = 0
         noop_boundaries = 0
+        budget_stop = None
         for _ in range(request.max_updates):
             if time.time() > request.deadline_unix:
+                budget_stop = "deadline"
                 break
             batch, window, extra, pair_rows = build_support_batch(
                 trial_handle)
-            outcome = step_or_noop(
-                ops, trial_handle, trial_job, batch=batch, window=window,
-                extra=extra, pair_rows=pair_rows,
-                reservation=dict(request.reservation))
+            try:
+                outcome = step_or_noop(
+                    ops, trial_handle, trial_job, batch=batch, window=window,
+                    extra=extra, pair_rows=pair_rows,
+                    reservation=dict(request.reservation))
+            except AllocationBudgetExpired:
+                # The trial's own wall budget ran out between the loop's
+                # check and the trainer's admission check. Everything already
+                # committed under this allocation stays valid: stop cleanly
+                # and measure what was actually done. Discarding it here
+                # would turn a bounded measurement into a total loss and
+                # leave the archive with no measured cell at all.
+                budget_stop = "deadline"
+                break
             committed += int(outcome.get("committed", 0))
             noop_boundaries += 1 if outcome.get("boundary") == "noop" else 0
         if committed <= 0:
+            detail = {"learning_boundary": "production-noop",
+                      "evidence_kind": "fixture",
+                      "noop_boundaries": noop_boundaries}
+            if budget_stop is not None:
+                detail["budget_stop"] = budget_stop
             return TrialResult(
                 task_identity=request.task_identity,
                 method_id=request.method_id, measured_updates=0,
@@ -204,9 +222,7 @@ def run_trial(ops: Any, request: TrialRequest, *,
                 support_identities=request.support_identities,
                 query_identities=request.query_identities,
                 trial_checkpoint_id=None, validation="boundary-only",
-                detail={"learning_boundary": "production-noop",
-                        "evidence_kind": "fixture",
-                        "noop_boundaries": noop_boundaries})
+                detail=detail)
         evaluation = evaluate_queries(trial_handle)
         checkpoint_id = None
         if publish:
@@ -226,7 +242,9 @@ def run_trial(ops: Any, request: TrialRequest, *,
             trial_checkpoint_id=checkpoint_id, validation="measured",
             detail={"learning_boundary": "production",
                     "evidence_kind": "learned-campaign",
-                    "protected": evaluation.get("protected")})
+                    "protected": evaluation.get("protected"),
+                    **({"budget_stop": budget_stop}
+                       if budget_stop is not None else {})})
     except Exception as exc:
         return TrialResult(
             task_identity=request.task_identity,
