@@ -95,150 +95,142 @@ def render_public_state(*, goal: Mapping[str, Any],
                         budgets: Mapping[str, Any] | None = None,
                         max_tokens: int = RENDER_MAX_TOKENS_DEFAULT
                         ) -> tuple[list[int], list[str]]:
-    """Shared state renderer for training and inference (O04).
+    """Render versioned public state; omit only whole optional evidence rows.
 
-    Encodes goal + bounded history + workspace + budgets and returns
-    (tokens, omitted_workspace_ids). The goal is never dropped and
-    conflicting-status records are never omitted; older active records fall
-    out of the render window only with their IDs explicitly reported (the
-    caller emits them into the trace), never silently.
+    The mandatory prefix is shared with the trajectory compiler. Goal,
+    received history and remaining budgets are never sliced or silently
+    coerced. Conflicting evidence is mandatory; other evidence may be omitted
+    whole and is returned by ID for the episode trace.
     """
     from bramastra_lab.research.experience.codec import (
-        SPECIAL_BOUNDARY, encode_event, encode_text)
+        SPECIAL_BOUNDARY, EncodingError, encode_event)
+    from bramastra_lab.research.experience.public_state import (
+        PublicStateError, compact_memory_content,
+        public_state_prefix_events)
 
+    if (not isinstance(max_tokens, int) or isinstance(max_tokens, bool)
+            or max_tokens < 1):
+        raise EpisodeError("max_tokens must be a positive integer")
     tokens = [SPECIAL_BOUNDARY]
-    tokens += encode_event("goal", dict(goal))
-    for entry in list(history):
-        tokens += encode_event("observation", _compact_history_entry(entry))
+    try:
+        for role, content in public_state_prefix_events(
+                goal, history, budgets=budgets):
+            tokens += encode_event(role, content)
+    except (EncodingError, PublicStateError) as exc:
+        raise EpisodeError(
+            f"required public state cannot be represented losslessly: {exc}") from exc
+
     records = list(workspace or [])
     if memory_context is not None:
-        # Retrieval provenance stays in the trace. The prompt receives only
+        # Retrieval provenance stays in the trace; the prompt receives only
         # stable episode-local aliases and eligible public training content.
-        import hashlib as _hashlib
-
-        for record in memory_context.records:
-            alias = _hashlib.sha256(
-                (f"{memory_context.index_identity}:"
-                 f"{record.content_identity()}").encode()).hexdigest()[:12]
+        # Retrieval returns best-first. Optional rows are removed from the
+        # front under pressure, so append memory worst-first to retain the
+        # strongest retrieved exemplar.
+        for memory_record in reversed(memory_context.records):
+            alias = _memory_prompt_alias(memory_context.index_identity,
+                                         memory_record)
             records.append({
                 "observation_id": f"memory-{alias}",
                 "predicate": "retrieved_training_example",
-                "value": record.content,
+                "value": memory_record.content,
                 "status": "memory"})
-    priority = [r for r in records if r.get("status") == "conflicting"]
-    rest = [r for r in records if r.get("status") != "conflicting"]
-    # Compact budget block (list form saves ~35 bytes vs named keys).
-    budget_block = {"b": [int((budgets or {}).get("actions_left", 0)),
-                          int((budgets or {}).get("calls_left", 0)),
-                          int((budgets or {}).get("nodes_left", 0))]} \
-        if budgets else None
+    if any(not isinstance(record, Mapping) for record in records):
+        raise EpisodeError("workspace evidence must be a sequence of JSON objects")
+    priority = [record for record in records
+                if record.get("status") == "conflicting"]
+    optional = [record for record in records
+                if record.get("status") != "conflicting"]
     omitted: list[str] = []
-    while rest and len(tokens) + sum(
-            len(encode_event("observation", _compact_evidence_record(r)))
-            for r in priority + rest) + (len(json.dumps(
-                budget_block, sort_keys=True)) if budget_block
-                else 0) > max_tokens:
-        dropped = rest.pop(0)
+
+    def encode_evidence(record: Mapping[str, Any]) -> list[int]:
+        try:
+            if record.get("status") == "memory":
+                return encode_event(
+                    "observation", compact_memory_content(record["value"]))
+            return encode_event("observation", _compact_evidence_record(record))
+        except (EncodingError, EpisodeError, PublicStateError) as exc:
+            raise EpisodeError(
+                f"evidence {record.get('observation_id', '?')!r} is not "
+                f"representable within the public event limit: {exc}") from exc
+
+    priority_tokens = [encode_evidence(record) for record in priority]
+    optional_tokens: list[tuple[Mapping[str, Any], list[int]]] = []
+    for record in optional:
+        try:
+            optional_tokens.append((record, encode_evidence(record)))
+        except EpisodeError:
+            omitted.append(str(record.get("observation_id", "?")))
+    while optional_tokens and len(tokens) + sum(map(len, priority_tokens)) \
+            + sum(len(encoded) for _, encoded in optional_tokens) > max_tokens:
+        dropped, _encoded = optional_tokens.pop(0)
         omitted.append(str(dropped.get("observation_id", "?")))
-    for record in priority + rest:
-        tokens += encode_event("observation", _compact_evidence_record(record))
-    if budget_block:
-        tokens += encode_text(json.dumps(budget_block, sort_keys=True))
+
+    for encoded in priority_tokens:
+        tokens += encoded
+    for _record, encoded in optional_tokens:
+        tokens += encoded
     if len(tokens) > max_tokens:
         raise EpisodeError(
             f"public state needs {len(tokens)} tokens but the context policy "
-            f"allows {max_tokens}; refusing silent truncation of history/goal")
+            f"allows {max_tokens}; refusing to truncate required context")
     return tokens, omitted
 
 
-def _ACTION_SHORT_KEYS():
-    return {
-        "kind": "k", "variable": "var", "item": "itm", "input": "inp",
-        "value": "val", "container": "cnt", "switch": "sw",
-        "answer": "ans", "target": "tgt", "column": "col",
-        "equals": "eq", "op": "op", "operand": "opr",
-    }
-
-def _FEEDBACK_SHORT_KEYS():
-    return {
-        "kind": "k", "variable": "var", "value": "val", "item": "itm",
-        "requires": "req", "input": "inp", "result": "res",
-        "total": "tot", "matched": "mat", "written": "wri",
-        "submitted_answer": "sub", "correct": "cor",
-        "contains_item": "cnt_itm", "changed": "chg", "state": "state",
-        "success": "suc", "error": "err", "is_dependency": "is_dep",
-        "table": "tbl", "filtered_rows": "flt", "sum": "sum",
-    }
-
 def _compact_history_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
-    """Lossless-compact history entry. Unique short keys per field.
-    Unknown fields survive in the '_x' extension map."""
-    action = dict(entry.get("action", {}))
-    feedback = dict(entry.get("feedback", {}))
-    a_keys = _ACTION_SHORT_KEYS()
-    f_keys = _FEEDBACK_SHORT_KEYS()
-    compact_action: dict[str, Any] = {}
-    action_ext: dict[str, Any] = {}
-    for key, value in action.items():
-        short = a_keys.get(key)
-        if short and short not in compact_action:
-            compact_action[short] = value
-        elif short is None:
-            action_ext[key] = value
-    compact_feedback: dict[str, Any] = {}
-    feedback_ext: dict[str, Any] = {}
-    for key, value in feedback.items():
-        short = f_keys.get(key)
-        if short and short not in compact_feedback:
-            compact_feedback[short] = value
-        elif short is None:
-            feedback_ext[key] = value
-    if action_ext:
-        compact_action["x"] = action_ext
-    if feedback_ext:
-        compact_feedback["x"] = feedback_ext
-    return {"a": compact_action, "f": compact_feedback}
+    """Version and preserve a complete received event without key aliasing."""
+    from bramastra_lab.research.experience.public_state import (
+        PublicStateError, compact_history_entry)
+
+    try:
+        return compact_history_entry(entry)
+    except PublicStateError as exc:
+        raise EpisodeError(str(exc)) from exc
 
 
 def _expand_history_entry(compact: Mapping[str, Any]) -> dict[str, Any]:
-    """Exact inverse of _compact_history_entry."""
-    a_reverse = {v: k for k, v in _ACTION_SHORT_KEYS().items()}
-    f_reverse = {v: k for k, v in _FEEDBACK_SHORT_KEYS().items()}
-    compact_action = dict(compact.get("a", {}))
-    compact_feedback = dict(compact.get("f", {}))
-    ext = compact_action.pop("x", {})
-    for key, value in ext.items():
-        compact_action[key] = value
-    ext = compact_feedback.pop("x", {})
-    for key, value in ext.items():
-        compact_feedback[key] = value
-    action = {a_reverse.get(k, k): v for k, v in compact_action.items()}
-    feedback = {f_reverse.get(k, k): v for k, v in compact_feedback.items()}
-    return {"action": action, "feedback": feedback}
+    """Invert a v3 history envelope; ambiguous unversioned rows reject."""
+    from bramastra_lab.research.experience.public_state import (
+        PublicStateError, expand_history_entry)
+
+    try:
+        return expand_history_entry(compact)
+    except PublicStateError as exc:
+        raise EpisodeError(str(exc)) from exc
 
 
 def _compact_evidence_record(record: Mapping[str, Any]) -> dict[str, Any]:
-    """Lossless-compact evidence record for the shared renderer.
+    """Version and preserve a complete evidence record without key aliases."""
+    from bramastra_lab.research.experience.public_state import (
+        PublicStateError, compact_evidence_record)
 
-    No field is sliced: the render budget is enforced at the token level by
-    `render_public_state`, which fails explicitly instead of discarding
-    semantic content.
-    """
-    compact: dict[str, Any] = {}
-    for key, value in record.items():
-        if key == "observed_value":
-            compact["o"] = value
-        elif key == "entity":
-            compact["e"] = value
-        elif key == "observation_id":
-            compact["i"] = value
-        elif key == "temporal_scope":
-            compact["t"] = value
-        elif key == "status":
-            compact["s"] = value
-        else:
-            compact[key] = value
-    return compact or {"e": "empty-record"}
+    try:
+        return compact_evidence_record(record)
+    except PublicStateError as exc:
+        raise EpisodeError(str(exc)) from exc
+
+
+def _expand_evidence_record(compact: Mapping[str, Any]) -> dict[str, Any]:
+    """Invert a v2 workspace evidence envelope."""
+    from bramastra_lab.research.experience.public_state import (
+        PublicStateError, expand_evidence_record)
+
+    try:
+        return expand_evidence_record(compact)
+    except PublicStateError as exc:
+        raise EpisodeError(str(exc)) from exc
+
+
+def _hash_mapping(value: Mapping[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(dict(value), sort_keys=True,
+                                     default=str).encode()).hexdigest()[:16]
+
+
+def _memory_prompt_alias(index_identity: str, record: Any) -> str:
+    """Stable episode-local label without exposing a source identity."""
+    return hashlib.sha256(
+        f"{index_identity}:{record.content_identity()}".encode()
+    ).hexdigest()[:12]
 
 
 def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
@@ -248,6 +240,7 @@ def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
     - Same value at same valid_time: duplicates, no conflict.
     - Different values at same valid_time: contradiction (both conflicting).
     - Different valid_times: later supersedes earlier (earlier superseded).
+    - Missing/unknown valid_time: no temporal relation is inferred.
     Different subjects or predicates never conflict. Multivalued predicates
     (e.g. contains) accumulate without conflict.
     """
@@ -281,7 +274,18 @@ def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
             continue
         by_time: dict[Any, list[dict[str, Any]]] = {}
         for member in members:
-            by_time.setdefault(member.get("valid_time", 0), []).append(member)
+            valid_time = member.get("valid_time")
+            if valid_time is None:
+                # Unknown time cannot establish simultaneity or supersession.
+                continue
+            if (isinstance(valid_time, bool)
+                    or not isinstance(valid_time, (int, float, str))
+                    or (isinstance(valid_time, float)
+                        and not math.isfinite(valid_time))
+                    or (isinstance(valid_time, str) and not valid_time)):
+                raise EpisodeError(
+                    f"evidence has invalid valid_time {valid_time!r}")
+            by_time.setdefault(valid_time, []).append(member)
         ordered_times = sorted(by_time, key=time_order)
         for time_index, valid_time in enumerate(ordered_times):
             same_time = by_time[valid_time]
@@ -290,14 +294,25 @@ def mark_conflicts(workspace: list[dict[str, Any]]) -> list[tuple[str, str]]:
                 superseded_id = prior_time_records[0].get("record_id", "?")
                 for record in same_time:
                     record["supersedes"] = superseded_id
-            values = set(json.dumps(r.get("value"), sort_keys=True, default=str)
-                         for r in same_time)
-            if len(values) > 1:
+            from bramastra_lab.research.experience.codec import (
+                EncodingError, canonical_event_bytes)
+
+            def value_identity(record: Mapping[str, Any]) -> bytes:
+                try:
+                    return canonical_event_bytes({
+                        "present": record.get("value_present", True),
+                        "value": record.get("value")})
+                except EncodingError as exc:
+                    raise EpisodeError(
+                        f"evidence value is not canonical JSON: {exc}") from exc
+
+            identities = [value_identity(record) for record in same_time]
+            if len(set(identities)) > 1:
                 for r in same_time:
                     r["status"] = "conflicting"
                 for i in range(len(same_time)):
                     for j in range(i + 1, len(same_time)):
-                        if same_time[i].get("value") != same_time[j].get("value"):
+                        if identities[i] != identities[j]:
                             conflicts.append((same_time[i].get("record_id", "?"),
                                               same_time[j].get("record_id", "?")))
             elif time_index == len(ordered_times) - 1:
@@ -348,7 +363,7 @@ class ModelWorldModel:
                 goal=dict(state.get("goal", {})),
                 history=[dict(entry) for entry in state.get("history", [])],
                 workspace=[dict(entry) for entry in state.get("workspace", [])],
-                budgets=None)
+                budgets=state.get("budgets"))
         except EpisodeError as exc:
             return {"feedback": {},
                     "success_prob": None, "value": None,
@@ -356,7 +371,14 @@ class ModelWorldModel:
                     "model_calls": 0, "input_tokens": 0, "output_tokens": 0,
                     "prediction_failed": True,
                     "error": f"world-model prompt refused: {exc}"}
-        action_tokens = encode_event("action", dict(action))
+        try:
+            action_tokens = encode_event("action", dict(action))
+        except EncodingError as exc:
+            return {"feedback": {}, "success_prob": None, "value": None,
+                    "origin": "representation-overflow",
+                    "model_calls": 0, "input_tokens": 0, "output_tokens": 0,
+                    "prediction_failed": True,
+                    "error": f"world-model action refused: {exc}"}
         prompt = state_tokens + action_tokens
         if len(prompt) + 1 > RENDER_MAX_TOKENS_DEFAULT:
             return {"feedback": {},
@@ -578,27 +600,46 @@ def admit_observation_evidence(workspace: list[dict[str, Any]], *,
                                observation: Mapping[str, Any],
                                observation_id: str) -> dict[str, Any]:
     """Declared deterministic workspace transform (shared by train/infer)."""
+    if not isinstance(observation, Mapping):
+        raise EpisodeError("observation must be a JSON object")
+    if not isinstance(observation_id, str) or not observation_id:
+        raise EpisodeError("observation_id must be a nonempty string")
     kind = observation.get("kind", "observation")
+    if not isinstance(kind, str) or not kind:
+        raise EpisodeError("observation kind must be a nonempty string")
     variable = observation.get("variable")
+    value_present = "value" in observation
     value = observation.get("value")
-    subject = f"variable:{variable}" if variable else f"observation:{observation_id}"
-    predicate = observation.get("kind", "value")
+    if variable is not None:
+        try:
+            variable_key = json.dumps(
+                variable, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise EpisodeError("observation variable must be a JSON value") from exc
+        subject = f"variable:{variable_key}"
+    else:
+        subject = f"observation:{observation_id}"
+    predicate = kind
+    explicit_time = "valid_time" in observation
+    # The ordered episode-step fallback is declared, deterministic logical
+    # time; an explicitly supplied None remains genuinely unknown.
     valid_time = observation.get("valid_time", len(workspace))
-    if (isinstance(valid_time, bool)
+    if (valid_time is not None and (isinstance(valid_time, bool)
             or not isinstance(valid_time, (int, float, str))
             or (isinstance(valid_time, float)
                 and not math.isfinite(valid_time))
-            or (isinstance(valid_time, str) and not valid_time)):
-        raise EpisodeError("observation valid_time must be a finite scalar")
+            or (isinstance(valid_time, str) and not valid_time))):
+        raise EpisodeError("observation valid_time must be a finite scalar or None")
     record = {
         "record_id": observation_id,
         "subject": subject,
         "predicate": predicate,
-        # Lossless: no semantic slicing of decision-relevant observation
-        # content (render budget is enforced explicitly by the renderer).
-        "value": value if value is not None else json.dumps(
-            observation, sort_keys=True, default=str),
+        "value_present": value_present,
+        "value": value,
         "valid_time": valid_time,
+        "time_basis": ("environment" if explicit_time and valid_time is not None
+                       else "unknown" if explicit_time else "episode_step"),
         "source_event_id": observation_id,
         "status": "active",
     }
@@ -621,7 +662,9 @@ def admit_typed_observation(cognitive_workspace: Any,
     source_event_id = str(record.pop("source_event_id"))
     typed = cognitive_workspace.admit_evidence(
         {"subject": record["subject"], "predicate": record["predicate"],
-         "value": record["value"], "valid_time": record["valid_time"]},
+         "value_present": record["value_present"],
+         "value": record["value"], "valid_time": record["valid_time"],
+         "time_basis": record["time_basis"]},
         ancestry=(source_event_id,))
     record["record_id"] = typed.alias
     record["observation_id"] = typed.alias
@@ -1137,16 +1180,16 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
             excluded_episodes = set()
             if mechanism is not None and mechanism.get("mechanism_id"):
                 excluded_episodes.add(str(mechanism["mechanism_id"]))
-            # Reserve part of the remaining model context for the role tag,
-            # memory alias and future observed history. The renderer remains
-            # the final authority and retries with memory disabled if the
-            # complete retrieved record would overflow.
+            # Retrieval budgets exact model-visible memory events, including
+            # their event role and version envelope. Preserve the same 24-token
+            # action-generation headroom used by the adapters; the renderer is
+            # still the final authority when workspace evidence also competes.
             base_rendered, _base_omitted = render_public_state(
                 goal=base_goal,
                 history=[] if omit_history else history,
                 workspace=workspace, budgets=budgets)
             available = max(0, RENDER_MAX_TOKENS_DEFAULT
-                            - len(base_rendered) - 64)
+                            - len(base_rendered) - 24)
             retrieval_budget = min(memory_token_budget, available)
             memory_context = memory_index.retrieve(
                 query, scope_allowlist={"training", "controller"},
@@ -1183,17 +1226,38 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                 break
         if memory_index is not None:
             memory_retrievals += 1
-            memory_records_read += len(memory_context.records)
-            memory_token_cost += int(memory_context.token_cost)
+            omitted_ids = set(omitted)
+            visible_records = [
+                record for record in memory_context.records
+                if f"memory-{_memory_prompt_alias(memory_context.index_identity, record)}"
+                not in omitted_ids]
+            from bramastra_lab.research.experience.codec import encode_event
+            from bramastra_lab.research.experience.public_state import (
+                compact_memory_content)
+
+            visible_memory_tokens = sum(
+                len(encode_event("observation",
+                                 compact_memory_content(record.content)))
+                for record in visible_records)
+            memory_records_read += len(visible_records)
+            memory_token_cost += visible_memory_tokens
+            memory_budget_limited = (memory_budget_limited
+                                     or bool(memory_context.omitted_record_ids)
+                                     or len(visible_records)
+                                     < len(memory_context.records))
             emit("memory_retrieval", planner_meta={
                 "origin": "fixed_scope_lexical",
                 "index_identity": memory_context.index_identity,
                 "retrieval_rule_identity": memory_context.retrieval_rule_identity,
-                "record_count": len(memory_context.records),
+                "record_count": len(visible_records),
+                "candidate_count": (len(visible_records)
+                                    + len(memory_context.omitted_record_ids)
+                                    + len([item for item in omitted_ids
+                                           if item.startswith("memory-")])),
                 "record_aliases": [
-                    _hash_mapping({"identity": record.content_identity()})[:16]
-                    for record in memory_context.records],
-                "token_cost": int(memory_context.token_cost),
+                    _memory_prompt_alias(memory_context.index_identity, record)
+                    for record in visible_records],
+                "token_cost": visible_memory_tokens,
                 "budget_limited": memory_budget_limited})
         if omitted:
             # Explicit render-window record (never silent): older active
@@ -1421,5 +1485,3 @@ def decode_action_code(code: dict, legal_actions: list[dict]) -> tuple[dict, str
         raise ValueError(
             f"action code index {index} out of range for {len(legal_actions)} legal actions")
     return dict(legal_actions[index]), "code"
-
-

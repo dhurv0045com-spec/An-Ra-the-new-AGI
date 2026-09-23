@@ -29,8 +29,7 @@ class F1EncodingTests(unittest.TestCase):
         self.assertNotEqual(_compact_history_entry(left),
                             _compact_history_entry(right))
         # Round trip inverts exactly (bijective codec).
-        self.assertEqual(_expand_history_entry(_compact_history_entry(left)),
-                         {"action": {}, "feedback": dict(left["feedback"])})
+        self.assertEqual(_expand_history_entry(_compact_history_entry(left)), left)
 
     def test_typed_values_stay_distinct(self) -> None:
         from bramastra_lab.research.cognition.episode import (
@@ -52,7 +51,7 @@ class F1EncodingTests(unittest.TestCase):
 
     def test_nested_tool_error_round_trips_full_length(self) -> None:
         from bramastra_lab.research.cognition.episode import (
-            _compact_evidence_record)
+            _compact_evidence_record, _expand_evidence_record)
 
         payload = {"error": "E" * 500, "request_id": "req-1",
                    "rows": [{"id": i} for i in range(10)]}
@@ -60,8 +59,52 @@ class F1EncodingTests(unittest.TestCase):
                   "predicate": "error", "value": payload, "valid_time": 3,
                   "source_event_id": "e3", "status": "active"}
         compact = _compact_evidence_record(record)
-        self.assertEqual(compact["value"], payload)
-        self.assertEqual(compact["record_id"], "r0")
+        self.assertEqual(_expand_evidence_record(compact), record)
+        self.assertEqual(compact["r"]["value"], payload)
+
+    def test_repeated_inspection_observation_uses_typed_lossless_tuple(self) -> None:
+        from bramastra_lab.research.cognition.episode import (
+            _compact_history_entry, _expand_history_entry)
+
+        entry = {"action": {"kind": "inspect", "variable": "x"},
+                 "feedback": {"kind": "observation", "variable": "x",
+                              "value": False}}
+        compact = _compact_history_entry(entry)
+        self.assertEqual(compact, {"v": 3, "i": ["x", False]})
+        self.assertEqual(_expand_history_entry(compact), entry)
+
+        different_types = {"action": {"kind": "inspect", "variable": "x"},
+                           "feedback": {"kind": "observation", "variable": "x",
+                                        "value": 0}}
+        different_compact = _compact_history_entry(different_types)
+        self.assertNotEqual(json.dumps(compact, sort_keys=True),
+                            json.dumps(different_compact, sort_keys=True))
+
+        # A mismatched action/observation pair falls back to the generic
+        # lossless representation and does not get normalized into a false
+        # observation.
+        mismatched = {"action": {"kind": "inspect", "variable": "x"},
+                      "feedback": {"kind": "observation", "variable": "y",
+                                   "value": True}}
+        self.assertEqual(_expand_history_entry(
+            _compact_history_entry(mismatched)), mismatched)
+
+    def test_alias_like_user_keys_do_not_collide_with_codec_fields(self) -> None:
+        from bramastra_lab.research.cognition.episode import (
+            _compact_evidence_record, _compact_history_entry,
+            _expand_evidence_record, _expand_history_entry)
+
+        history = {"a": "public", "f": None, "x": {"nested": False},
+                   "action": {"kind": "inspect", "k": "user-kind",
+                              "x": "user-extension"},
+                   "feedback": {"value": 0, "val": "separate"}}
+        evidence = {"e": "public-entity", "entity": "door", "i": "user-id",
+                    "observation_id": "e1", "status": "active",
+                    "s": "user-status", "value": False}
+        self.assertEqual(_expand_history_entry(_compact_history_entry(history)),
+                         history)
+        self.assertEqual(_expand_evidence_record(_compact_evidence_record(evidence)),
+                         evidence)
 
     def test_unknown_fields_survive_in_extension_map(self) -> None:
         from bramastra_lab.research.cognition.episode import (
@@ -71,7 +114,7 @@ class F1EncodingTests(unittest.TestCase):
                             "future_field": "keep-me"},
                  "feedback": {"kind": "read"}}
         compact = _compact_history_entry(entry)
-        self.assertEqual(compact["a"]["x"], {"future_field": "keep-me"})
+        self.assertEqual(compact["a"]["u"], [["future_field", "keep-me"]])
         self.assertEqual(_expand_history_entry(compact)["action"]
                          ["future_field"], "keep-me")
 
@@ -121,27 +164,83 @@ class F1EncodingTests(unittest.TestCase):
         self.assertNotIn("c0", omitted_again)
 
     def test_train_inference_parity_on_goal_prefix(self) -> None:
-        from bramastra_lab.research.cognition.episode import (
-            render_public_state)
-        from bramastra_lab.research.experience.codec import encode_event
-        from bramastra_lab.research.experience.sequences import (
-            build_answer_row)
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            build_batch_for_trajectory, prompt_tokens_for_row)
+        from bramastra_lab.research.cognition.episode import render_public_state
+        from bramastra_lab.research.experience.public_state import (
+            public_state_identity)
+        from bramastra_lab.research.experience.codec import (
+            SPECIAL_BOUNDARY)
 
         goal = {"task": "2+2"}
-        rendered, _ = render_public_state(
-            goal=goal, history=[], workspace=[], budgets=None)
-        row = build_answer_row(
-            [("goal", dict(goal))], "4",
-            provenance={"kind": "trajectory", "episode_id": "parity",
-                        "task_semantic_id": "t", "split": "training",
-                        "source": "test", "collection_policy": "fixed",
-                        "family": "f"},
-            max_tokens=64)
-        expected_prefix = [259] + encode_event("goal", dict(goal))
-        self.assertEqual(list(rendered[:len(expected_prefix)]),
-                         expected_prefix)
-        self.assertEqual(list(row.tokens[:len(expected_prefix)]),
-                         expected_prefix)
+        history = [{"action": {"kind": "inspect", "variable": "x"},
+                    "feedback": {"kind": "read", "variable": "x",
+                                 "value": 4}}]
+        row = {"public": goal, "history": history,
+               "answer": "4", "mechanism_id": "parity-row",
+               "canonical_identity": "parity-cluster", "family": "rule-inquiry",
+               "pool": "training", "exploration_mode": "teacher"}
+        training_prefix = prompt_tokens_for_row(row)
+        live_prefix, _omitted = render_public_state(
+            goal=goal, history=history, workspace=[],
+            budgets={"actions_left": 3, "calls_left": 15, "nodes_left": 8})
+        self.assertEqual(training_prefix, live_prefix)
+        batch = build_batch_for_trajectory(row)
+        self.assertEqual(batch.input_ids[0, :len(training_prefix)].tolist(),
+                         training_prefix)
+        self.assertEqual(batch.provenance[0]["public_state_identity"],
+                         public_state_identity())
+        self.assertEqual(training_prefix[0], SPECIAL_BOUNDARY)
+
+    def test_flat_observation_history_is_preserved_by_live_prompt(self) -> None:
+        from bramastra_lab.research.cognition.episode import (
+            ModelInterface, ModelWorldModel)
+
+        prompts = []
+
+        class Capture(ModelInterface):
+            def generate(self, prompt_tokens, *, max_new_tokens):
+                prompts.append(list(prompt_tokens))
+                return {"answer": '{"success_prob":0.5}',
+                        "origin": "capture-double"}
+
+        predictor = ModelWorldModel(Capture())
+        for value in (0, 1):
+            predictor(state={"goal": {"target": "x"},
+                             "history": [{"variable": "x", "value": value}]},
+                      action={"kind": "inspect", "variable": "x"}, depth=1)
+        self.assertEqual(len(prompts), 2)
+        self.assertNotEqual(prompts[0], prompts[1])
+
+    def test_public_state_codec_refuses_type_coercion(self) -> None:
+        from bramastra_lab.research.cognition.episode import (
+            EpisodeError, render_public_state)
+        from bramastra_lab.research.experience.public_state import (
+            compact_history_entry)
+
+        with self.assertRaisesRegex(ValueError, "non-string object key"):
+            compact_history_entry({"observation": {1: "ambiguous"}})
+        self.assertEqual(
+            compact_history_entry({"coordinates": (False, 0)})["p"]
+            ["coordinates"], [False, 0])
+        with self.assertRaises(EpisodeError):
+            render_public_state(goal={"value": float("nan")}, history=[])
+
+    def test_public_state_schema_is_part_of_checkpoint_tokenizer_identity(self) -> None:
+        from bramastra_lab.research.config import (
+            BYTE_TOKENIZER_NAME, BYTE_TOKENIZER_SPECIALS, tokenizer_identity)
+        from bramastra_lab.research.contracts.core import content_identity
+        from bramastra_lab.research.experience.public_state import (
+            public_state_identity)
+
+        expected = content_identity({
+            "name": BYTE_TOKENIZER_NAME,
+            "specials": BYTE_TOKENIZER_SPECIALS,
+            "public_state_identity": public_state_identity()})
+        legacy = content_identity({"name": BYTE_TOKENIZER_NAME,
+                                   "specials": BYTE_TOKENIZER_SPECIALS})
+        self.assertEqual(tokenizer_identity(), expected)
+        self.assertNotEqual(tokenizer_identity(), legacy)
 
     def test_action_codes_fit_envelope_and_full_json_often_does_not(self) -> None:
         from bramastra_lab.research.cognition.episode import (
@@ -227,6 +326,74 @@ class F2WorkspaceTests(unittest.TestCase):
         self.assertEqual(len(pairs), 1)
         self.assertTrue(all(record["status"] == "conflicting"
                             for record in workspace))
+
+    def test_unknown_time_neither_conflicts_nor_supersedes(self) -> None:
+        from bramastra_lab.research.cognition.episode import mark_conflicts
+
+        workspace = [
+            {"record_id": "u1", "subject": "door", "predicate": "state",
+             "value": "closed", "status": "active"},
+            {"record_id": "u2", "subject": "door", "predicate": "state",
+             "value": "open", "valid_time": None, "status": "active"}]
+        self.assertEqual(mark_conflicts(workspace), [])
+        self.assertTrue(all(record["status"] == "active" for record in workspace))
+        self.assertTrue(all("supersedes" not in record for record in workspace))
+
+    def test_false_and_zero_are_distinct_conflicting_values(self) -> None:
+        from bramastra_lab.research.cognition.episode import mark_conflicts
+
+        workspace = [
+            {"record_id": "typed-false", "subject": "switch:x",
+             "predicate": "state", "value": False, "valid_time": 0},
+            {"record_id": "typed-zero", "subject": "switch:x",
+             "predicate": "state", "value": 0, "valid_time": 0}]
+        self.assertEqual(mark_conflicts(workspace),
+                         [("typed-false", "typed-zero")])
+        self.assertTrue(all(record["status"] == "conflicting"
+                            for record in workspace))
+
+    def test_missing_and_explicit_null_have_separate_presence_state(self) -> None:
+        from bramastra_lab.research.cognition.episode import (
+            admit_observation_evidence)
+
+        workspace = []
+        missing = admit_observation_evidence(
+            workspace, observation={"kind": "read", "variable": "x"},
+            observation_id="missing-value")
+        explicit_null = admit_observation_evidence(
+            workspace,
+            observation={"kind": "read", "variable": "x", "value": None},
+            observation_id="null-value")
+        self.assertFalse(missing["value_present"])
+        self.assertTrue(explicit_null["value_present"])
+        self.assertEqual(missing["value"], explicit_null["value"])
+        self.assertNotEqual(missing["time_basis"], "unknown")
+
+    def test_replaying_same_event_does_not_apply_belief_likelihood_twice(self) -> None:
+        from bramastra_lab.research.cognition.episode import (
+            admit_typed_observation)
+        from bramastra_lab.research.cognition.workspace import CognitiveWorkspace
+
+        typed = CognitiveWorkspace(goal={"question": "which switch?"},
+                                   success_predicate="answer-is-correct",
+                                   budget=4)
+        rendered = []
+        observation = {"kind": "read", "variable": "switch",
+                       "value": False, "valid_time": 3}
+        first = admit_typed_observation(
+            typed, rendered, observation=observation,
+            observation_id="episode-1:event-3")
+        second = admit_typed_observation(
+            typed, rendered, observation=observation,
+            observation_id="episode-1:event-3")
+        belief = typed.propose_belief({"switch": "on-or-off"})
+        typed.revise_belief(belief.alias, {"on": 0.1, "off": 0.9},
+                            [first["observation_id"]])
+        after_first = dict(typed.beliefs[belief.alias].support)
+        typed.revise_belief(belief.alias, {"on": 0.1, "off": 0.9},
+                            [second["observation_id"]])
+        self.assertEqual(typed.beliefs[belief.alias].support, after_first)
+        self.assertEqual(typed.belief_revision_log[-1].outcome, "duplicate")
 
     def test_duplicates_do_not_amplify(self) -> None:
         from bramastra_lab.research.cognition.episode import (

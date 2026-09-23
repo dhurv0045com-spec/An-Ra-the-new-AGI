@@ -8,6 +8,31 @@ See the [2026-09-23 implementation handoff](reports/GANDIVA_COGNITION_TPU_PREFLI
 
 CPU checks compiled eight examples from the existing validated 49,152-row bundle. The first integration pass caught and fixed a pair-denominator mismatch: each distinct-answer source pair yields two ordered comparisons, so the XLA trainer now receives a denominator of two. These checks do **not** instantiate the 100M model on this machine and do not qualify TPU memory or execution.
 
+## Cognition input and memory update (2026-09-23)
+
+The current Gandiva worktree adds a shared public-state v3 codec for training
+and inference. Exact `inspect(variable)` / `observation(variable, value)`
+pairs use a typed, reversible compact form. Other history shapes use the
+general versioned codec, which preserves unknown fields. The instruction tag
+and memory-event schema are included in the public-state identity, so
+checkpoints and compiled-row sidecars cannot silently reuse an older prompt
+protocol.
+
+Memory retrieval budgets exact serialized events, skips records that cannot
+fit, continues to lower-ranked candidates when they fit, and retains the
+highest-ranked item when optional context must be omitted. Trace counts now
+reflect records actually rendered rather than retrieval candidates. These are
+host-side reference mechanics; they do not demonstrate learned long-term
+memory or transfer.
+
+The existing 49,152-row training bundle has been checked on CPU against the
+512-token decision limit: zero compile errors, zero complete examples over
+limit, maximum 464 tokens, median 336, and p95 464. All three families have
+zero over-limit rows. The check performs no optimizer update or local model
+training and does not qualify a Kaggle TPU run. The focused cognition/TPU
+suite passes 141 tests and 24 subtests; exact scope and limits are in the
+[public-state v3 handoff](reports/GANDIVA_COGNITION_PUBLIC_STATE_V3_20260923/HANDOFF.md).
+
 The live cognition planner now conditions its depth-two world prediction on a separate hypothetical successor history containing the first action and predicted feedback. That synthetic history never enters the real episode trace. Search shares the remaining node/call budget, rotates partially covered root sets, and allocates second-depth nodes round-robin across roots. E2 calibration joins the executed first action to its depth-one prediction, never to a hypothetical child. `ModelWorldModel` reports input/output token counts; planner call and token use now appear in episode event metadata and budget accounting. Added behavioral tests cover history-conditioned prompts, simulated successor states, fair child expansion, remaining-budget behavior, call/token accounting, and selected-action calibration.
 
 ## Acceptance boundary
@@ -23,7 +48,9 @@ latest report and exact source identity are in **Current evidence** below.
 E2's production workspace-policy path uses the typed cognitive evidence ledger
 and records conflict/supersession state. The detailed K8 cursor is
 [`FINAL_K8_PROGRESS.md`](FINAL_K8_PROGRESS.md). The central limitation remains:
-no dedicated Kaggle TPU campaign consumer or real TPU qualification exists.
+a dedicated Kaggle zero-update backward-preflight consumer exists, but it has
+not been run on Kaggle; no TPU qualification or optimizer-training campaign
+exists.
 
 **Date:** 2026-09-23
 
@@ -108,9 +135,9 @@ fail-closed PJRT/topology checks, an eight-replica XLA backend, a
 master-parameter broadcast plus per-rank initialization receipts. After
 broadcast, each worker can atomically write its rank, config identity, exact
 state-dict SHA-256, and parameter count; the verifier refuses missing,
-duplicate, malformed, or divergent rank receipts. This closes the
-initialization-contract helper but is not yet invoked by a production TPU
-campaign worker. `ProductionOps` now maps an XLA device to the BF16 autocast
+duplicate, malformed, or divergent rank receipts. The dedicated
+zero-update preflight exercises these helpers; a production optimizer-training
+campaign worker does not yet use them. `ProductionOps` now maps an XLA device to the BF16 autocast
 mode required by `K8Trainer`; the old generic non-CUDA routing incorrectly
 passed FP32 and failed during XLA trainer construction. A unit regression
 covers XLA, CUDA, and CPU routing. Its

@@ -38,7 +38,7 @@ class MemoryRecord:
                                  "scope": self.scope, "kind": self.kind})
 
 
-RETRIEVAL_RULE = "lexical-overlap/v1"
+RETRIEVAL_RULE = "lexical-overlap/exact-public-event-budget/v2"
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,12 @@ class MemoryContext:
 def retrieve(index: MemoryIndex, query: str, *, scope_allowlist: set[str],
              top_k: int = 3, exclude_episodes: set[str] | None = None,
              token_budget: int | None = None) -> MemoryContext:
-    """Filter before ranking: ineligible scopes never reach the ranking at all."""
+    """Filter before ranking, then fill the budget with fitting ranked items.
+
+    An oversized high-ranked item no longer blocks a smaller eligible memory
+    from filling the remaining context. `omitted_record_ids` accounts for both
+    over-budget candidates and eligible items beyond the top-k result.
+    """
     if top_k <= 0:
         raise MemoryError("top_k must be positive")
     excluded = exclude_episodes or set()
@@ -107,24 +112,33 @@ def retrieve(index: MemoryIndex, query: str, *, scope_allowlist: set[str],
         ((-_overlap(query, record.content), record.content_identity(), record)
          for record in eligible),
         key=lambda item: (item[0], item[1]))  # stable tie break by content hash
-    chosen = [record for _score, _hash, record in scored[:top_k]]
-    omitted = tuple(record.identity for record in eligible[len(chosen):])
-    from bramastra_lab.research.experience.codec import encode_text
+    from bramastra_lab.research.experience.codec import (
+        DEFAULT_MAX_EVENT_BYTES, canonical_event_bytes)
+    from bramastra_lab.research.experience.public_state import (
+        compact_memory_content)
 
-    token_cost = sum(len(encode_text(record.content)) for record in chosen)
-    if token_budget is not None:
-        kept: list[MemoryRecord] = []
-        used = 0
-        omitted = tuple(record.identity for record in chosen)
-        for record in chosen:
-            cost = len(encode_text(record.content))
-            if used + cost > token_budget:
-                continue
-            kept.append(record)
-            used += cost
-            omitted = tuple(oid for oid in omitted if oid != record.identity)
-        chosen = kept
-        token_cost = used
+    chosen: list[MemoryRecord] = []
+    omitted: list[str] = []
+    token_cost = 0
+    for _score, _hash, record in scored:
+        if len(chosen) >= top_k:
+            omitted.append(record.identity)
+            continue
+        # Budget the exact bytes/markers the model will receive, including the
+        # memory envelope and role tag, rather than content alone.
+        body = canonical_event_bytes(
+            compact_memory_content(record.content))
+        cost = len(b"observation:") + len(body) + 1
+        if (len(body) > DEFAULT_MAX_EVENT_BYTES
+                or cost > DEFAULT_MAX_EVENT_BYTES):
+            omitted.append(record.identity)
+            continue
+        if token_budget is not None and token_cost + cost > token_budget:
+            omitted.append(record.identity)
+            continue
+        chosen.append(record)
+        token_cost += cost
     return MemoryContext(records=tuple(chosen), index_identity=index.identity,
                          retrieval_rule_identity=index.retrieval_rule_identity,
-                         token_cost=token_cost, omitted_record_ids=omitted)
+                         token_cost=token_cost,
+                         omitted_record_ids=tuple(omitted))

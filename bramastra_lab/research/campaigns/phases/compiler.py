@@ -22,20 +22,47 @@ K8_MAX_SEQ = 512
 
 def goal_prefix_tokens(public: Mapping[str, Any], *,
                        max_event_bytes: int = None) -> list[int]:
-    """Complete prompt prefix: boundary + the single-encoded goal event.
+    """Complete initial public-state prefix used by training and inference.
 
-    This is exactly the context portion of the answer row built by
-    `build_batch_for_trajectory` (no answer bytes, no truncation). All
-    decision channels (world/action/value) and any inference prompt must
-    share this one representation so training and evaluation cannot drift.
+    This emits the same renderer marker, goal and initial budget events used
+    by the live policy. All decision channels share this prefix.
     """
     from bramastra_lab.research.experience.codec import (
         DEFAULT_MAX_EVENT_BYTES, SPECIAL_BOUNDARY, encode_event)
+    from bramastra_lab.research.experience.public_state import (
+        public_state_prefix_events)
+    from bramastra_lab.research.cognition.episode import (
+        ACTION_BUDGET_DEFAULT, CALL_BUDGET_DEFAULT, NODE_BUDGET_DEFAULT)
 
     if max_event_bytes is None:
         max_event_bytes = DEFAULT_MAX_EVENT_BYTES
-    return [SPECIAL_BOUNDARY] + list(encode_event(
-        "goal", dict(public), max_event_bytes=max_event_bytes))
+    initial_budgets = {"actions_left": ACTION_BUDGET_DEFAULT,
+                       "calls_left": CALL_BUDGET_DEFAULT,
+                       "nodes_left": NODE_BUDGET_DEFAULT}
+    tokens = [SPECIAL_BOUNDARY]
+    for role, content in public_state_prefix_events(
+            public, [], budgets=initial_budgets):
+        tokens.extend(encode_event(role, content,
+                                   max_event_bytes=max_event_bytes))
+    return tokens
+
+
+def _training_budgets(history: list[dict[str, Any]]) -> dict[str, int]:
+    """Reconstruct the declared policy budgets for a direct-policy target.
+
+    Prepared teacher trajectories use one decision call per received action;
+    unlike model-based rollouts, they contain no hidden planner calls. The
+    convention is explicit and is part of the public-state renderer identity.
+    """
+    from bramastra_lab.research.cognition.episode import (
+        ACTION_BUDGET_DEFAULT, CALL_BUDGET_DEFAULT, NODE_BUDGET_DEFAULT,
+        _is_submission_like)
+
+    inquiries = sum(1 for item in history
+                    if not _is_submission_like(item.get("action", {})))
+    return {"actions_left": max(0, ACTION_BUDGET_DEFAULT - inquiries),
+            "calls_left": max(0, CALL_BUDGET_DEFAULT - len(history)),
+            "nodes_left": NODE_BUDGET_DEFAULT}
 
 
 def _read_jsonl(path: str) -> list[dict[str, Any]]:
@@ -128,13 +155,12 @@ def prompt_tokens_for_row(row: dict[str, Any], *,
     `build_batch_for_trajectory`. Evaluation MUST use this representation;
     no JSON slicing, no token cuts, explicit overflow failure.
     """
-    from bramastra_lab.research.cognition.episode import _compact_history_entry
+    from bramastra_lab.research.experience.public_state import (
+        public_state_prefix_events)
     from bramastra_lab.research.experience.codec import (
         DEFAULT_MAX_EVENT_BYTES, SPECIAL_BOUNDARY, encode_event)
 
-    tokens = [SPECIAL_BOUNDARY] + list(encode_event(
-        "goal", dict(row["public"]),
-        max_event_bytes=DEFAULT_MAX_EVENT_BYTES))
+    history_events = []
     for step in row.get("history") or []:
         action = step.get("action")
         if not isinstance(action, dict):
@@ -148,8 +174,13 @@ def prompt_tokens_for_row(row: dict[str, Any], *,
             raise ValueError(
                 f"trajectory {row.get('mechanism_id')} history feedback "
                 "must be an object")
-        tokens += encode_event("observation", _compact_history_entry(
-            {"action": action, "feedback": feedback}))
+        history_events.append({"action": action, "feedback": feedback})
+    tokens = [SPECIAL_BOUNDARY]
+    for role, content in public_state_prefix_events(
+            dict(row["public"]), history_events,
+            budgets=_training_budgets(history_events)):
+        tokens += encode_event(role, content,
+                               max_event_bytes=DEFAULT_MAX_EVENT_BYTES)
     if len(tokens) + 1 > max_seq:
         raise ValueError(
             f"decision prompt needs {len(tokens)} tokens; max_seq is "
@@ -169,14 +200,15 @@ def build_batch_for_trajectory(row: dict[str, Any], *,
     inference share one representation. The final submission and its verdict
     never condition the answer target.
     """
-    from bramastra_lab.research.cognition.episode import _compact_history_entry
+    from bramastra_lab.research.experience.public_state import (
+        public_state_identity, public_state_prefix_events)
     from bramastra_lab.research.experience.sequences import (
         build_answer_row, collocate)
 
     public = dict(row["public"])
     answer = str(row["answer"])
-    prompt_events: list[tuple[str, Any]] = [("goal", public)]
     history = row.get("history") or []
+    history_events = []
     for step in history:
         action = step.get("action")
         feedback = step.get("feedback")
@@ -190,9 +222,9 @@ def build_batch_for_trajectory(row: dict[str, Any], *,
             raise ValueError(
                 f"trajectory {row.get('mechanism_id')} history feedback "
                 "must be an object")
-        prompt_events.append(("observation",
-                              _compact_history_entry(
-                                  {"action": action, "feedback": feedback})))
+        history_events.append({"action": action, "feedback": feedback})
+    prompt_events = public_state_prefix_events(
+        public, history_events, budgets=_training_budgets(history_events))
     seq = build_answer_row(
         prompt_events, answer,
         provenance={"kind": "trajectory",
@@ -202,7 +234,8 @@ def build_batch_for_trajectory(row: dict[str, Any], *,
                     "source": "k8-bundle",
                     "collection_policy": str(row.get("exploration_mode", "teacher")),
                     "family": str(row.get("family", "k8")),
-                    "mechanism_cluster": str(row.get("canonical_identity", ""))[:64]},
+                    "mechanism_cluster": str(row.get("canonical_identity", ""))[:64],
+                    "public_state_identity": public_state_identity()},
         max_tokens=max_seq)
     batch = collocate([seq], max_seq=max_seq)
     return batch

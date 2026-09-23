@@ -214,6 +214,25 @@ class E5MethodExecutionTests(unittest.TestCase):
 
 
 class CognitionMemoryRuntimeTests(unittest.TestCase):
+    def test_memory_budget_skips_oversize_ranked_record_and_fills_with_smaller(self) -> None:
+        from bramastra_lab.research.experience.codec import encode_event
+        from bramastra_lab.research.experience.public_state import (
+            compact_memory_content)
+        from bramastra_lab.research.memory.store import MemoryIndex, MemoryRecord
+
+        small = MemoryRecord(content="alpha", identity="small",
+                             scope="training")
+        large = MemoryRecord(content="alpha beta " + "filler " * 80,
+                             identity="large", scope="training")
+        exact_budget = len(encode_event(
+            "observation", compact_memory_content(small.content)))
+        context = MemoryIndex((small, large)).retrieve(
+            "alpha beta", scope_allowlist={"training"}, top_k=1,
+            token_budget=exact_budget)
+        self.assertEqual([record.identity for record in context.records], ["small"])
+        self.assertEqual(context.token_cost, exact_budget)
+        self.assertIn("large", context.omitted_record_ids)
+
     def test_training_memory_changes_prompt_and_trace_without_sealed_data(self) -> None:
         from types import SimpleNamespace
 

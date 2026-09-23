@@ -45,8 +45,17 @@ MIN_INTEGRATED_VOCAB = 260
 
 
 def tokenizer_identity() -> str:
-    """Stable identity of the declared byte tokenizer mapping."""
-    return content_identity({"name": BYTE_TOKENIZER_NAME, "specials": BYTE_TOKENIZER_SPECIALS})
+    """Identify byte tokens and the model-visible public-state protocol.
+
+    Checkpoints trained with a different public-state renderer must not load
+    as if their model input distribution were unchanged.
+    """
+    from bramastra_lab.research.experience.public_state import (
+        public_state_identity)
+
+    return content_identity({"name": BYTE_TOKENIZER_NAME,
+                             "specials": BYTE_TOKENIZER_SPECIALS,
+                             "public_state_identity": public_state_identity()})
 
 
 def _strict_section(raw: Mapping[str, Any], allowed: frozenset[str], name: str) -> dict[str, Any]:
