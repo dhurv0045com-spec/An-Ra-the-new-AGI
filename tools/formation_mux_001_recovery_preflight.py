@@ -789,6 +789,10 @@ def _validate_checkpoint(
         "processed_tokens": processed_tokens,
         "supervised_tokens": body["supervised_tokens"],
         "result_complete": result is not None,
+        "result_sha256": _sha256_file(directory / "ARM_RESULT.json") if result is not None else None,
+        "result_byte_size": (
+            (directory / "ARM_RESULT.json").stat().st_size if result is not None else None
+        ),
         "endpoint_reached": slot.endpoint_reached(updates, processed_tokens),
     }
 
@@ -1072,6 +1076,7 @@ def validate_source(
             "sha256": row["sha256"],
             "updates": row["updates"],
             "processed_tokens": row["processed_tokens"],
+            "result_sha256": row["result_sha256"],
         }
         for row in checkpoints
     ])

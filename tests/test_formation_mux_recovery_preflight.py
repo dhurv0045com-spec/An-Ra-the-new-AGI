@@ -298,6 +298,11 @@ def test_valid_partial_output_passes_and_installs(
     ]
     assert len(rep_rows) == 8
     assert all(row["processed_tokens"] == 500_026 for row in rep_rows)
+    assert all(
+        row["result_sha256"] is not None and len(row["result_sha256"]) == 64
+        for row in receipt["checkpoints"]
+        if row["result_complete"]
+    )
     assert receipt["raw_sealed_rows_read"] is False
     result = json.loads(
         (output / "REP-FORM-003A" / "R0_PRODUCTION_BPE" / "S1" / "ARM_RESULT.json").read_text(
