@@ -34,7 +34,14 @@
     "canonical_operator": "tools/formation_mux_001_kaggle_operator_v12.py",
     "operator_commit": "4ee05f6e386f15d34f9dfa7bd7f3300a496b9896",
     "operator_blob": "e9e1f701b0d4edc509194da55fe1ba37ed62ef86",
+    "recovery_preflight": "tools/formation_mux_001_recovery_preflight.py",
+    "recovery_preflight_commit": "bef905b7e7318c1659d2e56bb2806429460a21f5",
+    "recovery_preflight_blob": "6595a1e076a54505adf65fbd86e4e1ba051265fb",
+    "recovery_preflight_schema": "anra.formation-mux-recovery-preflight/v2",
+    "recovery_notebook": "notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb",
+    "recovery_qualification": "PENDING_FOCUSED_CI_ON_PINNED_COMMIT",
     "canonical_notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
+    "canonical_notebook_scope": "fresh starts only; existing Output must use recovery_notebook",
     "notebook_pin_commit": "3e16b4733874d58f803f8aa861e90da57f6051e6",
     "experiments": ["CS-MECH-002", "REP-FORM-003A", "TIE-ROLE-001", "TIE-ROLE-XFER-001"],
     "training_rows": 60000,
@@ -61,7 +68,7 @@
       "classification": "EVIDENCE_ONLY_NOT_RESUMABLE"
     },
     "exact_resume_state_in_repository": false,
-    "next_action": "Obtain the original saved Kaggle Output tree, pass tools/formation_mux_001_recovery_preflight.py, then continue the frozen frontier without changing arms, seeds, exposures, endpoints, thresholds, or sealed policy.",
+    "next_action": "Obtain the original saved Kaggle Output tree, pass the pinned same-kernel recovery notebook, then continue the remaining 22 frozen frontier development arms. If the frontier reaches 24/24, pinned v12 automatically performs the frozen diagnostics, sealed finalization, and architecture gate without changing arms, seeds, exposures, endpoints, thresholds, or sealed policy.",
     "scientific_outcomes_observed": false,
     "development_measurements_observed": true
   },

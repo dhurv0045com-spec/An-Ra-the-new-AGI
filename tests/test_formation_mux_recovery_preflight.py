@@ -230,6 +230,22 @@ def _valid_state(root: Path) -> None:
     })
 
 
+def test_preserved_evidence_archive_contract() -> None:
+    root = Path(__file__).resolve().parents[1]
+    archive = root / (
+        "artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/"
+        "FORMATION_MUX_001_RESULTS.partial.zip"
+    )
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert digest == "3e3ad68cd7f80bd242733b61153d4bb8f3fedbb1e4fba8fbc0f3ebc5d904423f"
+    with zipfile.ZipFile(archive) as handle:
+        names = handle.namelist()
+        assert len(names) == 755
+        assert len(set(names)) == 755
+        assert not any(Path(name).name == "resume.pt" for name in names)
+        assert handle.testzip() is None
+
+
 def test_preserved_actual_public_surface_passes_pinned_validator() -> None:
     manifest = _preserved_public_manifest()
     recovery._validate_public_manifest(manifest)
@@ -891,6 +907,43 @@ def test_dangling_output_symlink_is_rejected(tmp_path: Path) -> None:
             output_path=output,
             install=True,
         )
+
+
+def test_recovery_notebook_matches_deterministic_builder() -> None:
+    from experiments.COLAB import build_formation_mux_recovery as builder
+
+    root = Path(__file__).resolve().parents[1]
+    notebook = json.loads(
+        (root / "notebooks" / "CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert notebook == builder.build()
+    metadata = notebook["metadata"]
+    assert metadata["recovery_commit"] == "bef905b7e7318c1659d2e56bb2806429460a21f5"
+    assert metadata["recovery_preflight_blob"] == "6595a1e076a54505adf65fbd86e4e1ba051265fb"
+    assert metadata["preflight_schema"] == recovery.SCHEMA
+    assert metadata["operator_commit"] == recovery.OPERATOR_COMMIT
+    assert metadata["operator_blob"] == recovery.OPERATOR_BLOB
+    assert metadata["result_hash_immutability"] is True
+    code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
+    assert len(code_cells) == 2
+    for index, cell in enumerate(code_cells):
+        compile("".join(cell["source"]), f"formation-mux-recovery-cell-{index}", "exec")
+    source = "\n".join("".join(cell["source"]) for cell in code_cells)
+    assert source.index("tools.formation_mux_001_recovery_preflight") < source.index(
+        "tools/formation_mux_001_kaggle_operator_v12.py"
+    )
+    assert "COMPLETED ARM IMMUTABILITY: PASS" in source
+    assert "same-kernel recovery receipt changed" in source
+    canonical = json.loads(
+        (root / "notebooks" / "CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    canonical_markdown = "".join(canonical["cells"][0]["source"])
+    assert "This notebook is for fresh starts only" in canonical_markdown
+    assert "CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb" in canonical_markdown
 
 
 def test_safe_checkpoint_load_accepts_primitive_payload(tmp_path: Path) -> None:

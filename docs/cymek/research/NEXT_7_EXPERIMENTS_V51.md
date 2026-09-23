@@ -25,12 +25,14 @@ Current execution authority and custody state (updated 2026-09-24):
 
 - **Science S5:** `c15ad8beb409537db42d075684ea54847a074ebd`;
 - **canonical operator:** `tools/formation_mux_001_kaggle_operator_v12.py` at `4ee05f6e386f15d34f9dfa7bd7f3300a496b9896`, git blob `e9e1f701b0d4edc509194da55fe1ba37ed62ef86`;
-- **canonical notebook:** `notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb`, pin commit `3e16b4733874d58f803f8aa861e90da57f6051e6`;
+- **fresh-start notebook:** `notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb`, historical notebook authority commit `3e16b4733874d58f803f8aa861e90da57f6051e6`; existing Output must use the recovery notebook below;
+- **recovery notebook:** `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb`, pinned to preflight commit/blob `bef905b7e7318c1659d2e56bb2806429460a21f5` / `6595a1e076a54505adf65fbd86e4e1ba051265fb`;
 - **readiness:** `docs/cymek/experiments/FORMATION-MUX-001/RUN_READINESS_V5.json`;
 - official execution requires Kaggle `GPU T4 x2` and Internet ON;
 - the 2026-09-23 dual-T4 session completed 24/24 S5 development arms and 2/24 TIE-ROLE frontier arms before the session wall guard stopped further launches;
 - no S5 or frontier sealed evaluation was consumed, no final verdict exists, and no architecture promotion is authorized;
-- the preserved 6,118.959 KiB result archive is evidence-only and contains no `resume.pt`; exact continuation requires the original saved Kaggle Output tree and must pass `tools/formation_mux_001_recovery_preflight.py` before the pinned operator is allowed to resume.
+- the preserved 6,118.959 KiB result archive is evidence-only and contains no `resume.pt`; exact continuation requires the original saved Kaggle Output tree and must pass recovery-preflight v2 at commit `bef905b7e7318c1659d2e56bb2806429460a21f5` / blob `6595a1e076a54505adf65fbd86e4e1ba051265fb` before the pinned operator is allowed to resume. The canonical recovery notebook also binds completed result/checkpoint hashes across execution;
+- recovery-preflight v2 and its focused CI suite are not yet covered by a passing run; GitHub Actions run `34900925973` predates this recovery implementation and does not qualify it. Do not launch the recovery notebook until the focused run passes and its ID is recorded here.
 
 Science S5 keeps the S4 causal questions, arms, seeds, endpoints, thresholds, and sealed firewall. It expands only the synthetic training surface to **60,000 unique rows** (10,000/family) while keeping development at 480 and sealed at 720. CS-MECH consumes 32,000 row presentations per arm, so it does not wrap its training permutation before the endpoint. REP-FORM remains matched by 500,000 actual processed non-padding tokens.
 
@@ -38,6 +40,6 @@ Durability is now explicit: CS-MECH exact-resume checkpoints every **200 updates
 
 Pre-execution qualification on GitHub Actions run `34900925973` passed: S5 sources compiled, **28 targeted tests passed**, all **38 immutable science files** matched S5, the real frozen V24576 tokenizer produced the expected 60,000/480 public surface and reproducible 720-row sealed commitments for each experiment, and the canonical notebook pins validated. This remains pre-execution engineering evidence; it is not a scientific outcome.
 
-The next discriminating action is conditional custody recovery, not a new experiment: recover the original checkpoint-bearing Kaggle Output, verify all completed-arm checkpoint hashes and the pinned identities, then continue the remaining 22 frozen TIE-ROLE frontier arms. If the saved Output cannot be recovered, retain the partial archive as development evidence and do not relabel, silently rerun, or consume sealed data.
+The next discriminating action is conditional custody recovery, not a new experiment: recover the original checkpoint-bearing Kaggle Output, pass the pinned same-kernel recovery notebook, verify all completed-arm checkpoint/result hashes and pinned identities, then continue the remaining 22 frozen TIE-ROLE frontier development arms. If development reaches 24/24, the same pinned operator automatically performs the frozen diagnostics, sealed finalization, and architecture gate. If the saved Output cannot be recovered, retain the partial archive as development evidence and do not relabel, silently rerun, or consume sealed data.
 
 Operational note: later campaigns may be multiplexed onto shared sessions when compatible, but each keeps separate preregistrations, data identities, sealed sets, verdicts, and claim ceilings.

@@ -1,6 +1,7 @@
 # FORMATION-MUX-001 recovery runbook
 
 Status: **BLOCKED ON THE ORIGINAL KAGGLE SAVED OUTPUT**
+Recovery qualification: **PENDING FOCUSED CI ON THE PINNED RECOVERY COMMIT**
 Campaign snapshot: 24/24 S5 development arms; 2/24 TIE-ROLE frontier arms; no sealed evaluation
 Recovery rule: no retraining, no new seeds, no protocol changes, and no sealed access until custody passes
 
@@ -45,6 +46,8 @@ A Kaggle-downloaded archive is acceptable only if it contains the checkpoint tre
 The recovered state must bind all of the following:
 
 - Science S5 commit: `c15ad8beb409537db42d075684ea54847a074ebd`
+- recovery preflight commit: `bef905b7e7318c1659d2e56bb2806429460a21f5`
+- recovery preflight Git blob: `6595a1e076a54505adf65fbd86e4e1ba051265fb`
 - operator v12 commit: `4ee05f6e386f15d34f9dfa7bd7f3300a496b9896`
 - operator v12 Git blob: `e9e1f701b0d4edc509194da55fe1ba37ed62ef86`
 - public surface identity: `f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c`
@@ -52,42 +55,21 @@ The recovered state must bind all of the following:
 
 ## Recovery preflight
 
-Preferred path: open `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb` in a fresh Kaggle T4×2 notebook, attach the complete saved Output under **Add Data**, and run all cells in order. The notebook is pinned to recovery commit `7a82d80e6f44756c9e37f3b554500f4f5c664238`, verifies both immutable checkouts, installs only to a fresh staging path, requires `RECOVERY_PREFLIGHT.json: PASS`, and then invokes the already-frozen operator v12. Do not edit its pins or bypass its cells.
+Preferred and canonical path: open `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb` in a fresh Kaggle T4×2 notebook, attach the complete saved Output under **Add Data**, and run all cells in order. The notebook is pinned to recovery commit `bef905b7e7318c1659d2e56bb2806429460a21f5`, preflight Git blob `6595a1e076a54505adf65fbd86e4e1ba051265fb`, and receipt schema `anra.formation-mux-recovery-preflight/v2`. It verifies both immutable checkouts, requires two T4s and the frozen tokenizer line, validates the real S5 public surface and official checkpoint payloads, installs only through fresh staging with atomic no-replace semantics, binds a same-kernel recovery nonce, and requires `RECOVERY_PREFLIGHT.json: PASS` before invoking the already-frozen operator v12. After the operator returns, it proves every previously completed checkpoint and `ARM_RESULT.json` remained byte-identical. Do not edit its pins, reconstruct it manually, or bypass its cells.
 
-The equivalent one-shot preflight cell for a fresh notebook is:
-
-```python
-import pathlib
-import subprocess
-import sys
-
-RECOVERY_REPO = pathlib.Path('/kaggle/temp/formation-mux-recovery-preflight')
-RECOVERY_COMMIT = '7a82d80e6f44756c9e37f3b554500f4f5c664238'
-REMOTE = 'https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git'
-
-subprocess.run([
-    'git', 'clone', '--no-checkout', REMOTE, str(RECOVERY_REPO)
-], check=True)
-subprocess.run([
-    'git', '-C', str(RECOVERY_REPO), 'fetch', 'origin'
-], check=True)
-subprocess.run([
-    'git', '-C', str(RECOVERY_REPO), 'switch', '--detach', RECOVERY_COMMIT
-], check=True)
-subprocess.run([
-    sys.executable, '-m', 'tools.formation_mux_001_recovery_preflight',
-    '--input', '/kaggle/input',
-    '--out', '/kaggle/working/FORMATION_MUX_001',
-    '--install',
-], cwd=str(RECOVERY_REPO), check=True)
-```
+The pinned v12 command is the full frozen continuation: if the frontier reaches 24/24, it automatically runs the two development-only diagnostics, then the preregistered sealed finalization and architecture gate. The canonical recovery notebook is not a development-only launcher. No sealed row is read before custody passes and all development prerequisites are complete under the frozen operator.
 
 Expected successful receipt:
 
+- `schema: anra.formation-mux-recovery-preflight/v2`
 - `status: PASS`
+- `recovery_only: true`
+- `recovery_nonce`: matches the current notebook kernel
 - `s5_completed_arms: 24`
 - `frontier_completed_arms: 2` or a later exact continuation count
 - `official_checkpoint_count: 26` or greater
+- `checkpoint_inventory_sha256`: non-null and bound to checkpoint/result hashes
+- `recovery_runtime_contract`: official Kaggle NVIDIA Tesla T4 x2 worker checkpoints with CUDA RNG state
 - `raw_sealed_rows_read: false`
 
 ## If preflight fails
@@ -99,11 +81,13 @@ Stop. Do not run the operator and do not work around the failure. Preserve the a
 - hash mismatch: checkpoint and receipt are from different runs or the file is damaged;
 - ambiguous recovery input: more than one saved campaign was attached;
 - science/operator/surface/tokenizer mismatch: this is not the pinned execution;
+- latched global failure: pinned v12 cannot safely clear that state; preserve it for engineering review;
+- non-endpoint or internally inconsistent checkpoint: the apparent COMPLETE result is not backed by its final resumable state;
 - interrupted sealed marker: manual sealed-custody review is required before any continuation.
 
 ## Continuation gate
 
-Only after `RECOVERY_PREFLIGHT.json` is present and valid may the exact pinned v12 operator run under the approved Kaggle T4×2 configuration. Completed arms must remain immutable. The scientific endpoint remains the remaining frozen TIE-ROLE frontier work; this recovery action does not authorize a new experiment or any capability/production claim.
+Only after `RECOVERY_PREFLIGHT.json` is present and valid may the exact pinned v12 operator run under the approved Kaggle T4×2 configuration. Completed arm checkpoints and result files must remain byte-immutable; the canonical notebook verifies this after the operator returns. If v12 records a new global failure, a later preflight will fail closed because v12's historical failure latch is not cleared silently; do not bypass that gate. The immediate scientific work is the remaining 22 frozen TIE-ROLE frontier development arms; after 24/24, the same pinned operator crosses the frozen sealed-finalization boundary described above. This recovery action does not authorize a new experiment or any capability/production claim.
 
 ## Current evidence interpretation
 

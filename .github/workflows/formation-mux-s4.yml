@@ -1,4 +1,4 @@
-name: FORMATION-MUX S5 + frontier CPU qualification
+name: FORMATION-MUX S5 + frontier + recovery qualification
 
 on:
   push:
@@ -8,6 +8,15 @@ on:
       - 'anra_v5/tie_role_*'
       - 'v5_experiments/formation_mux_*'
       - 'v5_experiments/tie_role_*'
+      - 'v5_model/**'
+      - 'v5_training/**'
+      - 'v5_objectives/**'
+      - 'v5_data/corpus_loading.py'
+      - 'artifacts/e1/local_tournament/**'
+      - 'artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/FORMATION_MUX_001_RESULTS.partial.zip'
+      - 'artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/RECOVERY_RUNBOOK.md'
+      - 'artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/SESSION_REPORT.md'
+      - 'docs/cymek/next_core/FORMATION_MUX_001_CURRENT_STATE_OVERRIDE.json'
       - 'experiments/COLAB/build_formation_mux_recovery.py'
       - 'tools/formation_mux_001_*'
       - 'tests/test_formation_mux_*'
@@ -17,6 +26,8 @@ on:
       - 'docs/cymek/experiments/CS-MECH-002/**'
       - 'docs/cymek/experiments/REP-FORM-003A/**'
       - '.github/workflows/formation-mux-s4.yml'
+  pull_request:
+    branches: [cymek-next-core-architecture, cymek-beta]
   workflow_dispatch:
 
 permissions:
@@ -57,7 +68,8 @@ jobs:
             tools/formation_mux_001_kaggle_operator_v10.py \
             tools/formation_mux_001_kaggle_operator_v11.py \
             tools/formation_mux_001_kaggle_operator_v12.py \
-            tools/formation_mux_001_recovery_preflight.py
+            tools/formation_mux_001_recovery_preflight.py \
+            experiments/COLAB/build_formation_mux_recovery.py
       - name: Run FORMATION-MUX qualification tests
         run: |
           python -m pytest -q \

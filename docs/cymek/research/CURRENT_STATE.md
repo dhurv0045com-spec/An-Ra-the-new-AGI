@@ -10,7 +10,8 @@ The current `cymek-beta` formation-mux state is newer than the historical queue 
 - the 2026-09-23 Kaggle T4×2 snapshot completed **24/24 S5 development arms** and **2/24 TIE-ROLE frontier arms** before the session wall guard stopped further launches;
 - sealed evaluation was not consumed, no `FINAL_RESULT.json` or architecture gate exists, and no final scientific verdict or promotion is authorized;
 - `artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/FORMATION_MUX_001_RESULTS.partial.zip` is an evidence-only snapshot with zero `resume.pt` members and is not sufficient for exact continuation;
-- the next discriminating action is recovery of the original saved Kaggle Output tree, checkpoint/hash preflight, and only then continuation of the remaining frozen frontier arms;
+- the next discriminating action is recovery of the original saved Kaggle Output tree, the pinned same-kernel checkpoint/result-hash preflight, and only then continuation of the remaining frozen frontier arms; after 24/24, pinned v12 automatically crosses the frozen sealed-finalization boundary;
+- recovery-preflight v2 and its focused CI suite are pinned but not yet qualified by a passing CI run; do not launch the recovery notebook until that qualification is recorded;
 - authoritative current details: `docs/cymek/next_core/FORMATION_MUX_001_CURRENT_STATE_OVERRIDE.json` and `docs/cymek/research/NEXT_7_EXPERIMENTS_V51.md`.
 
 The older R1C and formation-mux entries below are retained as historical roadmap context, not current execution status.
