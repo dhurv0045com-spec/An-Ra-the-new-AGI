@@ -134,9 +134,9 @@ def run_rehearsal(*, repo_root: str | None = None,
         steps["live_episode"] = exercise_live_episode_no_update()
 
         # 6. Statistics consumers fed by the E2 phase output.
-        artifact = json.load(open(
-            os.path.join(run_dir, "phase_outputs", "E2", "E2-1701.json"),
-            encoding="utf-8"))
+        with open(os.path.join(run_dir, "phase_outputs", "E2", "E2-1701.json"),
+                  encoding="utf-8") as handle:
+            artifact = json.load(handle)
         deltas = artifact.get("paired_deltas", [])
         if not deltas:
             raise RuntimeError("E2 artifact carries no paired rows for "

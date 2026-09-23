@@ -207,8 +207,8 @@ def cmd_export(args: argparse.Namespace) -> int:
     explicit incomplete status; it cannot satisfy complete-campaign
     acceptance (see E6 verification).
     """
-    import hashlib
     import shutil
+    from bramastra_lab.research.contracts.core import file_sha256
 
     ledger_path = os.path.join(args.run_dir, "campaign_ledger.sqlite")
     if not os.path.exists(ledger_path):
@@ -325,7 +325,8 @@ def cmd_export(args: argparse.Namespace) -> int:
         for path in sorted(_glob.glob(os.path.join(
                 args.run_dir, "phase_outputs", "E5", "*.json"))):
             try:
-                transcripts.append(json.load(open(path, encoding="utf-8")))
+                with open(path, encoding="utf-8") as handle:
+                    transcripts.append(json.load(handle))
             except Exception:
                 continue
         with open(os.path.join(args.out, "proposer_transcripts.json"), "w", encoding="utf-8") as handle:
@@ -386,7 +387,7 @@ def cmd_export(args: argparse.Namespace) -> int:
                 continue
             path = os.path.join(base, name)
             try:
-                digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+                digest = file_sha256(path)
                 rel = os.path.relpath(path, args.out)
                 manifest_records[rel] = {"sha256": digest,
                                          "bytes": os.path.getsize(path)}
@@ -400,10 +401,10 @@ def cmd_export(args: argparse.Namespace) -> int:
                    "complete": payload_count > 0}, handle, indent=2, sort_keys=True)
     # Independent verification: re-hash every listed file.
     try:
-        reloaded = json.load(open(manifest_path, encoding="utf-8"))
+        with open(manifest_path, encoding="utf-8") as handle:
+            reloaded = json.load(handle)
         for rel, record in reloaded.get("files", {}).items():
-            actual = hashlib.sha256(
-                open(os.path.join(args.out, rel), "rb").read()).hexdigest()
+            actual = file_sha256(os.path.join(args.out, rel))
             if actual != record.get("sha256"):
                 print(json.dumps({"status": "EXPORT_REFUSED",
                                   "reason": f"manifest verification failed for {rel}"}))
@@ -420,8 +421,9 @@ def cmd_export(args: argparse.Namespace) -> int:
     for base_d, _dirs_c, names_c in os.walk(checkpoints_out):
         if "manifest.json" in names_c:
             try:
-                _m = json.load(open(os.path.join(base_d, "manifest.json"),
-                                    encoding="utf-8"))
+                with open(os.path.join(base_d, "manifest.json"),
+                          encoding="utf-8") as handle:
+                    _m = json.load(handle)
                 if _m.get("checkpoint_id") and any(
                         n.endswith(".pt") for n in names_c):
                     exported_ids.add(str(_m["checkpoint_id"]))

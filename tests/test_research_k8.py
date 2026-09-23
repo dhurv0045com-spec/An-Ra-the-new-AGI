@@ -358,9 +358,10 @@ class K8BundleTests(unittest.TestCase):
                             meta_validate=1, meta_confirm=1)
             episode_path = os.path.join(tmp, "episodes")
             family_file = os.path.join(episode_path, os.listdir(episode_path)[0])
-            content = open(family_file, encoding="utf-8").read()
-            open(family_file, "w", encoding="utf-8").write(
-                content + '{"tampered": true}\n')
+            with open(family_file, encoding="utf-8") as handle:
+                content = handle.read()
+            with open(family_file, "w", encoding="utf-8") as handle:
+                handle.write(content + '{"tampered": true}\n')
             report = validate_bundle(tmp, min_confirmation=1)
             self.assertFalse(report["valid"])
 

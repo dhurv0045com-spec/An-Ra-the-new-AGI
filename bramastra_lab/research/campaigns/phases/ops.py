@@ -41,6 +41,7 @@ def k8_campaign_config():
 def k8_identities(*, data_dir: str | None = None) -> dict[str, str]:
     """Real source/tokenizer/config/data/code identities (no generic `k8`)."""
     from bramastra_lab.research.config import tokenizer_identity
+    from bramastra_lab.research.contracts.core import file_sha256
 
     from bramastra_lab.research.runtime.provenance import source_closure_sha256
     import hashlib
@@ -62,8 +63,7 @@ def k8_identities(*, data_dir: str | None = None) -> dict[str, str]:
             for name in sorted(names):
                 path = os.path.join(base, name)
                 try:
-                    digest.update(hashlib.sha256(
-                        open(path, "rb").read()).hexdigest().encode())
+                    digest.update(file_sha256(path).encode())
                 except OSError:
                     continue
         data_hash = digest.hexdigest()

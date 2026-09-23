@@ -5,6 +5,7 @@ always. The full learned path — train -> checkpoint -> fresh-process resume
 -> infer -> evaluate -> package — performs optimizer updates and is therefore
 gated behind ``BRAMASTRA_LEARNED_CHECKS=1`` under the cumulative smoke budget.
 """
+import hashlib
 import json
 import os
 import subprocess
@@ -45,6 +46,29 @@ def write_config(directory: str, overrides: dict | None = None) -> str:
 
 
 class PrepareDataTests(unittest.TestCase):
+    def test_split_rows_are_hashed_and_parsed_in_one_stream(self) -> None:
+        from bramastra_lab.research.commands import _load_rows
+        from bramastra_lab.research.errors import CommandError
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = b'{"value": 1}\n{"value": 2}\n'
+            row_path = os.path.join(tmp, "rows-training.jsonl")
+            with open(row_path, "wb") as handle:
+                handle.write(payload)
+            manifest = {"split_integrity": {"training": {
+                "rows_sha256": hashlib.sha256(payload).hexdigest(),
+                "row_count": 2}}}
+            with open(os.path.join(tmp, "prepared.json"), "w",
+                      encoding="utf-8") as handle:
+                json.dump(manifest, handle)
+
+            self.assertEqual(_load_rows(tmp, "training"),
+                             [{"value": 1}, {"value": 2}])
+            with open(row_path, "wb") as handle:
+                handle.write(b'{"value": 3}\n{"value": 2}\n')
+            with self.assertRaisesRegex(CommandError, "do not match"):
+                _load_rows(tmp, "training")
+
     def test_prepare_data_is_deterministic_and_inventoried(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             config_path = write_config(tmp)

@@ -395,6 +395,61 @@ class ExecutiveTests(unittest.TestCase):
         result = runner.run(workspace)
         self.assertTrue(result["terminated_reason"].startswith("no_progress"))
         self.assertEqual(result["terminated_reason"], "no_progress:COMPAREx3")
+        self.assertEqual(sum(record.executed for record in result["records"]), 2)
+
+    def test_repeated_operation_can_continue_when_workspace_progresses(self) -> None:
+        workspace = new_workspace()
+        registry = OperationRegistry(verbs=("COMPARE",))
+        executive = Executive(registry, scorer=lambda candidates: [1.0],
+                              decision_origin="model")
+        runner = SessionRunner(executive, executors={
+            "COMPARE": lambda op, ws: (
+                ws.admit_evidence({"comparison": len(ws.evidence)}),
+                ResourceVector(model_calls=1))[1]},
+            no_progress_limit=3, max_steps=4)
+        result = runner.run(workspace)
+        self.assertEqual(result["terminated_reason"], "max_steps_exhausted")
+        self.assertEqual(sum(record.executed for record in result["records"]), 4)
+        self.assertEqual(len(workspace.evidence), 4)
+
+    def test_session_runner_stops_at_workspace_action_budget(self) -> None:
+        workspace = CognitiveWorkspace(goal={"task": "stop on budget"},
+                                       success_predicate="complete", budget=2)
+        executive = Executive(
+            OperationRegistry(verbs=("VERIFY",)),
+            scorer=lambda candidates: [1.0], decision_origin="model")
+        runner = SessionRunner(
+            executive,
+            executors={"VERIFY": lambda _op, _ws: ResourceVector(tool_calls=1)},
+            max_steps=10)
+        result = runner.run(workspace)
+        self.assertEqual(result["terminated_reason"], "workspace_budget_exhausted")
+        self.assertEqual(result["steps"], 2)
+        self.assertEqual(workspace.step_counter, workspace.budget)
+        self.assertEqual(result["resources"]["tool_calls"], 2)
+
+    def test_invalid_scores_and_resource_estimates_fail_closed(self) -> None:
+        for score in (float("nan"), float("inf"), float("-inf")):
+            executive = Executive(
+                OperationRegistry(verbs=("PREDICT",)),
+                scorer=lambda candidates, score=score: [score],
+                decision_origin="model")
+            with self.subTest(score=score), self.assertRaises(ExecutiveError):
+                executive.decide(new_workspace())
+        for kwargs in ({"inference_tokens": -1},
+                       {"model_calls": True},
+                       {"wall_seconds": float("nan")},
+                       {"wall_seconds": float("inf")}):
+            with self.subTest(resource=kwargs), self.assertRaises(ExecutiveError):
+                ResourceVector(**kwargs)
+
+    def test_deliberation_rejects_non_finite_cost_or_threshold(self) -> None:
+        with self.assertRaisesRegex(ExecutiveError, "declared_cost"):
+            decide_deliberation(predicted_improvement=0.5,
+                                declared_cost=float("inf"), threshold=0.1)
+        with self.assertRaisesRegex(ExecutiveError, "threshold"):
+            decide_deliberation(predicted_improvement=0.5,
+                                declared_cost=0.1, threshold=float("nan"))
 
     def test_unbounded_candidate_set_rejects(self) -> None:
         workspace = new_workspace()

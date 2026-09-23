@@ -5,6 +5,7 @@ from dataclasses import dataclass, fields
 import hashlib
 import json
 import math
+import os
 import sys
 from types import MappingProxyType
 from typing import Any, ClassVar, Mapping
@@ -57,6 +58,15 @@ def canonical_json(value: Any) -> bytes:
 
 def content_identity(value: Any) -> str:
     return hashlib.sha256(canonical_json(value)).hexdigest()
+
+
+def file_sha256(path: str | os.PathLike[str]) -> str:
+    """Hash a file incrementally, keeping temporary memory bounded to 1 MiB."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _byteorder(dtype: Any) -> str:

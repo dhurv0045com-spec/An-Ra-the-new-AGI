@@ -8,10 +8,11 @@ missing artifacts; it cannot satisfy complete-campaign acceptance.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import time
+
+from bramastra_lab.research.contracts.core import content_identity, file_sha256
 
 from bramastra_lab.research.campaigns.phases.types import (
     EVIDENCE_FIXTURE,
@@ -115,7 +116,7 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
             if name == "artifact_manifest.json":
                 continue
             try:
-                digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+                digest = file_sha256(path)
             except OSError:
                 continue
             digests[rel] = digest
@@ -203,7 +204,8 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
     # Restore evidence must list checkpoints with real identities.
     restore_path = os.path.join(out_dir, "restore_evidence.json")
     try:
-        restore = json.load(open(restore_path, encoding="utf-8"))
+        with open(restore_path, encoding="utf-8") as handle:
+            restore = json.load(handle)
     except Exception as exc:
         return {"ok": False, "reason": f"restore evidence unreadable: {exc}"}
     checkpoints = restore.get("checkpoints", [])
@@ -211,7 +213,6 @@ def _verify_bundle(run_dir: str, out_dir: str, data_dir: str) -> dict:
         return {"ok": False, "reason": "no checkpoint records in restore evidence"}
     # Bundle identity is the content hash of the verified manifest digests
     # (never a fixed invented string).
-    from bramastra_lab.research.contracts.core import content_identity
     bundle_identity = content_identity(
         {"files": digests, "parents": sorted(parents)})
     return {"ok": True, "files": sorted(digests), "digests": digests,

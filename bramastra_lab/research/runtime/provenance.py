@@ -11,6 +11,8 @@ import hashlib
 import os
 import subprocess
 
+from bramastra_lab.research.contracts.core import file_sha256
+
 
 def _repo_root() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -35,7 +37,7 @@ def source_closure_sha256() -> str:
     for relative, absolute in sorted(files):
         digest.update(relative.replace(os.sep, "/").encode("utf-8"))
         digest.update(b"\0")
-        digest.update(hashlib.sha256(open(absolute, "rb").read()).hexdigest().encode())
+        digest.update(file_sha256(absolute).encode())
         digest.update(b"\0")
     return digest.hexdigest()
 

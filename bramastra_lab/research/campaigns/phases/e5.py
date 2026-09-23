@@ -1031,7 +1031,8 @@ def execute(job: JobInput, *, ops=None,
     # Attach the Block-B provenance (fresh successor archive).
     try:
         artifact_path = os.path.join(artifact_dir, f"E5-{job.seed}.json")
-        updated = json.load(open(artifact_path, encoding="utf-8"))
+        with open(artifact_path, encoding="utf-8") as handle:
+            updated = json.load(handle)
         updated["archive_b_identity"] = archive_b_identity
         updated["archive_b_rows"] = measured_b["rows"]
         updated["archive_blocks"] = {

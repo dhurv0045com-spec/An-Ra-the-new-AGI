@@ -10,7 +10,7 @@ import os
 import random
 from typing import Any
 
-from bramastra_lab.research.contracts.core import content_identity
+from bramastra_lab.research.contracts.core import content_identity, file_sha256
 
 BUNDLE_SCHEMA = "bramastra-k8-data/v1"
 
@@ -21,7 +21,8 @@ K8_INQUIRY_BUDGET = 4
 
 
 def _hash_file(path: str) -> str:
-    return hashlib.sha256(open(path, "rb").read()).hexdigest()
+    """Hash a bundle member with bounded memory and a closed file."""
+    return file_sha256(path)
 
 
 def generate_rule_inquiry_mechanism(rng: random.Random, mechanism_index: int) -> dict:
@@ -1016,7 +1017,8 @@ def validate_bundle(bundle_dir: str, *, min_confirmation: int = 32) -> dict[str,
     manifest_path = os.path.join(bundle_dir, "manifest.json")
     if not os.path.exists(manifest_path):
         return {"valid": False, "reason": "no manifest.json"}
-    manifest = json.load(open(manifest_path, encoding="utf-8"))
+    with open(manifest_path, encoding="utf-8") as handle:
+        manifest = json.load(handle)
     issues = []
     for relative, expected_hash in manifest.get("file_hashes", {}).items():
         path = os.path.join(bundle_dir, relative)
@@ -1090,7 +1092,8 @@ def _validate_disjointness(bundle_dir: str) -> list[str]:
     splits_path = os.path.join(bundle_dir, "splits.json")
     if os.path.exists(splits_path):
         try:
-            splits = json.load(open(splits_path, encoding="utf-8"))
+            with open(splits_path, encoding="utf-8") as handle:
+                splits = json.load(handle)
             claimed = splits.get("_claimed", {})
             all_claimed: dict[str, str] = {}
             for family, identities in claimed.items():

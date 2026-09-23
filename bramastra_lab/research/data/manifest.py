@@ -8,6 +8,7 @@ inference consumers.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import urllib.parse
@@ -128,12 +129,24 @@ def _validate_relative_path(path: str) -> None:
         raise DatasetError("entry.path must not reference home directories")
 
 
-def _load_jsonl(path: str) -> list[tuple[int, Mapping[str, Any]]]:
+def _load_jsonl(
+    path: str,
+) -> tuple[list[tuple[int, Mapping[str, Any]]], str, int, bool]:
     records: list[tuple[int, Mapping[str, Any]]] = []
+    digest = hashlib.sha256()
+    byte_count = 0
+    has_non_whitespace = False
     try:
-        with open(path, "r", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                stripped = line.strip()
+        with open(path, "rb") as handle:
+            for line_number, raw_line in enumerate(handle, start=1):
+                digest.update(raw_line)
+                byte_count += len(raw_line)
+                has_non_whitespace |= bool(raw_line.strip())
+                try:
+                    stripped = raw_line.decode("utf-8").strip()
+                except UnicodeDecodeError as exc:
+                    raise DatasetError(
+                        f"{path}:{line_number} is not valid UTF-8: {exc}") from exc
                 if not stripped:
                     continue
                 try:
@@ -145,7 +158,7 @@ def _load_jsonl(path: str) -> list[tuple[int, Mapping[str, Any]]]:
                 records.append((line_number, record))
     except OSError as exc:
         raise DatasetError(f"cannot read local data file {path}: {exc}")
-    return records
+    return records, digest.hexdigest(), byte_count, has_non_whitespace
 
 
 def _semantic_content(kind: str, record: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -222,18 +235,15 @@ def load_dataset(manifest_path: str) -> DatasetHandle:
         if not os.path.exists(absolute):
             raise DatasetError(
                 f"local data file {absolute} is missing; corpus supply is incomplete")
-        file_bytes = open(absolute, "rb").read()
-        if not file_bytes.strip():
+        records, file_sha, file_size, has_non_whitespace = _load_jsonl(absolute)
+        if not has_non_whitespace:
             raise DatasetError(f"local data file {absolute} is empty")
-        import hashlib
-
-        file_sha = hashlib.sha256(file_bytes).hexdigest()
         file_records.append({"path": path, "split": split, "kind": kind,
-                             "sha256": file_sha, "bytes": len(file_bytes),
+                             "sha256": file_sha, "bytes": file_size,
                              "trainable": trainable, "license": entry_license,
                              "provenance": entry_provenance})
 
-        for line_number, record in _load_jsonl(absolute):
+        for line_number, record in records:
             unknown_example = set(record) - {"example_id", "text", "prompt_events", "answer",
                                              "group", "family", "mechanism_cluster",
                                              "trainable"}

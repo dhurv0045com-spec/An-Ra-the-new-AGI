@@ -790,6 +790,7 @@ def _source_closure_hash() -> str:
 
 def _hash_dir(directory: str) -> str:
     import hashlib
+    from bramastra_lab.research.contracts.core import file_sha256
 
     digest = hashlib.sha256()
     if not os.path.isdir(directory):
@@ -798,7 +799,7 @@ def _hash_dir(directory: str) -> str:
         for name in sorted(names):
             path = os.path.join(base, name)
             try:
-                digest.update(hashlib.sha256(open(path, "rb").read()).hexdigest().encode())
+                digest.update(file_sha256(path).encode())
             except OSError:
                 continue
     return digest.hexdigest()

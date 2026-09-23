@@ -15,7 +15,7 @@ from typing import Any
 
 from bramastra_lab.research.errors import CommandError
 from bramastra_lab.research.config import BuildConfig, seed_everything
-from bramastra_lab.research.contracts.core import content_identity
+from bramastra_lab.research.contracts.core import content_identity, file_sha256
 from bramastra_lab.research.data.manifest import DatasetError, load_dataset
 from bramastra_lab.research.experience.codec import (
     SPECIAL_BOUNDARY,
@@ -212,15 +212,19 @@ def _load_rows(data_dir: str, split: str) -> list[dict[str, Any]]:
         raise CommandError(
             f"prepared manifest does not record split {split!r}; prepared data "
             "predates content binding and must be regenerated")
-    payload = open(path, "rb").read()
-    actual = _hashlib.sha256(payload).hexdigest()
+    rows = []
+    split_digest = _hashlib.sha256()
+    with open(path, "rb") as handle:
+        for line in handle:
+            split_digest.update(line)
+            if line.strip():
+                rows.append(json.loads(line.decode("utf-8")))
+    actual = split_digest.hexdigest()
     if actual != integrity["rows_sha256"]:
         raise CommandError(
             f"prepared split {split!r} bytes do not match the prepared manifest "
             f"(expected {integrity['rows_sha256'][:12]}, found {actual[:12]}); "
             "changed prepared data requires regeneration, not silent reuse")
-    rows = [json.loads(line) for line in payload.decode("utf-8").splitlines()
-            if line.strip()]
     if len(rows) != integrity["row_count"]:
         raise CommandError(
             f"prepared split {split!r} row count {len(rows)} does not match the "
@@ -255,8 +259,6 @@ def _validate_prepared_manifest(data_dir: str, prepared: dict[str, Any]) -> None
     retaining an old top-level identity — even together with the split
     integrity map — cannot pass.
     """
-    import hashlib as _hashlib
-
     if prepared.get("schema") != "bramastra-prepared-data/v1":
         raise CommandError(
             f"unsupported prepared-data schema {prepared.get('schema')!r}")
@@ -280,7 +282,7 @@ def _validate_prepared_manifest(data_dir: str, prepared: dict[str, Any]) -> None
         split_path = os.path.join(data_dir, f"rows-{split}.jsonl")
         if not os.path.exists(split_path):
             raise CommandError(f"prepared split {split!r} file is missing")
-        actual = _hashlib.sha256(open(split_path, "rb").read()).hexdigest()
+        actual = file_sha256(split_path)
         if actual != integrity["rows_sha256"]:
             raise CommandError(
                 f"prepared split {split!r} bytes do not match the prepared manifest; "

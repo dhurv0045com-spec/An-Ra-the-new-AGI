@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -9,7 +10,7 @@ from bramastra_lab.research.contracts import (
     Action, Checkpoint, ContractError, Episode, Experiment, Outcome, Promotion,
     PublicObservation, TaskSpec, TrainingBatch, Transition,
     adapt_discovery_outcome, canonical_json, content_identity, tensor_identity,
-    validate_public_payload, validate_semantic_splits,
+    file_sha256, validate_public_payload, validate_semantic_splits,
 )
 
 
@@ -67,6 +68,13 @@ def test_canonical_json_is_strict_and_type_preserving():
         canonical_json({"ordinary": b"cannot-use-a-colliding-sentinel"})
     with pytest.raises(ContractError, match="nonfinite"):
         canonical_json({"x": math.inf})
+
+
+def test_file_sha256_streams_files_larger_than_one_chunk(tmp_path):
+    path = tmp_path / "payload.bin"
+    payload = (b"bramastra-streaming-hash\0" * 50_000) + b"tail"
+    path.write_bytes(payload)
+    assert file_sha256(path) == hashlib.sha256(payload).hexdigest()
 
 
 def test_records_reject_unknown_fields_and_unsupported_versions():
