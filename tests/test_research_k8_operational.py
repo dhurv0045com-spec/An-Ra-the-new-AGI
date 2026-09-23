@@ -1073,6 +1073,34 @@ class O10NotebookTests(unittest.TestCase):
         self.assertEqual(_precision_for_device("cpu", "bf16_autocast"),
                          "fp32")
 
+    def test_registered_wall_is_the_single_source_for_every_default(self) -> None:
+        from bramastra_lab.research.campaigns import k8 as _k8
+        from bramastra_lab.research.campaigns import process_supervision as _ps
+        from bramastra_lab.research.campaigns import runner as _runner
+
+        self.assertEqual(_ps.CAMPAIGN_WALL_MINUTES, 480.0)
+        self.assertEqual(_ps.TRAINING_CUTOFF_MINUTES,
+                         _ps.CAMPAIGN_WALL_MINUTES - _ps.EXPORT_RESERVE_MINUTES)
+        # No stale 600-minute default may survive anywhere: a caller that
+        # omits an explicit wall must get the registered owner allocation.
+        import inspect as _inspect
+
+        for target in (_runner.run_campaign, _runner._phase_plan):
+            signature = _inspect.signature(target)
+            self.assertEqual(
+                signature.parameters["max_wall_minutes"].default,
+                _ps.CAMPAIGN_WALL_MINUTES, target.__name__)
+        parser = _k8.build_parser()
+        run_args = next(action for action in parser._subparsers._group_actions[0].choices["run"]._actions
+                        if action.dest == "max_wall_minutes")
+        self.assertEqual(run_args.default, _ps.CAMPAIGN_WALL_MINUTES)
+        self.assertNotIn("600.0", _inspect.getsource(_k8))
+        self.assertNotIn("600.0", _inspect.getsource(_runner))
+        # The default plan is the registered 480-minute plan.
+        self.assertEqual(
+            _runner._phase_caps(_ps.CAMPAIGN_WALL_MINUTES, _ps.EXPORT_RESERVE_MINUTES),
+            {"E0": 30, "E1": 120, "E2": 45, "E3": 60, "E4": 60, "E5": 135})
+
     def test_notebook_backed_by_repo(self) -> None:
         notebook = json.load(open("notebooks/bramastra_k8.ipynb", encoding="utf-8"))
         sources = ["".join(cell["source"]) for cell in notebook["cells"]
@@ -1101,6 +1129,10 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("BRAMASTRA_BUNDLE_DIR", _module_source)
         self.assertIn("BRAMASTRA_GIT_URL", joined)
         self.assertIn("E0 scheduler preflight: passed", joined)
+        self.assertIn("Wall-budget preflight: passed", joined)
+        self.assertIn("REGISTERED_WALL_MINUTES", joined)
+        self.assertIn("CAMPAIGN_WALL_MINUTES", joined)
+        self.assertIn("TRAINING_CUTOFF_MINUTES", joined)
         self.assertIn("phase_absolute_deadlines", joined)
         self.assertIn("SOURCE_REVISION", joined)
         self.assertIn("git', 'clone'", joined)

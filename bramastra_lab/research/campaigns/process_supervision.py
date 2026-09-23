@@ -20,10 +20,12 @@ import queue
 import time
 from typing import Any, Callable, Sequence
 
-# Registered campaign wall budget (owner-authorized 10-hour allocation)
-# and the fixed export reserve. Training phases fill wall minus reserve;
-# the E6 export window is the reserve.
-CAMPAIGN_WALL_MINUTES = 600.0
+# Registered campaign wall budget (owner-authorized 8-hour allocation) and
+# the fixed export reserve. Training phases fill wall minus reserve; the E6
+# export window is the reserve. This is the single source for every default:
+# a component that omits an explicit wall must plan the registered one, never
+# a stale longer budget that would overshoot the real session and lose export.
+CAMPAIGN_WALL_MINUTES = 480.0
 EXPORT_RESERVE_MINUTES = 30.0
 TRAINING_CUTOFF_MINUTES = CAMPAIGN_WALL_MINUTES - EXPORT_RESERVE_MINUTES
 

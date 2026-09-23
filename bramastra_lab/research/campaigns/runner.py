@@ -14,6 +14,8 @@ import os
 import time
 from typing import Any, Sequence
 
+from bramastra_lab.research.campaigns.process_supervision import (
+    CAMPAIGN_WALL_MINUTES)
 from bramastra_lab.research.campaigns.supervisor import (
     CampaignLedger,
     SupervisorError,
@@ -100,7 +102,7 @@ def _phase_success_for_output(phase: str, output: dict[str, Any]) -> bool:
 
 
 def run_campaign(*, run_dir: str, mode: str, data_dir: str,
-                 max_wall_minutes: float = 600.0,
+                 max_wall_minutes: float = CAMPAIGN_WALL_MINUTES,
                  devices: Sequence[str] = ("cuda:0", "cuda:1"),
                  precision: str = "fp32",
                  build_report: str | None = None) -> int:
@@ -636,7 +638,7 @@ def _phase_caps(max_wall_minutes: float,
 
 def _phase_plan(mode: str, deadline: float,
                 devices: Sequence[str], *,
-                max_wall_minutes: float = 600.0) -> list[dict[str, Any]]:
+                max_wall_minutes: float = CAMPAIGN_WALL_MINUTES) -> list[dict[str, Any]]:
     """Phase plan with explicit ordered slots (D1).
 
     Phase caps scale proportionally to the declared wall budget (exact sum

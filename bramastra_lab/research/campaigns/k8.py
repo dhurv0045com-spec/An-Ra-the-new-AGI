@@ -13,6 +13,7 @@ import os
 import sys
 from typing import Any, Sequence
 
+from bramastra_lab.research.campaigns import process_supervision as ps_module
 from bramastra_lab.research.campaigns.supervisor import (
     CampaignLedger,
     SupervisorError,
@@ -48,8 +49,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-dir", required=True)
     run.add_argument("--mode", choices=["e0", "full"], required=True)
     run.add_argument("--data", required=True, help="prepared bundle directory")
-    run.add_argument("--max-wall-minutes", type=float, default=600.0,
-                     help="owner wall budget (Kaggle GPU sessions allow 720)")
+    run.add_argument("--max-wall-minutes", type=float,
+                     default=ps_module.CAMPAIGN_WALL_MINUTES,
+                     help="owner wall budget; defaults to the registered "
+                          "allocation (never a stale longer budget)")
     run.add_argument("--devices", default="cuda:0,cuda:1")
     run.add_argument("--precision", default="fp32",
                      choices=["fp32", "fp16_autocast"])
@@ -281,7 +284,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         recorded_wall = float(allocations[0][5])             if allocations and len(allocations[0]) > 5 else None
     except (TypeError, ValueError, IndexError):
         recorded_wall = None
-    protocol_wall = recorded_wall if recorded_wall else 600.0
+    protocol_wall = recorded_wall if recorded_wall else ps.CAMPAIGN_WALL_MINUTES
     protocol = {
         "schema": "bramastra-k8-protocol/v1",
         "wall_minutes": protocol_wall,
