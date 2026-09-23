@@ -32,3 +32,14 @@ Status: **PARTIAL CAMPAIGN SNAPSHOT — NOT A FINAL SCIENTIFIC RESULT**
 
 The archive contains the public synthetic surface, development outputs, progress snapshots, qualification receipts, and runtime logs. It contains no raw sealed rows and passed a scan for common private-key/API-token patterns. This is still a partial execution snapshot, not a model-capability result, final experiment result, or authorization for a production training run.
 
+## Recovery audit — 2026-09-24
+
+- The user screenshot's `FORMATION_MUX_001_RESULTS (2)` item is 6,119 KB. The preserved archive is 6,265,814 bytes = 6,118.959 KiB, which rounds to the same displayed size. It is consistent with another download of this evidence result ZIP, but the `(1)` / `(2)` filename provenance is not independently resolved.
+- No `resume.pt`, `.pt`, `.pth`, `.bin`, or `.safetensors` checkpoint payload exists among the 755 ZIP members. `CHECKPOINT_RECEIPT.json` files are receipts, not model/optimizer/RNG state.
+- No checkpoint-bearing copy of this execution was found in the repository, local Downloads, or an available connected Kaggle account/tool. This proves repository-side absence only; it does not prove the files are absent from the original Kaggle saved Output.
+- Exact continuation requires the original saved Output tree for this notebook version, including at least the 24 completed S5 `resume.pt` files and the two completed `TIE-ROLE-001/T0_CANONICAL/S1,S2` checkpoint files. Validate every checkpoint against its same-run `CHECKPOINT_RECEIPT.json` before launching the pinned operator.
+- Use `tools/formation_mux_001_recovery_preflight.py` before any resume. It rejects evidence-only result ZIPs, ambiguous inputs, identity drift, missing checkpoints, receipt/hash mismatches, interrupted sealed custody, and installation over an existing working tree.
+- The next scientific action remains conditional: exact continuation of the remaining 22 frozen TIE-ROLE frontier arms after successful recovery. Retraining from this ZIP would be a new execution, not recovery.
+
+No experiment arm, sealed evaluation, training update, or local hardware workload was run during this recovery audit.
+

@@ -3,6 +3,18 @@
 **Canonical working branch:** `cymek-500m-readiness`  
 **Purpose:** one entry point so an operator/agent does not need to inspect Cymek, Citadel, Triquetra and Arkenstone separately for routine decisions.
 
+## Current override — 2026-09-24
+
+The current `cymek-beta` formation-mux state is newer than the historical queue below:
+
+- the 2026-09-23 Kaggle T4×2 snapshot completed **24/24 S5 development arms** and **2/24 TIE-ROLE frontier arms** before the session wall guard stopped further launches;
+- sealed evaluation was not consumed, no `FINAL_RESULT.json` or architecture gate exists, and no final scientific verdict or promotion is authorized;
+- `artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/FORMATION_MUX_001_RESULTS.partial.zip` is an evidence-only snapshot with zero `resume.pt` members and is not sufficient for exact continuation;
+- the next discriminating action is recovery of the original saved Kaggle Output tree, checkpoint/hash preflight, and only then continuation of the remaining frozen frontier arms;
+- authoritative current details: `docs/cymek/next_core/FORMATION_MUX_001_CURRENT_STATE_OVERRIDE.json` and `docs/cymek/research/NEXT_7_EXPERIMENTS_V51.md`.
+
+The older R1C and formation-mux entries below are retained as historical roadmap context, not current execution status.
+
 Read in this order:
 
 1. `MASTER_AGI_CONSTRUCTION_KNOWLEDGE.md` — cross-branch construction synthesis (refreshed 2026-09-13).

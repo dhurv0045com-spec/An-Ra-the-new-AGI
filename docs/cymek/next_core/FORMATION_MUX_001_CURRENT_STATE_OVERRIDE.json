@@ -1,15 +1,15 @@
 {
-  "schema": "anra.next-core-current-state-override/v4",
-  "date": "2026-09-15",
-  "branch": "cymek-next-core-architecture",
-  "reason": "Generated NEXT_CORE_SPEC.json and NEXT_CORE_READINESS.json predate the completed CS-TRANSFER-001 consequence. This override records the current prospective FORMATION-MUX Science S5 authority without rewriting historical evidence snapshots.",
+  "schema": "anra.next-core-current-state-override/v5",
+  "date": "2026-09-24",
+  "branch": "cymek-beta",
+  "reason": "The 2026-09-23 Kaggle T4x2 snapshot supersedes the 2026-09-15 pre-execution state while preserving the frozen S5 and TIE-ROLE protocols and the absence of sealed/final evidence.",
   "authoritative_overrides": {
     "vocabulary_size": {
       "working_choice": 24576,
       "state": "PROVISIONAL",
       "cs_transfer_001_gate": "CLOSED",
       "optimality": "NOT_ESTABLISHED",
-      "next_mechanism_gate": "CS-MECH-002",
+      "next_mechanism_gate": "FORMATION-MUX-001",
       "campaign": "FORMATION-MUX-001"
     },
     "numeric_symbol_representation": {
@@ -21,31 +21,49 @@
   },
   "readiness_overrides": {
     "physical_vocabulary_output_geometry": {
-      "state": "CS_TRANSFER_CLOSED_RESIDUAL_MECHANISM_OPEN",
-      "note": "CS-TRANSFER-001 completed with PARTIAL_OR_INTERACTION; physical V4096 is not a robust remedy and V24576 remains the conservative working choice, not a proven optimum. Residual questions are FORMATION-MUX-001."
+      "state": "CS_TRANSFER_CLOSED_RESIDUAL_MECHANISM_PARTIAL_EXECUTION",
+      "note": "Physical V4096 is not a robust remedy and V24576 remains the conservative working choice, not a proven optimum."
     },
-    "r1c_consequence.next_decisive_test": "FORMATION-MUX-001: CS-MECH-002 + REP-FORM-003A under Science S5",
+    "r1c_consequence.next_decisive_test": "Recover the checkpoint-bearing 2026-09-23 Kaggle Output, then continue the frozen TIE-ROLE-FRONTIER-001 remaining 22 arms.",
     "scale_authorization": "NOT_JUSTIFIED"
   },
   "campaign": {
     "name": "FORMATION-MUX-001",
     "science_authority": "Science S5",
     "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
-    "canonical_operator": "tools/formation_mux_001_kaggle_operator_v8.py",
-    "operator_commit": "4e3bb50c683d94a09801703dfb9f469debe64a50",
-    "operator_blob": "b427269f682322c9ce58f1677710c5979c76465c",
+    "canonical_operator": "tools/formation_mux_001_kaggle_operator_v12.py",
+    "operator_commit": "4ee05f6e386f15d34f9dfa7bd7f3300a496b9896",
+    "operator_blob": "e9e1f701b0d4edc509194da55fe1ba37ed62ef86",
     "canonical_notebook": "notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb",
-    "notebook_pin_commit": "c01970cf6afc5434cc6e48562faa4979fbab969a",
-    "experiments": ["CS-MECH-002", "REP-FORM-003A"],
+    "notebook_pin_commit": "3e16b4733874d58f803f8aa861e90da57f6051e6",
+    "experiments": ["CS-MECH-002", "REP-FORM-003A", "TIE-ROLE-001", "TIE-ROLE-XFER-001"],
     "training_rows": 60000,
     "development_rows": 480,
     "sealed_rows": 720,
-    "checkpoint_policy": "CS-MECH every 200 updates; REP-FORM every 10000 processed tokens; diagnostic progress snapshot at every checkpoint",
+    "checkpoint_policy": "CS-MECH every 200 updates; REP-FORM every 10000 processed tokens; frontier A every 200 updates and B every 10000 processed tokens",
     "session_policy": "exact-resume across as many Kaggle sessions as required; frozen science is never shortened to fit one session",
-    "preexecution_qualification": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS",
-    "qualification_run_id": 34900925973,
-    "runtime_state": "KAGGLE_T4X2_NOT_YET_RUN",
-    "scientific_outcomes_observed": false
+    "preexecution_qualification": "CPU_STATIC_PASS / REAL_TOKENIZER_60K_SURFACE_PASS / DUAL_T4_PARTIAL_EXECUTION_OBSERVED",
+    "runtime_evidence": {
+      "date": "2026-09-23",
+      "hardware": "Kaggle NVIDIA Tesla T4 x2",
+      "s5_development_arms": "24/24 complete",
+      "frontier_development_arms": "2/24 complete",
+      "frontier_status": "PARTIAL_SESSION",
+      "sealed_evaluation_consumed": false,
+      "final_verdict_available": false,
+      "architecture_promotion_authorized": false
+    },
+    "preserved_snapshot": {
+      "path": "artifacts/cymek/FORMATION-MUX-001/kaggle-session-20260923/FORMATION_MUX_001_RESULTS.partial.zip",
+      "sha256": "3e3ad68cd7f80bd242733b61153d4bb8f3fedbb1e4fba8fbc0f3ebc5d904423f",
+      "members": 755,
+      "resume_pt_members": 0,
+      "classification": "EVIDENCE_ONLY_NOT_RESUMABLE"
+    },
+    "exact_resume_state_in_repository": false,
+    "next_action": "Obtain the original saved Kaggle Output tree, pass tools/formation_mux_001_recovery_preflight.py, then continue the frozen frontier without changing arms, seeds, exposures, endpoints, thresholds, or sealed policy.",
+    "scientific_outcomes_observed": false,
+    "development_measurements_observed": true
   },
-  "precedence": "For the fields and readiness gates named here, this prospective current-state override supersedes stale blocker labels in generated NEXT_CORE_SPEC.json and NEXT_CORE_READINESS.json until those generators are regenerated. Historical evidence remains unchanged."
+  "precedence": "For current execution and custody state, this override supersedes stale not-yet-run labels in NEXT_7_EXPERIMENTS_V51.md and older generated readiness snapshots. Frozen protocols, historical evidence, and sealed/final claim boundaries remain unchanged."
 }

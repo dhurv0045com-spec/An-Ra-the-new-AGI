@@ -35,7 +35,7 @@ def build() -> dict[str, object]:
     )
     markdown = markdown.replace(
         "If either state reports `PARTIAL_SESSION`, save the Kaggle version/output, attach that output to the next run, and rerun this exact notebook.",
-        "If either state reports `PARTIAL_SESSION`, save the Kaggle version/output, attach that output to the next run, and rerun this exact notebook. The result ZIP and campaign state stay under `/kaggle/working/FORMATION_MUX_001`; source code is cloned into `/kaggle/temp` so rerunning this notebook does not reset, clean, or remove user files in `/kaggle/working`.",
+        "If either state reports `PARTIAL_SESSION`, save the Kaggle version/output and attach the complete saved `/kaggle/working/FORMATION_MUX_001` tree to the next run of this exact notebook. Do not attach only `FORMATION_MUX_001_RESULTS.zip`: that evidence bundle intentionally omits `resume.pt` and is not resumable. Run `tools/formation_mux_001_recovery_preflight.py` and require PASS before launching the operator. The result ZIP and campaign state stay under `/kaggle/working/FORMATION_MUX_001`; source code is cloned into `/kaggle/temp` so rerunning this notebook does not reset, clean, or remove user files in `/kaggle/working`.",
     )
     notebook["cells"][0]["source"] = markdown.splitlines(keepends=True)
 
