@@ -1,63 +1,43 @@
 # FINAL-K8 progress cursor
 
-## 23 September cognition runtime integration
-
-The current zero-update build report is
-[`reports/FINAL_K8/gandiva-cognition-runtime-r2-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-runtime-r2-20260923/build_verification.json).
-It passes F01–F24 for the existing 6,493,952-parameter K8 campaign, records
-zero local optimizer updates, and has source closure
-`cd4b02d77bbde04772989b6c8e8533a1d1d0c076a4d897e4d6289351aa69c8e6` and data
-identity `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`.
-It took 103.921 seconds. G01–G04 still require the owner's actual two-T4 E0
-qualification; this report is not evidence of GPU qualification or an AGI
-result.
-
-E2's live `b-workspace` episode now records received observations through the
-typed `CognitiveWorkspace` ledger. The prompt gets episode-local evidence
-aliases; the durable cognitive snapshot preserves ancestry outside the model
-input, conflict and supersession state, step count, and a content identity.
-Same-time contradictory values remain conflicting, while later valid-time
-observations mark older records superseded, including when a conflict exists
-at an intermediate time. The build verifier's foundation
-group now includes `tests/test_research_cognition_runtime.py`; focused cognition
-and episode checks pass (110 tests, 16 subtests), and the O04/O05 operational
-selection passes (7 tests). No optimizer update was run.
-
-This implementation keeps the existing normal two-T4 K8 notebook and its E2
-comparison plan. The separate `tpu_100m` profile remains configuration-only;
-it is not consumed by the campaign and has not been TPU-qualified.
-
 ## 23 September continuation: cognition and 100M Kaggle TPU
 
-Latest build evidence:
-[`reports/FINAL_K8/gandiva-cognition-tpu-r3-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-tpu-r3-20260923/build_verification.json).
-All F01–F24 pass for the existing 6,493,952-parameter K8 campaign, with zero
-local optimizer updates; G01–G04 still require the owner's real two-T4 E0
-run. This does **not** establish 100M TPU readiness.
+The latest source-bound zero-update report is
+[`reports/FINAL_K8/gandiva-cognition-tpu-r6-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-tpu-r6-20260923/build_verification.json).
+It passes F01–F24 for the existing 6,493,952-parameter K8 campaign, with zero
+local optimizer updates and source closure
+`3fa4bc14f649741a80b34e7931e83228e232077aadf014746d450db89b3b50a1` at
+revision `f7d10985eaee0dcaadbe1db5480e46f683cfe8ba`. G01–G04 still require
+the owner's actual two-T4 E0 run. The verifier says `dirty=true` because the
+user's notebook and K8 test edits remained present and were deliberately
+excluded from the implementation commit; the report is not a claim that the
+whole working tree was clean.
 
-The 100M/cognition continuation and next implementation steps are tracked in
-[`TPU_100M_COGNITION_PROGRESS.md`](TPU_100M_COGNITION_PROGRESS.md). This turn
-adds provenance-aware Bayesian belief revisions and bounded/provenance-safe
-cognitive rendering, the configuration-only 100,334,720-parameter `tpu_100m`
-profile, an XLA replica runtime and no-padding shard loader, and global
-token/action/value/pair objective normalization with pair activations flushed
-between base and counterfactual passes. Focused regression checks pass: 152
-passed, 1 skipped, 16 subtests; no local optimizer update was run. The current
-host has 2.87 GiB available RAM, no CUDA, and no PyTorch/XLA, so the 100M
-profile was not instantiated locally.
+This continuation adds append-only, serializable belief-revision audit records
+for applied evidence, duplicate replays, and finite-support model mismatches.
+The record retains prior, raw/effective likelihood, posterior, reliability,
+and episode-local references; restore validates event order and references.
+It is an auditable reference updater, not a learned belief module. TPU runtime
+helpers now broadcast master weights and verify per-rank initialization
+receipts; focused tests cover scalar buffers and malformed/divergent receipts.
+Device routing selects the BF16 autocast mode required by K8Trainer on XLA,
+fixing a trainer-construction blocker in the generic non-CUDA path. Focused
+validation passed 106 tests and 16 subtests. The source-bound verifier is the
+complete current K8 contract check; it did not instantiate or train the 100M
+model.
 
-**Important boundary:** `notebooks/bramastra_k8.ipynb` and the E1–E6 campaign
-consumer still target the existing two-T4 K8 profile. No production Kaggle
-TPU entry point currently consumes the new sampler/backend or trains the 100M
-profile. Build a dedicated TPU preflight/consumer and qualify the real eight
-cores, memory, initialization, checkpoint/resume, and throughput before calling
-that path ready. Continue the active objective; this update is a checkpoint,
-not task completion.
+The 100M/cognition details and remaining work are tracked in
+[`TPU_100M_COGNITION_PROGRESS.md`](TPU_100M_COGNITION_PROGRESS.md). The normal
+two-T4 notebook remains the existing owner experiment and is not changed by
+this implementation commit. The `tpu_100m` profile is still configuration-only
+and no Kaggle TPU campaign consumer or real TPU qualification exists. Continue
+with a dedicated TPU preflight/consumer and real eight-core measurement; this
+update is a checkpoint, not task completion.
 
-Implementation revision: `bd6bfb091b68679fcfdd9f544384b3b8cbd9c0f1` on
-`Gandiva`, based on `BRAMASTRA`. The only pre-existing local edit is the user's
-change to `tests/test_research_k8_real.py`; it was preserved and not included
-in the implementation commit.
+Implementation revision: `f7d10985eaee0dcaadbe1db5480e46f683cfe8ba` on
+`Gandiva`, based on `BRAMASTRA`. The user's changes to
+`notebooks/bramastra_k8.ipynb` and `tests/test_research_k8_real.py` were
+preserved and excluded from this commit.
 
 Active assignment: FINAL-K8, requirements F01–F24. The older ten-day schedule
 and 15 September source review are history; their defect lists and readiness
