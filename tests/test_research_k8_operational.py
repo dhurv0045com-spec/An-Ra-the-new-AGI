@@ -65,11 +65,10 @@ def _fake_reservation(**overrides):
 
 
 class O01SessionTests(unittest.TestCase):
-    def test_missing_authority_refuses_finalize(self) -> None:
+    def test_missing_authority_refuses_the_window(self) -> None:
         _, trainer = _tiny_trainer(require_allocation=True)
-        trainer.accumulate(_tiny_batch())
         with self.assertRaises(Exception):
-            trainer.finalize_update()
+            trainer.accumulate(_tiny_batch())
         self.assertEqual(trainer.counters.optimizer_updates, 0)
 
     def test_mismatched_authority_refuses(self) -> None:
