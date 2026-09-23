@@ -1,5 +1,34 @@
 # FINAL-K8 progress cursor
 
+## 23 September latest continuation: cognition prefix contract
+
+Code revision `ab580776c4fab6398f23d503413eace41d50dbe7` repairs an
+inconsistency between first-decision cognition channels and trajectory answer
+batches. The initial-state channels now encode the goal and initial budgets;
+trajectory answers continue to encode received history and remaining budgets.
+E3 tool training uses the canonical initial prefix, with an explicit context
+selector so the two batch types cannot be confused silently. A focused
+regression test covers both prefixes.
+
+Validation after this fix: **74 passed, 1 skipped, 8 subtests passed**. The
+full zero-update build verifier then passed F01–F24 in 113.375 seconds, with all
+seven pytest groups and the notebook exercise passing. Its report is
+[`reports/FINAL_K8/gandiva-cognition-final-a6e99c9b-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-final-a6e99c9b-20260923/build_verification.json).
+Verified bundle identity:
+`79c9706d122050cc1e8f5e6a3363af68005fc1206db0451b40ea807121c8d7f8`; source
+closure:
+`88e130fdc65c21afc97f92f61e62c610365643839a5ae4a127a4b1b7adccb73c`. The
+report records a dirty tree because the pre-existing user edit in
+`tests/test_research_k8_real.py` was preserved. The new fix does not stage or
+replace it.
+
+This is build verification, not an experiment result: optimizer updates remain
+zero. The normal two-T4 Kaggle campaign still needs owner E0 checks G01–G04 for
+device mapping, real update/resume, measured runtime, and live allocation. The
+100M TPU path is still preflight-only and has no real Kaggle TPU qualification.
+Continue from the active F01–F24 contract; do not report this as AGI or a
+learned capability result.
+
 ## 23 September continuation: cognition and 100M Kaggle TPU
 
 The latest source-bound zero-update report is

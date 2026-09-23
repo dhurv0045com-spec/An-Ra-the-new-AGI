@@ -1,56 +1,47 @@
-# FINAL-K8 engineering status
+# Gandiva engineering status
 
-## 23 September cognition integration update
+## Latest verified build — 23 September 2026
 
-Use the fresh report
-[`reports/FINAL_K8/gandiva-cognition-runtime-r2-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-runtime-r2-20260923/build_verification.json)
-for the current implementation closure
-`cd4b02d77bbde04772989b6c8e8533a1d1d0c076a4d897e4d6289351aa69c8e6` and data
-identity `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`.
-It passes F01–F24 with zero local optimizer updates. The production E2
-workspace-policy arm now consumes a typed, persistent-per-episode evidence
-ledger with explicit conflict/supersession status. G01–G04 still require the
-owner's two-T4 E0 run, so build readiness remains distinct from accelerator
-qualification and learned results.
+The latest code revision, `ab580776c4fab6398f23d503413eace41d50dbe7`, fixes the
+cognition prefix contract: auxiliary channels use the canonical initial-state
+prefix, while trajectory answer batches retain their full history. E3 now uses
+the same canonical prefix. The regression suite confirms those contexts remain
+distinct and correctly encoded.
 
-## 23 September continuation note
+The source-bound, no-update build report is
+[`reports/FINAL_K8/gandiva-cognition-final-a6e99c9b-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-final-a6e99c9b-20260923/build_verification.json).
+It reports all F01–F24 checks passing, all seven pytest groups passing, the
+notebook interface exercise passing (24 cells; 12 Python cells; no hard-coded
+paths or shell magics), and zero optimizer updates. The verifier completed in
+113.375 seconds. Its source-closure SHA-256 is
+`88e130fdc65c21afc97f92f61e62c610365643839a5ae4a127a4b1b7adccb73c`; the
+verified full-bundle identity is
+`79c9706d122050cc1e8f5e6a3363af68005fc1206db0451b40ea807121c8d7f8`.
 
-The K8 verifier now has a newer zero-update report at
-[`reports/FINAL_K8/gandiva-cognition-tpu-r3-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-tpu-r3-20260923/build_verification.json):
-F01–F24 pass for the existing 6,493,952-parameter K8 architecture; real
-hardware checks G01–G04 remain pending. Cognition and the experimental 100M
-Kaggle TPU path continue in
-[`TPU_100M_COGNITION_PROGRESS.md`](TPU_100M_COGNITION_PROGRESS.md). The new
-`tpu_100m` profile and XLA trainer/data helpers are not yet wired into the
-production E1–E6 campaign or a Kaggle TPU notebook, and have not been run on a
-TPU. Do not interpret K8 build verification as 100M TPU qualification.
+Focused validation after the cognition fix passed **74 tests, 1 skipped, and 8
+subtests**. The report marks the source tree dirty because the pre-existing
+user edit in `tests/test_research_k8_real.py` was preserved. The implementation
+did not stage or replace that edit.
 
-## Current source and readiness
+## Owner experiment and limits
 
-Active execution branch: `Gandiva`, based on `BRAMASTRA`. The implementation at
-`be946613d415751bf8cd6e227d7624040f1c9d6a` passed a fresh zero-optimizer-update
-build verification with all F01–F24 requirements passing. The source-code
-closure is `fa9a41453967e5ae89c3b8a4c12484ef47f2be1985a27bfb655f05426fc1974b`.
-The immutable report is
-[`reports/FINAL_K8/gandiva-20260923/build_verification.json`](reports/FINAL_K8/gandiva-20260923/build_verification.json).
+The normal self-sustaining Kaggle notebook is
+[`../notebooks/bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb). The
+notebook contract is build-verified, but the actual two-T4 E0 runtime gates
+G01–G04 remain pending an owner Kaggle session. Those gates must establish both
+devices, real updates and exact resume, measured throughput, and live allocation
+before E1–E6. No optimizer updates, GPU qualification, learned result, or AGI
+capability are claimed by this build.
 
-The owner-facing notebook is
-[`../notebooks/bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb). It defaults
-to cloning `Gandiva`, builds the full data bundle if no Kaggle Dataset is
-attached, and uses one two-T4 allocation capped at 480 minutes (450 training,
-30 export). No local optimizer updates or accelerator campaign were run.
+The separate 100M TPU path remains a preflight and engineering design. It has
+not been trained or qualified on Kaggle TPU and is not part of the normal K8
+notebook campaign. See
+[`TPU_100M_COGNITION_PROGRESS.md`](TPU_100M_COGNITION_PROGRESS.md).
 
-The matching offline bundle identity is
-`6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`; its
-compact manifest and audit are in `final_delivery/data/`. The local bundle ZIP
-is outside Git, as required by the delivery contract. E0 must still qualify the
-owner's actual pair of T4s, precision, resume, timing, and live allocation
-(G01–G04). A passing build report is not an AGI or learned-result claim.
+## Continue from here
 
-## Resume instructions
-
-Continue from [`FINAL_K8_PROGRESS.md`](FINAL_K8_PROGRESS.md) and the active
-contract [`FINAL_EXPERIMENT_EXECUTION.md`](FINAL_EXPERIMENT_EXECUTION.md). The
-15–24 September handoff is supporting history; do not rely on its old status
-snapshots. Preserve the pre-existing uncommitted change to
-`tests/test_research_k8_real.py` unless its owner directs otherwise.
+Use [`FINAL_K8_PROGRESS.md`](FINAL_K8_PROGRESS.md) for the detailed progress
+cursor and [`FINAL_EXPERIMENT_EXECUTION.md`](FINAL_EXPERIMENT_EXECUTION.md) for
+the active F01–F24 build contract. Keep generated failure reports as audit
+evidence, do not overwrite earlier reports, and preserve the user's uncommitted
+test edit.
