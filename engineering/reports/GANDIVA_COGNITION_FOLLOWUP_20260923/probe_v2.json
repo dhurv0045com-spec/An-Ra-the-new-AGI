@@ -1,0 +1,22 @@
+{
+  "schema": "bramastra-cognition-source-diagnostic/v2",
+  "source_revision": "719bcbcf5b84e80900e87f21a0cea2f49d550ff1",
+  "baseline_target_revision": "ecc5953",
+  "optimizer_updates": 0,
+  "gpu_runs": 0,
+  "defects_observed": {
+    "distinct_variables_render_identically": false,
+    "different_variables_marked_conflicting": false,
+    "ordinary_temporal_change_marked_conflicting": false,
+    "world_prompt_ignores_observation_history": false,
+    "depth_two_reuses_untransitioned_state": false,
+    "eight_node_search_covers_only_first_root": false
+  },
+  "depth_two_calls_observed": 1,
+  "root_actions_considered": 8,
+  "legal_actions": 8,
+  "limitations": [
+    "This is a source-level smoke diagnostic, not complete F1-F6 acceptance evidence.",
+    "The model was a capture double; no cognition quality or learned ability was measured."
+  ]
+}

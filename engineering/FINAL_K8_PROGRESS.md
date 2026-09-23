@@ -1,5 +1,34 @@
 # FINAL-K8 progress cursor
 
+## 23 September follow-up: public-state privacy and diagnostic validity
+
+Commit `719bcbcf5b84e80900e87f21a0cea2f49d550ff1` adds a direct world-model
+prompt invariant and an end-to-end private-world twin regression. With the same
+public task and history, hidden answers `north` and `south` yield opposite
+environment outcomes while the pre-observation model prompts remain identical.
+No private answer is injected into inference to obtain this result.
+
+The historical C04 source probe was also inaccurate: its eight-action/eight-node
+setup never expanded a depth-two child, then compared two depth-one root states.
+The updated v2 probe creates a two-root, three-node search and records an
+actual depth-two call. On this revision, its six legacy semantic defect flags
+are all false; one depth-two call and all eight depth-one roots were observed.
+The earlier `BASELINE.json` remains unchanged.
+
+Verification used only small CPU test fixtures:
+
+- `python -B tests/test_research_cognition_planning.py` — 11 passed.
+- `$env:PYTHONPATH = (Get-Location).Path; python -B -m unittest discover -s tests -p 'test_research_cognition*.py'` — 50 passed.
+- `$env:PYTHONPATH = (Get-Location).Path; python -B -m unittest discover -s tests -p 'test_research_gandiva_rsi_cognition.py'` — 7 passed.
+- `$env:PYTHONPATH = (Get-Location).Path; python -B engineering/cognition_foundation_20260914/probe.py` — all six defect flags false, zero optimizer updates.
+
+This is partial cognition evidence, not acceptance of every F1–F6 condition and
+not a learned capability result. The world-model remains randomly initialized
+unless the owner later runs the campaign; no local optimizer update or GPU run
+occurred. Continue by auditing the remaining F1–F6 semantics against production
+consumers and the active K8 contract, then expand paired CPU traces only where
+the audit finds gaps.
+
 ## 23 September latest continuation: cognition prefix contract
 
 Code revision `ab580776c4fab6398f23d503413eace41d50dbe7` repairs an

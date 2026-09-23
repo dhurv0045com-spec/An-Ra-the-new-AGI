@@ -1,5 +1,23 @@
 # Gandiva engineering status
 
+## Cognition privacy follow-up — 23 September 2026
+
+Follow-up commit `719bcbcf5b84e80900e87f21a0cea2f49d550ff1` adds two
+regressions for private-state isolation: changing unreceived private fields
+cannot change the world-model prompt, and two environments with opposite hidden
+answers produce the same prompt but opposite outcomes. It also fixes a false
+positive in the older C04 diagnostic: the original check compared two
+depth-one roots rather than observing a depth-two call. The corrected probe
+exercises one real second-depth prediction. Its six recorded defect flags are
+false on this revision.
+
+Focused CPU-only checks passed: 50 cognition tests, including all 11 planning
+tests, plus 7 RSI integration tests. No optimizer update, GPU run, or learned
+capability was involved. This closes those regression gaps only; it is not a
+complete acceptance of the broader cognition-foundation F1–F6 contract. See
+[`reports/GANDIVA_COGNITION_FOLLOWUP_20260923/HANDOFF.md`](reports/GANDIVA_COGNITION_FOLLOWUP_20260923/HANDOFF.md)
+and the [compact probe receipt](reports/GANDIVA_COGNITION_FOLLOWUP_20260923/probe_v2.json).
+
 ## Latest verified build — 23 September 2026
 
 The latest code revision, `ab580776c4fab6398f23d503413eace41d50dbe7`, fixes the
