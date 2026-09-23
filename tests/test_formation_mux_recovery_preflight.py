@@ -156,3 +156,24 @@ def test_existing_output_is_never_overwritten(tmp_path: Path) -> None:
         input_path=tmp_path / "missing", output_path=output, install=False)
     assert receipt["status"] == "PASS"
     assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_recovery_notebook_is_pinned_and_gated() -> None:
+    root = Path(__file__).resolve().parents[1]
+    notebook = json.loads(
+        (root / "notebooks" / "CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb").read_text(
+            encoding="utf-8"))
+    metadata = notebook["metadata"]
+    assert metadata["schema"] == "anra.formation-mux-kaggle-recovery-wrapper/v1"
+    assert metadata["recovery_commit"] == "7a82d80e6f44756c9e37f3b554500f4f5c664238"
+    assert metadata["operator_commit"] == recovery.OPERATOR_COMMIT
+    assert metadata["operator_blob"] == recovery.OPERATOR_BLOB
+    source = "\n".join(
+        line
+        for cell in notebook["cells"]
+        for line in cell.get("source", []))
+    preflight = source.index("tools.formation_mux_001_recovery_preflight")
+    operator = source.index("tools/formation_mux_001_kaggle_operator_v12.py")
+    assert preflight < operator
+    assert "recovery.get('status') != 'PASS'" in source
+    assert "RECOVERY_PREFLIGHT.json" in source

@@ -1,7 +1,7 @@
 # FORMATION-MUX-001 recovery runbook
 
-Status: **BLOCKED ON THE ORIGINAL KAGGLE SAVED OUTPUT**  
-Campaign snapshot: 24/24 S5 development arms; 2/24 TIE-ROLE frontier arms; no sealed evaluation  
+Status: **BLOCKED ON THE ORIGINAL KAGGLE SAVED OUTPUT**
+Campaign snapshot: 24/24 S5 development arms; 2/24 TIE-ROLE frontier arms; no sealed evaluation
 Recovery rule: no retraining, no new seeds, no protocol changes, and no sealed access until custody passes
 
 ## What the attached 6,119 KB item is
@@ -52,7 +52,9 @@ The recovered state must bind all of the following:
 
 ## Recovery preflight
 
-Run from a fresh Kaggle notebook version with the complete Output attached under `/kaggle/input`:
+Preferred path: open `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb` in a fresh Kaggle T4×2 notebook, attach the complete saved Output under **Add Data**, and run all cells in order. The notebook is pinned to recovery commit `7a82d80e6f44756c9e37f3b554500f4f5c664238`, verifies both immutable checkouts, installs only to a fresh staging path, requires `RECOVERY_PREFLIGHT.json: PASS`, and then invokes the already-frozen operator v12. Do not edit its pins or bypass its cells.
+
+The equivalent one-shot preflight cell for a fresh notebook is:
 
 ```python
 import pathlib
@@ -60,7 +62,7 @@ import subprocess
 import sys
 
 RECOVERY_REPO = pathlib.Path('/kaggle/temp/formation-mux-recovery-preflight')
-RECOVERY_COMMIT = '<PIN_AFTER_RECOVERY_COMMIT>'
+RECOVERY_COMMIT = '7a82d80e6f44756c9e37f3b554500f4f5c664238'
 REMOTE = 'https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git'
 
 subprocess.run([
