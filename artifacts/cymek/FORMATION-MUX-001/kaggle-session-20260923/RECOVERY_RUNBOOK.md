@@ -1,7 +1,7 @@
 # FORMATION-MUX-001 recovery runbook
 
 Status: **BLOCKED ON THE ORIGINAL KAGGLE SAVED OUTPUT**
-Recovery qualification: **PENDING REPLACEMENT FOCUSED CI AFTER FAILED RUN `35923273288`**
+Recovery qualification: **PASS — GitHub Actions run `35925460488`, head `ee6a5cad4a4f39752b2646a60eeaeef8d2b06019`**
 Campaign snapshot: 24/24 S5 development arms; 2/24 TIE-ROLE frontier arms; no sealed evaluation
 Recovery rule: no retraining, no new seeds, no protocol changes, and no sealed access until custody passes
 

@@ -42,9 +42,11 @@ The archive contains the public synthetic surface, development outputs, progress
 - The canonical recovery launcher is `notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb`; it pins the recovery and operator commits/blobs, requires a same-kernel PASS nonce, and rechecks completed arm hashes after v12 returns. Pinned v12's historical global-failure latch, sealed transaction edge, and non-atomic result packaging remain known engineering risks; the preflight fails closed rather than clearing or bypassing them.
 - The next scientific action remains conditional: exact continuation of the remaining 22 frozen TIE-ROLE frontier development arms after successful recovery. If development reaches 24/24, pinned v12 automatically performs the frozen development-only diagnostics, sealed finalization, and architecture gate. Retraining from this ZIP would be a new execution, not recovery.
 
-Focused CI run `35923273288` failed closed on the first recovery qualification attempt. Its 60 passing tests included the real archive/manifest contracts, while 10 failures exposed one preflight tuple-versus-string control-key defect and one notebook test-order assertion. Commit `8609ba95f4e978cf3cdf8d20bd8a907eea8f6728` corrects both; a replacement passing run is still required.
+Focused CI run `35923273288` failed closed on the first recovery qualification attempt. Its 60 passing tests included the real archive/manifest contracts, while 10 failures exposed one preflight tuple-versus-string control-key defect and one notebook test-order assertion. Commit `8609ba95f4e978cf3cdf8d20bd8a907eea8f6728` corrects both.
 
-Targeted recovery tests and focused CI coverage were added but not executed locally because the user prohibited local hardware use; no passing-test claim is made until the replacement CI run passes.
+Replacement GitHub Actions run `35925460488` passed on head `ee6a5cad4a4f39752b2646a60eeaeef8d2b06019`. It compiled the S5/frontier/recovery surface, passed the focused recovery and existing Formation-Mux tests, validated the preserved real 60k public surface and evidence archive, checked immutable science identities, and compiled/validated notebook pins. Recovery engineering is qualified; execution remains blocked on the original checkpoint-bearing saved Output.
+
+Targeted recovery tests and focused CI coverage were not executed locally because the user prohibited local hardware use. The passing claim above is remote CI evidence only.
 
 No experiment arm, sealed evaluation, training update, or local hardware workload was run during this recovery audit.
 
