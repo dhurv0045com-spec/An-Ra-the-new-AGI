@@ -739,7 +739,9 @@ class F6IntegrationTests(unittest.TestCase):
         from bramastra_lab.research.runtime import checkpoint as ckpt
 
         data_dir = _tempfile.mkdtemp()
-        open(os.path.join(data_dir, "manifest.json"), "w", encoding="utf-8").write("{}")
+        with open(os.path.join(data_dir, "manifest.json"), "w",
+                  encoding="utf-8") as handle:
+            handle.write("{}")
         run = _tempfile.mkdtemp()
         ckpts = {}
         for index, arm in enumerate(("A", "B")):
@@ -768,12 +770,19 @@ class F6IntegrationTests(unittest.TestCase):
                        physical_device="cpu", local_device="cpu",
                        data_dir=data_dir, run_dir=run, precision="fp32",
                        deadline=9e9)
-        res = e2.execute(job, ops=RecordingDoubleOps(), eval_cases=1)
+        res = e2.execute(
+            job, ops=RecordingDoubleOps(),
+            eval_cases=len(e2.EVAL_FAMILIES))
         self.assertEqual(res.status, "completed")
-        artifact = json.load(open(os.path.join(
-            run, "phase_outputs", "E2", "E2-1701.json"), encoding="utf-8"))
+        with open(os.path.join(
+                run, "phase_outputs", "E2", "E2-1701.json"),
+                encoding="utf-8") as handle:
+            artifact = json.load(handle)
         # Every supported mode ran, including an all-invalid B arm and the
         # symbolic ceiling; optimizer path stayed frozen.
+        self.assertEqual(
+            {group["family"] for group in artifact["groups"]},
+            set(e2.EVAL_FAMILIES))
         for mode in ("b-policy", "b-workspace", "b-planner", "a-direct",
                      "a-fixed", "a-random", "symbolic"):
             self.assertIn(mode, artifact["mode_stats"])

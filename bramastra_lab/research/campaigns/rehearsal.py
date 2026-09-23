@@ -85,8 +85,9 @@ def run_rehearsal(*, repo_root: str | None = None,
                             local_device="cpu", data_dir=data_dir,
                             run_dir=run_dir, precision="fp32", deadline=9e9)
 
-        e2_res = e2.execute(_job("E2", "E1-B-1701/E1-A-1701"),
-                            ops=ops, eval_cases=1)
+        e2_res = e2.execute(
+            _job("E2", "E1-B-1701/E1-A-1701"), ops=ops,
+            eval_cases=len(e2.EVAL_FAMILIES))
         phase_results["E2"] = {"status": e2_res.status,
                                "error": e2_res.error,
                                "evidence": e2_res.evidence_kind}

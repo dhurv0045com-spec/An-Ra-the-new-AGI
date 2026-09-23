@@ -404,26 +404,58 @@ def exercise_no_update_boundary(data_dir: str) -> dict[str, Any]:
 
 def exercise_live_episode_no_update() -> dict[str, Any]:
     from bramastra_lab.research.cognition import episode as kernel
+    from bramastra_lab.research.campaigns.phases.e2 import EVAL_FAMILIES
     from bramastra_lab.research.campaigns.phases.ops import k8_campaign_config
     from bramastra_lab.research.environments.k8_live import (
         build_live_env, generate_live_mechanism)
     from bramastra_lab.research.models import IntegratedModel
 
     config = k8_campaign_config()
-    model = kernel.FreeGenerationModel(IntegratedModel(config), config)
-    trace = None
-    for family in ("rule-inquiry", "inventory"):
-        mechanism = generate_live_mechanism(family, 3, seed=8609)
-        env = build_live_env(mechanism, budget=6, seed=8609)
+    model_core = IntegratedModel(config)
+    model_core.eval()
+    model = kernel.FreeGenerationModel(model_core, config)
+    family_traces = []
+    for index, family in enumerate(EVAL_FAMILIES, start=3):
+        episode_seed = 8609 + index
+        mechanism = generate_live_mechanism(family, index, seed=8609)
+        env = build_live_env(mechanism, budget=6, seed=episode_seed)
         trace = kernel.run_episode(
-            env, kernel.LearnedPolicyAdapter(), model=model, seed=8609,
+            env, kernel.LearnedPolicyAdapter(), model=model, seed=episode_seed,
             mechanism=mechanism, session_job_id="verify-build",
-            checkpoint_id=None)
-    if trace is None or not trace.get("events"):
-        raise ValueError("live episode produced no event trace")
-    return {"families": 2, "model_origin": "random-init-real-calls",
+            checkpoint_id=None, action_budget=1, call_budget=4,
+            node_budget=4)
+        model_calls = int(trace["summary"].get("model_calls", 0))
+        if not trace.get("events") or model_calls <= 0:
+            raise ValueError(
+                f"{family} live episode produced no model-origin call trace")
+        if model_calls > 4:
+            raise ValueError(
+                f"{family} live episode exceeded its four-call diagnostic cap")
+        family_traces.append({
+            "family": family, "seed": episode_seed,
+            "events": len(trace["events"]),
+            "model_calls": model_calls,
+            "terminated": trace["summary"].get("terminated"),
+            "truncated": trace["summary"].get("truncated"),
+            "success": trace["summary"].get("success"),
+            "model_origins": sorted({
+                str(event.get("model_origin"))
+                for event in trace["events"]
+                if event.get("model_origin") is not None}),
+        })
+    non_null_gradients = sum(
+        parameter.grad is not None for parameter in model_core.parameters())
+    if non_null_gradients:
+        raise ValueError(
+            f"inference diagnostic retained gradients on "
+            f"{non_null_gradients} parameters")
+    return {"families": list(EVAL_FAMILIES),
+            "model_origin": "random-init-real-calls",
             "profile": "k8-campaign",
-            "events": len(trace.get("events", [])),
+            "family_traces": family_traces,
+            "call_cap_per_family": 4,
+            "non_null_gradients": non_null_gradients,
+            "model_training_mode": bool(model_core.training),
             "optimizer_updates": 0}
 
 
