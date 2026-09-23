@@ -1048,11 +1048,14 @@ def validate_source(
     frontier_completed = completed.intersection(FRONTIER_KEYS)
     if len(s5_completed) != 24:
         raise RecoveryError(f"S5 verified completed slots {len(s5_completed)} != 24")
-    missing_controls = REQUIRED_FRONTIER_COMPLETE - frontier_completed
-    if missing_controls:
+    required_control_keys = {
+        "/".join(item) for item in REQUIRED_FRONTIER_COMPLETE
+    }
+    missing_control_keys = required_control_keys - frontier_completed
+    if missing_control_keys:
         raise RecoveryError(
             "required completed frontier controls missing: "
-            + ", ".join("/".join(item) for item in sorted(missing_controls))
+            + ", ".join(sorted(missing_control_keys))
         )
     if len(checkpoints) < 26:
         raise RecoveryError(

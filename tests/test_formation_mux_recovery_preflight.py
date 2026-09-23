@@ -185,10 +185,17 @@ def _valid_state(root: Path) -> None:
     for slot in recovery.S5_SLOTS:
         _complete_arm(root, slot)
         s5_complete.add(slot.key)
+    required_frontier_keys = {
+        f"{recovery.frontier_protocol.EXPERIMENT_A}/T0_CANONICAL/S1",
+        f"{recovery.frontier_protocol.EXPERIMENT_A}/T0_CANONICAL/S2",
+    }
+    frontier_complete = {
+        slot.key for slot in recovery.FRONTIER_SLOTS if slot.key in required_frontier_keys
+    }
+    assert frontier_complete == required_frontier_keys
     for slot in recovery.FRONTIER_SLOTS:
-        if (slot.experiment, slot.arm, slot.seed_label) in recovery.REQUIRED_FRONTIER_COMPLETE:
+        if slot.key in frontier_complete:
             _complete_arm(root, slot)
-            frontier_complete.add(slot.key)
     _write_json(root / "CAMPAIGN_STATE.json", {
         "schema": "anra.formation-mux-state/v4",
         "status": "ARMS_COMPLETE",
@@ -930,12 +937,14 @@ def test_recovery_notebook_matches_deterministic_builder() -> None:
     assert len(code_cells) == 2
     for index, cell in enumerate(code_cells):
         compile("".join(cell["source"]), f"formation-mux-recovery-cell-{index}", "exec")
-    source = "\n".join("".join(cell["source"]) for cell in code_cells)
-    assert source.index("tools.formation_mux_001_recovery_preflight") < source.index(
-        "tools/formation_mux_001_kaggle_operator_v12.py"
-    )
-    assert "COMPLETED ARM IMMUTABILITY: PASS" in source
-    assert "same-kernel recovery receipt changed" in source
+    preflight_source = "".join(code_cells[0]["source"])
+    operator_source = "".join(code_cells[1]["source"])
+    assert "'tools.formation_mux_001_recovery_preflight'" in preflight_source
+    assert "'-u'" not in preflight_source
+    assert "'-u'" in operator_source
+    assert "'tools/formation_mux_001_kaggle_operator_v12.py'" in operator_source
+    assert "COMPLETED ARM IMMUTABILITY: PASS" in operator_source
+    assert "same-kernel recovery receipt changed" in operator_source
     canonical = json.loads(
         (root / "notebooks" / "CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb").read_text(
             encoding="utf-8"
