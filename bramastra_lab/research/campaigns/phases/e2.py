@@ -601,8 +601,8 @@ def _handle_schema_identity(handle: Any) -> str | None:
 def _planner_prediction_gap(trace: dict) -> dict[str, Any]:
     """Chosen-action predicted success vs actual outcome (search vs model).
 
-    Joins the imagined node whose action matches the LAST received history
-    action (the planner's executed selection), not the first node. Returns
+    Joins the depth-one imagined node whose root action matches the first
+    received history action (the planner's executed selection). Returns
     a dict with joined/node_index/success_gap/feedback_match/reason.
     """
     result: dict[str, Any] = {"joined": False, "node_index": None,
@@ -624,11 +624,14 @@ def _planner_prediction_gap(trace: dict) -> dict[str, Any]:
     # root selection); later entries are subsequent episode actions.
     chosen_action = history[0].get("action", {})
     chosen_json = json.dumps(chosen_action, sort_keys=True)
-    # Find the imagined node whose first prefix action matches.
+    # Only depth one predicts the result of the action that was actually
+    # executed. A depth-two child's final action is a hypothetical future
+    # action and must never be joined to the first real outcome.
     chosen_node = None
     for node in imagined:
         prefix = node.get("action_prefix", [])
-        if prefix and json.dumps(prefix[-1], sort_keys=True) == chosen_json:
+        if (len(prefix) == 1
+                and json.dumps(prefix[0], sort_keys=True) == chosen_json):
             chosen_node = node
             break
     if chosen_node is None:

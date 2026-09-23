@@ -353,6 +353,7 @@ class ModelWorldModel:
             return {"feedback": {},
                     "success_prob": None, "value": None,
                     "origin": "representation-overflow",
+                    "model_calls": 0, "input_tokens": 0, "output_tokens": 0,
                     "prediction_failed": True,
                     "error": f"world-model prompt refused: {exc}"}
         action_tokens = encode_event("action", dict(action))
@@ -361,42 +362,72 @@ class ModelWorldModel:
             return {"feedback": {},
                     "success_prob": None, "value": None,
                     "origin": "representation-overflow",
+                    "model_calls": 0, "input_tokens": 0, "output_tokens": 0,
                     "prediction_failed": True,
                     "error": (f"world-model prompt needs {len(prompt)} "
                               f"tokens; policy allows "
                               f"{RENDER_MAX_TOKENS_DEFAULT}; refusing to "
                               "truncate the imagined-transition input")}
         self.calls += 1
+        out: Mapping[str, Any] = {}
+        output_tokens = 0
         try:
-            out = self.model.generate(prompt, max_new_tokens=24)
+            raw_output = self.model.generate(prompt, max_new_tokens=24)
+            if not isinstance(raw_output, Mapping):
+                raise ValueError("model prediction response is not an object")
+            out = raw_output
+            raw_token_count = out.get("new_tokens", 0)
+            if (isinstance(raw_token_count, int)
+                    and not isinstance(raw_token_count, bool)
+                    and raw_token_count >= 0):
+                output_tokens = raw_token_count
             predicted = json.loads(out["answer"])
             if not isinstance(predicted, Mapping):
                 raise ValueError("prediction is not an object")
+            feedback = predicted.get("feedback", {})
+            if not isinstance(feedback, Mapping):
+                raise ValueError("predicted feedback is not an object")
             sp = predicted.get("success_prob")
             if sp is not None:
+                if isinstance(sp, bool):
+                    raise ValueError("success_prob must be numeric, not boolean")
                 sp = float(sp)
                 if not (0.0 <= sp <= 1.0):
                     return {"feedback": {},
                             "success_prob": None, "value": None,
                             "origin": "out-of-range",
+                            "model_calls": 1, "input_tokens": len(prompt),
+                            "output_tokens": output_tokens,
                             "prediction_failed": True,
                             "error": f"success_prob {sp} outside [0,1]"}
+            raw_value = predicted.get("value", 0.0)
+            if isinstance(raw_value, bool):
+                raise ValueError("predicted value must be numeric, not boolean")
+            value = float(raw_value)
+            if not math.isfinite(value):
+                raise ValueError("predicted value must be finite")
             base_origin = str(out.get("origin", "model"))
-            return {"feedback": dict(predicted.get("feedback", {})),
+            return {"feedback": dict(feedback),
                     "success_prob": sp,
-                    "value": float(predicted.get("value", 0.0)),
+                    "value": value,
                     "origin": base_origin + "-imagined",
+                    "model_calls": 1, "input_tokens": len(prompt),
+                    "output_tokens": output_tokens,
                     "prediction_failed": False}
         except (json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
             return {"feedback": {},
                     "success_prob": None, "value": None,
                     "origin": "parse-failure",
+                    "model_calls": 1, "input_tokens": len(prompt),
+                    "output_tokens": output_tokens,
                     "prediction_failed": True,
                     "error": str(exc)[:120]}
         except Exception as exc:
             return {"feedback": {},
                     "success_prob": None, "value": None,
                     "origin": "neutral-fallback",
+                    "model_calls": 1, "input_tokens": len(prompt),
+                    "output_tokens": output_tokens,
                     "prediction_failed": True,
                     "error": str(exc)[:120]}
 
@@ -417,7 +448,8 @@ class CannedWorldModel:
         predicted = dict(self.predictions[min(
             self.calls, len(self.predictions) - 1)])
         self.calls += 1
-        return {**predicted, "origin": "canned-double-imagined"}
+        return {**predicted, "origin": "canned-double-imagined",
+                "model_calls": 0, "input_tokens": 0, "output_tokens": 0}
 
 
 # -- model interface ---------------------------------------------------------
@@ -634,9 +666,17 @@ class BoundedPlannerAdapter(Adapter):
         self.value_fn_name = value_fn_name
         self.max_depth = max_depth
         self.max_nodes = max_nodes
+        if (not isinstance(max_depth, int) or isinstance(max_depth, bool)
+                or max_depth not in (1, 2)):
+            raise EpisodeError("max_depth must be 1 or 2")
+        if (not isinstance(max_nodes, int) or isinstance(max_nodes, bool)
+                or max_nodes < 1):
+            raise EpisodeError("max_nodes must be a positive integer")
         self.last_imagined: list[Any] = []
         self.excluded_root_ids: list[str] = []
         self._model_calls = 0
+        self._inference_tokens = 0
+        self._root_cursor = 0
 
     @staticmethod
     def _known_forecast(predicted: Mapping[str, Any]) -> float | None:
@@ -650,6 +690,8 @@ class BoundedPlannerAdapter(Adapter):
             val = float(sp)
         except (TypeError, ValueError):
             return None
+        if isinstance(sp, bool):
+            return None
         if not (0.0 <= val <= 1.0):
             return None
         return val
@@ -660,7 +702,7 @@ class BoundedPlannerAdapter(Adapter):
         if predicted.get("prediction_failed"):
             return None
         value = predicted.get("value")
-        if value is None:
+        if value is None or isinstance(value, bool):
             return None
         try:
             val = float(value)
@@ -689,27 +731,77 @@ class BoundedPlannerAdapter(Adapter):
                     action: Mapping[str, Any], depth: int,
                     applied_prefix: tuple) -> Mapping[str, Any]:
         self._model_calls += 1
-        return self.world_model(
-            state={**dict(state_view), "applied_prefix": applied_prefix},
-            action=dict(action), depth=depth)
+        try:
+            predicted = self.world_model(
+                state={**dict(state_view), "applied_prefix": applied_prefix},
+                action=dict(action), depth=depth)
+        except Exception as exc:
+            return {"feedback": {}, "success_prob": None, "value": None,
+                    "origin": "world-model-error", "prediction_failed": True,
+                    "error": f"{type(exc).__name__}: {exc}"[:160]}
+        if isinstance(predicted, Mapping):
+            token_count = predicted.get("input_tokens", 0)
+            if (isinstance(token_count, int) and not isinstance(token_count, bool)
+                    and token_count >= 0):
+                self._inference_tokens += token_count
+            return predicted
+        return {"feedback": {}, "success_prob": None, "value": None,
+                "origin": "invalid-world-model-output",
+                "prediction_failed": True}
 
     def select(self, *, legal_actions, rendered, model, workspace,
                state_view) -> Mapping[str, Any]:
         self.last_imagined = []
         self.excluded_root_ids = []
         self._model_calls = 0
+        self._inference_tokens = 0
         if not legal_actions:
             raise EpisodeError("planner has no legal actions to expand")
 
         action_keys = [json.dumps(dict(a), sort_keys=True) for a in legal_actions]
+        if len(set(action_keys)) != len(action_keys):
+            raise EpisodeError("planner requires distinct canonical legal actions")
+        budgets = state_view.get("budgets", {})
+        if not isinstance(budgets, Mapping):
+            raise EpisodeError("planner budgets must be a mapping")
+        nodes_left = budgets.get("nodes_left", self.max_nodes)
+        calls_left = budgets.get("calls_left", self.max_nodes)
+        for label, value in (("nodes_left", nodes_left),
+                             ("calls_left", calls_left)):
+            if (not isinstance(value, int) or isinstance(value, bool)
+                    or value < 0):
+                raise EpisodeError(f"planner {label} must be a nonnegative integer")
+        node_limit = min(self.max_nodes, nodes_left, calls_left)
+        if node_limit == 0:
+            chosen = dict(_default_guess(legal_actions))
+            chosen.update({"_origin": "fallback",
+                           "_planner_nodes": 0,
+                           "_planner_value": None,
+                           "_value_fn": self.value_fn_name,
+                           "_model_calls": 0,
+                           "_inference_tokens": 0,
+                           "_planner_fallback_reason": "planning_budget_exhausted"})
+            return chosen
+
+        # When a resumed episode has only a fraction of its node budget left,
+        # rotate the root subset across decisions instead of always excluding
+        # the same tail of the legal-action list.
+        start = self._root_cursor % len(legal_actions)
+        root_order = [(start + offset) % len(legal_actions)
+                      for offset in range(len(legal_actions))]
+        if node_limit < len(legal_actions):
+            self._root_cursor = (start + node_limit) % len(legal_actions)
+        else:
+            self._root_cursor = 0
         root_scores: dict[str, float] = {}
         nodes = 0
 
         # Phase 1: Expand all roots at depth-1 (breadth-first).
         root_predictions: dict[str, Mapping[str, Any]] = {}
-        for index, action in enumerate(legal_actions):
+        for index in root_order:
+            action = legal_actions[index]
             key = action_keys[index]
-            if nodes >= self.max_nodes:
+            if nodes >= node_limit:
                 self.excluded_root_ids.append(key)
                 continue
             predicted = self._world_call(state_view, action, 1, ())
@@ -720,46 +812,80 @@ class BoundedPlannerAdapter(Adapter):
                 nodes, [action], predicted, state_view, "planner-depth1"))
             root_scores[key] = sp1 if sp1 is not None else -1.0
 
+        valid_roots = [key for key in root_scores
+                       if self._known_forecast(root_predictions[key]) is not None]
+        if not valid_roots:
+            chosen = dict(_default_guess(legal_actions))
+            chosen.update({"_origin": "fallback",
+                           "_planner_nodes": nodes,
+                           "_planner_value": None,
+                           "_value_fn": self.value_fn_name,
+                           "_model_calls": self._model_calls,
+                           "_inference_tokens": self._inference_tokens,
+                           "_planner_fallback_reason": "all_root_predictions_failed"})
+            return chosen
+
         # Phase 2: Depth-2 children with remaining budget (breadth-first
         # over roots, expanding children in root order). Q uses A5:
         # Q_2(h,a) = sp1 * max_over_children(sp2), weighting the best
         # continuation by the root's own transition probability.
         if self.max_depth >= 2:
-            for index, action in enumerate(legal_actions):
+            eligible_roots: dict[str, tuple[Mapping[str, Any], Mapping[str, Any], float]] = {}
+            for index in root_order:
                 key = action_keys[index]
-                if key in self.excluded_root_ids:
+                if key not in valid_roots:
                     continue
-                if nodes >= self.max_nodes:
-                    break
-                prefix = (key,)
                 predicted1 = root_predictions[key]
+                feedback1 = predicted1.get("feedback")
                 sp1 = self._known_forecast(predicted1)
-                if sp1 is None or sp1 <= 0:
+                if sp1 is None or sp1 <= 0 or not isinstance(feedback1, Mapping):
                     continue
-                best_sp2 = None
-                for second in legal_actions:
-                    if nodes >= self.max_nodes:
+                # The next prediction must be conditioned on the hypothetical
+                # action and its predicted observation. This state is local to
+                # search; it is never appended to the real episode history.
+                forecast = {"kind": "imagined_transition",
+                            "predicted_feedback": dict(feedback1),
+                            "success_prob": sp1,
+                            "value": predicted1.get("value"),
+                            "origin": predicted1.get("origin")}
+                successor = {**dict(state_view),
+                             "history": [*list(state_view.get("history", [])),
+                                         {"action": dict(legal_actions[index]),
+                                          "feedback": forecast,
+                                          "imagined": True}]}
+                eligible_roots[key] = (legal_actions[index], successor, sp1)
+            best_second: dict[str, float] = {}
+            # Round-robin children across roots so one early action cannot
+            # consume every remaining node before its peers receive a rollout.
+            for second in legal_actions:
+                for key, (first, successor, sp1) in eligible_roots.items():
+                    if nodes >= node_limit:
                         break
                     predicted2 = self._world_call(
-                        state_view, second, 2, prefix)
+                        successor, second, 2, (key,))
                     nodes += 1
                     sp2 = self._known_forecast(predicted2)
                     self.last_imagined.append(self._make_node(
-                        nodes, [action, second], predicted2, state_view,
+                        nodes, [first, second], predicted2, successor,
                         "planner-depth2"))
                     if sp2 is not None:
-                        best_sp2 = max(best_sp2, sp2) if best_sp2 is not None else sp2
-                if best_sp2 is not None:
-                    root_scores[key] = sp1 * best_sp2
+                        best_second[key] = max(best_second.get(key, -1.0), sp2)
+                if nodes >= node_limit:
+                    break
+            for key, best_sp2 in best_second.items():
+                root_scores[key] = eligible_roots[key][2] * best_sp2
 
         # Select best root by Q value.
         best_key = max(root_scores, key=lambda k: root_scores[k])
         best_index = action_keys.index(best_key)
         chosen = dict(legal_actions[best_index])
+        chosen_prediction = root_predictions[best_key]
         chosen["_planner_nodes"] = nodes
         chosen["_planner_value"] = root_scores[best_key]
         chosen["_value_fn"] = self.value_fn_name
         chosen["_model_calls"] = self._model_calls
+        chosen["_inference_tokens"] = self._inference_tokens
+        chosen["_origin"] = str(chosen_prediction.get("origin", "unknown"))
         return chosen
 
 
@@ -1076,7 +1202,6 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
                  observed_result={"kind": "render_window",
                                   "omitted_workspace_ids": omitted},
                  resource_delta=0.0)
-        inference_input_tokens += len(rendered)
         legal = env.legal_actions()
         state_view = {"goal": base_goal,
                       "history": list(history),
@@ -1096,12 +1221,19 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
             # A failed generation still consumed a model call: budget it, or
             # unparseable outputs would loop forever without progress. The
             # failure keeps the generation's origin for evidence tracing.
-            model_calls += 1
+            consumed_calls = (max(1, adapter._model_calls)
+                              if isinstance(adapter, BoundedPlannerAdapter) else 1)
+            model_calls += consumed_calls
+            consumed_tokens = (adapter._inference_tokens
+                               if isinstance(adapter, BoundedPlannerAdapter)
+                               else len(rendered))
+            inference_input_tokens += consumed_tokens
             invalid += 1
             emit("action", action={"kind": "adapter_error"},
                  model_origin=getattr(exc, "model_origin", None)
                  or "unknown",
-                 planner_meta={},
+                 planner_meta={"model_calls": consumed_calls,
+                               "inference_input_tokens": consumed_tokens},
                  observed_result={"kind": "adapter_error",
                                   "error": str(exc)[:200]},
                  resource_delta=1.0)
@@ -1114,7 +1246,20 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
         action = dict(action)
         generation_id = action.pop("_generation_id", None)
         model_origin = action.pop("_origin", "unknown")
-        model_calls += 1
+        requested_calls = action.pop("_model_calls", None)
+        requested_tokens = action.pop("_inference_tokens", None)
+        if requested_calls is None:
+            model_calls += 1
+            inference_input_tokens += len(rendered)
+        else:
+            if (not isinstance(requested_calls, int)
+                    or isinstance(requested_calls, bool) or requested_calls < 0):
+                raise EpisodeError("adapter model-call count must be nonnegative")
+            if (not isinstance(requested_tokens, int)
+                    or isinstance(requested_tokens, bool) or requested_tokens < 0):
+                raise EpisodeError("adapter inference-token count must be nonnegative")
+            model_calls += requested_calls
+            inference_input_tokens += requested_tokens
         if inquiries_used >= action_budget and not _is_submission_like(action):
             truncated = True
             emit("action", action=dict(action), generation_id=generation_id,
@@ -1128,11 +1273,15 @@ def run_episode(env, adapter: Adapter, *, model: ModelInterface,
             imagined.extend(adapter.last_imagined)
         planner_meta = {}
         for key in ("_planner_nodes", "_planner_value", "_value_fn",
-                    "_workspace_records"):
+                    "_workspace_records", "_planner_fallback_reason"):
             if key in action:
                 planner_meta[key] = action.pop(key)
+        if requested_calls is not None:
+            planner_meta["model_calls"] = requested_calls
+            planner_meta["inference_input_tokens"] = requested_tokens
         for reserved in ("_workspace_records", "_planner_nodes",
-                         "_planner_value", "_value_fn"):
+                         "_planner_value", "_value_fn",
+                         "_planner_fallback_reason"):
             action.pop(reserved, None)
         if action.get("kind") in ("read_table", "filter_rows", "sum_column",
                                   "write_result", "check_result"):

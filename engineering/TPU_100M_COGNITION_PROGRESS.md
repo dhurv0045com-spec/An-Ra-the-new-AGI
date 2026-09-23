@@ -1,5 +1,19 @@
 # 100M TPU cognition and training continuation
 
+## 2026-09-23 engineering update
+
+Gandiva now has a dedicated [`bramastra_tpu_100m_preflight.ipynb`](../notebooks/bramastra_tpu_100m_preflight.ipynb) and CPU-safe preflight implementation in [`campaigns/tpu_100m.py`](../bramastra_lab/research/campaigns/tpu_100m.py). On Kaggle it checks for an eight-replica PJRT TPU, validates the prepared bundle, deterministically assigns eight exact-training examples, verifies identical broadcast model state, and runs a real BF16 B-arm forward/backward with finite-gradient checks. The worker does not call `finalize_update`; it records zero optimizer updates and attempts. The notebook can clone Gandiva and prepare the full K8 bundle when no valid input bundle is attached, then packages the run directory for download.
+
+CPU checks compiled eight examples from the existing validated 49,152-row bundle. The first integration pass caught and fixed a pair-denominator mismatch: each distinct-answer source pair yields two ordered comparisons, so the XLA trainer now receives a denominator of two. These checks do **not** instantiate the 100M model on this machine and do not qualify TPU memory or execution.
+
+The live cognition planner now conditions its depth-two world prediction on a separate hypothetical successor history containing the first action and predicted feedback. That synthetic history never enters the real episode trace. Search shares the remaining node/call budget, rotates partially covered root sets, and allocates second-depth nodes round-robin across roots. E2 calibration joins the executed first action to its depth-one prediction, never to a hypothetical child. `ModelWorldModel` reports input/output token counts; planner call and token use now appear in episode event metadata and budget accounting. Added behavioral tests cover history-conditioned prompts, simulated successor states, fair child expansion, remaining-budget behavior, call/token accounting, and selected-action calibration.
+
+## Acceptance boundary
+
+The changes above repair selected cognition and launch-path defects. They do not complete the broader cognition-foundation F1–F6 acceptance contract, establish that the random-weight model has useful cognition, or demonstrate recursive self-improvement. The 100M profile remains configuration-only until a real Kaggle TPU run verifies the registered architecture and this no-update backward path. No optimizer update, checkpoint round-trip, optimizer-state memory measurement, sustained throughput test, or multi-hour training campaign has occurred.
+
+The owner should select **TPU v3-8** in Kaggle and enable Internet before running the dedicated notebook. The notebook runs a backward-only preflight, not full training. Kaggle's current [TPU documentation](https://www.kaggle.com/docs/tpu) and [Notebook documentation](https://www.kaggle.com/docs/notebooks) should be checked again before scheduling; the documented notebook session limit is nine hours, so leave time for packaging and download.
+
 ## K8 owner experiment context
 
 The separate FINAL-K8 build remains the current two-T4 owner experiment; its
@@ -128,33 +142,36 @@ references: [PyTorch/XLA migration guide](https://docs.pytorch.org/xla/master/le
 [XLA AMP guide](https://docs.pytorch.org/xla/master/perf/amp.html), and
 [XLA API guide](https://docs.pytorch.org/xla/master/learn/api-guide.html).
 
-## Not ready for the 100M Kaggle run yet
+## Kaggle readiness boundary
 
 The checked-in `notebooks/bramastra_k8.ipynb` is the existing two-T4 K8
 campaign notebook. It does not launch a TPU worker or select `tpu_100m`.
-The E1–E6 campaign ops also instantiate the frozen K8 profile, not the new
-100M profile. The TPU sampler/backend helpers have contract tests but are not
-yet connected to a production campaign dataset consumer. No Kaggle TPU session
-has exercised the code, and no 100M forward/backward, memory fit, checkpoint
-restore, or throughput result exists.
+The dedicated [`bramastra_tpu_100m_preflight.ipynb`](../notebooks/bramastra_tpu_100m_preflight.ipynb)
+is the new Kaggle consumer for a **zero-update backward preflight**; it is
+separate from the normal K8 notebook. No Kaggle TPU session has exercised it.
+Therefore no 100M forward/backward, peak-memory fit, committed update,
+checkpoint restore, or sustained-throughput result has been measured yet.
 
-The current TPU backend deliberately requires construction inside
-`launch_tpu_workers`. A worker must still call the new broadcast/receipt
-helpers, construct the 100M trainer, build a cognitively meaningful sharded
-training stream, bind the allocation, and publish a single coherent
-checkpoint/result set from the replica group. The production data consumer
-must shard complete optimizer windows, not merely wrap an unpartitioned
-loader. The owner-facing Kaggle path must first run a no-update eight-core
-preflight that measures peak memory, fixed-shape compilation, actual eligible
-examples per update, checkpoint round-trip, and sustained throughput. Only
-then can a measured update budget be chosen. Kaggle currently documents TPU
-v3-8 and a nine-hour notebook session limit; schedule the preflight/training
-and artifact export inside that cap, with export time reserved. See
+The preflight worker calls the replica parameter-broadcast and state-receipt
+helpers, constructs the registered 100M model inside the eight-worker launch,
+and runs one compiled B-arm forward/backward per replica. It does not exercise
+an optimizer update or prove optimizer-state memory fit. The training campaign
+still needs a cognitively meaningful sharded stream, complete optimizer-window
+partitioning, allocation binding, atomic checkpoint/resume, and one coherent
+replica result set. Before authorizing an update, separately measure peak
+memory including optimizer state, fixed-shape compilation, eligible examples
+per global update, checkpoint round-trip, and sustained throughput.
+
+Kaggle documents TPU v3-8 and a nine-hour notebook-session limit. Reserve time
+for artifact packaging and download within that cap. Check the live
 [Kaggle TPU documentation](https://www.kaggle.com/docs/tpu) and
-[Kaggle Notebooks documentation](https://www.kaggle.com/docs/notebooks).
+[Kaggle Notebooks documentation](https://www.kaggle.com/docs/notebooks)
+before launching because quotas and runtime availability can change.
 
-The next engineering slice is therefore to wire a dedicated Kaggle TPU
-preflight/launch path into a production consumer, then qualify it on Kaggle
-with the registered 100M configuration before admitting optimizer updates.
-Until that is done, the existing K8 build is verified, but the 100M TPU run is
-**not ready**.
+Next action: run the dedicated notebook on an attached Kaggle TPU v3-8 with
+Internet enabled, preserve and download its ZIP plus SHA-256 receipt, and
+review all eight worker reports. A pass qualifies only this no-update backward
+path. The 100M training campaign remains **not ready** until memory,
+optimizer-update, checkpoint/resume, data-sharding, and sustained-run gates
+are implemented and evidenced. The existing two-T4 K8 experiment is a separate
+owner run and is unaffected by this notebook.
