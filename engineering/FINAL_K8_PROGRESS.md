@@ -1,5 +1,36 @@
 # FINAL-K8 progress cursor
 
+## 23 September continuation: all-family cognition verification
+
+Commit `ec39a32811492f31047f504e4d066c8bbc74936e` removes a family-coverage
+gap in both the no-update production trace and integrated E2 fixture rehearsal.
+The verifier now runs the random-initialized decoder on rule-inquiry, inventory,
+and program tasks, with a four-model-call cap per family. Each trace contains
+real model-origin calls and truncates with unknown success; the decoder remains
+in evaluation mode, has no retained gradients, and commits zero optimizer
+updates. This confirms the public-input/trace wiring under a bounded diagnostic,
+not competence or a positive learning result.
+
+The integrated fixture rehearsal also selects all three E2 families across its
+matched modes. The fresh full build report is
+[`reports/FINAL_K8/gandiva-cognition-all-families-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-all-families-20260923/build_verification.json):
+F01–F24 pass, all seven check groups pass, zero optimizer updates, duration
+81.985 seconds, data identity
+`79c9706d122050cc1e8f5e6a3363af68005fc1206db0451b40ea807121c8d7f8`, and
+source closure
+`e603b5bbc6d3b7e4e7841482fe0b2327d9d8e253c015f5ef0f765956abb4f378`. The
+source tree is marked dirty solely because the user's pre-existing edit to
+`tests/test_research_k8_real.py` remains. Test-only fixture rows do not qualify
+as learned evidence.
+
+The F1–F6 semantic suite passed 37 tests with `ResourceWarning` promoted to an
+error, after closing two test file handles. Its E2 fixture trace now asserts
+all three family identities. Review notes are in
+[`reports/GANDIVA_F6_FAMILY_REHEARSAL_20260923/HANDOFF.md`](reports/GANDIVA_F6_FAMILY_REHEARSAL_20260923/HANDOFF.md).
+This closes a verification-coverage hole; the broader cognition/RSI system is
+still not scientifically qualified. The owner must still run Kaggle E0 gates
+G01–G04 on two T4s.
+
 ## 23 September follow-up: public-state privacy and diagnostic validity
 
 Commit `719bcbcf5b84e80900e87f21a0cea2f49d550ff1` adds a direct world-model

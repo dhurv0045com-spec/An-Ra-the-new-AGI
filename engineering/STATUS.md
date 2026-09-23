@@ -1,5 +1,27 @@
 # Gandiva engineering status
 
+## Three-family cognition rehearsal — 23 September 2026
+
+Source revision `ec39a32811492f31047f504e4d066c8bbc74936e` expands the
+zero-update production trace and integrated E2 fixture rehearsal to every
+registered family: rule-inquiry, inventory, and program. The random-initialized
+model made four real model-origin calls per family under the explicit cap; each
+trace truncated with unknown success. The model stayed in evaluation mode,
+retained zero gradients, and committed zero optimizer updates. This is honest
+integration evidence, not evidence of useful cognition.
+
+The new full build report
+[`reports/FINAL_K8/gandiva-cognition-all-families-20260923/build_verification.json`](reports/FINAL_K8/gandiva-cognition-all-families-20260923/build_verification.json)
+passes F01–F24 and all seven check groups in 81.985 seconds. Its data identity
+is `79c9706d122050cc1e8f5e6a3363af68005fc1206db0451b40ea807121c8d7f8`; source
+closure is `e603b5bbc6d3b7e4e7841482fe0b2327d9d8e253c015f5ef0f765956abb4f378`.
+The report records `dirty=true` because the pre-existing user edit to
+`tests/test_research_k8_real.py` was preserved. The fixture rehearsal now has
+three matched groups across the E2 modes; those rows are explicitly fixture
+evidence. Owner runtime gates G01–G04 still require the real Kaggle two-T4 E0
+session. See
+[`reports/GANDIVA_F6_FAMILY_REHEARSAL_20260923/HANDOFF.md`](reports/GANDIVA_F6_FAMILY_REHEARSAL_20260923/HANDOFF.md).
+
 ## Cognition privacy follow-up — 23 September 2026
 
 Follow-up commit `719bcbcf5b84e80900e87f21a0cea2f49d550ff1` adds two
