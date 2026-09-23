@@ -19,6 +19,24 @@ import time
 from typing import Any
 
 SUPPORTED_PHASES = frozenset({"E0", "E1", "E2", "E3", "E4", "E5", "E6"})
+E0_MIN_CONTEXT = 256
+
+
+def _e0_probe_config(profile: str):
+    """Keep the lightweight E0 model but fit its complete typed probe prompt.
+
+    The tiny profile's default 128-token context is too short for the
+    canonical public-state prefix plus the two real action candidates used
+    by the resume-equivalence test.  Increasing context does not increase
+    decoder parameter count and keeps uninterrupted/resumed configs equal.
+    """
+    from bramastra_lab.research.config import BuildConfig
+
+    base = BuildConfig.from_dict({"model": {"profile": profile}})
+    if base.model.max_seq >= E0_MIN_CONTEXT:
+        return base
+    return BuildConfig.from_dict({
+        "model": {"profile": profile, "max_seq": E0_MIN_CONTEXT}})
 
 
 def run_worker_phase(*, phase: str, device: str, arm: str | None,
@@ -305,7 +323,7 @@ def _run_e0(*, device: str, arm: str | None, seed: int, data_dir: str,
     from bramastra_lab.research.models import IntegratedModel
 
     torch.manual_seed(seed)
-    config = BuildConfig.from_dict({"model": {"profile": profile}})
+    config = _e0_probe_config(profile)
     model = IntegratedModel(config).to(device)
     trainer = K8Trainer(config, model, device=device,
                         precision="fp32" if not device.startswith("cuda") else precision,
@@ -659,13 +677,13 @@ def _run_resume_in_child(payload: dict, *, seed: int, device: str,
             "from bramastra_lab.research.experience.sequences import build_answer_row, collocate\n"
             "from bramastra_lab.research.learning.k8_trainer import AllocationContext, K8Trainer\n"
             "from bramastra_lab.research.models import IntegratedModel\n"
-            "from bramastra_lab.research.campaigns.worker import _strong_checksum\n"
+            "from bramastra_lab.research.campaigns.worker import _strong_checksum, _e0_probe_config\n"
             "from bramastra_lab.research.campaigns.phases.compiler import goal_prefix_tokens\n"
             "from bramastra_lab.research.experience.codec import encode_text\n"
             f"profile={profile!r}; device={device!r}; precision={precision!r}; "
             f"seed={int(seed)}; deadline={float(deadline)!r}\n"
             f"config_identity={config_identity!r}\n"
-            "config = BuildConfig.from_dict({'model': {'profile': profile}})\n"
+            "config = _e0_probe_config(profile)\n"
             "torch.manual_seed(seed)\n"
             "model = IntegratedModel(config).to(device)\n"
             "trainer = K8Trainer(config, model, device=device, precision=precision, require_allocation=True)\n"

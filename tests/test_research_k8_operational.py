@@ -939,6 +939,28 @@ class O07GateTests(unittest.TestCase):
 
 
 class O10NotebookTests(unittest.TestCase):
+    def test_e0_probe_context_fits_canonical_prefix_and_action_candidates(self) -> None:
+        import json
+
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            goal_prefix_tokens)
+        from bramastra_lab.research.campaigns.worker import (
+            E0_MIN_CONTEXT, _e0_probe_config)
+        from bramastra_lab.research.experience.codec import encode_text
+
+        config = _e0_probe_config("tiny")
+        question = "2+2?"
+        prefix = goal_prefix_tokens({"question": question})
+        candidates = [encode_text(json.dumps(
+            {"kind": "e0", "op": op, "question": question},
+            sort_keys=True)) for op in ("add", "echo")]
+
+        self.assertEqual(config.model.profile, "tiny")
+        self.assertEqual(config.model.layers, 2)
+        self.assertEqual(config.model.max_seq, E0_MIN_CONTEXT)
+        self.assertLessEqual(max(len(prefix) + len(row) for row in candidates),
+                             config.model.max_seq)
+
     def test_e0_only_deadline_does_not_consume_missing_export_reserve(self) -> None:
         from bramastra_lab.research.campaigns.process_supervision import (
             phase_absolute_deadlines)
