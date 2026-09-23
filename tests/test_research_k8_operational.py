@@ -1040,6 +1040,17 @@ class O10NotebookTests(unittest.TestCase):
         self.assertEqual(K8_CAMPAIGN_PRECISION, "fp32")
         self.assertEqual(ProductionOps().precision, "fp32")
 
+    def test_precision_routing_uses_required_bf16_for_xla(self) -> None:
+        from bramastra_lab.research.campaigns.phases.ops import (
+            _precision_for_device)
+
+        self.assertEqual(_precision_for_device("xla:0", "fp32"),
+                         "bf16_autocast")
+        self.assertEqual(_precision_for_device("cuda:1", "fp16_autocast"),
+                         "fp16_autocast")
+        self.assertEqual(_precision_for_device("cpu", "bf16_autocast"),
+                         "fp32")
+
     def test_notebook_backed_by_repo(self) -> None:
         notebook = json.load(open("notebooks/bramastra_k8.ipynb", encoding="utf-8"))
         sources = ["".join(cell["source"]) for cell in notebook["cells"]

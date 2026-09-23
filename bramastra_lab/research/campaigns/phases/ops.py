@@ -172,6 +172,21 @@ def _frozen_config_for_profile(profile: str):
     return BuildConfig.from_dict({"model": {"profile": profile}})
 
 
+def _precision_for_device(device: Any, requested: str) -> str:
+    """Route the trainer's supported precision to the selected backend.
+
+    XLA training requires BF16 autocast in K8Trainer; passing the GPU/CPU
+    default ``fp32`` to an XLA device is rejected by the trainer. CPU keeps
+    the reference FP32 path, while CUDA honors the campaign's requested mode.
+    """
+    name = str(device).strip().lower()
+    if name.startswith("xla"):
+        return "bf16_autocast"
+    if name.startswith("cuda"):
+        return requested
+    return "fp32"
+
+
 class ProductionOps:
     """Real GPU ops (never executed locally per policy; owner launch only)."""
 
@@ -195,7 +210,7 @@ class ProductionOps:
         # bind the campaign reservation via begin_campaign before updates).
         trainer = K8Trainer(
             config, model, device=device,
-            precision="fp32" if not str(device).startswith("cuda") else self.precision,
+            precision=_precision_for_device(device, self.precision),
             require_allocation=True)
         # Match campaign betas (0.9, 0.95) explicitly; base trainer defaults
         # differ. LR/WD/clip already frozen via config.
