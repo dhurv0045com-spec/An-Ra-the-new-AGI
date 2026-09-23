@@ -1152,6 +1152,13 @@ class O10NotebookTests(unittest.TestCase):
         self.assertNotIn("globals()", joined)
         self.assertNotIn("RESULTS_ZIP.unlink", joined)
         self.assertIn("new_results_zip", joined)
+        self.assertIn("build_results_pack", joined)
+        self.assertIn("def _publish_results_zip(reason):", joined)
+        self.assertIn("RESULTS_ZIP = _publish_results_zip('xprobe')", joined)
+        self.assertIn("_publish_results_zip(f'failed-{label}')", joined)
+        self.assertIn("RESULTS ZIP READY:", joined)
+        self.assertIn("Download experiment results", joined)
+        self.assertIn("creating diagnostic-only ZIP", joined)
         self.assertIn("failures.jsonl", joined)
         self.assertIn("'-u', '-m'", joined)
         # Every mutating subprocess call checks its failure.
