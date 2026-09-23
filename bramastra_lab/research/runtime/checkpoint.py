@@ -522,7 +522,11 @@ def read_milestones(run_dir: str) -> list[dict[str, Any]]:
 
 
 def prune_checkpoints(run_dir: str, *, keep_latest: int = 2) -> list[str]:
-    """Rotate old latest checkpoints; milestone-referenced dirs are retained."""
+    """Rotate old latest checkpoints; milestone-referenced dirs are retained.
+
+    Returns the directories that are actually gone afterwards; a directory
+    still held open by a concurrent publisher is left for the next prune.
+    """
     checkpoints = checkpoint_root(run_dir)
     latest = read_pointer(run_dir, LATEST_POINTER)
     milestones = {entry["directory"] for entry in read_milestones(run_dir)}
@@ -538,6 +542,7 @@ def prune_checkpoints(run_dir: str, *, keep_latest: int = 2) -> list[str]:
     removable = [name for name in entries if name not in protected]
     removable = removable[:-keep_latest] if keep_latest else removable
     removed = []
+    retained = []
     for name in removable:
         # Concurrent publishers prune the same tree: a sibling may have
         # already removed this entry (missing means pruned: the desired end
@@ -545,18 +550,23 @@ def prune_checkpoints(run_dir: str, *, keep_latest: int = 2) -> list[str]:
         # briefly, then leave the directory for the next prune rather than
         # failing the training job over housekeeping.
         target = os.path.join(checkpoints, name)
+        gone = False
         for _ in range(3):
             try:
                 shutil.rmtree(target)
+                gone = True
                 break
             except FileNotFoundError:
+                gone = True
                 break
             except PermissionError:
                 time.sleep(0.1)
                 continue
             except OSError:
                 break
-        removed.append(name)
+        # The return value reports what is actually gone, so a caller can
+        # never record a prune that left the directory in place.
+        (removed if gone else retained).append(name)
     return removed
 
 

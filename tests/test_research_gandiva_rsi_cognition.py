@@ -7,6 +7,103 @@ import tempfile
 import unittest
 
 
+class MethodChoicePromptContractTests(unittest.TestCase):
+    """The proposer must be trained and decoded on ONE prompt.
+
+    Regression: training rendered a compiled goal event while decoding fed
+    `[259] + encode_text(json)`, so no trained model could emit the method
+    token it was taught and every production confirmation capture refused.
+    """
+
+    def _payload(self):
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            method_choice_payload)
+
+        return method_choice_payload(
+            tasks={"mt-0000": "rule-inquiry"},
+            archive_methods=["M0", "M1", "M2"])
+
+    def test_training_prefix_is_the_decode_prompt(self) -> None:
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            goal_prefix_events, method_choice_prompt)
+        from bramastra_lab.research.experience.sequences import (
+            build_answer_row, collocate)
+
+        payload = self._payload()
+        prompt = method_choice_prompt(payload)
+        row = build_answer_row(
+            goal_prefix_events(payload), "M2",
+            provenance={"kind": "trajectory", "episode_id": "p0-mt-0000",
+                        "task_semantic_id": "e5-proposer",
+                        "split": "meta-training", "source": "measured-archive",
+                        "collection_policy": "proposer-train", "family": "meta"},
+            max_tokens=512)
+        batch = collocate([row], max_seq=512)
+        tokens = [int(value) for value in batch.input_ids[0]]
+        self.assertEqual(tokens[:len(prompt)], prompt)
+        self.assertGreater(len(tokens), len(prompt))
+
+    def test_proposer_decodes_from_the_canonical_prompt(self) -> None:
+        from unittest.mock import patch
+
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            method_choice_payload, method_choice_prompt)
+        from bramastra_lab.research.metalearning.dispatch import MethodProposer
+
+        seen: dict = {}
+
+        class _Report:
+            answer = "M2"
+
+        def _fake_generate(model, config, prompt, max_new_tokens=0):
+            seen["prompt"] = list(prompt)
+            return _Report()
+
+        class _Row:
+            method_id = "M0"
+
+        class _Archive:
+            rows = (_Row(),)
+
+            def identity(self) -> str:
+                return "archive-id"
+
+        proposer = MethodProposer(object(), object(),
+                                  checkpoint_payload_identity="cp")
+        with patch("bramastra_lab.research.runtime.inference.generate_free_form",
+                   _fake_generate):
+            capture = proposer.capture_proposal(
+                {"tasks": {"mt-0000": "rule-inquiry"}}, _Archive())
+        expected = method_choice_payload(
+            tasks={"mt-0000": "rule-inquiry"}, archive_methods=["M0"])
+        self.assertEqual(seen["prompt"], method_choice_prompt(expected))
+        self.assertEqual(json.loads(capture.rendered_input), expected)
+        self.assertEqual(capture.raw_output, "M2")
+
+    def test_single_and_block_decisions_share_one_prompt_shape(self) -> None:
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            method_choice_payload)
+
+        single = method_choice_payload(
+            tasks={"mt-0000": "rule-inquiry"}, archive_methods=["M0", "M1"])
+        block = method_choice_payload(
+            tasks={"mt-0000": "rule-inquiry", "mt-0001": "inventory"},
+            archive_methods=["M0", "M1"])
+        self.assertEqual(sorted(single["method_choice"]),
+                         sorted(block["method_choice"]))
+        self.assertEqual(block["method_choice"]["families"]["mt-0001"],
+                         "inventory")
+
+    def test_non_object_json_is_refused_with_its_own_message(self) -> None:
+        from bramastra_lab.research.metalearning.dispatch import (
+            MethodError, parse_method_selection)
+
+        for raw in ("true", "3", "[1, 2]"):
+            with self.assertRaises(MethodError) as caught:
+                parse_method_selection(raw)
+            self.assertIn("must be an object", str(caught.exception))
+
+
 class E5MethodExecutionTests(unittest.TestCase):
     def test_compiled_objectives_reach_support_windows(self) -> None:
         from bramastra_lab.research.campaigns.phases.e5 import (

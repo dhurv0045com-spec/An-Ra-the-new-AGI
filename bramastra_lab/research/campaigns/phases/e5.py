@@ -1203,26 +1203,28 @@ def _proposer_batches(archive_tasks: list, archive: Any) -> list[Any]:
     Each batch asks for the best-feasible method of one archive task given
     only permitted descriptors (no query labels/outcomes); the target is the
     measured best method token. Ties resolve to M0 (valid no-change).
+    The prompt is the canonical method-choice prefix, byte-identical to the
+    one the proposer decodes from at capture time.
     """
+    from bramastra_lab.research.campaigns.phases.compiler import (
+        goal_prefix_events, method_choice_payload)
     from bramastra_lab.research.experience.sequences import (
         build_answer_row, collocate)
 
     batches = []
     measured_count = 0
+    archive_methods = sorted({row.method_id for row in archive.rows})
     for task in archive_tasks:
         task_id = str(task.get("meta_task_id", "mt-?"))
         best = archive.best_measured(task_id)
         if best is None:
             continue
         measured_count += 1
-        descriptor = json.dumps(
-            {"task_identity": task_id,
-             "family": str(task.get("family", "")),
-             "archive_methods": sorted(
-                 {row.method_id for row in archive.rows})},
-            sort_keys=True)
+        payload = method_choice_payload(
+            tasks={task_id: str(task.get("family", ""))},
+            archive_methods=archive_methods)
         row = build_answer_row(
-            [("goal", {"method_choice": descriptor})], best,
+            goal_prefix_events(payload), best,
             provenance={"kind": "trajectory",
                         "episode_id": f"p0-{task_id}",
                         "task_semantic_id": "e5-proposer",
@@ -1394,9 +1396,9 @@ def _capture_proposer_choice(ops, proposer: Any, archive, archive_tasks: list,
             method_proposer = MethodProposer(
                 model, config,
                 checkpoint_payload_identity=proposer_checkpoint_id)
-            descriptor = {"task_identities": sorted(
-                t["task_identity"] for t in task_descriptors),
-                "family": "meta-training"}
+            descriptor = {"tasks": {
+                str(t.get("meta_task_id")): str(t.get("family", ""))
+                for t in archive_tasks}}
             capture = method_proposer.capture_proposal(
                 descriptor, archive)
             from bramastra_lab.research.metalearning.dispatch import (
@@ -1489,9 +1491,9 @@ def _capture_successor_choice(handle: Any, archive, archive_tasks: list,
             method_proposer = MethodProposer(
                 model, config,
                 checkpoint_payload_identity=proposer_checkpoint_id)
-            descriptor = {"task_identities": sorted(
-                str(t.get("meta_task_id")) for t in archive_tasks),
-                "family": "meta-confirmation"}
+            descriptor = {"tasks": {
+                str(t.get("meta_task_id")): str(t.get("family", ""))
+                for t in archive_tasks}}
             capture = method_proposer.capture_proposal(descriptor, archive)
             from bramastra_lab.research.metalearning.dispatch import (
                 parse_method_selection)

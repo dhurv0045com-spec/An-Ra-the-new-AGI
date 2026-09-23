@@ -95,26 +95,54 @@ class MethodProposer:
 
     def render_input(self, task_descriptor: Mapping[str, Any],
                      archive_snapshot: MethodArchive) -> str:
+        """Canonical rendered input for the method choice (audit record).
+
+        This is the exact public state the model is prompted with, so the
+        recorded transcript describes what was actually decoded.
+        """
         forbidden = {"measured_success", "query_outcome", "label"}
         leaked = set(task_descriptor) & forbidden
         if leaked:
             raise DispatchError(
                 f"current-task outcomes in proposal context: {sorted(leaked)}")
-        summary = {
-            "task_descriptor": dict(task_descriptor),
-            "archive_identity": archive_snapshot.identity(),
-            "archive_methods": sorted({row.method_id for row in archive_snapshot.rows}),
-        }
-        return json.dumps(summary, sort_keys=True)
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            method_choice_payload)
+
+        payload = method_choice_payload(
+            tasks=self._descriptor_tasks(task_descriptor),
+            archive_methods=sorted(
+                {row.method_id for row in archive_snapshot.rows}))
+        return json.dumps(payload, sort_keys=True)
+
+    @staticmethod
+    def _descriptor_tasks(task_descriptor: Mapping[str, Any]) -> dict[str, str]:
+        """Normalize a method-choice descriptor to identity -> family.
+
+        A block decision carries a `tasks` map; a single-task descriptor
+        carries `task_identity` with one `family`. Both normalize to the same
+        canonical payload.
+        """
+        tasks = task_descriptor.get("tasks")
+        if isinstance(tasks, Mapping) and tasks:
+            return {str(key): str(value) for key, value in tasks.items()}
+        identities = task_descriptor.get("task_identities")
+        if identities is None and task_descriptor.get("task_identity"):
+            identities = [task_descriptor["task_identity"]]
+        family = str(task_descriptor.get("family", ""))
+        return {str(identity): family for identity in (identities or ())}
 
     def capture_proposal(self, task_descriptor: Mapping[str, Any],
                          archive_snapshot: MethodArchive, *,
                          sampling_temperature: float = 0.7) -> ProposalCapture:
-        rendered_input = self.render_input(task_descriptor, archive_snapshot)
-        from bramastra_lab.research.experience.codec import encode_text
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            method_choice_payload, method_choice_prompt)
         from bramastra_lab.research.runtime.inference import generate_free_form
 
-        prompt = [259] + encode_text(rendered_input)
+        rendered_input = self.render_input(task_descriptor, archive_snapshot)
+        payload = json.loads(rendered_input)
+        # The decode prompt is the canonical training prompt for the same
+        # payload: same tokens the proposer was trained to continue.
+        prompt = method_choice_prompt(payload)
         report = generate_free_form(self.model, self.config, prompt,
                                     max_new_tokens=24)
         raw_output = report.answer
@@ -194,6 +222,12 @@ def _program_to_method_id(program: MethodProgram) -> str:
 
 
 def _program_from_json(raw: Mapping[str, Any]) -> MethodProgram:
+    if not isinstance(raw, Mapping):
+        # Valid JSON that is not a program object (a bare bool/number/list)
+        # is a decode failure with its own message, never an AttributeError
+        # from deep inside the program builder.
+        raise MethodError(
+            f"method program JSON must be an object, got {type(raw).__name__}")
     if raw.get("proposal") == "no_change":
         raise MethodError("use the no_change literal, not a program JSON")
     kwargs: dict[str, Any] = {}

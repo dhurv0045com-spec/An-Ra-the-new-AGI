@@ -48,6 +48,37 @@ def goal_prefix_tokens(public: Mapping[str, Any], *,
     return tokens
 
 
+def method_choice_payload(*, tasks: Mapping[str, str],
+                          archive_methods: Any) -> dict[str, Any]:
+    """Canonical public state for one method-choice decision.
+
+    ONE payload definition for both sides of the contract: the method-token
+    proposer is trained on this state and decodes from this state. The two
+    sides used to render different prompts (a compiled goal event during
+    training, raw JSON at decode time), so a real model could never emit the
+    token it had been taught.
+
+    `tasks` maps each task identity to its family, so a single decision over
+    one task (training) and one over a block of tasks (confirmation) share
+    exactly one prompt shape.
+    """
+    identities = sorted(str(item) for item in tasks)
+    return {"method_choice": {
+        "task_identities": identities,
+        "families": {str(key): str(tasks[key]) for key in identities},
+        "archive_methods": sorted(str(item) for item in archive_methods)}}
+
+
+def method_choice_prompt(payload: Mapping[str, Any]) -> list[int]:
+    """Complete prompt tokens for a method-choice decision.
+
+    Identical to the prefix of the training row built from the same payload,
+    and to every other campaign decision prompt (no slicing, no alternate
+    rendering).
+    """
+    return goal_prefix_tokens(payload)
+
+
 def _training_budgets(history: list[dict[str, Any]]) -> dict[str, int]:
     """Reconstruct the declared policy budgets for a direct-policy target.
 

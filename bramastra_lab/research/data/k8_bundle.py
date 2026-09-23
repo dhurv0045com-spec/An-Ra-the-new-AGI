@@ -1279,27 +1279,23 @@ def _validate_meta(bundle_dir: str) -> list[str]:
         # Every query label and protected reference must resolve to exactly
         # one prepared label: E5 may never invent a label or borrow one from
         # a same-named mechanism in another pool.
-        referenced: list[tuple[str, str, str]] = []
-        for example in row.get("query_examples", []):
-            referenced.append((str(row.get("meta_task_id")), "query",
-                               str(example.get("mechanism_id", ""))))
-        for ref in row.get("protected_references", []):
-            referenced.append((str(row.get("meta_task_id")), "protected",
-                               str(ref.get("mechanism_id", ""))))
-        for task_id, kind, mechanism_id in referenced:
-            family = None
-            for example in list(row.get("query_examples", [])) + list(
-                    row.get("support_examples", [])):
-                if str(example.get("mechanism_id", "")) == mechanism_id:
-                    family = str(example.get("family", ""))
-            for ref in row.get("protected_references", []):
-                if str(ref.get("mechanism_id", "")) == mechanism_id:
-                    family = str(ref.get("family", family or ""))
-            label = labels.get((family or "", mechanism_id))
+        task_id = str(row.get("meta_task_id"))
+        referenced: list[tuple[str, str, str, str]] = [
+            (task_id, "query", str(example.get("family", "")),
+             str(example.get("mechanism_id", "")))
+            for example in row.get("query_examples", [])]
+        referenced.extend(
+            (task_id, "protected", str(ref.get("family", "")),
+             str(ref.get("mechanism_id", "")))
+            for ref in row.get("protected_references", []))
+        for task_id, kind, family, mechanism_id in referenced:
+            label = labels.get((family, mechanism_id))
             if label is None:
                 issues.append(
-                    f"meta_label_missing: {task_id}:{kind}:{mechanism_id}")
+                    f"meta_label_missing: {task_id}:{kind}:"
+                    f"{family}/{mechanism_id}")
             elif label.get("answer") in (None, ""):
                 issues.append(
-                    f"meta_label_empty: {task_id}:{kind}:{mechanism_id}")
+                    f"meta_label_empty: {task_id}:{kind}:"
+                    f"{family}/{mechanism_id}")
     return issues
