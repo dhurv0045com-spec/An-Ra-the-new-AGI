@@ -64,6 +64,28 @@ def _wire_parent(run_dir: str, job_id: str, seed: int, index: int) -> str:
 
 
 class E1ExecutorTests(unittest.TestCase):
+    def test_auxiliary_targets_use_initial_state_not_final_answer_context(self) -> None:
+        from bramastra_lab.research.campaigns.phases.compiler import (
+            build_batch_for_trajectory, compile_channels_for_row,
+            goal_prefix_tokens, load_training_trajectories,
+            prompt_tokens_for_row)
+
+        data_dir = _bundle_fixture()
+        row = load_training_trajectories(data_dir, seed=1701)[0]
+        batch = build_batch_for_trajectory(row)
+        answer_prefix = prompt_tokens_for_row(row)
+        initial_prefix = goal_prefix_tokens(row["public"])
+        self.assertGreater(
+            len(answer_prefix), len(initial_prefix),
+            "fixture must contain received history/remaining-budget context")
+        self.assertEqual(
+            batch.input_ids[0][:len(answer_prefix)].tolist(), answer_prefix)
+
+        compiled = compile_channels_for_row(
+            row, batch, arm_weights={"world": 1.0},
+            arm_enabled=frozenset({"world"}))
+        self.assertEqual(compiled["world"]["prefix_tokens"], initial_prefix)
+
     def test_both_arms_complete_with_honest_fixture_evidence(self) -> None:
         from bramastra_lab.research.campaigns.phases import e1
         from bramastra_lab.research.campaigns.phases.ops import (

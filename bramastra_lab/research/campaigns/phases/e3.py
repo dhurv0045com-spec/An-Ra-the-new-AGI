@@ -433,7 +433,7 @@ def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
         build_answer_row, collocate)
 
     from bramastra_lab.research.campaigns.phases.compiler import (
-        compile_channels_for_row)
+        compile_channels_for_row, goal_prefix_events)
     # Training compositions carry the bare sum (heldout carries sum:verdict).
     answer = str(trow.get("answer", trow.get("expected_sum", "0")))
     if ":" in answer:
@@ -446,7 +446,7 @@ def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
             f"!= stored answer {answer!r}; corrupt row, refusing")
     public = dict(trow.get("public", {"tool": trow.get("composition", "single_filter")}))
     seq = build_answer_row(
-        [("goal", public)], answer,
+        goal_prefix_events(public), answer,
         provenance={"kind": "trajectory",
                     "episode_id": str(trow.get("mechanism_id", "tool")),
                     "task_semantic_id": "e3-tool", "split": "tool-training",
@@ -478,7 +478,8 @@ def _tool_batch(trow: dict, weights: dict, enabled: frozenset):
                                     "executed_sum": observed,
                                     "request": "sum/executed"}}]}
     compiled = compile_channels_for_row(
-        pseudo_row, batch, arm_weights=dict(weights), arm_enabled=enabled)
+        pseudo_row, batch, arm_weights=dict(weights), arm_enabled=enabled,
+        batch_context="initial")
     return batch, compiled
 
 

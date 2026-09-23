@@ -20,28 +20,29 @@ K8_TRAINING_POOL = "training"
 K8_MAX_SEQ = 512
 
 
-def goal_prefix_tokens(public: Mapping[str, Any], *,
-                       max_event_bytes: int = None) -> list[int]:
-    """Complete initial public-state prefix used by training and inference.
-
-    This emits the same renderer marker, goal and initial budget events used
-    by the live policy. All decision channels share this prefix.
-    """
-    from bramastra_lab.research.experience.codec import (
-        DEFAULT_MAX_EVENT_BYTES, SPECIAL_BOUNDARY, encode_event)
+def goal_prefix_events(public: Mapping[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Canonical initial instruction, goal, and full decision-budget events."""
     from bramastra_lab.research.experience.public_state import (
         public_state_prefix_events)
     from bramastra_lab.research.cognition.episode import (
         ACTION_BUDGET_DEFAULT, CALL_BUDGET_DEFAULT, NODE_BUDGET_DEFAULT)
 
-    if max_event_bytes is None:
-        max_event_bytes = DEFAULT_MAX_EVENT_BYTES
     initial_budgets = {"actions_left": ACTION_BUDGET_DEFAULT,
                        "calls_left": CALL_BUDGET_DEFAULT,
                        "nodes_left": NODE_BUDGET_DEFAULT}
+    return public_state_prefix_events(public, [], budgets=initial_budgets)
+
+
+def goal_prefix_tokens(public: Mapping[str, Any], *,
+                       max_event_bytes: int = None) -> list[int]:
+    """Complete initial public-state prefix used by training and inference."""
+    from bramastra_lab.research.experience.codec import (
+        DEFAULT_MAX_EVENT_BYTES, SPECIAL_BOUNDARY, encode_event)
+
+    if max_event_bytes is None:
+        max_event_bytes = DEFAULT_MAX_EVENT_BYTES
     tokens = [SPECIAL_BOUNDARY]
-    for role, content in public_state_prefix_events(
-            public, [], budgets=initial_budgets):
+    for role, content in goal_prefix_events(public):
         tokens.extend(encode_event(role, content,
                                    max_event_bytes=max_event_bytes))
     return tokens
@@ -244,7 +245,8 @@ def build_batch_for_trajectory(row: dict[str, Any], *,
 def compile_channels_for_row(row: dict[str, Any], batch,
                              *, arm_weights: dict[str, float],
                              arm_enabled: frozenset[str],
-                             max_seq: int = K8_MAX_SEQ) -> dict[str, Any]:
+                             max_seq: int = K8_MAX_SEQ,
+                             batch_context: str = "trajectory") -> dict[str, Any]:
     """Compile real world/action/value/pair channels from episode history.
 
     - world: actual next observation after the first allowed history action.
@@ -255,10 +257,11 @@ def compile_channels_for_row(row: dict[str, Any], batch,
     - pair: actual paired goals are bound by the caller via pair_rows
       (see `build_pair_rows`); here we only declare eligibility.
 
-    Every channel conditions on the COMPLETE prompt prefix (boundary + goal
-    event, cross-checked against the compiled batch) and full-length
-    candidate/action/target encodings. Oversized content fails explicitly;
-    nothing is silently truncated.
+    Auxiliary action/world/value channels condition on the complete initial
+    state (boundary, instruction, goal, and initial budgets). The answer batch
+    may instead include received history and remaining budgets; its declared
+    context is checked independently. Candidate/action/target encodings remain
+    full length. Oversized content fails explicitly; nothing is truncated.
     """
     from bramastra_lab.research.experience.codec import (
         encode_event, encode_text)
@@ -274,18 +277,29 @@ def compile_channels_for_row(row: dict[str, Any], batch,
     feedback = first.get("feedback")
     if not isinstance(action, dict) or not isinstance(feedback, dict):
         raise ValueError("history action/feedback must be objects")
-    # Complete prompt prefix from the same single goal encoding the answer
-    # row uses — no fixed prompt, no six-token cut, no answer leakage.
+    # These auxiliary targets describe the first decision from the initial
+    # state, so they use the initial goal/budget prefix. The answer row below
+    # intentionally contains the trajectory's received history and remaining
+    # budgets. Validate that *that* complete answer prefix agrees with its
+    # compiled batch instead of comparing two different decision states.
     prefix_tokens = goal_prefix_tokens(row.get("public") or {})
+    if batch_context == "trajectory":
+        expected_batch_prefix = prompt_tokens_for_row(row, max_seq=max_seq)
+    elif batch_context == "initial":
+        expected_batch_prefix = prefix_tokens
+    else:
+        raise ValueError(
+            "batch_context must be 'trajectory' or 'initial'; refusing "
+            "implicit training-prefix assumptions")
     try:
-        batch_prefix = batch.input_ids[0][:len(prefix_tokens)].tolist()
+        batch_prefix = batch.input_ids[0][:len(expected_batch_prefix)].tolist()
     except Exception as exc:
         raise ValueError(
             f"batch has no input tokens for channel compilation: {exc}") from exc
-    if list(prefix_tokens) != batch_prefix:
+    if expected_batch_prefix != batch_prefix:
         raise ValueError(
-            "compiled channel prefix disagrees with the batch input prefix; "
-            "refusing drifting training/inference representations")
+            f"compiled {batch_context} prefix disagrees with the batch input "
+            "prefix; refusing drifting training/inference representations")
     if len(prefix_tokens) + 1 > max_seq:
         raise ValueError(
             f"prompt prefix needs {len(prefix_tokens)} tokens; max_seq is "
