@@ -38,6 +38,65 @@ class CognitionPlanningTests(unittest.TestCase):
         self.assertEqual(len(model.prompts), 2)
         self.assertNotEqual(model.prompts[0], model.prompts[1])
 
+    def test_world_prediction_prompt_ignores_unreceived_private_state(self) -> None:
+        model = _CaptureModel()
+        predictor = ModelWorldModel(model)
+        public = {"goal": {"target": "enter"},
+                  "history": [{"action": {"kind": "inspect",
+                                             "variable": "door"},
+                               "feedback": {"kind": "observation",
+                                            "value": "closed"}}],
+                  "workspace": [],
+                  "budgets": {"actions_left": 3, "calls_left": 4}}
+        for secret in ("north", "south"):
+            predictor(state={**public,
+                             "private_world": {"correct_door": secret},
+                             "oracle_answer": secret,
+                             "evaluator_label": secret},
+                     action={"kind": "inspect", "variable": "door"},
+                     depth=1)
+
+        self.assertEqual(len(model.prompts), 2)
+        self.assertEqual(
+            model.prompts[0], model.prompts[1],
+            "unreceived private/evaluator fields must not enter model input")
+
+    def test_episode_prompt_is_invariant_across_private_world_twins(self) -> None:
+        from types import SimpleNamespace
+
+        class HiddenRuleEnv:
+            def __init__(self, answer: str) -> None:
+                self.answer = answer
+
+            def reset(self, *, episode_id):
+                return SimpleNamespace(
+                    observable_values={"task": "submit the north door"},
+                    feedback={"kind": "start"})
+
+            def legal_actions(self):
+                return [{"kind": "submit", "answer": "north"}]
+
+            def step(self, action):
+                feedback = {"kind": "verdict",
+                            "success": action["answer"] == self.answer}
+                return SimpleNamespace(feedback=feedback), 0.0, True, False
+
+        model = _CaptureModel()
+        outcomes = []
+        for hidden_answer in ("north", "south"):
+            planner = BoundedPlannerAdapter(
+                world_model=ModelWorldModel(model), max_depth=1, max_nodes=1)
+            trace = run_episode(
+                HiddenRuleEnv(hidden_answer), planner, model=model, seed=29,
+                action_budget=1, call_budget=2, node_budget=1)
+            outcomes.append(trace["summary"]["success"])
+
+        self.assertEqual(outcomes, [True, False])
+        self.assertEqual(len(model.prompts), 2)
+        self.assertEqual(
+            model.prompts[0], model.prompts[1],
+            "hidden mechanism differences must not alter pre-observation input")
+
     def test_malformed_world_model_response_is_a_counted_failure(self) -> None:
         class MalformedModel(ModelInterface):
             def generate(self, prompt_tokens, *, max_new_tokens):
