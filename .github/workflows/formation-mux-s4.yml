@@ -2,15 +2,17 @@ name: FORMATION-MUX S5 + frontier CPU qualification
 
 on:
   push:
-    branches: [cymek-next-core-architecture]
+    branches: [cymek-next-core-architecture, cymek-beta]
     paths:
       - 'anra_v5/formation_mux_*'
       - 'anra_v5/tie_role_*'
       - 'v5_experiments/formation_mux_*'
       - 'v5_experiments/tie_role_*'
+      - 'experiments/COLAB/build_formation_mux_recovery.py'
       - 'tools/formation_mux_001_*'
       - 'tests/test_formation_mux_*'
       - 'notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb'
+      - 'notebooks/CYMEK_FORMATION_MUX_001_RECOVERY_T4X2.ipynb'
       - 'docs/cymek/experiments/FORMATION-MUX-001/**'
       - 'docs/cymek/experiments/CS-MECH-002/**'
       - 'docs/cymek/experiments/REP-FORM-003A/**'
@@ -54,7 +56,8 @@ jobs:
             tools/formation_mux_001_kaggle_operator_v9.py \
             tools/formation_mux_001_kaggle_operator_v10.py \
             tools/formation_mux_001_kaggle_operator_v11.py \
-            tools/formation_mux_001_kaggle_operator_v12.py
+            tools/formation_mux_001_kaggle_operator_v12.py \
+            tools/formation_mux_001_recovery_preflight.py
       - name: Run FORMATION-MUX qualification tests
         run: |
           python -m pytest -q \
@@ -64,7 +67,8 @@ jobs:
             tests/test_formation_mux_001_v5.py \
             tests/test_formation_mux_surface_v2.py \
             tests/test_formation_mux_vocab_pressure_v1.py \
-            tests/test_formation_mux_tie_role_v1.py
+            tests/test_formation_mux_tie_role_v1.py \
+            tests/test_formation_mux_recovery_preflight.py
       - name: Verify immutable S5, preregistrations, and real-tokenizer 60k public surface
         run: |
           python - <<'PY'
