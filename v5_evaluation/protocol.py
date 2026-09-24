@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Mapping
 
 from v5_registry.subject import CoreSubjectManifest
+from v5_evaluation.adapter import GenerationResult
 from v5_evaluation.firewall import (
     CommittedOutput,
     EvaluatorTruth,
@@ -30,9 +32,9 @@ from v5_evaluation.metrics import METRIC_REGISTRY
 from v5_evaluation.stats import STATISTICAL_RULES
 
 
-PROTOCOL_SCHEMA = "anra-v5-evaluation-protocol/v1"
-EVIDENCE_SCHEMA = "anra-v5-task-evidence/v1"
-RECEIPT_SCHEMA = "anra-v5-evaluation-receipt/v2"
+PROTOCOL_SCHEMA = "anra-v5-evaluation-protocol/v2"
+EVIDENCE_SCHEMA = "anra-v5-task-evidence/v2"
+RECEIPT_SCHEMA = "anra-v5-evaluation-receipt/v3"
 
 EVALUATION_MODES = (
     "RAW_FREE_GENERATION",
@@ -57,11 +59,36 @@ def _sha_of(value: object) -> str:
     return hashlib.sha256(_canonical_json(value)).hexdigest()
 
 
+def evaluator_source_sha256() -> str:
+    """Hash generic and Signac-specific code that affects scores or gates."""
+
+    root = Path(__file__).resolve().parents[1]
+    names = (
+        "v5_evaluation/adapter.py",
+        "v5_evaluation/checkpoint_adapter.py",
+        "v5_evaluation/firewall.py",
+        "v5_evaluation/fixture.py",
+        "v5_evaluation/metrics.py",
+        "v5_evaluation/protocol.py",
+        "v5_evaluation/stats.py",
+        "signac_100m/phase1_eval.py",
+    )
+    digest = hashlib.sha256()
+    for name in names:
+        payload = (root / name).read_bytes()
+        digest.update(name.encode("utf-8"))
+        digest.update(hashlib.sha256(payload).digest())
+    return digest.hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class EvaluationProtocol:
     protocol_id: str
     generator_id: str
     generator_sha256: str
+    generator_config_sha256: str
+    fixture_sha256: str
+    evaluator_sha256: str
     split: str
     seed: int
     n_cases: int
@@ -77,6 +104,13 @@ class EvaluationProtocol:
             c not in "0123456789abcdef" for c in self.generator_sha256
         ):
             raise ValueError("generator must be bound by SHA-256")
+        for name, digest in (
+            ("generator config", self.generator_config_sha256),
+            ("fixture", self.fixture_sha256),
+            ("evaluator", self.evaluator_sha256),
+        ):
+            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                raise ValueError(f"{name} must be bound by SHA-256")
         if self.split not in ALLOWED_SPLITS:
             raise ValueError(f"protocol split is not allowed: {self.split}")
         if self.seed < 0 or self.n_cases <= 0:
@@ -87,6 +121,14 @@ class EvaluationProtocol:
             raise ValueError("a protocol must declare its metrics")
         if not self.statistical_rule:
             raise ValueError("a protocol must declare its statistical rule")
+        free_generation_metrics = {
+            "VALID_EOS_RATE",
+            "EXACT_AND_EOS_RATE",
+            "PAIRED_COUNTERFACTUAL_SENSITIVITY",
+            "PAIRED_INVARIANCE_STABILITY",
+        }
+        if free_generation_metrics.intersection(self.metrics) and self.decoding_mode != "RAW_FREE_GENERATION":
+            raise ValueError("EOS and causal-pair metrics require raw free generation")
 
     def sha256(self) -> str:
         self.assert_valid()
@@ -117,6 +159,9 @@ class TaskLevelEvidence:
     latency_seconds: float
     output_tokens: int
     prompt_tokens: int
+    seed: int = 0
+    termination_valid: bool | None = None
+    causal_pairs: tuple[tuple[str, str, str], ...] = ()
 
     def sha256(self) -> str:
         data = asdict(self)
@@ -229,6 +274,12 @@ def run_evaluation(
         raise ValueError("fixture seed disagrees with protocol seed")
     if fixture.generator_sha256 != protocol.generator_sha256:
         raise ValueError("fixture generator disagrees with protocol generator")
+    if fixture.generator_config_sha256 != protocol.generator_config_sha256:
+        raise ValueError("fixture configuration disagrees with protocol")
+    if fixture.sha256() != protocol.fixture_sha256:
+        raise ValueError("fixture content disagrees with protocol")
+    if evaluator_source_sha256() != protocol.evaluator_sha256:
+        raise ValueError("running evaluator source disagrees with frozen protocol")
     contract = _adapter_scoring_contract(adapter)
     if protocol.candidate_scoring_mode != contract:
         raise ValueError("adapter scoring contract disagrees with the protocol")
@@ -237,6 +288,9 @@ def run_evaluation(
         raise ValueError(f"unknown production metrics: {unknown_metrics}")
     if protocol.statistical_rule not in STATISTICAL_RULES:
         raise ValueError(f"unknown statistical rule: {protocol.statistical_rule}")
+    if {"VALID_EOS_RATE", "EXACT_AND_EOS_RATE"}.intersection(protocol.metrics):
+        if not callable(getattr(adapter, "generate_free_with_status", None)):
+            raise ValueError("EOS metrics require an adapter that returns GenerationResult stop evidence")
     import time
 
     tasks = [dict(case) for case in fixture.cases]
@@ -247,8 +301,22 @@ def run_evaluation(
     for task, visible, truth in zip(tasks, visible_tasks, truths):
         candidates = tuple(str(candidate) for candidate in task.get("candidates", ()))
         started = clock()
+        termination_valid: bool | None = None
         if protocol.decoding_mode == "RAW_FREE_GENERATION":
-            raw_output = adapter.generate_free(visible.prompt)
+            status_generator = getattr(adapter, "generate_free_with_status", None)
+            if callable(status_generator):
+                generation = status_generator(visible.prompt)
+                if not isinstance(generation, GenerationResult):
+                    raise ValueError("generate_free_with_status must return GenerationResult")
+                generation.assert_valid()
+                raw_output = generation.text
+                termination_valid = generation.terminated_eos
+            else:
+                raw_output = adapter.generate_free(visible.prompt)
+                observed = getattr(adapter, "last_generation_result", None)
+                if isinstance(observed, GenerationResult):
+                    observed.assert_valid()
+                    termination_valid = observed.terminated_eos
             scores = None
         elif protocol.decoding_mode == "RAW_CANDIDATE_SCORING":
             scores = tuple(adapter.score_candidates("", visible.prompt, list(candidates)))
@@ -293,6 +361,16 @@ def run_evaluation(
             latency_seconds=latency,
             output_tokens=int(token_count(scored.raw_output)) if token_count else 0,
             prompt_tokens=int(token_count(visible.prompt)) if token_count else 0,
+            seed=protocol.seed,
+            termination_valid=termination_valid,
+            causal_pairs=tuple(sorted(
+                (
+                    str(pair["pair_id"]),
+                    str(pair["pair_kind"]),
+                    str(pair["pair_role"]),
+                )
+                for pair in task.get("causal_pairs", ())
+            )),
         )
         evidence.append(record)
     enriched = _enrich_for_metrics(evidence, tasks)
@@ -368,6 +446,12 @@ def _enrich_for_metrics(
                 "gold_index": gold_index,
                 "selection_correct": selection_correct,
                 "realized": record.raw_output == record.gold_reference,
+                "raw_output": record.raw_output,
+                "termination_valid": record.termination_valid,
+                "causal_pairs": [
+                    {"pair_id": pair_id, "pair_kind": kind, "pair_role": role}
+                    for pair_id, kind, role in record.causal_pairs
+                ],
             }
         )
     return enriched

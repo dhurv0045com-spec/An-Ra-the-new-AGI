@@ -18,7 +18,7 @@ def wilson_interval(correct: int, total: int, *, z: float = 1.959963984540054) -
     denominator = 1.0 + z * z / total
     center = (p + z * z / (2 * total)) / denominator
     radius = z * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total)) / denominator
-    return center - radius, center + radius
+    return max(0.0, center - radius), min(1.0, center + radius)
 
 
 def approximate_two_proportion_n_per_arm(

@@ -83,6 +83,29 @@ def test_row_optimizer_consumes_post_clip_gradient():
     assert opt.step_count == 1
 
 
+@pytest.mark.parametrize("restore", [False, True])
+def test_optimizer_view_schedule_reaches_main_and_rows_after_restore(restore):
+    core = torch.nn.Parameter(torch.ones(2))
+    embedding = torch.nn.Parameter(torch.ones(4, 2))
+    main = torch.optim.AdamW([core], lr=0.1, weight_decay=0.0)
+    rows = fxm.EmbeddingRowOptimizer(
+        embedding, trainable_rows={i: 0.0 for i in range(4)}, lr=0.1, torch=torch
+    )
+    view = fxm.ArmOptimizerView(main, rows, embedding)
+    if restore:
+        main.load_state_dict(main.state_dict())
+    for group in view.param_groups:
+        group["lr"] = 0.0
+    core.grad = torch.ones_like(core)
+    embedding.grad = torch.ones_like(embedding)
+    core_before = core.detach().clone()
+    embedding_before = embedding.detach().clone()
+    view.step()
+    assert torch.equal(core, core_before)
+    assert torch.equal(embedding, embedding_before)
+    assert main.param_groups[0]["lr"] == rows.lr == 0.0
+
+
 def test_rep_protocol_is_processed_token_matched_not_step_matched():
     assert proto.B_PROCESSED_TOKEN_BUDGET == 500_000
     assert proto.B_EXPOSURE_MISMATCH_TOLERANCE == 0.001

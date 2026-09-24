@@ -13,6 +13,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Mapping
 
+from .distributed_checkpoint import (
+    DISTRIBUTED_CHECKPOINT_SCHEMA,
+    DISTRIBUTED_COMPONENTS,
+    DISTRIBUTED_MANIFEST_SCHEMA,
+    ReplicatedTrainingCheckpoint,
+    decode_rank_state_bundle,
+    encode_rank_state_bundle,
+)
 from .state import TrainingState
 
 
@@ -30,6 +38,9 @@ REQUIRED_COMPONENTS = frozenset(
         "training_state.json",
     }
 )
+DISTRIBUTED_REQUIRED_COMPONENTS = (
+    REQUIRED_COMPONENTS - {"rng.bin"}
+) | DISTRIBUTED_COMPONENTS
 
 
 class InjectedCrash(RuntimeError):
@@ -88,18 +99,46 @@ class CheckpointStore:
         expected_parent_sha256: str | None,
         inject_crash_at: str | None = None,
     ) -> str:
+        """Publish the established local v1 checkpoint format."""
+
+        return self._publish_transaction(
+            state=state,
+            payloads=payloads,
+            expected_parent_sha256=expected_parent_sha256,
+            inventory=REQUIRED_COMPONENTS,
+            manifest_schema=MANIFEST_SCHEMA,
+            inject_crash_at=inject_crash_at,
+        )
+
+    def _publish_transaction(
+        self,
+        *,
+        state: TrainingState,
+        payloads: Mapping[str, bytes],
+        expected_parent_sha256: str | None,
+        inventory: frozenset[str],
+        manifest_schema: str,
+        inject_crash_at: str | None = None,
+    ) -> str:
         state.assert_valid()
         if state.lineage_id != self.lineage_id:
             raise ValueError("state belongs to another lineage")
-        if set(payloads) != REQUIRED_COMPONENTS:
-            missing = sorted(REQUIRED_COMPONENTS - set(payloads))
-            extra = sorted(set(payloads) - REQUIRED_COMPONENTS)
+        names = set(payloads)
+        if names != inventory:
+            missing = sorted(inventory - names)
+            extra = sorted(names - inventory)
             raise ValueError(f"checkpoint inventory mismatch; missing={missing}, extra={extra}")
+        if manifest_schema == DISTRIBUTED_MANIFEST_SCHEMA:
+            self._validate_distributed_payloads(state=state, payloads=payloads)
         current = self.latest_sha256()
         if current != expected_parent_sha256:
             raise ValueError("writer fence rejected stale parent")
         if state.parent_checkpoint_sha256 != expected_parent_sha256:
             raise ValueError("state parent does not match publication parent")
+        if current is not None:
+            parent_schema = self._manifest_schema_for_sha(current)
+            if parent_schema == DISTRIBUTED_MANIFEST_SCHEMA and manifest_schema != DISTRIBUTED_MANIFEST_SCHEMA:
+                raise ValueError("checkpoint lineage cannot downgrade from distributed v2 to local v1")
         canonical_state = _canonical_json(state.canonical())
         if payloads["training_state.json"] != canonical_state:
             raise ValueError("training-state component disagrees with manifest state")
@@ -114,7 +153,7 @@ class CheckpointStore:
             _write_sync(staging / name, payload)
             components.append(Component(name, _sha256(payload), len(payload)))
         manifest = {
-            "schema": MANIFEST_SCHEMA,
+            "schema": manifest_schema,
             "lineage_id": self.lineage_id,
             "state_sha256": state.sha256(),
             "state": state.canonical(),
@@ -145,6 +184,35 @@ class CheckpointStore:
         if inject_crash_at == "after_pointer":
             raise InjectedCrash("after_pointer")
         return checkpoint_sha256
+
+    def publish_distributed(
+        self,
+        *,
+        state: TrainingState,
+        payloads: Mapping[str, bytes],
+        expected_parent_sha256: str | None,
+        inject_crash_at: str | None = None,
+    ) -> str:
+        """Publish a v2 replicated-state checkpoint with per-rank continuation data.
+
+        A v1 parent is permitted only as an explicit migration boundary: callers
+        must construct fresh rank-local RNG/cursor payloads at the restored state.
+        """
+
+        if set(payloads) != DISTRIBUTED_REQUIRED_COMPONENTS:
+            missing = sorted(DISTRIBUTED_REQUIRED_COMPONENTS - set(payloads))
+            extra = sorted(set(payloads) - DISTRIBUTED_REQUIRED_COMPONENTS)
+            raise ValueError(
+                f"distributed checkpoint inventory mismatch; missing={missing}, extra={extra}"
+            )
+        return self._publish_transaction(
+            state=state,
+            payloads=payloads,
+            expected_parent_sha256=expected_parent_sha256,
+            inventory=DISTRIBUTED_REQUIRED_COMPONENTS,
+            manifest_schema=DISTRIBUTED_MANIFEST_SCHEMA,
+            inject_crash_at=inject_crash_at,
+        )
 
     def prune(self, *, keep: set[str]) -> list[str]:
         """Delete committed generations outside ``keep`` for bounded rotation.
@@ -234,10 +302,142 @@ class CheckpointStore:
                 "milestones": milestones}
 
     def restore(self, checkpoint_sha256: str | None = None) -> tuple[TrainingState, dict[str, bytes]]:
+        """Restore the established local v1 format, rejecting distributed heads."""
+
+        state, payloads = self._restore_transaction(checkpoint_sha256)
+        if "distributed.json" in payloads:
+            raise ValueError("distributed v2 checkpoint requires restore_distributed")
+        return state, payloads
+
+    def _restore_transaction(
+        self, checkpoint_sha256: str | None = None,
+    ) -> tuple[TrainingState, dict[str, bytes]]:
         identity = checkpoint_sha256 or self.latest_sha256()
         if identity is None:
             raise ValueError("no committed checkpoint exists")
+        if len(identity) != 64 or any(character not in "0123456789abcdef" for character in identity):
+            raise ValueError("checkpoint identity must be a lowercase SHA-256")
         return self._verify_directory(self.objects / identity, expected_sha256=identity)
+
+    def restore_distributed(
+        self,
+        *,
+        rank: int,
+        expected_world_size: int,
+        expected_topology: str,
+        checkpoint_sha256: str | None = None,
+    ) -> tuple[TrainingState, ReplicatedTrainingCheckpoint, dict[str, bytes]]:
+        """Restore and select one rank's RNG/cursor bytes from a v2 checkpoint.
+
+        The caller must restore these bytes into its runtime and compare the
+        resulting next-batch fingerprint with ``metadata.assert_next_batch``
+        before performing another optimizer update.
+        """
+
+        state, metadata, rank_payloads, _shared_payloads = self.restore_distributed_artifacts(
+            rank=rank,
+            expected_world_size=expected_world_size,
+            expected_topology=expected_topology,
+            checkpoint_sha256=checkpoint_sha256,
+        )
+        return state, metadata, rank_payloads
+
+    def restore_distributed_artifacts(
+        self,
+        *,
+        rank: int,
+        expected_world_size: int,
+        expected_topology: str,
+        checkpoint_sha256: str | None = None,
+    ) -> tuple[
+        TrainingState,
+        ReplicatedTrainingCheckpoint,
+        dict[str, bytes],
+        dict[str, bytes],
+    ]:
+        """Restore a rank's continuation bytes and verified shared train state.
+
+        Returns the model, optimizer, and scheduler payload bytes alongside the
+        selected rank RNG/cursor state. Applying those bytes to a live runtime
+        remains the caller's responsibility.
+        """
+
+        if type(rank) is not int or type(expected_world_size) is not int:
+            raise ValueError("distributed restore rank and world size must be integers")
+        if not isinstance(expected_topology, str) or not expected_topology:
+            raise ValueError("distributed restore topology is required")
+        state, payloads = self._restore_transaction(checkpoint_sha256)
+        if "distributed.json" not in payloads:
+            raise ValueError("checkpoint is local v1; it has no per-rank resume state")
+        metadata = ReplicatedTrainingCheckpoint.from_dict(
+            json.loads(payloads["distributed.json"])
+        )
+        if metadata.world_size != expected_world_size:
+            raise ValueError("distributed restore world size differs from checkpoint")
+        if metadata.topology != expected_topology:
+            raise ValueError("distributed restore topology differs from checkpoint")
+        if not 0 <= rank < metadata.world_size:
+            raise ValueError("distributed restore rank is outside the checkpoint world")
+        metadata.assert_valid(
+            training_state=state,
+            model_payload=payloads["model.bin"],
+            optimizer_payload=payloads["optimizer.bin"],
+            rank_state_payload=payloads["rank_states.bin"],
+        )
+        rank_states = decode_rank_state_bundle(
+            payloads["rank_states.bin"], world_size=metadata.world_size,
+        )
+        shared_payloads = {
+            name: bytes(payloads[name])
+            for name in ("model.bin", "optimizer.bin", "scheduler.json")
+        }
+        return state, metadata, rank_states[rank], shared_payloads
+
+    def _manifest_schema_for_sha(self, checkpoint_sha256: str) -> str:
+        """Read the content-addressed parent format without rereading model weights."""
+
+        manifest_path = self.objects / checkpoint_sha256 / "manifest.json"
+        if not manifest_path.is_file():
+            raise ValueError("checkpoint parent manifest is missing")
+        manifest_bytes = manifest_path.read_bytes()
+        if _sha256(manifest_bytes) != checkpoint_sha256:
+            raise ValueError("checkpoint parent manifest hash mismatch")
+        try:
+            manifest = json.loads(manifest_bytes)
+        except ValueError as exc:
+            raise ValueError("checkpoint parent manifest is corrupt") from exc
+        if not isinstance(manifest, dict) or manifest.get("lineage_id") != self.lineage_id:
+            raise ValueError("checkpoint parent lineage is corrupt")
+        schema = manifest.get("schema")
+        if schema not in {MANIFEST_SCHEMA, DISTRIBUTED_MANIFEST_SCHEMA}:
+            raise ValueError("checkpoint parent schema is unsupported")
+        return schema
+
+    @staticmethod
+    def _validate_distributed_payloads(
+        *, state: TrainingState, payloads: Mapping[str, bytes],
+    ) -> ReplicatedTrainingCheckpoint:
+        try:
+            document = json.loads(payloads["distributed.json"])
+        except (TypeError, ValueError) as exc:
+            raise ValueError("distributed checkpoint metadata is not valid JSON") from exc
+        metadata = ReplicatedTrainingCheckpoint.from_dict(document)
+        if bytes(payloads["distributed.json"]) != _canonical_json(metadata.canonical()):
+            raise ValueError("distributed metadata must use canonical JSON")
+        rank_states = decode_rank_state_bundle(
+            bytes(payloads["rank_states.bin"]), world_size=metadata.world_size,
+        )
+        if bytes(payloads["rank_states.bin"]) != encode_rank_state_bundle(
+            rank_states, world_size=metadata.world_size,
+        ):
+            raise ValueError("distributed rank-state bundle must use canonical bytes")
+        metadata.assert_valid(
+            training_state=state,
+            model_payload=bytes(payloads["model.bin"]),
+            optimizer_payload=bytes(payloads["optimizer.bin"]),
+            rank_state_payload=bytes(payloads["rank_states.bin"]),
+        )
+        return metadata
 
     def _verify_directory(
         self, directory: Path, *, expected_sha256: str
@@ -253,13 +453,20 @@ class CheckpointStore:
             "schema", "lineage_id", "state_sha256", "state", "components", "durability"
         }:
             raise ValueError("checkpoint manifest fields do not match schema")
-        if manifest["schema"] != MANIFEST_SCHEMA or manifest["lineage_id"] != self.lineage_id:
+        schema = manifest["schema"]
+        if schema == MANIFEST_SCHEMA:
+            required_components = REQUIRED_COMPONENTS
+        elif schema == DISTRIBUTED_MANIFEST_SCHEMA:
+            required_components = DISTRIBUTED_REQUIRED_COMPONENTS
+        else:
+            raise ValueError("unsupported checkpoint manifest schema")
+        if manifest["lineage_id"] != self.lineage_id:
             raise ValueError("checkpoint schema or lineage mismatch")
         names = {item["name"] for item in manifest["components"]}
-        if names != REQUIRED_COMPONENTS or len(manifest["components"]) != len(REQUIRED_COMPONENTS):
+        if names != required_components or len(manifest["components"]) != len(required_components):
             raise ValueError("checkpoint component inventory is incomplete")
         actual_children = {path.name for path in directory.iterdir()}
-        expected_children = set(REQUIRED_COMPONENTS) | {"manifest.json"}
+        expected_children = set(required_components) | {"manifest.json"}
         if actual_children != expected_children:
             raise ValueError("checkpoint directory contains missing or untracked components")
         payloads: dict[str, bytes] = {}
@@ -287,4 +494,8 @@ class CheckpointStore:
             raise ValueError("cursor component disagrees with training state")
         if ledger_payload != dict(state.tokens_by_source):
             raise ValueError("source ledger component disagrees with training state")
+        if schema == DISTRIBUTED_MANIFEST_SCHEMA:
+            metadata = self._validate_distributed_payloads(state=state, payloads=payloads)
+            if metadata.schema != DISTRIBUTED_CHECKPOINT_SCHEMA:
+                raise ValueError("distributed metadata schema does not match transaction version")
         return state, payloads

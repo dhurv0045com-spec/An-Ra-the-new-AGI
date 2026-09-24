@@ -55,6 +55,8 @@ class IdentityBindings:
     optimizer_spec_sha256: str
     schedule_spec_sha256: str
     curriculum_spec_sha256: str
+    sampler_spec_sha256: str | None = None
+    source_tree_sha256: str | None = None
 
     def assert_valid(self) -> None:
         if self.schema != IDENTITY_SCHEMA:
@@ -62,12 +64,24 @@ class IdentityBindings:
         if len(self.source_commit) != 40 or any(c not in "0123456789abcdef" for c in self.source_commit):
             raise ValueError("source commit must be a full lowercase Git SHA-1")
         for name, value in asdict(self).items():
+            if name in {"sampler_spec_sha256", "source_tree_sha256"} and value is None:
+                continue
             if name.endswith("_sha256"):
                 _assert_sha256(name, value)
 
+    def canonical(self) -> dict[str, object]:
+        """Serialize optional identities without perturbing legacy states."""
+
+        self.assert_valid()
+        value = asdict(self)
+        for name in ("sampler_spec_sha256", "source_tree_sha256"):
+            if value[name] is None:
+                value.pop(name)
+        return value
+
     def sha256(self) -> str:
         self.assert_valid()
-        return hashlib.sha256(_canonical_json(asdict(self))).hexdigest()
+        return hashlib.sha256(_canonical_json(self.canonical())).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,7 +190,9 @@ class TrainingState:
 
     def canonical(self) -> dict[str, object]:
         self.assert_valid()
-        return asdict(self)
+        value = asdict(self)
+        value["identities"] = self.identities.canonical()
+        return value
 
     def sha256(self) -> str:
         return hashlib.sha256(_canonical_json(self.canonical())).hexdigest()

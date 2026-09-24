@@ -15,7 +15,29 @@ from .contracts import (
     Split,
 )
 
-GENERATOR_VERSION = "e0-eval/0.4.0"
+GENERATOR_VERSION = "e0-eval/0.7.0"
+INTERFERENCE_RETRIEVAL_GRID: dict[int, tuple[int, ...]] = {
+    0: (1,),
+    2: (1, 2, 3),
+    4: (1, 2, 3, 4),
+    8: (1, 2, 3, 4),
+    16: (1, 2, 3, 4),
+    32: (1, 2, 3, 4),
+}
+
+
+def interference_position_support(distractor_count: int, quartile: int) -> tuple[int, ...]:
+    """Return insertion indices assigned to a position quartile for this dose."""
+
+    if type(distractor_count) is not int or distractor_count < 0:
+        raise ValueError("distractor_count must be a nonnegative integer")
+    if type(quartile) is not int or quartile not in {1, 2, 3, 4}:
+        raise ValueError("quartile must be an integer from 1 through 4")
+    return tuple(
+        index
+        for index in range(distractor_count + 1)
+        if min(4, (index * 4) // (distractor_count + 1) + 1) == quartile
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,6 +298,151 @@ def _binding_bundle(
         CausalPair(f"{base.case_id}:irrelevant", PairKind.IRRELEVANT_FACT_SWAP, base, irrelevant_swap),
         CausalPair(f"{base.case_id}:order", PairKind.ORDER_PERMUTATION, base, permutation),
     ]
+    return cases, pairs
+
+
+def _interference_retrieval_grid(
+    profile: SplitProfile, rng: random.Random, seed: int
+) -> tuple[list[CausalCase], list[CausalPair]]:
+    """Generate aliased-record retrieval cases across distractor dose and position."""
+
+    cases: list[CausalCase] = []
+    pairs: list[CausalPair] = []
+    for distractor_count, expected_quartiles in INTERFERENCE_RETRIEVAL_GRID.items():
+        positions_by_quartile = {
+            quartile: interference_position_support(distractor_count, quartile)
+            for quartile in expected_quartiles
+        }
+        if any(not positions for positions in positions_by_quartile.values()):
+            raise AssertionError("interference grid quartiles do not match available insertion positions")
+        for quartile, position_support in sorted(positions_by_quartile.items()):
+            condition_index = len(cases)
+            condition_seed = seed + condition_index
+            insertion_index = position_support[(seed + condition_index) % len(position_support)]
+            manifest_label = _entity(profile, rng, condition_seed * 10_000 + 1)
+            target_record = _entity(profile, rng, condition_seed * 10_000 + 2)
+            distractor_records = [
+                _entity(profile, rng, condition_seed * 10_000 + index + 3)
+                for index in range(distractor_count)
+            ]
+
+            values: list[str] = []
+            seen_values: set[str] = set()
+            while len(values) < distractor_count + 2:
+                value = _code(profile, rng)
+                if value not in seen_values:
+                    values.append(value)
+                    seen_values.add(value)
+            target_value = values[0]
+            replacement_value = values[-1]
+            mapping_relation = f"{profile.prefix.lower()}-manifest-resolves"
+            payload_relation = f"{profile.prefix.lower()}-stores-payload"
+            mapping_fact = (
+                f"Manifest label {manifest_label} resolves to archive record {target_record}."
+            )
+            payload_facts: list[str] = []
+            payload_edges: list[GraphEdge] = []
+            distractor_index = 0
+            target_payload_index: int | None = None
+            for row_index in range(distractor_count + 1):
+                if row_index == insertion_index:
+                    target_payload_index = row_index
+                    record_id, payload = target_record, target_value
+                else:
+                    record_id = distractor_records[distractor_index]
+                    payload = values[distractor_index + 1]
+                    distractor_index += 1
+                payload_facts.append(
+                    f"Archive record {record_id} contains payload code {payload}."
+                )
+                payload_edges.append(GraphEdge(record_id, payload_relation, payload))
+            if target_payload_index is None:
+                raise AssertionError("interference grid did not place its target payload row")
+            relevant_index = target_payload_index + 1
+            facts_list = [mapping_fact, *payload_facts]
+            changed_facts_list = list(facts_list)
+            changed_facts_list[relevant_index] = (
+                f"Archive record {target_record} contains payload code {replacement_value}."
+            )
+            distractor_indices = tuple(
+                row_index + 1
+                for row_index in range(distractor_count + 1)
+                if row_index != target_payload_index
+            )
+            graph = [
+                GraphEdge(manifest_label, mapping_relation, target_record),
+                *payload_edges,
+            ]
+            changed_graph = list(graph)
+            changed_graph[relevant_index] = GraphEdge(
+                target_record, payload_relation, replacement_value
+            )
+            candidates = _candidate_order(rng, tuple(values))
+            case_id = f"{profile.prefix}-interference-d{distractor_count}-q{quartile}"
+            difficulty = _difficulty(
+                cardinality=distractor_count + 1,
+                hops=2,
+                distractors=distractor_count,
+                context_position_quartile=quartile,
+            )
+            common = {
+                "family": "interference_retrieval",
+                "profile": profile,
+                "seed": condition_seed,
+                "candidates": candidates,
+                "template": "interference-grid",
+                "domain": profile.domains[0],
+                "difficulty": difficulty,
+                "axes": {
+                    "payload_position_quartile": str(quartile),
+                    "payload_position_index": str(insertion_index),
+                },
+            }
+            base = _case(
+                case_id=f"{case_id}-base",
+                facts=tuple(facts_list),
+                query=(
+                    f"What payload code is stored in the archive record assigned to manifest "
+                    f"label {manifest_label}?"
+                ),
+                answer=target_value,
+                relevant=(0, relevant_index),
+                distractors=distractor_indices,
+                graph=tuple(graph),
+                trace=("bind:manifest-label-to-record", f"select:{target_value}"),
+                **common,
+            )
+            changed = replace(
+                base,
+                case_id=f"{case_id}-changed",
+                facts=tuple(changed_facts_list),
+                answer=replacement_value,
+                surface_axes=_surface_axes(
+                    facts=tuple(changed_facts_list),
+                    relevant=(0, relevant_index),
+                    answer=replacement_value,
+                    profile=profile,
+                    extra={
+                        "payload_position_quartile": str(quartile),
+                        "payload_position_index": str(insertion_index),
+                    },
+                ),
+                hidden=HiddenTruth(
+                    (0, relevant_index),
+                    distractor_indices,
+                    tuple(changed_graph),
+                    ("bind:manifest-label-to-record", f"select:{replacement_value}"),
+                ),
+            )
+            cases.extend((base, changed))
+            pairs.append(
+                CausalPair(
+                    f"{base.case_id}:relevant-payload",
+                    PairKind.RELEVANT_FACT_SWAP,
+                    base,
+                    changed,
+                )
+            )
     return cases, pairs
 
 
@@ -886,6 +1053,122 @@ def _natural_cases(profile: SplitProfile, rng: random.Random, seed: int, index: 
     return [binding, state, composition]
 
 
+def _faithful_realization_bundle(
+    profile: SplitProfile, rng: random.Random, seed: int, groups: int
+) -> tuple[list[CausalCase], list[CausalPair]]:
+    """Score exact realization of a queried payload/revision pair."""
+
+    cases: list[CausalCase] = []
+    pairs: list[CausalPair] = []
+    for index in range(groups):
+        case_seed = seed + index
+        revision_count = (2, 4, 8)[index % 3]
+        entities = [_entity(profile, rng, case_seed * 100 + revision) for revision in range(revision_count)]
+        values: list[str] = []
+        while len(values) < revision_count + 1:
+            value = _code(profile, rng)
+            if value not in values:
+                values.append(value)
+        replacement = values[-1]
+        revision_values = values[:-1]
+        target = rng.randrange(revision_count)
+        facts_by_revision = tuple(
+            f"Inventory item {entity} carries payload {value} at revision {revision}."
+            for revision, (entity, value) in enumerate(zip(entities, revision_values), start=1)
+        )
+        serialization = list(range(revision_count))
+        rng.shuffle(serialization)
+        target_position = serialization.index(target)
+        facts = tuple(facts_by_revision[position] for position in serialization)
+        changed_facts = list(facts)
+        changed_facts[target_position] = (
+            f"Inventory item {entities[target]} carries payload {replacement} "
+            f"at revision {target + 1}."
+        )
+        answer = f"payload={revision_values[target]}; revision={target + 1}"
+        changed_answer = f"payload={replacement}; revision={target + 1}"
+        candidate_answers = tuple(
+            [
+                f"payload={value}; revision={revision}"
+                for revision, value in enumerate(revision_values, start=1)
+            ]
+            + [changed_answer]
+        )
+        relation = f"{profile.prefix.lower()}-item-payload-revision"
+        graph = tuple(
+            GraphEdge(f"{entity}@revision-{revision}", relation, value)
+            for revision, (entity, value) in enumerate(zip(entities, revision_values), start=1)
+        )
+        changed_graph = list(graph)
+        changed_graph[target] = GraphEdge(
+            f"{entities[target]}@revision-{target + 1}", relation, replacement
+        )
+        template = "faithful-realization"
+        axes = {
+            "realization_format": "payload-revision-v1",
+            "revision_count": str(revision_count),
+            "serialization": "semantic-shuffled",
+        }
+        common = {
+            "family": "faithful_realization",
+            "profile": profile,
+            "seed": case_seed,
+            "candidates": _candidate_order(rng, candidate_answers),
+            "template": template,
+            "domain": profile.domains[0],
+            "difficulty": _difficulty(
+                cardinality=revision_count,
+                hops=0,
+                distractors=revision_count - 1,
+            ),
+            "axes": axes,
+        }
+        query = (
+            f"For inventory item {entities[target]}, return its payload and revision exactly as "
+            "payload=<code>; revision=<number>."
+        )
+        base = _case(
+            case_id=f"{profile.prefix}-faithful-realization-{index}-base",
+            facts=facts,
+            query=query,
+            answer=answer,
+            relevant=(target_position,),
+            distractors=tuple(item for item in range(revision_count) if item != target_position),
+            graph=graph,
+            trace=(f"select:item:{entities[target]}", f"format:{answer}"),
+            **common,
+        )
+        changed = replace(
+            base,
+            case_id=f"{profile.prefix}-faithful-realization-{index}-changed",
+            facts=tuple(changed_facts),
+            answer=changed_answer,
+            surface_axes=_surface_axes(
+                facts=tuple(changed_facts),
+                relevant=(target_position,),
+                answer=changed_answer,
+                profile=profile,
+                extra=axes,
+            ),
+            hidden=HiddenTruth(
+                (target_position,),
+                base.hidden.distractor_fact_indices,
+                tuple(changed_graph),
+                (f"select:item:{entities[target]}", f"format:{changed_answer}"),
+            ),
+        )
+        cases.extend((base, changed))
+        pairs.append(
+            CausalPair(
+                f"{base.case_id}:relevant-payload",
+                PairKind.RELEVANT_FACT_SWAP,
+                base,
+                changed,
+            )
+        )
+    return cases, pairs
+
+
 def build_evaluation_suite(
     split: Split,
     *,
@@ -932,6 +1215,18 @@ def build_evaluation_suite(
         cases.extend((rule_case, rule_pair.changed))
         pairs.append(rule_pair)
         cases.extend(_natural_cases(profile, rng, local_seed, index))
+
+    realization_cases, realization_pairs = _faithful_realization_bundle(
+        profile, rng, seed * 100_007 + groups_per_family, groups_per_family
+    )
+    cases.extend(realization_cases)
+    pairs.extend(realization_pairs)
+
+    interference_cases, interference_pairs = _interference_retrieval_grid(
+        profile, rng, seed * 100_003 + groups_per_family
+    )
+    cases.extend(interference_cases)
+    pairs.extend(interference_pairs)
 
     suite = EvaluationSuite(
         schema="esoes-e0-suite/v1",

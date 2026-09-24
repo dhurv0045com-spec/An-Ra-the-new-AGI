@@ -43,8 +43,12 @@ def build_block(config: Any, *, torch_module: Any) -> Any:
             self.up = nn.Linear(config.width, config.ffn_width, bias=False)
             self.down = nn.Linear(config.ffn_width, config.width, bias=False)
 
-        def forward(self, hidden: Any, positions: Any, mask: Any) -> Any:
-            hidden = hidden + self.attention(self.attention_norm(hidden), positions, mask)
+        def forward(self, hidden: Any, positions: Any, mask: Any,
+                    rope_cosine: Any = None, rope_sine: Any = None) -> Any:
+            hidden = hidden + self.attention(
+                self.attention_norm(hidden), positions, mask,
+                rope_cosine, rope_sine,
+            )
             normalized = self.ffn_norm(hidden)
             return hidden + self.down(
                 functional.silu(self.gate(normalized)) * self.up(normalized))

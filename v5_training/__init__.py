@@ -1,7 +1,13 @@
 """Executable, framework-neutral V5 training-state and checkpoint contracts."""
 
-from .checkpoint import CheckpointStore, InjectedCrash
+from .checkpoint import (
+    CheckpointStore,
+    DISTRIBUTED_REQUIRED_COMPONENTS,
+    InjectedCrash,
+    REQUIRED_COMPONENTS,
+)
 from .distributed import DistributedCheckpoint, RankCheckpoint
+from .distributed_checkpoint import DistributedRankState, ReplicatedTrainingCheckpoint
 from .optimizer import (
     build_adamw_optimizer,
     build_optimizer,
@@ -17,11 +23,15 @@ from .trainer import BackendReport, train
 
 __all__ = [
     "CheckpointStore",
+    "DISTRIBUTED_REQUIRED_COMPONENTS",
+    "REQUIRED_COMPONENTS",
     "CursorState",
     "IdentityBindings",
     "InjectedCrash",
     "DistributedCheckpoint",
+    "DistributedRankState",
     "RankCheckpoint",
+    "ReplicatedTrainingCheckpoint",
     "build_adamw_optimizer",
     "build_optimizer",
     "group_receipt",

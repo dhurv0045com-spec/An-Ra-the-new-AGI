@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -24,11 +25,29 @@ def _bind() -> None:
     _base._make_model_and_optimizers = _make_model_and_optimizers
 
 
+@contextmanager
+def _bound():
+    names = ("fxm", "proto", "_make_model_and_optimizers", "_save_checkpoint")
+    previous = {name: getattr(_base, name) for name in names}
+    try:
+        _bind()
+        yield
+    finally:
+        for name, value in previous.items():
+            setattr(_base, name, value)
+
+
 def _worker_surface(public_surface: Mapping[str, Any]) -> dict[str, Any]:
     validate_public_surface(public_surface)
     splits = dict(public_surface["splits"])
     if "sealed" in splits:
         raise RuntimeError("SEALED_FIREWALL_BREACH: frontier worker received sealed rows")
+    # NOTE (2026-09-19 correction): the internal worker surface MUST carry an
+    # (empty) sealed key: the shared base trainer iterates
+    # ("training","development","sealed") for B-family arms, and `any(... for r
+    # in [])` passes vacuously. The sealed firewall lives one layer up: the
+    # loaded manifest file must contain NO sealed key (enforced by
+    # validate_public_surface + every worker entry point). Do not strip here.
     return {**dict(public_surface), "splits": {**splits, "sealed": []}}
 
 
@@ -78,23 +97,24 @@ def _save_checkpoint_with_progress(path: Path, *, model: Any, optimizers: Mappin
 
 
 def train_arm(**kwargs):
-    _bind()
-    _base._save_checkpoint = _save_checkpoint_with_progress
+    proto.assert_frontier_launch_allowed()
     if "surface" not in kwargs:
         raise RuntimeError("frontier public worker surface missing")
     kwargs = dict(kwargs)
     kwargs["surface"] = _worker_surface(kwargs["surface"])
-    return _base.train_arm(**kwargs)
+    with _bound():
+        _base._save_checkpoint = _save_checkpoint_with_progress
+        return _base.train_arm(**kwargs)
 
 
 def build_batch(*args, **kwargs):
-    _bind()
-    return _base.build_batch(*args, **kwargs)
+    with _bound():
+        return _base.build_batch(*args, **kwargs)
 
 
 def evaluate_development(*args, **kwargs):
-    _bind()
-    return _base.evaluate_development(*args, **kwargs)
+    with _bound():
+        return _base.evaluate_development(*args, **kwargs)
 
 
 def load_model_for_evaluation(
@@ -107,7 +127,6 @@ def load_model_for_evaluation(
     torch: Any,
     device: Any,
 ) -> Any:
-    _bind()
     if experiment not in proto.EXPERIMENTS:
         raise RuntimeError(f"experiment not registered: {experiment}")
     seed = seed_bundle if experiment == proto.EXPERIMENT_A else proto.b_seed(seed_bundle)
@@ -128,8 +147,14 @@ def load_model_for_evaluation(
     return model
 
 
-# Expose the deterministic helpers after binding for diagnostics.
-_bind()
-_encode_row = _base._encode_row
-_row_processed_tokens = _base._row_processed_tokens
+def _encode_row(*args, **kwargs):
+    with _bound():
+        return _base._encode_row(*args, **kwargs)
+
+
+def _row_processed_tokens(*args, **kwargs):
+    with _bound():
+        return _base._row_processed_tokens(*args, **kwargs)
+
+
 _formation_summary = _base._formation_summary

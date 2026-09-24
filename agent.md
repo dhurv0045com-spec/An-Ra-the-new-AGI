@@ -1,4 +1,13 @@
-# Agent brief: CYMEK research + readiness handoff
+# Agent brief: CYMEK research + readiness handoff [HISTORICAL — SUPERSEDED AS AUTHORITY]
+
+> Historical status (2026-09-18, `cymek-next-core-architecture`): preserved unedited below
+> as evidence. Authority for next-Core order moved to
+> `docs/cymek/research/NEXT_7_EXPERIMENTS_V51.md`. CS-TRANSFER-001 COMPLETE
+> (PARTIAL_OR_INTERACTION); FORMATION-MUX-001 S5 INCONCLUSIVE_AT_ZERO_BASELINE;
+> next is metric-resolution audit + BASELINE-GATE-001 / DIAG-001. Do not treat this
+> file's states as current readiness.
+
+# Agent brief: CYMEK research + readiness handoff (original header preserved)
 
 Branch: `cymek-500m-readiness`.
 

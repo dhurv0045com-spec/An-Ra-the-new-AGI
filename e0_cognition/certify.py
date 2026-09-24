@@ -11,7 +11,11 @@ from pathlib import Path
 
 from .baselines import BASELINES, evaluate_all_baselines
 from .contracts import Split, assert_split_disjoint
-from .evaluation_generators import build_evaluation_suite
+from .evaluation_generators import (
+    INTERFERENCE_RETRIEVAL_GRID,
+    build_evaluation_suite,
+    interference_position_support,
+)
 from .reference_solvers import assert_reference_solver_agreement
 from .preregistration import PROTOCOL, protocol_sha256
 from .statistics import (
@@ -54,11 +58,9 @@ def _aggregate_shortcut_probe(
     cases = [case for suite in suites for case in suite.cases if case.family in families]
     correct = sum(baseline(case) == case.answer for case in cases)
     chance = sum(1.0 / len(case.candidates) for case in cases) / len(cases)
-    # Position heuristics do not have uniform-candidate chance. Under a random
-    # serialization the final candidate-bearing fact is uniform over all such
-    # facts, so enumerate those possible winners analytically. This is exactly
-    # equivalent to enumerating every fact permutation and remains tractable as
-    # state histories grow. Other heuristics retain uniform-candidate chance.
+    # This hypothetical random-serialization null is useful for aggregate
+    # screening, but it is not conditional on deliberately selected position
+    # cells. The interference grid also reports its per-cell conditional null.
     if baseline_name in {"latest_fact", "nearest_position"}:
         null_correct = 0.0
         for case in cases:
@@ -74,7 +76,7 @@ def _aggregate_shortcut_probe(
             )
             null_correct += hits / len(candidate_facts)
         calibrated_chance = null_correct / len(cases)
-        null_method = "analytic-random-serialization"
+        null_method = "hypothetical-random-serialization"
     else:
         calibrated_chance = chance
         null_method = "casewise-uniform-candidate"
@@ -86,6 +88,64 @@ def _aggregate_shortcut_probe(
         "seeds": 8,
         "null_method": null_method,
     }
+
+
+def _interference_shortcut_cells(
+    *, seed: int, groups_per_family: int, baseline_name: str
+) -> dict[str, dict[str, object]]:
+    """Measure each shortcut per dose/quartile using a cell-conditional null."""
+
+    suites = [
+        build_evaluation_suite(
+            Split.DEVELOPMENT, seed=seed + offset, groups_per_family=groups_per_family
+        )
+        for offset in range(64)
+    ]
+    baseline = BASELINES[baseline_name]
+    grouped: dict[tuple[int, int], list] = {}
+    for suite in suites:
+        for case in suite.cases:
+            if case.family != "interference_retrieval":
+                continue
+            difficulty = dict(case.difficulty)
+            cell = (difficulty["distractors"], difficulty["context_position_quartile"])
+            grouped.setdefault(cell, []).append(case)
+
+    result: dict[str, dict[str, object]] = {}
+    for (dose, quartile), cases in sorted(grouped.items()):
+        correct = sum(baseline(case) == case.answer for case in cases)
+        candidate_chance = sum(1.0 / len(case.candidates) for case in cases) / len(cases)
+        support = interference_position_support(dose, quartile)
+        if not support:
+            raise AssertionError("interference cell has no realizable target position")
+        if baseline_name in {"latest_fact", "nearest_position"}:
+            calibrated_chance = sum(index == dose for index in support) / len(support)
+            null_method = "uniform-target-position-within-quartile"
+        elif baseline_name == "bag_of_words":
+            calibrated_chance = 1.0 / (dose + 1)
+            null_method = "uniform-present-payload-candidate"
+        else:
+            calibrated_chance = candidate_chance
+            null_method = "casewise-uniform-candidate"
+        position_histogram = Counter(
+            dict(case.surface_axes)["payload_position_index"] for case in cases
+        )
+        result[f"{dose}:{quartile}"] = {
+            "dose": dose,
+            "quartile": quartile,
+            "condition_role": "no-distractor-control" if dose == 0 else "interference-stress",
+            "cases": len(cases),
+            "seeds": 64,
+            "correct": correct,
+            "accuracy": correct / len(cases),
+            "chance": candidate_chance,
+            "calibrated_chance": calibrated_chance,
+            "null_method": null_method,
+            "position_support": list(support),
+            "position_index_histogram": dict(sorted(position_histogram.items())),
+            "within_10pp_margin": correct / len(cases) <= calibrated_chance + 0.10,
+        }
+    return result
 
 
 def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[str, object]:
@@ -142,12 +202,61 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             "fixed_repeat_right_rule",
         )
     }
+    interference_shortcut_names = (
+        "first_candidate",
+        "last_candidate",
+        "latest_fact",
+        "nearest_position",
+        "lexical_overlap",
+        "bag_of_words",
+    )
+    interference_shortcuts = {
+        name: _aggregate_shortcut_probe(
+            split=Split.DEVELOPMENT,
+            seed=seed + 3_000,
+            groups_per_family=groups_per_family,
+            baseline_name=name,
+            families={"interference_retrieval"},
+        )
+        for name in interference_shortcut_names
+    }
+    interference_cell_shortcuts = {
+        name: _interference_shortcut_cells(
+            seed=seed + 3_000,
+            groups_per_family=groups_per_family,
+            baseline_name=name,
+        )
+        for name in interference_shortcut_names
+    }
     state_shortcut_ceiling = max(
         result["calibrated_chance"] + 0.10 for result in state_shortcuts.values()
     )
     rule_shortcut_ceiling = max(
         result["calibrated_chance"] + 0.10 for result in rule_shortcuts.values()
     )
+    interference_shortcut_ceiling = max(
+        result["calibrated_chance"] + 0.10 for result in interference_shortcuts.values()
+    )
+    interference_grid_counts = Counter(
+        (
+            dict(case.difficulty)["distractors"],
+            dict(case.difficulty)["context_position_quartile"],
+        )
+        for case in dev.cases
+        if case.family == "interference_retrieval"
+    )
+    expected_interference_conditions = {
+        (dose, quartile)
+        for dose, quartiles in INTERFERENCE_RETRIEVAL_GRID.items()
+        for quartile in quartiles
+    }
+    interference_grid_report = {
+        str(dose): {
+            str(quartile): interference_grid_counts[(dose, quartile)]
+            for quartile in quartiles
+        }
+        for dose, quartiles in INTERFERENCE_RETRIEVAL_GRID.items()
+    }
     pair_effects = dev.pair_effect_histogram()
     rule_structures = {
         value
@@ -195,6 +304,23 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             result["accuracy"] <= result["calibrated_chance"] + 0.10
             for result in rule_shortcuts.values()
         ),
+        "interference_dose_position_grid_covered": (
+            set(interference_grid_counts) == expected_interference_conditions
+            and set(interference_grid_counts.values()) == {2}
+        ),
+        "interference_grid_shortcut_heuristics_fail": all(
+            cell["within_10pp_margin"]
+            for cells in interference_cell_shortcuts.values()
+            for cell in cells.values()
+        ),
+        "interference_grid_seed_positions_balanced": all(
+            set(cell["position_index_histogram"])
+            == {str(index) for index in cell["position_support"]}
+            and max(cell["position_index_histogram"].values())
+            - min(cell["position_index_histogram"].values())
+            <= 2
+            for cell in next(iter(interference_cell_shortcuts.values())).values()
+        ),
         "sensitivity_and_invariance_pairs_present": (
             pair_effects.get("sensitivity", 0) > 0
             and pair_effects.get("invariance", 0) > 0
@@ -210,6 +336,9 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
                 "natural_composition_analogue",
             )
         ),
+        "faithful_realization_family_present": dev.family_histogram().get(
+            "faithful_realization", 0
+        ) == groups_per_family * 2,
         "copy_is_not_selection_control": all(
             not selection_eligible(case)
             for case in dev.cases
@@ -218,7 +347,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
     }
     status = "PASS" if all(checks.values()) else "FAIL"
     return {
-        "schema": "esoes-e0-development-certificate/v2",
+        "schema": "esoes-e0-development-certificate/v5",
         "status": status,
         "scope": "development infrastructure only; not a V5 model result",
         "suite": {
@@ -234,6 +363,7 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             "surface_axis_histograms": surface_axes,
             "difficulty_axis_histograms": difficulty_axes,
             "pair_effect_histogram": pair_effects,
+            "interference_retrieval_grid": interference_grid_report,
             "rule_structures": sorted(rule_structures),
         },
         "checks": checks,
@@ -244,6 +374,9 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
             "state_shortcut_ceiling": state_shortcut_ceiling,
             "rule_induction_heuristics": rule_shortcuts,
             "rule_shortcut_ceiling": rule_shortcut_ceiling,
+            "interference_retrieval_heuristics": interference_shortcuts,
+            "interference_retrieval_cell_heuristics": interference_cell_shortcuts,
+            "interference_retrieval_shortcut_ceiling": interference_shortcut_ceiling,
             "policy": "every named heuristic must remain within its calibrated null + 10 percentage points",
         },
         "statistical_calibration": {
@@ -281,7 +414,11 @@ def build_development_certificate(*, seed: int, groups_per_family: int) -> dict[
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=Path("artifacts/e0/development_certificate.json"))
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("artifacts/e0/development_certificate_e0_eval_0_7_0.json"),
+    )
     parser.add_argument("--development-seed", type=int, default=DEFAULT_DEVELOPMENT_SEED)
     parser.add_argument("--groups-per-family", type=int, default=16)
     args = parser.parse_args()

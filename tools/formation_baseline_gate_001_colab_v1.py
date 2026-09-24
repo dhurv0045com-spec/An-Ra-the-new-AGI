@@ -30,6 +30,12 @@ import zipfile
 from pathlib import Path
 from typing import Any, Mapping
 
+# Architecture: fresh Colab subprocess owning the single T4. Fix the allocator
+# at process import time, before main()'s `import torch` (same rationale as
+# the TIE-ROLE pilot operator). setdefault respects explicit overrides.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
 SCHEMA = "anra.formation-baseline-gate/v1"
 SCIENCE_COMMIT = "c15ad8beb409537db42d075684ea54847a074ebd"
 EXPECTED_PUBLIC_SURFACE_SHA = "f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c"
@@ -483,6 +489,8 @@ def main(argv: list[str] | None = None) -> int:
         "public_surface_sha256": public["sha256"],
         "public_surface_seed": SURFACE_SEED,
         "gpu": torch.cuda.get_device_name(0),
+        "vram_gib": round(torch.cuda.get_device_properties(0).total_memory / 2**30, 2),
+        "pytorch_cuda_alloc_conf": os.environ.get("PYTORCH_CUDA_ALLOC_CONF"),
         "torch": torch.__version__,
         "official_science": False,
         "diagnostic_only": True,

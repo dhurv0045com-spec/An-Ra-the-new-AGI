@@ -14,26 +14,35 @@ import hashlib
 from typing import Any
 
 
+def update_fp32_tensor_bytes(digest: Any, tensor: Any, *, torch_module: Any) -> None:
+    """Feed canonical FP32 tensor bytes to a digest without allocating ``bytes``.
+
+    Device-to-host materialization is still required for a cryptographic hash,
+    but passing a contiguous NumPy buffer view avoids an additional full-size
+    ``ndarray.tobytes()`` copy in host memory.
+    """
+
+    host_tensor = tensor.detach().to("cpu", dtype=torch_module.float32).contiguous()
+    digest.update(memoryview(host_tensor.numpy()).cast("B"))
+
+
 def parameter_sha(model: Any, *, torch_module: Any) -> str:
     """Hash every trainable parameter's bytes in name order (chunked)."""
 
-    torch = torch_module
     digest = hashlib.sha256()
     for name, parameter in sorted(
         model.named_parameters(), key=lambda item: item[0]
     ):
         if not parameter.requires_grad:
             raise ValueError(f"parameter {name} is frozen; V5 trains every parameter")
-        data = parameter.detach().to("cpu", dtype=torch.float32).contiguous().numpy()
         digest.update(name.encode("utf-8") + b"\0")
-        digest.update(data.tobytes())
+        update_fp32_tensor_bytes(digest, parameter, torch_module=torch_module)
     return digest.hexdigest()
 
 
 def moment_fingerprint(optimizer: Any, *, torch_module: Any) -> str:
     """Hash Adam first/second moments and step counters in stable order."""
 
-    torch = torch_module
     digest = hashlib.sha256()
     for group_index, group in enumerate(optimizer.param_groups):
         for parameter in group["params"]:
@@ -45,8 +54,7 @@ def moment_fingerprint(optimizer: Any, *, torch_module: Any) -> str:
                 if moment is None:
                     digest.update(b"absent\0")
                     continue
-                data = moment.detach().to("cpu", dtype=torch.float32).contiguous().numpy()
-                digest.update(data.tobytes())
+                update_fp32_tensor_bytes(digest, moment, torch_module=torch_module)
     return digest.hexdigest()
 
 
@@ -115,4 +123,5 @@ __all__ = [
     "moment_fingerprint",
     "optimizer_step",
     "parameter_sha",
+    "update_fp32_tensor_bytes",
 ]

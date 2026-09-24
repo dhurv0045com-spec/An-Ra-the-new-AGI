@@ -1,6 +1,89 @@
 from __future__ import annotations
 
 
+def test_frontier_training_is_blocked_before_binding(monkeypatch):
+    import pytest
+    from anra_v5 import tie_role_train_v1 as train
+
+    def unexpected_bind():
+        pytest.fail("blocked campaign must not bind or allocate training resources")
+
+    monkeypatch.setattr(train, "_bind", unexpected_bind)
+    for engineering_only in (False, True):
+        with pytest.raises(RuntimeError, match="TIE_ROLE_PILOT_NO_GO"):
+            train.train_arm(engineering_only=engineering_only)
+
+
+def test_frontier_worker_blocks_before_surface_loading(tmp_path, capsys):
+    from tools import formation_mux_001_tie_role_worker_v1 as worker
+    from v5_experiments import tie_role_protocol_v1 as proto
+
+    out = tmp_path / "output"
+    code = worker.main([
+        "--experiment", proto.EXPERIMENT_A,
+        "--arm", proto.ARMS_A[0],
+        "--seed-bundle", str(proto.SEED_BUNDLES[0]),
+        "--surface", str(tmp_path / "missing.json"),
+        "--out", str(out),
+        "--engineering-only",
+    ])
+    assert code == worker.EXIT_GLOBAL
+    assert "TIE_ROLE_PILOT_NO_GO" in capsys.readouterr().out
+    assert not out.exists()
+
+
+def test_frontier_operator_blocks_before_creating_output(tmp_path, capsys):
+    from tools import formation_mux_001_kaggle_operator_v10 as operator
+
+    out = tmp_path / "output"
+    assert operator.main(["--out", str(out)]) == 4
+    assert "TIE_ROLE_PILOT_NO_GO" in capsys.readouterr().err
+    assert not out.exists()
+
+
+def test_import_does_not_rebind_shared_training():
+    import importlib
+    from anra_v5 import formation_mux_train_v2 as base
+    from anra_v5 import tie_role_train_v1 as train
+
+    names = ("fxm", "proto", "_make_model_and_optimizers", "_save_checkpoint")
+    before = {name: getattr(base, name) for name in names}
+    try:
+        importlib.reload(train)
+        assert all(getattr(base, name) is value for name, value in before.items())
+    finally:
+        for name, value in before.items():
+            setattr(base, name, value)
+
+
+def test_batch_binding_is_restored_on_success_and_failure(monkeypatch):
+    import pytest
+    from anra_v5 import formation_mux_train_v2 as base
+    from anra_v5 import tie_role_train_v1 as train
+
+    names = ("fxm", "proto", "_make_model_and_optimizers", "_save_checkpoint")
+    sentinels = {name: object() for name in names}
+    for name, value in sentinels.items():
+        monkeypatch.setattr(base, name, value)
+
+    for helper in ("build_batch", "evaluate_development", "_encode_row", "_row_processed_tokens"):
+        for fail in (False, True):
+            def fake_helper():
+                assert base.fxm is train.fxm
+                assert base.proto is train.proto
+                if fail:
+                    raise ValueError("helper fixture failure")
+                return "helper fixture"
+
+            monkeypatch.setattr(base, helper, fake_helper)
+            if fail:
+                with pytest.raises(ValueError, match="helper fixture failure"):
+                    getattr(train, helper)()
+            else:
+                assert getattr(train, helper)() == "helper fixture"
+            assert all(getattr(base, name) is value for name, value in sentinels.items())
+
+
 def test_tie_role_protocol_is_prospective_and_complete():
     from v5_experiments import tie_role_protocol_v1 as proto
 

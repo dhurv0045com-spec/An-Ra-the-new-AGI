@@ -117,18 +117,23 @@ def qualify_s5_with_xfactor(
     return receipt
 
 
-def run_xfactor(public_path: Path, out: Path, torch: Any) -> dict[str, Any]:
+def run_xfactor(public_path: Path, out: Path, torch: Any, device: Any = None) -> dict[str, Any]:
     from tools.formation_mux_001_vocab_pressure_v1 import run_diagnostic
 
     prereg = verify_xfactor_preregistration(_repo_root())
     v8.v7.base._atomic_json(
         out / "XFACTOR_PREREGISTRATION_RECEIPT.json", prereg
     )
+    # Architecture: same coordinator-device contract as sealed scoring. A CPU
+    # finalize session has no CUDA, so cuda:0 here would abort the whole
+    # free-quota path. Default stays cuda:0 whenever a GPU is visible.
+    if device is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     result = run_diagnostic(
         public_path=public_path,
         out=out,
         torch=torch,
-        device=torch.device("cuda:0"),
+        device=device,
     )
     if result.get("sealed_rows_used") is not False:
         raise v8.v7.base.GlobalIntegrityError(
@@ -142,12 +147,12 @@ def run_xfactor(public_path: Path, out: Path, torch: Any) -> dict[str, Any]:
 
 
 def finalize_sealed_with_xfactor(
-    public_path: Path, out: Path, torch: Any, tokenizer: Any
+    public_path: Path, out: Path, torch: Any, tokenizer: Any, device: Any = None
 ) -> dict[str, Any]:
     # Deliberately before sealed regeneration: development-only mechanism
     # localization cannot inspect or adapt to sealed outcomes.
-    run_xfactor(public_path, out, torch)
-    return _ORIGINAL_FINALIZE_SEALED(public_path, out, torch, tokenizer)
+    run_xfactor(public_path, out, torch, device=device)
+    return _ORIGINAL_FINALIZE_SEALED(public_path, out, torch, tokenizer, device=device)
 
 
 def _bind() -> None:

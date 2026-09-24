@@ -185,16 +185,17 @@ class ArmOptimizerView:
         self.main = main
         self.rows = rows
         self.embedding = embedding
-        self.param_groups = [dict(group) for group in main.param_groups]
-        self.param_groups.append(
-            {
-                "params": [embedding],
-                "lr": float(rows.lr),
-                "weight_decay": 0.0,
-                "row_optimizer_owned": True,
-            }
-        )
+        self._row_param_group = {
+            "params": [embedding],
+            "lr": float(rows.lr),
+            "weight_decay": 0.0,
+            "row_optimizer_owned": True,
+        }
         self.defaults = dict(main.defaults)
+
+    @property
+    def param_groups(self) -> list[dict[str, Any]]:
+        return [*self.main.param_groups, self._row_param_group]
 
     @property
     def state(self) -> Any:

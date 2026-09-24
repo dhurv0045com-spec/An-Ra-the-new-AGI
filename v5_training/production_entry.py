@@ -12,9 +12,14 @@ real tokens = 131,072 for the frozen topology), never one giant batch.
 Each microstep executes ONE frozen bucket shape: every row has native width
 <= B and the assembled tensor is exactly width B with the frozen per-replica
 sequence count. TrainingState advances exactly once per logical update.
-Local CPU/CUDA execution runs the GLOBAL logical microstep on one device (a
-mathematical emulation, never TPU evidence); topology_map is the single
-authority that shards rows for real data-parallel execution.
+By default, local CPU/CUDA execution runs the GLOBAL logical microstep on one
+device (a mathematical emulation, never TPU evidence). An opt-in host-only
+distributed campaign uses the production sampler to shard the rows and a
+replica collective to combine gradients. The production XLA campaign remains
+blocked until the backend and exact-resume path pass TPU qualification.
+An explicitly separate ``execution="xla-development"`` path is limited to
+one or two updates on a discovered TPU and is marked unqualified; it is a
+development integration check, not a production campaign or Kaggle evidence.
 Resume is inferred from a valid committed LATEST, never from supplied paths.
 Fail-closed on: identity drift, ledger drift, bucket violation, mixture
 shortfall, nonfinite loss/gradients, parameter non-mutation, stale writer,
@@ -23,6 +28,7 @@ restore mismatch, missing production contamination commitment.
 
 from __future__ import annotations
 
+from dataclasses import replace
 import hashlib
 import json
 import subprocess
@@ -35,8 +41,6 @@ from v5_data.bucket_cursor import (
     BUCKET_CURSOR_SCHEMA,
     BucketCursorState,
     build_bucket_lanes,
-    cell_key,
-    take_cell_window,
 )
 from v5_data.lifecycle import require_runnable
 from v5_data.manifest import Document, build_data_manifest, manifest_sha256
@@ -61,7 +65,16 @@ from v5_training.production_backend import (
     capture_evidence,
     precision_receipt,
     production_payloads,
+    production_shared_payloads,
     restore_production,
+)
+from v5_training.production_resume import (
+    ProductionRankCapture,
+    build_production_distributed_payloads,
+    capture_cpu_rng_state,
+    next_microstep_fingerprint_sha256,
+    restore_production_rank_into_backend,
+    terminal_microstep_fingerprint_sha256,
 )
 from v5_training.runner import RunController
 from v5_training.schedule import lr_at, schedule_receipt
@@ -69,9 +82,21 @@ from v5_training.state import (
     IDENTITY_SCHEMA,
     IdentityBindings,
     TrainingState,
-    next_update_tokens,
 )
-from v5_training.topology_map import certify_microstep_shape, replica_shards
+from v5_training.production_microsteps import (
+    count_eligible_targets,
+    count_rank_real_tokens,
+)
+from v5_training.production_sampler import (
+    VERIFIED_COGNITION,
+    ProductionSampler,
+    assign_mixture_cell,
+    campaign_microstep_plan,
+    microstep_buckets,
+    partial_microstep_plan,
+    plan_campaign_demand,
+)
+from v5_training.topology_map import certify_microstep_shape
 from v5_training.trainer import train
 from v5_training.xla_adapter import (
     EVIDENCE_REQUIRED,
@@ -86,7 +111,6 @@ MILESTONE_SCHEMA = "anra-v5-milestone-receipt/v1"
 # 500M-campaign milestone thresholds. Distinct from the 5B-run schedule in
 # training_spec; these gate the 500M campaign only.
 MILESTONE_TOKENS = (50_000_000, 100_000_000, 200_000_000, 350_000_000, 500_000_000)
-VERIFIED_COGNITION = "verified_cognition"
 
 
 def frozen_topology() -> dict[str, Any]:
@@ -154,43 +178,6 @@ def frozen_cognition_fractions() -> dict[str, float]:
     return result
 
 
-def microstep_buckets(
-    *, cumulative_tokens: int, microstep_counts: list[int], topo: Mapping[str, Any]
-) -> list[int]:
-    """Bucket per microstep from the frozen supercycle position.
-
-    Position derives from cumulative real tokens only, so resume reproduces
-    it without extra state (stronger than checkpointing the position: there
-    is no stored value that could drift from the token count).
-    """
-
-    cycle = topo["supercycle"]
-    base = cumulative_tokens // topo["global_tokens_per_microstep"]
-    return [int(cycle[(base + index) % len(cycle)]) for index in range(len(microstep_counts))]
-
-
-def partial_microstep_plan(
-    *, remaining_tokens: int, topo: Mapping[str, Any], microstep_ordinal: int
-) -> list[int]:
-    """Split an update budget into full microsteps plus one exact tail.
-
-    Derived mechanically from the frozen global microstep size: fill
-    full-size chunks, then one partial microstep with the remainder, so the
-    plan sums to exactly ``remaining_tokens``. ``microstep_ordinal`` binds
-    the plan to its supercycle position for audit; the split itself is
-    position-independent. No overshoot, no undershoot. This is generic over
-    campaign targets: it never imports the 5B-run final-partial arithmetic.
-    """
-
-    if microstep_ordinal < 0:
-        raise ValueError("microstep ordinal cannot be negative")
-    microstep = topo["global_tokens_per_microstep"]
-    if remaining_tokens <= 0:
-        raise ValueError("remaining tokens must be positive")
-    full, tail = divmod(remaining_tokens, microstep)
-    return [microstep] * full + ([tail] if tail else [])
-
-
 def crossed_milestones(previous_tokens: int, new_tokens: int,
                        milestones: tuple = MILESTONE_TOKENS) -> list[int]:
     """Milestones strictly crossed when tokens move prev -> new. Pure."""
@@ -233,17 +220,7 @@ def _predict_supervised(window: Any, *, bos_id: int = 2, pad_id: int = 0) -> int
     ``finish_update`` fails closed on any disagreement.
     """
 
-    total = 0
-    for tokens, segments, eligible in zip(window.tokens, window.segment_ids,
-                                          window.eligible):
-        for position in range(1, len(tokens)):
-            if (eligible[position]
-                    and segments[position] == segments[position - 1]
-                    and segments[position] >= 0
-                    and tokens[position] != bos_id
-                    and tokens[position] != pad_id):
-                total += 1
-    return total
+    return count_eligible_targets(window, bos_id=bos_id, pad_id=pad_id)
 
 
 def _runtime_name(device: Any) -> str:
@@ -254,6 +231,7 @@ def _runtime_name(device: Any) -> str:
 
 def prepare_data(*, documents: list[dict[str, Any]], tokenizer: Any,
                  run_id: str, seed: int,
+                 data_identity: str | None = None,
                  contamination_benchmarks: dict[str, str] | None = None,
                  mixture_families: tuple[str, ...] | None = None,
                  cognition_map: Mapping[str, str] | None = None,
@@ -261,7 +239,9 @@ def prepare_data(*, documents: list[dict[str, Any]], tokenizer: Any,
                  ) -> dict[str, Any]:
     """Documents -> data manifest -> packing -> sampler order (data half).
 
-    Deterministic in (documents, seed, mixture config). ``mixture_families``
+    Deterministic in (documents, seed, mixture config). ``data_identity``
+    optionally stabilizes the data manifest and split salt across matched
+    training runs; ``run_id`` remains a lineage/output label. ``mixture_families``
     enables family-segregated packing with per-source (family, subfamily)
     cells; without it every sequence pools into one cell per bucket.
     Production (development_mode=False) requires strict raw-source
@@ -295,13 +275,16 @@ def prepare_data(*, documents: list[dict[str, Any]], tokenizer: Any,
             if family == VERIFIED_COGNITION and cognition_map is not None:
                 sub = str(cognition_map.get(d["source_id"], ""))
             cell_of_source[d["source_id"]] = (family, sub)
+    identity = data_identity or run_id
+    if not identity or any(character.isspace() for character in identity):
+        raise ValueError("data_identity must be a compact nonempty identity")
     manifest, manifest_audit = build_data_manifest(
-        records, manifest_id=f"{run_id}-data",
+        records, manifest_id=f"{identity}-data",
         tokenizer_sha256=artifact_sha,
         filter_version="production-entry-filter/v1",
         dedup_version=("exact+near-minhash-lsh/v1" if not development_mode
                        else "exact-clusters/v1"),
-        split_salt=f"{run_id}/v1",
+        split_salt=f"{identity}/v1",
         split_boundaries={"training": 1.0, "development": 0.0,
                           "sealed": 0.0, "fresh": 0.0},
         count_tokens=lambda text: len(tokenizer.encode(text)),
@@ -329,93 +312,6 @@ def prepare_data(*, documents: list[dict[str, Any]], tokenizer: Any,
             "packed_doc_ids": sorted(d["doc_id"] for d in documents
                                      if d["source_id"] in keep),
             "packed_sources": sorted(keep)}
-
-
-def campaign_microstep_plan(*, start_tokens: int, campaign_tokens: int,
-                            topo: Mapping[str, Any]) -> list[tuple[int, int]]:
-    """Exact (bucket, real-token count) sequence for a campaign remainder.
-
-    Pure function of token counts: offline demand planning and live execution
-    consume the same plan, so supply shortfalls are proven before training.
-    """
-
-    per_update = topo["global_tokens_per_update"]
-    microstep = topo["global_tokens_per_microstep"]
-    cycle = topo["supercycle"]
-    if not 0 <= start_tokens <= campaign_tokens:
-        raise ValueError("campaign remainder is outside the budget")
-    plan: list[tuple[int, int]] = []
-    cumulative, ordinal = start_tokens, start_tokens // microstep
-    remaining = campaign_tokens - start_tokens
-    while remaining > 0:
-        expected = min(per_update, remaining)
-        full, tail = divmod(expected, microstep)
-        counts = [microstep] * full + ([tail] if tail else [])
-        for count in counts:
-            plan.append((int(cycle[ordinal % len(cycle)]), count))
-            ordinal += 1
-        cumulative += expected
-        remaining -= expected
-    return plan
-
-
-def assign_mixture_cell(*, fam_consumed: dict[str, int],
-                        sub_consumed: dict[str, int],
-                        total_consumed: int,
-                        fam_scheduler: DeficitScheduler | None,
-                        sub_scheduler: DeficitScheduler | None,
-                        cognition_mapped: bool) -> tuple[str, str]:
-    """Pure per-microstep (family, subfamily) assignment. Single authority.
-
-    Both the offline demand planner and live execution call this with the
-    same counters, so planning and execution cannot diverge. Without a family
-    scheduler every microstep pools into ("", "").
-    """
-
-    if fam_scheduler is None:
-        return "", ""
-    family = fam_scheduler.next(consumed_total=total_consumed,
-                                consumed=fam_consumed)
-    sub = ""
-    if family == VERIFIED_COGNITION and cognition_mapped and sub_scheduler is not None:
-        sub = sub_scheduler.next(
-            consumed_total=fam_consumed.get(family, 0), consumed=sub_consumed)
-    return family, sub
-
-
-def plan_campaign_demand(*, microstep_plan: list[tuple[int, int]],
-                         fam_scheduler: DeficitScheduler | None,
-                         sub_scheduler: DeficitScheduler | None,
-                         cognition_mapped: bool,
-                         initial_fam_consumed: dict[str, int] | None = None,
-                         initial_sub_consumed: dict[str, int] | None = None,
-                         initial_total: int = 0) -> dict[str, int]:
-    """Exact per-cell real-token demand for a microstep plan. Pure.
-
-    Counters start from the (possibly restored) schedule state, so offline
-    planning and live execution from the same state cannot diverge — including
-    across resume, where the plan covers only the remainder but the counters
-    continue from the checkpoint.
-    """
-
-    fam_consumed: dict[str, int] = dict(initial_fam_consumed or {})
-    sub_consumed: dict[str, int] = dict(initial_sub_consumed or {})
-    total = initial_total
-    if total < 0:
-        raise ValueError("planning total cannot be negative")
-    demand: dict[str, int] = {}
-    for bucket, count in microstep_plan:
-        family, sub = assign_mixture_cell(
-            fam_consumed=fam_consumed, sub_consumed=sub_consumed,
-            total_consumed=total, fam_scheduler=fam_scheduler,
-            sub_scheduler=sub_scheduler, cognition_mapped=cognition_mapped)
-        key = cell_key(bucket, family, sub)
-        demand[key] = demand.get(key, 0) + count
-        fam_consumed[family] = fam_consumed.get(family, 0) + count
-        if sub:
-            sub_consumed[sub] = sub_consumed.get(sub, 0) + count
-        total += count
-    return dict(sorted(demand.items()))
 
 
 def build_milestone_receipt(*, run_id: str, threshold_tokens: int,
@@ -494,8 +390,11 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                  allow_replay: bool = False,
                  dataset_lifecycle=None,
                  tokenizer_freeze_sha256: str | None = None,
+                 source_tree_sha256: str | None = None,
                  execution: str = "local",
                  mirror_root: str | Path | None = None,
+                 checkpoint_coordinator: Any | None = None,
+                 replica_collective: Callable[[Any], str] | None = None,
                  ) -> dict[str, Any]:
     """Execute (or resume) a token-targeted certified production campaign.
 
@@ -506,10 +405,27 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     must be deterministic in state. ``allow_replay`` permits bounded epoch
     replay on lane exhaustion (default fails closed DATA_NOT_READY).
     ``dataset_lifecycle``, when provided, must already be RUNNABLE.
-    ``execution="xla"`` routes through the XLA replicated adapter and fails
-    closed without certified XLA hardware (IMPLEMENTED_PENDING_PRE500M_TPU).
+    ``execution="xla"`` currently fails before preprocessing. The
+    coordinator implements per-update action agreement and rank-zero
+    publication as a tested primitive, but the runtime adapter has not passed
+    target qualification. ``ProductionTrainingBackend`` accepts XLA only with
+    its explicit unqualified-development opt-in; that bounded path has not
+    passed an end-to-end Kaggle test. Exact per-rank XLA RNG/cursor restore
+    remains unqualified. XLA canaries do not satisfy those production gates.
+    ``execution="xla-development"`` is a separate, explicitly unqualified
+    one/two-update TPU integration path. It is not invoked by the Kaggle
+    qualification notebook by default and must not be used as research-run
+    evidence. Its final checkpoint-equivalence check is deferred to a fresh
+    worker group so it does not allocate a second full model and Adam state on
+    every TPU rank; the development receipt reports that deferral explicitly.
     ``mirror_root``, when provided, mirrors every committed generation to
     durable storage and recovers a missing local store from the mirror.
+    ``checkpoint_coordinator`` opts into v2 replicated checkpoints for a
+    separately qualified CPU replica test/runtime. It does not bypass the XLA
+    production gate; multi-rank local execution must supply a replica-wide
+    gradient collective that returns an auditable SHA-256 receipt. That
+    collective requires the checkpoint coordinator so local-update failures,
+    loss contributions, and update decisions can be agreed rank-symmetrically.
     """
 
     if xb is None:
@@ -528,17 +444,46 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             "no fallback or provisional tokenizer")
     if dataset_lifecycle is not None:
         require_runnable(dataset_lifecycle)
-    if execution not in ("local", "xla"):
-        raise ValueError("execution must be 'local' or 'xla'")
+    if execution not in ("local", "xla", "xla-development"):
+        raise ValueError("execution must be 'local', 'xla', or 'xla-development'")
     xla_adapter = None
     xla_status_doc: dict[str, object] | None = None
-    if execution == "xla":
+    xla_development = execution == "xla-development"
+    if xla_development:
+        if not development_mode:
+            raise ValueError("xla-development requires development_mode=True")
+        if (type(max_updates) is not int or not 1 <= max_updates <= 2):
+            raise ValueError("xla-development requires max_updates bounded to one or two")
+        if checkpoint_coordinator is not None or replica_collective is not None:
+            raise ValueError(
+                "xla-development owns its XLA coordinator and gradient collective"
+            )
+        if mirror_root is not None:
+            raise ValueError("xla-development does not qualify durable mirror behavior")
+        if _runtime_name(device) != "xla":
+            raise ValueError("xla-development requires the live XLA device")
         xla_status_doc = xla_status()
         if xla_status_doc.get("status") != PENDING_STATUS:
             raise ValueError(
-                "XLA execution requested but the adapter reports "
-                f"{xla_status_doc.get('status')}: "
-                f"{xla_status_doc.get('reason')} ({EVIDENCE_REQUIRED})")
+                "xla-development requires an initialized XLA runtime: "
+                f"{xla_status_doc.get('reason', EVIDENCE_REQUIRED)}"
+            )
+        if str(xla_status_doc.get("device_type", "")).upper() != "TPU":
+            raise ValueError("xla-development is restricted to a live TPU runtime")
+    if execution == "xla":
+        xla_status_doc = xla_status()
+        raise ValueError(
+            "XLA production execution is blocked before data preparation: "
+            "the production backend and rank-coordinated checkpoint/resume "
+            "path are not target-qualified; "
+            f"adapter status={xla_status_doc.get('status')}, "
+            f"reason={xla_status_doc.get('reason', 'target evidence is still pending')} "
+            f"({EVIDENCE_REQUIRED})")
+    if replica_collective is not None and checkpoint_coordinator is None:
+        raise ValueError(
+            "replica gradient collective requires a checkpoint coordinator for "
+            "rank-sharded data and shared update decisions"
+        )
     if campaign_tokens <= 0:
         raise ValueError("campaign token budget must be positive")
     if max_updates is not None and max_updates < 0:
@@ -560,11 +505,22 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     per_update = topo["global_tokens_per_update"]
     microstep_tokens = topo["global_tokens_per_microstep"]
     replicas = topo["replicas"]
+    if xla_development:
+        require_frozen_topology(int(xla_status_doc["world_size"]), replicas=replicas)
     per_replica_counts = topo["sequences_per_replica_by_bucket"]
     recovery_every = recovery_tokens if recovery_tokens is not None else topo["recovery_threshold_tokens"]
     if recovery_every <= 0:
         raise ValueError("recovery cadence must be positive")
     cymek_sha = resolve_cymek_sha(cymek_sha)
+    from signac_100m.source_identity import build_source_identity
+    live_source_tree_sha256 = build_source_identity(
+        Path(__file__).resolve().parents[1]
+    )["source_tree_sha256"]
+    if source_tree_sha256 is not None and source_tree_sha256 != live_source_tree_sha256:
+        raise ValueError(
+            "supplied source tree identity does not match the live Signac source bundle"
+        )
+    source_tree_sha256 = live_source_tree_sha256
     mixture_families = tuple(sorted(mixture_fractions)) if mixture_fractions else None
     data = prepare_data(documents=documents, tokenizer=tokenizer,
                         run_id=run_id, seed=seed,
@@ -578,8 +534,20 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                                       order=tuple(sorted(mixture_fractions)))
                      if mixture_fractions else None)
     cognition_mapped = bool(cognition_map) and VERIFIED_COGNITION in (mixture_families or ())
-    sub_scheduler = (DeficitScheduler(fractions=frozen_cognition_fractions())
+    cognition_fractions = frozen_cognition_fractions() if cognition_mapped else None
+    sub_scheduler = (DeficitScheduler(fractions=dict(cognition_fractions))
                      if cognition_mapped else None)
+    sampler = ProductionSampler(
+        packed=packed,
+        run_seed=seed,
+        topology=topo,
+        pack_manifest_sha256=data["pack_manifest_sha256"],
+        cell_of_source=cell_of_source,
+        mixture_fractions=mixture_fractions,
+        cognition_fractions=cognition_fractions,
+        cognition_mapped=cognition_mapped,
+        allow_replay=allow_replay,
+    )
     if mixture_fractions is not None:
         allocation = allocate(campaign_tokens, dict(mixture_fractions))
     else:
@@ -599,6 +567,18 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     mode_label = "DEVELOPMENT" if development_mode else "PRODUCTION"
     schedule_doc = schedule_receipt()
     topology_digest = topology_sha256(topo)
+    replicated_topology = f"signac-v2-world{replicas}-{topology_digest}"
+    if checkpoint_coordinator is not None:
+        if execution != "local":
+            raise ValueError("v2 campaign checkpoints are unavailable for unqualified XLA runtime")
+        if (getattr(checkpoint_coordinator, "world_size", None) != replicas
+                or type(getattr(checkpoint_coordinator, "rank", None)) is not int
+                or not 0 <= checkpoint_coordinator.rank < replicas):
+            raise ValueError("checkpoint coordinator world differs from frozen campaign topology")
+        if _runtime_name(device) != "cpu" or torch.cuda.is_available():
+            raise ValueError("v2 production resume currently supports CPU RNG only")
+        if replicas > 1 and not callable(replica_collective):
+            raise ValueError("multi-rank local training requires a replica gradient collective")
     identities = IdentityBindings(
         schema=IDENTITY_SCHEMA, source_commit=cymek_sha,
         model_spec_sha256=model_spec.sha256(),
@@ -610,6 +590,8 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
              "global_tokens_per_update": per_update,
              "topology_sha256": topology_digest,
              "mixture_plan_sha256": mixture_plan_sha,
+             "sampler_spec_sha256": sampler.sha256,
+             "source_tree_sha256": source_tree_sha256,
              "seed": seed})).hexdigest(),
         optimizer_spec_sha256=hashlib.sha256(_canonical_json(
             {"optimizer": "AdamW", "beta1": topo["beta1"], "beta2": topo["beta2"],
@@ -618,7 +600,9 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         schedule_spec_sha256=schedule_doc["sha256"],
         curriculum_spec_sha256=hashlib.sha256(_canonical_json(
             {"curriculum_phase": "500m-campaign",
-             "policy": "uniform-supercycle-interleave"})).hexdigest())
+             "policy": "uniform-supercycle-interleave"})).hexdigest(),
+        sampler_spec_sha256=sampler.sha256,
+        source_tree_sha256=source_tree_sha256)
     identity_bundle = {
         "cymek_sha": cymek_sha,
         "model_spec_sha256": model_spec.sha256(),
@@ -629,17 +613,52 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "topology_sha256": topology_digest,
         "schedule_spec_sha256": schedule_doc["sha256"],
         "mixture_plan_sha256": mixture_plan_sha or "",
+        "sampler_spec_sha256": sampler.sha256,
+        "source_tree_sha256": source_tree_sha256,
         "run_spec_sha256": identities.run_spec_sha256,
     }
 
     store = CheckpointStore(Path(store_root), run_id)
     runtime = _runtime_name(device)
     precision = precision_receipt(runtime=runtime, torch_module=torch)
-    if precision.get("status") != "CERTIFIED_LOCAL":
+    if xla_development:
+        precision = {
+            "schema": "anra-v5-precision-contract/v1",
+            "runtime": "xla",
+            "persistent_parameters": "float32",
+            "compute": "bfloat16-autocast",
+            "logits_loss_reductions": "float32",
+            "global_gradient_norm": "float32 replica-global",
+            "optimizer_moments": "float32",
+            "persistent_bfloat16_shadow": False,
+            "loss_scaler": None,
+            "status": "UNQUALIFIED_DEVELOPMENT_ONLY",
+            "evidence_required": EVIDENCE_REQUIRED,
+        }
+    elif precision.get("status") != "CERTIFIED_LOCAL":
         raise ValueError(
             f"runtime {runtime!r} is not certified for local execution: XLA/TPU "
             "collectives, memory fit, and bf16 behavior need PRE500M "
             "certification (TPU_EVIDENCE_REQUIRED)")
+    campaign_coordinator = checkpoint_coordinator
+    model = None
+    optimizer = None
+    backend = None
+    if xla_development:
+        # Create one replicated backend and coordinator before inspecting
+        # LATEST so fresh and resumed ranks use the same v2 control path.
+        torch.manual_seed(seed)
+        model = initialize(model_spec, seed).to(device)
+        optimizer = build_adamw_optimizer(model, torch_module=torch)
+        backend = ProductionTrainingBackend(
+            model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
+            schedule=lr_at, bfloat16_autocast=True,
+            torch_module=torch, allow_unqualified_xla=True)
+        xla_adapter = XLAReplicatedBackend(
+            replica_backend=backend, replicas=replicas,
+            world_size=int(xla_status_doc["world_size"]),
+            torch_module=torch)
+        campaign_coordinator = xla_adapter.checkpoint_coordinator()
     latest = store.latest_sha256()
     mirrored_recovery = False
     if latest is None and mirror_root is not None:
@@ -648,14 +667,15 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             latest = materialize_local(mirror_root, store)
             mirrored_recovery = True
     if latest is None:
-        torch.manual_seed(seed)
-        model = initialize(model_spec, seed).to(device)
-        optimizer = build_adamw_optimizer(model, torch_module=torch)
-        backend = ProductionTrainingBackend(
-            model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
-            schedule=lr_at,
-            bfloat16_autocast=runtime == "cuda",
-            torch_module=torch)
+        if backend is None:
+            torch.manual_seed(seed)
+            model = initialize(model_spec, seed).to(device)
+            optimizer = build_adamw_optimizer(model, torch_module=torch)
+            backend = ProductionTrainingBackend(
+                model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
+                schedule=lr_at,
+                bfloat16_autocast=runtime == "cuda",
+                torch_module=torch)
         if execution == "xla":
             require_frozen_topology(int(xla_status_doc["world_size"]), replicas=replicas)
             xla_adapter = XLAReplicatedBackend(
@@ -669,7 +689,23 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         fam_consumed = {}
         sub_consumed = {}
     else:
-        state, payloads = store.restore()
+        if campaign_coordinator is None:
+            state, payloads = store.restore()
+        else:
+            state, restored_metadata, _rank_payloads, _shared_payloads = (
+                store.restore_distributed_artifacts(
+                    rank=campaign_coordinator.rank,
+                    expected_world_size=replicas,
+                    expected_topology=replicated_topology,
+                    checkpoint_sha256=latest,
+                )
+            )
+            campaign_coordinator.restore_rank_progress(
+                cumulative_tokens=(
+                    restored_metadata.ranks[campaign_coordinator.rank].cumulative_tokens
+                ),
+            )
+            payloads = None
         if state.lineage_id != run_id:
             raise ValueError("restored state belongs to another lineage")
         if not isinstance(state.cursor, BucketCursorState):
@@ -682,23 +718,42 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                 ("data manifest", identities.data_manifest_sha256, state.identities.data_manifest_sha256),
                 ("pack manifest", identities.pack_manifest_sha256, state.identities.pack_manifest_sha256),
                 ("run spec", identities.run_spec_sha256, state.identities.run_spec_sha256),
+                ("sampler spec", identities.sampler_spec_sha256,
+                 state.identities.sampler_spec_sha256),
                 ("optimizer spec", identities.optimizer_spec_sha256, state.identities.optimizer_spec_sha256),
                 ("schedule spec", identities.schedule_spec_sha256, state.identities.schedule_spec_sha256),
                 ("curriculum spec", identities.curriculum_spec_sha256, state.identities.curriculum_spec_sha256),
                 ("source commit", identities.source_commit, state.identities.source_commit),
+                ("source tree", identities.source_tree_sha256,
+                 state.identities.source_tree_sha256),
                 ("token budget", campaign_tokens, state.token_budget)):
             if expected != actual:
                 raise ValueError(
                     f"resume identity drift: {name} changed since the committed checkpoint")
-        torch.manual_seed(seed)
-        model = initialize(model_spec, seed).to(device)
-        optimizer = build_adamw_optimizer(model, torch_module=torch)
-        backend = ProductionTrainingBackend(
-            model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
-            schedule=lr_at,
-            bfloat16_autocast=runtime == "cuda",
-            torch_module=torch)
-        restore_production(backend, payloads=payloads)
+        if backend is None:
+            torch.manual_seed(seed)
+            model = initialize(model_spec, seed).to(device)
+            optimizer = build_adamw_optimizer(model, torch_module=torch)
+            backend = ProductionTrainingBackend(
+                model=model, optimizer=optimizer, bos_id=2, pad_id=0, device=device,
+                schedule=lr_at,
+                bfloat16_autocast=runtime == "cuda",
+                torch_module=torch)
+        if campaign_coordinator is None:
+            restore_production(backend, payloads=payloads)
+        else:
+            rank_resume = restore_production_rank_into_backend(
+                backend=backend,
+                store=store,
+                rank=campaign_coordinator.rank,
+                expected_world_size=replicas,
+                expected_topology=replicated_topology,
+                sampler=sampler,
+                checkpoint_sha256=latest,
+                runtime="xla" if xla_development else "cpu",
+                rng_state_adapter=xla_adapter if xla_development else None,
+            )
+            state = rank_resume.state
         if execution == "xla":
             require_frozen_topology(int(xla_status_doc["world_size"]), replicas=replicas)
             xla_adapter = XLAReplicatedBackend(
@@ -784,174 +839,130 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     microstep_shapes: list[dict[str, object]] = []
     milestones_crossed: list[dict[str, object]] = []
     recovery_shas: list[str] = []
-    milestone_shas: dict[int, str] = {}
     mirrored_shas: list[str] = []
     last_boundary_tokens = [state.cumulative_tokens]
     updates_this_session = [0]
     stop_reasons: list[str] = []
-    total_consumed = [state.cumulative_tokens]
-    base_replays = (state.cursor.replay_count
-                    if isinstance(state.cursor, BucketCursorState) else 0)
-
-    def take_window(bucket: int, family: str, sub: str, count: int):
-        nonlocal lanes, lanes_receipt, epoch
-        from v5_data.bucket_cursor import LaneWindow, lane_remainder
-        key = cell_key(bucket, family, sub)
-        if key not in lanes:
-            raise ValueError(
-                f"abort DATA_NOT_READY: no packed supply for cell {key}; "
-                "no silent substitution across buckets or families")
-        if not lanes[key]:
-            raise ValueError(f"abort DATA_NOT_READY: lane {key} holds no sequences")
-        merged_tokens: list = []
-        merged_segments: list = []
-        merged_eligible: list = []
-        merged_widths: list = []
-        merged_source: dict[str, int] = {}
-        merged_family: dict[str, int] = {}
-        merged_real = 0
-        end_index, end_offset = positions[key]
-        remaining = count
-        for _attempt in range(1024):
-            lane = lanes[key]
-            available = lane_remainder(packed, lane, end_index, end_offset, pad=0)
-            if available <= 0:
-                if not allow_replay:
-                    raise ValueError(
-                        f"abort DATA_NOT_READY: lane exhausted for cell {key}; "
-                        "bounded replay not permitted") from None
-                epoch += 1
-                lanes, lanes_receipt = build_lanes(epoch, required_buckets)
-                for reset_key in positions:
-                    positions[reset_key] = [0, 0]
-                replay_events.append({"epoch": epoch,
-                                      "at_cumulative_tokens": total_consumed[0]})
-                if progress is not None:
-                    progress(f"epoch replay {epoch}")
-                lane = lanes[key]
-                if not lane:
-                    raise ValueError(
-                        f"abort DATA_NOT_READY: cell {key} cannot supply "
-                        f"{count} real tokens even fresh") from None
-                end_index, end_offset = 0, 0
-                continue
-            window = take_cell_window(
-                packed, lane, end_index, end_offset,
-                real_tokens=min(remaining, available), pad=0, bucket=bucket,
-                cell_of_source=cell_of_source)
-            merged_tokens.extend(window.tokens)
-            merged_segments.extend(window.segment_ids)
-            merged_eligible.extend(window.eligible)
-            merged_widths.extend(window.row_widths)
-            for source, amount in window.tokens_by_source.items():
-                merged_source[source] = merged_source.get(source, 0) + amount
-            for name, amount in window.tokens_by_family.items():
-                merged_family[name] = merged_family.get(name, 0) + amount
-            merged_real += window.real_tokens
-            remaining -= window.real_tokens
-            end_index, end_offset = window.end_lane_index, window.end_token_offset
-            if remaining <= 0:
-                break
-        if remaining > 0:
-            raise ValueError(
-                f"abort DATA_NOT_READY: cell {key} cannot supply {count} real tokens")
-        return LaneWindow(
-            tokens=tuple(merged_tokens), segment_ids=tuple(merged_segments),
-            eligible=tuple(merged_eligible),
-            tokens_by_source=dict(sorted(merged_source.items())),
-            tokens_by_family=dict(sorted(merged_family.items())),
-            real_tokens=merged_real, row_widths=tuple(merged_widths),
-            end_lane_index=end_index, end_token_offset=end_offset)
-
+    local_collective_receipts: list[str] = []
+    latest_xla_rng_state: list[bytes] = []
     def backend_step(current: TrainingState):
-        expected = next_update_tokens(
-            token_budget=current.token_budget,
-            cumulative_tokens=current.cumulative_tokens,
-            tokens_per_update=current.tokens_per_update)
-        plans = partial_microstep_plan(
-            remaining_tokens=expected, topo=topo,
-            microstep_ordinal=current.cumulative_tokens // microstep_tokens)
-        buckets = microstep_buckets(
-            cumulative_tokens=current.cumulative_tokens,
-            microstep_counts=list(plans), topo=topo)
-        ctx = backend.begin_update(current)
-        windows = []
-        for micro_count, bucket in zip(plans, buckets):
-            family, sub = assign_mixture_cell(
-                fam_consumed=fam_consumed, sub_consumed=sub_consumed,
-                total_consumed=total_consumed[0], fam_scheduler=fam_scheduler,
-                sub_scheduler=sub_scheduler, cognition_mapped=cognition_mapped)
-            window = take_window(bucket, family, sub, micro_count)
-            windows.append((bucket, family, sub, window))
-            key = cell_key(bucket, family, sub)
-            positions[key] = [window.end_lane_index, window.end_token_offset]
-            fam_consumed[family] = fam_consumed.get(family, 0) + window.real_tokens
-            if sub:
-                sub_consumed[sub] = sub_consumed.get(sub, 0) + window.real_tokens
-            total_consumed[0] += window.real_tokens
-        supervised_total = sum(window.real_tokens for _, _, _, window in windows)
-        if supervised_total != expected:
-            raise ValueError("microstep accumulation disagrees with the update budget")
-        eligible_total = sum(_predict_supervised(window) for _, _, _, window in windows)
-        if eligible_total <= 0:
-            raise ValueError("abort NO_SUPERVISED_TOKENS: update carried no eligible targets")
-        for bucket, _family, _sub, window in windows:
-            if any(width > bucket for width in window.row_widths):
-                raise ValueError("microstep row exceeds its requested bucket")
-            width = bucket
-            row_items = [([*row, *[0] * (width - len(row))],
-                          [*seg, *[-1] * (width - len(seg))],
-                          [*elig, *[False] * (width - len(elig))])
-                         for row, seg, elig in zip(window.tokens, window.segment_ids,
-                                                   window.eligible)]
-            if xla_adapter is None:
-                groups = [row_items]
-            else:
-                if len(row_items) % replicas:
-                    raise ValueError(
-                        "XLA execution requires replica-divisible rows; "
-                        "partial tails need explicit pad rows first")
-                groups = replica_shards(row_items, replicas=replicas)
-            rank_rows: list[int] = []
-            # SPMD-correct sharding: every rank runs this same program over
-            # the same windows, but accumulates ONLY its own rank shard with
-            # the GLOBAL denominator. The ONE SUM collective happens once at
-            # the accumulation boundary (after the final microstep below),
-            # reuniting the exact global mean before the single clip/step;
-            # reducing inside the microstep loop would all-reduce the
-            # ACCUMULATED buffer repeatedly and multiply early microstep
-            # gradients by powers of the replica count. Ledgers are identical
-            # on all ranks, so training states cannot diverge. Correct under
-            # the frozen dropout-free contract (no rank RNG is consumed in
-            # the compute path); any stochastic op would need rank-aware RNG
-            # (PRE500M detail). Rank 0 alone writes checkpoints.
-            target_rank = (xla_adapter.ordinal()
-                           if xla_adapter is not None else None)
-            for rank, group in enumerate(groups):
-                if target_rank is not None and rank != target_rank:
-                    continue
-                tokens = torch.tensor([item[0] for item in group],
+        nonlocal lanes_receipt
+        def prepare_local_update():
+            nonlocal lanes_receipt
+            target_rank = (
+                xla_adapter.ordinal() if xla_adapter is not None
+                else (campaign_coordinator.rank
+                      if campaign_coordinator is not None else None)
+            )
+            plan = sampler.materialize_update(current, rank=target_rank)
+            lanes_receipt = dict(plan.lanes_receipt)
+            for event in plan.replay_events:
+                replay_events.append(dict(event))
+                if progress is not None:
+                    progress(f"epoch replay {event['epoch']}")
+            ctx = backend.begin_update(current)
+            for (bucket, _family, _subfamily, window), microstep in zip(
+                plan.windows, plan.rank_microsteps,
+            ):
+                if any(width > bucket for width in window.row_widths):
+                    raise ValueError("microstep row exceeds its requested bucket")
+                rank_rows: list[int] = []
+                # SPMD-correct sharding: every rank runs this same program over
+                # the same windows, but accumulates ONLY its own rank shard with
+                # the GLOBAL denominator. The ONE SUM collective happens once at
+                # the accumulation boundary (after the final microstep below),
+                # reuniting the exact global mean before the single clip/step;
+                # reducing inside the microstep loop would all-reduce the
+                # ACCUMULATED buffer repeatedly and multiply early microstep
+                # gradients by powers of the replica count. Ledgers are identical
+                # on all ranks, so training states cannot diverge. Correct under
+                # the frozen dropout-free contract (no rank RNG is consumed in
+                # the compute path); any stochastic op would need rank-aware RNG
+                # (PRE500M detail). Rank 0 alone writes checkpoints.
+                tokens = torch.tensor(microstep.tokens,
                                       dtype=torch.long, device=device)
-                segment_ids = torch.tensor([item[1] for item in group],
+                segment_ids = torch.tensor(microstep.segment_ids,
                                            dtype=torch.long, device=device)
-                eligible = torch.tensor([item[2] for item in group],
+                eligible = torch.tensor(microstep.eligible,
                                         dtype=torch.bool, device=device)
                 ctx = backend.accumulate_microstep(
                     ctx, tokens=tokens, segment_ids=segment_ids, eligible=eligible,
-                    tokens_by_source=dict(window.tokens_by_source),
-                    planned_total=eligible_total)
-                rank_rows.append(len(group))
-            rows = len(window.tokens)
-            shape_receipt = certify_microstep_shape(
-                bucket=bucket, sequences_global=rows, replicas=replicas,
-                sequences_per_replica=per_replica_counts[bucket])
-            microstep_shapes.append({
-                "requested_bucket": bucket, "actual_row_widths": sorted(set(window.row_widths)),
-                "sequences_global": rows, "real_tokens_global": window.real_tokens,
-                "eligible_tokens_global": _predict_supervised(window),
-                "execution": "xla-sharded" if xla_adapter is not None else "local-global",
-                "executing_rank_rows": list(rank_rows),
-                "physical": shape_receipt})
+                    tokens_by_source=dict(microstep.tokens_by_source),
+                    planned_total=microstep.planned_total,
+                    segment_layout_prevalidated=True)
+                rank_rows.append(len(microstep.tokens))
+                rows = len(window.tokens)
+                shape_receipt = certify_microstep_shape(
+                    bucket=bucket, sequences_global=rows, replicas=replicas,
+                    sequences_per_replica=per_replica_counts[bucket])
+                local_eligible_tokens = count_eligible_targets(microstep)
+                shard_rows_global = (
+                    len(microstep.tokens) * replicas
+                    if target_rank is not None else len(microstep.tokens)
+                )
+                microstep_shapes.append({
+                    "requested_bucket": bucket,
+                    "actual_row_widths": sorted(set(window.row_widths)),
+                    "sequences_global": rows, "real_tokens_global": window.real_tokens,
+                    "eligible_tokens_global": _predict_supervised(window),
+                    "execution": (
+                        "xla-sharded" if xla_adapter is not None
+                        else "host-sharded" if target_rank is not None
+                        else "local-global"
+                    ),
+                    "executing_rank_rows": list(rank_rows),
+                    "executing_rank_eligible_tokens": local_eligible_tokens,
+                    "replica_padding_rows_added": max(0, shard_rows_global - rows),
+                    "physical": shape_receipt})
+            expected_local_tokens = sum(
+                count_eligible_targets(microstep) for microstep in plan.rank_microsteps
+            )
+            backend.validate_local_supervision(
+                ctx,
+                expected_local_tokens,
+                allow_zero=(xla_adapter is not None or campaign_coordinator is not None),
+            )
+            return plan, ctx, expected_local_tokens
+
+        if xla_adapter is None:
+            if campaign_coordinator is None:
+                plan, ctx, expected_local_tokens = prepare_local_update()
+            else:
+                prepared = None
+                local_error = None
+                try:
+                    prepared = prepare_local_update()
+                except Exception as exc:
+                    local_error = f"{type(exc).__name__}: {str(exc)[:500]}"
+                # In the CPU replica harness, every rank must vote on local
+                # preparation before a healthy rank can enter the gradient
+                # collective. The trainer performs a second update-result vote
+                # after optimizer/evidence work before it advances state.
+                campaign_coordinator.agree_update_result(
+                    state=current,
+                    checkpoint_requested=False,
+                    stop_requested=False,
+                    local_error=local_error,
+                )
+                if prepared is None:
+                    raise RuntimeError(
+                        "distributed local-update vote passed without a prepared update"
+                    )
+                plan, ctx, expected_local_tokens = prepared
+        else:
+            # A rank-local preparation/forward/backward failure must join this
+            # status vote before healthy ranks can enter gradient reduction.
+            plan, ctx, expected_local_tokens = xla_adapter.run_local_stage(
+                stage="local_update", callback=prepare_local_update,
+            )
+        loss_aggregate = None
+        if campaign_coordinator is not None:
+            loss_aggregate = campaign_coordinator.aggregate_update_loss(
+                global_update=current.global_update + 1,
+                global_tokens=plan.eligible_tokens,
+                local_eligible_tokens=sum(ctx["eligible_counts"]),
+                local_loss_numerator=sum(ctx["loss_numerators"]),
+            )
         if xla_adapter is not None:
             # Accumulation boundary: ONE gradient SUM collective for the
             # whole logical update, after every microstep has contributed
@@ -960,14 +971,51 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
             # would re-reduce already-accumulated gradients and scale
             # microstep i's contribution by replicas**(microsteps - i).
             xla_adapter.all_reduce_sum_gradients(backend.model)
-        end_cursor = BucketCursorState(
-            BUCKET_CURSOR_SCHEMA, data["pack_manifest_sha256"],
-            lanes_receipt["lanes_sha256"],
-            {key: [int(value[0]), int(value[1])] for key, value in positions.items()},
-            dict(fam_consumed), dict(sub_consumed), epoch,
-            base_replays + len(replay_events))
+            collective_sha = xla_adapter.last_collective_receipt_sha256
+            if (not isinstance(collective_sha, str) or len(collective_sha) != 64
+                    or any(char not in "0123456789abcdef" for char in collective_sha)):
+                raise ValueError("XLA gradient collective did not produce a SHA-256 receipt")
+            local_collective_receipts.append(collective_sha)
+        elif replica_collective is not None:
+            collective_sha = replica_collective(backend.model)
+            if (not isinstance(collective_sha, str) or len(collective_sha) != 64
+                    or any(char not in "0123456789abcdef" for char in collective_sha)):
+                raise ValueError("replica gradient collective must return a lowercase SHA-256")
+            local_collective_receipts.append(collective_sha)
+        elif campaign_coordinator is not None:
+            local_collective_receipts.append(hashlib.sha256(_canonical_json({
+                "schema": "signac-single-replica-update/v1",
+                "rank": campaign_coordinator.rank,
+                "world_size": replicas,
+                "global_update": current.global_update + 1,
+            })).hexdigest())
         report = backend.finish_update(
-            current, ctx, planned_total=eligible_total, cursor=end_cursor)
+            current,
+            ctx,
+            planned_total=plan.eligible_tokens,
+            expected_local_tokens=expected_local_tokens,
+            allow_zero_local_tokens=(
+                xla_adapter is not None or campaign_coordinator is not None
+            ),
+            loss_aggregate=loss_aggregate,
+            loss_rank=(campaign_coordinator.rank
+                       if campaign_coordinator is not None else None),
+            cursor=plan.end_cursor,
+        )
+        if xla_adapter is not None:
+            # Hash and retain the exact rank-local RNG payload that a checkpoint
+            # at this update boundary will serialize and restore.
+            rng_payload = xla_adapter.capture_rng_state(torch_module=torch)
+            rng_sha256 = hashlib.sha256(rng_payload).hexdigest()
+            latest_xla_rng_state[:] = [rng_payload]
+            if backend.last_receipt is not None:
+                backend.last_receipt["rng_state_sha256"] = rng_sha256
+                backend.last_receipt["rng_state_payload_sha256"] = rng_sha256
+            report = replace(report, rng_state_sha256=rng_sha256)
+        report = replace(
+            report,
+            local_real_tokens=count_rank_real_tokens(plan.rank_microsteps),
+        )
         updates_this_session[0] += 1
         receipt = backend.last_receipt
         assert receipt is not None
@@ -977,40 +1025,88 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     def payload_builder(live: TrainingState) -> dict[str, bytes]:
         return production_payloads(backend, state=live)
 
-    def at_stop_boundary(live: TrainingState) -> bool:
-        if max_updates is not None and updates_this_session[0] >= max_updates:
-            return True
-        return stop_gate is not None and stop_gate(live) is not None
+    def rank_capture_builder(live: TrainingState) -> ProductionRankCapture:
+        assert campaign_coordinator is not None
+        shared = production_shared_payloads(backend)
+        rank = campaign_coordinator.rank
+        if live.complete:
+            next_sha = terminal_microstep_fingerprint_sha256(
+                rank=rank,
+                world_size=replicas,
+                topology=replicated_topology,
+                state=live,
+            )
+        else:
+            next_plan = sampler.materialize_update(live, rank=rank)
+            next_sha = next_microstep_fingerprint_sha256(
+                rank=rank,
+                world_size=replicas,
+                topology=replicated_topology,
+                checkpoint_global_update=live.global_update,
+                cursor=live.cursor,
+                microsteps=next_plan.rank_microsteps,
+            )
+        collective_receipt = (
+            local_collective_receipts[-1]
+            if local_collective_receipts else hashlib.sha256(_canonical_json({
+                "schema": "signac-single-replica-update/v1",
+                "rank": rank,
+                "world_size": replicas,
+                "global_update": live.global_update,
+            })).hexdigest()
+        )
+        return ProductionRankCapture(
+            rank=rank,
+            cumulative_tokens=campaign_coordinator.rank_cumulative_tokens,
+            rng_state=(latest_xla_rng_state[-1]
+                       if xla_adapter is not None and latest_xla_rng_state
+                       else capture_cpu_rng_state(torch)),
+            cursor=live.cursor,
+            next_microsteps=(),
+            collective_receipt_sha256=collective_receipt,
+            model_state_sha256=hashlib.sha256(shared["model.bin"]).hexdigest(),
+            optimizer_state_sha256=hashlib.sha256(shared["optimizer.bin"]).hexdigest(),
+            next_microstep_sha256=next_sha,
+        )
+
+    def distributed_payload_builder(
+        live: TrainingState, rank_captures,
+    ) -> dict[str, bytes]:
+        shared = production_shared_payloads(backend)
+        return build_production_distributed_payloads(
+            state=live,
+            topology=replicated_topology,
+            model_payload=shared["model.bin"],
+            optimizer_payload=shared["optimizer.bin"],
+            scheduler_payload=shared["scheduler.json"],
+            rank_captures=rank_captures,
+            sampler=sampler,
+        )
 
     def should_checkpoint(live: TrainingState) -> bool:
+        if xla_development:
+            # Keep this explicitly bounded lane restartable after every update.
+            return True
         if crossed_milestones(last_boundary_tokens[0], live.cumulative_tokens,
                               milestones):
             return True
         if live.cumulative_tokens // recovery_every > last_boundary_tokens[0] // recovery_every:
             return True
-        return live.complete or at_stop_boundary(live)
+        return live.complete
 
     def on_committed(live: TrainingState, checkpoint_sha: str) -> None:
         for threshold in crossed_milestones(last_boundary_tokens[0], live.cumulative_tokens,
                                             milestones):
-            if threshold not in milestone_shas:
-                milestone_shas[threshold] = checkpoint_sha
-                store.record_milestone(threshold_tokens=threshold,
-                                       checkpoint_sha256=checkpoint_sha)
-                milestones_crossed.append(dict(build_milestone_receipt(
-                    run_id=run_id, threshold_tokens=threshold,
-                    actual_cumulative_tokens=live.cumulative_tokens,
-                    global_update=live.global_update,
-                    checkpoint_sha256=checkpoint_sha,
-                    identity_bundle=identity_bundle)))
-                if progress is not None:
-                    progress(f"milestone {threshold} at update {live.global_update}")
-        if live.cumulative_tokens // recovery_every > last_boundary_tokens[0] // recovery_every:
-            recovery_shas.append(checkpoint_sha)
+            store.record_milestone(threshold_tokens=threshold,
+                                   checkpoint_sha256=checkpoint_sha)
             if progress is not None:
-                progress(f"recovery at update {live.global_update}")
-        last_boundary_tokens[0] = live.cumulative_tokens
-        keep = (set(recovery_shas[-topo["recovery_generations_retained"]:])
+                progress(f"milestone {threshold} at update {live.global_update}")
+        is_recovery = (live.cumulative_tokens // recovery_every
+                       > last_boundary_tokens[0] // recovery_every)
+        pending_recoveries = recovery_shas + ([checkpoint_sha] if is_recovery else [])
+        if is_recovery and progress is not None:
+            progress(f"recovery at update {live.global_update}")
+        keep = (set(pending_recoveries[-topo["recovery_generations_retained"]:])
                 | {checkpoint_sha})
         store.prune(keep=keep)
         if mirror_root is not None:
@@ -1018,9 +1114,26 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                 store, mirror_root, checkpoint_sha256=checkpoint_sha)
             if mirror_receipt.get("status") != DURABLE_STATUS:
                 raise ValueError("durable mirror did not confirm persistence")
-            mirrored_shas.append(checkpoint_sha)
             if progress is not None:
                 progress(f"mirrored {checkpoint_sha[:8]}")
+
+    def on_checkpoint_observed(live: TrainingState, checkpoint_sha: str) -> None:
+        # The commit callback's shared-storage mutations execute on rank zero.
+        # Build the same volatile receipt state on every rank from the shared
+        # committed state/SHA so process-local campaign reports agree.
+        for threshold in crossed_milestones(last_boundary_tokens[0], live.cumulative_tokens,
+                                            milestones):
+            milestones_crossed.append(dict(build_milestone_receipt(
+                run_id=run_id, threshold_tokens=threshold,
+                actual_cumulative_tokens=live.cumulative_tokens,
+                global_update=live.global_update,
+                checkpoint_sha256=checkpoint_sha,
+                identity_bundle=identity_bundle)))
+        if live.cumulative_tokens // recovery_every > last_boundary_tokens[0] // recovery_every:
+            recovery_shas.append(checkpoint_sha)
+        if mirror_root is not None:
+            mirrored_shas.append(checkpoint_sha)
+        last_boundary_tokens[0] = live.cumulative_tokens
 
     def should_stop(live: TrainingState) -> bool:
         if max_updates is not None and updates_this_session[0] >= max_updates:
@@ -1038,8 +1151,14 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         payload_builder=payload_builder, backend_step=backend_step,
         updates=total_remaining, checkpoint_every=None,
         should_checkpoint=should_checkpoint, on_committed=on_committed,
+        on_checkpoint_observed=on_checkpoint_observed,
         should_stop=should_stop,
-        resume_parent_sha256=latest if resumed else None)
+        resume_parent_sha256=latest if resumed else None,
+        checkpoint_coordinator=campaign_coordinator,
+        rank_capture_builder=(rank_capture_builder
+                              if campaign_coordinator is not None else None),
+        distributed_payload_builder=(distributed_payload_builder
+                                     if campaign_coordinator is not None else None))
     if final.complete:
         termination = "COMPLETE"
     elif stop_reasons:
@@ -1050,22 +1169,43 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         raise RuntimeError("campaign ended without completion, boundary, or stop")
     wall = clock() - t0
 
-    fresh_model = initialize(model_spec, seed).to(device)
-    fresh_optimizer = build_adamw_optimizer(fresh_model, torch_module=torch)
-    fresh_backend = ProductionTrainingBackend(
-        model=fresh_model, optimizer=fresh_optimizer, bos_id=2, pad_id=0,
-        device=device, schedule=lr_at,
-        bfloat16_autocast=runtime == "cuda",
-        torch_module=torch)
-    _, restored_payloads = store.restore()
-    restore_production(fresh_backend, payloads=restored_payloads)
-    live = capture_evidence(backend.model, backend.optimizer, torch=torch)
-    resumed_evidence = capture_evidence(fresh_model, fresh_optimizer, torch=torch)
-    resume_equal = (live.parameter_sha256 == resumed_evidence.parameter_sha256
-                    and live.moment_sha256 == resumed_evidence.moment_sha256
-                    and live.optimizer_steps == resumed_evidence.optimizer_steps)
-    if not resume_equal:
-        raise RuntimeError("campaign restore did not reproduce live state")
+    if xla_development:
+        # A second M102+Adam replica on every TPU rank can exceed device
+        # headroom during the final receipt check. The Kaggle development
+        # wrapper verifies continuation by launching a fresh worker group
+        # against this committed checkpoint, so defer equality to that path.
+        resume_equal: bool | None = None
+        resume_verification = "DEFERRED_TO_FRESH_WORKER_GROUP"
+    else:
+        fresh_model = initialize(model_spec, seed).to(device)
+        fresh_optimizer = build_adamw_optimizer(fresh_model, torch_module=torch)
+        fresh_backend = ProductionTrainingBackend(
+            model=fresh_model, optimizer=fresh_optimizer, bos_id=2, pad_id=0,
+            device=device, schedule=lr_at,
+            bfloat16_autocast=(runtime in {"cuda", "xla"}),
+            allow_unqualified_xla=False,
+            torch_module=torch)
+        if campaign_coordinator is None:
+            _, restored_payloads = store.restore()
+            restore_production(fresh_backend, payloads=restored_payloads)
+        else:
+            restore_production_rank_into_backend(
+                backend=fresh_backend,
+                store=store,
+                rank=campaign_coordinator.rank,
+                expected_world_size=replicas,
+                expected_topology=replicated_topology,
+                sampler=sampler,
+                runtime="cpu",
+            )
+        live = capture_evidence(backend.model, backend.optimizer, torch=torch)
+        resumed_evidence = capture_evidence(fresh_model, fresh_optimizer, torch=torch)
+        resume_equal = (live.parameter_sha256 == resumed_evidence.parameter_sha256
+                        and live.moment_sha256 == resumed_evidence.moment_sha256
+                        and live.optimizer_steps == resumed_evidence.optimizer_steps)
+        if not resume_equal:
+            raise RuntimeError("campaign restore did not reproduce live state")
+        resume_verification = "IN_PROCESS_FRESH_BACKEND_EQUAL"
     last_update = backend.last_receipt
     assert last_update is not None
     final_cursor = final.cursor
@@ -1087,6 +1227,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "resumed": resumed,
         "losses": losses, "wall_seconds": round(wall, 3),
         "resume_equal": resume_equal,
+        "resume_verification": resume_verification,
         "cymek_sha": cymek_sha,
         "topology_sha256": topology_digest,
         "precision": precision,
@@ -1113,6 +1254,13 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "tokens_by_source": dict(final.tokens_by_source),
         "last_update_receipt": {
             "loss": float(last_update["loss"]),
+            "loss_scope": str(last_update["loss_scope"]),
+            "loss_numerator": float(last_update["loss_numerator"]),
+            "loss_denominator": int(last_update["loss_denominator"]),
+            "loss_aggregation_sha256": (
+                last_update["loss_aggregation"].get("receipt_sha256")
+                if isinstance(last_update.get("loss_aggregation"), Mapping) else None
+            ),
             "supervised_tokens": int(last_update["supervised_tokens"]),
             "microsteps": int(last_update["microsteps"]),
             "learning_rate": float(last_update["learning_rate"]),

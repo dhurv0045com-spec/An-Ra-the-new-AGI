@@ -141,6 +141,45 @@ def spawn_logged(cmd: list[str], *, gpu: int, repo: Path) -> subprocess.Popen:
     return proc
 
 
+def wait_and_close(procs: list[subprocess.Popen]) -> list[int]:
+    """Wait all workers, always releasing log handles (FD-leak safe).
+
+    Architecture: an 8h+ campaign spawns dozens of workers. If wait raises
+    (KeyboardInterrupt, crash), leaked file descriptors accumulate toward the
+    process limit and later arms fail with opaque OSError instead of science.
+    """
+    codes: list[int] = []
+    try:
+        for p in procs:
+            codes.append(p.wait())
+        return codes
+    finally:
+        for p in procs:
+            handle = getattr(p, "_formation_mux_log_handle", None)
+            if handle is not None:
+                try:
+                    handle.close()
+                except Exception:
+                    pass
+
+
+def heartbeat(*, done: int, total: int, started: float, label: str) -> None:
+    """Single-line operator heartbeat past nbclient silent-cell timeouts.
+
+    Architecture: Kaggle/nbclient kills long silent cells (DeadKernelError).
+    Workers log to files, so the operator must emit its own periodic stdout
+    proof-of-life with flush. Call after every arm completion and every wall-
+    guard check, never only at stage boundaries.
+    """
+    elapsed = time.monotonic() - started
+    print(
+        f"HEARTBEAT {label} {done}/{total} "
+        f"elapsed={elapsed / 60.0:.1f}min "
+        f"utc={time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}",
+        flush=True,
+    )
+
+
 base._spawn = spawn_logged
 
 
@@ -229,11 +268,7 @@ def qualify(repo: Path, public_surface: Path, out: Path) -> dict[str, Any]:
         ),
     ]
     procs = [spawn_logged(cmds[i], gpu=i, repo=repo) for i in (0, 1)]
-    codes = [p.wait() for p in procs]
-    for p in procs:
-        handle = getattr(p, "_formation_mux_log_handle", None)
-        if handle is not None:
-            handle.close()
+    codes = wait_and_close(procs)
     receipt["dual_t4_worker_codes"] = codes
     if codes != [0, 0]:
         base._atomic_json(out / "QUALIFICATION.json", receipt)
@@ -408,9 +443,13 @@ def run_campaign(
 
         for gpu, (job, proc) in running.items():
             code = proc.wait()
-            handle = getattr(proc, "_formation_mux_log_handle", None)
-            if handle is not None:
-                handle.close()
+            # Architecture: FD-leak safe close (see wait_and_close docstring).
+            try:
+                handle = getattr(proc, "_formation_mux_log_handle", None)
+                if handle is not None:
+                    handle.close()
+            except Exception:
+                pass
             key = f"{job['experiment']}/{job['arm']}/{job['seed_bundle_label']}"
             if code == base.EXIT_OK:
                 state["arms"][key] = "COMPLETE"
@@ -420,6 +459,16 @@ def run_campaign(
                 state["global_failure"] = f"worker exit {code} at {key}"
                 stop = True
             base._atomic_json(state_path, state)
+            # Architecture: an 8h campaign prints only at LAUNCH above, so a
+            # long arm leaves the notebook cell silent -> nbclient kills it
+            # (DeadKernelError). Emit operator-level proof-of-life on every
+            # arm completion, not just at stage boundaries.
+            heartbeat(
+                done=len([v for v in state["arms"].values() if v == "COMPLETE"]),
+                total=proto.total_official_arms(),
+                started=operator_started,
+                label="S5",
+            )
 
     complete = base._scan_completed(out)
     state["arms"].update(complete)

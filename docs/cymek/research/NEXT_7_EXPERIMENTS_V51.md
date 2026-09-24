@@ -1,10 +1,13 @@
 # Current research roadmap — V5.1 (next-core)
 
-Updated: 2026-09-15. One canonical queue; older roadmaps are historical.
+Updated: 2026-09-20. One canonical queue; older roadmaps (`doexperiment.md`, `agent.md`, `docs/research/NEXT_3_EXPERIMENTS.md`-era planning) are HISTORICAL planning only and must not be executed without a fresh hash-bound preregistration. This file is the sole authority for next-Core experiment order.
 
 | # | Campaign | Question | State |
-|---|----------|----------|-------|
-| 1 | **FORMATION-MUX-001** (CS-MECH-002 + REP-FORM-003A) | tied-row mechanism dissection (decay / trainability / denominator) + rendering (BPE vs isomorphic) at fixed V24576 | **Science S5 frozen; CPU/static + real-tokenizer 60k-surface qualification PASS; KAGGLE_T4X2_NOT_YET_RUN** |
+|---|---|----------|-------|
+| 0 | **METRIC-RES-001** (checkpoint-only identity-resolution audit) | is S5 identity/copy **forming-but-unmeasured** or **genuinely absent**? can the frozen contrasts be read at token resolution? | **NEXT SINGLE ACTION — preregistered, no training, 16 preserved checkpoints, 10–40 min on Colab T4 or Kaggle T4x2. This is the action the S5 returned-bundle audit prescribed verbatim; the tooling did not exist and now does** |
+| 0a | **LR/CLIP CHOKE PROBE** (engineering triage, advisory only) | is the S5 floor optimization-choke (clip_fraction 1.0 everywhere)? | `tools/formation_mux_lr_clip_probe_v1.py` (`--lr-probe-only`); 2×300-update M0 lanes, frozen science. **Defer until METRIC-RES-001 reports OPTIMIZATION_CHOKED** — running both in parallel is redundant because METRIC-RES-001 replays clip telemetry for free |
+| 0b | **FORMATION-BASELINE-GATE-001 / FORMATION-DIAG-001** (Colab) | can M0 leave the identity floor? | `MIXTURE_OR_DATA_LIMITED` branch points here. Prospective; no sealed reads; S5 verdicts unchanged |
+| 1 | **FORMATION-MUX-001** (CS-MECH-002 + REP-FORM-003A) | tied-row mechanism dissection (decay / trainability / denominator) + rendering (BPE vs isomorphic) at fixed V24576 | **S5 EXECUTED 24/24 on Kaggle T4x2; formal NULLs corrected to INCONCLUSIVE_AT_ZERO_BASELINE; DO NOT re-sweep until gate 0 passes** |
 | 2 | REP-FORM-003B | only if Stage A leaves representation insufficiently explained | gated |
 | 3 | P35-TRANSFER-004 | does the adjudicated mechanism survive the P35 finalist geometry | gated |
 | 4 | COG-MIX-OBJ-005 | cognition-mixture and objective interaction at fixed geometry | gated |
@@ -24,11 +27,36 @@ Pre-execution audit history is preserved and must not be launched:
 Current prospective execution authority:
 
 - **Science S5:** `c15ad8beb409537db42d075684ea54847a074ebd`;
-- **canonical operator:** `tools/formation_mux_001_kaggle_operator_v8.py` at `4e3bb50c683d94a09801703dfb9f469debe64a50`, git blob `b427269f682322c9ce58f1677710c5979c76465c`;
-- **canonical notebook:** `notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb`, pin commit `c01970cf6afc5434cc6e48562faa4979fbab969a`;
+- **canonical operator:** `tools/formation_mux_001_kaggle_operator_v12.py` (storage-hardened + quota lanes; commit/blob pins STALE — re-pin notebook Cell 1 after commit);
+- **canonical notebook:** `notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb` (schema v12: GPU-train Cell 2 `--skip-sealed`, optional probe Cell 2b `--lr-probe-only`, CPU-finalize Cell 2c `--finalize-only` at zero GPU-h, status Cell 3);
 - **readiness:** `docs/cymek/experiments/FORMATION-MUX-001/RUN_READINESS_V5.json`;
-- official execution requires Kaggle `GPU T4 x2` and Internet ON;
-- no FORMATION-MUX scientific outcome and no actual Kaggle T4 x2 runtime-pass claim exists yet.
+- official execution requires Kaggle `GPU T4 x2` and Internet ON for train cells; finalize Cell 2c runs on Accelerator=None (free quota), CPU device, identical sealed custody;
+- S5 EXECUTED on Kaggle T4 x2 (8.14 h, 24/24 official arms COMPLETE, both sealed evaluations COMPLETE, no global failure, no wall-guard truncation).
+
+## FORMATION-MUX-001 S5 observed outcome (post-outcome, does NOT alter frozen preregistration)
+
+- Source bundle SHA-256: `859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5`; science commit `c15ad8beb409537db42d075684ea54847a074ebd`; observed operator `fdc2483fed0bb1a80d4bfad376aac84a66db6055`.
+- CS-MECH-002 formal: all three primary identity contrasts `NULL` (extra-row decay mean dev AUC delta +0.001674 / sealed +0.029167; trainability +0.000335 / 0.0; denominator -0.001674 / -0.016667; sign consistency not met).
+- REP-FORM-003A formal: production BPE vs isomorphic `NULL` (dev AUC delta 0.0, sealed 0.0; all four paired seeds at floor).
+- Corrected interpretation per `docs/cymek/experiments/FORMATION-MUX-001/RETURNED_BUNDLE_AUDIT.md`: **INCONCLUSIVE_AT_ZERO_BASELINE** — identity formation AUC 0.000–0.008 in ALL 24 arms (CS-MECH: only 3/16 runs nonzero endpoint M0/73012=0.15, M1/73011=0.0125, M3/73013=0.0625, M2 all zero, none ≥0.5; REP-FORM: all 8 arms 0.0). Contrasts had no dynamic range; no conclusion about extra-row decay/trainability/denominator in either direction is licensed.
+- Structured finding (same grammar/training/arms): termination (1-token counting) 1.00 exact by ~update 300 sustained to 2000; composition (two-hop, 1-token) ~0.29 endpoint still climbing; missing_info abstention ~0.14 flat with eos_rate 1.0 everywhere; identity/copy (multi-token exact) 0.0 flat 2000 updates every arm both renderings; binding/state_order ~0.0–0.05. Rendering exonerated (R1 isomorphic also 0.0). Prime suspect: exact-match metric resolution for multi-token answers (token-level accuracy / LCP / per-position teacher-forced accuracy may reveal formation before exact flips).
+- Optimization warning: every CS-MECH official arm `clip_fraction = 1.0`; R1 REP-FORM every update clipped; R0 ~0.88–0.98. Matched contrasts stand, but substrate ran aggressively clipped.
+- Exploratory only (NOT promotion): M3−M2 sealed composition mean +0.277083, positive 4/4 seeds — permanently frozen random extra rows in full denominator may be harmful vs masked rows. Must remain `EXPLORATORY_ONLY` until reproduced in a capable regime.
+- Full record: `docs/cymek/experiments/FORMATION-MUX-001/observed/S5_KAGGLE_2026-09-15/POSTMORTEM.md`, `ARM_SUMMARY.json`, `BUNDLE_MANIFEST.json`, `RETURNED_BUNDLE_AUDIT.md`. S5 NULLs preserved unchanged as negative evidence.
+
+## Next single action (supersedes the old S5 next_action)
+
+1. Do NOT conclude the tied-row mechanism line is null — it is untested at this baseline. Do NOT start another mechanism sweep, P35 transfer, or 250M run.
+2. **Run METRIC-RES-001** (`docs/cymek/experiments/METRIC-RES-001/`): checkpoint-only, no training, 16 preserved S5 checkpoints, decision tree frozen in `PREREGISTRATION.json`. It is the action the S5 returned-bundle audit prescribed; the tooling was missing and has now been built. Either platform works — Kaggle T4 x2 is 2-way sharded and costs ~10–20 min of the weekly pool; Colab T4 costs 20–40 min of the daily allowance. **Prefer Kaggle** to keep Colab free for gate 0b.
+3. Follow the branch METRIC-RES-001 returns. `FORMING_BUT_UNMEASURED` → fix the endpoint and re-adjudicate contrasts before any retraining. `OPTIMIZATION_CHOKED` → S6 LR/schedule bracket. `MIXTURE_OR_DATA_LIMITED` → FORMATION-BASELINE-GATE-001. `GENUINELY_ABSENT` → abandon the vocabulary/mechanism line and go to P35-TRANSFER-004.
+4. TIE-ROLE pilots / frontier, baseline-gate notebooks, and FORMATION-DIAG-001 are diagnostics under the same ceiling: they cannot alter S5 verdicts, promote Core architecture, change tokenizer/vocabulary, or authorize scale/cognition/AGI claims.
+5. S6 optimizer amendment is PROSPECTIVE only (`AMENDMENT_S6_PROSPECTIVE.md` + `PREREGISTRATION_S6_DRAFT.json`): entry requires probe CHOKED/MIXED or a METRIC-RES-001 `OPTIMIZATION_CHOKED` verdict; needs its own science commit + audit before launch. Frozen S5 files stay byte-identical until then.
+
+## Quota architecture (30 GPU-h/week shared, 12 h/session, CPU unlimited)
+
+- GPU sessions train only; sealed scoring + packaging move to free CPU finalize sessions (fails closed unless ARMS_COMPLETE on attached Output).
+- Parent processes never hold torch CUDA contexts; workers inherit `expandable_segments` + unbuffered streaming; operator heartbeats every arm defeat silent-cell timeouts.
+- Pre-existing uncommitted refactors in frozen-adjacent files (`formation_mux_model_v2.py` param-groups property, `tie_role_train_v1.py` binding refactor, tie-role protocol/tests) are NOT S6 until committed + reviewed; S5 `verify_science` will fail closed on them — stash or commit as S6 before any S5-verify Kaggle run.
 
 Science S5 keeps the S4 causal questions, arms, seeds, endpoints, thresholds, and sealed firewall. It expands only the synthetic training surface to **60,000 unique rows** (10,000/family) while keeping development at 480 and sealed at 720. CS-MECH consumes 32,000 row presentations per arm, so it does not wrap its training permutation before the endpoint. REP-FORM remains matched by 500,000 actual processed non-padding tokens.
 

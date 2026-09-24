@@ -185,13 +185,14 @@
         "CYR-GPU-014-R1C (softmax competition not sufficient)",
         "CS-TRANSFER-001 (f858280 scientific executable)"
       ],
-      "falsifier": "residual mechanism dissection (CS-MECH-002: tied-row decay/trainability/denominator) and representation probes (REP-FORM-003A)",
+      "falsifier": "residual mechanism dissection (CS-MECH-002 S5: INCONCLUSIVE_AT_ZERO_BASELINE, bundle 859489d9...) re-adjudicated on a resolved instrument + metric-resolution audit / baseline-capability gate (FORMATION-BASELINE-GATE-001 / FORMATION-DIAG-001)",
       "cs_transfer_001_outcome": "CS-TRANSFER-001 COMPLETE, verdict PARTIAL_OR_INTERACTION: physical V4096 is NOT a robust remedy (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed pair gaps mixed sign); V24576 is NOT proven optimal",
+      "formation_mux_001_s5": "S5 24/24 COMPLETE on Kaggle T4x2; formal CS-MECH-002 NULL + REP-FORM-003A NULL corrected to INCONCLUSIVE_AT_ZERO_BASELINE (identity AUC 0.000-0.008 all arms); no mechanism conclusion licensed",
       "working_choice": 24576,
       "cs_transfer_gate": "CLOSED",
       "optimality": "NOT_ESTABLISHED",
-      "residual_mechanism_question": "OPEN",
-      "note": "working choice is NOT a LOCKED optimal; gates reflect the CS-TRANSFER-001 outcome only"
+      "residual_mechanism_question": "OPEN_UNTESTED_AT_BASELINE",
+      "note": "working choice is NOT a LOCKED optimal; gates reflect the CS-TRANSFER-001 outcome plus S5 zero-baseline audit"
     },
     {
       "component": "output_head",
@@ -212,9 +213,10 @@
         "CYR-GPU-011 (composite treatment)",
         "CS-TRANSFER-001"
       ],
-      "falsifier": "REP-FORM-003A paired rendering contrast",
-      "blocking_experiment": "CS-TRANSFER-001",
-      "cs_transfer_001_outcome": "CS-TRANSFER-001 COMPLETE, verdict PARTIAL_OR_INTERACTION: physical V4096 is NOT a robust remedy (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed pair gaps mixed sign); V24576 is NOT proven optimal; segmentation question re-scoped to REP-FORM-003A (isomorphic vs production BPE at fixed physical V24576)"
+      "falsifier": "REP-FORM-003A S5 paired rendering contrast was INCONCLUSIVE_AT_ZERO_BASELINE (BPE vs isomorphic both 0.0 identity); re-adjudication requires a resolved instrument after metric-resolution audit + baseline-capability gate",
+      "blocking_experiment": null,
+      "cs_transfer_001_outcome": "CS-TRANSFER-001 COMPLETE, verdict PARTIAL_OR_INTERACTION: physical V4096 is NOT a robust remedy (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed pair gaps mixed sign); V24576 is NOT proven optimal; segmentation question re-scoped to REP-FORM-003A S5 (BPE vs isomorphic at fixed V24576: both 0.0, rendering exonerated as sole blocker at this baseline)",
+      "formation_mux_001_s5": "S5 REP-FORM-003A formal NULL corrected to INCONCLUSIVE_AT_ZERO_BASELINE"
     },
     {
       "component": "tokenizer_family",
@@ -324,10 +326,10 @@
     }
   },
   "claim_ceiling": "This is the strongest currently justified next-Core candidate and its implementation satisfies the specified mechanical contracts. No superiority, AGI, or scale-readiness claim is made or implied.",
-  "control_comparison": "Candidate A remains CURRENT-V5-plus-corrections. R1C rejected masked-output promotion for this scope; vocabulary/output geometry remains blocked on physical transfer evidence.",
+  "control_comparison": "Candidate A remains CURRENT-V5-plus-corrections. R1C rejected masked-output promotion for this scope; CS-TRANSFER-001 closed the physical-vocabulary gate (V24576 retained, optimality NOT established); FORMATION-MUX-001 S5 mechanism/rendering contrasts are INCONCLUSIVE_AT_ZERO_BASELINE and license no architecture change.",
   "synchronized": {
-    "date": "2026-09-14",
-    "authority": "CS-TRANSFER-001 final verdict PARTIAL_OR_INTERACTION (scientific executable f8582808b6e2be0753cb2689d9d6d4aeb4d57aeb)",
+    "date": "2026-09-18",
+    "authority": "CS-TRANSFER-001 final verdict PARTIAL_OR_INTERACTION (scientific executable f8582808b6e2be0753cb2689d9d6d4aeb4d57aeb) + FORMATION-MUX-001 S5 observed bundle 859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5 with RETURNED_BUNDLE_AUDIT INCONCLUSIVE_AT_ZERO_BASELINE",
     "rule": "historical documents/results unchanged; only CURRENT-STATE fields updated"
   }
 }

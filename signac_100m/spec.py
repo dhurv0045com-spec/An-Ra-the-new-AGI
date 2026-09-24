@@ -91,18 +91,37 @@ def resource_estimate(spec: ModelSpec = MODEL_SPEC) -> dict[str, object]:
 
     receipt = parameter_receipt(spec)
     parameters = receipt["total"]
+    parameter_bytes = 4 * parameters
+    gradient_bytes = 4 * parameters
+    adam_moment_bytes = 8 * parameters
     return {
-        "schema": "anra-signac-100m-resource-estimate/v1",
+        "schema": "anra-signac-100m-resource-estimate/v2",
         "parameters_exact": parameters,
-        "precision_assumption": "BF16 compute + FP32 master, Adam moments, transient gradients",
-        "peak_training_bytes_approx": 18 * parameters,
-        "checkpoint_bytes_params_plus_moments": 12 * parameters,
+        "precision_assumption": (
+            "FP32 persistent parameters, FP32 gradients and Adam moments; eligible CUDA compute uses BF16 autocast"
+        ),
+        "model_parameter_bytes": parameter_bytes,
+        "gradient_bytes": gradient_bytes,
+        "adam_moment_bytes": adam_moment_bytes,
+        "core_parameter_gradient_adam_bytes_approx": (
+            parameter_bytes + gradient_bytes + adam_moment_bytes
+        ),
+        "checkpoint_bytes_params_plus_moments": parameter_bytes + adam_moment_bytes,
         "planning_tokens_at_20x_generic_prior": 20 * parameters,
         "attention_score_tensor_bytes_bf16_per_replica_per_active_layer": (
             spec.query_heads * spec.context_length * spec.context_length * 2
         ),
-        "estimate_scope": "18 bytes/parameter assumes BF16 weights plus FP32 master weights, two Adam moments, and transient gradients.",
-        "caveat": "Analytic component estimate, not total peak memory; excludes activations, XLA buffers, compiler padding, fragmentation, and data staging.",
+        "attention_score_estimate_scope": (
+            "One BF16 score matrix if materialized for batch size one; scaled_dot_product_attention may fuse or materialize it differently."
+        ),
+        "estimate_scope": (
+            "Per-parameter core state is 16 bytes: FP32 model parameter, FP32 gradient, and two FP32 Adam moments. "
+            "This is a component subtotal, not a peak-memory estimate."
+        ),
+        "caveat": (
+            "Excludes activations, per-parameter optimizer-step metadata, temporary copies, XLA buffers, "
+            "compiler padding, fragmentation, input staging, and allocator/runtime overhead; it is not a fit proof."
+        ),
         "geometry": asdict(spec),
         "receipt": receipt,
     }

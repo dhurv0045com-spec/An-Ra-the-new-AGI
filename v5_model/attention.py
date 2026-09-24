@@ -2,7 +2,50 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
+
+
+def build_rope_cache(
+    positions: Any, *, head_dimension: int, rope_base: float,
+    torch_module: Any,
+) -> tuple[Any, Any]:
+    """Build reusable FP32 RoPE angles for every layer in one forward pass."""
+
+    torch = torch_module
+    if positions.ndim != 2:
+        raise ValueError("RoPE positions must be rank two")
+    if type(head_dimension) is not int or head_dimension <= 0 or head_dimension % 2:
+        raise ValueError("RoPE head dimension must be positive and even")
+    if (isinstance(rope_base, bool) or not isinstance(rope_base, (int, float))
+            or not math.isfinite(float(rope_base)) or float(rope_base) <= 0.0):
+        raise ValueError("RoPE base must be finite and positive")
+    inverse = float(rope_base) ** (
+        -torch.arange(0, head_dimension, 2,
+                      device=positions.device, dtype=torch.float32)
+        / head_dimension
+    )
+    phase = positions.float()[:, None, :, None] * inverse[None, None, None, :]
+    return phase.cos(), phase.sin()
+
+
+def apply_rope(value: Any, cosine: Any, sine: Any, *, torch_module: Any) -> Any:
+    """Apply shared RoPE angles to one Q or K tensor without rebuilding them."""
+
+    torch = torch_module
+    if value.ndim != 4 or cosine.ndim != 4 or sine.shape != cosine.shape:
+        raise ValueError("RoPE values and cached angles must have rank-four shapes")
+    if (cosine.shape[0] != value.shape[0]
+            or cosine.shape[2] != value.shape[2]
+            or cosine.shape[3] * 2 != value.shape[3]
+            or cosine.shape[1] not in (1, value.shape[1])):
+        raise ValueError("RoPE cache shape does not match the attention tensor")
+    cosine = cosine.to(value.dtype)
+    sine = sine.to(value.dtype)
+    even, odd = value[..., 0::2], value[..., 1::2]
+    return torch.stack(
+        (even * cosine - odd * sine, even * sine + odd * cosine), -1
+    ).flatten(-2)
 
 
 def build_attention(config: Any, *, torch_module: Any) -> Any:
@@ -41,29 +84,32 @@ def build_attention(config: Any, *, torch_module: Any) -> Any:
                 normalized = normalized * scale.float()[None, :, None, :]
             return normalized.to(value.dtype)
 
-        def rope(self, value: Any, positions: Any) -> Any:
-            inverse = config.rope_base ** (
-                -torch.arange(0, config.head_dimension, 2,
-                              device=value.device, dtype=torch.float32)
-                / config.head_dimension
-            )
-            phase = positions.float()[:, None, :, None] * inverse[None, None, None, :]
-            cosine, sine = phase.cos().to(value.dtype), phase.sin().to(value.dtype)
-            even, odd = value[..., 0::2], value[..., 1::2]
-            return torch.stack(
-                (even * cosine - odd * sine, even * sine + odd * cosine), -1
-            ).flatten(-2)
-
-        def forward(self, hidden: Any, positions: Any, mask: Any) -> Any:
+        def forward(self, hidden: Any, positions: Any, mask: Any,
+                    rope_cosine: Any = None, rope_sine: Any = None) -> Any:
             batch, length, _ = hidden.shape
+            if (rope_cosine is None) != (rope_sine is None):
+                raise ValueError("RoPE cosine and sine caches must be supplied together")
+            if rope_cosine is None:
+                rope_cosine, rope_sine = build_rope_cache(
+                    positions,
+                    head_dimension=config.head_dimension,
+                    rope_base=config.rope_base,
+                    torch_module=torch,
+                )
             query = self.query(hidden).view(
                 batch, length, config.query_heads, config.head_dimension).transpose(1, 2)
             key = self.key(hidden).view(
                 batch, length, config.kv_heads, config.head_dimension).transpose(1, 2)
             value = self.value(hidden).view(
                 batch, length, config.kv_heads, config.head_dimension).transpose(1, 2)
-            query = self.rope(self.normalize(query, self.query_scale), positions)
-            key = self.rope(self.normalize(key, self.key_scale), positions)
+            query = apply_rope(
+                self.normalize(query, self.query_scale),
+                rope_cosine, rope_sine, torch_module=torch,
+            )
+            key = apply_rope(
+                self.normalize(key, self.key_scale),
+                rope_cosine, rope_sine, torch_module=torch,
+            )
             repeats = config.query_heads // config.kv_heads
             key = key.repeat_interleave(repeats, dim=1)
             value = value.repeat_interleave(repeats, dim=1)
@@ -75,4 +121,4 @@ def build_attention(config: Any, *, torch_module: Any) -> Any:
     return Attention()
 
 
-__all__ = ["build_attention"]
+__all__ = ["apply_rope", "build_attention", "build_rope_cache"]

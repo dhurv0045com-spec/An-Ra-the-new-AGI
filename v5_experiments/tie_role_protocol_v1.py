@@ -78,6 +78,14 @@ NEXT_ACTION = {
 }
 
 
+def assert_frontier_launch_allowed() -> None:
+    raise RuntimeError(
+        "TIE_ROLE_PILOT_NO_GO: TIE-ROLE-FRONTIER-001 launch blocked by the "
+        "user-reported TIE-ROLE-PILOT-001 decision: DO NOT RUN FULL TIE-ROLE. "
+        "Explicit review and authorization are required to reopen the campaign."
+    )
+
+
 def b_seed(bundle_seed: int) -> int:
     return int(bundle_seed) ^ B_NAMESPACE_XOR
 

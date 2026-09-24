@@ -20,6 +20,13 @@ import zipfile
 from pathlib import Path
 from typing import Any, Mapping
 
+# Architecture: this module runs as a fresh Colab subprocess owning the single
+# T4. The allocator must be fixed at process import time, before main()'s
+# `import torch` initializes CUDA. Notebook Cell 1 sets the same var; this is
+# defense-in-depth for manual launches. setdefault respects explicit overrides.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
 SCHEMA = "anra.tie-role-pilot/v1"
 SCIENCE_COMMIT = "c15ad8beb409537db42d075684ea54847a074ebd"
 PUBLIC_SURFACE_SHA = "f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c"
@@ -398,6 +405,9 @@ def main(argv: list[str] | None = None) -> int:
         "sealed_scores_used": False,
         "sealed_rows_persisted": False,
         "preregistration_sha256": hashlib.sha256(args.prereg.read_bytes()).hexdigest(),
+        "gpu": torch.cuda.get_device_name(0),
+        "vram_gib": round(torch.cuda.get_device_properties(0).total_memory / 2**30, 2),
+        "pytorch_cuda_alloc_conf": os.environ.get("PYTORCH_CUDA_ALLOC_CONF"),
     })
 
     for seed in SEEDS:

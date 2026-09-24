@@ -34,6 +34,32 @@ def solve_case(case: CausalCase) -> str:
             if parsed.group(1) in case.query:
                 return parsed.group(2)
 
+    if family == "interference_retrieval":
+        label = _match(r"manifest label (.+)\?", case.query).group(1)
+        record_id: str | None = None
+        for fact in case.facts:
+            mapping = re.fullmatch(
+                r"Manifest label (.+) resolves to archive record (.+)\.", fact
+            )
+            if mapping and mapping.group(1) == label:
+                record_id = mapping.group(2)
+                break
+        if record_id is None:
+            raise ValueError(f"reference solver could not resolve manifest label {label!r}")
+        for fact in case.facts:
+            payload = re.fullmatch(r"Archive record (.+) contains payload code (.+)\.", fact)
+            if payload and payload.group(1) == record_id:
+                return payload.group(2)
+
+    if family == "faithful_realization":
+        target = _match(r"For inventory item (.+), return its payload", case.query).group(1)
+        for fact in case.facts:
+            row = re.fullmatch(
+                r"Inventory item (.+) carries payload (.+) at revision (\d+)\.", fact
+            )
+            if row and row.group(1) == target:
+                return f"payload={row.group(2)}; revision={row.group(3)}"
+
     if family == "state_overwrite":
         query = _match(r"For (.+), what value is in force at time (\d+)", case.query)
         target, cutoff = query.group(1), int(query.group(2))

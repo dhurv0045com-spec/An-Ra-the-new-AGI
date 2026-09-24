@@ -85,6 +85,18 @@ def qualify_dataset(
     blockers: list[str] = []
     sources = data_manifest.get("sources") or []
     checks["sources_present"] = bool(sources)
+    development_only_sources = [
+        str(source.get("source_id") or "<unnamed>")
+        for source in sources
+        if isinstance(source, Mapping)
+        and source.get("authorization_category") == "first-party-development-only"
+    ]
+    checks["no_development_only_sources"] = not development_only_sources
+    if development_only_sources:
+        blockers.append(
+            "development-only first-party canary sources cannot qualify as production data: "
+            f"{sorted(development_only_sources)}"
+        )
     try:
         raw_hashes = [str(source["raw_sha256"]) for source in sources]
         for digest in raw_hashes:

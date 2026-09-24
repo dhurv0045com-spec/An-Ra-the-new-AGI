@@ -71,6 +71,17 @@ class QualifyDatasetTests(unittest.TestCase):
         self.assertEqual(receipt["status"], "DATASET_QUALIFIED")
         self.assertEqual(receipt["blockers"], [])
 
+    def test_development_only_first_party_sources_cannot_qualify(self) -> None:
+        manifest = _manifest()
+        manifest["sources"][0]["authorization_category"] = "first-party-development-only"
+        receipt = self._qualify(data_manifest=manifest)
+        self.assertEqual(receipt["status"], "BLOCKED_BY_DATASET")
+        self.assertFalse(receipt["checks"]["no_development_only_sources"])
+        self.assertTrue(
+            any("development-only first-party canary sources" in blocker
+                for blocker in receipt["blockers"])
+        )
+
     def test_insufficient_tokens_block(self) -> None:
         receipt = self._qualify(
             mixture_targets={"natural": 650000, "code_math_formal": 200, "verified_cognition": 150}

@@ -4,12 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
+import tempfile
 import unittest
+from dataclasses import asdict
+from pathlib import Path
 
 import torch
 
 from v5_contracts.model_spec import ModelSpec
-from v5_evaluation.checkpoint_adapter import CheckpointBackedV5Adapter
+from v5_evaluation.checkpoint_adapter import (
+    CheckpointBackedV5Adapter,
+    assert_canonical_checkpoint_adapter,
+)
 from v5_evaluation.firewall import (
     CommittedOutput,
     EvaluatorTruth,
@@ -19,6 +26,14 @@ from v5_evaluation.firewall import (
     score_committed,
 )
 from v5_model.core import initialize
+from v5_training.checkpoint import CheckpointStore
+from v5_training.state import (
+    CURSOR_SCHEMA,
+    IDENTITY_SCHEMA,
+    CursorState,
+    IdentityBindings,
+    TrainingState,
+)
 from v5_tokenizer.adapter import FrozenTokenizer, TokenizerIdentity
 
 
@@ -77,6 +92,59 @@ def _adapter() -> CheckpointBackedV5Adapter:
     )
 
 
+def _verified_store_adapter() -> CheckpointBackedV5Adapter:
+    model = initialize(TINY_SPEC, seed=5)
+    model_buffer = io.BytesIO()
+    torch.save(model.state_dict(), model_buffer)
+    pack_sha = "3" * 64
+    identities = IdentityBindings(
+        schema=IDENTITY_SCHEMA,
+        source_commit="0123456789abcdef0123456789abcdef01234567",
+        model_spec_sha256=TINY_SPEC.sha256(),
+        tokenizer_sha256=_identity().artifact_sha256,
+        data_manifest_sha256="2" * 64,
+        pack_manifest_sha256=pack_sha,
+        run_spec_sha256="4" * 64,
+        optimizer_spec_sha256="5" * 64,
+        schedule_spec_sha256="6" * 64,
+        curriculum_spec_sha256="7" * 64,
+        source_tree_sha256="9" * 64,
+    )
+    cursor = CursorState(CURSOR_SCHEMA, pack_sha, 0, 0, 0)
+    state = TrainingState.initial(
+        lineage_id="adapter-test",
+        token_budget=4096,
+        tokens_per_update=4096,
+        cursor=cursor,
+        rng_state_sha256="8" * 64,
+        curriculum_phase="test",
+        identities=identities,
+    )
+    canonical = lambda value: json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    payloads = {
+        "model.bin": model_buffer.getvalue(),
+        "optimizer.bin": b"test optimizer payload",
+        "scheduler.json": b"{}",
+        "rng.bin": b"test rng payload",
+        "cursor.json": canonical(asdict(cursor)),
+        "ledger.json": b"{}",
+        "training_state.json": canonical(state.canonical()),
+    }
+    with tempfile.TemporaryDirectory() as directory:
+        store = CheckpointStore(Path(directory), "adapter-test")
+        checkpoint_sha = store.publish(
+            state=state, payloads=payloads, expected_parent_sha256=None
+        )
+        return CheckpointBackedV5Adapter.from_checkpoint_store(
+            checkpoint_store=store,
+            checkpoint_sha256=checkpoint_sha,
+            model_spec=TINY_SPEC,
+            tokenizer=FrozenTokenizer(identity=_identity(), backend=_ByteTokenizer()),
+        )
+
+
 class CheckpointAdapterTest(unittest.TestCase):
     def test_scores_candidate_suffixes_only(self) -> None:
         adapter = _adapter()
@@ -116,12 +184,28 @@ class CheckpointAdapterTest(unittest.TestCase):
         for name, parameter in adapter.model.named_parameters():
             self.assertTrue(torch.equal(before[name], parameter.detach()))
 
+    def test_adapter_fields_are_immutable_and_live_weights_remain_identity_bound(self) -> None:
+        adapter = _verified_store_adapter()
+        with self.assertRaises(AttributeError):
+            adapter.model = None
+        assert_canonical_checkpoint_adapter(adapter)
+        with torch.no_grad():
+            next(adapter.model.parameters()).add_(1.0)
+        with self.assertRaisesRegex(ValueError, "parameters changed after identity"):
+            assert_canonical_checkpoint_adapter(adapter)
+
+    def test_direct_model_payload_is_not_a_verified_phase_one_checkpoint(self) -> None:
+        with self.assertRaisesRegex(ValueError, "checkpoint-store-verified"):
+            assert_canonical_checkpoint_adapter(_adapter())
+
     def test_identity_binds_checkpoint_spec_and_tokenizer(self) -> None:
         adapter = _adapter()
         self.assertEqual(adapter.identity.checkpoint_sha256, "a" * 64)
         self.assertEqual(adapter.identity.model_spec_sha256, TINY_SPEC.sha256())
         self.assertNotEqual(adapter.identity.sha256(), adapter.identity.sha256() + "x")
         self.assertIn("suffix", adapter.identity.scoring_rule)
+        verified = _verified_store_adapter()
+        self.assertEqual(verified.identity.source_tree_sha256, "9" * 64)
 
     def test_no_future_token_leakage_in_evaluation(self) -> None:
         """P0.1: changing a future suffix must not alter earlier-position logits."""

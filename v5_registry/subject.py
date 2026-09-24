@@ -18,6 +18,7 @@ from typing import Mapping
 
 
 SUBJECT_SCHEMA = "anra-v5-core-subject-manifest/v1"
+SUBJECT_SCHEMA_WITH_SOURCE = "anra-v5-core-subject-manifest/v2"
 
 # The Triquetra handshake contract: these fields, these names, no placeholders.
 TRIQUETRA_REQUIRED_FIELDS = frozenset(
@@ -78,6 +79,7 @@ class CoreSubjectManifest:
     seed: int
     custody: str
     creation_receipt_sha256: str
+    source_tree_sha256: str | None = None
 
     @classmethod
     def create(
@@ -103,9 +105,14 @@ class CoreSubjectManifest:
         seed: int,
         custody: str,
         creation_receipt_sha256: str,
+        source_tree_sha256: str | None = None,
     ) -> "CoreSubjectManifest":
         manifest = cls(
-            schema=SUBJECT_SCHEMA,
+            schema=(
+                SUBJECT_SCHEMA_WITH_SOURCE
+                if source_tree_sha256 is not None
+                else SUBJECT_SCHEMA
+            ),
             checkpoint_sha256=checkpoint_sha256,
             checkpoint_file_sha256=checkpoint_file_sha256,
             parameter_sha256=parameter_sha256,
@@ -127,13 +134,18 @@ class CoreSubjectManifest:
             seed=seed,
             custody=custody,
             creation_receipt_sha256=creation_receipt_sha256,
+            source_tree_sha256=source_tree_sha256,
         )
         manifest.assert_valid()
         return manifest
 
     def assert_valid(self) -> None:
-        if self.schema != SUBJECT_SCHEMA:
+        if self.schema not in {SUBJECT_SCHEMA, SUBJECT_SCHEMA_WITH_SOURCE}:
             raise ValueError("unsupported core-subject-manifest schema")
+        if self.schema == SUBJECT_SCHEMA_WITH_SOURCE:
+            _assert_sha256("source_tree_sha256", self.source_tree_sha256)
+        elif self.source_tree_sha256 is not None:
+            raise ValueError("v1 core-subject manifests cannot carry a source tree identity")
         if self.checkpoint_sha256 != self.checkpoint_file_sha256:
             raise ValueError("checkpoint identity fields disagree")
         for name in (
@@ -176,15 +188,21 @@ class CoreSubjectManifest:
 
     def canonical(self) -> dict[str, object]:
         self.assert_valid()
-        return asdict(self)
+        value = asdict(self)
+        if value["source_tree_sha256"] is None:
+            value.pop("source_tree_sha256")
+        return value
 
     def sha256(self) -> str:
         return hashlib.sha256(_canonical_json(self.canonical())).hexdigest()
 
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> "CoreSubjectManifest":
-        expected = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
-        if set(value) != expected:
+        fields = set(cls.__dataclass_fields__)  # type: ignore[attr-defined]
+        legacy_fields = fields - {"source_tree_sha256"}
+        if set(value) == legacy_fields and value.get("schema") == SUBJECT_SCHEMA:
+            value = {**value, "source_tree_sha256": None}
+        elif set(value) != fields:
             raise ValueError("core-subject-manifest fields do not match schema")
         return cls(**value)  # type: ignore[arg-type]
 
@@ -209,6 +227,7 @@ def triquetra_validation(manifest: Mapping[str, object]) -> dict[str, object]:
 __all__ = [
     "PLACEHOLDER_VALUES",
     "SUBJECT_SCHEMA",
+    "SUBJECT_SCHEMA_WITH_SOURCE",
     "CoreSubjectManifest",
     "TRIQUETRA_REQUIRED_FIELDS",
     "triquetra_validation",

@@ -1,10 +1,10 @@
-"""B1 — materialize the first-party production corpus subset + honest
+"""B1 — materialize the first-party canary corpus subset + honest
 500M supply accounting (DATA gate).
 
-Materializes what legitimately exists as first-party sources: the repository's
-own tracked text/code documents (natural + code_math_formal) and the E0
-verified-cognition generator rows. Runs them through the identity-bound
-preparation chain and reports the honest 500M supply arithmetic:
+Materializes the explicitly curated research-document manifest and the E0
+verified-cognition generator rows. This small development set is not a
+qualified production corpus. Runs them through the identity-bound preparation
+chain and reports the honest 500M supply arithmetic:
 UNIQUE_RUNNABLE_TRAIN_TOKENS vs the campaign demand, per-source replay
 factors. This module never fakes volume: a shortfall is a recorded shortfall.
 """
@@ -25,7 +25,7 @@ def materialize_first_party(*, repo_root: str | Path, tokenizer: Any,
                             max_files: int = MAX_CORPUS_FILES
                             ) -> dict[str, Any]:
     """Materialize first-party documents + supply accounting (pure I/O over
-    the repo tree + deterministic generators)."""
+    the pinned manifest + deterministic generators)."""
     from e0_cognition.training_generators import build_training_examples
     from v5_data.corpus_loading import _load_corpus, _load_tokenizer
 

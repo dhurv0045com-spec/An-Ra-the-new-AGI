@@ -4,6 +4,7 @@ import dataclasses
 import json
 import re
 import unittest
+from collections import Counter
 from pathlib import Path
 
 from e0_cognition.baselines import evaluate_all_baselines
@@ -25,22 +26,68 @@ from e0_cognition.statistics import (
     wilson_interval,
 )
 from e0_cognition.training_generators import (
+    TRAINING_COGNITION_FAMILIES,
     assert_training_eval_disjoint,
     build_training_examples,
 )
+from v5_training.production_entry import frozen_cognition_fractions
 
 
 class E0ContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.dev = build_evaluation_suite(Split.DEVELOPMENT, seed=101, groups_per_family=4)
+        cls.groups_per_family = 4
+        cls.dev = build_evaluation_suite(
+            Split.DEVELOPMENT, seed=101, groups_per_family=cls.groups_per_family
+        )
 
     def test_suite_is_valid_and_deterministic(self) -> None:
         self.dev.assert_valid()
         again = build_evaluation_suite(Split.DEVELOPMENT, seed=101, groups_per_family=4)
         self.assertEqual(self.dev.sha256(), again.sha256())
-        self.assertEqual(len(self.dev.cases), 92)
-        self.assertEqual(len(self.dev.pairs), 28)
+        self.assertEqual(len(self.dev.cases), 140)
+        self.assertEqual(len(self.dev.pairs), 52)
+
+    def test_interference_retrieval_covers_the_frozen_dose_and_position_grid(self) -> None:
+        expected = {
+            (0, 1),
+            (2, 1), (2, 2), (2, 3),
+            (4, 1), (4, 2), (4, 3), (4, 4),
+            (8, 1), (8, 2), (8, 3), (8, 4),
+            (16, 1), (16, 2), (16, 3), (16, 4),
+            (32, 1), (32, 2), (32, 3), (32, 4),
+        }
+        cases = [case for case in self.dev.cases if case.family == "interference_retrieval"]
+        observed = Counter(
+            (
+                dict(case.difficulty)["distractors"],
+                dict(case.difficulty)["context_position_quartile"],
+            )
+            for case in cases
+        )
+
+        self.assertEqual(set(observed), expected)
+        self.assertEqual(set(observed.values()), {2})
+        self.assertEqual({dict(case.difficulty)["hops"] for case in cases}, {2})
+        self.assertEqual(
+            sum(pair.base.family == "interference_retrieval" for pair in self.dev.pairs),
+            len(expected),
+        )
+
+    def test_faithful_realization_checks_exact_payload_revision_surface(self) -> None:
+        cases = [case for case in self.dev.cases if case.family == "faithful_realization"]
+        pairs = [pair for pair in self.dev.pairs if pair.base.family == "faithful_realization"]
+        self.assertEqual(len(cases), 2 * self.groups_per_family)
+        self.assertEqual(len(pairs), self.groups_per_family)
+        for case in cases:
+            self.assertRegex(case.answer, r"^payload=[A-Z0-9-]+; revision=[1-8]$")
+            self.assertIn("payload=<code>; revision=<number>", case.query)
+            self.assertIn(case.answer, case.candidates)
+            self.assertEqual(dict(case.surface_axes)["realization_format"], "payload-revision-v1")
+            self.assertEqual(set(case.model_view()), {"context", "query", "prompt"})
+        for pair in pairs:
+            self.assertEqual(pair.kind, PairKind.RELEVANT_FACT_SWAP)
+            pair.assert_contract()
 
     def test_counterfactual_pair_kinds_are_present(self) -> None:
         self.assertEqual({pair.kind for pair in self.dev.pairs}, set(PairKind))
@@ -94,6 +141,194 @@ class E0ContractTests(unittest.TestCase):
         training = build_training_examples(seed=404, count=32)
         assert_training_eval_disjoint(training, {case.template_id for case in self.dev.cases})
         self.assertTrue(all("answer" not in example.model_view() for example in training))
+
+    def test_training_generator_covers_frozen_cognition_contract(self) -> None:
+        fractions = frozen_cognition_fractions()
+        training = build_training_examples(
+            seed=2409, count=270, family_fractions=fractions
+        )
+        self.assertEqual(len(training), 270)
+        self.assertEqual({example.family for example in training}, set(TRAINING_COGNITION_FAMILIES))
+        self.assertEqual(
+            {example.template_id for example in training},
+            {f"train.causal.{family}" for family in TRAINING_COGNITION_FAMILIES},
+        )
+        self.assertEqual(
+            sum(fractions.values()),
+            1.0,
+        )
+        for family in TRAINING_COGNITION_FAMILIES:
+            family_examples = [example for example in training if example.family == family]
+            surfaces = {example.surface for example in family_examples}
+            self.assertTrue({"natural", "semi_natural"}.issubset(surfaces))
+            self.assertGreaterEqual(
+                sum(example.surface in {"natural", "semi_natural"} for example in family_examples),
+                (len(family_examples) + 3) // 4,
+            )
+        band_counts = {
+            band: sum(example.difficulty_band == band for example in training)
+            for band in ("easy", "medium", "hard")
+        }
+        self.assertEqual(sum(band_counts.values()), len(training))
+        self.assertTrue(all(value > 0 for value in band_counts.values()))
+        by_family = {
+            family: [example for example in training if example.family == family]
+            for family in TRAINING_COGNITION_FAMILIES
+        }
+        difficulty_of = lambda example: dict(example.difficulty)
+        self.assertTrue(
+            {difficulty_of(example)["cardinality"] for example in by_family["query_binding"]}
+            >= {2, 4, 8, 16}
+        )
+        self.assertTrue(
+            {difficulty_of(example)["distractors"] for example in by_family["interference_retrieval"]}
+            >= {0, 2, 4, 8, 16, 32}
+        )
+        expected_interference_grid = {(0, 1)} | {
+            (2, quartile) for quartile in (1, 2, 3)
+        } | {
+            (dose, quartile)
+            for dose in (4, 8, 16, 32)
+            for quartile in (1, 2, 3, 4)
+        }
+        self.assertEqual(
+            {
+                (difficulty_of(example)["distractors"], difficulty_of(example)["context_position_quartile"])
+                for example in by_family["interference_retrieval"]
+            },
+            expected_interference_grid,
+        )
+        self.assertEqual(
+            {difficulty_of(example)["context_position_quartile"] for example in by_family["interference_retrieval"]},
+            {1, 2, 3, 4},
+        )
+        state_examples = by_family["semantic_state"]
+        self.assertEqual(
+            {dict(example.surface_axes)["state_query"] for example in state_examples},
+            {"latest", "intermediate", "rollback", "precedence"},
+        )
+        self.assertTrue(
+            {difficulty_of(example)["state_variables"] for example in by_family["semantic_state"]}
+            >= {1, 2, 4}
+        )
+        self.assertTrue(
+            {difficulty_of(example)["state_updates"] for example in by_family["semantic_state"]}
+            >= {2, 4, 8}
+        )
+        self.assertTrue(
+            {difficulty_of(example)["hops"] for example in by_family["relational_composition"]}
+            >= {1, 2, 3}
+        )
+        self.assertTrue(
+            {difficulty_of(example)["rule_demonstrations"] for example in by_family["heldout_rule_induction"]}
+            >= {2, 4, 8}
+        )
+        for example in training:
+            self.assertEqual(set(example.model_view()), {"context", "query"})
+            self.assertNotIn(example.family, example.model_view()["query"])
+            self.assertNotIn("difficulty_level", example.model_view()["context"])
+            self.assertTrue(example.answer)
+            self.assertTrue(example.counterfactual_answer)
+            self.assertNotIn("causal_graph", example.model_view())
+            self.assertNotIn("counterfactual_answer", example.model_view())
+            self.assertNotIn("relevant_variables", example.model_view())
+        assert_training_eval_disjoint(
+            training, {case.template_id for case in self.dev.cases}
+        )
+
+    def test_training_family_targets_match_their_executable_evidence(self) -> None:
+        training = build_training_examples(
+            seed=90210, count=270, family_fractions=frozen_cognition_fractions()
+        )
+        for example in training:
+            with self.subTest(family=example.family, example=example.example_id):
+                context = example.model_view()["context"]
+                if example.family == "identity_copy":
+                    self.assertIn(example.answer, context)
+                elif example.family == "query_binding":
+                    entity = re.search(r"account-(R\d+)", example.query).group(1)
+                    bindings = {
+                        subject: obj
+                        for subject, relation, obj in example.causal_graph
+                        if relation == "has-payload"
+                    }
+                    self.assertEqual(bindings[f"account-{entity}"], example.answer)
+                elif example.family == "semantic_state":
+                    entity = example.relevant_variables[0]
+                    cutoff = int(re.findall(r"minute (\d+)", example.query)[-1])
+                    events = []
+                    for subject, relation, obj in example.causal_graph:
+                        match = re.fullmatch(
+                            re.escape(entity) + r"@minute-(\d+)-priority-(\d+)", subject
+                        )
+                        if not match:
+                            continue
+                        minute, priority = map(int, match.groups())
+                        rollback = re.fullmatch(r"rolls-back-to-minute-(\d+)", relation)
+                        events.append(
+                            (minute, priority, obj, int(rollback.group(1)) if rollback else None)
+                        )
+
+                    def value_at(time):
+                        eligible = sorted(
+                            (event for event in events if event[0] <= time),
+                            key=lambda event: (event[0], event[1]),
+                        )
+                        self.assertTrue(eligible)
+                        _minute, _priority, value, rollback_time = eligible[-1]
+                        return value_at(rollback_time) if rollback_time is not None else value
+
+                    self.assertEqual(value_at(cutoff), example.answer)
+                    query_kind = dict(example.surface_axes)["state_query"]
+                    self.assertIn(query_kind, {"latest", "intermediate", "rollback", "precedence"})
+                    if query_kind == "rollback":
+                        self.assertTrue(any(rollback is not None for *_prefix, rollback in events))
+                    if query_kind == "precedence":
+                        self.assertTrue(
+                            any(sum(event[0] == minute for event in events) > 1 for minute in {e[0] for e in events})
+                        )
+                elif example.family == "interference_retrieval":
+                    subject = re.search(r"(shipment-R\d+-north)", example.query).group(1)
+                    retrieval = {
+                        source: obj
+                        for source, relation, obj in example.causal_graph
+                        if relation == "contains-payload"
+                    }
+                    self.assertEqual(retrieval[subject], example.answer)
+                    shadow = subject.removesuffix("-north") + "-south"
+                    expected_counterfactual = retrieval.get(shadow, "<MISSING>")
+                    self.assertEqual(example.counterfactual_answer, expected_counterfactual)
+                elif example.family == "relational_composition":
+                    relations = {
+                        (subject, relation): obj
+                        for subject, relation, obj in example.causal_graph
+                    }
+                    start = example.causal_graph[0][0]
+                    current = start
+                    while (current, "routes-to") in relations:
+                        current = relations[(current, "routes-to")]
+                    self.assertEqual(relations[(current, "stores-payload")], example.answer)
+                elif example.family == "counterfactual_sensitivity":
+                    self.assertNotEqual(example.answer, example.counterfactual_answer)
+                    self.assertIn((example.relevant_variables[0], "intervention-sets-value", example.answer), example.causal_graph)
+                elif example.family == "heldout_rule_induction":
+                    relation = example.causal_graph[0][1]
+                    step = int(relation.removeprefix("latent-add-").removesuffix("-mod-10"))
+                    heldout_digit = int(example.query.split("Apply the demonstrated rule to ", 1)[1].split(".", 1)[0])
+                    self.assertEqual(example.answer, str((heldout_digit + step) % 10))
+                    self.assertNotIn((str(heldout_digit), relation, example.answer), example.causal_graph)
+                elif example.family == "missing_information":
+                    self.assertEqual(example.answer, "<MISSING>")
+                    absent_key = example.relevant_variables[0]
+                    self.assertFalse(any(absent_key in (subject, obj) for subject, _relation, obj in example.causal_graph))
+                elif example.family == "faithful_realization":
+                    self.assertRegex(example.answer, r"^payload=TX\d{6}; revision=\d+$")
+                else:
+                    self.fail(f"unrecognized cognition family {example.family}")
+
+    def test_training_generator_refuses_a_count_that_cannot_cover_every_family(self) -> None:
+        with self.assertRaisesRegex(ValueError, "at least 9"):
+            build_training_examples(seed=9, count=8)
 
     def test_non_neural_baselines_are_reported(self) -> None:
         results = evaluate_all_baselines(self.dev)
@@ -207,7 +442,7 @@ class E0ContractTests(unittest.TestCase):
         )
         for name, result in audit.items():
             if name in {"latest_fact", "nearest_position"}:
-                self.assertEqual(result["null_method"], "analytic-random-serialization")
+                self.assertEqual(result["null_method"], "hypothetical-random-serialization")
             else:
                 self.assertEqual(result["null_method"], "casewise-uniform-candidate")
             self.assertLessEqual(result["accuracy"], result["calibrated_chance"] + 0.10)

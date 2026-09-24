@@ -1,0 +1,27 @@
+{
+  "activation_checkpointing": true,
+  "batch_size": 1,
+  "checkpoint_sha256": null,
+  "cuda_available": false,
+  "device": "cpu",
+  "first_update_real_tokens_per_second": 5.2868477427893215,
+  "first_update_seconds_including_compile": 1.3240403999807313,
+  "grad_norm_pre_clip": 156.35858315942997,
+  "loss": 10.076005935668945,
+  "model_spec_sha256": "14c91038448836ac3f2dfc0d1327587fa91d82434f87b534828e503ea85aaf0d",
+  "parameter_count": 101790080,
+  "resume_scope": "single bounded model/optimizer update; checkpoint not exercised",
+  "schema": "anra-v5-target-canary/v1",
+  "sequence_length": 8,
+  "stages": {
+    "backward_clip_update": "PASS",
+    "forward_loss": "PASS",
+    "model_build": "PASS",
+    "mutation_certified": "PASS",
+    "optimizer_ownership": "PASS"
+  },
+  "status": "PASS",
+  "supervised_tokens": 7,
+  "synthetic_input": true,
+  "torch_version": "2.14.0+cpu"
+}

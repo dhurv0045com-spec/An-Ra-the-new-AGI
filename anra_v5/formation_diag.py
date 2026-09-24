@@ -104,8 +104,10 @@ def teacher_forced_diagnostics(model: Any, rows: list[Mapping[str, Any]], *,
                     if gold < sorted_ids.shape[1] else -1
                 ranks.append(rank)
                 gold_lp = float(log_probs[position, gold].item())
+                # hit==1 (correct): gold is top-1, compare vs runner-up [1].
+                # hit==0 (wrong): gold is not top-1, compare vs winner [0].
                 best_other = float(sorted_probs[position][1
-                                                              if hit == 0 else 0].item())
+                                                              if hit == 1 else 0].item())
                 margins.append(gold_lp - best_other)
     model.train()
     length_buckets = {str(length): round(sum(v) / len(v), 4)
@@ -123,8 +125,8 @@ def teacher_forced_diagnostics(model: Any, rows: list[Mapping[str, Any]], *,
 
 
 def full_vs_shared_rescue(model: Any, rows: list[Mapping[str, Any]], *,
-                          torch: Any, device: Any,
-                          shared_rows: int = 128) -> dict[str, Any]:
+                           torch: Any, device: Any,
+                           shared_rows: int = 4096) -> dict[str, Any]:
     """Candidate-free identity exact under (a) the full 24,576-way output
     denominator and (b) a shared-only denominator (rows 0..shared_rows-1).
     A large (b) - (a) gap is the output-space competition signature."""

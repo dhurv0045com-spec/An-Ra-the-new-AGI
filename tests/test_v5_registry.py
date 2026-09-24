@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from v5_registry.capability import (
@@ -122,6 +123,36 @@ class RegistryTest(unittest.TestCase):
             self.identity, evaluation_receipt_sha256="e" * 64
         )
         self.assertEqual(state, "DEV_EVALUATED")
+
+    def test_sealed_and_promoted_states_require_verified_receipt_path(self) -> None:
+        self.registry.transition(self.identity, to="IDENTITY_VERIFIED")
+        self.registry.transition(self.identity, to="TRAINING_COMPLETE")
+        self.registry.attach_evaluation(
+            self.identity, evaluation_receipt_sha256="e" * 64
+        )
+
+        for target in ("SEALED_EVALUATED", "PROMOTED"):
+            with self.subTest(target=target):
+                with self.assertRaisesRegex(ValueError, "verified Phase-One custody receipt"):
+                    self.registry.transition(self.identity, to=target)
+
+        self.assertEqual(self.registry.status(self.identity), "DEV_EVALUATED")
+
+    def test_concurrent_receipt_updates_do_not_lose_registry_entries(self) -> None:
+        self.registry.transition(self.identity, to="IDENTITY_VERIFIED")
+        self.registry.transition(self.identity, to="TRAINING_COMPLETE")
+        receipts = ("a" * 64, "b" * 64)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            states = list(
+                pool.map(
+                    lambda receipt: self.registry.attach_evaluation(
+                        self.identity, evaluation_receipt_sha256=receipt
+                    ),
+                    receipts,
+                )
+            )
+        self.assertEqual(states, ["DEV_EVALUATED", "DEV_EVALUATED"])
+        self.assertEqual(set(self.registry.evaluation_receipts(self.identity)), set(receipts))
 
     def test_lineage_dag(self) -> None:
         parent = _manifest()

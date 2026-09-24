@@ -10,9 +10,11 @@ from v5_evaluation.checkpoint_adapter import (
     SCORING_CONTRACT_SHA256,
     CheckpointBackedV5Adapter,
 )
+from v5_evaluation.adapter import GenerationResult
 from v5_evaluation.fixture import TaskFixtureBatch
 from v5_evaluation.protocol import (
     EvaluationProtocol,
+    evaluator_source_sha256,
     run_evaluation,
     verify_evidence_artifact,
 )
@@ -53,10 +55,14 @@ def _subject() -> CoreSubjectManifest:
 
 
 def _protocol(mode: str = "CONSTRAINED_SELECTION") -> EvaluationProtocol:
+    fixture = _fixture()
     return EvaluationProtocol(
         protocol_id="proto-mini",
         generator_id="miniature-binding-generator",
         generator_sha256="a" * 64,
+        generator_config_sha256=fixture.generator_config_sha256,
+        fixture_sha256=fixture.sha256(),
+        evaluator_sha256=evaluator_source_sha256(),
         split="software_eval",
         seed=1,
         n_cases=2,
@@ -102,6 +108,16 @@ TASKS = [
 ]
 
 
+class _ScriptedStatusAdapter:
+    scoring_contract_sha256 = SCORING_CONTRACT_SHA256
+
+    def __init__(self, generate):
+        self._generate = generate
+
+    def generate_free_with_status(self, prompt: str) -> GenerationResult:
+        return self._generate(prompt)
+
+
 class ProtocolTest(unittest.TestCase):
     def test_protocol_validation(self) -> None:
         protocol = _protocol()
@@ -112,6 +128,9 @@ class ProtocolTest(unittest.TestCase):
                 protocol_id="p",
                 generator_id="g",
                 generator_sha256="a" * 64,
+                generator_config_sha256="b" * 64,
+                fixture_sha256="c" * 64,
+                evaluator_sha256="d" * 64,
                 split="fresh-ish",
                 seed=1,
                 n_cases=1,
@@ -219,6 +238,68 @@ class ProtocolTest(unittest.TestCase):
                     subject=_subject(), adapter=adapter,
                     fixture=_fixture(), evidence_path=path,
                 )
+
+    def test_protocol_binds_exact_fixture_content(self) -> None:
+        adapter = _adapter()
+        changed = _fixture(cases=[
+            dict(TASKS[0], split="software_eval", prompt="different prompt"),
+            dict(TASKS[1], split="software_eval"),
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "fixture content"):
+                run_evaluation(
+                    protocol=_protocol(), subject=_subject(), adapter=adapter,
+                    fixture=changed, evidence_path=Path(directory) / "evidence.jsonl",
+                )
+
+    def test_phase_one_eos_metrics_record_token_cap_as_failure(self) -> None:
+        import dataclasses
+
+        adapter = _ScriptedStatusAdapter(lambda prompt: GenerationResult(
+            text=" crimson" if "zibble" in prompt else " blue",
+            terminated_eos="zibble" in prompt,
+            generated_tokens=1,
+            stop_reason="eos" if "zibble" in prompt else "token_cap",
+        ))
+        protocol = dataclasses.replace(
+            _protocol("RAW_FREE_GENERATION"),
+            metrics=("VALID_EOS_RATE", "EXACT_AND_EOS_RATE"),
+        )
+        receipt, evidence, _artifact = self._run(protocol=protocol, adapter=adapter)
+        self.assertEqual([record.termination_valid for record in evidence], [True, False])
+        self.assertEqual(dict(receipt.metric_values)["VALID_EOS_RATE"], 0.5)
+        self.assertEqual(dict(receipt.metric_values)["EXACT_AND_EOS_RATE"], 0.5)
+
+    def test_causal_pair_fixture_and_metrics_are_explicit(self) -> None:
+        import dataclasses
+
+        pair_cases = [
+            dict(TASKS[0], split="software_eval", causal_pairs=[
+                {"pair_id": "p", "pair_kind": "query_swap", "pair_role": "base"}
+            ]),
+            dict(TASKS[1], split="software_eval", causal_pairs=[
+                {"pair_id": "p", "pair_kind": "query_swap", "pair_role": "changed"}
+            ]),
+        ]
+        fixture = _fixture(cases=pair_cases)
+        malformed = [dict(pair_cases[0]), dict(pair_cases[1], causal_pairs=[
+            {"pair_id": "p", "pair_kind": "query_swap", "pair_role": "base"}
+        ])]
+        with self.assertRaisesRegex(ValueError, "one base and one changed"):
+            _fixture(cases=malformed)
+
+        adapter = _ScriptedStatusAdapter(lambda prompt: GenerationResult(
+            text=" crimson" if "zibble" in prompt else " blue",
+            terminated_eos=True, generated_tokens=1, stop_reason="eos",
+        ))
+        protocol = dataclasses.replace(
+            _protocol("RAW_FREE_GENERATION"),
+            n_cases=2,
+            fixture_sha256=fixture.sha256(),
+            metrics=("PAIRED_COUNTERFACTUAL_SENSITIVITY",),
+        )
+        receipt, _evidence, _artifact = self._run(protocol=protocol, fixture=fixture, adapter=adapter)
+        self.assertEqual(dict(receipt.metric_values)["PAIRED_COUNTERFACTUAL_SENSITIVITY"], 1.0)
 
     def test_unknown_metric_and_rule_fail_before_run(self) -> None:
         import dataclasses

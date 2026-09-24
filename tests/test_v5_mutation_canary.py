@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +20,53 @@ class MutationTests(unittest.TestCase):
         model = torch.nn.Sequential(torch.nn.Linear(8, 8, bias=False))
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
         return model, optimizer
+
+    def test_parameter_digest_matches_legacy_fp32_byte_encoding(self) -> None:
+        from v5_training.mutation import parameter_sha
+
+        model, _ = self._model_opt()
+        reference = hashlib.sha256()
+        for name, parameter in sorted(model.named_parameters(), key=lambda item: item[0]):
+            reference.update(name.encode("utf-8") + b"\0")
+            reference.update(
+                parameter.detach().to("cpu", dtype=torch.float32)
+                .contiguous().numpy().tobytes()
+            )
+        self.assertEqual(parameter_sha(model, torch_module=torch), reference.hexdigest())
+
+    def test_moment_digest_matches_legacy_fp32_byte_encoding(self) -> None:
+        from v5_training.mutation import moment_fingerprint
+
+        model, optimizer = self._model_opt()
+        model(torch.ones(2, 8)).sum().backward()
+        optimizer.step()
+        reference = hashlib.sha256()
+        for group_index, group in enumerate(optimizer.param_groups):
+            for parameter in group["params"]:
+                state = optimizer.state[parameter]
+                step = int(state.get("step", 0))
+                reference.update(f"{group_index}:{step}:".encode("utf-8"))
+                for key in ("exp_avg", "exp_avg_sq"):
+                    moment = state.get(key)
+                    if moment is None:
+                        reference.update(b"absent\0")
+                    else:
+                        reference.update(
+                            moment.detach().to("cpu", dtype=torch.float32)
+                            .contiguous().numpy().tobytes()
+                        )
+        self.assertEqual(
+            moment_fingerprint(optimizer, torch_module=torch), reference.hexdigest()
+        )
+
+    def test_production_tensor_digest_matches_legacy_encoding(self) -> None:
+        from v5_training.production_backend import _tensor_sha256
+
+        value = torch.tensor([1.0, -2.5, 3.25], dtype=torch.bfloat16)
+        reference = hashlib.sha256()
+        reference.update(str(tuple(value.shape)).encode("ascii"))
+        reference.update(value.detach().float().cpu().contiguous().numpy().tobytes())
+        self.assertEqual(_tensor_sha256(value, torch), reference.hexdigest())
 
     def test_change_detection(self) -> None:
         from v5_training.mutation import (

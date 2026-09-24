@@ -1,6 +1,6 @@
 """V5 evaluation: adapter contract, fixtures, metrics, statistics, receipts."""
 
-from .adapter import ADAPTER_SCHEMA, ModelAdapter
+from .adapter import ADAPTER_SCHEMA, GenerationResult, ModelAdapter
 from .fixture import FIXTURE_SCHEMA, TaskFixtureBatch
 from .metrics import (
     METRIC_REGISTRY,
@@ -10,11 +10,15 @@ from .metrics import (
     candidate_rank1,
     conditional_realization,
     exact_accuracy,
+    exact_and_eos_rate,
     gold_suffix_nll,
     invariance_stability,
     loss_regression,
+    paired_counterfactual_sensitivity,
+    paired_invariance_stability,
     sensitivity_flip_rate,
     wilson_lcb,
+    valid_eos_rate,
 )
 from .protocol import (
     EvaluationProtocol,
@@ -35,6 +39,7 @@ __all__ = [
     "STATISTICAL_RULES",
     "EvaluationProtocol",
     "EvaluationReceipt",
+    "GenerationResult",
     "ModelAdapter",
     "ProtocolEvaluationReceipt",
     "TaskFixtureBatch",
@@ -46,13 +51,17 @@ __all__ = [
     "cluster_bootstrap_delta",
     "conditional_realization",
     "exact_accuracy",
+    "exact_and_eos_rate",
     "exact_mcnemar",
     "gold_suffix_nll",
     "invariance_stability",
     "loss_regression",
+    "paired_counterfactual_sensitivity",
+    "paired_invariance_stability",
     "run_evaluation",
     "sensitivity_flip_rate",
     "verify_evidence_artifact",
+    "valid_eos_rate",
     "wilson_binomial",
     "wilson_lcb",
     "write_evidence_artifact",

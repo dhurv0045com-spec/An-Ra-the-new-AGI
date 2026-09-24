@@ -1,9 +1,14 @@
 {
   "schema": "anra.next-core-readiness/v1",
-  "generated": "2026-09-13",
+  "generated": "2026-09-18",
   "branch": "cymek-next-core-architecture",
   "verdict": "READY_FOR_CANARY",
   "verdict_scope": "development-scale canary of the V5.1 contract layer ONLY",
+  "synchronized": {
+    "date": "2026-09-18",
+    "authority": "CS-TRANSFER-001 final verdict PARTIAL_OR_INTERACTION (scientific executable f8582808b6e2be0753cb2689d9d6d4aeb4d57aeb) + FORMATION-MUX-001 S5 observed bundle 859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5 with RETURNED_BUNDLE_AUDIT INCONCLUSIVE_AT_ZERO_BASELINE",
+    "rule": "historical documents/results unchanged; only CURRENT-STATE fields updated; no readiness improvement claimed"
+  },
   "gates": {
     "architecture_specification": {"state": "SATISFIED", "note": "NEXT_CORE_SPEC.json complete; every field has a legal status"},
     "reference_implementation": {"state": "SATISFIED", "note": "v5_next contract layer + reference builder; 12/12 CPU fixture tests pass (parameter inventory, tied identity, QK scales, causal prefix invariance, segment isolation, deterministic init, finite fwd/bwd, optimizer ownership, checkpoint round trip, EOS lock, treatment gating, canonical-path purity)"},
@@ -14,10 +19,11 @@
       "note": "CYR-GPU-014-R1C COMPLETE 24/24; verdict SOFTMAX_COMPETITION_NOT_SUFFICIENT; MASK_4096-FULL_24576 mean formation-AUC gap -0.11038062283737024; masking branch not promoted",
       "bundle_sha256": "2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e"
     },
-    "physical_vocabulary_output_geometry": {"state": "OPEN", "note": "R1C held the physical 24,576 matrix fixed; actual V4096-vs-V24576 transfer remains required before tokenizer/vocabulary adoption"},
+    "physical_vocabulary_output_geometry": {"state": "CLOSED_CS_TRANSFER_DONE", "note": "CS-TRANSFER-001 COMPLETE PARTIAL_OR_INTERACTION (dev formation-AUC mean -0.0348, dev endpoint mean -0.0688, sealed endpoint mean -0.1396, sealed gaps mixed sign); V24576 retained as conservative working choice, optimality NOT_ESTABLISHED; R1C masking proxy not promoted"},
+    "formation_mux_mechanism_dissection_s5": {"state": "INCONCLUSIVE_AT_ZERO_BASELINE", "note": "FORMATION-MUX-001 S5 24/24 arms COMPLETE on Kaggle T4x2 (8.14h); formal CS-MECH-002 NULL + REP-FORM-003A NULL but identity AUC 0.000-0.008 in all 24 arms (only 3/16 CS-MECH runs nonzero endpoint, none >=0.5; all 8 REP-FORM at 0.0); contrasts had no dynamic range per RETURNED_BUNDLE_AUDIT; bundle 859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5"},
     "corpus_readiness": {"state": "FAILING", "note": "production corpus MISSING; tiered arithmetic surface retired (CITADEL-DATA-001); canary uses synthetic screened fixtures only"},
     "evaluation_readiness": {"state": "FAILING", "note": "Citadel readiness NOT_READY; cognition promotion impossible regardless of canary outcome"},
-    "schedule_execution": {"state": "OPEN", "note": "canonical WSD never executed end-to-end at this Task-2 snapshot; not required for a canary"},
+    "schedule_execution": {"state": "OPEN", "note": "canonical WSD never executed end-to-end at this snapshot; not required for a canary"},
     "scale_authorization": {"state": "NOT_JUSTIFIED", "note": "READY_FOR_500M is not issued and cannot be issued under the conditional gate in SCALING_PLAN.md"}
   },
   "r1c_consequence": {
@@ -25,14 +31,23 @@
     "candidate_b_masked_output_promoted": false,
     "candidate_a_canary_default_unchanged": true,
     "full_24576_proven_optimal": false,
-    "next_decisive_test": "CS-TRANSFER-001 with actual physical V4096 versus V24576 geometry on clean transfer surfaces"
+    "next_decisive_test": "FORMATION-MUX-001 S5 already executed: CS-MECH-002 + REP-FORM-003A INCONCLUSIVE_AT_ZERO_BASELINE; next single action is metric-resolution audit on preserved S5 checkpoints then cheap baseline-capability gate (FORMATION-BASELINE-GATE-001 / FORMATION-DIAG-001); do NOT launch another mechanism sweep or P35 transfer until the gate passes"
+  },
+  "formation_mux_001_s5": {
+    "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "source_bundle_sha256": "859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5",
+    "formal_verdicts_unchanged": {"CS-MECH-002": "NULL", "REP-FORM-003A": "NULL"},
+    "corrected_interpretation": "INCONCLUSIVE_AT_ZERO_BASELINE per docs/cymek/experiments/FORMATION-MUX-001/RETURNED_BUNDLE_AUDIT.md",
+    "postmortem": "docs/cymek/experiments/FORMATION-MUX-001/observed/S5_KAGGLE_2026-09-15/POSTMORTEM.md",
+    "claim_ceiling": "no mechanism conclusion, no architecture promotion, no tokenizer/vocabulary change, no scale authorization"
   },
   "canary_definition": {
     "what": "instantiate V5.1 contract geometry at development scale (byte-6M or ~40M rung), train through the production path on screened synthetic fixtures, verify receipt/eval/checkpoint contracts end to end",
     "what_it_does_not_authorize": ["500M scheduling", "production corpus claims", "cognition promotion", "output-space adoption", "any AGI/superiority claim"]
   },
   "blockers_to_ready_for_500m": [
-    "CS-TRANSFER-001 executed + physical output-space consequence adopted per tree (U03)",
+    "CS-TRANSFER-001 executed + physical output-space consequence adopted per tree (U03) -- DONE, V24576 retained, optimality NOT established",
+    "FORMATION-MUX-001 S5 mechanism contrasts INCONCLUSIVE_AT_ZERO_BASELINE -- metric-resolution audit + baseline-capability gate (FORMATION-BASELINE-GATE-001 / FORMATION-DIAG-001) must pass before any new mechanism sweep or P35 transfer",
     "production corpus materialized + attack-screened (U08)",
     "canonical WSD executed once end-to-end",
     "multi-seed formation demonstrated at ~97M rung on the production representation",

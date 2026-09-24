@@ -13,10 +13,12 @@ from typing import Any
 
 from v5_contracts.model_spec import QK_NORM_EPSILON, ModelSpec
 
+from .attention import build_rope_cache
 from .block import build_block, build_rmsnorm
 from .config import from_spec
 from .embedding import build_embedding
 from .initialize import initialize_module
+from v5_checkpointing import activation_checkpoint
 
 
 def initialize(spec: ModelSpec, seed: int, *, torch_module: Any = None) -> Any:
@@ -40,18 +42,36 @@ def initialize(spec: ModelSpec, seed: int, *, torch_module: Any = None) -> Any:
             self.final_norm = build_rmsnorm(
                 config.width, epsilon=config.norm_epsilon, torch_module=torch)
 
-        def forward(self, token_ids: Any, positions: Any, mask: Any,
-                      use_activation_checkpointing: bool = False) -> Any:
+        def forward_hidden(self, token_ids: Any, positions: Any, mask: Any,
+                           use_activation_checkpointing: bool = False) -> Any:
             if token_ids.ndim != 2 or not 0 < token_ids.shape[1] <= config.context_length:
                 raise ValueError("token ids must be [batch, length] within native context")
             hidden = self.embedding(token_ids)
+            rope_cosine, rope_sine = build_rope_cache(
+                positions,
+                head_dimension=config.head_dimension,
+                rope_base=config.rope_base,
+                torch_module=torch,
+            )
             for block in self.blocks:
                 if use_activation_checkpointing and self.training:
-                    hidden = torch.utils.checkpoint.checkpoint(
-                        block, hidden, positions, mask, use_reentrant=False)
+                    hidden = activation_checkpoint(
+                        block, hidden, positions, mask, rope_cosine, rope_sine,
+                        torch_module=torch,
+                    )
                 else:
-                    hidden = block(hidden, positions, mask)
-            return functional.linear(self.final_norm(hidden), self.embedding.weight)
+                    hidden = block(
+                        hidden, positions, mask, rope_cosine, rope_sine,
+                    )
+            return self.final_norm(hidden)
+
+        def forward(self, token_ids: Any, positions: Any, mask: Any,
+                    use_activation_checkpointing: bool = False) -> Any:
+            hidden = self.forward_hidden(
+                token_ids, positions, mask,
+                use_activation_checkpointing=use_activation_checkpointing,
+            )
+            return functional.linear(hidden, self.embedding.weight)
 
     with torch.random.fork_rng():
         torch.manual_seed(seed)
@@ -91,17 +111,18 @@ def assert_receipt(model: Any, spec: ModelSpec) -> None:
         raise ValueError("model parameter inventory does not match ModelSpec")
 
 
-def packed_layout(segment_ids: Any, *, torch_module: Any) -> tuple[Any, Any]:
-    """Nondecreasing segment IDs; -1 means trailing padding; reset RoPE per segment."""
-
+def _build_packed_layout(
+    segment_ids: Any, *, torch_module: Any, validate: bool,
+) -> tuple[Any, Any]:
     torch = torch_module
     if segment_ids.ndim != 2 or segment_ids.dtype not in (torch.int32, torch.int64):
         raise ValueError("segment IDs must be a rank-two integer tensor")
     valid = segment_ids >= 0
-    if (segment_ids < -1).any().item() or ((~valid[:, :-1]) & valid[:, 1:]).any().item():
-        raise ValueError("padding must be -1 and trailing")
-    if ((segment_ids[:, 1:] < segment_ids[:, :-1]) & valid[:, 1:]).any().item():
-        raise ValueError("segment IDs must be nondecreasing; segments cannot reappear")
+    if validate:
+        if (segment_ids < -1).any().item() or ((~valid[:, :-1]) & valid[:, 1:]).any().item():
+            raise ValueError("padding must be -1 and trailing")
+        if ((segment_ids[:, 1:] < segment_ids[:, :-1]) & valid[:, 1:]).any().item():
+            raise ValueError("segment IDs must be nondecreasing; segments cannot reappear")
     length = segment_ids.shape[1]
     indices = torch.arange(length, device=segment_ids.device)
     starts = torch.ones_like(valid)
@@ -113,6 +134,24 @@ def packed_layout(segment_ids: Any, *, torch_module: Any) -> tuple[Any, Any]:
     mask = causal & same_segment & valid[:, :, None] & valid[:, None, :]
     mask = mask | ((~valid)[:, :, None] & torch.eye(length, device=segment_ids.device, dtype=torch.bool))
     return positions, mask[:, None, :, :]
+
+
+def packed_layout(segment_ids: Any, *, torch_module: Any) -> tuple[Any, Any]:
+    """Validate segment rows, then build block-causal attention and reset RoPE."""
+
+    return _build_packed_layout(segment_ids, torch_module=torch_module, validate=True)
+
+
+def _packed_layout_from_validated_segments(
+    segment_ids: Any, *, torch_module: Any,
+) -> tuple[Any, Any]:
+    """Build layout for immutable rows already checked by the host sampler.
+
+    This avoids scalar device-to-host reads in the XLA microstep hot path. It
+    is deliberately private; untrusted tensors should use ``packed_layout``.
+    """
+
+    return _build_packed_layout(segment_ids, torch_module=torch_module, validate=False)
 
 
 __all__ = [

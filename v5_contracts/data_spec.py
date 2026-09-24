@@ -13,6 +13,7 @@ ALLOWED_LICENSE_CATEGORIES = {
     "permissive",
     "licensed",
     "first-party-authorized",
+    "first-party-development-only",
 }
 ALLOWED_SPLITS = {"training", "development", "sealed", "fresh"}
 

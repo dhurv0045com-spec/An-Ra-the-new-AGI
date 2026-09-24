@@ -1,0 +1,112 @@
+{
+  "schema": "anra.metric-resolution-audit-preregistration/v1",
+  "experiment": "METRIC-RES-001",
+  "title": "Checkpoint-only identity-resolution audit of preserved FORMATION-MUX-001 S5 checkpoints",
+  "status": "PROSPECTIVE_PREREGISTRATION",
+  "written_before_any_audit_outcome": true,
+
+  "question": "Is S5 identity/copy capability forming-but-unmeasured by the all-or-nothing exact-match endpoint, or is it genuinely absent from the substrate?",
+
+  "why_this_is_the_next_experiment": {
+    "prescription_source": "docs/cymek/experiments/FORMATION-MUX-001/RETURNED_BUNDLE_AUDIT.md section 'Disposition (supersedes the recorded next_action)' item 2",
+    "audit_quote": "Next single action: a metric-resolution audit on the PRESERVED final checkpoints (token-level diagnostics; no new training required) to decide whether identity/copy is (a) forming but unmeasured, or (b) genuinely absent - this changes which roadmap item follows.",
+    "postmortem_source": "docs/cymek/experiments/FORMATION-MUX-001/observed/S5_KAGGLE_2026-09-15/POSTMORTEM.md section 3",
+    "postmortem_quote": "The prime suspect: exact-match metric resolution for multi-token answers. The identity family's all-or-nothing sequence-exact score gives near-zero evaluated signal until the policy is nearly perfect, while 1-token families (termination) resolve immediately.",
+    "tooling_gap_closed": "tools/formation_diag_001.py trains from scratch on the v1 surface; it cannot audit preserved S5 checkpoints. This experiment supplies the missing checkpoint-only path.",
+    "why_it_dominates_cost": "No training. Minutes of GPU instead of the 8.14 GPU-hours the S5 campaign consumed, against the single largest open question in the branch."
+  },
+
+  "claim_ceiling": "Diagnostic re-adjudication of the S5 contrasts on a higher-resolution instrument. It CANNOT change any S5 preregistered verdict, promote a Core architecture, change tokenizer/vocabulary, authorize scale, or make cognition/AGI claims. S5 NULLs stand permanently as executed; a positive result here only says the INSTRUMENT hid the signal.",
+
+  "objective": "Measure S5 identity capability at token resolution on preserved checkpoints, then re-adjudicate the three frozen S5 mechanism contrasts in token space instead of exact-match space.",
+
+  "uncertain_assumption": "The all-or-nothing sequence-exact endpoint on multi-token identity answers has insufficient dynamic range at the S5 capability level, and token-level resolution would separate arms that exact-match could not.",
+
+  "causal_contrast": "Not a new treatment contrast. This is a measurement-resolution contrast: the SAME frozen S5 arms and seeds, re-scored under a higher-resolution instrument. Any separation is attributable to instrument resolution, not to training differences.",
+
+  "fixed_variables": {
+    "subjects": "the exact preserved S5 resume.pt checkpoints, unmodified",
+    "arms": "all four CS-MECH-002 arms (M0_STANDARD, M1_EXTRA_NO_DECAY, M2_EXTRA_FROZEN, M3_EXTRA_FROZEN_MASKED)",
+    "seed_bundles": [73011, 73012, 73013, 73014],
+    "development_rows": "the frozen S5 public development rows, identity family only (80 rows)",
+    "surface_sha256": "f1d5200bd05bc28ede97af114b49f616ca72b24af74b7fc530a2cb084db4259c",
+    "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "scoring": "candidate-free greedy generation + teacher-forced token metrics; no candidate ranking"
+  },
+
+  "controls": [
+    "M0_STANDARD is the frozen control arm in every contrast.",
+    "termination family is scored alongside identity as a positive control: S5 measured termination at 1.00, so a correct instrument MUST reproduce that. If termination does not reproduce, the instrument is invalid and the run is INSTRUMENT_INVALID.",
+    "no training, no optimizer reconstruction, no gradient updates, no parameter mutation",
+    "checkpoint identity re-verified per load (experiment, arm, seed_bundle, protocol_sha256, data_manifest_sha256)"
+  ],
+
+  "primary_endpoint": "mean teacher-forced identity target-token accuracy over the 4 M0_STANDARD seed checkpoints",
+
+  "secondary_diagnostics": [
+    "identity free-generation exact+valid-EOS (must reproduce the S5 near-zero floor)",
+    "longest-common-prefix ratio (partial realization; new, and the core of this experiment)",
+    "teacher-forced accuracy by output position",
+    "teacher-forced accuracy by answer length",
+    "gold-token mean rank",
+    "gold-token mean log-prob margin",
+    "per-family CE, with termination as positive control",
+    "full-vocabulary versus shared-only (4096) output-competition rescue",
+    "tied-embedding input/output gradient decomposition",
+    "clip telemetry replayed from checkpoint state (no new updates)"
+  ],
+
+  "hard_integrity_gates": [
+    "GATE 1: public surface must validate AND contain no sealed key",
+    "GATE 2: every checkpoint must pass load_model_for_evaluation identity verification or the run fails closed",
+    "GATE 3: termination positive control must reproduce >= 0.90 exact+valid-EOS, else INSTRUMENT_INVALID",
+    "GATE 4: zero training steps, zero optimizer construction, zero backward calls are performed",
+    "GATE 5: sealed rows are never loaded, regenerated, scored, or persisted"
+  ],
+
+  "decision_tree": {
+    "note": "Applied in this exact order to the M0 control arm. First match wins. Thresholds are frozen here before any audit outcome is visible.",
+    "INSTRUMENT_INVALID": "termination positive control < 0.90. The instrument is not reproducing a known S5 result, so no conclusion is licensed. Fix the instrument first.",
+    "FORMING_BUT_UNMEASURED": "mean identity token accuracy >= 0.80 AND mean identity exact+valid-EOS < 0.30 AND mean LCP ratio >= 0.50. The capability exists and the endpoint is the bottleneck. Next action: re-adjudicate the S5 mechanism contrasts in token space, then fix the endpoint.",
+    "OPTIMIZATION_CHOKED": "mean identity token accuracy < 0.30 AND all four M0 checkpoints report clip_fraction >= 0.99. The substrate was clipped flat. Next action: S6 LR/schedule bracket before any mechanism re-run.",
+    "OUTPUT_COMPETITION": "mean shared-only rescue >= 0.10 AND mean identity token accuracy < 0.80. Denominator competition is load-bearing. Next action: narrow denominator mechanism probe on a resolved instrument.",
+    "MIXTURE_OR_DATA_LIMITED": "mean identity token accuracy in [0.30, 0.80). Capability is partial and measurable. Next action: FORMATION-BASELINE-GATE-001 exposure/mixture ladder on the same instrument.",
+    "GENUINELY_ABSENT": "mean identity token accuracy < 0.30 AND termination reproduced. The substrate cannot represent this task family at this scale. Next action: abandon vocabulary/mechanism work, go to P35-TRANSFER-004 scale transfer.",
+    "INCONCLUSIVE": "none of the above matched."
+  },
+
+  "contrast_readjudication": {
+    "purpose": "Recompute the three frozen S5 CS-MECH contrasts in token-accuracy space.",
+    "contrasts": [
+      ["M1_EXTRA_NO_DECAY", "M0_STANDARD", "extra-row weight decay"],
+      ["M2_EXTRA_FROZEN", "M0_STANDARD", "extra-row trainability / update evolution"],
+      ["M3_EXTRA_FROZEN_MASKED", "M0_STANDARD", "extra-row denominator participation"]
+    ],
+    "paired_metric": "per-seed (treatment minus control) mean teacher-forced identity token accuracy",
+    "success": "mean paired token-accuracy delta >= 0.10 AND sign consistent in >= 3 of 4 seeds. Interpretation: the mechanism is real and exact-match masked it. This licenses a prospective S6/S7 mechanism re-run; it does NOT retroactively change the S5 NULL.",
+    "null": "mean paired token-accuracy delta < 0.05 in absolute value. The mechanism line stays closed as INCONCLUSIVE_AT_ZERO_BASELINE, and the roadmap follows the M0 decision tree.",
+    "reverse_effect": "mean paired token-accuracy delta <= -0.10 AND sign consistent in >= 3 of 4 seeds. Record the reversal; retain canonical S5 treatment.",
+    "inconclusive": "between null and success, or signs inconsistent."
+  },
+
+  "success": "A decision-tree branch is reached AND, if FORMING_BUT_UNMEASURED, a contrast readjudication returns SUCCESS or REVERSE_EFFECT.",
+  "null": "Decision tree reaches GENUINELY_ABSENT, or contrast readjudication returns NULL.",
+  "reverse_effect": "Any contrast readjudication returns REVERSE_EFFECT.",
+  "inconclusive": "Decision tree returns INCONCLUSIVE, or contrast readjudication returns INCONCLUSIVE.",
+  "engineering_failure": "Any hard integrity gate fails, a checkpoint fails identity verification, or a device/IO error aborts the run.",
+  "what_would_change_our_mind": "A M0 token accuracy >= 0.80 with exact < 0.30 proves the endpoint was the bottleneck and that prior mechanism work was uninterpretable rather than negative.",
+  "what_would_kill_the_hypothesis": "M0 token accuracy < 0.30 with termination reproduced proves the identity family is genuinely absent at this scale, killing the instrument hypothesis and the vocabulary/mechanism line with it.",
+  "next_action_for_every_outcome": "Encoded in decision_tree.*.next_action and contrast_readjudication.*; none of them authorize scale, tokenizer change, or cognition claims.",
+
+  "hardware_target": {
+    "colab": "single NVIDIA T4, 15 GB. Drive-backed output with local-first write and retry-on-errno-107 sync.",
+    "kaggle": "GPU T4 x2. Optional 2-way shard by seed-bundle parity; identical results, lower wall time.",
+    "no_fallback": "CPU is permitted only for aggregation and the decision tree. GPU inference of all 16 checkpoints is required for the primary endpoint."
+  },
+
+  "compute_estimate": "16 model loads plus ~16 x 80 greedy generations of at most 32 tokens. Order 20-40 minutes on one T4; order 10-20 minutes on T4 x2 sharded. No training.",
+
+  "checkpoint_source": "The S5 returned result ZIP does NOT contain resume.pt. The exact-resume checkpoints remain in the Kaggle Output tree of the original S5 run under FORMATION_MUX_001/CS-MECH-002/<ARM>/S<1-4>/resume.pt. They must be attached as Kaggle Input or copied into the Drive folder before running.",
+
+  "frozen_science_touched": false
+}

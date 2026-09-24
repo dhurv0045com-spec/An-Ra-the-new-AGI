@@ -12,10 +12,29 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from dataclasses import dataclass
 from typing import Any, Callable
 
 
 ADAPTER_SCHEMA = "anra-v5-model-adapter/v1"
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationResult:
+    """Raw free-generation output plus the mechanically observed stop cause."""
+
+    text: str
+    terminated_eos: bool
+    generated_tokens: int
+    stop_reason: str
+
+    def assert_valid(self) -> None:
+        if self.stop_reason not in {"eos", "token_cap", "context_limit"}:
+            raise ValueError("generation stop reason is unknown")
+        if type(self.terminated_eos) is not bool or self.generated_tokens < 0:
+            raise ValueError("generation result has invalid EOS or token-count evidence")
+        if self.terminated_eos != (self.stop_reason == "eos"):
+            raise ValueError("EOS flag disagrees with generation stop reason")
 
 
 def _canonical_json(value: object) -> bytes:
@@ -78,4 +97,4 @@ def _assert_sha256(name: str, value: str) -> None:
         raise ValueError(f"{name} must be a lowercase SHA-256")
 
 
-__all__ = ["ADAPTER_SCHEMA", "ModelAdapter"]
+__all__ = ["ADAPTER_SCHEMA", "GenerationResult", "ModelAdapter"]

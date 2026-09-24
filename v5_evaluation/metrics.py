@@ -162,6 +162,88 @@ def conditional_realization_rate(records: list[Mapping[str, Any]]) -> float:
     return sum(1 for record in eligible if record.get("realized")) / len(eligible)
 
 
+def valid_eos_rate(records: list[Mapping[str, Any]]) -> float:
+    """Share of free-generation records that stopped on an observed EOS token."""
+
+    records = _require_records(records)
+    statuses = [record.get("termination_valid") for record in records]
+    if any(type(status) is not bool for status in statuses):
+        raise ValueError("VALID_EOS_RATE requires an observed boolean stop status for every task")
+    return sum(status is True for status in statuses) / len(statuses)
+
+
+def exact_and_eos_rate(records: list[Mapping[str, Any]]) -> float:
+    """Share of tasks with both an exact answer and an observed EOS stop."""
+
+    records = _require_records(records)
+    if any(type(record.get("termination_valid")) is not bool for record in records):
+        raise ValueError("EXACT_AND_EOS_RATE requires observed stop status for every task")
+    return sum(
+        bool(record.get("correct")) and record.get("termination_valid") is True
+        for record in records
+    ) / len(records)
+
+
+def _causal_pair_groups(records: list[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
+    groups: dict[str, list[tuple[Mapping[str, Any], Mapping[str, Any]]]] = {}
+    for record in records:
+        for pair in record.get("causal_pairs", ()):
+            pair_id = str(pair["pair_id"])
+            groups.setdefault(pair_id, []).append((record, pair))
+    for pair_id, members in groups.items():
+        roles = {pair.get("pair_role") for _record, pair in members}
+        kinds = {pair.get("pair_kind") for _record, pair in members}
+        if len(members) != 2 or roles != {"base", "changed"} or len(kinds) != 1:
+            raise ValueError(f"malformed causal pair in scored evidence: {pair_id}")
+    if not groups:
+        raise ValueError("paired metric requires causal-pair metadata")
+    return groups
+
+
+def paired_counterfactual_sensitivity(records: list[Mapping[str, Any]]) -> float:
+    """Correctly answer both members and change output on sensitivity pairs."""
+
+    groups = _causal_pair_groups(_require_records(records))
+    selected = [
+        members for members in groups.values()
+        if members[0][1].get("pair_kind") in {"query_swap", "relevant_fact_swap", "state_swap"}
+    ]
+    if not selected:
+        raise ValueError("no sensitivity pairs in scored evidence")
+    successes = 0
+    for members in selected:
+        base, _ = next(item for item in members if item[1].get("pair_role") == "base")
+        changed, _ = next(item for item in members if item[1].get("pair_role") == "changed")
+        successes += int(
+            bool(base.get("correct"))
+            and bool(changed.get("correct"))
+            and base.get("raw_output") != changed.get("raw_output")
+        )
+    return successes / len(selected)
+
+
+def paired_invariance_stability(records: list[Mapping[str, Any]]) -> float:
+    """Correctly answer both members and preserve output on invariance pairs."""
+
+    groups = _causal_pair_groups(_require_records(records))
+    selected = [
+        members for members in groups.values()
+        if members[0][1].get("pair_kind") in {"irrelevant_fact_swap", "order_permutation"}
+    ]
+    if not selected:
+        raise ValueError("no invariance pairs in scored evidence")
+    successes = 0
+    for members in selected:
+        base, _ = next(item for item in members if item[1].get("pair_role") == "base")
+        changed, _ = next(item for item in members if item[1].get("pair_role") == "changed")
+        successes += int(
+            bool(base.get("correct"))
+            and bool(changed.get("correct"))
+            and base.get("raw_output") == changed.get("raw_output")
+        )
+    return successes / len(selected)
+
+
 METRIC_REGISTRY: dict[str, Callable[[list[Mapping[str, Any]]], float]] = {
     "EXACT_ACCURACY": exact_accuracy,
     "CANDIDATE_RANK1": candidate_rank1,
@@ -169,6 +251,10 @@ METRIC_REGISTRY: dict[str, Callable[[list[Mapping[str, Any]]], float]] = {
     "GOLD_SUFFIX_NLL": gold_suffix_nll,
     "BALANCED_ACCURACY": balanced_accuracy,
     "CONDITIONAL_REALIZATION": conditional_realization_rate,
+    "VALID_EOS_RATE": valid_eos_rate,
+    "EXACT_AND_EOS_RATE": exact_and_eos_rate,
+    "PAIRED_COUNTERFACTUAL_SENSITIVITY": paired_counterfactual_sensitivity,
+    "PAIRED_INVARIANCE_STABILITY": paired_invariance_stability,
 }
 
 
@@ -182,10 +268,14 @@ __all__ = [
     "candidate_rank1",
     "conditional_realization",
     "conditional_realization_rate",
+    "exact_and_eos_rate",
     "exact_accuracy",
     "gold_suffix_nll",
     "invariance_stability",
     "loss_regression",
+    "paired_counterfactual_sensitivity",
+    "paired_invariance_stability",
     "sensitivity_flip_rate",
+    "valid_eos_rate",
     "wilson_lcb",
 ]

@@ -142,11 +142,7 @@ def qualify_frontier(repo: Path, public_path: Path, out: Path) -> dict[str, Any]
         ),
     ]
     procs = [v9.v8.v7.spawn_logged(cmds[i], gpu=i, repo=repo) for i in (0, 1)]
-    codes = [p.wait() for p in procs]
-    for p in procs:
-        handle = getattr(p, "_formation_mux_log_handle", None)
-        if handle is not None:
-            handle.close()
+    codes = v9.v8.v7.wait_and_close(procs)
     receipt["dual_t4_worker_codes"] = codes
     if codes != [0, 0]:
         receipt["status"] = "GPU_E2E_FAIL"
@@ -252,9 +248,12 @@ def run_frontier(repo: Path, public_path: Path, out: Path, calibration: dict[str
 
         for gpu, (job, proc) in running.items():
             code = proc.wait()
-            handle = getattr(proc, "_formation_mux_log_handle", None)
-            if handle is not None:
-                handle.close()
+            try:
+                handle = getattr(proc, "_formation_mux_log_handle", None)
+                if handle is not None:
+                    handle.close()
+            except Exception:
+                pass
             key = f"{job['experiment']}/{job['arm']}/{job['seed_bundle_label']}"
             if code == 0:
                 state["arms"][key] = "COMPLETE"
@@ -264,6 +263,12 @@ def run_frontier(repo: Path, public_path: Path, out: Path, calibration: dict[str
                 state["global_failure"] = f"frontier worker exit {code} at {key}"
                 stop = True
             _atomic_json(state_path, state)
+            v9.v8.v7.heartbeat(
+                done=len([v for v in state["arms"].values() if v == "COMPLETE"]),
+                total=frontier.total_official_arms(),
+                started=operator_started,
+                label="FRONTIER",
+            )
 
     complete = _scan_frontier_completed(out)
     state["arms"].update(complete)
@@ -379,12 +384,24 @@ def _set_marker(out: Path, experiment: str, state: str) -> None:
     })
 
 
-def finalize_frontier_sealed(public_path: Path, out: Path, torch: Any, tokenizer: Any) -> dict[str, Any]:
+def _coordinator_device(torch: Any) -> Any:
+    """Eval-only coordinator device: cuda:0 when a GPU is visible, else cpu.
+
+    Architecture: training workers always need pinned CUDA, but dev-finalize,
+    diagnostics and sealed scoring are eval-only. A CPU-only Kaggle session
+    (free, unlimited quota) can run --finalize-only with identical custody,
+    markers and claim ceiling — slower, but zero GPU-h.
+    """
+    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+def finalize_frontier_sealed(public_path: Path, out: Path, torch: Any, tokenizer: Any, device: Any = None) -> dict[str, Any]:
     from anra_v5 import tie_role_train_v1 as train
     from v5_experiments.formation_mux_surface_v5 import load_public_surface, regenerate_sealed_rows
 
     public = load_public_surface(public_path)
-    device = torch.device("cuda:0")
+    if device is None:
+        device = _coordinator_device(torch)
     finals: dict[str, Any] = {}
     for experiment in frontier.EXPERIMENTS:
         final_path = out / experiment / "FINAL_RESULT.json"
@@ -540,7 +557,115 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     p.add_argument("--out", type=Path, default=v9.v8.CAMPAIGN_ROOT)
     p.add_argument("--skip-sealed", action="store_true")
+    # Architecture (quota stretcher): --finalize-only runs zero training —
+    # dev-finalize + diagnostics + sealed scoring + packaging on the
+    # coordinator device (cpu when no GPU is visible: free quota). Fails
+    # closed unless prior GPU sessions left ARMS_COMPLETE state on disk.
+    p.add_argument("--finalize-only", action="store_true")
+    # Architecture (clip-choke triage): --lr-probe-only runs the 30-minute
+    # engineering-only M0 clip diagnostic (no science change, no sealed reads)
+    # and exits. Non-blocking advisory for the S6 decision.
+    p.add_argument("--lr-probe-only", action="store_true")
     args = p.parse_args(argv)
+    repo, out = args.repo.resolve(), args.out.resolve()
+    operator_started = time.monotonic()
+    # Architecture: the pilot NO-GO gate guards FRONTIER compute only. The
+    # probe (S5 triage) and finalize-only (packaging/sealed reuse) must work
+    # while the gate is closed, so they branch BEFORE the assert. The normal
+    # train path keeps the entry assert AND creates no output before it (the
+    # blocked-operator test requires zero filesystem side effects on NO-GO).
+    if args.lr_probe_only:
+        # Standalone triage: no S5/frontier flow, no sealed touch.
+        from tools.formation_mux_lr_clip_probe_v1 import run_probe
+        import torch as _torch
+
+        out.mkdir(parents=True, exist_ok=True)
+        try:
+            receipt = run_probe(
+                repo=repo, out=out, torch=_torch,
+                device=_torch.device(
+                    "cuda:0" if _torch.cuda.is_available() else "cpu"
+                ),
+            )
+        except (RuntimeError, FileNotFoundError) as exc:
+            print(f"LR_CLIP_PROBE FAIL-CLOSED: {exc}", file=sys.stderr, flush=True)
+            return 4
+        print("LR_CLIP_PROBE:", json.dumps(receipt), flush=True)
+        return 0
+    if args.finalize_only:
+        # Zero-training path: prior GPU sessions must have completed S5 arms.
+        # Frontier sections run only if frontier arms completed on disk; a
+        # never-launched frontier is skipped (recorded), not failed.
+        import torch
+
+        from v5_data.corpus_loading import _load_tokenizer
+        from v5_experiments.formation_mux_surface_v5 import load_public_surface
+
+        device = _coordinator_device(torch)
+        try:
+            s5_state = json.loads((out / "CAMPAIGN_STATE.json").read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            print(
+                "FINALIZE_ONLY FAIL-CLOSED: no CAMPAIGN_STATE.json on disk; "
+                "run GPU train sessions first and attach their Output.",
+                file=sys.stderr, flush=True,
+            )
+            return 4
+        if s5_state.get("status") != "ARMS_COMPLETE":
+            raise v9.v8.v7.base.GlobalIntegrityError(
+                "finalize-only requires S5 ARMS_COMPLETE on disk; "
+                "run GPU train sessions first and attach their Output"
+            )
+        fstate_path = out / FRONTIER_STATE
+        frontier_complete = False
+        frontier_present = fstate_path.exists()
+        if frontier_present:
+            fstate = json.loads(fstate_path.read_text(encoding="utf-8"))
+            if fstate.get("status") != "ARMS_COMPLETE":
+                raise v9.v8.v7.base.GlobalIntegrityError(
+                    "finalize-only requires frontier ARMS_COMPLETE once launched; "
+                    f"observed {fstate.get('status')}"
+                )
+            frontier_complete = True
+        public_path = out / "PUBLIC_SURFACE_MANIFEST.json"
+        load_public_surface(public_path)
+        tokenizer, _ = _load_tokenizer(repo)
+        print(f"FINALIZE_ONLY on {device} (no training, no qualifier).", flush=True)
+        gradient_diag = None
+        if frontier_complete:
+            for experiment in frontier.EXPERIMENTS:
+                dev = finalize_frontier_dev(out, experiment)
+                if dev.get("status") != "DEVELOPMENT_COMPLETE":
+                    package_frontier(out, repo)
+                    return 0
+            from tools.formation_mux_001_tie_role_gradient_diag_v1 import run_diagnostic
+            gradient_diag = run_diagnostic(
+                public_path=public_path, out=out, torch=torch, device=device,
+            )
+        v9.run_xfactor(public_path, out, torch, device=device)
+        if not args.skip_sealed:
+            if frontier_complete:
+                finalize_frontier_sealed(public_path, out, torch, tokenizer, device=device)
+            v9._ORIGINAL_FINALIZE_SEALED(public_path, out, torch, tokenizer, device=device)
+            v9.v8.v7._sync_sealed_state(out)
+            if frontier_complete:
+                architecture_gate(out, gradient_diag)
+        environment_path = out / "ENVIRONMENT.json"
+        if environment_path.exists():
+            environment = json.loads(environment_path.read_text(encoding="utf-8"))
+            environment["canonical_operator"] = OPERATOR_NAME
+            environment["frontier_extension"] = frontier.EXTENSION
+            environment["finalize_only_device"] = str(device)
+            environment["frontier_finalized"] = frontier_complete
+            _atomic_json(environment_path, environment)
+        bundle = package_frontier(out, repo)
+        print("FINALIZE_ONLY COMPLETE:", json.dumps(bundle), flush=True)
+        return 0
+    try:
+        frontier.assert_frontier_launch_allowed()
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        return 4
     repo, out = args.repo.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     operator_started = time.monotonic()
@@ -585,18 +710,19 @@ def main(argv: list[str] | None = None) -> int:
         # All development is now frozen. Run both development-only diagnostics
         # before raw sealed rows can enter coordinator memory.
         from tools.formation_mux_001_tie_role_gradient_diag_v1 import run_diagnostic
+        coordinator = _coordinator_device(torch)
         gradient_diag = run_diagnostic(
             public_path=public_path,
             out=out,
             torch=torch,
-            device=torch.device("cuda:0"),
+            device=coordinator,
         )
-        v9.run_xfactor(public_path, out, torch)
+        v9.run_xfactor(public_path, out, torch, device=coordinator)
 
         if not args.skip_sealed:
-            finalize_frontier_sealed(public_path, out, torch, tokenizer)
+            finalize_frontier_sealed(public_path, out, torch, tokenizer, device=coordinator)
             # Frozen S5 sealed evaluation happens only after frontier dev+diagnostics.
-            v9._ORIGINAL_FINALIZE_SEALED(public_path, out, torch, tokenizer)
+            v9._ORIGINAL_FINALIZE_SEALED(public_path, out, torch, tokenizer, device=coordinator)
             v9.v8.v7._sync_sealed_state(out)
             architecture_gate(out, gradient_diag)
 

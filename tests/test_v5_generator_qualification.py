@@ -105,6 +105,33 @@ class QualificationTests(unittest.TestCase):
         self.assertEqual(receipt["verdict"], "GENERATOR_NOT_QUALIFIED")
         self.assertGreater(receipt["heuristic_excesses"]["bag_of_words"], 0.5)
 
+    def test_current_interference_grid_certificate_passes_cellwise_shortcut_audit(self) -> None:
+        import json
+
+        cert = json.load(
+            open("artifacts/e0/development_certificate_e0_eval_0_7_0.json", encoding="utf-8")
+        )
+        self.assertEqual(cert["schema"], "esoes-e0-development-certificate/v5")
+        self.assertEqual(cert["suite"]["generator_version"], "e0-eval/0.7.0")
+        self.assertTrue(cert["checks"]["interference_dose_position_grid_covered"])
+        self.assertTrue(cert["checks"]["interference_grid_shortcut_heuristics_fail"])
+        self.assertTrue(cert["checks"]["interference_grid_seed_positions_balanced"])
+        self.assertEqual(cert["suite"]["family_histogram"]["interference_retrieval"], 40)
+        self.assertTrue(cert["checks"]["faithful_realization_family_present"])
+        self.assertEqual(cert["suite"]["family_histogram"]["faithful_realization"], 32)
+        for cells in cert["shortcut_audit"]["interference_retrieval_cell_heuristics"].values():
+            self.assertEqual({row["seeds"] for row in cells.values()}, {64})
+            self.assertEqual({row["cases"] for row in cells.values()}, {128})
+
+        receipt = qualify_family(
+            cert,
+            "interference_retrieval",
+            generator_id="e0-eval/0.7.0",
+            generator_sha256=cert["suite"]["sha256"],
+        )
+        self.assertEqual(receipt["verdict"], "GENERATOR_QUALIFIED")
+        self.assertLessEqual(receipt["worst_excess"], MAX_SHORTCUT_EXCESS)
+
 
 if __name__ == "__main__":
     unittest.main()

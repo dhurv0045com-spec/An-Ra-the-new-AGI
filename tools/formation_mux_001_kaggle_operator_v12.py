@@ -71,6 +71,29 @@ def frontier_storage_preflight(out: Path) -> dict[str, Any]:
 
 
 def qualify_frontier_with_storage(repo: Path, public_path: Path, out: Path) -> dict[str, Any]:
+    # Architecture: fail fast on disk BEFORE spending GPU quota on the
+    # qualifier. Estimate the frontier footprint from the already-measured S5
+    # calibration checkpoints (upper bound); the precise frontier preflight
+    # still runs after the qualifier creates real frontier checkpoints.
+    try:
+        s5_ckpts = list((out / "calibration").rglob("resume.pt"))
+        if s5_ckpts:
+            s5_max = max(p.stat().st_size for p in s5_ckpts)
+            usage = shutil.disk_usage(
+                Path("/kaggle/working") if Path("/kaggle/working").exists() else out.parent
+            )
+            # Qualifier needs 2 slots + full frontier campaign + 2 GiB reserve.
+            need = (frontier.total_official_arms() + 2) * s5_max + STORAGE_RESERVE_BYTES
+            if usage.free < need:
+                raise v10.v9.v8.v7.base.GlobalIntegrityError(
+                    "frontier disk pre-estimate failed before qualifier: "
+                    f"free={usage.free} need~{need} (S5 upper bound); "
+                    "attach more saved working output or free space and rerun"
+                )
+    except v10.v9.v8.v7.base.GlobalIntegrityError:
+        raise
+    except Exception:
+        pass
     receipt = _ORIGINAL_QUALIFY_FRONTIER(repo, public_path, out)
     storage = frontier_storage_preflight(out)
     receipt = dict(receipt)

@@ -15,7 +15,7 @@ GLOBAL_MARKERS = (
     "identity mismatch", "identity drift", "manifest hash", "shortcut screen",
     "not registered", "not preregistered", "production-tokenizer surface invalid",
     "latent scientific token escaped", "protocol", "SEALED_FIREWALL_BREACH",
-    "public surface",
+    "public surface", "TIE_ROLE_PILOT_NO_GO",
 )
 
 
@@ -35,9 +35,20 @@ def main(argv=None) -> int:
     args = p.parse_args(argv)
     started = time.monotonic()
     try:
+        proto.assert_frontier_launch_allowed()
         import torch
         from anra_v5 import tie_role_train_v1 as train
         from v5_experiments.formation_mux_surface_v5 import load_public_surface
+        # Architecture: 1 proc : 1 GPU via CUDA_VISIBLE_DEVICES (see S5 worker).
+        if str(args.device).startswith("cuda"):
+            if not torch.cuda.is_available():
+                raise RuntimeError("CUDA GPU required; select Kaggle GPU T4 x2")
+            if torch.cuda.device_count() != 1:
+                raise RuntimeError(
+                    "worker must see exactly one pinned CUDA device; observed "
+                    f"{torch.cuda.device_count()} (parent must pin CUDA_VISIBLE_DEVICES)"
+                )
+            torch.cuda.set_device(0)
 
         arms = proto.ARMS_A if args.experiment == proto.EXPERIMENT_A else proto.ARMS_B
         if args.arm not in arms:

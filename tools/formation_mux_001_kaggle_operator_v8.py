@@ -186,11 +186,16 @@ def storage_preflight(out: Path) -> dict[str, Any]:
     return receipt
 
 
-def finalize_sealed(public_path: Path, out: Path, torch: Any, tokenizer: Any) -> dict[str, Any]:
+def finalize_sealed(public_path: Path, out: Path, torch: Any, tokenizer: Any, device: Any = None) -> dict[str, Any]:
     from anra_v5 import formation_mux_train_v5 as train
     from v5_experiments.formation_mux_surface_v5 import load_public_surface, regenerate_sealed_rows
     public = load_public_surface(public_path)
-    device = torch.device("cuda:0")
+    # Architecture (quota stretcher): sealed scoring is eval-only and runs on
+    # the coordinator device — cuda:0 on GPU sessions (unchanged default),
+    # cpu on CPU-only finalize sessions (free quota). Sealed-row custody,
+    # markers and claim ceiling are identical on both paths.
+    if device is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     finals = {}
     for experiment in proto.EXPERIMENTS:
         final_path = out / experiment / "FINAL_RESULT.json"

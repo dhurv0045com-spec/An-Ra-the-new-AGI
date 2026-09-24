@@ -77,6 +77,49 @@ def verify_science(repo: Path) -> dict[str, str]:
     return hashes
 
 
+def hardware_receipt_nvidia_smi() -> dict[str, Any] | None:
+    """T4x2 receipt WITHOUT initializing torch CUDA in the parent.
+
+    Architecture: the coordinator spawns two workers pinned 1 proc : 1 GPU.
+    If the parent calls torch.cuda.* first, it holds a CUDA context (several
+    hundred MB) on physical GPU0 while the GPU0 worker needs the full 15 GB.
+    Query via nvidia-smi subprocess instead so the parent never contends with
+    its own workers. Returns None when nvidia-smi is unavailable.
+    """
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total",
+             "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, check=True,
+        )
+    except Exception:
+        return None
+    devices = []
+    for i, line in enumerate(out.stdout.strip().splitlines()):
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) != 2:
+            continue
+        try:
+            vram_gb = float(parts[1]) / 1024.0
+        except ValueError:
+            continue
+        devices.append({"index": i, "name": parts[0], "vram_gb": vram_gb})
+    if not devices:
+        return None
+    ok = (
+        len(devices) == 2
+        and all("T4" in d["name"] for d in devices)
+        and all(14.0 <= d["vram_gb"] <= 17.0 for d in devices)
+    )
+    return {
+        "schema": "anra.formation-mux-hardware/v2",
+        "source": "nvidia-smi (no parent torch CUDA context)",
+        "cuda_available": True,
+        "devices": devices,
+        "official_t4x2": ok,
+    }
+
+
 def hardware_receipt(torch: Any) -> dict[str, Any]:
     devices = []
     if torch.cuda.is_available():
@@ -105,6 +148,23 @@ def hardware_receipt(torch: Any) -> dict[str, Any]:
 
 
 def require_hardware(torch: Any) -> dict[str, Any]:
+    # Prefer the no-CUDA-context path so the coordinator never contends with
+    # its own GPU0 worker. Fall back to torch only when nvidia-smi is absent.
+    smi = hardware_receipt_nvidia_smi()
+    if smi is not None:
+        receipt = dict(smi)
+        try:
+            receipt["torch"] = torch.__version__
+            receipt["cuda"] = torch.version.cuda
+        except Exception:
+            pass
+        if not receipt["official_t4x2"]:
+            raise GlobalIntegrityError(
+                "OFFICIAL EXECUTION BLOCKED: select Kaggle Notebook -> Settings -> "
+                "Accelerator -> GPU T4 x2 and Internet -> ON. Exact official run "
+                f"requires two visible T4s; observed {[d['name'] for d in receipt['devices']]}"
+            )
+        return receipt
     receipt = hardware_receipt(torch)
     if not receipt["official_t4x2"]:
         raise GlobalIntegrityError(
@@ -158,6 +218,16 @@ def _env_for_gpu(gpu: int) -> dict[str, str]:
     env["OMP_NUM_THREADS"] = "1"
     env["MKL_NUM_THREADS"] = "1"
     env["TOKENIZERS_PARALLELISM"] = "false"
+    # Architecture: single-process-per-GPU workers must not fragment the T4
+    # caching allocator on variable-length sequences. This must be set before
+    # the worker process starts (env inheritance); setting it after torch
+    # import inside the worker is too late. setdefault so an explicit caller
+    # override is respected.
+    env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+    # Architecture: 8h+ campaigns must stream heartbeats past nbclient silent-
+    # cell timeouts. Force unbuffered worker/operator stdout at the process
+    # contract level, not per-print.
+    env["PYTHONUNBUFFERED"] = "1"
     return env
 
 

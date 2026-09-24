@@ -1,4 +1,14 @@
-# doexperiment.md — the CYMEK experiment queue
+# doexperiment.md — the CYMEK experiment queue [HISTORICAL PLANNING — DO NOT EXECUTE DIRECTLY]
+
+> Historical status (2026-09-18, `cymek-next-core-architecture`): this queue is preserved
+> unedited below as evidence. The sole authoritative next-Core order is now
+> `docs/cymek/research/NEXT_7_EXPERIMENTS_V51.md` (FORMATION-MUX-001 S5 executed,
+> INCONCLUSIVE_AT_ZERO_BASELINE; next single action is metric-resolution audit +
+> FORMATION-BASELINE-GATE-001 / FORMATION-DIAG-001). Any experiment below needs a fresh
+> hash-bound preregistration before execution. CS-TRANSFER-001 is COMPLETE
+> (PARTIAL_OR_INTERACTION, V24576 retained) and must not be re-run as if unfinished.
+
+# doexperiment.md — the CYMEK experiment queue (original header preserved)
 
 Written 2026-09-09 by the Cymek research/engineering agent, at operator
 request: "whatever experiments you think should be done, no matter how

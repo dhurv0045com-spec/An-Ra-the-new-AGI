@@ -1,0 +1,38 @@
+{
+  "schema": "anra.formation-mux-s6-preregistration/v1",
+  "status": "PROSPECTIVE_DRAFT (not frozen, not executable)",
+  "amendment": "docs/cymek/experiments/FORMATION-MUX-001/AMENDMENT_S6_PROSPECTIVE.md",
+  "frozen_reference": {
+    "science_commit_s5": "c15ad8beb409537db42d075684ea54847a074ebd",
+    "s5_verdicts_unchanged": {"CS-MECH-002": "NULL", "REP-FORM-003A": "NULL"},
+    "s5_corrected_interpretation": "INCONCLUSIVE_AT_ZERO_BASELINE"
+  },
+  "question": "Does the S5 identity floor lift under a narrow LR/schedule bracket with correct row-LR propagation, holding all S5 arms/seeds/mixtures fixed?",
+  "claim_ceiling": "S6 can only re-adjudicate the S5 contrasts on a resolved instrument; it cannot authorize tokenizer/vocabulary change, scale, cognition or AGI claims.",
+  "hardware_target": "Kaggle GPU T4 x2, exact-resume, wall-guarded (same ops as S5)",
+  "surface": {
+    "seed": 73011,
+    "training": "same frozen S5 60k six-family rows",
+    "development": "same frozen S5 public development rows",
+    "sealed": "same sealed commitments, consumed once after dev freeze"
+  },
+  "model_and_optimizer": {
+    "geometry": "exact frozen S5 8L/256w V24576 tied-embedding control (M0_STANDARD)",
+    "change": "row-LR follows main-schedule LR (S6 diff); constant-LR S5 control arm retained for comparison",
+    "bracket": ["LR 3e-4 (down)", "LR 1e-3 (S5 control)", "LR 3e-3 only if pre-outcome stability proof passes"],
+    "global_clip": 1.0
+  },
+  "entry_gate": {
+    "lr_clip_probe": "CHOKED or MIXED on both/either probe lane, OR baseline-gate GO with clip_fraction >= 0.99",
+    "otherwise": "do not open S6; run metric-resolution audit + baseline gate first"
+  },
+  "primary": "identity formation AUC + identity exact+valid-EOS on M0 per LR, matched seeds",
+  "kill_rule": "no clip relief AND no formation change across the bracket closes the optimizer line",
+  "sealed": "one-shot, after development freeze, never steers",
+  "to_freeze_before_execution": [
+    "exact S6 file diff",
+    "new science commit",
+    "S6 surface/seed/endpoint/threshold freeze",
+    "pre-execution audit + RUN_READINESS_S6.json"
+  ]
+}

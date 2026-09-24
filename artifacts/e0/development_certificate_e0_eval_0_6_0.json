@@ -1,0 +1,4411 @@
+{
+  "baselines": {
+    "bag_of_words": {
+      "accuracy": 0.5269607843137255,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5294117647058824,
+          "12": 0.041666666666666664,
+          "16": 0.09375,
+          "17": 0.0,
+          "2": 0.873015873015873,
+          "3": 0.2894736842105263,
+          "33": 0.0,
+          "4": 0.5616438356164384,
+          "5": 0.25,
+          "8": 1.0,
+          "9": 0.375
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.4,
+          "3": 0.1,
+          "4": 0.375
+        },
+        "demonstrations": {
+          "2": 0.16666666666666666,
+          "3": 0.1,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.68,
+          "1": 0.5862068965517241,
+          "10": 0.0,
+          "11": 0.05555555555555555,
+          "15": 0.09375,
+          "16": 0.0,
+          "2": 0.5,
+          "3": 1.0,
+          "32": 0.0,
+          "4": 0.25,
+          "7": 1.0,
+          "8": 0.375
+        },
+        "hops": {
+          "0": 0.8333333333333334,
+          "1": 0.44642857142857145,
+          "2": 0.34210526315789475,
+          "3": 0.23529411764705882,
+          "4": 0.375
+        },
+        "state_events": {
+          "12": 0.041666666666666664
+        },
+        "variables": {
+          "2": 0.041666666666666664
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.5,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.25,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.5,
+        "natural_composition_analogue": 0.0,
+        "natural_state_analogue": 0.0,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 1.0,
+        "relation_2_hop": 0.0,
+        "relation_3_hop": 0.0,
+        "rule_induction": 0.09375,
+        "state_overwrite": 0.0625
+      },
+      "correct": 215,
+      "total": 408
+    },
+    "broken_state_tracker": {
+      "accuracy": 0.24019607843137256,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.0625,
+          "16": 0.0625,
+          "17": 0.125,
+          "2": 0.30952380952380953,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.1917808219178082,
+          "5": 0.375,
+          "8": 0.16,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.26436781609195403,
+          "10": 0.08333333333333333,
+          "11": 0.05555555555555555,
+          "15": 0.0625,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 0.16,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3055555555555556,
+          "1": 0.25,
+          "2": 0.21052631578947367,
+          "3": 0.11764705882352941,
+          "4": 0.25
+        },
+        "state_events": {
+          "12": 0.0625
+        },
+        "variables": {
+          "2": 0.0625
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.175,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.1875,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.0
+      },
+      "correct": 98,
+      "total": 408
+    },
+    "deterministic_random": {
+      "accuracy": 0.25245098039215685,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.8823529411764706,
+          "12": 0.08333333333333333,
+          "16": 0.0625,
+          "17": 0.125,
+          "2": 0.2777777777777778,
+          "3": 0.3157894736842105,
+          "33": 0.0,
+          "4": 0.2191780821917808,
+          "5": 0.25,
+          "8": 0.0,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.0,
+          "3": 0.2,
+          "4": 0.25
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.1,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.48,
+          "1": 0.3448275862068966,
+          "10": 0.0,
+          "11": 0.1111111111111111,
+          "15": 0.0625,
+          "16": 0.125,
+          "2": 0.16666666666666666,
+          "3": 0.1951219512195122,
+          "32": 0.0,
+          "4": 0.25,
+          "7": 0.0,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3263888888888889,
+          "1": 0.26785714285714285,
+          "2": 0.17105263157894737,
+          "3": 0.17647058823529413,
+          "4": 0.125
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.21875,
+        "entity_value_binding": 0.0875,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.15,
+        "matched_direct_retrieval": 0.2708333333333333,
+        "missing_information": 0.8125,
+        "natural_binding_analogue": 0.375,
+        "natural_composition_analogue": 0.125,
+        "natural_state_analogue": 0.125,
+        "nonce_identifier_retrieval": 0.3125,
+        "relation_1_hop": 0.6875,
+        "relation_2_hop": 0.3125,
+        "relation_3_hop": 0.375,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.0625
+      },
+      "correct": 103,
+      "total": 408
+    },
+    "direct_retrieval_control": {
+      "accuracy": 0.5343137254901961,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.08333333333333333,
+          "16": 0.0625,
+          "17": 0.125,
+          "2": 0.746031746031746,
+          "3": 0.5263157894736842,
+          "33": 0.0,
+          "4": 0.6301369863013698,
+          "5": 0.375,
+          "8": 1.0,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.6436781609195402,
+          "10": 0.08333333333333333,
+          "11": 0.08333333333333333,
+          "15": 0.0625,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 1.0,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 1.0,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.9236111111111112,
+          "1": 0.32142857142857145,
+          "2": 0.34210526315789475,
+          "3": 0.3088235294117647,
+          "4": 0.25
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 1.0,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.0625,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.09375
+      },
+      "correct": 218,
+      "total": 408
+    },
+    "first_candidate": {
+      "accuracy": 0.2426470588235294,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.08333333333333333,
+          "16": 0.0625,
+          "17": 0.125,
+          "2": 0.30952380952380953,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.1917808219178082,
+          "5": 0.375,
+          "8": 0.16,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.26436781609195403,
+          "10": 0.08333333333333333,
+          "11": 0.08333333333333333,
+          "15": 0.0625,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 0.16,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3055555555555556,
+          "1": 0.25892857142857145,
+          "2": 0.21052631578947367,
+          "3": 0.11764705882352941,
+          "4": 0.25
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.175,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.0625,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.09375
+      },
+      "correct": 99,
+      "total": 408
+    },
+    "fixed_identity_rule": {
+      "accuracy": 0.23774509803921567,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.08333333333333333,
+          "16": 0.0,
+          "17": 0.125,
+          "2": 0.30952380952380953,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.1917808219178082,
+          "5": 0.375,
+          "8": 0.16,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.0,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.26436781609195403,
+          "10": 0.08333333333333333,
+          "11": 0.08333333333333333,
+          "15": 0.0,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 0.16,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3055555555555556,
+          "1": 0.25892857142857145,
+          "2": 0.21052631578947367,
+          "3": 0.11764705882352941,
+          "4": 0.0
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.175,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.0625,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.0,
+        "state_overwrite": 0.09375
+      },
+      "correct": 97,
+      "total": 408
+    },
+    "fixed_repeat_left_rule": {
+      "accuracy": 0.24754901960784315,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.08333333333333333,
+          "16": 0.125,
+          "17": 0.125,
+          "2": 0.30952380952380953,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.1917808219178082,
+          "5": 0.375,
+          "8": 0.16,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.16666666666666666,
+          "3": 0.2,
+          "4": 0.0
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.26436781609195403,
+          "10": 0.08333333333333333,
+          "11": 0.08333333333333333,
+          "15": 0.125,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 0.16,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3055555555555556,
+          "1": 0.25892857142857145,
+          "2": 0.21052631578947367,
+          "3": 0.17647058823529413,
+          "4": 0.0
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.175,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.0625,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.09375
+      },
+      "correct": 101,
+      "total": 408
+    },
+    "fixed_repeat_right_rule": {
+      "accuracy": 0.24754901960784315,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.08333333333333333,
+          "16": 0.125,
+          "17": 0.125,
+          "2": 0.30952380952380953,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.1917808219178082,
+          "5": 0.375,
+          "8": 0.16,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.0,
+          "3": 0.2,
+          "4": 0.2
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.26436781609195403,
+          "10": 0.08333333333333333,
+          "11": 0.08333333333333333,
+          "15": 0.125,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 0.16,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3055555555555556,
+          "1": 0.25892857142857145,
+          "2": 0.21052631578947367,
+          "3": 0.17647058823529413,
+          "4": 0.0
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.175,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.0625,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.09375
+      },
+      "correct": 101,
+      "total": 408
+    },
+    "fixed_reverse_rule": {
+      "accuracy": 0.24754901960784315,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.6470588235294118,
+          "12": 0.08333333333333333,
+          "16": 0.125,
+          "17": 0.125,
+          "2": 0.30952380952380953,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.1917808219178082,
+          "5": 0.375,
+          "8": 0.16,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.16666666666666666,
+          "3": 0.0,
+          "4": 0.2
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.26436781609195403,
+          "10": 0.08333333333333333,
+          "11": 0.08333333333333333,
+          "15": 0.125,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 0.16,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3055555555555556,
+          "1": 0.25892857142857145,
+          "2": 0.2631578947368421,
+          "3": 0.11764705882352941,
+          "4": 0.0
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.175,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 0.375,
+        "missing_information": 0.3125,
+        "natural_binding_analogue": 0.3125,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.0625,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.375,
+        "relation_2_hop": 0.125,
+        "relation_3_hop": 0.125,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.09375
+      },
+      "correct": 101,
+      "total": 408
+    },
+    "full_truth_oracle": {
+      "accuracy": 1.0,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 1.0,
+          "12": 1.0,
+          "16": 1.0,
+          "17": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "33": 1.0,
+          "4": 1.0,
+          "5": 1.0,
+          "8": 1.0,
+          "9": 1.0
+        },
+        "context_position_quartile": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "demonstrations": {
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "distractors": {
+          "0": 1.0,
+          "1": 1.0,
+          "10": 1.0,
+          "11": 1.0,
+          "15": 1.0,
+          "16": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "32": 1.0,
+          "4": 1.0,
+          "7": 1.0,
+          "8": 1.0
+        },
+        "hops": {
+          "0": 1.0,
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "state_events": {
+          "12": 1.0
+        },
+        "variables": {
+          "2": 1.0
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 1.0,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 1.0,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 1.0,
+        "natural_binding_analogue": 1.0,
+        "natural_composition_analogue": 1.0,
+        "natural_state_analogue": 1.0,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 1.0,
+        "relation_2_hop": 1.0,
+        "relation_3_hop": 1.0,
+        "rule_induction": 1.0,
+        "state_overwrite": 1.0
+      },
+      "correct": 408,
+      "total": 408
+    },
+    "last_candidate": {
+      "accuracy": 0.31862745098039214,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.8235294117647058,
+          "12": 0.125,
+          "16": 0.125,
+          "17": 0.0,
+          "2": 0.42063492063492064,
+          "3": 0.42105263157894735,
+          "33": 0.0,
+          "4": 0.273972602739726,
+          "5": 0.125,
+          "8": 0.04,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.3333333333333333,
+          "2": 0.1,
+          "3": 0.1,
+          "4": 0.0
+        },
+        "demonstrations": {
+          "2": 0.25,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.58,
+          "1": 0.4367816091954023,
+          "10": 0.08333333333333333,
+          "11": 0.1388888888888889,
+          "15": 0.125,
+          "16": 0.0,
+          "2": 0.5,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.125,
+          "7": 0.04,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.3680555555555556,
+          "1": 0.3125,
+          "2": 0.2894736842105263,
+          "3": 0.27941176470588236,
+          "4": 0.125
+        },
+        "state_events": {
+          "12": 0.125
+        },
+        "variables": {
+          "2": 0.125
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.375,
+        "entity_value_binding": 0.1875,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.15,
+        "matched_direct_retrieval": 0.4583333333333333,
+        "missing_information": 0.6875,
+        "natural_binding_analogue": 0.4375,
+        "natural_composition_analogue": 0.1875,
+        "natural_state_analogue": 0.125,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.5,
+        "rule_induction": 0.125,
+        "state_overwrite": 0.125
+      },
+      "correct": 130,
+      "total": 408
+    },
+    "latest_fact": {
+      "accuracy": 0.30637254901960786,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5294117647058824,
+          "12": 0.22916666666666666,
+          "16": 0.0625,
+          "17": 0.0,
+          "2": 0.47619047619047616,
+          "3": 0.23684210526315788,
+          "33": 0.0,
+          "4": 0.2328767123287671,
+          "5": 0.25,
+          "8": 0.24,
+          "9": 0.0
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.0,
+          "3": 0.2,
+          "4": 0.25
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.56,
+          "1": 0.3735632183908046,
+          "10": 0.4166666666666667,
+          "11": 0.16666666666666666,
+          "15": 0.0625,
+          "16": 0.0,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.25,
+          "7": 0.24,
+          "8": 0.0
+        },
+        "hops": {
+          "0": 0.3402777777777778,
+          "1": 0.36607142857142855,
+          "2": 0.23684210526315788,
+          "3": 0.22058823529411764,
+          "4": 0.25
+        },
+        "state_events": {
+          "12": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.3125,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.15,
+        "matched_direct_retrieval": 0.5416666666666666,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.25,
+        "natural_composition_analogue": 0.25,
+        "natural_state_analogue": 0.1875,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.1875,
+        "relation_3_hop": 0.25,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.25
+      },
+      "correct": 125,
+      "total": 408
+    },
+    "lexical_overlap": {
+      "accuracy": 0.5098039215686274,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5,
+          "12": 0.08333333333333333,
+          "16": 0.0625,
+          "17": 0.125,
+          "2": 0.8253968253968254,
+          "3": 0.2631578947368421,
+          "33": 0.0,
+          "4": 0.5616438356164384,
+          "5": 0.375,
+          "8": 1.0,
+          "9": 0.125
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.3,
+          "3": 0.2,
+          "4": 0.125
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.54,
+          "1": 0.5862068965517241,
+          "10": 0.16666666666666666,
+          "11": 0.05555555555555555,
+          "15": 0.0625,
+          "16": 0.125,
+          "2": 0.3333333333333333,
+          "3": 1.0,
+          "32": 0.0,
+          "4": 0.375,
+          "7": 1.0,
+          "8": 0.125
+        },
+        "hops": {
+          "0": 0.8333333333333334,
+          "1": 0.4107142857142857,
+          "2": 0.3157894736842105,
+          "3": 0.23529411764705882,
+          "4": 0.25
+        },
+        "state_events": {
+          "12": 0.08333333333333333
+        },
+        "variables": {
+          "2": 0.08333333333333333
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 1.0,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.2,
+        "matched_direct_retrieval": 1.0,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.5,
+        "natural_composition_analogue": 0.0,
+        "natural_state_analogue": 0.1875,
+        "nonce_identifier_retrieval": 1.0,
+        "relation_1_hop": 1.0,
+        "relation_2_hop": 0.0,
+        "relation_3_hop": 0.0,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.03125
+      },
+      "correct": 208,
+      "total": 408
+    },
+    "nearest_position": {
+      "accuracy": 0.33088235294117646,
+      "by_difficulty": {
+        "cardinality": {
+          "1": 0.5294117647058824,
+          "12": 0.22916666666666666,
+          "16": 0.0625,
+          "17": 0.0,
+          "2": 0.47619047619047616,
+          "3": 0.4473684210526316,
+          "33": 0.0,
+          "4": 0.2602739726027397,
+          "5": 0.25,
+          "8": 0.24,
+          "9": 0.0
+        },
+        "context_position_quartile": {
+          "1": 0.16666666666666666,
+          "2": 0.0,
+          "3": 0.2,
+          "4": 0.25
+        },
+        "demonstrations": {
+          "2": 0.08333333333333333,
+          "3": 0.0,
+          "4": 0.1
+        },
+        "distractors": {
+          "0": 0.56,
+          "1": 0.43103448275862066,
+          "10": 0.4166666666666667,
+          "11": 0.16666666666666666,
+          "15": 0.0625,
+          "16": 0.0,
+          "2": 0.3333333333333333,
+          "3": 0.21951219512195122,
+          "32": 0.0,
+          "4": 0.25,
+          "7": 0.24,
+          "8": 0.0
+        },
+        "hops": {
+          "0": 0.375,
+          "1": 0.36607142857142855,
+          "2": 0.27631578947368424,
+          "3": 0.25,
+          "4": 0.25
+        },
+        "state_events": {
+          "12": 0.22916666666666666
+        },
+        "variables": {
+          "2": 0.22916666666666666
+        }
+      },
+      "by_family": {
+        "counterfactual_premise": 0.3125,
+        "entity_value_binding": 0.3125,
+        "exact_contextual_copy": 1.0,
+        "interference_retrieval": 0.15,
+        "matched_direct_retrieval": 0.5416666666666666,
+        "missing_information": 0.0,
+        "natural_binding_analogue": 0.5625,
+        "natural_composition_analogue": 0.3125,
+        "natural_state_analogue": 0.1875,
+        "nonce_identifier_retrieval": 0.25,
+        "relation_1_hop": 0.625,
+        "relation_2_hop": 0.375,
+        "relation_3_hop": 0.3125,
+        "rule_induction": 0.0625,
+        "state_overwrite": 0.25
+      },
+      "correct": 135,
+      "total": 408
+    }
+  },
+  "checks": {
+    "broken_state_tracker_fails_state": true,
+    "context_position_axes_covered": true,
+    "copy_is_not_selection_control": true,
+    "counterfactual_pairs_mechanical": true,
+    "difficulty_axes_covered": true,
+    "direct_retrieval_does_not_solve_composition": true,
+    "full_oracle_exact": true,
+    "hidden_truth_excluded_from_model_view": true,
+    "independent_surface_solver_agreement": true,
+    "interference_dose_position_grid_covered": true,
+    "interference_grid_seed_positions_balanced": true,
+    "interference_grid_shortcut_heuristics_fail": true,
+    "multiple_rule_structures": true,
+    "natural_analogues_present": true,
+    "no_dominant_answer_position": true,
+    "output_format_axes_covered": true,
+    "random_baseline_below_50pct": true,
+    "random_control_matches_calculated_chance": true,
+    "rule_shortcuts_fail": true,
+    "sensitivity_and_invariance_pairs_present": true,
+    "split_namespaces_disjoint": true,
+    "state_semantic_query_axes_covered": true,
+    "state_serialization_is_shuffled": true,
+    "state_shortcut_heuristics_fail": true,
+    "suite_contracts": true,
+    "training_eval_templates_disjoint": true
+  },
+  "limitations": [
+    "No model has been evaluated by this certificate.",
+    "Heuristic baselines are leak detectors, not claims of benchmark difficulty.",
+    "The real sealed seed and fixture must be created under independent custody."
+  ],
+  "schema": "esoes-e0-development-certificate/v4",
+  "scope": "development infrastructure only; not a V5 model result",
+  "sealed_policy": {
+    "fixture_in_repository": false,
+    "required_before_promotion": "external seed custody plus committed SHA-256 commitment",
+    "seed_in_repository": false,
+    "sentinel_hash": "955168a27cbb81ef5ac2e06286d27aebffde2390165f6952f4d932130760be75"
+  },
+  "shortcut_audit": {
+    "interference_retrieval_cell_heuristics": {
+      "bag_of_words": {
+        "0:1": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.5,
+          "condition_role": "no-distractor-control",
+          "correct": 128,
+          "dose": 0,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:1": {
+          "accuracy": 0.078125,
+          "calibrated_chance": 0.058823529411764705,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 10,
+          "dose": 16,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "0": 26,
+            "1": 24,
+            "2": 26,
+            "3": 26,
+            "4": 26
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:2": {
+          "accuracy": 0.0546875,
+          "calibrated_chance": 0.058823529411764705,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 7,
+          "dose": 16,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "5": 32,
+            "6": 32,
+            "7": 32,
+            "8": 32
+          },
+          "position_support": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:3": {
+          "accuracy": 0.046875,
+          "calibrated_chance": 0.058823529411764705,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 6,
+          "dose": 16,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "10": 32,
+            "11": 32,
+            "12": 32,
+            "9": 32
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:4": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.058823529411764705,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 16,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "13": 32,
+            "14": 32,
+            "15": 32,
+            "16": 32
+          },
+          "position_support": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:1": {
+          "accuracy": 0.3671875,
+          "calibrated_chance": 0.3333333333333333,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 47,
+          "dose": 2,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:2": {
+          "accuracy": 0.328125,
+          "calibrated_chance": 0.3333333333333333,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 42,
+          "dose": 2,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "1": 128
+          },
+          "position_support": [
+            1
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:3": {
+          "accuracy": 0.2890625,
+          "calibrated_chance": 0.3333333333333333,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 37,
+          "dose": 2,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:1": {
+          "accuracy": 0.046875,
+          "calibrated_chance": 0.030303030303030304,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 6,
+          "dose": 32,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "0": 14,
+            "1": 16,
+            "2": 14,
+            "3": 14,
+            "4": 14,
+            "5": 14,
+            "6": 14,
+            "7": 14,
+            "8": 14
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:2": {
+          "accuracy": 0.03125,
+          "calibrated_chance": 0.030303030303030304,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 4,
+          "dose": 32,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "10": 16,
+            "11": 16,
+            "12": 16,
+            "13": 16,
+            "14": 16,
+            "15": 16,
+            "16": 16,
+            "9": 16
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:3": {
+          "accuracy": 0.046875,
+          "calibrated_chance": 0.030303030303030304,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 6,
+          "dose": 32,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "17": 16,
+            "18": 16,
+            "19": 16,
+            "20": 16,
+            "21": 16,
+            "22": 16,
+            "23": 16,
+            "24": 16
+          },
+          "position_support": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:4": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.030303030303030304,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 32,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "25": 16,
+            "26": 16,
+            "27": 16,
+            "28": 16,
+            "29": 16,
+            "30": 16,
+            "31": 16,
+            "32": 16
+          },
+          "position_support": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:1": {
+          "accuracy": 0.265625,
+          "calibrated_chance": 0.2,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 34,
+          "dose": 4,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "0": 64,
+            "1": 64
+          },
+          "position_support": [
+            0,
+            1
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:2": {
+          "accuracy": 0.2109375,
+          "calibrated_chance": 0.2,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 27,
+          "dose": 4,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:3": {
+          "accuracy": 0.2109375,
+          "calibrated_chance": 0.2,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 27,
+          "dose": 4,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "3": 128
+          },
+          "position_support": [
+            3
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:4": {
+          "accuracy": 0.2421875,
+          "calibrated_chance": 0.2,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 31,
+          "dose": 4,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "4": 128
+          },
+          "position_support": [
+            4
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:1": {
+          "accuracy": 0.09375,
+          "calibrated_chance": 0.1111111111111111,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 12,
+          "dose": 8,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "0": 44,
+            "1": 42,
+            "2": 42
+          },
+          "position_support": [
+            0,
+            1,
+            2
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:2": {
+          "accuracy": 0.1015625,
+          "calibrated_chance": 0.1111111111111111,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 13,
+          "dose": 8,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "3": 64,
+            "4": 64
+          },
+          "position_support": [
+            3,
+            4
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:3": {
+          "accuracy": 0.1171875,
+          "calibrated_chance": 0.1111111111111111,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 15,
+          "dose": 8,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "5": 64,
+            "6": 64
+          },
+          "position_support": [
+            5,
+            6
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:4": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.1111111111111111,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 8,
+          "null_method": "uniform-present-payload-candidate",
+          "position_index_histogram": {
+            "7": 64,
+            "8": 64
+          },
+          "position_support": [
+            7,
+            8
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        }
+      },
+      "first_candidate": {
+        "0:1": {
+          "accuracy": 0.5,
+          "calibrated_chance": 0.5,
+          "cases": 128,
+          "chance": 0.5,
+          "condition_role": "no-distractor-control",
+          "correct": 64,
+          "dose": 0,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:1": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 26,
+            "1": 24,
+            "2": 26,
+            "3": 26,
+            "4": 26
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:2": {
+          "accuracy": 0.03125,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 4,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "5": 32,
+            "6": 32,
+            "7": 32,
+            "8": 32
+          },
+          "position_support": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:3": {
+          "accuracy": 0.078125,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 10,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "10": 32,
+            "11": 32,
+            "12": 32,
+            "9": 32
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:4": {
+          "accuracy": 0.046875,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 6,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "13": 32,
+            "14": 32,
+            "15": 32,
+            "16": 32
+          },
+          "position_support": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:1": {
+          "accuracy": 0.234375,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 30,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:2": {
+          "accuracy": 0.234375,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 30,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "1": 128
+          },
+          "position_support": [
+            1
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:3": {
+          "accuracy": 0.2421875,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 31,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:1": {
+          "accuracy": 0.0234375,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 3,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 14,
+            "1": 16,
+            "2": 14,
+            "3": 14,
+            "4": 14,
+            "5": 14,
+            "6": 14,
+            "7": 14,
+            "8": 14
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:2": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "10": 16,
+            "11": 16,
+            "12": 16,
+            "13": 16,
+            "14": 16,
+            "15": 16,
+            "16": 16,
+            "9": 16
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:3": {
+          "accuracy": 0.03125,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 4,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "17": 16,
+            "18": 16,
+            "19": 16,
+            "20": 16,
+            "21": 16,
+            "22": 16,
+            "23": 16,
+            "24": 16
+          },
+          "position_support": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:4": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "25": 16,
+            "26": 16,
+            "27": 16,
+            "28": 16,
+            "29": 16,
+            "30": 16,
+            "31": 16,
+            "32": 16
+          },
+          "position_support": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:1": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 64,
+            "1": 64
+          },
+          "position_support": [
+            0,
+            1
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:2": {
+          "accuracy": 0.1796875,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 23,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:3": {
+          "accuracy": 0.1796875,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 23,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "3": 128
+          },
+          "position_support": [
+            3
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:4": {
+          "accuracy": 0.171875,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 22,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "4": 128
+          },
+          "position_support": [
+            4
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:1": {
+          "accuracy": 0.0546875,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 7,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 44,
+            "1": 42,
+            "2": 42
+          },
+          "position_support": [
+            0,
+            1,
+            2
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:2": {
+          "accuracy": 0.1015625,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 13,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "3": 64,
+            "4": 64
+          },
+          "position_support": [
+            3,
+            4
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:3": {
+          "accuracy": 0.09375,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 12,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "5": 64,
+            "6": 64
+          },
+          "position_support": [
+            5,
+            6
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:4": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "7": 64,
+            "8": 64
+          },
+          "position_support": [
+            7,
+            8
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        }
+      },
+      "last_candidate": {
+        "0:1": {
+          "accuracy": 0.5,
+          "calibrated_chance": 0.5,
+          "cases": 128,
+          "chance": 0.5,
+          "condition_role": "no-distractor-control",
+          "correct": 64,
+          "dose": 0,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:1": {
+          "accuracy": 0.046875,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 6,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 26,
+            "1": 24,
+            "2": 26,
+            "3": 26,
+            "4": 26
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:2": {
+          "accuracy": 0.0859375,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 11,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "5": 32,
+            "6": 32,
+            "7": 32,
+            "8": 32
+          },
+          "position_support": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:3": {
+          "accuracy": 0.0546875,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 7,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "10": 32,
+            "11": 32,
+            "12": 32,
+            "9": 32
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:4": {
+          "accuracy": 0.078125,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 10,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "13": 32,
+            "14": 32,
+            "15": 32,
+            "16": 32
+          },
+          "position_support": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:1": {
+          "accuracy": 0.2421875,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 31,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:2": {
+          "accuracy": 0.25,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 32,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "1": 128
+          },
+          "position_support": [
+            1
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:3": {
+          "accuracy": 0.28125,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 36,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:1": {
+          "accuracy": 0.03125,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 4,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 14,
+            "1": 16,
+            "2": 14,
+            "3": 14,
+            "4": 14,
+            "5": 14,
+            "6": 14,
+            "7": 14,
+            "8": 14
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:2": {
+          "accuracy": 0.0546875,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 7,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "10": 16,
+            "11": 16,
+            "12": 16,
+            "13": 16,
+            "14": 16,
+            "15": 16,
+            "16": 16,
+            "9": 16
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:3": {
+          "accuracy": 0.0234375,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 3,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "17": 16,
+            "18": 16,
+            "19": 16,
+            "20": 16,
+            "21": 16,
+            "22": 16,
+            "23": 16,
+            "24": 16
+          },
+          "position_support": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:4": {
+          "accuracy": 0.0234375,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 3,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "25": 16,
+            "26": 16,
+            "27": 16,
+            "28": 16,
+            "29": 16,
+            "30": 16,
+            "31": 16,
+            "32": 16
+          },
+          "position_support": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:1": {
+          "accuracy": 0.15625,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 20,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 64,
+            "1": 64
+          },
+          "position_support": [
+            0,
+            1
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:2": {
+          "accuracy": 0.1640625,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 21,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:3": {
+          "accuracy": 0.1640625,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 21,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "3": 128
+          },
+          "position_support": [
+            3
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:4": {
+          "accuracy": 0.1640625,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 21,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "4": 128
+          },
+          "position_support": [
+            4
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:1": {
+          "accuracy": 0.140625,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 18,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 44,
+            "1": 42,
+            "2": 42
+          },
+          "position_support": [
+            0,
+            1,
+            2
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:2": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "3": 64,
+            "4": 64
+          },
+          "position_support": [
+            3,
+            4
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:3": {
+          "accuracy": 0.109375,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 14,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "5": 64,
+            "6": 64
+          },
+          "position_support": [
+            5,
+            6
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:4": {
+          "accuracy": 0.09375,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 12,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "7": 64,
+            "8": 64
+          },
+          "position_support": [
+            7,
+            8
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        }
+      },
+      "latest_fact": {
+        "0:1": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.5,
+          "condition_role": "no-distractor-control",
+          "correct": 128,
+          "dose": 0,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 26,
+            "1": 24,
+            "2": 26,
+            "3": 26,
+            "4": 26
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "5": 32,
+            "6": 32,
+            "7": 32,
+            "8": 32
+          },
+          "position_support": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "10": 32,
+            "11": 32,
+            "12": 32,
+            "9": 32
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:4": {
+          "accuracy": 0.25,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 32,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "13": 32,
+            "14": 32,
+            "15": 32,
+            "16": 32
+          },
+          "position_support": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 2,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 2,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "1": 128
+          },
+          "position_support": [
+            1
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:3": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 128,
+          "dose": 2,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 14,
+            "1": 16,
+            "2": 14,
+            "3": 14,
+            "4": 14,
+            "5": 14,
+            "6": 14,
+            "7": 14,
+            "8": 14
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "10": 16,
+            "11": 16,
+            "12": 16,
+            "13": 16,
+            "14": 16,
+            "15": 16,
+            "16": 16,
+            "9": 16
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "17": 16,
+            "18": 16,
+            "19": 16,
+            "20": 16,
+            "21": 16,
+            "22": 16,
+            "23": 16,
+            "24": 16
+          },
+          "position_support": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:4": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.125,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "25": 16,
+            "26": 16,
+            "27": 16,
+            "28": 16,
+            "29": 16,
+            "30": 16,
+            "31": 16,
+            "32": 16
+          },
+          "position_support": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 64,
+            "1": 64
+          },
+          "position_support": [
+            0,
+            1
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "3": 128
+          },
+          "position_support": [
+            3
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:4": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 128,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "4": 128
+          },
+          "position_support": [
+            4
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 44,
+            "1": 42,
+            "2": 42
+          },
+          "position_support": [
+            0,
+            1,
+            2
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "3": 64,
+            "4": 64
+          },
+          "position_support": [
+            3,
+            4
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "5": 64,
+            "6": 64
+          },
+          "position_support": [
+            5,
+            6
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:4": {
+          "accuracy": 0.5,
+          "calibrated_chance": 0.5,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 64,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "7": 64,
+            "8": 64
+          },
+          "position_support": [
+            7,
+            8
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        }
+      },
+      "lexical_overlap": {
+        "0:1": {
+          "accuracy": 0.5,
+          "calibrated_chance": 0.5,
+          "cases": 128,
+          "chance": 0.5,
+          "condition_role": "no-distractor-control",
+          "correct": 64,
+          "dose": 0,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:1": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 26,
+            "1": 24,
+            "2": 26,
+            "3": 26,
+            "4": 26
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:2": {
+          "accuracy": 0.03125,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 4,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "5": 32,
+            "6": 32,
+            "7": 32,
+            "8": 32
+          },
+          "position_support": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:3": {
+          "accuracy": 0.078125,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 10,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "10": 32,
+            "11": 32,
+            "12": 32,
+            "9": 32
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:4": {
+          "accuracy": 0.046875,
+          "calibrated_chance": 0.05555555555555542,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 6,
+          "dose": 16,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "13": 32,
+            "14": 32,
+            "15": 32,
+            "16": 32
+          },
+          "position_support": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:1": {
+          "accuracy": 0.234375,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 30,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:2": {
+          "accuracy": 0.234375,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 30,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "1": 128
+          },
+          "position_support": [
+            1
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:3": {
+          "accuracy": 0.2421875,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 31,
+          "dose": 2,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:1": {
+          "accuracy": 0.0234375,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 3,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 14,
+            "1": 16,
+            "2": 14,
+            "3": 14,
+            "4": 14,
+            "5": 14,
+            "6": 14,
+            "7": 14,
+            "8": 14
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:2": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "10": 16,
+            "11": 16,
+            "12": 16,
+            "13": 16,
+            "14": 16,
+            "15": 16,
+            "16": 16,
+            "9": 16
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:3": {
+          "accuracy": 0.03125,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 4,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "17": 16,
+            "18": 16,
+            "19": 16,
+            "20": 16,
+            "21": 16,
+            "22": 16,
+            "23": 16,
+            "24": 16
+          },
+          "position_support": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:4": {
+          "accuracy": 0.0390625,
+          "calibrated_chance": 0.029411764705882276,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 5,
+          "dose": 32,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "25": 16,
+            "26": 16,
+            "27": 16,
+            "28": 16,
+            "29": 16,
+            "30": 16,
+            "31": 16,
+            "32": 16
+          },
+          "position_support": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:1": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 64,
+            "1": 64
+          },
+          "position_support": [
+            0,
+            1
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:2": {
+          "accuracy": 0.1796875,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 23,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:3": {
+          "accuracy": 0.1796875,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 23,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "3": 128
+          },
+          "position_support": [
+            3
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:4": {
+          "accuracy": 0.171875,
+          "calibrated_chance": 0.16666666666666677,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 22,
+          "dose": 4,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "4": 128
+          },
+          "position_support": [
+            4
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:1": {
+          "accuracy": 0.0546875,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 7,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "0": 44,
+            "1": 42,
+            "2": 42
+          },
+          "position_support": [
+            0,
+            1,
+            2
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:2": {
+          "accuracy": 0.1015625,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 13,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "3": 64,
+            "4": 64
+          },
+          "position_support": [
+            3,
+            4
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:3": {
+          "accuracy": 0.09375,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 12,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "5": 64,
+            "6": 64
+          },
+          "position_support": [
+            5,
+            6
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:4": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.09999999999999977,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 8,
+          "null_method": "casewise-uniform-candidate",
+          "position_index_histogram": {
+            "7": 64,
+            "8": 64
+          },
+          "position_support": [
+            7,
+            8
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        }
+      },
+      "nearest_position": {
+        "0:1": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.5,
+          "condition_role": "no-distractor-control",
+          "correct": 128,
+          "dose": 0,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 26,
+            "1": 24,
+            "2": 26,
+            "3": 26,
+            "4": 26
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "5": 32,
+            "6": 32,
+            "7": 32,
+            "8": 32
+          },
+          "position_support": [
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "10": 32,
+            "11": 32,
+            "12": 32,
+            "9": 32
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "16:4": {
+          "accuracy": 0.25,
+          "calibrated_chance": 0.25,
+          "cases": 128,
+          "chance": 0.05555555555555542,
+          "condition_role": "interference-stress",
+          "correct": 32,
+          "dose": 16,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "13": 32,
+            "14": 32,
+            "15": 32,
+            "16": 32
+          },
+          "position_support": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 2,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 128
+          },
+          "position_support": [
+            0
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 2,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "1": 128
+          },
+          "position_support": [
+            1
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "2:3": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.25,
+          "condition_role": "interference-stress",
+          "correct": 128,
+          "dose": 2,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 14,
+            "1": 16,
+            "2": 14,
+            "3": 14,
+            "4": 14,
+            "5": 14,
+            "6": 14,
+            "7": 14,
+            "8": 14
+          },
+          "position_support": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "10": 16,
+            "11": 16,
+            "12": 16,
+            "13": 16,
+            "14": 16,
+            "15": 16,
+            "16": 16,
+            "9": 16
+          },
+          "position_support": [
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "17": 16,
+            "18": 16,
+            "19": 16,
+            "20": 16,
+            "21": 16,
+            "22": 16,
+            "23": 16,
+            "24": 16
+          },
+          "position_support": [
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "32:4": {
+          "accuracy": 0.125,
+          "calibrated_chance": 0.125,
+          "cases": 128,
+          "chance": 0.029411764705882276,
+          "condition_role": "interference-stress",
+          "correct": 16,
+          "dose": 32,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "25": 16,
+            "26": 16,
+            "27": 16,
+            "28": 16,
+            "29": 16,
+            "30": 16,
+            "31": 16,
+            "32": 16
+          },
+          "position_support": [
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 64,
+            "1": 64
+          },
+          "position_support": [
+            0,
+            1
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "2": 128
+          },
+          "position_support": [
+            2
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "3": 128
+          },
+          "position_support": [
+            3
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "4:4": {
+          "accuracy": 1.0,
+          "calibrated_chance": 1.0,
+          "cases": 128,
+          "chance": 0.16666666666666677,
+          "condition_role": "interference-stress",
+          "correct": 128,
+          "dose": 4,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "4": 128
+          },
+          "position_support": [
+            4
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:1": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "0": 44,
+            "1": 42,
+            "2": 42
+          },
+          "position_support": [
+            0,
+            1,
+            2
+          ],
+          "quartile": 1,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:2": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "3": 64,
+            "4": 64
+          },
+          "position_support": [
+            3,
+            4
+          ],
+          "quartile": 2,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:3": {
+          "accuracy": 0.0,
+          "calibrated_chance": 0.0,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 0,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "5": 64,
+            "6": 64
+          },
+          "position_support": [
+            5,
+            6
+          ],
+          "quartile": 3,
+          "seeds": 64,
+          "within_10pp_margin": true
+        },
+        "8:4": {
+          "accuracy": 0.5,
+          "calibrated_chance": 0.5,
+          "cases": 128,
+          "chance": 0.09999999999999977,
+          "condition_role": "interference-stress",
+          "correct": 64,
+          "dose": 8,
+          "null_method": "uniform-target-position-within-quartile",
+          "position_index_histogram": {
+            "7": 64,
+            "8": 64
+          },
+          "position_support": [
+            7,
+            8
+          ],
+          "quartile": 4,
+          "seeds": 64,
+          "within_10pp_margin": true
+        }
+      }
+    },
+    "interference_retrieval_heuristics": {
+      "bag_of_words": {
+        "accuracy": 0.175,
+        "calibrated_chance": 0.1328267973856214,
+        "cases": 320,
+        "chance": 0.1328267973856214,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "first_candidate": {
+        "accuracy": 0.1375,
+        "calibrated_chance": 0.1328267973856214,
+        "cases": 320,
+        "chance": 0.1328267973856214,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "last_candidate": {
+        "accuracy": 0.1375,
+        "calibrated_chance": 0.1328267973856214,
+        "cases": 320,
+        "chance": 0.1328267973856214,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "latest_fact": {
+        "accuracy": 0.19375,
+        "calibrated_chance": 0.18004753416518232,
+        "cases": 320,
+        "chance": 0.1328267973856214,
+        "null_method": "hypothetical-random-serialization",
+        "seeds": 8
+      },
+      "lexical_overlap": {
+        "accuracy": 0.1375,
+        "calibrated_chance": 0.1328267973856214,
+        "cases": 320,
+        "chance": 0.1328267973856214,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "nearest_position": {
+        "accuracy": 0.19375,
+        "calibrated_chance": 0.18004753416518232,
+        "cases": 320,
+        "chance": 0.1328267973856214,
+        "null_method": "hypothetical-random-serialization",
+        "seeds": 8
+      }
+    },
+    "interference_retrieval_shortcut_ceiling": 0.28004753416518235,
+    "policy": "every named heuristic must remain within its calibrated null + 10 percentage points",
+    "rule_induction_heuristics": {
+      "bag_of_words": {
+        "accuracy": 0.06640625,
+        "calibrated_chance": 0.0625,
+        "cases": 256,
+        "chance": 0.0625,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "fixed_identity_rule": {
+        "accuracy": 0.0,
+        "calibrated_chance": 0.0625,
+        "cases": 256,
+        "chance": 0.0625,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "fixed_repeat_left_rule": {
+        "accuracy": 0.125,
+        "calibrated_chance": 0.0625,
+        "cases": 256,
+        "chance": 0.0625,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "fixed_repeat_right_rule": {
+        "accuracy": 0.125,
+        "calibrated_chance": 0.0625,
+        "cases": 256,
+        "chance": 0.0625,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "fixed_reverse_rule": {
+        "accuracy": 0.125,
+        "calibrated_chance": 0.0625,
+        "cases": 256,
+        "chance": 0.0625,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      }
+    },
+    "rule_shortcut_ceiling": 0.1625,
+    "state_families": [
+      "natural_state_analogue",
+      "state_overwrite"
+    ],
+    "state_heuristics": {
+      "bag_of_words": {
+        "accuracy": 0.041666666666666664,
+        "calibrated_chance": 0.10370370370370431,
+        "cases": 384,
+        "chance": 0.10370370370370431,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "first_candidate": {
+        "accuracy": 0.11979166666666667,
+        "calibrated_chance": 0.10370370370370431,
+        "cases": 384,
+        "chance": 0.10370370370370431,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "last_candidate": {
+        "accuracy": 0.09375,
+        "calibrated_chance": 0.10370370370370431,
+        "cases": 384,
+        "chance": 0.10370370370370431,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "latest_fact": {
+        "accuracy": 0.13802083333333334,
+        "calibrated_chance": 0.12946428571428595,
+        "cases": 384,
+        "chance": 0.10370370370370431,
+        "null_method": "hypothetical-random-serialization",
+        "seeds": 8
+      },
+      "lexical_overlap": {
+        "accuracy": 0.1015625,
+        "calibrated_chance": 0.10370370370370431,
+        "cases": 384,
+        "chance": 0.10370370370370431,
+        "null_method": "casewise-uniform-candidate",
+        "seeds": 8
+      },
+      "nearest_position": {
+        "accuracy": 0.13802083333333334,
+        "calibrated_chance": 0.12946428571428595,
+        "cases": 384,
+        "chance": 0.10370370370370431,
+        "null_method": "hypothetical-random-serialization",
+        "seeds": 8
+      }
+    },
+    "state_shortcut_ceiling": 0.22946428571428595
+  },
+  "statistical_calibration": {
+    "answer_position_histogram_multi_candidate": {
+      "0": 83,
+      "1": 102,
+      "2": 63,
+      "3": 51,
+      "4": 14,
+      "5": 11,
+      "6": 10,
+      "7": 13,
+      "8": 8,
+      "9": 9,
+      "10": 4,
+      "11": 4,
+      "12": 3,
+      "13": 1,
+      "14": 4,
+      "15": 4,
+      "16": 1,
+      "18": 1,
+      "25": 1,
+      "26": 1,
+      "27": 2,
+      "30": 1,
+      "31": 1
+    },
+    "approx_n_per_arm_to_detect_chance_plus_10pp_at_80pct_power": {
+      "four_candidate": 329,
+      "two_candidate": 388
+    },
+    "deterministic_random_wilson_95": [
+      0.2127407644026355,
+      0.2967792324951369
+    ],
+    "maximum_answer_position_share": 0.2602040816326531,
+    "method_note": "Two-sided normal approximation for planning; final gates use paired/bootstrap or exact methods preregistered per metric.",
+    "uniform_candidate_chance": 0.26746123285915646
+  },
+  "statistical_protocol": {
+    "protocol": {
+      "binary_accuracy": {
+        "alpha": 0.05,
+        "paired_comparison": "exact-two-sided-sign-test-on-discordant-pairs",
+        "single_system_interval": "wilson-95-two-sided"
+      },
+      "conditional_realization": {
+        "denominator": "cases-with-correct-unassisted-selection",
+        "interval": "wilson-95-two-sided",
+        "minimum_eligible_cases": 100
+      },
+      "continuous_score_delta": {
+        "comparison": "paired-percentile-bootstrap",
+        "confidence": 0.95,
+        "resamples": 10000,
+        "seed_source": "evaluation-receipt-preregistered-seed"
+      },
+      "family_policy": {
+        "exploratory_multiple_tests": "holm-bonferroni",
+        "promotion": "conjunctive-worst-family-gates-no-averaging"
+      },
+      "query_flip": {
+        "gate": "lower-bound-versus-preregistered-threshold",
+        "interval": "wilson-95-two-sided"
+      },
+      "schema": "esoes-e0-statistical-protocol/v1",
+      "sealed_consumption": "any outcome-guided decision consumes the sealed fixture"
+    },
+    "sha256": "048412b55e00080ace55d4054050e5b44d2fca5c1b96d90d4497d18b1b219c31"
+  },
+  "status": "PASS",
+  "suite": {
+    "cases": 408,
+    "difficulty_axis_histograms": {
+      "cardinality": {
+        "1": 34,
+        "2": 126,
+        "3": 38,
+        "4": 73,
+        "5": 8,
+        "8": 25,
+        "9": 8,
+        "12": 48,
+        "16": 32,
+        "17": 8,
+        "33": 8
+      },
+      "context_position_quartile": {
+        "1": 12,
+        "2": 10,
+        "3": 10,
+        "4": 8
+      },
+      "demonstrations": {
+        "2": 12,
+        "3": 10,
+        "4": 10
+      },
+      "distractors": {
+        "0": 50,
+        "1": 174,
+        "2": 6,
+        "3": 41,
+        "4": 8,
+        "7": 25,
+        "8": 8,
+        "10": 12,
+        "11": 36,
+        "15": 32,
+        "16": 8,
+        "32": 8
+      },
+      "hops": {
+        "0": 144,
+        "1": 112,
+        "2": 76,
+        "3": 68,
+        "4": 8
+      },
+      "state_events": {
+        "12": 48
+      },
+      "variables": {
+        "2": 48
+      }
+    },
+    "family_histogram": {
+      "counterfactual_premise": 32,
+      "entity_value_binding": 80,
+      "exact_contextual_copy": 16,
+      "interference_retrieval": 40,
+      "matched_direct_retrieval": 48,
+      "missing_information": 16,
+      "natural_binding_analogue": 16,
+      "natural_composition_analogue": 16,
+      "natural_state_analogue": 16,
+      "nonce_identifier_retrieval": 16,
+      "relation_1_hop": 16,
+      "relation_2_hop": 16,
+      "relation_3_hop": 16,
+      "rule_induction": 32,
+      "state_overwrite": 32
+    },
+    "generator_version": "e0-eval/0.6.0",
+    "groups_per_family": 16,
+    "interference_retrieval_grid": {
+      "0": {
+        "1": 2
+      },
+      "16": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2
+      },
+      "2": {
+        "1": 2,
+        "2": 2,
+        "3": 2
+      },
+      "32": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2
+      },
+      "4": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2
+      },
+      "8": {
+        "1": 2,
+        "2": 2,
+        "3": 2,
+        "4": 2
+      }
+    },
+    "pair_effect_histogram": {
+      "invariance": 32,
+      "sensitivity": 100
+    },
+    "pair_histogram": {
+      "irrelevant_fact_swap": 16,
+      "order_permutation": 16,
+      "query_swap": 32,
+      "relevant_fact_swap": 52,
+      "state_swap": 16
+    },
+    "pairs": 132,
+    "rule_structures": [
+      "0,0,0,1",
+      "0,0,1",
+      "0,1,0",
+      "0,1,1",
+      "1,0",
+      "1,0,1",
+      "1,1,0",
+      "1,1,1,0"
+    ],
+    "seed": 271828,
+    "sha256": "a8ae89a7f8fe9a81afa67728529fdc186824fe8a89704c01c517c99e812bbe9f",
+    "split": "development",
+    "surface_axis_histograms": {
+      "analogue": {
+        "naturalistic": 16
+      },
+      "answer_format": {
+        "abstention": 16,
+        "boolean": 32,
+        "composite": 32,
+        "nonce-code": 232,
+        "nonce-entity": 96
+      },
+      "context_fact_count": {
+        "long": 105,
+        "medium": 115,
+        "short": 188
+      },
+      "payload_position_index": {
+        "0": 8,
+        "1": 2,
+        "15": 4,
+        "17": 2,
+        "2": 4,
+        "27": 2,
+        "3": 4,
+        "4": 4,
+        "5": 2,
+        "7": 6,
+        "9": 2
+      },
+      "payload_position_quartile": {
+        "1": 12,
+        "2": 10,
+        "3": 10,
+        "4": 8
+      },
+      "query_time_relation": {
+        "after-events": 12,
+        "between-events": 36
+      },
+      "relevant_position": {
+        "answer-absent": 16,
+        "back": 75,
+        "distributed": 164,
+        "front": 81,
+        "middle": 72
+      },
+      "rule_arity": {
+        "2": 4,
+        "3": 20,
+        "4": 8
+      },
+      "rule_structure": {
+        "0,0,0,1": 4,
+        "0,0,1": 4,
+        "0,1,0": 4,
+        "0,1,1": 4,
+        "1,0": 4,
+        "1,0,1": 4,
+        "1,1,0": 4,
+        "1,1,1,0": 4
+      },
+      "serialization": {
+        "demonstration-order-randomized": 32,
+        "naturalized-semantic-shuffled": 16,
+        "semantic-shuffled": 32
+      },
+      "state_query": {
+        "intermediate": 12,
+        "latest": 12,
+        "precedence": 12,
+        "rollback": 12
+      },
+      "variable_interleaving": {
+        "two-variable": 48
+      }
+    }
+  },
+  "training_generator": {
+    "examples_checked": 128,
+    "template_ids": [
+      "train.causal.counterfactual_sensitivity",
+      "train.causal.faithful_realization",
+      "train.causal.heldout_rule_induction",
+      "train.causal.identity_copy",
+      "train.causal.interference_retrieval",
+      "train.causal.missing_information",
+      "train.causal.query_binding",
+      "train.causal.relational_composition",
+      "train.causal.semantic_state"
+    ]
+  }
+}

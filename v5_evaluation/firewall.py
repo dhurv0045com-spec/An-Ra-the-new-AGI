@@ -45,6 +45,11 @@ class VisibleTask:
         lowered = self.prompt.lower()
         for marker in LEAK_MARKERS:
             if marker in lowered:
+                # A bare terminal "Answer:" is a common model-facing
+                # completion cue, not an evaluator label/value. Continue to
+                # reject it as soon as any content follows the colon.
+                if marker == "answer:" and lowered.rstrip().endswith(marker):
+                    continue
                 raise ValueError(
                     f"visible prompt embeds an evaluator-only assignment: {marker!r}"
                 )

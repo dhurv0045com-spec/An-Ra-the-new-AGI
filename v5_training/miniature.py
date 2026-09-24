@@ -1,8 +1,9 @@
 """Shared miniature data/tokenizer helpers for the production-path canaries.
 
 Binds the frozen 24,576-entry tokenizer artifact and the real first-party
-corpus (current-HEAD tracked text files, hashed as read) so the miniature and
-the accelerator canaries run identical, provenance-bound data loading.
+research-document allowlist (pinned by manifest and per-file hashes) so local
+and accelerator canaries use identical, provenance-bound data loading. This
+small development corpus is not the production training corpus.
 """
 
 from __future__ import annotations

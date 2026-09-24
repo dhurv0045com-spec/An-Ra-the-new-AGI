@@ -13,6 +13,7 @@ import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -23,6 +24,7 @@ from v5_data import materialize_first_party as mfp  # noqa: E402
 from v5_tokenizer.artifact import load_verified_tokenizer  # noqa: E402
 from v5_tokenizer.freeze_production import freeze_production_identity  # noqa: E402
 from v5_training.checkpoint import CheckpointStore  # noqa: E402
+from v5_training import production_entry as production_entry_module  # noqa: E402
 from v5_training.production_entry import (  # noqa: E402
     ENTRY_SCHEMA,
     MILESTONE_TOKENS,
@@ -259,6 +261,10 @@ def test_exact_completion_single_partial_update():
         last = result["last_update_receipt"]
         assert last["microsteps"] == 1
         assert 0 < last["supervised_tokens"] < 4000
+        assert last["loss_scope"] == "GLOBAL_BATCH_MEAN"
+        assert last["loss_denominator"] == last["supervised_tokens"]
+        assert last["loss_numerator"] >= 0.0
+        assert last["loss_aggregation_sha256"] is None
         assert sum(result["tokens_by_source"].values()) == 4000
         shape = result["microstep_shapes"][0]
         assert shape["requested_bucket"] == 512
@@ -591,22 +597,101 @@ def test_tpu_runtime_fails_closed():
             raise AssertionError("uncertified runtime did not fail closed")
 
 
-def test_xla_execution_fails_closed_without_hardware():
+def test_xla_execution_fails_closed_before_data_preparation():
     with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
         try:
-            _run(_documents(), torch, device, tmp, "xla-fail",
-                 campaign_tokens=4000, execution="xla")
+            with patch.object(
+                production_entry_module,
+                "prepare_data",
+                side_effect=AssertionError("XLA rejection occurred after data preparation"),
+            ):
+                run_campaign(
+                    documents=[],
+                    tokenizer=object(),
+                    model_spec=MINI_SPEC,
+                    run_id="xla-fail",
+                    seed=1,
+                    campaign_tokens=1,
+                    store_root=str(Path(tmp) / "xla-fail"),
+                    device=device,
+                    torch_module=torch,
+                    xb=object(),
+                    development_mode=True,
+                    execution="xla",
+                )
         except ValueError as exc:
             assert "TPU_EVIDENCE_REQUIRED" in str(exc)
+            assert "before data preparation" in str(exc)
         else:
             raise AssertionError("XLA execution did not fail closed")
         try:
-            _run(_documents(), torch, device, tmp, "xla-bad",
-                 campaign_tokens=4000, execution="tpu")
+            run_campaign(
+                documents=[], tokenizer=object(), model_spec=MINI_SPEC,
+                run_id="xla-bad", seed=1, campaign_tokens=1,
+                store_root=str(Path(tmp) / "xla-bad"), device=device,
+                torch_module=torch, xb=object(), development_mode=True,
+                execution="tpu",
+            )
         except ValueError as exc:
             assert "execution" in str(exc).lower()
         else:
             raise AssertionError("unknown execution mode was accepted")
+
+
+def test_host_replica_collective_requires_shared_update_coordinator():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        with patch.object(
+            production_entry_module,
+            "prepare_data",
+            side_effect=AssertionError("replica rejection occurred after data preparation"),
+        ):
+            try:
+                run_campaign(
+                    documents=[],
+                    tokenizer=object(),
+                    model_spec=MINI_SPEC,
+                    run_id="replica-coordinator-required",
+                    seed=1,
+                    campaign_tokens=1,
+                    store_root=str(Path(tmp) / "replica-coordinator-required"),
+                    device=device,
+                    torch_module=torch,
+                    xb=object(),
+                    development_mode=True,
+                    replica_collective=lambda _model: "0" * 64,
+                )
+            except ValueError as exc:
+                assert "checkpoint coordinator" in str(exc)
+            else:
+                raise AssertionError("replica collective ran without shared update agreement")
+
+
+def test_xla_development_requires_a_strict_one_or_two_update_bound():
+    with _seams()() as (torch, device), tempfile.TemporaryDirectory() as tmp:
+        for bound in (None, 0, 3, 1.5, True, False):
+            try:
+                with patch.object(
+                    production_entry_module,
+                    "prepare_data",
+                    side_effect=AssertionError(
+                        "invalid XLA development bound reached data preparation"
+                    ),
+                ):
+                    run_campaign(
+                        documents=[], tokenizer=object(), model_spec=MINI_SPEC,
+                        run_id=f"xla-dev-invalid-{bound}", seed=1,
+                        campaign_tokens=1,
+                        store_root=str(Path(tmp) / f"xla-dev-invalid-{bound}"),
+                        device=device, torch_module=torch, xb=object(),
+                        development_mode=True, execution="xla-development",
+                        max_updates=bound,
+                    )
+            except ValueError as exc:
+                assert "max_updates" in str(exc)
+            else:
+                raise AssertionError(
+                    f"XLA development accepted unsafe update bound {bound!r}"
+                )
 
 
 # -- contamination, provenance, mode -------------------------------------------------------
@@ -843,8 +928,11 @@ def test_banned_symbols_absent_from_entry_source():
         assert banned not in source, f"stale symbol survives: {banned}"
     for required in ("run_500m_session", "microstep_buckets",
                      "partial_microstep_plan", "checkpoint_every=None",
-                     "take_cell_window", "BucketCursorState"):
+                     "ProductionSampler", "BucketCursorState"):
         assert required in source, f"required construct missing: {required}"
+    sampler_source = (ROOT / "v5_training" / "production_sampler.py").read_text(
+        encoding="utf-8")
+    assert "take_cell_window" in sampler_source
 
 
 # -- helpers --------------------------------------------------------------------------
@@ -1228,7 +1316,7 @@ _TESTS = [
     test_lr_no_rewarm_after_resume,
     test_precision_receipt_matches_device,
     test_tpu_runtime_fails_closed,
-    test_xla_execution_fails_closed_without_hardware,
+    test_xla_execution_fails_closed_before_data_preparation,
     test_durable_mirror_session_recovery,
     test_production_requires_contamination_commitment,
     test_production_requires_mixture_and_freeze,
