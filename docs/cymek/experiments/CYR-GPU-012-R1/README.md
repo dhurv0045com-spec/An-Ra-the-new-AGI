@@ -16,4 +16,4 @@ Official preregistered verdict: `MIXED_OR_INTERMEDIATE_REPRESENTATION_EFFECT`.
 
 The strongest scientific interpretation is a large, apparently non-monotonic representation/optimization effect. This is one-seed developmental evidence, not proof that 4096 is universally optimal and not authorization for a production tokenizer change, PRE500M, 500M training, broad reasoning, or AGI claims.
 
-Read `RESULT.md` for the complete evidence boundary. The next recommended experiment is R1B: a replicated vocabulary-response curve with direct active/inactive-class competition diagnostics.
+Read `RESULT.md` for the complete evidence boundary. R1B was subsequently executed and is recorded in `../CYR-GPU-013-R1B/RESULT.md`; follow the current roadmap for the next research action.

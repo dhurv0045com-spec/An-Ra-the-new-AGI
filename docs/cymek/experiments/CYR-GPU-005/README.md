@@ -1,8 +1,8 @@
 # CYR-GPU-005 — shared-parent LR-retention fork campaign
 
-Status: **PREREGISTERED, PENDING_OPERATOR_EXECUTION** (see
-`RUN_READINESS.json` after the preregistration commit). No GPU science
-has run locally; the machine boundary is honored.
+Status: **SUPERSEDED_BEFORE_EXECUTION**. Do not launch CYR-GPU-005. Its
+historical operator notebook was removed from the active `notebooks/` list;
+the immutable preregistration and supersession audit remain here.
 
 One acquisition per seed → G90_CONFIRMED parent checkpoint → four forks
 restore THE SAME bytes and consume THE SAME future examples:
@@ -40,11 +40,10 @@ checkpoint P -------+--> FIXED_TIME_HIGH_TO_LOW (switch at τ=0.5 actual tokens)
   only, fails closed without CUDA.
 - `v5_experiments/xla_accumulation_oracle.py` — distributed CPU oracle
   + negative regression for the accumulation-boundary fix.
-- `notebooks/cymek_colab_gpu_research_v5.ipynb` — 3-cell thin operator
-  wrapper (bootstrap/verify/calibrate → run/resume → package/download).
+- The original notebook source hash remains in `PREREGISTRATION.json`; the
+  superseded launcher is not an active operator entry point.
 - Tests: `tests/test_v5_cyr_gpu005_core.py`,
   `tests/test_v5_cyr_gpu005_plumbing_e2e.py`,
   `tests/test_v5_cyr_gpu005_freeze_sim.py`,
-  `tests/test_v5_cyr_gpu005_notebook.py`,
   `tests/test_v5_xla_accumulation_oracle.py`.
 - Receipt: `artifacts/v5/cyr_gpu_005_test_receipt.json`.

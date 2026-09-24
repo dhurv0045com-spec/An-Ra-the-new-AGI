@@ -15,7 +15,7 @@ Updated: 2026-09-20. One canonical queue; older roadmaps (`doexperiment.md`, `ag
 | 6 | TPU-SYSTEM-007 | early TPU systems qualification (engineering, parallel track) | parallel |
 | 7 | M102-INTEGRATED-008 | integrated mid-scale pilot; NOT authorized until 1-5 earn it | gated |
 
-## FORMATION-MUX-001 current binding
+## FORMATION-MUX-001 S5 historical execution record
 
 Pre-execution audit history is preserved and must not be launched:
 
@@ -24,13 +24,13 @@ Pre-execution audit history is preserved and must not be launched:
 - S3 `e157835a52a41696ca56512477584fd267391ced`: repaired clip isolation, then superseded before outcomes for sealed custody;
 - S4 `ad25f6944cdd5ac5f47a6bf3a667322cb985314b`: repaired sealed custody, then superseded prospectively before outcomes to remove severe small-surface reuse and bind long-run checkpoint durability.
 
-Current prospective execution authority:
+The following records identify the completed S5 execution; they do not authorize a re-run:
 
 - **Science S5:** `c15ad8beb409537db42d075684ea54847a074ebd`;
-- **canonical operator:** `tools/formation_mux_001_kaggle_operator_v12.py` (storage-hardened + quota lanes; commit/blob pins STALE — re-pin notebook Cell 1 after commit);
-- **canonical notebook:** `notebooks/CYMEK_FORMATION_MUX_001_KAGGLE_T4X2.ipynb` (schema v12: GPU-train Cell 2 `--skip-sealed`, optional probe Cell 2b `--lr-probe-only`, CPU-finalize Cell 2c `--finalize-only` at zero GPU-h, status Cell 3);
-- **readiness:** `docs/cymek/experiments/FORMATION-MUX-001/RUN_READINESS_V5.json`;
-- official execution requires Kaggle `GPU T4 x2` and Internet ON for train cells; finalize Cell 2c runs on Accelerator=None (free quota), CPU device, identical sealed custody;
+- **operator used:** `tools/formation_mux_001_kaggle_operator_v12.py` (storage-hardened + quota lanes);
+- **historical operator:** the S5 notebook was used for the completed campaign and removed from the active `notebooks/` launch queue. Its frozen experiment record and preregistered source hash remain under `docs/cymek/experiments/FORMATION-MUX-001/`;
+- **readiness record:** `docs/cymek/experiments/FORMATION-MUX-001/RUN_READINESS_V5.json`;
+- The original S5 session used Kaggle `GPU T4 x2` with Internet enabled for training; this is historical run configuration;
 - S5 EXECUTED on Kaggle T4 x2 (8.14 h, 24/24 official arms COMPLETE, both sealed evaluations COMPLETE, no global failure, no wall-guard truncation).
 
 ## FORMATION-MUX-001 S5 observed outcome (post-outcome, does NOT alter frozen preregistration)

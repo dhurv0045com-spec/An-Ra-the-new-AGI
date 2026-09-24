@@ -378,34 +378,6 @@ def test_production_tokenizer_render_path():
     assert len(ids) > 0 and max(ids) < 24576
 
 
-def test_notebook_fail_hard():
-    import json
-    notebook = json.loads(
-        (ROOT / "notebooks" / "cymek_colab_gpu_research_v2.ipynb").read_text(
-            encoding="utf-8"))
-    blob = json.dumps(notebook)
-    assert "| tail" not in blob, "failure-masking pipe in notebook"
-    assert "run_checked" in blob, "notebook must fail hard on commands"
-    assert "COLAB_GPU" in blob
-    joined = "\n".join(
-        "".join(cell["source"]) for cell in notebook["cells"]
-        if cell["cell_type"] == "code")
-    assert '"--mode", "full"' in joined
-    assert "assert completed.returncode == 0" in joined
-    assert notebook["nbformat"] == 4
-    code_cells = [cell["source"] for cell in notebook["cells"]
-                  if cell["cell_type"] == "code"]
-    assert len(code_cells) == 3
-    for cell in code_cells:
-        python_only = "\n".join(
-            line for line in "".join(cell).splitlines()
-            if not line.lstrip().startswith(("%", "!")))
-        compile(python_only, "<notebook-cell>", "exec")
-    assert "assert completed.returncode == 0" in blob, \
-        "CELL 1 must not print COMPLETE after failure"
-    assert "cymek_head_sha" in blob, "notebook must pin the exact commit"
-
-
 def test_static_self_check():
     from v5_experiments.static_check import main as check_main
     import io
@@ -469,7 +441,6 @@ _TESTS = [test_shared_context_factorial_purity,
           test_free_generation_fixture_forward_only,
           test_larger_proxy_constructs,
           test_production_tokenizer_render_path,
-          test_notebook_fail_hard,
           test_static_self_check,
           test_tiny_smoke_cpu,
           test_full_pipeline_s0_to_s4,

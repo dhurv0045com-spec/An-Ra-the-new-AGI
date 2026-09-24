@@ -1,16 +1,13 @@
-# CYR-GPU-002 — Colab GPU research campaign (preregistered, PENDING)
+# CYR-GPU-002 — Colab GPU research campaign (superseded before execution)
 
-Status: PENDING_OPERATOR_EXECUTION. Nothing here reports measured outcomes.
-CYR-GPU-001 is SUPERSEDED_BEFORE_EXECUTION (see ../CYR-GPU-001/SUPERSEDED.md;
-its preregistration is immutable history — do not run it).
+Status: SUPERSEDED_BEFORE_EXECUTION (see `../CYR-GPU-003/PREEXECUTION_ERRATUM.md` and the experiment evidence ledger). CYR-GPU-002 never produced a scientific result; do not launch it. Its notebook was removed from the active notebook list while its preregistration remains immutable history.
 
 - PLAN.md — frozen design (question through next-bottleneck).
 - PREREGISTRATION.json — hash-bound prereg (code/notebook/plan/model/
   tokenizer/manifests/seeds/arms/thresholds/cadence/budget-rule/runtime/
   metrics/gates). Verified by notebook CELL 0 before any training.
 - THREATS.md — confounds and mitigations.
-- README.md — this file: open the Colab link, choose GPU runtime, run
-  CELL 0 → CELL 1 → CELL 2, return CYMEK_GPU_RESEARCH_V2_RESULTS.zip.
+- The original notebook hash remains in the immutable preregistration; the superseded launcher is not an active operator entry point.
 
 ## Result bundle (operator returns)
 SESSION_MANIFEST.json, ENVIRONMENT.json, PREREGISTRATION.json,
