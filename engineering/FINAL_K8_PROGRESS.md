@@ -1,5 +1,26 @@
 # FINAL-K8 progress cursor
 
+## 25 September: source-bound owner-run readiness after E4 repair
+
+Generated and validated a fresh full data bundle with identity
+`20c3d876136ee9023a085cc11ae67c3929a0c2520c830c647081c988a209cfbd`. The
+source-bound no-update verifier passed F01–F24, all seven test groups and all
+seven production-interface exercises; it recorded zero local optimizer
+updates and `ready_for_owner_experiment: true`. Source commit was
+`c6c64c89eb568c44cc1deed683a089580ff29494`, source closure
+`7f4a24d1b70639f5231cfec283ad0eb4a68feb977512ecdc58459998a70c0457`; duration
+216.61 seconds. Full report:
+[`reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json`](reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json).
+
+The first attempt failed only because Windows denied pytest access to its
+default temp directory; the affected F04 test group then passed 67 tests using
+a writable temp root, and the full verifier passed on retry. The report marks
+`source_identity.dirty=true` because generated report/temp artifacts existed
+in the worktree during verification; its explicit source closure and Git head
+are recorded above. No source-code changes occurred during that verification.
+G01–G04 remain mandatory live Kaggle E0 checks. Code/build readiness does not
+guarantee GPU qualification, learning success, or AGI.
+
 ## 24 September continuation: owner Kaggle run, E4 repair, result integrity
 
 The owner supplied four valid result/safety/probe archives for one campaign,
@@ -21,13 +42,12 @@ result. No AGI or RSI capability is established.
 The code correction places E4 probe indices on the model parameter device. The
 results-only packer now projects manifests/restore evidence to actual ZIP
 contents and uses portable archive member separators. Focused validation passed
-56 tests and 12 subtests across K8 operational and result-pack contracts. This
-post-campaign patch has not yet received a fresh full source-bound
-`verify-build`; hardware requalification and a full rerun remain outstanding.
-The old failed run cannot retry closed reservations: use a fresh run ID and
-requalify E0 on the exact pushed source closure. A temporary repack of the
-supplied archive verified that all eight omitted checkpoint files are labeled
-non-restorable without modifying the owner's ZIPs.
+56 tests and 12 subtests across K8 operational and result-pack contracts. At
+the time of this 24 September checkpoint, full source-bound verification was
+pending; it passed on 25 September as recorded above. The old failed run cannot
+retry closed reservations: use a fresh run ID and requalify E0 on the exact
+pushed source closure. A temporary repack verified that all eight omitted
+checkpoint files are labeled non-restorable without modifying the owner's ZIPs.
 
 ## Pre-campaign local build verification — 24 September 2026
 

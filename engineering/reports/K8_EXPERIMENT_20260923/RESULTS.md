@@ -90,3 +90,22 @@ The packer in this branch now projects embedded artifact manifests and restore e
 - Repacked a temporary copy of the supplied results archive with the corrected packer: ZIP CRC valid, 104 manifest entries represented, all 8 checkpoint payloads explicitly omitted, and artifact/restore metadata marked non-restorable. The supplied ZIPs were not modified.
 
 These checks are CPU-side regression tests. They do not substitute for rerunning E4 on Kaggle or for successful learning results. No new training run was started during this review.
+
+## Current source readiness — 25 September 2026
+
+The repaired Gandiva source was then checked against a newly prepared,
+validated full bundle (`20c3d876136ee9023a085cc11ae67c3929a0c2520c830c647081c988a209cfbd`).
+The source-bound, zero-update verifier passed all requirements F01–F24, all
+seven test groups, and all seven production-interface exercises. It recorded
+zero local optimizer updates and `ready_for_owner_experiment: true`. Its source
+closure is `7f4a24d1b70639f5231cfec283ad0eb4a68feb977512ecdc58459998a70c0457`
+at commit `c6c64c89eb568c44cc1deed683a089580ff29494`; it took 216.61 seconds.
+The full machine-readable report is
+[`../FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json`](../FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json).
+
+One verifier attempt first hit an environment permission error in pytest's
+default Windows temp directory. The affected F04 group passed 67 tests with a
+writable temp root, and the full verifier passed on retry. Runtime gates G01–G04
+still require live Kaggle E0 qualification on two T4s. This makes the repaired
+implementation ready for the owner experiment; it does not guarantee that E0
+will qualify, that training will succeed, or that the model has AGI capability.

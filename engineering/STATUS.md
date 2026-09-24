@@ -24,9 +24,24 @@ The results-only packer also rewrites embedded restore manifests to reflect
 checkpoint weights excluded from ZIPs, and normalizes archive member paths on
 Windows. Focused checks passed 56 tests and 12 subtests. A temporary repack of
 the supplied ZIP confirmed the eight omitted checkpoint payloads are now
-reported accurately; the source ZIPs were untouched. A source-bound full build
-verification has not yet been rerun for this post-campaign patch; do not call
-the current checkout launch-ready from these focused tests alone.
+reported accurately; the source ZIPs were untouched.
+
+On 25 September, a fresh full bundle validated with identity
+`20c3d876136ee9023a085cc11ae67c3929a0c2520c830c647081c988a209cfbd`. The first
+no-update verifier attempt hit a Windows permission error while pytest
+enumerated its default temp directory; the affected F04 group passed 67 tests
+with an explicit writable temp root. The full verifier then reported
+`VERIFIED`: F01–F24, all seven test groups, and all seven production-interface
+exercises passed, with zero local optimizer updates. It marks
+`ready_for_owner_experiment: true`; source closure is
+`7f4a24d1b70639f5231cfec283ad0eb4a68feb977512ecdc58459998a70c0457`, source
+commit `c6c64c89eb568c44cc1deed683a089580ff29494`, and verification duration
+216.61 seconds. The report is
+[`reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json`](reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json).
+The initial environment-limited report is preserved at
+[`reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925/build_verification.json`](reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925/build_verification.json).
+G01–G04 remain runtime gates for Kaggle E0. This establishes code/build
+readiness for the current closure, not a learned capability or AGI result.
 
 ## Pre-campaign full build verification — 24 September 2026
 
