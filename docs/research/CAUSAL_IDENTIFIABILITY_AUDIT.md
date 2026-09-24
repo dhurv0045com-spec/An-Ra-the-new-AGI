@@ -1,78 +1,65 @@
 # CAUSAL IDENTIFIABILITY AUDIT
 
-**Phase 2 · 2026-09-13.** For every Phase-1 experiment labeled DEMONSTRATED or SUPPORTED (37 entries): what variable *actually changed*, and what the result therefore identifies.
+**Phase:** 3
+**Generated:** 2026-09-24
+**Authority:** [`EXPERIMENT_EVIDENCE_LEDGER.json`](EXPERIMENT_EVIDENCE_LEDGER.json), the phase-3 decision model, dependency graph, decision tree, and source manifest.
 
-Classifications: `CAUSALLY_ISOLATED` (one variable moved against matched controls) · `PARTIALLY_ISOLATED` (primary variable isolated but a mechanism-defining covariate moved with it, or single-seed) · `COMPOSITE_TREATMENT` (multiple factors moved together — cannot attribute to any one) · `CORRELATIONAL` (no manipulated variable; observational or evaluator-side) · `NON_SCIENTIFIC` (engineering/instrument evidence).
+This audit records what each current result actually identifies. A narrow result can be scientifically valid while still being unable to support a production, cognition, AGI, or scale claim.
 
-## 1. Cymek
+## Classification key
 
-| Experiment | What actually changed | Class | Notes / flags |
-|---|---|---|---|
-| CYR-GPU-011 | representation **bundle** (vocabulary + segmentation + number atomization + tied-output burden) at fixed geometry/objective/data | **COMPOSITE_TREATMENT** | condition-level divergence is real but no single cause attributable; its own RESULT says so; COMMUTED probe additionally confounded (post-run downgrade) |
-| CYR-GPU-012-R1 | declared tied class-space size ONLY (active IDs, init, data, optimizer fixed) | **CAUSALLY_ISOLATED** (effect) / PARTIALLY_ISOLATED (mechanism) | single seed by documented calibration; tied matrix means embedding+output change jointly → mechanism not isolated |
-| CYR-GPU-013-R1B | declared class-space size, 2 fresh seeds, 6 levels | **CAUSALLY_ISOLATED** (effect) | amplitude seed-sensitive; early-formation endpoint |
-| CYMEK-closure-cycle | none (invariant verification) | **NON_SCIENTIFIC** | engineering canaries; correctly never claimed as science |
-| CYMEK-e1-tokenizer-tournament | tokenizer size on local corpus | **PARTIALLY_ISOLATED** → CORRELATIONAL for capability | compression/params outcome only; corpus non-representative; no learning outcome measured |
+- `CAUSALLY_ISOLATED`: the stated intervention was matched against a suitable control for the scoped endpoint.
+- `PARTIALLY_IDENTIFIED`: a bounded effect is identified, but a mechanism, scale, floor, seed, or custody limit remains.
+- `COMPOSITE_TREATMENT`: multiple factors move together.
+- `DESCRIPTIVE_OR_NON_SCIENTIFIC`: engineering, mechanical, custody, or readiness evidence; no capability inference.
+- `BLOCKED`: the required observation or artifact is absent, so the target question is not identified.
 
-## 2. Arkenstone
+## 1. Current Cymek evidence
 
-| Experiment | What actually changed | Class | Notes / flags |
-|---|---|---|---|
-| ARK-002/002B | seeds (replication) | CAUSALLY_ISOLATED (of the phenomenon's existence) | task manifest frozen |
-| ARK-003 | curriculum structure / teacher signal (vs flat) | **CAUSALLY_ISOLATED** (per contrast) | negative |
-| ARK-004A (+R) | none (probe battery + reanalysis) | **CORRELATIONAL** | marker not precursor; correctly downgraded |
-| ARK-005 | EMA / WD removal / LR decay arms | **CAUSALLY_ISOLATED** (per arm) | negative |
-| ARK-006 | LR dose | **CAUSALLY_ISOLATED** | provenance-limited (flagged) |
-| ARK-007R | LR (HIGH vs LOW) after shared parent | **CAUSALLY_ISOLATED** | 3 parents × 4 orders; model benchmark |
-| ARK-009 | acquisition regime + composite diagnostic | **COMPOSITE_TREATMENT** (diagnostic) | query AND order moved together in the swap probe — flagged in Phase 1 |
-| ARK-010 | continuation policy after matched collapse | **CAUSALLY_ISOLATED** | 9 prospective states |
-| ARK-011 | post-recovery switch policy | **CAUSALLY_ISOLATED** | 6 sealed forks |
-| ARK-012 | screen threshold (observational event screen) | **CORRELATIONAL** | TIME_NOT_STATE_SCREEN; 2 sources |
-| ARK-013 | LR policy × no-replay T3 stream | **CAUSALLY_ISOLATED** (for the no-replay regime) | T3 formation failure voids the primary question — result is the boundary, not the frontier |
-| ARK-014 | acquisition presentation distribution (canonical vs order-augmented) | **CAUSALLY_ISOLATED** | one family; retention screen zero-event |
-| ARK-014-codex-rerun | same, independent execution | **CAUSALLY_ISOLATED** (replication) | same lineage codebase — not a fully independent implementation |
-| ARK-015 | continuation support × plasticity (3 single-factor contrasts) | **CAUSALLY_ISOLATED** (per contrast: NARROW_LOW vs NARROW_HIGH isolates LR; AUGMENTED_HIGH vs NARROW_HIGH isolates support) | displacement covariate explicitly used as evidence |
-| ARK-017-V2 | update magnitude (CAP) / support (replay) / both — treatment-exact | **CAUSALLY_ISOLATED** (levers) / PARTIALLY_ISOLATED (mechanism) | secondary dose screens single-order |
-| ARK-018-V4 | corpus identity at token-matched dose (Birth vs science) | **CAUSALLY_ISOLATED** (corpus-identity question) | token-matching controls dose; content+style change together inside "Birth" — internalization vs assimilation boundary is the residual confound, handled by preregistered threshold |
-| ARK-019-V3.1 | controller arms × matched sets | **COMPOSITE_TREATMENT** for controller-vs-static attribution (escalation policy, dose, and observation interval co-varied); **CAUSALLY_ISOLATED** for PLASTIC vs protected contrasts | SKILL_B never formed → primary question voided by design gate |
-| ARK-019-V4 | controller arms, dose-qualified parents | **PARTIALLY_ISOLATED** | TRANSCRIBED external audit; bundle absent — provenance caps this at SUPPORTED |
+| Record | What changed | Identifiability | What is identified | Boundary |
+|---|---|---|---|---|
+| `CYR-GPU-014-R1C` | Training-logit treatment changed while physical V=24,576 remained fixed. | `CAUSALLY_ISOLATED` for the scoped sufficiency test; the belief is `CONTRADICTED` | 24/24 completion; `SOFTMAX_COMPETITION_NOT_SUFFICIENT`; mean `MASK_4096-FULL_24576` gap `-0.11038062283737024`; K01 fired. | Controlled development mechanism only. It does not identify every softmax interaction, prove V24576 optimality, or authorize a production remedy. |
+| `CS-TRANSFER-001` | Physical tied matrix V4096 versus V24576 on a shared controlled development surface. | `PARTIALLY_IDENTIFIED` | Complete `PARTIAL_OR_INTERACTION`; V4096 is not a robust identity/copy remedy. One reversal and 3/4 sealed pairs favoring V24576 preserve interaction uncertainty. | Direct common-token development surface, not natural language or larger scale. Raw Drive result is external with recorded SHA-256. |
+| `CYMEK-V5.1-CANARY-V2` | Frozen canary path and one narrow identity/copy endpoint. | `DESCRIPTIVE_OR_NON_SCIENTIFIC` for cognition | 360 updates / 1,474,560 tokens; mechanical gates PASS; identity formation FAIL. | One narrow canary; no general V5.1, production, cognition, or AGI inference. |
+| `FORMATION-MUX-001-S5-V8` | TIE-role surface and formal contrasts completed across 24 sealed arms. | `PARTIALLY_IDENTIFIED` / floor-limited | Formal `CS-MECH-002` and `REP-FORM-003A` NULLs are authoritative. | Near-zero primary identity baseline prevents mechanism exoneration. `M3-M2` is exploratory only. |
+| `FORMATION-MUX-001-V12-FRONTIER-PARTIAL` | Later frontier execution/custody snapshot. | `BLOCKED` | 2/24 frontier arms recorded. | No sealed evaluation, final result, or checkpoint payload; no scientific verdict. |
 
-## 3. Triquetra
+The R1C/CS pair narrows simple explanations but does not identify a replacement mechanism. The immediate prerequisite is a control-capability and checkpoint-metric-resolution preflight, not a broad mechanism run.
 
-| Experiment | What actually changed | Class | Notes / flags |
-|---|---|---|---|
-| TQ-entity-value-factorial | inserted content class (evaluator-side) | **CAUSALLY_ISOLATED** (intervention) / CORRELATIONAL (for any mechanism claim) | answer-bearing salience confound is the point of the reattribution |
-| TQ-query-value-matrix | none (measurement ladder) | **CORRELATIONAL** | preregistered, replicated absence |
-| TQ-structural-OOD-E5 | structural shift type | **CAUSALLY_ISOLATED** (negative) | floor substrate |
-| TQ-readiness-gates | none (gate calibration) | **NON_SCIENTIFIC** (instrument) | v2 standing negative control |
+## 2. HORM and custody
 
-## 4. Citadel
+| Record | What changed | Identifiability | What is identified | Boundary |
+|---|---|---|---|---|
+| `HORM-003` | Prospective five-seed miniature directional intervention. | `CAUSALLY_ISOLATED` within miniature scope | `NOT_SUPPORTED`; 3/5 sign-consistent seeds and near-zero median mean loss difference. | Eight-update synthetic miniature; no capability or general hormonal claim. |
+| `HORM-004` | Separate prospective five-seed miniature directional intervention. | `PARTIALLY_IDENTIFIED` | `NOT_SUPPORTED`, but success fraction was 0.0 on every seed. | Constant-failure modulation did not test rich dynamic appraisal; no broader falsification. |
+| `HORM-001/002` custody | Artifact identity/recovery audit. | `BLOCKED` | Historical result/checkpoint custody is not authenticated or recovered. | No recovery, rerun, sealed access, or scientific inference. |
 
-| Experiment | What actually changed | Class | Notes / flags |
-|---|---|---|---|
-| CIT-T1-series (T0/T1/T1B/T1C) | objective masking / corpus size / pool narrowness / scale (2.3×) — **plus** budget varies across arms | **COMPOSITE_TREATMENT** | capacity accounting obscured by embedding-dominated params; EOS contract unsupervised; nulls still stand (nothing succeeded to misattribute) |
-| CIT-T1D | curriculum / teacher / scale / masking / self-knowledge arms — budget confound B vs D/E | **COMPOSITE_TREATMENT** | POSTMORTEM 5 explicitly blocks scale/masking conclusions; evaluation surface later found SHORTCUT_COMPROMISED + LEAKAGE_COMPROMISED (CITADEL-EVAL-001) — cannot invalidate the nulls (all arms failed) but blocks future positives |
-| CIT-scoring-policy-tournament | scoring policy (5 families) | **CAUSALLY_ISOLATED** | fixture v2; decoy axes; TOST+Holm |
-| CIT-e0-generator-repairs | generator version | **CAUSALLY_ISOLATED** (instrument) | engineering-tier receipt |
-| CIT-500M-production-path-audit | none (audit) | **NON_SCIENTIFIC** | stale pin noted |
-| CITADEL-DATA-001 (NEW) | none (mechanical audit of real corpus) | **NON_SCIENTIFIC** (instrument verdict with scientific consequence) | verified: shortcut 1.000/tier, 530 verbatim cross-split docs, 13.5% duplication, 0.004× supply |
-| CITADEL-EVAL-001 (NEW) | none (attack battery on evaluation surfaces) | **NON_SCIENTIFIC** (instrument) | t1d surface SHORTCUT+LEAKAGE compromised; e0 + triquetra surfaces PROVISIONALLY_VALID; PRE50M smoke VALIDATED |
+HORM-003 and HORM-004 must not be merged into one result or described as a general hormonal/appraisal conclusion.
 
-## 5. ESOES / BRAMASTRA
+## 3. Engineering, readiness, and external artifacts
 
-| Experiment | What actually changed | Class | Notes / flags |
-|---|---|---|---|
-| ESO-PGE-continuation | continuation training (vs parent) | **CAUSALLY_ISOLATED** (lineage-level) | probe-floor alternative recorded |
-| ESO-SFT6-replication | targeted SFT | **CAUSALLY_ISOLATED** | assisted-scoring instrument dependence flagged |
-| ESO-e2-mechanism-canaries | init scaling / QK norm / precision layout (stress tests) | **CAUSALLY_ISOLATED** (mechanism priors) | zero learning evidence by design |
-| BRM-terminal-EOS | EOS supervision (matched everything else) | **CAUSALLY_ISOLATED** | tiny lab |
-| BRM-transfer-baseline | none (measurement) | **CORRELATIONAL** | rendering shift multi-factor |
-| BRM-binding-diversity | training-pool size (exploratory, post-hoc arm) | **PARTIALLY_ISOLATED** → result is the query-blind *null* | post-hoc arm selection flagged; recomputed analysis binds receipts |
+| Record | What changed | Identifiability | What is identified | Boundary |
+|---|---|---|---|---|
+| `BRAMASTRA-K8-20260922` | Real CUDA engineering phases and data gates. | `DESCRIPTIVE_OR_NON_SCIENTIFIC` | E0/E1 ran; E2 had zero qualified receipts; E3 blocked on insufficient data; E4/E5 not run. Completed engineering-partial `INCONCLUSIVE`. | No tool learning, cognition, AGI, RSI, or scientific K8 conclusion. |
+| `GANDIVA-TPU-100M-PREFLIGHT` | Nothing was run. | `BLOCKED` / engineering not tested | No TPU execution, optimizer update, checkpoint result, or qualification receipt. | A future pass would be zero-update `BACKWARD_PREFLIGHT_PASS`; it would not be a training or cognition result. |
+| `ARK-020-V4` | Readiness/repair state, not a scientific intervention. | `BLOCKED` | `DO_NOT_RUN/NOT_EXECUTED`; resume and identity defects confirmed; authorization flags false. | No ARK-020 result. |
+| Guardian V4 | External transcription without raw bundle. | `BLOCKED` | A claim exists in a transcription, not a locally auditable result. | No efficacy, internalization, or continual-learning conclusion. |
+| `CITADEL-DATA-001` | Mechanical corpus audit. | `DESCRIPTIVE_OR_NON_SCIENTIFIC` with scientific consequence | Latest-position shortcut 1.000/tier, 530 cross-split leaks, 13.5% duplication, and inadequate supply. | Old surface cannot support future positive lift-off claims; historical nulls remain bounded results. |
+| `CITADEL-EVAL-001` | Attack/readiness audit. | `DESCRIPTIVE_OR_NON_SCIENTIFIC` | T1D is shortcut/leakage compromised; PRE500M was not executed. | No cognition or production readiness claim. |
+| `ARK-014` family | Order presentation augmentation and independent rerun. | `PARTIALLY_IDENTIFIED` | Narrow order-robustness binding result; retention screen zero-event. | No broad capability or retention claim; payloads are external. |
 
-## 6. Headline identifiability warnings for the architecture agent
+## 4. Prior causal edges that remain useful
 
-1. **"Compact representation is better" is NOT established** — CYR-011 was a composite treatment; the isolated variable is *declared class-space size* (R1/R1B), and even that is mechanism-unresolved until R1C.
-2. **"Replay works" needs a qualifier** — treatment-exact sparse replay protects (isolated); "this-regime" replay failed (provenance-weak); dose universality untested.
-3. **T1D-family nulls are robust but their surface is dead** — future arithmetic claims require a regenerated, attack-screened corpus.
-4. **The Guardian question currently has NO in-repo decisive evidence** — V3.1 is voided by formation failure; V4 is a transcription.
-5. **No experiment has ever isolated "architecture" from "parameter count"** — every architecture-family claim in the repo is a default, not a finding.
+- Delayed generalization after memorization is supported at micro scale (`ARK-002B`, `ARK-004A`); it is not a universal timing law.
+- Lower applied update magnitude and continued capability support each protect acquired invariants in tested micro regimes (`ARK-007R`, `ARK-011`, `ARK-015`, `ARK-017-V2`); neither is a universal scheduler or dose.
+- Parameter displacement alone does not explain retention (`ARK-015`, `ARK-017-V2`).
+- Candidate-free generation plus valid EOS is the primary evaluation contract; loss alone is not cognition.
+- Curriculum, teacher, and scale claims remain bounded by the tested budgets, EOS contract, and data/evaluation confounds.
+
+## 5. Current identifiability gates
+
+1. `FMUX-CONTROL-METRIC-PREFLIGHT` must establish control capability and metric resolution away from the floor. If custody or metrics fail, perform read-only review; do not retrain from an evidence-only archive.
+2. `ROLE-TRANSFER-001` is the preregistered design of record but remains unidentifiable in practice until the FMUX capability/metric and exact-custody gates pass, the frozen frontier completes, and the new generator/trainer/evaluator/no-overlap/qualification contracts are independently frozen. The old tied-row placeholder is superseded and must not be duplicated.
+3. Natural-language and scale transfer require regenerated corpus/evaluation surfaces plus separate geometry evidence.
+4. Guardian/ARK-020 interpretation requires the raw bundle and repaired, independently validated readiness; neither exists now.
+5. No engineering, custody, preflight, or mechanical result can unlock cognition, AGI, tool learning, TPU qualification, or RSI.

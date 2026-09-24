@@ -1,0 +1,121 @@
+{
+  "conclusion": "classification only; no causal ranking without a controlled intervention",
+  "left": {
+    "bundle_sha256": "fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5",
+    "experiment": "CYR-GPU-011",
+    "receipt_sha256": "54eeeb1237a3356652364e4c29a0637d0100d7ccba57a17ceed114faa74a34ca"
+  },
+  "right": {
+    "bundle_sha256": "d2da6d18847c846bd1865d4069c5afe46309ced339350a0115e1c23f3049f2cc",
+    "experiment": "CYR-GPU-012",
+    "receipt_sha256": "0906c6b9d6f50d5986e899a901357e0ca39a22eece462176cd19b2446bb79d69"
+  },
+  "rows": [
+    {
+      "classification": "proven_different",
+      "field": "frozen_executable_sha",
+      "left": "0a97257e2b38db6dfa85cc6e58da0697591dde6b",
+      "limit": "",
+      "right": "1a1624ed4c62e1a176dc4bed97e628f0b648a31b"
+    },
+    {
+      "classification": "proven_identical",
+      "field": "torch",
+      "left": "2.11.0+cu128",
+      "limit": "",
+      "right": "2.11.0+cu128"
+    },
+    {
+      "classification": "proven_different",
+      "field": "gpu_name",
+      "left": "Tesla T4",
+      "limit": "",
+      "right": "NVIDIA GeForce RTX 4050 Laptop GPU"
+    },
+    {
+      "classification": "proven_identical",
+      "field": "model_seed",
+      "left": 3301,
+      "limit": "",
+      "right": 3301
+    },
+    {
+      "classification": "proven_identical",
+      "field": "order_seed",
+      "left": 4701,
+      "limit": "",
+      "right": 4701
+    },
+    {
+      "classification": "proven_identical",
+      "field": "batch_rows",
+      "left": 64,
+      "limit": "",
+      "right": 64
+    },
+    {
+      "classification": "proven_identical",
+      "field": "semantic_stream_sha256",
+      "left": "12e471f4eda1d20ae9fb9a29cb645e3795b04f88cb738aaf59f720e28f5560ea",
+      "limit": "digest identity does not independently prove row contents",
+      "right": "12e471f4eda1d20ae9fb9a29cb645e3795b04f88cb738aaf59f720e28f5560ea"
+    },
+    {
+      "classification": "proven_different",
+      "field": "updates",
+      "left": 8081,
+      "limit": "",
+      "right": 18000
+    },
+    {
+      "classification": "proven_different",
+      "field": "row_presentations",
+      "left": 517184,
+      "limit": "",
+      "right": 1152000
+    },
+    {
+      "classification": "proven_different",
+      "field": "g50_confirm_update",
+      "left": 2200,
+      "limit": "outcome difference; not itself causal evidence",
+      "right": null
+    },
+    {
+      "classification": "proven_identical",
+      "field": "g90_confirm_update",
+      "left": null,
+      "limit": "",
+      "right": null
+    },
+    {
+      "classification": "proven_identical",
+      "field": "initial_l2",
+      "left": 46.88997268676758,
+      "limit": "matching scalar norm does not prove tensor identity",
+      "right": 46.88997268676758
+    },
+    {
+      "classification": "proven_different",
+      "field": "final_model_sha256",
+      "left": "35be0ef8ceadac9f563c195bae91384d6ceec956641990b571a422075b1031c1",
+      "limit": "final state identity; not initial tensors",
+      "right": "94e82920eaf03089630b85b9061bd0fa680b629c0bcd526e58bf301712127a99"
+    },
+    {
+      "classification": "unknown",
+      "field": "initial_tensor_sha256",
+      "left": null,
+      "limit": "not recorded in either bundle; requires initial-tensor replay",
+      "right": null
+    },
+    {
+      "classification": "unknown",
+      "field": "kernel_selection",
+      "left": null,
+      "limit": "no kernel trace recorded in either bundle",
+      "right": null
+    }
+  ],
+  "schema": "anra-cyr-repro-ledger/v1"
+}

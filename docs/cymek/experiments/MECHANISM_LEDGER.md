@@ -1,5 +1,7 @@
 # Cymek mechanism ledger (candidate mechanisms and their standing)
 
+> **HISTORICAL / APPEND-ONLY — NOT CURRENT-STATE AUTHORITY (phase-3 consolidation, 2026-09-24).** This branch-local ledger preserves its original entries; do not use its older status wording to select a mechanism or schedule work. Read the [`source manifest`](../../research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.md), [`consolidated evidence ledger`](../../research/EXPERIMENT_EVIDENCE_LEDGER.md), [`phase-3 decision model`](../../research/RESEARCH_DECISION_MODEL.json), and [`current state`](../research/CURRENT_STATE.md) for current evidence. Historical entries are not rewritten here.
+
 | Mechanism | Standing | Evidence |
 |---|---|---|
 | Counterfactual pair-preserving minibatches → query control | HYPOTHESIS (CYR H1) | BRAMASTRA grouping infra exists; causal test UNEXECUTED |

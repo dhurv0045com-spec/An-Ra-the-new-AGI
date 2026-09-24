@@ -1,52 +1,46 @@
 # EVIDENCE GAPS
 
-**Date:** 2026-09-13. Everything this audit could not verify, with the reason and the cheapest closure. Nothing here is concealed elsewhere; the ledger marks affected entries.
+**Phase:** 3
+**Date:** 2026-09-24
+**Authority:** [`EVIDENCE_SOURCE_MANIFEST_2026-09-24.json`](EVIDENCE_SOURCE_MANIFEST_2026-09-24.json), SHA-256 `c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f`.
 
-> **Post-snapshot resolution (2026-09-13):** former gap G1 is now closed. The R1C launcher was rebound to reachable Amendment-2 commit `b850861545f79e219b55d6403f81e74f92f1592e` and the Colab pin was repaired on `cymek-500m-readiness` (`24ca7f3edf8e1f8affbe077ce7225b8dbb7a7d69`). `CYR-GPU-014-R1C` subsequently completed 24/24 arms with verdict `SOFTMAX_COMPETITION_NOT_SUFFICIENT`. Source bundle SHA-256: `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`. See `R1C_FINAL_EVIDENCE_2026-09-13.md`. The row below is retained as a forensic record of the original audit finding, but it is no longer an active blocker.
+The current ledger has 90 experiments. The consolidation imported 71 byte-identical evidence/provenance files from reviewed current branches and archive tags. Commit `90f77b7f` is the pre-consolidation parent; the current branch contains the consolidated state.
 
-## 1. Provenance / launch-blocking
+## Current active gaps
 
-| # | Gap | Consequence | Cheapest closure |
-|---|---|---|---|
-| G1 | **RESOLVED after this audit snapshot.** Originally: CYR-GPU-014-R1C launcher pinned unreachable `6653b4ce3a7e61b8fdffd3236c62c67622084dec`. | Historical launcher would fail a fresh clone; no longer current after the explicit Amendment-2 rebind and notebook repair. R1C is now executed/complete. | **CLOSED.** Reachable engineering fix `b850861…`; repaired launcher commit `24ca7f3…`; final bundle hash recorded above. |
-| G2 | **Exact-head test receipts are STALE-BY-DESIGN**: `v5_training` constants were single-sourced after the receipts' tested commits (documented in EXPERIMENT_LOG, not hidden). | Receipt meta-checks do not certify the current head until the next full suite run. | Run the full suite once and refresh receipts. |
-| G3 | ARK-019 **RUN_READINESS_V4.json still records `scientific_result_status: NOT_EXECUTED`** while `FINAL_RESULT_AUDIT_V4.md` transcribes an executed, externally audited result. Two repo documents disagree. | The Guardian question cannot be settled from the repository alone. | Commit + byte-audit the V4 raw bundle (or rerun) and reconcile both files. |
-
-## 2. External / inaccessible evidence
-
-| # | Gap | Consequence |
+| Gap | Current consequence | Cheapest legitimate closure |
 |---|---|---|
-| G4 | **ARK-020 V4 external execution state**: output root `/content/drive/MyDrive/genisis-arkenstone/ARK020_V4_CONTINUAL` is operator-side Google Drive, inaccessible from this audit. No result artifact exists on any branch; launcher work continued through 2026-09-13 (deterministic-kernel fix `f4244e2`, A1.1–A1.3 amendments). | ARK-020 V4 classified strictly `IMPLEMENTED_NOT_EXECUTED` from repo evidence. If partial bundles exist on Drive, they were not auditable here. |
-| G5 | **ARK-019 V4 raw bundle** (bundle for `GUARDIAN_CONTINUAL_PROXY_CANDIDATE`) not in repository. | ARK-019 V4 capped at SUPPORTED (transcribed external audit). |
-| G6 | ARK-011 historical bundle hashes and ARK-015/016/017 raw ZIPs: the repo keeps distilled receipts + RESULT.json files (Tier 0/1 mix) — raw bundles are on operator storage. | Metrics cited are from committed RESULT/receipt files; per-row re-verification beyond committed hashes was not possible. |
-| G7 | Citadel T1C raw session receipts live under `docs/citadel/tpu_receipts/t1c_session/` on citadel — audited via BRAMASTRA's transcription of them rather than re-parsed JSON in this pass. | T1C numbers quoted second-hand (though BRAMASTRA's audit included the raw-vs-prose denominator correction). |
+| Formation-Mux primary identity floor | S5 formal NULLs are authoritative but cannot identify or exonerate a mechanism. | `FMUX-CONTROL-METRIC-PREFLIGHT`; if custody or metric resolution is insufficient, perform read-only custody/metric review. |
+| Formation-Mux v12 custody | The later frontier is 2/24 with no sealed evaluation, final result, or checkpoint payload. Recovery-preflight engineering passed remotely, but no state was recovered. | Recover and hash-verify the original saved Output and pass the pinned preflight before any continuation; do not retrain from the evidence-only archive. |
+| ROLE-TRANSFER-001 readiness | Protocol bytes are frozen, but no trainer, official arm, sealed evaluation, or result exists; upstream Output/frontier and implementation gates remain open. | Complete FMUX capability/custody gates, conditional frozen-frontier completion, generator/trainer/evaluator/no-overlap implementation, and independent remote qualification before any authorization review. |
+| CS-TRANSFER raw result | Compact imported records do not include the raw Drive result or checkpoints. The raw result is recorded externally with SHA-256 `37e4bf741f9e55fc942fe4ade62d2d1c9619e4992e4a42ab507730809c12b150`. | Recover the exact Drive artifact and verify the hash before a stronger custody claim; the recorded result remains valid only at its current development-scale ceiling. |
+| Guardian V4 raw bundle | ARK-019-V4 is transcribed/external only; the raw bytes are absent. Guardian validity is unresolved. | Recover and byte-audit the bundle; absent or failed audit means no Guardian promotion and no ARK-020 interpretation. |
+| ARK-020 readiness | Resume, identity, missing-checkpoint, controller-coverage, and provenance defects remain. Status is `DO_NOT_RUN/NOT_EXECUTED`. | Repair and independently validate readiness before any authorization decision; do not run a campaign to fill the gap. |
+| Citadel corpus | Latest-position shortcut, leakage, duplication, and supply failures make the old surface unusable for future positive lift-off claims. No production corpus is materialized. | `CORPUS-REGEN` followed by contamination, shortcut, leakage, supply, and sealed-fixture screens. |
+| Citadel evaluation | T1D is shortcut/leakage compromised; PRE500M was not executed. | Regenerate the evaluation surface and rerun the attack battery before any transfer or promotion claim. |
+| TPU execution | The 100M preflight was not run and made no optimizer update. | Run only the dedicated zero-update backward preflight if separately scheduled; a pass would still be engineering-only. |
+| K8 data/contract repair | E3 was blocked by insufficient tool-training data; E4/E5 were not run. | Repair and validate data cardinality and xprobe/export contracts before any new K8 allocation. |
 
-## 3. Unreachable / at-risk evidence (git forensics)
+## External-only artifact register
 
-| # | Gap | Contents at risk |
-|---|---|---|
-| G8 | **Stash `301f5f2` untracked parent `87ea5d6` holds the ONLY copy of the CYR-GPU-006 smoke campaign**: `campaign_receipt.json` (schema `anra-cyr-gpu006-campaign/v1`, supersedes CYR-GPU-005), `CYMEK_GPU_RESEARCH_V6_RESULTS.zip`, 36 arm checkpoint files. | One `git stash drop` or `git gc --prune` destroys it. Export to `artifacts/` (as an engineering-receipt archive, not scientific evidence) before any gc. |
-| G9 | **SENORA P35-CMS-1 + CAD program exists only in unreachable commits** rooted at esoes tip (`30a8fa7` chain, 11 commits): P35_A/P35_B decision receipts, CAD preregistration, `cld_trajectory_metrics.json`, `cld_world2_phase_transition.json`, run receipts, triquetra-bridge causal records, cluster sbatch launchers. Zero senora paths on any live branch. | Recovery = `git fetch <local-clone> 30a8fa7` into a kept ref or bundle export before gc. No executed campaign is evidenced; the value is the frozen design/power contracts and dry-run receipts. |
-| G10 | CYR-GPU-005 frozen COMMIT A executable `anra_v5/cyr_gpu005_run.py` (blob `41073505`) differs from the live version and survives only in unreachable `fcd9178`. | Frozen-executable provenance for the 005 lineage is incomplete on live refs. |
-| G11 | R1C pre-rewrite notebook revisions (`8162c22` @ `e444249`, `8eb3b09` @ `8adedab`) are unreachable; live `f2c27a6` carries `bb9789b`. | Historical binder chain for the R1C launcher is not ref-anchored. This remains a provenance-history caveat, but no longer blocks the completed R1C result because the executed operator path is separately hash-bound and the final bundle is recorded. |
-| G12 | `milestone/0001-honest-loop` (`20d8841`) is contained only by `origin/core-exp` + the tag. | Single-branch containment for a program milestone. |
-| G13 | The two history shards share no merge-base; pre-2026-09-05 cymek history is only via local branch `cymek` (`4abeaeb`), which is **not pushed**. Local-only branch = single point of failure for old-shard evidence (incl. the founding-negative receipt chain `core-vnext@054619f`). | Push `cymek` (read-only) or export a bundle. |
+The following are not local evidence bytes and must not be described as recovered artifacts:
 
-## 4. Deleted-branch folklore
+- R1C operator bundle: SHA-256 `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`; raw ZIP excluded.
+- R1 prior bundle: SHA-256 `a22b538396a3d0957a60a27f39b0cf3dd3b20874585b4c15a03207224f613d29`; R1B prior bundle: `7ffebfd49ad0bd8d81035e3cee56b23a5f31f34ba8af0f915408409e31b62792`.
+- Canary-v2 raw bundle and persistent state/checkpoints/raw rows: external; no full selected bundle hash.
+- Formation-Mux S5 bundle: SHA-256 `859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5`; partial archive: `3e3ad68cd7f80bd242733b61153d4bb8f3fedbb1e4fba8fbc0f3ebc5d904423f`; original checkpoint tree is absent.
+- CS raw Drive result and checkpoints: external; final-result SHA-256 is recorded above.
+- Citadel T1D raw bundles: external; the selected record does not contain a full bundle hash.
+- K8 result pack: SHA-256 `688c8e1838bebb12a2ba3716808bf30ef07d3e0d4bd85f2069a6ff52fbed577c`; prepared data bundle: `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`.
+- HORM-001/002 historical result/checkpoint sets: manifest hashes `458902c08373a5a2109757f8209f71f3035a8db216125ef7ab0o81198a228ad5` and `77923d08c080ac2d11a4a7c6f756577bf29d7d9a81911cc9fc78e2ad182fbe62`; custody is blocked.
+- ARK-014 checkpoint payloads and the TPU preflight result bundle are not imported.
 
-| # | Gap |
-|---|---|
-| G14 | ~15 remote branches were deleted shortly before 2026-09-13 (scratch-ignore-3/4/5, senora, stop-this, temp-do-not-use, temp-final, temp-ignore, temp-ignore2, temp-v7-results-staging, temp-v8-ignore, temporary-branch-z, tmp-never, v8-prep-scratch, why-branch). No reflogs survive locally (fetch --prune). Name→content mapping is confirmed only for `senora` (G9); the ARK-018 edition-1 and ARK-020 audit clusters are consistent with the temp-v8 family but unprovable locally. GitHub may still serve some deleted-tip SHAs if they were ever pushed — untested per-SHA. |
+A compact result receipt can support a narrow outcome while its raw bundle remains external. An audit, custody report, or protocol cannot substitute for missing bytes.
 
-## 5. Metrics / compatibility caveats
+## Historical gaps corrected by phase 3
 
-| # | Gap |
-|---|---|
-| G15 | T1C raw core denominators are **0/1,000**, not the 0/500 widely carried in prose (BRAMASTRA audit correction adopted here). Older documents repeating 0/500 are wrong on the denominator. |
-| G16 | ARK-015 robustness mean is quoted as "~0.468" in prose; the exact final mean lives in ARK-015/RESULT.json and was not re-parsed row-by-row in this pass (quoted from CURRENT_STATE + NEGATIVE_RESULTS). |
-| G17 | BRAMASTRA "this-regime replay rescues retention: rejected" is carried only by the cross-branch negative-results carry list (cymek `NEGATIVE_RESULTS.md`); the original receipt was NOT re-located on BRAMASTRA (its RESULTS.md/EXPERIMENTS.md do not cover it). Tier-3 until found. |
-| G18 | CORE-MC-v9/v10/v11 promotion receipts were not re-audited under current standards (pre-restart program on the V4 substrate that later failed readiness v2). Historical INCONCLUSIVE classification could change either way on a real audit. |
-| G19 | Citadel 500M production-path audit is pinned to `28bf57a` (2026-09-06); cymek-500m-readiness has advanced substantially since. The MISSING/AMBIGUOUS classifications are stale in the direction of optimism OR pessimism — an updated audit is needed, not assumed. |
-| G20 | ARK-017 secondary screens (CAP4X/CAP16X/replay-1/32/replay-1/64) are single-order per the ledger — treated as clues, not dose estimates; no further caveat needed beyond what RESULT_V2.md already states. |
-| G21 | Seed counts: several executed experiments are single-seed by documented hardware calibration (CYR-012-R1; ARK-017 secondary screens). Where the JSON says R0/R1 this is deliberate, not an oversight. |
-| G22 | ARK-021/022/028 portfolio claims (DEVELOPMENT_READY/DESIGN_READY/blocked-on) were taken from the portfolio document + directory listings; test-suite execution status for ARK-021 was not re-run in this audit. |
+The former R1C launcher/provenance warning is a historical audit finding, not a current blocker: R1C is complete 24/24 and K01 is fired. The old parentless-squash/two-shard warning is also not current topology. The target branch has a merge-base with `origin/main` at `010798094a43ea1ce2343abd79017212b873ec35`; `90f77b7f` and `28bf57a` both have parents. Unreachable historical objects remain preservation items, but they do not justify reopening completed R1C/CS evidence.
+
+## Standing closures
+
+The next sequence is control/metric preflight, exact original-Output recovery, conditional frozen-frontier completion, then implementation/readiness of preregistered execution-blocked `ROLE-TRANSFER-001`; corpus/evaluation regeneration proceeds in parallel before natural-language or scale transfer. The old tied-row placeholder is superseded. No broad mechanism campaign may start from a floor, and no gap closure authorizes production vocabulary/tokenizer change, PRE500M, 250M, 500M, cognition, AGI, TPU qualification, tool learning, or RSI.

@@ -1,5 +1,7 @@
 # Cymek 500M closure-cycle experiments
 
+> **HISTORICAL ENGINEERING LOG — NOT CURRENT RESEARCH AUTHORITY (phase 3, 2026-09-24).** This file preserves the closure-cycle and superseded experiment chronology. Its `PENDING`, `READY_FOR_OPERATOR`, and TPU status statements are point-in-time records, not launch instructions. Use [`docs/cymek/research/CURRENT_STATE.md`](docs/cymek/research/CURRENT_STATE.md), [`docs/research/RESEARCH_DECISION_MODEL.json`](docs/research/RESEARCH_DECISION_MODEL.json), and [`docs/research/EXPERIMENT_EVIDENCE_LEDGER.md`](docs/research/EXPERIMENT_EVIDENCE_LEDGER.md) for the current queue and claim boundaries.
+
 Branch: `cymek-500m-readiness`. Machine: Ryzen 7 170 (8C/16T), ~15 GB RAM,
 RTX 4050 Laptop 6 GB. CPU venv `.venv` (torch 2.13+cpu); CUDA venv
 `.venv-cuda` (torch 2.11+cu128, `tokenizers` present). Training runs:

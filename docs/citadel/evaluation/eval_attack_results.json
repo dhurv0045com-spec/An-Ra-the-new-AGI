@@ -1,0 +1,239 @@
+{
+  "attacks": {
+    "attack": "shortcut_solvers",
+    "n_per_tier": 300,
+    "per_tier": [
+      {
+        "n": 300,
+        "scores": {
+          "constant_zero": 0.0,
+          "first_position": 0.93,
+          "latest_position": 1.0,
+          "most_common_answer": 0.0067,
+          "random_guess": 0.3267,
+          "reference_solver": 1.0
+        },
+        "tier": 0
+      },
+      {
+        "n": 300,
+        "scores": {
+          "constant_zero": 0.0833,
+          "first_position": 0.1067,
+          "latest_position": 1.0,
+          "most_common_answer": 0.0833,
+          "random_guess": 0.1067,
+          "reference_solver": 1.0
+        },
+        "tier": 1
+      },
+      {
+        "n": 300,
+        "scores": {
+          "constant_zero": 0.0,
+          "first_position": 0.0,
+          "latest_position": 1.0,
+          "most_common_answer": 0.0233,
+          "random_guess": 0.0,
+          "reference_solver": 1.0
+        },
+        "tier": 2
+      },
+      {
+        "n": 300,
+        "scores": {
+          "constant_zero": 0.0167,
+          "first_position": 0.0,
+          "latest_position": 1.0,
+          "most_common_answer": 0.0233,
+          "random_guess": 0.0033,
+          "reference_solver": 1.0
+        },
+        "tier": 3
+      },
+      {
+        "n": 300,
+        "scores": {
+          "constant_zero": 0.0,
+          "first_position": 0.0,
+          "latest_position": 1.0,
+          "most_common_answer": 0.0067,
+          "random_guess": 0.0,
+          "reference_solver": 1.0
+        },
+        "tier": 4
+      }
+    ],
+    "schema": "citadel-eval-attack/v1",
+    "split": "test"
+  },
+  "causal": {
+    "check": "causal_data",
+    "gold_self_consistency": [
+      {
+        "misses": 0,
+        "n": 300,
+        "self_consistent": true,
+        "tier": 0
+      },
+      {
+        "misses": 0,
+        "n": 300,
+        "self_consistent": true,
+        "tier": 1
+      },
+      {
+        "misses": 0,
+        "n": 300,
+        "self_consistent": true,
+        "tier": 2
+      },
+      {
+        "misses": 0,
+        "n": 300,
+        "self_consistent": true,
+        "tier": 3
+      },
+      {
+        "misses": 0,
+        "n": 300,
+        "self_consistent": true,
+        "tier": 4
+      }
+    ],
+    "operation_swap_sensitivity": [
+      {
+        "addsub_rows": 150,
+        "n": 300,
+        "sensitivity": 0.9133,
+        "swap_answer_changes": 137,
+        "tier": 1
+      },
+      {
+        "addsub_rows": 147,
+        "n": 300,
+        "sensitivity": 1.0,
+        "swap_answer_changes": 147,
+        "tier": 2
+      },
+      {
+        "addsub_rows": 159,
+        "n": 300,
+        "sensitivity": 1.0,
+        "swap_answer_changes": 159,
+        "tier": 3
+      },
+      {
+        "addsub_rows": 156,
+        "n": 300,
+        "sensitivity": 1.0,
+        "swap_answer_changes": 156,
+        "tier": 4
+      }
+    ],
+    "schema": "citadel-eval-attack/v1"
+  },
+  "firewall": {
+    "all_pass": true,
+    "check": "firewall",
+    "results": [
+      {
+        "check": "generator_isolation",
+        "pass": true,
+        "violations": []
+      },
+      {
+        "check": "contamination_gate_fail_closed",
+        "clean_defects": [],
+        "pass": true,
+        "planted_defects": [
+          "exact eval text in train: 7319 + 246 = 7565..."
+        ]
+      },
+      {
+        "check": "receipt_tamper_evidence",
+        "digests_differ": [
+          true,
+          true
+        ],
+        "pass": true
+      }
+    ],
+    "schema": "citadel-eval-attack/v1"
+  },
+  "readiness": {
+    "blockers": [
+      "LATEST_POSITION_SHORTCUT: trivial solver scores 1.000 at ceiling on every tier",
+      "EOS_TERMINATION_UNSUPERVISED: training never supervised the EOS token (T1D evidence, 15000/15000 MAX_TOKENS)",
+      "CROSS_SPLIT_CONTAMINATION: 173 dev + 357 test texts appear verbatim in train (CITADEL-DATA-001)",
+      "NO_SEALED_FIXTURE: no sealed evaluation fixture exists; all certificates are development-tier"
+    ],
+    "branch": "eval-integrity-001",
+    "causal": {
+      "gold_self_consistent": true,
+      "swap_check": [
+        {
+          "addsub_rows": 150,
+          "n": 300,
+          "sensitivity": 0.9133,
+          "swap_answer_changes": 137,
+          "tier": 1
+        },
+        {
+          "addsub_rows": 147,
+          "n": 300,
+          "sensitivity": 1.0,
+          "swap_answer_changes": 147,
+          "tier": 2
+        },
+        {
+          "addsub_rows": 159,
+          "n": 300,
+          "sensitivity": 1.0,
+          "swap_answer_changes": 159,
+          "tier": 3
+        },
+        {
+          "addsub_rows": 156,
+          "n": 300,
+          "sensitivity": 1.0,
+          "swap_answer_changes": 156,
+          "tier": 4
+        }
+      ]
+    },
+    "firewall_all_pass": true,
+    "generated_utc_source": "deterministic (no wall clock in verdict fields)",
+    "schema": "citadel-eval-attack/v1",
+    "surfaces": {
+      "data_readiness_gate": {
+        "classification": "PROVISIONALLY_VALID"
+      },
+      "e0_cognition_dev_certificate": {
+        "classification": "PROVISIONALLY_VALID (dev tier only)"
+      },
+      "pre500m_decision": {
+        "classification": "NOT_EXECUTED"
+      },
+      "pre50m_smoke": {
+        "classification": "VALIDATED (mechanical only)"
+      },
+      "t1d_tiered_arithmetic": {
+        "classification": "SHORTCUT_COMPROMISED + LEAKAGE_COMPROMISED",
+        "gold_machine_consistent": true,
+        "latest_position_per_tier": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "triquetra_binding": {
+        "classification": "PROVISIONALLY_VALID"
+      }
+    },
+    "verdict": "NOT_READY"
+  },
+  "tool_status": "OK"
+}

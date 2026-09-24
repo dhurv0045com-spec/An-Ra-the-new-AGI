@@ -1,0 +1,18 @@
+{
+  "campaign": "FORMATION-MUX-001",
+  "execution": "SUCCESS_24_OF_24_ARMS_SEALED_COMPLETE",
+  "formal_verdicts": {
+    "CS-MECH-002": "NULL",
+    "REP-FORM-003A": "NULL"
+  },
+  "frontier_status": "TIE_ROLE_FRONTIER_NOT_RUN_IN_OBSERVED_BUNDLE",
+  "historical_integrity_note": "Do not claim the later 48-arm v12 expanded campaign ran; this record is the completed 24-arm S5 v8 execution.",
+  "observed_date": "2026-09-15",
+  "observed_operator": "tools/formation_mux_001_kaggle_operator_v8.py",
+  "observed_operator_head": "fdc2483fed0bb1a80d4bfad376aac84a66db6055",
+  "post_outcome_failure_mode": "PRIMARY_IDENTITY_FLOOR_LIMITED_LOW_DISCRIMINATION_POWER",
+  "record_path": "docs/cymek/experiments/FORMATION-MUX-001/observed/S5_KAGGLE_2026-09-15",
+  "schema": "anra.formation-mux-observed-result-index/v1",
+  "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+  "source_bundle_sha256": "859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5"
+}

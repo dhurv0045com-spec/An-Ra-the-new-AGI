@@ -1,82 +1,139 @@
 {
   "schema": "anra.research-decision-model/v1",
-  "generated": "2026-09-13",
-  "phase": 2,
+  "generated": "2026-09-24",
+  "phase": 3,
+  "historical_snapshot": {
+    "date": "2026-09-13",
+    "phase": 2,
+    "branch": "research/evidence-consolidation-2026-09-25",
+    "basis_head": "f2c27a639dcbc1e777172901c7ac09abbdbb6b91",
+    "ledger_entries": 78,
+    "note": "Phase-2 values are retained as historical provenance and are not the current consolidated counts."
+  },
+  "consolidation_source_manifest": "docs/research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.json",
+  "consolidation_manifest_sha256": "c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f",
+  "pre_consolidation_head": {
+    "branch": "research/evidence-consolidation-2026-09-25",
+    "ref": "refs/heads/research/evidence-consolidation-2026-09-25",
+    "commit": "90f77b7fa6ffd99f5a982263f03b2908298805ec",
+    "label": "target tip immediately before this consolidation commit; parent of the consolidated head"
+  },
   "phase1_basis": {
-    "branch": "research/evidence-consolidation-2026-09-13",
+    "branch": "research/evidence-consolidation-2026-09-25",
     "completion_sha": "a350c2b77d7ef8d17f52acd46a828673d5393f5d",
     "ledger": "docs/research/EXPERIMENT_EVIDENCE_LEDGER.json",
-    "ledger_entries": 78
+    "ledger_entries": 78,
+    "historical_ledger_entries": 78,
+    "current_ledger_entries": 90,
+    "historical": true
+  },
+  "consolidation_basis": {
+    "date": "2026-09-24",
+    "ledger": "docs/research/EXPERIMENT_EVIDENCE_LEDGER.json",
+    "ledger_entries": 90,
+    "source_manifest": "docs/research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.json",
+    "pre_consolidation_head_commit": "90f77b7fa6ffd99f5a982263f03b2908298805ec"
   },
   "evidence_snapshot_delta_since_phase1": [
-    "citadel e96c9a9: CITADEL-DATA-001 executed audit (shortcut 1.000/tier, 530 verbatim cross-split docs, 13.5% train duplication, supply 0.004x of 500M)",
-    "eval-integrity-001 915e23f (NEW branch): CITADEL-EVAL-001 evaluation integrity audit (t1d surface SHORTCUT+LEAKAGE compromised; e0/triquetra surfaces PROVISIONALLY_VALID; PRE50M smoke VALIDATED)",
-    "BRAMASTRA f25fc96: B00-B12 integrated build (engineering, no executed science)",
-    "codex 516c280: refactor only"
+    "CYR-GPU-014-R1C completed 24/24 arms with SOFTMAX_COMPETITION_NOT_SUFFICIENT; K01 fired",
+    "CS-TRANSFER-001 completed with PARTIAL_OR_INTERACTION; physical V4096 is not a robust remedy",
+    "CYMEK-V5.1-CANARY-V2 completed 360 updates with CANARY_V2_FAIL_FORMATION",
+    "FORMATION-MUX-001 S5 completed 24/24 arms but is floor-limited; later TIE-role snapshot is partial",
+    "HORM-003 and HORM-004 are separate five-seed miniature NOT_SUPPORTED results",
+    "BRAMASTRA K8 is a completed engineering-partial result; Gandiva TPU preflight is not run; ARK-020 is DO_NOT_RUN",
+    "Formation-Mux recovery-preflight engineering passed remotely after a preserved failed CI run, but exact recovery remains blocked on the absent original checkpoint-bearing Output",
+    "ROLE-TRANSFER-001 is preregistered and execution-blocked with no official arm, sealed evaluation, or scientific result; it supersedes the older tied-row placeholder as design of record",
+    "ARK-014, ARK-014-codex-rerun, and CITADEL-EVAL-001 now resolve to local imported artifacts"
   ],
   "beliefs_ref": "docs/research/BELIEF_REGISTRY.json (B01-B32)",
   "evidence_refs": {
-    "note": "every belief/unknown/decision in this model cites Phase-1 ledger experiment IDs; validator checks resolution",
-    "primary_sources": ["CYR-GPU-011", "CYR-GPU-012-R1", "CYR-GPU-013-R1B", "CYR-GPU-014-R1C", "ARK-007R", "ARK-010", "ARK-011", "ARK-015", "ARK-017-V2", "ARK-018-V4", "ARK-019-V3.1", "ARK-019-V4", "ARK-020-V4", "ARK-002B", "ARK-004A", "ARK-013", "BRM-terminal-EOS", "BRM-binding-diversity", "CIT-T1D", "CIT-scoring-policy-tournament", "TQ-query-value-matrix", "TQ-X1-REAL-self-model", "ESO-PGE-continuation", "ESO-e2-mechanism-canaries"]
+    "note": "Every primary source and evidence reference resolves to the consolidated evidence ledger; imported raw bundles remain external unless explicitly identified.",
+    "primary_sources": ["CYR-GPU-011", "CYR-GPU-012-R1", "CYR-GPU-013-R1B", "CYR-GPU-014-R1C", "CS-TRANSFER-001", "CYMEK-V5.1-CANARY-V2", "FORMATION-MUX-001-S5-V8", "FORMATION-MUX-001-V12-FRONTIER-PARTIAL",     "ARK-007R", "ARK-010", "ARK-011", "ARK-014", "ARK-014-codex-rerun", "ARK-015", "ARK-017-V2", "ARK-018-V4", "ARK-019-V3.1", "ARK-019-V4", "ARK-020-V4", "ARK-002B", "ARK-004A", "ARK-013", "BRM-terminal-EOS", "BRM-binding-diversity", "CIT-T1D", "CITADEL-EVAL-001", "CIT-scoring-policy-tournament", "TQ-query-value-matrix", "TQ-X1-REAL-self-model", "ESO-PGE-continuation", "ESO-e2-mechanism-canaries", "HORM-003", "HORM-004", "BRAMASTRA-K8-20260922", "GANDIVA-TPU-100M-PREFLIGHT", "ROLE-TRANSFER-001"]
   },
   "unknowns": [
-    {"id": "U01", "question": "Is inactive-softmax competition the mechanism of the class-space formation effect?", "discriminating_experiment": "EXEC-R1C", "decisions_blocked": ["AD13", "AD15", "AD16"], "tier": 1},
-    {"id": "U02", "question": "Is the Guardian positive result real and does it beat static replay on efficiency without task-ID leakage?", "discriminating_experiment": "GRD-VALID-001", "decisions_blocked": ["AD21"], "tier": 1},
-    {"id": "U03", "question": "Does the class-space effect transfer beyond arithmetic-micro (scale + production tokenizer)?", "discriminating_experiment": "CS-TRANSFER-001", "decisions_blocked": ["AD13", "AD12"], "tier": 1},
-    {"id": "U04", "question": "Can a new skill form at all under a science-preserving parent (viable SKILL_B dose)?", "discriminating_experiment": "GRD-VALID-001 (formation gate)", "decisions_blocked": ["AD21"], "tier": 2},
-    {"id": "U05", "question": "Which retention lever is necessary in which regime; do doses transfer?", "discriminating_experiment": "TWO-DOSE-RETENTION (embedded fork)", "decisions_blocked": ["AD18", "AD20"], "tier": 2},
-    {"id": "U06", "question": "Can a certified scoring mode exist?", "discriminating_experiment": "CIT-C0-EXTENDED", "decisions_blocked": ["AD25-assisted"], "tier": 2},
-    {"id": "U07", "question": "Does the production representation fail on natural text as on arithmetic?", "discriminating_experiment": "CS-TRANSFER-001 task B", "decisions_blocked": ["AD12"], "tier": 2},
-    {"id": "U08", "question": "What does a qualified 5B production corpus look like post CITADEL-DATA-001?", "discriminating_experiment": "CORPUS-REGEN + screens", "decisions_blocked": ["AD23", "AD26"], "tier": 2, "no_gpu": true},
-    {"id": "U09", "question": "Can any current/future checkpoint qualify as a research subject?", "discriminating_experiment": "SUBJECT-QUAL-NEXT-PARENT", "decisions_blocked": ["AD30-reentry"], "tier": 2},
-    {"id": "U10", "question": "What do unreachable historical programs contain?", "discriminating_experiment": "HISTORY-EXPORT (no discriminating experiment needed - recovery task)", "decisions_blocked": [], "tier": 3, "no_gpu": true}
+    {"id": "U01", "status": "ANSWERED_NO", "question": "Is inactive-softmax competition the mechanism of the class-space formation effect?", "answer": "No within the tested fixed-physical-vocabulary development scope: R1C completed 24/24 arms with SOFTMAX_COMPETITION_NOT_SUFFICIENT; this does not globally disprove every softmax interaction.", "discriminating_experiment": "EXEC-R1C", "decisions_blocked": [], "tier": 1, "evidence_refs": ["CYR-GPU-014-R1C"]},
+    {"id": "U02", "status": "OPEN", "question": "Is the Guardian positive result real and does it beat static replay on efficiency without task-ID leakage?", "discriminating_experiment": "V4-BUNDLE-AUDIT", "decisions_blocked": ["AD21"], "tier": 1, "evidence_refs": ["ARK-019-V3.1", "ARK-019-V4", "ARK-020-V4"]},
+    {"id": "U03", "status": "OPEN", "question": "Which tied-row geometry, parameterization/initialization, and optimizer/weight-decay/denominator interaction explains the remaining class-space formation effect?", "discriminating_experiment": "ROLE-TRANSFER-001", "decisions_blocked": ["AD13", "AD14", "AD15"], "tier": 1, "evidence_refs": ["CYR-GPU-014-R1C", "CS-TRANSFER-001", "FORMATION-MUX-001-S5-V8", "ROLE-TRANSFER-001"]},
+    {"id": "U04", "status": "OPEN", "question": "Can a new skill form at all under a science-preserving parent with a viable dose?", "discriminating_experiment": "GRD-VALID-001", "decisions_blocked": ["AD21"], "tier": 2, "evidence_refs": ["ARK-013", "ARK-019-V3.1", "ARK-020-V4"]},
+    {"id": "U05", "status": "OPEN", "question": "Which retention lever is necessary in which regime; do doses transfer?", "discriminating_experiment": "TWO-DOSE-RETENTION", "decisions_blocked": ["AD18", "AD20"], "tier": 2, "evidence_refs": ["ARK-017-V2", "ARK-019-V3.1"]},
+    {"id": "U06", "status": "OPEN", "question": "Can a certified scoring mode exist?", "discriminating_experiment": "CIT-C0-EXTENDED", "decisions_blocked": ["AD25"], "tier": 2, "evidence_refs": ["CIT-scoring-policy-tournament", "CITADEL-EVAL-001"]},
+    {"id": "U07", "status": "OPEN", "question": "Does the class-space/representation effect transfer to natural-language tokenization and larger models?", "discriminating_experiment": "NATURAL-SCALE-TRANSFER-001", "decisions_blocked": ["AD12", "AD13"], "tier": 1, "evidence_refs": ["CS-TRANSFER-001", "CYMEK-V5.1-CANARY-V2"]},
+    {"id": "U08", "status": "OPEN", "question": "What does a qualified 5B production corpus look like after the Citadel data and evaluation audits?", "discriminating_experiment": "CORPUS-REGEN", "decisions_blocked": ["AD23", "AD26"], "tier": 2, "no_gpu": true, "evidence_refs": ["CITADEL-DATA-001", "CITADEL-EVAL-001"]},
+    {"id": "U09", "status": "OPEN", "question": "Can any current or future checkpoint qualify as a research subject?", "discriminating_experiment": "SUBJECT-QUAL-NEXT-PARENT", "decisions_blocked": ["AD30"], "tier": 2, "evidence_refs": ["TQ-readiness-gates"]},
+    {"id": "U10", "status": "OPEN", "question": "What do unreachable historical programs contain?", "discriminating_experiment": "HISTORY-EXPORT", "decisions_blocked": [], "tier": 3, "no_gpu": true, "evidence_refs": ["SENORA-P35-CMS1-CAD"]},
+    {"id": "U12", "status": "OPEN", "question": "Can a cheap multi-seed Formation-Mux control-capability and checkpoint-metric-resolution preflight move the identity endpoint off the near-zero floor?", "discriminating_experiment": "FMUX-CONTROL-METRIC-PREFLIGHT", "decisions_blocked": ["AD31"], "tier": 1, "evidence_refs": ["FORMATION-MUX-001-S5-V8", "FORMATION-MUX-001-V12-FRONTIER-PARTIAL"]}
   ],
   "dependencies_ref": "docs/research/RESEARCH_DEPENDENCY_GRAPH.json",
   "candidate_experiments": [
-    {"id": "EXEC-R1C", "status": "frozen-ready", "gpu_hours": 22, "scores": {"info_gain": 5, "architecture_impact": 5, "dependency_unlocks": 5, "p_discriminate": 0.8, "cost": 4}, "value": 25.0, "unlocks": ["AD13", "AD15", "AD16", "U01"], "notes": "launcher rebind amendment required first"},
-    {"id": "V4-BUNDLE-AUDIT", "status": "zero-gpu", "gpu_hours": 0, "scores": {"info_gain": 4, "architecture_impact": 2, "dependency_unlocks": 4, "p_discriminate": 0.7, "cost": 1}, "value": 22.4, "unlocks": ["AD21", "U02"], "notes": "work item, not a GPU campaign"},
-    {"id": "CORPUS-REGEN", "status": "design+build", "gpu_hours": 0, "scores": {"info_gain": 3, "architecture_impact": 4, "dependency_unlocks": 3, "p_discriminate": 0.9, "cost": 2}, "value": 16.2, "unlocks": ["AD26", "AD23-path", "U08"], "notes": "work item; mechanically verifiable"},
-    {"id": "CS-TRANSFER-001", "status": "designed (EXP-2)", "gpu_hours": 14, "scores": {"info_gain": 5, "architecture_impact": 4, "dependency_unlocks": 3, "p_discriminate": 0.7, "cost": 3}, "value": 14.0, "unlocks": ["AD12", "AD13", "U03", "U07"], "notes": "arm set branches on EXEC-R1C verdict"},
-    {"id": "SUBJECT-QUAL-NEXT-PARENT", "status": "opportunistic", "gpu_hours": 1, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.8, "cost": 1}, "value": 9.6, "unlocks": ["AD30-reentry", "U09"], "notes": "calibrate the next real-text parent"},
-    {"id": "CIT-C0-EXTENDED", "status": "designed", "gpu_hours": 2, "scores": {"info_gain": 3, "architecture_impact": 3, "dependency_unlocks": 3, "p_discriminate": 0.5, "cost": 2}, "value": 6.8, "unlocks": ["AD25-assisted", "U06"], "notes": "no-GPU design pass first"},
-    {"id": "TWO-DOSE-RETENTION", "status": "embedded", "gpu_hours": 2, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.6, "cost": 2}, "value": 3.6, "unlocks": ["AD20", "U05"], "notes": "embed inside the next retention fork, never standalone"},
-    {"id": "GRD-VALID-001", "status": "designed (EXP-3)", "gpu_hours": 8, "scores": {"info_gain": 4, "architecture_impact": 2, "dependency_unlocks": 4, "p_discriminate": 0.6, "cost": 3}, "value": 6.4, "unlocks": ["AD21", "U02", "U04"], "notes": "Stage 0 free; Stage 1 only if bundle unavailable/failed"},
-    {"id": "ARK-020-EXECUTION", "status": "ready-not-executed", "gpu_hours": 40, "scores": {"info_gain": 4, "architecture_impact": 2, "dependency_unlocks": 3, "p_discriminate": 0.5, "cost": 5}, "value": 2.4, "unlocks": ["AD21", "U02", "U04"], "notes": "defer behind V4 audit interpretation"},
-    {"id": "ARK-021", "status": "development-ready", "gpu_hours": 20, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.5, "cost": 4}, "value": 1.5, "unlocks": ["AD20", "U05"], "notes": "deferred (EXPERIMENTS_TO_CANCEL_OR_DEFER)"},
-    {"id": "E3-MIXTURE", "status": "blocked", "gpu_hours": 30, "scores": {"info_gain": 2, "architecture_impact": 4, "dependency_unlocks": 2, "p_discriminate": 0.5, "cost": 5}, "value": 0.8, "unlocks": ["AD23"], "notes": "blocked upstream; remains so"},
-    {"id": "HISTORY-EXPORT", "status": "zero-gpu", "gpu_hours": 0, "scores": {"info_gain": 1, "architecture_impact": 1, "dependency_unlocks": 1, "p_discriminate": 1.0, "cost": 1}, "value": 1.0, "unlocks": ["U10"], "notes": "do before any gc; protects stash + unreachable objects"}
+    {"id": "EXEC-R1C", "status": "complete", "scope": "controlled development mechanism", "gpu_hours": 22, "scores": {"info_gain": 5, "architecture_impact": 5, "dependency_unlocks": 5, "p_discriminate": 0.8, "cost": 4}, "value": 0, "unlocks": [], "kill_criterion": "K01 fired; do not rerun the completed mask-only campaign", "notes": "Completed 24/24; verdict SOFTMAX_COMPETITION_NOT_SUFFICIENT; R1C/CS path is recorded."},
+    {"id": "CS-TRANSFER-001", "status": "complete", "scope": "controlled development causal evidence", "gpu_hours": 14, "scores": {"info_gain": 5, "architecture_impact": 4, "dependency_unlocks": 3, "p_discriminate": 0.7, "cost": 3}, "value": 0, "unlocks": [], "kill_criterion": "Do not rerun as a mask proxy; retain the one-reversal interaction result", "notes": "Completed with PARTIAL_OR_INTERACTION; raw Drive result remains external."},
+    {"id": "FMUX-CONTROL-METRIC-PREFLIGHT", "status": "next", "scope": "cheap multi-seed baseline and checkpoint metric resolution", "gpu_hours": 1, "scores": {"info_gain": 5, "architecture_impact": 5, "dependency_unlocks": 5, "p_discriminate": 0.9, "cost": 1}, "value": 112.5, "unlocks": ["U12", "AD31"], "kill_criterion": "Stop if control capability or checkpoint metric resolution cannot be established away from the floor", "notes": "First next action; no broad mechanism campaign from a floor."},
+    {"id": "TIED-ROW-GEOMETRY-WD-001", "status": "superseded-by-preregistered-design", "scope": "obsolete narrow tied-row geometry placeholder", "gpu_hours": 0, "scores": {"info_gain": 0, "architecture_impact": 0, "dependency_unlocks": 0, "p_discriminate": 0.0, "cost": 1}, "value": 0, "unlocks": [], "kill_criterion": "Do not execute; the preregistered ROLE-TRANSFER-001 design is the sole successor of record", "notes": "Superseded before execution to avoid duplicating the more rigorous frozen design."},
+    {"id": "ROLE-TRANSFER-001", "status": "preregistered-execution-blocked", "scope": "norm-matched tied-gradient role allocation on a new within-ontology production-BPE downstream endpoint", "gpu_hours": 0, "scores": {"info_gain": 5, "architecture_impact": 5, "dependency_unlocks": 4, "p_discriminate": 0.9, "cost": 5}, "value": 18.0, "unlocks": ["U03", "AD13", "AD14", "AD15"], "kill_criterion": "Stop as INCONCLUSIVE_PROTOCOL, INCONCLUSIVE_SUBSTRATE, CLIPPING_CONFOUNDED, or MECHANISM_NOT_ENGAGED if any frozen validity gate fails", "notes": "Preregistered design only. Requires FMUX preflight/custody recovery, conditional frozen-frontier completion, generator/trainer/evaluator implementation, no-overlap proof, and independent remote qualification. GPU duration is uncalibrated and no execution is authorized."},
+    {"id": "CORPUS-REGEN", "status": "required-parallel", "scope": "clean corpus and evaluation regeneration", "gpu_hours": 0, "scores": {"info_gain": 3, "architecture_impact": 4, "dependency_unlocks": 3, "p_discriminate": 0.9, "cost": 2}, "value": 16.2, "unlocks": ["AD12", "AD23", "AD26", "U07", "U08"], "kill_criterion": "Do not feed any regenerated surface until contamination, shortcut, leakage, and sealed-fixture screens pass", "notes": "Required before natural-language or scale transfer; does not authorize scale."},
+    {"id": "NATURAL-SCALE-TRANSFER-001", "status": "blocked-by-corpus-and-geometry", "scope": "natural-language and larger-scale transfer", "gpu_hours": 8, "scores": {"info_gain": 4, "architecture_impact": 5, "dependency_unlocks": 4, "p_discriminate": 0.6, "cost": 4}, "value": 12.0, "unlocks": ["AD12", "AD13", "U07"], "kill_criterion": "K04 or K07 stops the line if the clean transfer gap is below threshold or corpus gates remain unresolved", "notes": "CS-TRANSFER-001 does not count as this experiment."},
+    {"id": "V4-BUNDLE-AUDIT", "status": "parallel-zero-gpu", "scope": "raw Guardian bundle recovery and byte audit", "gpu_hours": 0, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.6, "cost": 1}, "value": 7.2, "unlocks": ["AD21", "U02"], "kill_criterion": "K02 stops controller internalization if the raw bundle cannot be audited or the controlled contrast fails", "notes": "ARK-020 remains DO_NOT_RUN; audit is a prerequisite, not an execution campaign."},
+    {"id": "SUBJECT-QUAL-NEXT-PARENT", "status": "opportunistic", "scope": "checkpoint subject qualification", "gpu_hours": 1, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.8, "cost": 1}, "value": 9.6, "unlocks": ["AD30", "U09"], "kill_criterion": "K06 stops learned self-model work if qualified bases fail", "notes": "No current local subject qualifies."},
+    {"id": "CIT-C0-EXTENDED", "status": "designed", "scope": "certified scoring mode", "gpu_hours": 2, "scores": {"info_gain": 3, "architecture_impact": 3, "dependency_unlocks": 3, "p_discriminate": 0.5, "cost": 2}, "value": 6.8, "unlocks": ["AD25", "U06"], "kill_criterion": "K05 stops assisted scoring after two preregistered policy families fail", "notes": "No-GPU design pass remains useful but is not the first science action."},
+    {"id": "TWO-DOSE-RETENTION", "status": "embedded", "scope": "retention dose response", "gpu_hours": 2, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.6, "cost": 2}, "value": 3.6, "unlocks": ["AD20", "U05"], "kill_criterion": "Stop if the embedded fork cannot produce a qualified event set", "notes": "Never run as a broad standalone campaign."},
+    {"id": "GRD-VALID-001", "status": "blocked-by-ARK020-readiness", "scope": "formation-qualified Guardian comparison", "gpu_hours": 8, "scores": {"info_gain": 4, "architecture_impact": 2, "dependency_unlocks": 4, "p_discriminate": 0.6, "cost": 3}, "value": 6.4, "unlocks": ["AD21", "U02", "U04"], "kill_criterion": "K02 stops controller work if the formation gate or hidden-feature comparison fails", "notes": "Do not schedule while ARK-020 is DO_NOT_RUN."},
+    {"id": "ARK-020-EXECUTION", "status": "DO_NOT_RUN", "scope": "four-skill continual battery", "gpu_hours": 40, "scores": {"info_gain": 0, "architecture_impact": 0, "dependency_unlocks": 0, "p_discriminate": 0.0, "cost": 5}, "value": 0, "unlocks": [], "kill_criterion": "Readiness DO_NOT_RUN overrides the candidate until resume/identity defects are repaired and validated", "notes": "No authorization flags are true."},
+    {"id": "ARK-021", "status": "deferred", "scope": "retention versus reacquisition", "gpu_hours": 20, "scores": {"info_gain": 3, "architecture_impact": 2, "dependency_unlocks": 2, "p_discriminate": 0.5, "cost": 4}, "value": 1.5, "unlocks": ["AD20", "U05"], "kill_criterion": "Defer until U05 and a viable formation context are resolved", "notes": "Existing deferred portfolio item."},
+    {"id": "E3-MIXTURE", "status": "blocked", "scope": "cognition-mixture screens", "gpu_hours": 30, "scores": {"info_gain": 2, "architecture_impact": 4, "dependency_unlocks": 2, "p_discriminate": 0.5, "cost": 5}, "value": 0.8, "unlocks": ["AD23"], "kill_criterion": "K07 stops scale preparation while corpus and architecture gates remain unresolved", "notes": "Blocked upstream; no broad mixture campaign."},
+    {"id": "HISTORY-EXPORT", "status": "zero-gpu", "scope": "preserve unreachable history", "gpu_hours": 0, "scores": {"info_gain": 1, "architecture_impact": 1, "dependency_unlocks": 1, "p_discriminate": 1.0, "cost": 1}, "value": 1.0, "unlocks": ["U10"], "kill_criterion": "Do before garbage collection", "notes": "Recovery task only."},
+    {"id": "BRAMASTRA-K8-20260922", "status": "completed-engineering-partial", "scope": "engineering-only K8 execution", "gpu_hours": 1.2, "scores": {"info_gain": 1, "architecture_impact": 0, "dependency_unlocks": 0, "p_discriminate": 0.0, "cost": 2}, "value": 0, "unlocks": [], "kill_criterion": "Engineering-only; no cognition or tool-learning promotion", "notes": "Completed engineering-partial result: E0/E1 executed, E2 not positive cognition, E3 blocked, E4-E5 not run."},
+    {"id": "GANDIVA-TPU-100M-PREFLIGHT", "status": "engineering-not-run", "scope": "zero-update TPU backward preflight", "gpu_hours": 0, "scores": {"info_gain": 1, "architecture_impact": 0, "dependency_unlocks": 0, "p_discriminate": 0.0, "cost": 1}, "value": 0, "unlocks": [], "kill_criterion": "No TPU qualification without a zero-update BACKWARD_PREFLIGHT_PASS receipt", "notes": "No run, no optimizer update, no qualification."}
   ],
   "scoring_function": {
     "formula": "VALUE = (info_gain x architecture_impact x dependency_unlocks x p_discriminate) / cost",
     "scales": "factors 1-5 integers; p_discriminate 0-1 (decision-model estimate, NOT a measured probability); cost 1-5 (5 = most expensive)",
     "caveat": "these are decision-model estimates for ranking only; they are not calibrated probabilities"
   },
+  "ranking": {
+    "top_three": ["FMUX-CONTROL-METRIC-PREFLIGHT", "ROLE-TRANSFER-001", "CORPUS-REGEN"],
+    "basis": "FMUX capability/metric and exact-custody gates come first. If they pass, the frozen frontier may recover/continue, after which the preregistered ROLE-TRANSFER-001 design is the successor of record. Corpus/evaluation regeneration proceeds in parallel before natural-language or scale transfer. None is automatic authorization.",
+    "completed_not_ranked": ["EXEC-R1C", "CS-TRANSFER-001"]
+  },
   "ranking_sensitivity": {
     "method": "all-factor +/-1 perturbation (p_discriminate +/-0.2)",
     "result": {
-      "rank_1_EXEC-R1C": "stable in 24/27 perturbations; drops below V4-BUNDLE-AUDIT only when its cost is pushed to 5 AND bundle-audit value is simultaneously maximized",
-      "rank_2_V4-BUNDLE-AUDIT": "stable (zero cost dominates); worst case still mid-table",
-      "rank_3_boundary": "UNSTABLE between CS-TRANSFER-001 and CORPUS-REGEN: under architecture-impact-weighted scoring CORPUS-REGEN drops out and Top-3 becomes EXEC-R1C, CS-TRANSFER-001, GRD-VALID-001 (as frozen in NEXT_3_EXPERIMENTS.md); under dependency-unlock-weighted scoring CORPUS-REGEN enters at #3",
-      "verdict": "Top-3 experiment ranking is STABLE for the two GPU science positions and CONTESTED at the third slot vs the zero-GPU work package; the package should be executed regardless (it is cost-1 and mechanically verifiable), which dissolves the instability"
+      "rank_1_FMUX-CONTROL-METRIC-PREFLIGHT": "stable because it is the cheapest prerequisite that can prevent another floor-limited or unrecoverable campaign",
+      "rank_2_ROLE-TRANSFER-001": "stable as the design of record after custody/frontier prerequisites, but it remains execution-blocked and scientifically untested",
+      "rank_3_CORPUS-REGEN": "required parallel work package; it is not a license to start a broad mechanism or scale campaign",
+      "verdict": "Top-three ordering is stable for the current decision state; the old tied-row placeholder is superseded, and completed R1C/CS plus engineering-only K8/TPU are not active science candidates."
     }
   },
   "blocked_decisions": [
-    {"decision": "AD13", "blocked_by_unknown": "U01+U03"},
-    {"decision": "AD14", "blocked_by_unknown": "U01+U03"},
-    {"decision": "AD15", "blocked_by_unknown": "U01"},
-    {"decision": "AD16", "blocked_by_unknown": "U01"},
-    {"decision": "AD21", "blocked_by_unknown": "U02"},
+    {"decision": "AD02", "blocked_by_unknown": "U07"},
+    {"decision": "AD13", "blocked_by_unknown": "U03+U07"},
+    {"decision": "AD14", "blocked_by_unknown": "U03+U07"},
+    {"decision": "AD15", "blocked_by_unknown": "U03"},
+    {"decision": "AD21", "blocked_by_unknown": "U02+U04"},
     {"decision": "AD26", "blocked_by_unknown": "U08"},
-    {"decision": "AD12", "blocked_by_unknown": "U03"},
+    {"decision": "AD12", "blocked_by_unknown": "U07"},
     {"decision": "AD23", "blocked_by_unknown": "U08"},
-    {"decision": "AD30", "blocked_by_unknown": "U09", "note": "re-entry gate for learned self-model heads"}
+    {"decision": "AD30", "blocked_by_unknown": "U09", "note": "re-entry gate for learned self-model heads"},
+    {"decision": "AD31", "blocked_by_unknown": "U12", "note": "Formation-Mux TIE-role frontier cannot lock a mechanism from floor-limited or partial evidence"}
   ],
   "kill_criteria_ref": "docs/research/RESEARCH_KILL_CRITERIA.md",
   "kill_criteria": ["K01", "K02", "K03", "K04", "K05", "K06", "K07", "K08", "K09", "K10"],
+  "kill_criteria_detail": [
+    {"id": "K01", "status": "FIRED", "effect": "R1C completed with SOFTMAX_COMPETITION_NOT_SUFFICIENT; no mask-only production remedy."},
+    {"id": "K02", "status": "OPEN", "effect": "Guardian raw-bundle gap and ARK-020 DO_NOT_RUN keep controller internalization blocked."},
+    {"id": "K03", "status": "PARTIAL_OR_INTERACTION", "effect": "CS-TRANSFER-001 is complete but does not establish natural-language or scale transfer."},
+    {"id": "K04", "status": "OPEN", "effect": "Natural-language transfer remains untested."},
+    {"id": "K07", "status": "BLOCKED", "effect": "Corpus, representation, and scale gates remain unresolved; no PRE500M/250M/500M authorization."},
+    {"id": "K10", "status": "OPEN_SUCCESSOR_REQUIRED", "effect": "No broad arithmetic mechanism campaign from the Formation-Mux floor. The preflight and exact recovery gates come first; the frozen frontier may continue only if both pass; the preregistered ROLE-TRANSFER-001 remains blocked until upstream completion, implementation, evaluator freeze, and qualification."}
+  ],
   "decision_tree_ref": "docs/research/NEXT_EXPERIMENT_DECISION_TREE.json",
+  "authorization_boundary": "No candidate or decision authorizes production vocabulary, PRE500M, 250M, 500M, cognition, AGI, tool learning, TPU qualification, or RSI. ROLE-TRANSFER-001 remains preregistered and execution-blocked; CI qualifies protocol bytes, not science.",
   "invariants": [
-    "no NOT_EXECUTED experiment may be cited as positive scientific evidence (validator-enforced)",
-    "no architecture decision may leave its legal state without the named evidence (validator-enforced)",
-    "every high-cost candidate (cost >= 4) must have a kill criterion (validator-enforced)"
+    "no NOT_EXECUTED experiment may be cited as positive scientific evidence",
+    "no architecture decision may leave its legal state without the named evidence",
+    "every high-cost candidate has a kill criterion",
+    "completed R1C/CS evidence cannot be reopened as a mask-only or broad campaign",
+    "no floor-limited Formation-Mux result may lock or exonerate a mechanism",
+    "the superseded tied-row placeholder and preregistered ROLE-TRANSFER-001 must never run as duplicate designs",
+    "recovery CI and protocol-hash CI are engineering evidence, not scientific outcomes or execution authorization"
   ]
 }

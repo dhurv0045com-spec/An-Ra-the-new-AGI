@@ -1,0 +1,434 @@
+{
+  "budget_confound": {
+    "B_budget": 8000000,
+    "D_budget": 4000000,
+    "E_budget": 4000000,
+    "record": "D-vs-B changes model size AND budget; E-vs-B changes output space AND budget. Neither is a pure contrast. Do not conclude 'scale does not help' or 'masking does not help' from this session; T1E must token-match."
+  },
+  "bundle": {
+    "member_hashes": {
+      "ARM_A.json": {
+        "bytes": 22278,
+        "sha256": "c99f2590f97b17c8594723b4c29d0c8033bde2f17002d30114010827e3f9942f"
+      },
+      "ARM_B.json": {
+        "bytes": 22282,
+        "sha256": "4886a11154424e48b0715d0e4c2945246ac09a15fe03c7a3e4018b6a142e5638"
+      },
+      "ARM_C.json": {
+        "bytes": 22584,
+        "sha256": "6b2e73218df127ffe99d94ef07adbf69b500a397c144fe6e2bd311ef64597276"
+      },
+      "ARM_D.json": {
+        "bytes": 22282,
+        "sha256": "5121fc2113b84ef3158590108a577120569d23034e999af1c86ba2e42b042941"
+      },
+      "ARM_E.json": {
+        "bytes": 22250,
+        "sha256": "3361fe79b104c4c7cf139b7c61b72a6cbd3d38914bc764c446a8d39b41b49fbf"
+      },
+      "ARM_F.json": {
+        "bytes": 21863,
+        "sha256": "e0d479ed92da3456b07aeb6baa26c090d6486299f34f848e2ffc2b1a60b500e1"
+      },
+      "CALIBRATION.json": {
+        "bytes": 3705,
+        "sha256": "d963ef86fe9d240a8cd7720703b6681f42ba9f238aed58ffb90f8aa50bc0785f"
+      },
+      "CROSS_ARM_SUMMARY.json": {
+        "bytes": 1646,
+        "sha256": "948ba72aa5386291a2f143897d775ead29f4bdf8d1a726fdedfb24c308e48b2d"
+      },
+      "DATA_MANIFEST.json": {
+        "bytes": 9055,
+        "sha256": "bf608c607f0d45c27d9c8e16756153cfb8b707950ea1afa83ab30f5b5883284f"
+      },
+      "DIAGNOSTICS.json": {
+        "bytes": 256,
+        "sha256": "77577e3501e9491bcd327eec9a9ef73506ae9128dffc5a0f9b7c0d05095c4879"
+      },
+      "LIFT_OFF_CURVES.json": {
+        "bytes": 3908,
+        "sha256": "36cb99da6eb62fb5be494a634ed0a586bdfa6720f45b313e4ba9b27a49fb0a35"
+      },
+      "NEXT_50M_DECISION.json": {
+        "bytes": 354,
+        "sha256": "f2bee8c1559584ff23b50e46c6940e9698b618dea8f649a44aaff9f7017f3212"
+      },
+      "PRE50M_CHECKPOINT_SMOKE.json": {
+        "bytes": 268,
+        "sha256": "6a88febd7a6e194c8fe178e0012dadee95a68df385784ad87574c7eef2af405c"
+      },
+      "PRE50M_DATA_INTERFACE.json": {
+        "bytes": 266,
+        "sha256": "ba1d60fcec502da279ee4a8d7799f1c3cc362c86e6fc853fc7aabc1d2a81ba3e"
+      },
+      "PRE50M_FEASIBILITY.json": {
+        "bytes": 263,
+        "sha256": "ab601ced8bac73d803c5a4446ec3c70ea0ec94fe016f830df96d00cafe2aae4d"
+      },
+      "PRE50M_PACKING.json": {
+        "bytes": 259,
+        "sha256": "9b20b491ecb01a028d2c6c76ef066401f22899fe419a47b8455fb04470218b80"
+      },
+      "PRE50M_TARGET.json": {
+        "bytes": 540,
+        "sha256": "f77ca2746d28a9c1d624e08997938e82a7cea4fe2572dc17999d5554efefa845"
+      },
+      "PRE50M_THROUGHPUT.json": {
+        "bytes": 262,
+        "sha256": "9804f92d7349578f6952293090622fbc36d292d87a3864cc1ea862ba49ad850b"
+      },
+      "SESSION_MANIFEST.json": {
+        "bytes": 1085,
+        "sha256": "9857149dd15c4d2f6ef9994d54ef7640ee16f9249d1e0ed145cc78dcdf99aa4a"
+      }
+    },
+    "members": 19,
+    "zip_valid": true
+  },
+  "content_forensics_POST_HOC": {
+    "A": {
+      "POST_HOC_NOT_PREREGISTERED": true,
+      "content_exact_at_target_len": 1,
+      "examples": [
+        {
+          "prediction": " 7373760",
+          "target": "8733"
+        },
+        {
+          "prediction": " 7077700",
+          "target": "9077"
+        },
+        {
+          "prediction": " 7008000",
+          "target": "9008"
+        },
+        {
+          "prediction": " 9999922",
+          "target": "9"
+        },
+        {
+          "prediction": " 3244444",
+          "target": "6"
+        },
+        {
+          "prediction": "00000000",
+          "target": "0"
+        }
+      ],
+      "n_samples": 20,
+      "rate": 0.05
+    },
+    "B": {
+      "POST_HOC_NOT_PREREGISTERED": true,
+      "content_exact_at_target_len": 1,
+      "examples": [
+        {
+          "prediction": " 2992000",
+          "target": "8733"
+        },
+        {
+          "prediction": " 7700000",
+          "target": "9077"
+        },
+        {
+          "prediction": " 1980000",
+          "target": "9008"
+        },
+        {
+          "prediction": " 1111111",
+          "target": "9"
+        },
+        {
+          "prediction": " 6644420",
+          "target": "6"
+        },
+        {
+          "prediction": "00000000",
+          "target": "0"
+        }
+      ],
+      "n_samples": 20,
+      "rate": 0.05
+    },
+    "C": {
+      "POST_HOC_NOT_PREREGISTERED": true,
+      "content_exact_at_target_len": 1,
+      "examples": [
+        {
+          "prediction": " 4922220",
+          "target": "8733"
+        },
+        {
+          "prediction": " 3521250",
+          "target": "9077"
+        },
+        {
+          "prediction": " 3333333",
+          "target": "9008"
+        },
+        {
+          "prediction": " 3333336",
+          "target": "9"
+        },
+        {
+          "prediction": " 6244448",
+          "target": "6"
+        },
+        {
+          "prediction": "00000000",
+          "target": "0"
+        }
+      ],
+      "n_samples": 20,
+      "rate": 0.05
+    },
+    "D": {
+      "POST_HOC_NOT_PREREGISTERED": true,
+      "content_exact_at_target_len": 1,
+      "examples": [
+        {
+          "prediction": " 4999000",
+          "target": "8733"
+        },
+        {
+          "prediction": " 3333500",
+          "target": "9077"
+        },
+        {
+          "prediction": " 2990000",
+          "target": "9008"
+        },
+        {
+          "prediction": " 1124224",
+          "target": "9"
+        },
+        {
+          "prediction": " 6664444",
+          "target": "6"
+        },
+        {
+          "prediction": "00000000",
+          "target": "0"
+        }
+      ],
+      "n_samples": 20,
+      "rate": 0.05
+    },
+    "E": {
+      "POST_HOC_NOT_PREREGISTERED": true,
+      "content_exact_at_target_len": 1,
+      "examples": [
+        {
+          "prediction": " 1999966",
+          "target": "8733"
+        },
+        {
+          "prediction": " 1999900",
+          "target": "9077"
+        },
+        {
+          "prediction": " 5999900",
+          "target": "9008"
+        },
+        {
+          "prediction": " 1199664",
+          "target": "9"
+        },
+        {
+          "prediction": " 6444444",
+          "target": "6"
+        },
+        {
+          "prediction": "00000000",
+          "target": "0"
+        }
+      ],
+      "n_samples": 20,
+      "rate": 0.05
+    },
+    "F": {
+      "POST_HOC_NOT_PREREGISTERED": true,
+      "content_exact_at_target_len": 0,
+      "examples": [
+        {
+          "prediction": " 3333333",
+          "target": "8733"
+        },
+        {
+          "prediction": " 3333333",
+          "target": "9077"
+        },
+        {
+          "prediction": " 3333333",
+          "target": "9008"
+        },
+        {
+          "prediction": " 3333333",
+          "target": "9"
+        },
+        {
+          "prediction": " 3333333",
+          "target": "6"
+        },
+        {
+          "prediction": "33333333",
+          "target": "0"
+        }
+      ],
+      "n_samples": 20,
+      "rate": 0.0
+    }
+  },
+  "data_volume": {
+    "available_unique_bytes_est": 96845706,
+    "available_unique_rows": 6416000,
+    "consumable_unique_fraction_est": 0.351,
+    "total_real_tokens_all_arms_est": 28892704,
+    "total_row_placements_all_arms": 1869821,
+    "verdict": "DATA_VOLUME_NOT_CURRENT_BOTTLENECK"
+  },
+  "eos_audit": {
+    "eligible_span": "answer characters only (t1c.answer_spans; EOS never appended)",
+    "encode_row_tokens": [
+      51,
+      52,
+      34,
+      45,
+      34,
+      59,
+      34,
+      63,
+      34,
+      52,
+      51
+    ],
+    "eos_in_training_row": false,
+    "generation_stops": "EOS/PAD/newline/non-alphabet else MAX_TOKENS",
+    "verdict": "MODEL WAS NEVER SUPERVISED TO EMIT EOS_ID"
+  },
+  "identity": {
+    "citadel_sha": "abec6bd2d503cff7669067a2cc120023c0006306",
+    "cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c"
+  },
+  "self_probe_audit": {
+    "MAX_ANSWER_TOKENS": 8,
+    "POST_HOC feasible-only (Arm F)": {
+      "note": "stored samples only cover per-domain aggregates; per-probe predictions were not serialized - feasible-only accuracy requires the full probe predictions"
+    },
+    "SELF_KNOWLEDGE_EVAL_CONTRACT_INVALID": true,
+    "arm_F_trained_accuracy": 0.0,
+    "feasible_probes": 39,
+    "official_result_unchanged": "SCIENTIFIC_FAIL",
+    "over_examples": [
+      "the operator",
+      "learn from my mistakes",
+      "the operator",
+      "try again",
+      "a colab tpu",
+      "to learn like a child",
+      "a colab tpu",
+      "a small transformer"
+    ],
+    "targets_over_generation_limit": 57,
+    "total_probes": 96
+  },
+  "session": {
+    "budgets_scaled": false,
+    "citadel_sha": "abec6bd2d503cff7669067a2cc120023c0006306",
+    "cymek_sha": "28bf57a0d299a2c13a99fe0046616c00a1b8530c",
+    "selected_shape": {
+      "batch": 512,
+      "length": 64
+    },
+    "throughput_tok_s": 6977.9
+  },
+  "teacher_audit": {
+    "TEACHER_DIVERSITY_LIMIT": true,
+    "classification": "PRIMITIVE_LEARNING_WITHOUT_COMPOSITIONAL_TRANSFER",
+    "heldout_eval_accuracy": 0.515,
+    "heldout_eval_n": 200,
+    "placed_tokens": {
+      "teacher:digadd": 1076394,
+      "teacher:digsub": 1141630,
+      "teacher:divmicro": 567701,
+      "teacher:singlemul": 584093
+    },
+    "placements": {
+      "teacher:digadd": 32618,
+      "teacher:digsub": 32618,
+      "teacher:divmicro": 32618,
+      "teacher:singlemul": 32618
+    },
+    "replay_factor_per_kind": {
+      "digadd": 2718.2,
+      "digsub": 2509.1,
+      "divmicro": 2509.1,
+      "singlemul": 3261.8
+    },
+    "unique_pool_per_kind": {
+      "digadd": 12,
+      "digsub": 13,
+      "divmicro": 13,
+      "singlemul": 10
+    }
+  },
+  "termination_audit": {
+    "arms": {
+      "A": {
+        "histogram": {
+          "MAX_TOKENS": 2500
+        },
+        "max_tokens_rate": 1.0,
+        "total_generations": 2500
+      },
+      "B": {
+        "histogram": {
+          "MAX_TOKENS": 2500
+        },
+        "max_tokens_rate": 1.0,
+        "total_generations": 2500
+      },
+      "C": {
+        "histogram": {
+          "MAX_TOKENS": 2500
+        },
+        "max_tokens_rate": 1.0,
+        "total_generations": 2500
+      },
+      "D": {
+        "histogram": {
+          "MAX_TOKENS": 2500
+        },
+        "max_tokens_rate": 1.0,
+        "total_generations": 2500
+      },
+      "E": {
+        "histogram": {
+          "MAX_TOKENS": 2500
+        },
+        "max_tokens_rate": 1.0,
+        "total_generations": 2500
+      },
+      "F": {
+        "histogram": {
+          "MAX_TOKENS": 2500
+        },
+        "max_tokens_rate": 1.0,
+        "total_generations": 2500
+      }
+    },
+    "max_tokens_share": 1.0,
+    "stop_totals": {
+      "MAX_TOKENS": 15000
+    },
+    "total_generation_records": 15000,
+    "verdict": "EVERY generation ended MAX_TOKENS"
+  },
+  "tier_interpretation": {
+    "T0/T1": "memorization/basic-fit probes (finite spaces; overlap possible)",
+    "T2/T3/T4": "structural held-out generalization surfaces",
+    "observed": "T1 train/test exact 0-11% - even the memorization probes failed"
+  }
+}

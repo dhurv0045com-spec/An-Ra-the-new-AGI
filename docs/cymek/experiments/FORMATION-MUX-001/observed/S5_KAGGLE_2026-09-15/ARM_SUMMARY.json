@@ -1,0 +1,69 @@
+{
+  "campaign_elapsed_hours": 8.137474918876666,
+  "campaign_elapsed_seconds": 29294.909707956,
+  "experiments": {
+    "CS-MECH-002": {
+      "M0_STANDARD": {
+        "73011": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517452, "updates": 2000},
+        "73012": {"clip_fraction": 1.0, "development_endpoint": 0.15, "first_acquisition_axis": null, "formation_auc": 0.008036, "processed_tokens": 517595, "updates": 2000},
+        "73013": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517534, "updates": 2000},
+        "73014": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517539, "updates": 2000}
+      },
+      "M1_EXTRA_NO_DECAY": {
+        "73011": {"clip_fraction": 1.0, "development_endpoint": 0.0125, "first_acquisition_axis": null, "formation_auc": 0.001339, "processed_tokens": 517452, "updates": 2000},
+        "73012": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517595, "updates": 2000},
+        "73013": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517534, "updates": 2000},
+        "73014": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517539, "updates": 2000}
+      },
+      "M2_EXTRA_FROZEN": {
+        "73011": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517452, "updates": 2000},
+        "73012": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517595, "updates": 2000},
+        "73013": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517534, "updates": 2000},
+        "73014": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517539, "updates": 2000}
+      },
+      "M3_EXTRA_FROZEN_MASKED": {
+        "73011": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517452, "updates": 2000},
+        "73012": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517595, "updates": 2000},
+        "73013": {"clip_fraction": 1.0, "development_endpoint": 0.0625, "first_acquisition_axis": null, "formation_auc": 0.006696, "processed_tokens": 517534, "updates": 2000},
+        "73014": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 517539, "updates": 2000}
+      }
+    },
+    "CS-MECH-002_sealed_family_means": {
+      "M0_STANDARD": {"binding": 0.07708333333333334, "composition": 0.24791666666666667, "identity": 0.029166666666666667, "missing_info": 0.18958333333333333, "state_order": 0.016666666666666666, "termination": 0.9979166666666667},
+      "M1_EXTRA_NO_DECAY": {"binding": 0.06041666666666667, "composition": 0.14791666666666667, "identity": 0.0, "missing_info": 0.18958333333333333, "state_order": 0.0020833333333333333, "termination": 0.9979166666666667},
+      "M2_EXTRA_FROZEN": {"binding": 0.029166666666666667, "composition": 0.025, "identity": 0.0, "missing_info": 0.19166666666666668, "state_order": 0.0, "termination": 1.0},
+      "M3_EXTRA_FROZEN_MASKED": {"binding": 0.06041666666666667, "composition": 0.3020833333333333, "identity": 0.016666666666666666, "missing_info": 0.19375, "state_order": 0.05, "termination": 1.0}
+    },
+    "REP-FORM-003A": {
+      "R0_PRODUCTION_BPE": {
+        "73011": {"clip_fraction": 0.9751801441152922, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500026, "updates": 1249},
+        "73012": {"clip_fraction": 0.8812199036918138, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500022, "updates": 1246},
+        "73013": {"clip_fraction": 0.9718875502008032, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500027, "updates": 1245},
+        "73014": {"clip_fraction": 0.9125200642054575, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500014, "updates": 1246}
+      },
+      "R1_ISOMORPHIC_RENDERING": {
+        "73011": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500000, "updates": 1936},
+        "73012": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500002, "updates": 1935},
+        "73013": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500005, "updates": 1934},
+        "73014": {"clip_fraction": 1.0, "development_endpoint": 0.0, "first_acquisition_axis": null, "formation_auc": 0.0, "processed_tokens": 500012, "updates": 1933}
+      }
+    },
+    "REP-FORM-003A_sealed_family_means": {
+      "R0_PRODUCTION_BPE": {"binding": 0.041666666666666664, "composition": 0.15625, "identity": 0.0, "missing_info": 0.03333333333333333, "state_order": 0.00625, "termination": 0.9979166666666667},
+      "R1_ISOMORPHIC_RENDERING": {"binding": 0.058333333333333334, "composition": 0.06875, "identity": 0.0, "missing_info": 0.1875, "state_order": 0.0020833333333333333, "termination": 1.0}
+    }
+  },
+  "exploratory_secondary_signals": {
+    "cs_mech_m3_minus_m2_sealed_composition": {
+      "mean": 0.27708333333333335,
+      "per_seed": {"73011": 0.10833333333333334, "73012": 0.03333333333333333, "73013": 0.9166666666666666, "73014": 0.049999999999999996},
+      "positive_seed_count": 4,
+      "status": "EXPLORATORY_ONLY_NOT_PROMOTION_EVIDENCE"
+    }
+  },
+  "official_arm_count": 24,
+  "operator_head": "fdc2483fed0bb1a80d4bfad376aac84a66db6055",
+  "schema": "anra.formation-mux-observed-s5-arm-summary/v1",
+  "science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
+  "source_bundle_sha256": "859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5"
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "arkenstone-ark020-v4-run-readiness/v2",
+  "experiment": "ARK-020-V4",
+  "engineering_amendment": "ARK-020-V4-DURABILITY-A1",
+  "status": "DO_NOT_RUN",
+  "scientific_result_status": "NOT_EXECUTED",
+  "supersedes_readiness_claim": {
+    "status": "READY_FOR_OPERATOR_COLAB_CUDA_RUN",
+    "reason": "Fresh live audit found phase-boundary resume and fail-open partial-identity defects not covered by the prior evidence."
+  },
+  "live_audit_start_head": "4ae9e3b6dc806d6ada7b7b2f05d32271d072d543",
+  "frozen_scientific_runner_commit": "f4244e2fea135cd768a5b5de5890e7117406c9c2",
+  "a1_validation": {
+    "implementation": "IMPLEMENTED",
+    "regression_tests": "PENDING_EXECUTION",
+    "inherited_v4_suite": "PENDING_REEXECUTION",
+    "hardened_cli": "PENDING_EXECUTION",
+    "cpu_durability_smoke": "PENDING_EXECUTION",
+    "cuda_preexecution": "OPERATOR_ONLY_NOT_EXECUTED"
+  },
+  "confirmed_live_defects": {
+    "phase_boundary_resume": "CONFIRMED: exact B/C phase-end Guardian resume can reference unbound gstep in frozen runner",
+    "partial_identity_policy": "CONFIRMED: PARTIAL_IDENTITY_CHECK was promoted to RESUME",
+    "missing_checkpoint_fields": "CONFIRMED: MISSING required fields were not a fail condition",
+    "exact_resume_controller_coverage": "CONFIRMED: frozen production smoke hashes controller/registry but does not exercise meaningful transitions",
+    "readiness_provenance": "CONFIRMED: prior readiness pin/blob claims predate later runner and notebook changes"
+  },
+  "a1_repairs": [
+    "hardened operator wrapper preserves frozen scientific V4",
+    "atomic exact phase-boundary migration with identity verification",
+    "fail-closed second resume scan",
+    "immutable executable identity receipt",
+    "controller/registry/replay transition checkpoint smoke composed with production exact-resume smoke"
+  ],
+  "operator_entrypoint": "experiments/ARK-020-V4/run_ark020_v4_hardened.py",
+  "tests": [
+    "tests/test_ark020_v4.py",
+    "tests/test_ark020_v4_durability.py"
+  ],
+  "claim_ceiling": "controlled real-text-proxy evidence for a multi-capability continual-learning controller candidate",
+  "authorization_flags": {
+    "operator_cuda_run_authorized": false,
+    "production_scheduler_authorized": false,
+    "pre500m_authorized": false,
+    "training_500m_authorized": false,
+    "broad_continual_learning_claim_authorized": false,
+    "agi_claim_authorized": false
+  }
+}

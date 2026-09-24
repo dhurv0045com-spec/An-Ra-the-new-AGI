@@ -1,6 +1,8 @@
 # CYR-GPU-006
 
-CYR-GPU-006 is the current **READY_FOR_OPERATOR_COLAB_GPU_RUN** Cymek research campaign. It supersedes CYR-GPU-005 before execution and uses the real Cymek V5 implementation, the frozen 24,576 tokenizer, three independent arithmetic acquisition parents, true shared-parent matched retention forks, actual-token budgets, candidate-free generation, a hardware-only runtime resolver, Drive-backed stage durability, and failure-preserving evidence packaging.
+> **HISTORICAL PRE-EXECUTION RECORD — SUPERSEDED (phase 3, 2026-09-24).** CYR-GPU-006 was later superseded before scientific execution and is not the current operator queue. Use [`docs/research/EXPERIMENT_EVIDENCE_LEDGER.md`](../../../research/EXPERIMENT_EVIDENCE_LEDGER.md) and [`docs/research/NEXT_3_EXPERIMENTS.md`](../../../research/NEXT_3_EXPERIMENTS.md).
+
+CYR-GPU-006 historically was prepared as a **READY_FOR_OPERATOR_COLAB_GPU_RUN** Cymek research campaign. It superseded CYR-GPU-005 before execution and used the real Cymek V5 implementation, the frozen 24,576 tokenizer, three independent arithmetic acquisition parents, true shared-parent matched retention forks, actual-token budgets, candidate-free generation, a hardware-only runtime resolver, Drive-backed stage durability, and failure-preserving evidence packaging.
 
 The executable is frozen at `125b25c19204cce1994deebbfc4957119f2ae31f` and bound by `PREREGISTRATION.json`. Cell 0 copies the preregistration outside the repository, checks out that exact executable, verifies the frozen hashes and dependencies, runs deterministic preexecution checks, calibrates real CUDA training plus candidate-free generation, and resolves the largest affordable scientific proxy without looking at scientific outcomes.
 

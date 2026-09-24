@@ -1,36 +1,49 @@
-# CYMEK CURRENT UNIFIED RESEARCH STATE
+# CYMEK phase-3 consolidated research state
 
-**Canonical working branch:** `cymek-500m-readiness`  
-**Purpose:** one entry point so an operator/agent does not need to inspect Cymek, Citadel, Triquetra and Arkenstone separately for routine decisions.
+**Consolidation branch:** `research/evidence-consolidation-2026-09-25`
+**Generated:** 2026-09-24
+**Role boundary:** this is the consolidated research state. It does not replace the production/operator authority, production contracts, runbooks, or readiness receipts on `cymek-500m-readiness`.
 
-Read in this order:
+## Authority and read order
 
-1. `MASTER_AGI_CONSTRUCTION_KNOWLEDGE.md` — cross-branch construction synthesis (refreshed 2026-09-13).
-2. `../../research/EXPERIMENT_EVIDENCE_LEDGER.md` — canonical per-experiment evidence ledger (machine copy `.json`).
-3. `../experiments/CYR-GPU-011/RESULT.md` — production-vs-compact capability-formation evidence.
-4. `../experiments/CYR-GPU-012-R1/RESULT.md` — completed controlled R1 class-space experiment.
-5. `../experiments/CYR-GPU-013-R1B/RESULT.md` — **EXECUTED** replicated response curve (`MIXED_OR_SEED_SENSITIVE_RESPONSE_CURVE`).
-6. `../experiments/CYR-GPU-014-R1C/RUN_READINESS_V4.json` — softmax-mechanism dissection, engineering-ready, **scientific NOT_EXECUTED; launcher pins origin-absent commit `6653b4ce` (launch-blocking, see `../../research/EVIDENCE_GAPS.md`)**.
-7. Arkenstone: `experiments/ARK-017/RESULT_V2.md` (BOTH_LEVERS_SUFFICIENT), `experiments/ARK-018/FINAL_RESULT_AUDIT.md`, `experiments/ARK-019/FINAL_RESULT_AUDIT_V3.md` (CONTROLLER_NOT_SUPPORTED) and `FINAL_RESULT_AUDIT_V4.md` (transcribed candidate — raw bundle not in repo).
+The current authority is the phase-3 source manifest and the 90-entry consolidated evidence ledger, not an old branch-local summary.
 
-## Current scientific state
+1. [`../../research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.md`](../../research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.md) — reviewed refs, 71 imported byte-identical files, external-only artifacts, and claim ceilings.
+2. [`../../research/EXPERIMENT_EVIDENCE_LEDGER.md`](../../research/EXPERIMENT_EVIDENCE_LEDGER.md) and [`.json`](../../research/EXPERIMENT_EVIDENCE_LEDGER.json) — the 90 current experiment records.
+3. [`../../research/RESEARCH_DECISION_MODEL.json`](../../research/RESEARCH_DECISION_MODEL.json), [`../../research/RESEARCH_DEPENDENCY_GRAPH.md`](../../research/RESEARCH_DEPENDENCY_GRAPH.md), and [`../../research/NEXT_EXPERIMENT_DECISION_TREE.md`](../../research/NEXT_EXPERIMENT_DECISION_TREE.md) — current decision state and gates.
+4. [`MASTER_AGI_CONSTRUCTION_KNOWLEDGE.md`](MASTER_AGI_CONSTRUCTION_KNOWLEDGE.md) and [`CROSS_BRANCH_EVIDENCE_AUDIT.md`](CROSS_BRANCH_EVIDENCE_AUDIT.md) — synthesis and audit.
+5. The four branch-local ledgers are historical/append-only and are not current-state authority.
 
-- **Engineering / checkpoint machinery:** strong enough for controlled GPU campaigns; not equivalent to scientific authorization for a large run.
-- **Production-representation failure:** CYR-GPU-011 produced train M99 but 0% held-out STANDARD and 0/48 SEALED at full ARK semantic exposure with the 24,576-token production representation, while compact V19 reached 56.47% STANDARD at only 44.89% exposure.
-- **R1 class-space result:** completed R1 held active arithmetic tokenization and shared initialization fixed while varying only declared tied embedding/output class count. On the executed fresh seed at 512k semantic rows, V19 = 12.94% STANDARD, V4096 = **100%**, V24576 = **0%**. Official preregistered verdict: `MIXED_OR_INTERMEDIATE_REPRESENTATION_EFFECT` because V19 did not meet the preregistered compact-signal threshold. Bundle SHA-256: `a22b538396a3d0957a60a27f39b0cf3dd3b20874585b4c15a03207224f613d29`.
-- **Interpretation of R1:** a large non-monotonic class-space/optimization effect is demonstrated in one developmental seed; 4096 is not yet a universal or production-optimal vocabulary. Seed sensitivity remains important because historical V19 behavior was much stronger than the fresh R1 V19 subject.
-- **Retention science:** strong Micro evidence that both lower plasticity and continued capability-supporting data can protect an acquired invariant; mechanism attribution remains unresolved. ARK-017 V2 is the active R2 mechanism dissection.
-- **Real-text plasticity:** ARK-018 is executed. Heavy 10% specialized Birth rehearsal strongly improved Birth NLL but showed a replicated exploratory slowdown in later temporary-binding acquisition versus token-matched science replay.
-- **AGI claim:** none. Broad general intelligence remains `NOT_DEMONSTRATED`.
+Manifest SHA-256: `c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f`. Commit `90f77b7f` is the pre-consolidation parent; the current branch contains the standalone consolidation commit. The historical evidence cutoff remains 2026-09-13; the source review ran through 2026-09-24.
 
-## Current priorities
+## Current post-cutoff evidence
 
-**R2 / ARK-017 V2:** EXECUTED (see Arkenstone `experiments/ARK-017/RESULT_V2.md`): `BOTH_LEVERS_SUFFICIENT` — protection can come from lowered applied update magnitude or from sparse invariant-support replay, independently; "small total movement" is falsified. Dose universality and scale transfer remain open.
+| Area | Current state | Claim ceiling |
+|---|---|---|
+| R1C | `CYR-GPU-014-R1C` complete 24/24; `SOFTMAX_COMPETITION_NOT_SUFFICIENT`; K01 **FIRED**; mean paired `MASK_4096 - FULL_24576` gap `-0.11038062283737024`. | Controlled development mechanism evidence at fixed physical V24576. No optimality, production vocabulary, scale, cognition, or AGI claim. |
+| CS-TRANSFER-001 | Complete `PARTIAL_OR_INTERACTION`; physical V4096 is not a robust remedy. One sealed reversal, three of four sealed pairs favoring V24576, and a negative mean endpoint gap are recorded. | Controlled development-scale causal evidence only. Raw Drive result remains external; its recorded SHA-256 is `37e4bf741f9e55fc942fe4ade62d2d1c9619e4992e4a42ab507730809c12b150`. No natural-language or scale transfer. |
+| Canary-v2 | Complete 360 updates and 1,474,560 tokens. Mechanical gates passed; identity/copy formation failed the frozen threshold. | Narrow canary only; mechanical PASS is not cognition, production readiness, or a general V5.1 result. |
+| Formation-Mux S5 v8 | Complete 24/24 with sealed evaluation. Formal `CS-MECH-002` and `REP-FORM-003A` NULLs are authoritative, but the primary identity baseline is near zero. `M3-M2` is exploratory only. | Inconclusive mechanism evidence; the floor does not exonerate tied-row, weight-decay, denominator, or rendering mechanisms. |
+| Formation-Mux v12 | Later frontier is 2/24, with no sealed evaluation, final result, or checkpoint payload. Recovery-preflight engineering passed remotely, but the original checkpoint-bearing Output remains absent. | Partial custody snapshot plus engineering qualification only; no recovery execution, mechanism verdict, or architecture promotion. |
+| ROLE-TRANSFER-001 | Preregistered four-arm design; no trainer, official arm, sealed evaluation, or result. | Prospective protocol evidence only; no efficacy, mechanism, external benchmark, capability, architecture, or AGI claim. |
+| HORM-003 / HORM-004 | Separate five-seed miniature prospective results, both `NOT_SUPPORTED`. HORM-004 had zero success fraction on every seed. | Miniature negative results only. HORM-004 did not test rich dynamic appraisal; HORM-001/002 custody is blocked. |
+| K8 | Completed engineering-partial `INCONCLUSIVE`: E0/E1 ran, E2 was not a positive cognition result, E3 was blocked, and E4/E5 were not run. | Engineering evidence only; no tool-learning, cognition, AGI, or RSI inference. |
+| TPU 100M preflight | Not run; no optimizer update, checkpoint result, or qualification receipt. | Engineering handoff only; no TPU qualification or training claim. |
+| ARK-020 / Guardian | ARK-020 is `DO_NOT_RUN/NOT_EXECUTED` with confirmed resume and identity defects. Guardian V4 raw bundle remains missing. | No Guardian or continual-learning result is established in this branch. |
+| Citadel | Corpus and evaluation remain not ready because of leakage, shortcut, and supply failures. | No production corpus, no positive lift-off claim from the old surface, and no PRE500M/250M/500M authorization. |
+| ARK-014 family | Imported narrow order-robustness binding result and rerun resolve a local engineering/scientific receipt; retention remained zero-event. | Narrow binding evidence only; no broad capability or retention claim. |
 
-**R1C / CYR-GPU-014:** the active Cymek experiment. Frozen 6-arm × 4-seed softmax-competition dissection on the fixed 24,576 matrix. Engineering-ready after two repaired failures (optimizer constructor; CLIP_BREACH float32 tolerance). **Before operator launch: rebind the launcher from `6653b4ce` (absent from origin) to the pushed equivalent.**
+Raw result bundles, checkpoints, raw rows, and operator output remain external unless independently recovered and byte-verified. The manifest is the complete external-artifact index.
 
-**Real-text / Guardian line:** ARK-019 V3.1 executed (`CONTROLLER_NOT_SUPPORTED`, formation bottleneck); ARK-019 V4 result exists only as a transcription of an external audit — commit and byte-audit the raw bundle (or rerun) before treating the Guardian question as answered; then ARK-020 V4.
+## Immediate decision order
 
-## Readiness interpretation
+1. Run the cheap multi-seed `FMUX-CONTROL-METRIC-PREFLIGHT`. First establish control capability and checkpoint metric resolution away from the floor; use a read-only custody/metric review if needed.
+2. Recovery-preflight engineering is qualified, but exact continuation remains blocked until the original checkpoint-bearing Output is supplied and passes the pinned preflight. Continue the frozen TIE-role frontier only if capability, metric, and custody gates all pass.
+3. Treat preregistered `ROLE-TRANSFER-001` as the blocked successor of record, not an authorized run. It supersedes the old tied-row placeholder and still requires upstream completion, implementation, evaluator freeze, no-overlap proof, and independent qualification.
+4. Regenerate and qualify corpus/evaluation surfaces in parallel. Natural-language and larger-scale transfer remain blocked until all validity, contamination, shortcut, leakage, supply, and sealed-firewall screens pass.
 
-Approximate maturity remains an evidence-maturity estimate, not “percent to AGI.” R1 increases our understanding of representation/capability formation but does not authorize scale. Experimental integrity ~90%, causal evaluation ~85%, checkpoint/durability ~80%, architecture mechanics ~65%, data governance ~70%, production corpus readiness ~20%, representation understanding now roughly **50%** rather than 35% because a controlled class-space effect has been observed but not replicated, objective ~45%, capability formation ~50%, same-skill retention ~75% Micro / ~20% production-transfer, multi-skill continual learning ~20%, learned self-diagnosis ~15%, real-text cognition/plasticity ~45%, target-scale scientific readiness ~20–25%, demonstrated AGI 0%.
+R1C and CS-TRANSFER-001 are completed evidence, not pending experiments. The historical full-exposure compact-bridge proposal is not a current action. No broad mechanism campaign may start from the Formation-Mux floor.
+
+## Standing authorization boundary
+
+Nothing in this state authorizes a production vocabulary or tokenizer change, PRE500M, 250M, 500M, cognition, AGI, TPU qualification, tool learning, or RSI. Research evidence can narrow or reject a hypothesis; it cannot silently promote an operator action.

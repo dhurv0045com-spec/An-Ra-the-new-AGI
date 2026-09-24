@@ -1,71 +1,171 @@
 {
   "schema": "anra.next-experiment-decision-tree/v1",
-  "generated": "2026-09-13",
-  "phase": 2,
-  "usage": "an agent facing 'what do we run next' walks this tree from the root using only current evidence states; no strategy may be invented after seeing outcomes",
+  "generated": "2026-09-24",
+  "phase": 3,
+  "historical_snapshot_date": "2026-09-13",
+  "consolidation_source_manifest": "docs/research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.json",
+  "consolidation_manifest_sha256": "c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f",
+  "pre_consolidation_head": {
+    "branch": "research/evidence-consolidation-2026-09-25",
+    "ref": "refs/heads/research/evidence-consolidation-2026-09-25",
+    "commit": "90f77b7fa6ffd99f5a982263f03b2908298805ec",
+    "label": "target tip immediately before this consolidation commit; parent of the consolidated head"
+  },
+  "usage": "An agent walks this tree from the root using only the consolidated evidence states. R1C and CS-TRANSFER-001 are already complete; no strategy is invented after seeing outcomes.",
   "root": "ROOT",
+  "current_evidence_state": {
+    "R1C": "COMPLETE 24/24; SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "K01": "FIRED",
+    "CS-TRANSFER-001": "COMPLETE; PARTIAL_OR_INTERACTION",
+    "FORMATION-MUX-001-S5-V8": "COMPLETE_BUT_FLOOR_LIMITED",
+    "FORMATION-MUX-001-V12-FRONTIER-PARTIAL": "IN_PROGRESS; 2/24 frontier; no sealed/final/checkpoint payload; recovery engineering CI passed but original saved Output is absent",
+    "ROLE-TRANSFER-001": "PREREGISTERED_EXECUTION_BLOCKED; no trainer, official arm, sealed evaluation, or result",
+    "ARK-020-V4": "DO_NOT_RUN; NOT_EXECUTED",
+    "K8": "ENGINEERING_ONLY_COMPLETED_PARTIAL",
+    "TPU": "ENGINEERING_ONLY_NOT_RUN"
+  },
   "nodes": {
     "ROOT": {
-      "question": "Is the Phase-1 evidence ledger current (no unexecuted ready experiment with unresolved provenance)?",
+      "question": "Using the 2026-09-24 consolidated state, is the immediate science action the cheap Formation-Mux baseline/metric-resolution preflight?",
       "branches": [
-        {"if": "R1C launcher still binds an origin-absent commit", "then": "ACTION-REBIND-R1C-LAUNCHER", "note": "amendment only; frozen science untouched"},
-        {"if": "launcher provenance clean", "then": "Q-GUARDIAN-BUNDLE"}
+        {"if": "R1C COMPLETE and CS-TRANSFER-001 COMPLETE and Formation-Mux S5 is floor-limited", "then": "ACTION-FMUX-CONTROL-METRIC-PREFLIGHT", "note": "This is the first next action; do not launch a broad mechanism campaign from a floor."},
+        {"if": "the explicit R1C -> K01 -> CS path needs confirmation", "then": "Q-R1C-COMPLETE", "note": "Confirm the completed path only; do not rerun R1C."},
+        {"if": "current evidence metadata or row state is not reconciled", "then": "ACTION-RECONCILE-EVIDENCE"}
       ]
     },
-    "Q-GUARDIAN-BUNDLE": {
-      "question": "Can the ARK-019 V4 raw bundle be recovered and byte-audited (zero GPU)?",
+    "ACTION-RECONCILE-EVIDENCE": {
+      "action": "Reconcile the current evidence rows against the source manifest without changing preregistered source files, then return to ROOT."
+    },
+    "Q-R1C-COMPLETE": {
+      "question": "Is CYR-GPU-014-R1C recorded as the completed 24/24 controlled development mechanism result?",
       "branches": [
-        {"if": "yes and audit passes", "then": "Q-R1C-STATUS", "note": "U02 resolved positive; AD21 unlocks conditionally; update belief B17 to SUPPORTED"},
-        {"if": "yes and audit fails", "then": "Q-R1C-STATUS", "note": "U02 resolved negative; K02 partially fires; B17 -> CONTRADICTED unless rerun"},
-        {"if": "no (bundle lost/unavailable)", "then": "Q-COMPUTE-BUDGET", "note": "queue GRD-VALID-001 Stage 1 rerun behind the science spine"}
+        {"if": "yes", "then": "Q-K01"},
+        {"if": "no or provenance is unresolved", "then": "ACTION-RECONCILE-EVIDENCE"}
       ]
     },
-    "Q-R1C-STATUS": {
-      "question": "Has EXEC-R1C (frozen R1C) executed and been interpreted?",
+    "Q-K01": {
+      "question": "Did the R1C result fire K01 against inactive-softmax competition as the sufficient mechanism?",
       "branches": [
-        {"if": "no", "then": "ACTION-RUN-R1C"},
-        {"if": "yes", "then": "Q-R1C-VERDICT"}
+        {"if": "yes: SOFTMAX_COMPETITION_NOT_SUFFICIENT", "then": "WORLD-C"},
+        {"if": "no or verdict is not recorded", "then": "ACTION-RECONCILE-EVIDENCE"}
       ]
-    },
-    "Q-R1C-VERDICT": {
-      "question": "Which frozen R1C verdict fired?",
-      "branches": [
-        {"if": "SOFTMAX_COMPETITION_FUNCTIONAL_AND_STRUCTURAL_SUPPORTED", "then": "WORLD-A"},
-        {"if": "SOFTMAX_COMPETITION_STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED", "then": "WORLD-B"},
-        {"if": "SOFTMAX_COMPETITION_NOT_SUFFICIENT", "then": "WORLD-C"},
-        {"if": "MIXED_SOFTMAX_COMPETITION_EFFECT", "then": "WORLD-B", "note": "treat as partial"}
-      ]
-    },
-    "WORLD-A": {
-      "label": "output competition dominant",
-      "belief_updates": {"B05": "SUPPORTED", "B04": "STRONGLY_SUPPORTED"},
-      "decision_updates": {"AD16": "designable candidate mechanism", "AD15": "designable (partition vs untied)", "AD13": "still blocked on transfer"},
-      "next_experiment": "CS-TRANSFER-001 with mechanism arm (A2 = MASK partition at 8L/256w)",
-      "unnecessary_now": ["any broader vocabulary sweep", "tied-geometry dissection as first choice"]
-    },
-    "WORLD-B": {
-      "label": "partial / calibration-limited effect",
-      "belief_updates": {"B05": "WEAKLY_SUPPORTED", "B04": "SUPPORTED"},
-      "decision_updates": {"AD16": "PROVISIONAL with calibration caveat", "AD15": "still blocked"},
-      "next_experiment": "CS-TRANSFER-001 with BOTH mechanism and tied-geometry diagnostic arms",
-      "unnecessary_now": ["production tokenizer change"]
     },
     "WORLD-C": {
-      "label": "output competition insufficient",
-      "belief_updates": {"B05": "CONTRADICTED"},
-      "decision_updates": {"AD16": "REJECTED for this scope (K01 fires)", "AD15": "blocked on tied-geometry dissection"},
-      "next_experiment": "CS-TRANSFER-001 with tied-geometry dissection arm (untied low-rank output vs tied, matched params)",
-      "unnecessary_now": ["any output-space intervention design", "MASK-based production proposals"]
-    },
-    "Q-COMPUTE-BUDGET": {
-      "question": "Is operator GPU compute available this cycle?",
+      "label": "R1C -> K01 -> CS-TRANSFER-001",
+      "path_record": ["CYR-GPU-014-R1C COMPLETE", "K01 FIRED", "CS-TRANSFER-001 COMPLETE / PARTIAL_OR_INTERACTION"],
+      "belief_updates": {"B05": "CONTRADICTED within tested scope", "B04": "SUPPORTED only for non-monotonic seed-sensitive development-scale class-space effect", "B07": "OPEN; natural-language/larger-scale transfer unresolved"},
+      "decision_updates": {"AD16": "REJECTED as a tested production remedy", "AD15": "blocked on tied-row geometry/WD/denominator interaction", "AD13": "blocked on geometry and natural-language/scale transfer"},
       "branches": [
-        {"if": "yes", "then": "ACTION-RUN-R1C", "note": "science spine first; Guardian rerun queues behind it"},
-        {"if": "no", "then": "ACTION-ZERO-GPU-PACKAGE", "note": "V4 bundle recovery, C0 scorer design, corpus regeneration design, SENORA/history object export — all zero-GPU"}
+        {"if": "current state is WORLD-C", "then": "Q-CS-STATUS"}
       ]
     },
-    "ACTION-REBIND-R1C-LAUNCHER": {"action": "apply launcher provenance amendment per NEXT_3_EXPERIMENTS.md EXP-1; then go to Q-GUARDIAN-BUNDLE"},
-    "ACTION-RUN-R1C": {"action": "execute frozen CYR-GPU-014-R1C unchanged through its (rebound) launcher; ~22 T4-h across sessions; then Q-R1C-VERDICT"},
-    "ACTION-ZERO-GPU-PACKAGE": {"action": "execute the zero-GPU package: V4 bundle recovery + audit; CIT-C0 extended scorer screen design; regenerated arithmetic corpus spec passing tools/audit_tiered_corpus.py; export unreachable history (SENORA, CYR-006 smoke, CYR-005 frozen executable) to a kept ref; then Q-GUARDIAN-BUNDLE"}
+    "Q-CS-STATUS": {
+      "question": "Is CS-TRANSFER-001 recorded as COMPLETE with PARTIAL_OR_INTERACTION, one reversal, and no natural-language/scale claim?",
+      "branches": [
+        {"if": "yes", "then": "Q-FMUX-PREFLIGHT"},
+        {"if": "no or raw provenance is unresolved", "then": "ACTION-RECONCILE-EVIDENCE"}
+      ]
+    },
+    "Q-FMUX-PREFLIGHT": {
+      "question": "Can a cheap multi-seed Formation-Mux control-capability and checkpoint-metric-resolution preflight establish an away-from-floor primary endpoint?",
+      "branches": [
+        {"if": "no: custody, checkpoint, or metric resolution is insufficient", "then": "ACTION-FMUX-CUSTODY-AND-METRIC-REVIEW"},
+        {"if": "yes: control capability and metric resolution are demonstrated", "then": "Q-FMUX-RECOVERY"}
+      ]
+    },
+    "WORLD-FLOOR-LIMITED": {
+      "label": "Formation-Mux floor-limited branch",
+      "rule": "S5 formal NULLs remain authoritative, but the near-zero identity baseline prevents mechanism exoneration; the partial v12 frontier and recovery CI cannot supply a scientific verdict.",
+      "branches": [
+        {"if": "preflight leaves the floor unresolved", "then": "ACTION-CORPUS-REGEN"},
+        {"if": "preflight passes", "then": "Q-FMUX-RECOVERY"}
+      ]
+    },
+    "Q-FMUX-RECOVERY": {
+      "question": "Has the original checkpoint-bearing Kaggle saved Output been supplied and passed the remotely qualified pinned recovery preflight?",
+      "branches": [
+        {"if": "no: engineering CI passed but the saved Output is absent", "then": "ACTION-RECOVER-FMUX-OUTPUT"},
+        {"if": "yes: exact checkpoint/result custody passes", "then": "Q-FRONTIER-CONTINUATION"}
+      ]
+    },
+    "Q-FRONTIER-CONTINUATION": {
+      "question": "With capability, metric resolution, and exact custody all passing, may the frozen remaining 22 TIE-role development arms continue without protocol or sealed-policy changes?",
+      "branches": [
+        {"if": "yes: frozen continuation prerequisites pass", "then": "Q-ROLE-TRANSFER-READINESS"},
+        {"if": "no or the control remains confounded", "then": "WORLD-FLOOR-LIMITED"}
+      ]
+    },
+    "Q-ROLE-TRANSFER-READINESS": {
+      "question": "Are the upstream frontier complete and are the new generator, four-arm trainer, evaluator, sealed commitments, no-overlap proofs, exact-resume receipts, and independent remote qualifications complete for ROLE-TRANSFER-001?",
+      "branches": [
+        {"if": "no: any execution blocker remains", "then": "ACTION-ROLE-TRANSFER-IMPLEMENT"},
+        {"if": "yes: every frozen readiness requirement passes", "then": "ACTION-ROLE-TRANSFER-REVIEW"}
+      ]
+    },
+    "ACTION-FMUX-CONTROL-METRIC-PREFLIGHT": {
+      "action": "Run the cheap multi-seed Formation-Mux control-capability preflight and checkpoint metric-resolution audit first. Recovery-preflight engineering is qualified, but use preserved checkpoints only after the original saved Output and exact custody pass; measure token-level, longest-common-prefix, and per-position capability before any causal arm.",
+      "next": "Q-FMUX-PREFLIGHT",
+      "prohibitions": ["no broad mechanism campaign", "no TIE-role promotion", "no production or cognition claim"]
+    },
+    "ACTION-FMUX-CUSTODY-AND-METRIC-REVIEW": {
+      "action": "Stop the frontier and perform read-only custody, checkpoint, and metric-contract review. Remote CI qualification does not recover the absent saved Output; do not retrain from the evidence-only archive.",
+      "next": "Q-FMUX-PREFLIGHT"
+    },
+    "ACTION-RECOVER-FMUX-OUTPUT": {
+      "action": "Obtain the original checkpoint-bearing Kaggle saved Output and run only the pinned recovery notebook/preflight. Do not continue an arm, consume sealed data, retrain, or relabel the partial archive as recovery.",
+      "next": "Q-FMUX-RECOVERY"
+    },
+    "ACTION-ROLE-TRANSFER-IMPLEMENT": {
+      "action": "Implement and independently qualify the isolated ROLE-TRANSFER-001 generator, four-arm trainer, full-preclip norm controls, exact-resume state, clean-room evaluator, sealed commitments, and no-overlap proofs. This action does not authorize an official training arm or sealed evaluation.",
+      "next": "Q-ROLE-TRANSFER-READINESS"
+    },
+    "ACTION-ROLE-TRANSFER-REVIEW": {
+      "action": "Only after every frozen ROLE-TRANSFER-001 readiness requirement passes may a separate authorization review consider the preregistered campaign. Preregistration and protocol-hash CI alone are not authorization or scientific evidence.",
+      "next": "Q-CORPUS-REGEN"
+    },
+    "Q-CORPUS-REGEN": {
+      "question": "Has the arithmetic/cognition corpus and evaluation surface been regenerated and passed contamination, shortcut, leakage, and sealed-fixture screens?",
+      "branches": [
+        {"if": "yes", "then": "Q-NATURAL-SCALE-TRANSFER"},
+        {"if": "no", "then": "ACTION-CORPUS-REGEN"}
+      ]
+    },
+    "ACTION-CORPUS-REGEN": {
+      "action": "Regenerate and qualify the corpus/evaluation surface with zero shortcut, leakage, and supply blockers. This is required before natural-language or larger-scale transfer; it does not authorize 250M, 500M, PRE500M, cognition, or AGI.",
+      "next": "Q-CORPUS-REGEN"
+    },
+    "Q-NATURAL-SCALE-TRANSFER": {
+      "question": "Is the next natural-language/larger-scale transfer question preregistered and downstream-gated after the ROLE-TRANSFER-001 validity gates and clean corpus/evaluation work?",
+      "branches": [
+        {"if": "yes", "then": "ACTION-NATURAL-SCALE-TRANSFER"},
+        {"if": "no", "then": "ACTION-CORPUS-REGEN"}
+      ]
+    },
+    "ACTION-NATURAL-SCALE-TRANSFER": {
+      "action": "Design, but do not automatically authorize, a clean natural-language/larger-scale transfer study. CS-TRANSFER-001 does not count as this evidence.",
+      "next": "Q-V4-GUARDIAN"
+    },
+    "Q-V4-GUARDIAN": {
+      "question": "Can the ARK-019 V4 raw Guardian bundle be recovered and byte-audited, and is ARK-020 still DO_NOT_RUN?",
+      "branches": [
+        {"if": "raw bundle passes audit", "then": "Q-ARK020-READINESS"},
+        {"if": "raw bundle is absent or fails audit", "then": "ACTION-ARK020-DO-NOT-RUN"},
+        {"if": "ARK-020 readiness is not DO_NOT_RUN", "then": "ACTION-RECONCILE-EVIDENCE"}
+      ]
+    },
+    "Q-ARK020-READINESS": {
+      "question": "Are ARK-020 resume/identity defects repaired and independently validated before any operator run?",
+      "branches": [
+        {"if": "yes", "then": "ACTION-ARK020-REVIEW"},
+        {"if": "no", "then": "ACTION-ARK020-DO-NOT-RUN"}
+      ]
+    },
+    "ACTION-ARK020-REVIEW": {
+      "action": "Only after readiness defects are repaired and validated may a separately authorized ARK-020 interpretation review be scheduled; no authorization is implied.",
+      "next": "Q-V4-GUARDIAN"
+    },
+    "ACTION-ARK020-DO-NOT-RUN": {
+      "action": "Keep ARK-020-V4 DO_NOT_RUN/NOT_EXECUTED with all authorization flags false. Do not convert the transcribed Guardian belief into a result."
+    }
   }
 }

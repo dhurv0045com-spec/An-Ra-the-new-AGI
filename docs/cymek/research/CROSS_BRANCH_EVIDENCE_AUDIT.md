@@ -1,40 +1,50 @@
-# Cross-branch evidence audit — CYR-GPU-006
+# Cross-branch evidence audit — phase 3
 
-Audit date: 2026-09-09. Raw result receipts are authoritative over older prose summaries.
+**Audit date:** 2026-09-24
+**Authority:** [`../../research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.json`](../../research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.json), SHA-256 `c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f`
+**Evidence ledger:** [`../../research/EXPERIMENT_EVIDENCE_LEDGER.json`](../../research/EXPERIMENT_EVIDENCE_LEDGER.json), 90 experiments
+**Consolidation state:** standalone commit on the target branch; `90f77b7f` is the pre-consolidation parent.
 
-- Arkenstone live authority: `6acd9dcbdd28d00f387ffcd004253a813aca4b66`.
-- Validated Discovery V6 bundle SHA256: `1ec3224075de49b080e229111e4c4f897430c3eca888c487116aff07a65c8d15`.
-- BRAMASTRA live head observed: `415250f44179f3310e5dc55addb21722290604fa`. No new BRAMASTRA execution claim is admitted here merely from its newer documentation commit.
-- Canonical Cymek remains the production authority; Arkenstone/BRAMASTRA are evidence mines, not merge targets.
+## Scope and topology correction
 
-## Current evidence matrix
+All current origin branches and relevant archive tags were reviewed through 2026-09-24. The review selected **71 byte-identical evidence/provenance files**; the source manifest records exact source refs, commits, blob identities, exclusions, and external-only artifacts. A no-import classification means the reviewed branch added no unique selected bytes, not that it was ignored.
 
-| Finding | Raw authority | Status | What the result actually shows | Main limitation | CYR-GPU-006 consequence |
-|---|---|---|---|---|---|
-| LOW LR protects an already acquired T2 capability | ARK-007R historical replication + ARK-011/RESULT.json | REPLICATED / DEMONSTRATED AT MICRO T2 | ARK-011 produced 6 sealed-qualified recovery forks across 3 acquisitions; HIGH recurrent instability 3/6, SWITCH_LOW 0/6; risk difference `LOW-HIGH=-0.50`; LOW sealed RET90=1.0 | Micro arithmetic only; LOW may work partly by near-freezing | Keep LOW as a retention control, never call it a universal consolidation law |
-| HIGH is useful for acquisition/recovery | ARK-010 + ARK-011 acquisition/recovery path | REPLICATED AT MICRO T2 | ARK-011 acquired all 3 fresh subjects at HIGH and only forks after HIGH recovery | Same task/scale; does not define a universal LR | Acquisition stays HIGH; LOW is never used from random initialization |
-| Exact switch threshold is known | ARK-012/RESULT.json | REJECTED | Selected-event screen returned `TIME_NOT_STATE_SCREEN`; several thresholds collapsed to identical switch times and one source separated them | Only two executed sources; third budget-blocked | Preserve FIXED_TIME control and treat hysteresis thresholds as an experimental policy, not discovered constants |
-| LOW solves cross-task forgetting | ARK-013/RESULT.json | REJECTED | Under 12k pure new-skill updates with no T2 replay, every arm lost sustained T2 retention; LOW only slowed interference | New skill itself failed to reach the intended acquisition gate | Transfer stage must test plasticity + old-skill retention jointly and include a fixed replay condition rather than assuming LR alone solves interference |
-| Non-arithmetic binding failure was query blindness | ARK-014/RESULT.json | PARTLY REJECTED | Canonical-only subject reached canonical/query-only 1.0 but order-only/query+order ~0.33; deterministic order augmentation qualified at step 1800 with sealed order-only/query+order ~0.987 | One non-arithmetic family | Use order-augmented binding and keep canonical/query/order/query+order measurements orthogonal |
-| LOW protects non-arithmetic binding | ARK-014/RESULT.json | INCONCLUSIVE | Three matched robust-binding pairs had HIGH failures 0 and LOW failures 0; both RET_QUALIFIED=1.0 | Zero-event screen cannot identify protection | Do not repeat the same retention screen; use binding as a plasticity/transfer subject instead |
-| EOS supervision is mechanically required | BRAMASTRA terminal experiment, previously audited | DEMONSTRATED MECHANICAL CONTRACT | With EOS supervision complete stopping changed from 0/32 to 32/32 in the bounded lab | Small lab; not an AGI result | Keep content+EOS loss and candidate-free valid-stop evaluation in Cymek |
-| Aggregate accuracy can hide query/order shortcuts | BRAMASTRA binding diversity + ARK-014 | REPLICATED DIAGNOSTIC LESSON | ~headline competence can coexist with zero pair/query robustness; ARK-014 isolates order sensitivity cleanly | Synthetic binding tasks | Require orthogonal counterfactual diagnostics; never promote from canonical accuracy alone |
+The old history warning was false for the current branch topology. The target branch has merge-base `010798094a43ea1ce2343abd79017212b873ec35` with `origin/main`; `90f77b7f` has parent `0f293e8aea655e4c0809d3186e486627fbe98d63`; and `28bf57a` has parent `1460741c94379bc9b51b2dc1640ef3a4ccbe31a3`. The current target is not a parentless squash and is not correctly described as two disconnected current shards. Unreachable historical objects remain a separate custody risk.
 
-## CYR-GPU-006 design decisions derived from this evidence
+## Post-cutoff evidence matrix
 
-1. **Primary causal unit = one acquired parent.** Each seed acquires once at HIGH. Every retention arm restores identical model+optimizer bytes and consumes the same future batch hashes.
-2. **Four retention policies remain informative:** HIGH, LOW, FIXED_TIME HIGH→LOW, HYSTERETIC HIGH↔LOW. FIXED_TIME is mandatory because ARK-012 weakens any claim that a particular state threshold is uniquely causal.
-3. **A single parent cannot win.** The arithmetic verdict requires at least two independent contract-valid parents with paired margins and no material reversal.
-4. **Transfer is prospectively fixed, not post-hoc.** The transfer candidate is `HYSTERETIC_HIGH_LOW`; comparator is equal-age/equal-exposure `LOW_CONTINUE` from the same parent. Both then move to HIGH LR on the same robust-binding stream.
-5. **Transfer includes replay.** Primary transfer batches are fixed at 18 order-augmented binding rows + 2 old-T2 rows. Receipts report actual token fractions; the 10% figure is row-count only. This is motivated by ARK-013's demonstrated no-replay interference boundary, not by a claim that 10% is optimal.
-6. **Binding subject is order-augmented.** Canonical/query-only/order-only/query+order remain separate. This incorporates ARK-014 rather than rerunning its known brittle canonical-only setup.
-7. **Claim ceiling stays low.** A positive CYR-GPU-006 result is GPU V5-proxy development evidence. It cannot authorize a production scheduler change, PRE500M, or the 500M campaign without exact-SHA review, Citadel audit, and real TPU confirmation.
+| Evidence | Current status | Exact boundary | Audit consequence |
+|---|---|---|---|
+| `CYR-GPU-014-R1C` | Complete 24/24; `SOFTMAX_COMPETITION_NOT_SUFFICIENT`; K01 **FIRED** | Mean `MASK_4096 - FULL_24576` gap `-0.11038062283737024`; fixed physical V24576 controlled development mechanism scope. | Inactive-softmax competition is not a sufficient tested mechanism. Do not rerun as a mask-only campaign and do not claim V24576 optimality. |
+| `CS-TRANSFER-001` | Complete `PARTIAL_OR_INTERACTION` | Physical V4096 is not a robust remedy; controlled development-scale surface; raw Drive result remains external with SHA-256 `37e4bf741f9e55fc942fe4ade62d2d1c9619e4992e4a42ab507730809c12b150`. | Physical reduction and simple transfer story are not settled in favor of V4096. No natural-language or scale claim. |
+| `CYMEK-V5.1-CANARY-V2` | Complete 360 updates / 1,474,560 tokens; mechanical PASS, identity formation FAIL | One frozen narrow canary; family-specific identity/copy endpoint. | Mechanical completion is not cognition or production readiness. |
+| `FORMATION-MUX-001-S5-V8` | Complete 24/24 and sealed; `INCONCLUSIVE` | Formal NULLs at a near-zero identity baseline; `M3-M2` exploratory only. | Formal NULLs remain authoritative, but no mechanism is exonerated. |
+| `FORMATION-MUX-001-V12-FRONTIER-PARTIAL` | `IN_PROGRESS`; 2/24; recovery engineering CI passed but original Output absent | No sealed evaluation, final result, or checkpoint payload; no recovery execution. | Later frontier cannot be merged with S5 or used for promotion. |
+| `ROLE-TRANSFER-001` | `NOT_TESTED`; preregistered execution-blocked | Four-arm design, 12 fresh blocks, full-preclip norm matching, clipping/manipulation gates, clean-room endpoint; no trainer, official arm, sealed evaluation, or result. | Design of record supersedes the old tied-row placeholder but authorizes no science or execution. |
+| `HORM-003` / `HORM-004` | Separate five-seed miniature `NOT_SUPPORTED` results | HORM-004 success fraction is 0.0 on every seed; rich dynamic appraisal was not measured. | Do not infer that hormonal modulation or rich appraisal is broadly disproved. HORM-001/002 custody is blocked. |
+| `BRAMASTRA-K8-20260922` | Completed engineering-partial `INCONCLUSIVE` | E0/E1 executed; E2 zero qualified receipts and not positive cognition; E3 blocked; E4/E5 not run. | Engineering execution cannot be relabeled cognition, tool learning, AGI, or RSI. |
+| `GANDIVA-TPU-100M-PREFLIGHT` | `NOT_TESTED` / engineering not run | No TPU run, optimizer update, checkpoint result, or qualification receipt. | No TPU qualification or training authorization. |
+| `ARK-020-V4` | `DO_NOT_RUN/NOT_EXECUTED` | Resume/identity defects confirmed; all authorization flags false. | No ARK-020 or Guardian result exists in the consolidation. Guardian V4 raw bundle is missing. |
+| `CITADEL-DATA-001` / `CITADEL-EVAL-001` | Data/evaluation `NOT_READY` | Leakage, latest-position shortcut, duplication, and supply failures; old surface cannot support future positive lift-off claims. | Regenerate corpus/evaluation before transfer; no production corpus. |
+| `ARK-014` / rerun | Narrow local result/imported receipts | Order-robustness binding result; retention screen zero-event. | Preserve narrow claim ceiling; do not inflate to broad capability. |
 
-## Evidence statuses that remain open
+## External-only and custody boundaries
 
-- Universal or scale-invariant LR law: **NOT DEMONSTRATED**.
-- Exact hysteresis thresholds: **NOT IDENTIFIED**.
-- Plasticity advantage of adaptive retention over LOW: **UNRESOLVED; CYR-GPU-006 targets this directly**.
-- Natural-language pretraining transfer: **UNTESTED**.
-- Production WSD compatibility: **UNTESTED**.
-- TPU behavior: **NO EVIDENCE**.
+The source manifest is the complete index. Important external references include:
+
+- R1C operator bundle SHA-256 `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`;
+- R1/R1B prior bundle hashes `a22b538396a3d0957a60a27f39b0cf3dd3b20874585b4c15a03207224f613d29` and `7ffebfd49ad0bd8d81035e3cee56b23a5f31f34ba8af0f915408409e31b62792`;
+- Canary raw bundle and persistent state/checkpoints, with no full selected bundle hash;
+- Formation-Mux S5 bundle SHA-256 `859489d9babc532a4ed1e785af4e4993541b93730f7166dff2946a26cc996bc5`, partial archive SHA-256 `3e3ad68cd7f80bd242733b61153d4bb8f3fedbb1e4fba8fbc0f3ebc5d904423f`, and missing original checkpoint payload. Recovery-preflight engineering passed remotely, but no recovery execution occurred;
+- CS raw Drive result SHA-256 `37e4bf741f9e55fc942fe4ade62d2d1c9619e4992e4a42ab507730809c12b150`;
+- Citadel T1D raw bundle with no full selected hash;
+- K8 result pack SHA-256 `688c8e1838bebb12a2ba3716808bf30ef07d3e0d4bd85f2069a6ff52fbed577c` and prepared data bundle SHA-256 `6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6`;
+- HORM-001/002 historical manifest hashes `458902c08373a5a2109757f8209f71f3035a8db216125ef7ab0e81198a228ad5` and `77923d08c080ac2d11a4a7c6f756577bf29d7d9a81911cc9fc78e2ad182fbe62`, with custody blocked.
+
+A compact receipt can support its recorded narrow outcome while the raw bundle remains external. A custody audit cannot recover bytes, authenticate a missing checkpoint, rerun an experiment, or create a scientific result.
+
+## Current decision
+
+The first action is `FMUX-CONTROL-METRIC-PREFLIGHT`, followed by exact recovery of the original checkpoint-bearing Output and conditional frozen-frontier completion only if capability, metric, and custody gates pass. Recovery-preflight engineering is qualified but has not recovered state. Preregistered `ROLE-TRANSFER-001` is the blocked successor of record after implementation, evaluator/no-overlap freeze, and independent qualification; it supersedes the old tied-row placeholder and must not be duplicated. Corpus/evaluation regeneration runs in parallel and is required before natural-language or scale transfer. No broad mechanism campaign starts from a floor.
+
+R1C and CS-TRANSFER-001 are complete evidence. The historical full-exposure compact-bridge proposal is not a current next action. No result in this audit authorizes a production vocabulary or tokenizer change, PRE500M, 250M, 500M, cognition, AGI, TPU qualification, tool learning, or RSI.

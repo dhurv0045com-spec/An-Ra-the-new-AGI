@@ -1,51 +1,71 @@
 # NEXT EXPERIMENT DECISION TREE
 
-**Phase 2 · 2026-09-13.** Machine source: [`NEXT_EXPERIMENT_DECISION_TREE.json`](NEXT_EXPERIMENT_DECISION_TREE.json). An agent facing "what do we run next" walks this tree using only current evidence states — no strategy may be invented after seeing outcomes. World labels (A/B/C) match `RESEARCH_DECISION_MODEL.json`.
+**Generated:** 2026-09-24
+**Re-freeze phase:** 3
+**Historical phase-2 snapshot:** 2026-09-13 (preserved in machine metadata)
+**Machine source:** [`NEXT_EXPERIMENT_DECISION_TREE.json`](NEXT_EXPERIMENT_DECISION_TREE.json)
+**Authority:** [`EVIDENCE_SOURCE_MANIFEST_2026-09-24.json`](EVIDENCE_SOURCE_MANIFEST_2026-09-24.json), SHA-256 `c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f`
+**Pre-consolidation tip:** `research/evidence-consolidation-2026-09-25` @ `90f77b7fa6ffd99f5a982263f03b2908298805ec`; parent of the consolidated head.
 
+The tree starts from the current evidence state, not from a stale plan to run R1C.
+
+```text
+ROOT: R1C COMPLETE + CS-TRANSFER-001 COMPLETE + Formation-Mux S5 floor-limited
+├─ yes → ACTION-FMUX-CONTROL-METRIC-PREFLIGHT
+│        └─ Q-FMUX-PREFLIGHT
+│           ├─ capability/metric unresolved → ACTION-FMUX-CUSTODY-AND-METRIC-REVIEW
+│           └─ capability/metric pass → Q-FMUX-RECOVERY
+│                ├─ original Output absent → ACTION-RECOVER-FMUX-OUTPUT
+│                └─ exact custody pass → Q-FRONTIER-CONTINUATION
+│                     ├─ frozen continuation prerequisites pass → Q-ROLE-TRANSFER-READINESS
+│                     └─ still confounded → WORLD-FLOOR-LIMITED
+│                          └─ blockers remain → ACTION-ROLE-TRANSFER-IMPLEMENT
+│                                             └─ all pass → ACTION-ROLE-TRANSFER-REVIEW
+└─ metadata/row state unresolved → ACTION-RECONCILE-EVIDENCE → ROOT
 ```
-ROOT: Is R1C launcher provenance clean (no origin-absent pinned commit)?
-├─ NO  → ACTION-REBIND-R1C-LAUNCHER (amendment only; frozen science untouched) → Q-GUARDIAN-BUNDLE
-└─ YES → Q-GUARDIAN-BUNDLE
 
-Q-GUARDIAN-BUNDLE: Can the ARK-019 V4 raw bundle be recovered + byte-audited (zero GPU)?
-├─ yes, audit PASSES → U02 positive: B17 → SUPPORTED; AD21 conditional-unlocks → Q-R1C-STATUS
-├─ yes, audit FAILS  → U02 negative: B17 → CONTRADICTED (unless rerun); K02 partial → Q-R1C-STATUS
-└─ no bundle         → queue GRD-VALID-001 Stage 1 rerun behind the science spine → Q-COMPUTE-BUDGET
+## Recorded WORLD-C path
 
-Q-R1C-STATUS: Has EXEC-R1C executed + been interpreted?
-├─ no  → ACTION-RUN-R1C (frozen campaign unchanged, ~22 T4-h) → Q-R1C-VERDICT
-└─ yes → Q-R1C-VERDICT
-
-Q-R1C-VERDICT: which frozen verdict fired?
-├─ FUNCTIONAL_AND_STRUCTURAL_SUPPORTED → WORLD-A (competition dominant)
-│    beliefs: B05→SUPPORTED, B04→STRONGLY_SUPPORTED
-│    decisions: AD16 designable, AD15 designable, AD13 still transfer-blocked
-│    next: CS-TRANSFER-001 WITH mechanism arm (MASK partition at 8L/256w)
-│    unnecessary: broader vocab sweeps; tied-geometry dissection as first choice
-├─ STRUCTURAL_SUPPORTED_OUTPUT_CALIBRATION_LIMITED or MIXED → WORLD-B (partial)
-│    beliefs: B05→WEAKLY_SUPPORTED
-│    decisions: AD16 PROVISIONAL (calibration caveat); AD15 still blocked
-│    next: CS-TRANSFER-001 with BOTH mechanism + tied-geometry diagnostic arms
-│    unnecessary: production tokenizer change
-└─ NOT_SUFFICIENT → WORLD-C (competition insufficient)
-     beliefs: B05→CONTRADICTED; K01 fires
-     decisions: AD16 REJECTED (scope); AD15 blocked on tied-geometry
-     next: CS-TRANSFER-001 with tied-geometry dissection arm (untied low-rank output vs tied, matched params)
-     unnecessary: any output-space intervention design
-
-Q-COMPUTE-BUDGET (reached when the V4 bundle is unavailable):
-├─ GPU available  → ACTION-RUN-R1C (science spine first; Guardian rerun queues behind)
-└─ no GPU         → ACTION-ZERO-GPU-PACKAGE:
-                     1. V4 bundle recovery + audit attempt
-                     2. CIT-C0 extended scorer screen design (untried policy families)
-                     3. regenerated arithmetic corpus spec passing tools/audit_tiered_corpus.py
-                        (CITADEL-DATA-001: shortcut 1.000/tier, 530 leaks, 13.5% dup, 0.004× supply)
-                     4. export unreachable history (SENORA 30a8fa7 chain, CYR-006 smoke in stash,
-                        CYR-005 frozen executable) to a kept ref/bundle before any gc
-                   → Q-GUARDIAN-BUNDLE
-
-Standing rules across every path:
-- no experiment from EXPERIMENTS_TO_CANCEL_OR_DEFER.md may enter via any branch
-- kill criteria (RESEARCH_KILL_CRITERIA.md) fire without renegotiation
-- every world transition must be recorded in the evidence ledger with artifact provenance
+```text
+CYR-GPU-014-R1C COMPLETE 24/24
+  → K01 FIRED
+  → CS-TRANSFER-001 COMPLETE / PARTIAL_OR_INTERACTION
+  → FMUX-CONTROL-METRIC-PREFLIGHT
+  → exact original-Output recovery and conditional frozen-frontier completion
+  → preregistered execution-blocked ROLE-TRANSFER-001 after all readiness gates
 ```
+
+- **B05:** `CONTRADICTED` within the tested scope, not globally disproved.
+- **B04:** `SUPPORTED` only for a non-monotonic, seed-sensitive development-scale class-space effect.
+- **B07:** `OPEN`; CS does not establish natural-language or larger-scale transfer.
+- **AD16:** masked/intermediate softmax is rejected as a tested production remedy; V24576 optimality is not claimed.
+- **AD15/AD13:** tied-row geometry, parameterization/initialization, optimizer/weight-decay/denominator interactions, and transfer remain open.
+
+## Formation-Mux floor branch
+
+`FORMATION-MUX-001-S5-V8` is COMPLETE_BUT_FLOOR_LIMITED. Its formal `CS-MECH-002` and `REP-FORM-003A` NULLs remain authoritative, but the near-zero identity baseline prevents mechanism exoneration. The later `FORMATION-MUX-001-V12-FRONTIER-PARTIAL` has 24/24 S5 development arms plus 2/24 TIE-role frontier arms and no sealed, final, or checkpoint payload; it is not a scientific verdict. Recovery-preflight engineering passed remotely, but the original Output is absent and no recovery execution occurred.
+
+No broad expensive mechanism campaign starts from that floor. First run the capability/metric preflight; then recover the original Output and continue the frozen frontier only if every gate passes. `ROLE-TRANSFER-001` is the preregistered blocked successor of record. The old tied-row placeholder is superseded and must not run beside it.
+
+## Corpus and scale branch
+
+Corpus regeneration remains required. It must pass contamination, shortcut, leakage, and sealed-fixture screens before any natural-language or larger-scale transfer. A future transfer design is not automatically authorized and does not authorize PRE500M, 250M, 500M, cognition, or AGI.
+
+## Guardian and ARK-020 branch
+
+```text
+ARK-019 V4 raw Guardian bundle recovery/byte audit
+  ├─ absent/fails → ARK-020 remains DO_NOT_RUN
+  └─ passes → readiness repair/validation
+                  └─ only then a separately authorized interpretation review
+```
+
+ARK-020-V4 is `DO_NOT_RUN/NOT_EXECUTED` with confirmed phase-boundary resume, partial-identity, missing-checkpoint, controller-coverage, and readiness-provenance defects. All authorization flags remain false.
+
+## Standing prohibitions
+
+- No rerun of R1C as a mask-only campaign.
+- No production vocabulary/tokenizer change.
+- No Formation-Mux mechanism lock or exoneration from a floor-limited/partial record.
+- No Role-Transfer official arm, sealed evaluation, or authorization from preregistration/protocol CI alone; never run the superseded tied-row placeholder beside it.
+- No cognition, AGI, tool-learning, RSI, TPU-qualification, PRE500M, 250M, or 500M authorization.

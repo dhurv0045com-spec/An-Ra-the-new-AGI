@@ -1,5 +1,7 @@
 # doexperiment.md — the CYMEK experiment queue
 
+> **HISTORICAL PLANNING QUEUE — SUPERSEDED (phase 3, 2026-09-24).** The X0–X6 ordering below records the 2026-09-09 proposal and must not schedule work on this branch. CYR-GPU-005/006/007/008 and the proposed PRE500M/500M path are not the current queue. Use [`docs/research/NEXT_3_EXPERIMENTS.md`](docs/research/NEXT_3_EXPERIMENTS.md) and [`docs/research/NEXT_EXPERIMENT_DECISION_TREE.md`](docs/research/NEXT_EXPERIMENT_DECISION_TREE.md); the current first action is `FMUX-CONTROL-METRIC-PREFLIGHT`, followed only after a passing preflight by the narrow tied-row geometry/WD dissection, with corpus regeneration in parallel.
+
 Written 2026-09-09 by the Cymek research/engineering agent, at operator
 request: "whatever experiments you think should be done, no matter how
 big — I will run them later."

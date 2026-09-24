@@ -1,93 +1,52 @@
 # FAILURE TAXONOMY
 
-**Phase 2 · 2026-09-13.** All important failures reclassified; the right-hand column names the wrong conclusion a mislabel would produce.
+**Phase:** 3
+**Generated:** 2026-09-24
+**Rule:** classify the failure before interpreting it. Engineering failures do not become scientific negatives; blocked records do not become outcomes; confounded scientific results retain their claim ceiling.
 
-Classes: `ENGINEERING_FAILURE` · `OPTIMIZATION_FAILURE` · `DATA_FAILURE` · `REPRESENTATION_FAILURE` · `EVALUATION_FAILURE` · `GENERALIZATION_FAILURE` · `RETENTION_FAILURE` · `SCALING_FAILURE` · `MECHANISM_FALSIFICATION` · `INCONCLUSIVE_FAILURE`.
+Classes used here: `ENGINEERING_FAILURE`, `DATA_FAILURE`, `EVALUATION_FAILURE`, `SCIENTIFIC_NEGATIVE`, `SCIENTIFIC_INCONCLUSIVE`, `GENERALIZATION_FAILURE`, `RETENTION_FAILURE`, `MECHANISM_FALSIFICATION`, `CUSTODY_BLOCKED`, and `EXTERNAL_ONLY`.
 
-## A. Engineering failures (no scientific content — ever)
+## A. Engineering and execution failures
 
-| Failure | Class | Mislabel risk if wrong |
+| Record | Classification | Correct interpretation | Wrong conclusion to avoid |
+|---|---|---|---|
+| R1C optimizer-constructor and float32 clip-tolerance repairs | `ENGINEERING_FAILURE` | Pre-execution numerics/API repairs; the completed result is scientific evidence. | “The masked treatment failed before testing” or “softmax caused instability.” |
+| ARK-020 V4 resume and identity defects | `ENGINEERING_FAILURE` + `CUSTODY_BLOCKED` | Readiness is `DO_NOT_RUN/NOT_EXECUTED`; no scientific result exists. | “The Guardian/controller was tested and failed.” |
+| K8 E3 data-cardinality block and E2 zero qualified receipts | `ENGINEERING_FAILURE` within a completed partial record | E0/E1 engineering execution occurred; E2 was not positive cognition; E3 blocked; E4/E5 did not run. | “K8 demonstrated cognition, tool learning, AGI, or RSI.” |
+| TPU handoff not run | `ENGINEERING_NOT_RUN` | No TPU execution, optimizer update, checkpoint result, or qualification. | “The TPU preflight passed or qualified training.” |
+| Formation-Mux v12 custody/partial frontier | `CUSTODY_BLOCKED` | 2/24 arms and no sealed/final/checkpoint payload; recovery-preflight engineering passed, but the original Output is absent and no recovery execution occurred. | “CI qualification means recovery happened” or “the later frontier is a scientific result.” |
+| ROLE-TRANSFER-001 preregistration/readiness | `PREEXECUTION_ONLY` | Hash-bound protocol, no trainer, official arm, sealed evaluation, or result. | “Protocol-hash CI is a scientific outcome or execution authorization.” |
+
+## B. Scientific outcomes and bounded negatives
+
+| Record | Classification | Result and ceiling |
 |---|---|---|
-| CYR-GPU-004 fork-contract defect (no parent restore) | ENGINEERING_FAILURE | "retention policies don't work on V5" — would have poisoned the whole retention line |
-| CYR-GPU-007 decision-wrapper self-recursion | ENGINEERING_FAILURE | same |
-| CYR-GPU-008 all-or-nothing wall rejection | ENGINEERING_FAILURE | "V5 can't retain under Colab constraints" |
-| R1C optimizer-constructor TypeError | ENGINEERING_FAILURE | "R1C science failed pre-execution" |
-| R1C CLIP_BREACH float32 reduction-order abort | ENGINEERING_FAILURE | "softmax masking destabilizes training" — dangerously seductive mislabel; the abort was numerics, not the treatment |
-| ARK-020 V4 A1 phase-boundary resume crash + partial-identity resume | ENGINEERING_FAILURE | "Guardian arms crash = controller broken" |
-| T4 CUDA SDPA backward nondeterminism | ENGINEERING_FAILURE | "exact-resume impossible on GPU" |
-| XLA per-microstep all-reduce gradient scaling | ENGINEERING_FAILURE | "multi-replica training diverges" |
-| Cursor/counter restart on resume; window-vs-loss mismatch; test-pack drift | ENGINEERING_FAILURE | false token-accounting → false dose conclusions |
-| Demand-planner / resume-parent defects (found live) | ENGINEERING_FAILURE | silent curriculum corruption |
-| ARK-001 ByteVocab answer-encoding bug | ENGINEERING_FAILURE | "byte vocab can't learn" (was refuted *with* the repair, not because of it) |
+| `CYR-GPU-014-R1C` | `MECHANISM_FALSIFICATION` within scope | Complete 24/24; `SOFTMAX_COMPETITION_NOT_SUFFICIENT`; K01 fired; mean gap `-0.11038062283737024`. It rejects the tested sufficiency story, not all softmax interactions or V24576 optimality. |
+| `CS-TRANSFER-001` | `SCIENTIFIC_INCONCLUSIVE` / interaction | Complete `PARTIAL_OR_INTERACTION`; physical V4096 is not a robust remedy. One reversal and controlled development-scale scope prevent a clean universal claim. |
+| `CYMEK-V5.1-CANARY-V2` | `GENERALIZATION_FAILURE` in a narrow canary | Mechanical gates passed after 360 updates / 1,474,560 tokens, but identity formation failed. |
+| `FORMATION-MUX-001-S5-V8` | `SCIENTIFIC_INCONCLUSIVE` / floor-limited | Formal NULLs are authoritative at 24/24 sealed arms, but the near-zero identity baseline prevents mechanism exoneration. `M3-M2` is exploratory only. |
+| `HORM-003` | `SCIENTIFIC_NEGATIVE` at miniature scale | Separate five-seed prospective `NOT_SUPPORTED`; no capability or general hormonal conclusion. |
+| `HORM-004` | `SCIENTIFIC_NEGATIVE` with unresolved signal | Separate five-seed `NOT_SUPPORTED`; zero success fraction on every seed means rich dynamic appraisal was not tested. |
+| `CITADEL-DATA-001` | `DATA_FAILURE` + `EVALUATION_FAILURE` | Latest-position shortcut, leakage, duplication, and inadequate supply invalidate future positive lift-off claims on that surface. Historical nulls remain bounded. |
+| `CITADEL-EVAL-001` | `EVALUATION_FAILURE` / readiness | T1D is shortcut/leakage compromised; PRE500M was not executed. |
 
-## B. Optimization failures (real training dynamics, real information)
+## C. Custody and external-only boundaries
 
-| Failure | Class | Mislabel risk |
+| Artifact/state | Classification | What can be claimed |
 |---|---|---|
-| Native BF16 AdamW moments clip-norm overshoot | OPTIMIZATION_FAILURE | "BF16 unusable" (only the state layout is; compute parity passed) |
-| EMA-0.999 / WD-removal fail to stabilize | OPTIMIZATION_FAILURE (feeding MECHANISM_FALSIFICATION) | "post-G90 decay is an engineering artifact" |
-| 1e-4 LR insufficient to prevent collapse | OPTIMIZATION_FAILURE | "LR doesn't matter" |
+| R1C operator bundle | `EXTERNAL_ONLY` | The imported final receipt supports the recorded narrow result; raw bundle SHA-256 is `2a9359e49f792f962774e42b4e5825b93fb7c91ddcad8f530c1c6f16c6f9bf9e`. |
+| CS raw Drive result/checkpoints | `EXTERNAL_ONLY` | The compact result is recorded; raw artifact SHA-256 is `37e4bf741f9e55fc942fe4ade62d2d1c9619e4992e4a42ab507730809c12b150`. |
+| Canary raw state/checkpoints | `EXTERNAL_ONLY` | Mechanical and formation result are compactly recorded; persistent state is not local. |
+| Formation-Mux original Output | `CUSTODY_BLOCKED` | Compact S5 records and custody hashes do not recover checkpoint bytes or authorize continuation. |
+| HORM-001/002 | `CUSTODY_BLOCKED` | Historical manifests/hashes are preserved; no recovery, rerun, or scientific inference. |
+| Guardian V4 raw bundle | `CUSTODY_BLOCKED` | Transcribed claim remains external-only. |
+| Citadel T1D and K8 raw packs | `EXTERNAL_ONLY` | Compact imported records retain their narrow audit/result boundaries. |
 
-## C. Data failures
+## D. Process rules
 
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| Tiered arithmetic corpus: latest-position shortcut 1.000/tier; 530 verbatim cross-split docs; 13.5% duplication; 0.004× supply (CITADEL-DATA-001) | DATA_FAILURE + EVALUATION_FAILURE | **the dangerous one:** a future model exploiting the shortcut would read as "lift-off"; conversely T1D's null could be misread as "arithmetic is unlearnable at scale" when part of the surface is degenerate. Nulls survive; positives would not be interpretable |
-| T1D teacher pool diversity exhaustion (10–13 unique rows replayed ~2,500–3,260×) | DATA_FAILURE | "teacher supervision doesn't help" vs "the teacher had nothing left to teach" |
-| Production 5B corpus never materialized | DATA_FAILURE (blocker) | "the Core can't learn language" — no evidence exists either way |
-| EXP v10/v11 stale-candidates contamination | DATA_FAILURE + EVALUATION_FAILURE | composition claims were fiction, not falsifications |
-
-## D. Representation failures
-
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| Production 24,576 rep: M99 + 0% held-out + 0/48 sealed at 100% exposure | REPRESENTATION_FAILURE | "the model/data/objective is broken" — geometry/objective/data were controlled; representation is the implicated bundle |
-| V19/V1024/V24576 ≈ 0 at 128k rows (both seeds) | REPRESENTATION_FAILURE (edge regimes) | "small vocab is best" |
-
-## E. Evaluation failures (instrument wrong, not model wrong)
-
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| Calibrated scorers select fewest-token role 1.000 (15/15 CUDA cells) | EVALUATION_FAILURE | any assisted-selection "capability" measured before certification |
-| Scoring fixture v1 structural leak | EVALUATION_FAILURE | bias-screen results pre-repair are void |
-| E0 v0.3.0 positional shortcut (81.77% bag-of-words) | EVALUATION_FAILURE | generator-tier capability claims |
-| COMMUTED=100% read as commutation invariance | EVALUATION_FAILURE | invariance claims from confounded probes |
-| ARK-009 composite query+order diagnostic | EVALUATION_FAILURE | "query conditioning absent" claims from non-orthogonal probes |
-| T1D self-knowledge probe contract invalid (57/96 targets > 8 tokens) | EVALUATION_FAILURE | "model lacks self-knowledge" |
-| T1C prose 0/500 vs raw 0/1,000 denominators | EVALUATION_FAILURE | miscited effect sizes |
-| Readiness gate v1 false green | EVALUATION_FAILURE | mechanism studies on a floor substrate |
-| X1-REAL imbalance (always-negative 0.9733) | EVALUATION_FAILURE + MECHANISM_FALSIFICATION | "the model has a self-model" |
-
-## F. Generalization failures (the science worked; the capability didn't transfer)
-
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| T1-series/T1D: no exact lift-off at 2–8M tokens under any arm | GENERALIZATION_FAILURE (bounded) | "arithmetic is impossible at these budgets" — the arms/budget scope must travel with the claim |
-| BRAMASTRA fresh-world 17.2–25.8%, rendering 0/128 | GENERALIZATION_FAILURE | "the lab is broken" |
-| BRAMASTRA depth-two ≈ one-step (Δ≈0–0.02) | GENERALIZATION_FAILURE (of the teaching intervention) | "deeper curricula are useless" — budget-2 scope |
-| T1D teacher primitives 0.515 with composition ≈ 0 | GENERALIZATION_FAILURE | "primitives are useless" |
-
-## G. Retention / mechanism failures
-
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| NARROW_HIGH erodes invariance 8/8 at canonical 1.0 | RETENTION_FAILURE | "the capability was never there" — canonical accuracy said it was |
-| ARK-013 every arm loses T2 without replay | RETENTION_FAILURE | "LOW LR is useless" (it's a regime boundary, not a refutation of LOW protection) |
-| ARK-016 1/12 qualifying events | INCONCLUSIVE_FAILURE | "caps don't work" (event starvation, not refutation) |
-| ARK-012 TIME_NOT_STATE_SCREEN | INCONCLUSIVE_FAILURE | "0.85 is the threshold" |
-| BRM "this-regime replay" rejected | MECHANISM_FALSIFICATION (provenance-weak, G17) | conflation with treatment-exact replay (which protects) would overgeneralize the null |
-
-## H. Inconclusive by design (must stay inconclusive)
-
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| CYR-GPU-009 <22% exposure | INCONCLUSIVE_FAILURE | "V5 TINY can't generalize" — dose, not capability |
-| ARK-019 V3.1 primary verdict (SKILL_B never formed) | INCONCLUSIVE_FAILURE for the controller question / GENERALIZATION_FAILURE for SKILL_B dose | "Guardians don't work" — the reference couldn't acquire either |
-| learned-discovery n.s.; depth-two null | INCONCLUSIVE_FAILURE (underpowered scale) | "controllers/curricula are dead" |
-
-## I. Scaling failures
-
-| Failure | Class | Mislabel risk |
-|---|---|---|
-| T1C arm D 2.3× scale: still 0/1,000 | SCALING_FAILURE (bounded, confounded) | "scale never helps" — POSTMORTEM 5's budget confound blocks exactly that |
-| Corpus supply 0.004× of 500M demand | SCALING_FAILURE (readiness) | "500M is ready to schedule" |
+1. Never call a preflight, build, custody, or mechanical failure a scientific result.
+2. Never turn a floor-limited formal NULL into mechanism exoneration.
+3. Never turn a miniature `NOT_SUPPORTED` result into a broad capability claim.
+4. Never treat external bytes, transcribed claims, or authorization flags as recovered outcomes.
+5. The next science path is control/metric preflight, then narrow geometry/WD/denominator dissection only after a pass; corpus/evaluation regeneration is parallel and required before natural-language or scale transfer.
+6. No taxonomy entry authorizes production vocabulary/tokenizer change, PRE500M, 250M, 500M, cognition, AGI, TPU qualification, tool learning, or RSI.

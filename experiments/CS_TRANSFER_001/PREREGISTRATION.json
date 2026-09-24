@@ -1,0 +1,159 @@
+{
+  "schema": "anra-cs-transfer-001-preregistration/v1",
+  "frozen_at": "2026-09-13",
+  "experiment": "CS-TRANSFER-001",
+  "title": "Physical class-space causal transfer after R1C and Canary-v2",
+  "parent_evidence": {
+    "canary_v2_branch_parent": "22d1bd4f05f1deb62679e6f06a8dbe268edee9c0",
+    "canary_v2_scientific_executable": "4470a34b7e2d4b2d673c328ef962c84d8e075b89",
+    "canary_v2_verdict": "CANARY_V2_FAIL_FORMATION",
+    "canary_v2_dev_overall_exact_eos": 0.5194150277357539,
+    "canary_v2_sealed_overall_exact_eos": 0.516641452344932,
+    "canary_v2_identity_dev_exact_eos": 0.17700453857791226,
+    "canary_v2_identity_sealed_exact_eos": 0.18910741301059,
+    "r1c_verdict": "SOFTMAX_COMPETITION_NOT_SUFFICIENT",
+    "task2_architecture_authority": "2e6b89fdf9b77899505fdc4ce5a0a57133c407cc"
+  },
+  "prospective_refinement": "The older planning sketch for CS-TRANSFER-001 used long arithmetic/numeric runs. Before execution, completed R1C and Canary-v2 localized the live uncertainty: inactive-class masking is not sufficient, extended exposure rescues broad formation, but identity/copy remains weak. This preregistration therefore makes the first executed CS-TRANSFER-001 a cleaner physical-vocabulary intervention with token-isomorphic data and matched shared initialization. The old planning document remains historical evidence and is not rewritten.",
+  "primary_question": "At 8L/256w, does reducing the actual tied embedding/output matrix from 24,576 rows to 4,096 rows causally improve identity/copy formation when the two arms receive byte-identical token sequences, matched shared parameter initialization, matched optimizer/schedule/stream, and the same frozen production tokenizer encoding surface?",
+  "causal_contrast": {
+    "treatment": "physical ModelSpec.vocabulary_size only: 4096 versus 24576",
+    "token_sequences": "byte-identical across paired arms; every content token ID is <4096",
+    "tokenizer": "same frozen 24576-entry production tokenizer artifact is used only to render/select the shared low-ID text surface; tokenizer bytes never differ between arms",
+    "shared_initialization": "all non-embedding tensors are copied byte-identically from the same V24576 reference initialization; rows 0..4095 of the tied embedding are copied byte-identically; V24576 alone owns rows 4096..24575",
+    "not_a_masking_proxy": true
+  },
+  "model": {
+    "family": "V5 dense decoder contract",
+    "geometry_except_vocab": {
+      "width": 256,
+      "layers": 8,
+      "query_heads": 4,
+      "kv_heads": 2,
+      "head_dimension": 64,
+      "ffn_width": 1024,
+      "context_length": 1024,
+      "rope_base": 10000.0,
+      "tied_embeddings": true,
+      "qk_norm_affine": true
+    },
+    "arms": {
+      "PHYS_4096": {
+        "vocabulary_size": 4096,
+        "expected_parameters": 8920320
+      },
+      "PHYS_24576": {
+        "vocabulary_size": 24576,
+        "expected_parameters": 14163200
+      }
+    },
+    "parameter_difference_is_treatment": "The parameter-count difference is exactly the removed/added tied embedding rows. Width, depth and every non-embedding tensor shape are identical; compensatory widening is forbidden because it would introduce a second architectural intervention."
+  },
+  "data": {
+    "source_generator": "anra_v5/v51_canary_data.py",
+    "fresh_seed": 2026091303,
+    "candidate_worlds_per_family": 5000,
+    "families": [
+      "identity",
+      "binding",
+      "state_order",
+      "composition",
+      "termination",
+      "missing_info"
+    ],
+    "selected_rows_per_family": {
+      "training": 600,
+      "development": 80,
+      "sealed": 120
+    },
+    "rendering": {
+      "prompt_suffix": "\nAnswer:",
+      "answer_prefix": " ",
+      "max_common_token_id": 4095,
+      "reject_special_tokens_inside_content": true,
+      "max_answer_tokens": 24,
+      "max_total_segment_tokens_including_bos_eos": 256
+    },
+    "selection": "deterministic hash-ranked selection after low-ID eligibility; selection uses no model outcome",
+    "split_rule": "retain original latent-world train/development/sealed split; sealed candidate worlds are generated before training and selected/hash-bound before any update",
+    "mandatory_screens": [
+      "zero exact cross-split collision",
+      "zero normalized cross-split collision",
+      "zero latent-world group collision",
+      "all selected content IDs <4096 and no PAD/BOS/EOS/UNK content IDs",
+      "shortcut baselines <0.35 on selected development rows",
+      "at least 15% candidate acceptance for every family/split",
+      "identical selected token-sequence manifest used by both physical-vocabulary arms"
+    ],
+    "not_production_corpus": true
+  },
+  "matching": {
+    "model_seeds": [4811, 4812, 4813, 4814],
+    "order_seeds": [7811, 7812, 7813, 7814],
+    "pairing": "seed i: PHYS_4096 and PHYS_24576 share model seed, order seed, selected data bytes, pack manifest, update count, token budget, optimizer hyperparameters and schedule",
+    "forbidden": [
+      "different tokenizer bytes",
+      "different selected rows",
+      "different shared initialization",
+      "different LR or endpoint",
+      "outcome-based stopping",
+      "MASK_4096 rescue",
+      "post-outcome threshold changes"
+    ]
+  },
+  "training": {
+    "tokens_per_update": 4096,
+    "target_updates": 480,
+    "token_budget": 1966080,
+    "checkpoint_every_updates": 60,
+    "development_eval_updates": [0, 60, 120, 180, 240, 300, 360, 420, 480],
+    "optimizer": "production AdamW beta(0.9,0.95), eps 1e-8, selective wd 0.1",
+    "objective": "canonical causal CE, EOS included, aux lambdas 0",
+    "schedule": "token-indexed canary WSD: 10% warmup, stable through 85%, linear decay to 0.1x peak; peak 3e-4; no rewarm",
+    "precision": "CUDA FP32 primary for clean paired causality; no BF16 difference between arms",
+    "fixed_endpoint": true
+  },
+  "evaluation": {
+    "primary_family": "identity",
+    "primary_metric": "paired identity FORMATION_AUC over fixed development checkpoints using exact token answer + valid EOS",
+    "co_primary_endpoint": "paired identity exact-token-with-valid-EOS gap at update 480",
+    "secondary": [
+      "per-family formation AUC",
+      "overall exact-token-with-valid-EOS",
+      "answer-token exact ignoring EOS",
+      "EOS stop rate",
+      "first-acquisition update",
+      "training loss trajectory",
+      "shared-row embedding update norm",
+      "non-embedding update norm",
+      "extra-row V24576 norm and logit mass",
+      "seed variance"
+    ],
+    "sealed": "consumed once only after all eight arms reach update 480 and development results are frozen; no sealed score can alter training or arm inclusion",
+    "metric_contract": "token-level comparison is authoritative; text decode is a secondary audit only. This avoids the Canary-v2 answer_prefix_exact diagnostic ambiguity."
+  },
+  "decision_rule": {
+    "SUPPORTED_PHYSICAL_CLASS_SPACE": "mean paired identity AUC gap PHYS_4096-PHYS_24576 >=0.10, gap positive in >=3/4 seed pairs, and mean paired identity endpoint gap >=0.10; mechanical gates pass and at least one non-identity control family forms in both arms",
+    "STRONG_PHYSICAL_CLASS_SPACE": "SUPPORTED criteria plus mean paired identity AUC gap >=0.20 and sealed identity endpoint gap >=0.10 after one-shot sealed evaluation",
+    "PARTIAL_OR_INTERACTION": "mean paired identity AUC gap is between 0.05 and 0.10, or >=0.10 but positive in <3/4 pairs, or primary and endpoint signs disagree",
+    "NULL_AT_THIS_SCALE": "absolute mean paired identity AUC gap <0.05 and absolute endpoint gap <0.05, with >=3/4 pairs individually within +/-0.10",
+    "REVERSE_EFFECT": "mean paired identity AUC gap <=-0.10 and PHYS_24576 wins in >=3/4 pairs",
+    "INCONCLUSIVE_FORMATION": "neither arm establishes the preregistered control-formation floor in >=3/4 matched pairs",
+    "FAIL_ENGINEERING": "any mandatory identity/data/resume/numerics/evaluation integrity gate fails"
+  },
+  "control_formation_floor": {
+    "rule": "in each arm/seed, at least one of composition or termination must reach exact-token-with-valid-EOS >=0.50 by update 480",
+    "purpose": "a class-space comparison is not interpretable when neither arm demonstrates basic formation"
+  },
+  "post_result_actions": {
+    "SUPPORTED_PHYSICAL_CLASS_SPACE": "replicate the physical contrast at the ~40M development rung and only then decide whether vocabulary_size should change in V5.1; do not jump to 500M",
+    "STRONG_PHYSICAL_CLASS_SPACE": "same as SUPPORTED, with higher priority; still requires tokenizer/representation transfer before architecture freeze",
+    "PARTIAL_OR_INTERACTION": "run a narrow mechanism dissection separating tied-row geometry from denominator competition/weight-decay effects; do not change production vocab",
+    "NULL_AT_THIS_SCALE": "deprioritize physical class-space as the explanation for the V2 identity bottleneck; move to identity objective/data/termination and tokenizer-segmentation diagnostics",
+    "REVERSE_EFFECT": "retain V24576 as conservative default and investigate why reduced physical class space harms formation",
+    "INCONCLUSIVE_FORMATION": "repair exposure/schedule/data validity before any representation inference",
+    "FAIL_ENGINEERING": "repair engineering only; preserve scientific preregistration or issue an explicit prospective amendment"
+  },
+  "claim_ceiling": "Controlled development-scale causal evidence about physical tied class-space effects on formation under a shared low-ID production-tokenizer surface. No production tokenizer, corpus, PRE500M, 250M, 500M, cognition, or AGI authorization.",
+  "drive_root": "/content/drive/MyDrive/CYMEK/CS_TRANSFER_001"
+}

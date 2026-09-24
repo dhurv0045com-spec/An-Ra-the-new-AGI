@@ -1,105 +1,41 @@
-# Agent brief: CYMEK research + readiness handoff
+# Agent brief: phase-3 evidence consolidation
 
-Branch: `cymek-500m-readiness`.
+**Branch:** `research/evidence-consolidation-2026-09-25`
+**Role:** research synthesis, evidence audit, and experiment prioritization. This is not the production/operator authority for `cymek-500m-readiness` and must not be used as a launch instruction.
 
-## CURRENT SCIENTIFIC STATE
+## Authority and read order
 
-`CYR-GPU-011` has **EXECUTED** on a Google Colab Tesla T4. Do not describe it as pending.
+Read these before making any research decision:
 
-Frozen executable: `0a97257e2b38db6dfa85cc6e58da0697591dde6b`.
+1. [`docs/research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.md`](docs/research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.md) and [`.json`](docs/research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.json).
+2. [`docs/research/EXPERIMENT_EVIDENCE_LEDGER.md`](docs/research/EXPERIMENT_EVIDENCE_LEDGER.md) and [`.json`](docs/research/EXPERIMENT_EVIDENCE_LEDGER.json).
+3. [`docs/research/RESEARCH_DECISION_MODEL.json`](docs/research/RESEARCH_DECISION_MODEL.json).
+4. [`docs/research/RESEARCH_DEPENDENCY_GRAPH.md`](docs/research/RESEARCH_DEPENDENCY_GRAPH.md) and [`docs/research/NEXT_EXPERIMENT_DECISION_TREE.md`](docs/research/NEXT_EXPERIMENT_DECISION_TREE.md).
+5. [`docs/cymek/research/CURRENT_STATE.md`](docs/cymek/research/CURRENT_STATE.md).
+6. The purpose-specific documents under [`docs/research/`](docs/research/).
 
-Source bundle SHA-256: `fbec390f66223a19a998db6519f42c046ad8cb0a345c205b168f5bd1a86668e5`.
+The phase-3 source review covers 90 ledger experiments and 71 byte-identical evidence/provenance files. Its manifest SHA-256 is `c164c735ec4e628a6311fe4c52117c8b58370321df61b00d4976c11769f0215f`. Commit `90f77b7f` is the pre-consolidation parent; the current branch contains the standalone consolidation commit.
 
-The raw V11 ZIP is intentionally **not stored in git**. Preserve only the distilled scientific record:
+## Current state
 
-- reasoning + interpretation: `docs/cymek/experiments/CYR-GPU-011/RESULT.md`
-- compact structured result: `artifacts/v5/cyr_gpu_011_result_receipt.json`
+- R1C is complete 24/24 with `SOFTMAX_COMPETITION_NOT_SUFFICIENT`, mean gap `-0.11038062283737024`, and K01 **FIRED**. It is controlled development mechanism evidence only.
+- CS-TRANSFER-001 is complete with `PARTIAL_OR_INTERACTION`; physical V4096 is not a robust remedy. It is controlled development-scale only, and its raw Drive result remains external with recorded SHA-256 `37e4bf741f9e55fc942fe4ade62d2d1c9619e4992e4a42ab507730809c12b150`.
+- Canary-v2 completed 360 updates / 1,474,560 tokens. Mechanical gates passed and identity formation failed; the result is narrow.
+- Formation-Mux S5 v8 completed 24/24 and sealed at a near-zero identity floor. Formal NULLs are authoritative, but they do not exonerate a mechanism. The later v12 frontier is only 2/24 and has no sealed, final, or checkpoint payload. Recovery-preflight engineering passed remotely after a preserved failed CI run, but the original checkpoint-bearing Output is absent and no recovery execution occurred.
+- ROLE-TRANSFER-001 is a hash-bound preregistered design with no trainer, official arm, sealed evaluation, or result. It supersedes the old tied-row placeholder as design of record but remains execution-blocked.
+- HORM-003 and HORM-004 are separate five-seed miniature `NOT_SUPPORTED` results. HORM-004's zero success fraction means rich dynamic appraisal is unresolved. HORM-001/002 custody is blocked.
+- K8 is completed engineering-partial `INCONCLUSIVE`: E0/E1 ran, E2 was not a positive cognition result, E3 was blocked, and E4/E5 were not run. The 100M TPU preflight was not run and made no optimizer update. Neither unlocks science.
+- ARK-020 is `DO_NOT_RUN/NOT_EXECUTED` with confirmed resume/identity defects. The Guardian V4 raw bundle is missing; no Guardian result may be promoted from transcription.
+- Citadel corpus and evaluation are not ready because of leakage, shortcut, and supply failures. There is no production corpus.
 
-Official preregistered verdict: `NO_G90_WITH_INCOMPLETE_EXPOSURE`.
+## Decision protocol
 
-## WHAT V11 ACTUALLY FOUND
+1. Start with `FMUX-CONTROL-METRIC-PREFLIGHT`: a cheap multi-seed Formation-Mux control-capability and checkpoint-metric-resolution preflight. Recovery engineering is qualified, but preserved checkpoints may be used only after the original saved Output and exact custody pass; otherwise perform read-only recovery/metric review. Do not retrain from an evidence-only archive.
+2. If and only if capability, metric resolution, and exact custody all pass, continue the frozen TIE-role frontier. A recovery CI pass alone is not continuation authorization.
+3. Treat `ROLE-TRANSFER-001` as the preregistered successor of record, not an authorized run. Before separate authorization review, complete upstream frontier, generator/trainer/evaluator, sealed/no-overlap, exact-resume, and independent qualification gates. Never run the superseded tied-row placeholder beside it.
+4. Regenerate and qualify the corpus/evaluation surface in parallel. It must pass contamination, shortcut, leakage, and sealed-fixture screens before natural-language or larger-scale transfer.
+5. Keep R1C and CS-TRANSFER-001 closed as completed evidence. Do not rerun them as mask-only, broad vocabulary, or scale campaigns. The old full-exposure compact-bridge proposal is historical and is not a next action.
 
-The run completed in 8383.78 s (~139.73 min) on a Tesla T4.
+## Hard boundaries
 
-### COMPACT_BRIDGE
-
-Real Cymek V5 4L/128w, 19-symbol arithmetic vocabulary, 987,392 parameters.
-
-- 8,081 updates, batch 64
-- 517,184 semantic row presentations = 44.89% of ARK-002B reference exposure
-- 7,240,576 actual real tokens
-- train M99 confirmed at update 1,400
-- G50 confirmed at update 2,200
-- no G90
-- final DEV_CONTROLLER exact-with-EOS 54.69%
-- final DEV_MEASUREMENT STANDARD exact-with-EOS 56.47%
-- max observed controller exact 59.38%
-- final STANDARD digit accuracy: ones 80.0%, tens 56.47%
-- locality relation consistency 81.25%, both-exact 60.42%
-- carry 0%, triple-add 37.5%, three-digit 0%
-
-Interpretation: partial controlled-task generalization emerged, but the 25-minute compact cap stopped the subject at only 44.89% of the ARK reference exposure and before the main 9k–18k delayed-generalization region. This is not a clean compact null and not G90.
-
-### PRODUCTION_PRIMARY
-
-Same real Cymek V5 geometry/data/objective, frozen 24,576-token production tokenizer, 4,130,688 parameters.
-
-- 18,000 updates, batch 64
-- 1,152,000 semantic row presentations = 100% ARK reference exposure
-- 9,216,000 actual real tokens
-- train M99 confirmed at update 2,200
-- G50 never reached
-- G90 never reached
-- DEV_CONTROLLER exact-with-EOS remained 0% throughout recorded trajectory
-- final DEV_MEASUREMENT STANDARD 0%
-- SEALED_RESERVED 0/48
-- STANDARD tens-digit 0%, ones-digit 12.94%
-- COMMUTED 2.35%, locality 0%, carry 0%, triple-add 4.17%, three-digit 0%, verbal 6.25%
-
-Interpretation: strong single-seed evidence that semantic dose alone is insufficient under the current production representation. The model memorized the training probe but never formed the held-out arithmetic capability across the complete ARK semantic exposure box.
-
-## POST-RUN DIAGNOSTIC ERRATUM
-
-Do NOT treat the compact battery's `COMMUTATION_INVARIANCE=true` flag as demonstrated invariance.
-
-ARK-002B's OOD axis places the first operand in unseen tens bands 6/7; reversing operands changes that axis and moves the first-operand role toward the train-like band. Therefore compact STANDARD 56.47% versus COMMUTED 100% is evidence of operand-role/order asymmetry, not a clean symmetric commutation test.
-
-The correction is preserved in `RESULT.md`.
-
-## STRONGEST CURRENT HYPOTHESIS
-
-Capability formation remains the immediate bottleneck, not retention.
-
-The large gap between compact partial generalization and production zero-generalization implicates representation/tokenization/output-space burden inside Cymek, but does not isolate vocabulary size, BPE segmentation, number-token atomization, tied-embedding/output competition, or another correlated representation factor.
-
-Do not claim that the tokenizer is proven causal yet.
-
-## NEXT HIGHEST-INFORMATION EXPERIMENT
-
-Do **not** rerun the whole V11 campaign and do not return immediately to HIGH-vs-LOW retention.
-
-Production already consumed the full ARK-002B semantic box. The cheapest decisive closure is to continue/recreate only the compact bridge to the full 1,152,000 row presentations / 18,000 batch-64 updates with corrected structural probes.
-
-If compact reaches G90 at full exposure while production remains at the already-observed 0%, the next experiment should be a representation-factorial that separates compact-vs-production vocabulary/tokenization/output-space effects one at a time.
-
-If compact also fails at full exposure, shift attention toward Cymek-vs-Arkenstone objective, initialization, optimizer grouping/precision, or architectural differences rather than vocabulary alone.
-
-## HISTORY
-
-- CYR-GPU-001..005: superseded before scientific execution.
-- CYR-GPU-006/008: Cell-0 hardware-feasibility failures before scientific training; not ML evidence.
-- CYR-GPU-007: superseded before execution.
-- CYR-GPU-009: executed on T4; TINY memorized but no candidate-free held-out G90 at 2M real tokens per parent. Source bundle SHA `dc15f14d3bc81551b1f0b00285faa4b23c9e68f1341405377959a7aba108f216`.
-- CYR-GPU-010: superseded before execution after semantic-dose audit.
-- CYR-GPU-011: executed; distilled result described above. Raw ZIP not tracked in git.
-
-## PRODUCTION / TPU BOUNDARY
-
-- broad reasoning / AGI claim: NO
-- production promotion from V11: FORBIDDEN
-- TPU scientific evidence from V11: NONE
-- XLA accumulation-boundary mathematics: locally repaired/tested, not TPU-certified
-- PRE500M: NOT RUN / NOT AUTHORIZED
-- production corpus: DATA_NOT_READY
-- 500M campaign: NOT AUTHORIZED
-- future 5B corpus: untouched
+No production vocabulary or tokenizer change; no PRE500M, 250M, or 500M authorization; no cognition, AGI, TPU qualification, tool-learning, or RSI authorization. Engineering receipts, canary mechanical passes, custody audits, and readiness records are not scientific outcomes. External bundles remain provenance references until their bytes are recovered and verified.

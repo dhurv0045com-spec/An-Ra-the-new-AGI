@@ -1,0 +1,25 @@
+{
+  "schema": "anra.formation-mux-surface-preregistration/v4",
+  "campaign": "FORMATION-MUX-001",
+  "amendment_chain": [
+    "AMENDMENT_1_PREEXECUTION",
+    "AMENDMENT_1B_PREEXECUTION_CLIP_ISOLATION",
+    "AMENDMENT_1C_PREEXECUTION_SEALED_FIREWALL"
+  ],
+  "status": "PROSPECTIVE_NO_OFFICIAL_OUTCOMES",
+  "generator": "v5_experiments.formation_mux_data deterministic latent grammar via formation_mux_surface_v2/v4",
+  "seed": 73011,
+  "counts_are_per_family": true,
+  "families": ["identity", "binding", "state_order", "composition", "termination", "missing_info"],
+  "per_family": {"training": 600, "development": 80, "sealed": 120},
+  "whole_split_totals": {"training": 3600, "development": 480, "sealed": 720},
+  "latent_id_constraint": "all scientific latent prompt/answer ids < 4096",
+  "production_rendering_requirement": "all deterministic full-surface rows are rendered with the frozen V24576 production tokenizer before commitments are fixed",
+  "worker_visible_splits": ["training", "development"],
+  "sealed_rows_persisted_before_consumption": false,
+  "sealed_commitment_rule": "before any official arm starts, the trusted coordinator computes the immutable full-surface SHA-256 plus experiment-namespaced SHA-256 commitments over the deterministic sealed rows; only commitments are persisted",
+  "sealed_regeneration_rule": "after DEVELOPMENT_COMPLETE and SEALED_MARKER=STARTED, regenerate the full deterministic surface with the same frozen tokenizer; require exact public rows, full-surface SHA and experiment sealed commitment before scoring",
+  "sealed_persistence_rule": "raw sealed rows are never written to campaign output or results bundles; only commitments and post-consumption aggregate metrics may persist",
+  "shortcut_and_contamination_policy": "fail closed before science; public split/content identities are hash-bound; sealed shortcut statistics are not exposed before consumption",
+  "claim_ceiling": "surface custody specification only; no model outcome or architecture claim"
+}

@@ -1,5 +1,7 @@
 # Cymek experiment log (chronological, append-only)
 
+> **HISTORICAL / APPEND-ONLY — NOT CURRENT-STATE AUTHORITY (phase-3 consolidation, 2026-09-24).** This branch-local ledger preserves its original entries; do not use its older status wording to schedule work. Read the [`source manifest`](../../research/EVIDENCE_SOURCE_MANIFEST_2026-09-24.md), [`consolidated evidence ledger`](../../research/EXPERIMENT_EVIDENCE_LEDGER.md), [`phase-3 decision model`](../../research/RESEARCH_DECISION_MODEL.json), and [`current state`](../research/CURRENT_STATE.md) for current evidence. Historical entries are not rewritten here.
+
 ## 2026-09-07 — closure cycle (branch cymek-500m-readiness)
 - Bucket-pure execution, durable milestones, mixture scheduler, eval
   hooks, XLA adapter (pending), persistent mirror, import-plane fix.
