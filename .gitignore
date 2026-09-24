@@ -48,3 +48,5 @@ build/
 .venv/
 .venv-cuda/
 venv/
+!branch_observatory/data/history/
+!branch_observatory/data/history/**

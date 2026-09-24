@@ -1,0 +1,77 @@
+{
+  "current_snapshot_id": "20260924T211214385055Z",
+  "delta": {
+    "documents_added": [],
+    "documents_changed": [],
+    "documents_removed": [],
+    "previous_snapshot_id": "20260924T210859863153Z",
+    "refs_added": [],
+    "refs_moved": [],
+    "refs_removed": [],
+    "report_stale_reasons": [],
+    "worktree_status_changes": []
+  },
+  "generated_report_files": [
+    "reports/branch_index.md",
+    "reports/comparisons.md",
+    "reports/data_quality.md",
+    "reports/latest.md",
+    "reports/project_map.md",
+    "reports/specs_index.md"
+  ],
+  "latest_snapshot_id": "20260924T210859863153Z",
+  "missing_generated_report_files": [],
+  "reports_stale": false,
+  "schema_match": true,
+  "status": "CURRENT",
+  "tool_source_match": true,
+  "validation": {
+    "checks": [
+      {
+        "check": "required_fields",
+        "details": [],
+        "status": "PASS"
+      },
+      {
+        "check": "reported_shas_resolve",
+        "details": [],
+        "status": "PASS"
+      },
+      {
+        "check": "daily_growth_percent_recomputes",
+        "details": [],
+        "status": "PASS"
+      },
+      {
+        "check": "project_commits_deduplicated",
+        "details": {
+          "count": 1208,
+          "unique_count": 1208
+        },
+        "status": "PASS"
+      },
+      {
+        "check": "dirty_overlay_separate_from_tip_loc",
+        "details": [],
+        "status": "PASS"
+      },
+      {
+        "check": "file_categories_sum_to_tracked_files",
+        "details": [],
+        "status": "PASS"
+      },
+      {
+        "check": "inaccessible_worktrees_reported",
+        "details": [],
+        "status": "PASS"
+      },
+      {
+        "check": "report_citations_resolve",
+        "details": [],
+        "status": "PASS"
+      }
+    ],
+    "issues": [],
+    "status": "PASS"
+  }
+}
