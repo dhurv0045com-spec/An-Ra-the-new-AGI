@@ -1,18 +1,46 @@
 # FINAL-K8 progress cursor
 
-## 24 September 2026 current verification
+## 24 September continuation: owner Kaggle run, E4 repair, result integrity
 
-The active `Gandiva` checkout is synchronized with `origin/Gandiva` and contains
-only the scoped specification/data-manifest edits. A current deterministic full
-bundle was generated and validated with data identity
+The owner supplied four valid result/safety/probe archives for one campaign,
+`k8-b796a20ecc04` (instance `b5e0e88d1ca3`), using source closure
+`01eeada0ab124aa167b1dd7bb2e7ee0b16c0337d4a369ba1953311b44d9a8177` and data
+identity `d64ff76188b612f5fa2744bd4739420e3f708a0d88c43be4e8fd1f0392f36681`.
+The detailed phase outcomes, E2 mode table, archive hashes, packaging limitation
+and rerun instructions are in
+[`reports/K8_EXPERIMENT_20260923/RESULTS.md`](reports/K8_EXPERIMENT_20260923/RESULTS.md).
+
+The run completed E0–E3, then both E4 workers failed before any update: the
+architecture proof sampled token indices on CPU for a model restored to CUDA.
+E5 was skipped. E1 had 0/32 successes in each arm; in E2 the policy, memory and
+workspace modes each had 0/256 successes and all episodes truncated; E3's tool
+receipts establish execution, not learned tool skill, and retention was 0/4 per
+job. The symbolic comparator is reported separately and is not a learned model
+result. No AGI or RSI capability is established.
+
+The code correction places E4 probe indices on the model parameter device. The
+results-only packer now projects manifests/restore evidence to actual ZIP
+contents and uses portable archive member separators. Focused validation passed
+56 tests and 12 subtests across K8 operational and result-pack contracts. This
+post-campaign patch has not yet received a fresh full source-bound
+`verify-build`; hardware requalification and a full rerun remain outstanding.
+The old failed run cannot retry closed reservations: use a fresh run ID and
+requalify E0 on the exact pushed source closure. A temporary repack of the
+supplied archive verified that all eight omitted checkpoint files are labeled
+non-restorable without modifying the owner's ZIPs.
+
+## Pre-campaign local build verification — 24 September 2026
+
+Before the owner campaign, the `Gandiva` checkout was synchronized with
+`origin/Gandiva`. A deterministic full bundle was generated and validated with data identity
 `7b354e0ac63dfd286e85df19ca7b5b076b8a119fd2184193239099acbf5d0bc0` and source
 closure `adb0a9f79b8a80231de5e6534f7604ad838a0967337a9e75831e3aa595d1831a`.
 
-A fresh `verify-build --no-updates` passed all 24 requirements, seven check
-groups, and seven production-interface exercises with zero local optimizer
-updates. Focused RSI/Kaggle/operational checks passed 68 tests and 12 subtests.
-Owner hardware gates G01–G04 remain pending on two actual T4s; no local training,
-learned result, or AGI capability is claimed.
+A fresh `verify-build --no-updates` at that pre-campaign source passed all 24
+requirements, seven check groups, and seven production-interface exercises
+with zero local optimizer updates. Focused RSI/Kaggle/operational checks passed
+68 tests and 12 subtests. The later owner-run result is recorded above; do not
+transfer its evidence to this different source/data closure.
 
 ## 23 September continuation: all-family cognition verification
 
@@ -42,8 +70,9 @@ error, after closing two test file handles. Its E2 fixture trace now asserts
 all three family identities. Review notes are in
 [`reports/GANDIVA_F6_FAMILY_REHEARSAL_20260923/HANDOFF.md`](reports/GANDIVA_F6_FAMILY_REHEARSAL_20260923/HANDOFF.md).
 This closes a verification-coverage hole; the broader cognition/RSI system is
-still not scientifically qualified. The owner must still run Kaggle E0 gates
-G01–G04 on two T4s.
+still not scientifically qualified. At the time, the owner had not run Kaggle
+E0 gates G01–G04; the later owner campaign and its unresolved gates are
+recorded in the newest entry above.
 
 ## 23 September follow-up: public-state privacy and diagnostic validity
 
@@ -68,11 +97,11 @@ Verification used only small CPU test fixtures:
 - `$env:PYTHONPATH = (Get-Location).Path; python -B engineering/cognition_foundation_20260914/probe.py` — all six defect flags false, zero optimizer updates.
 
 This is partial cognition evidence, not acceptance of every F1–F6 condition and
-not a learned capability result. The world-model remains randomly initialized
-unless the owner later runs the campaign; no local optimizer update or GPU run
-occurred. Continue by auditing the remaining F1–F6 semantics against production
-consumers and the active K8 contract, then expand paired CPU traces only where
-the audit finds gaps.
+not a learned capability result. That CPU diagnostic made no local optimizer
+update and used no GPU. The later owner campaign is recorded in the newest
+entry above. Continue by auditing the remaining F1–F6 semantics against
+production consumers and the active K8 contract, then expand paired CPU traces
+only where the audit finds gaps.
 
 ## 23 September latest continuation: cognition prefix contract
 

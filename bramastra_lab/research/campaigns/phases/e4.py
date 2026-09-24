@@ -287,7 +287,16 @@ def _prove_architecture_on_handle(ops: Any, handle: Any, *,
     @_torch.no_grad()
     def _probe_batch() -> Any:
         config = handle["config"]
-        probe = _torch.randint(0, config.model.vocab, (2, 12))
+        try:
+            model_device = next(model.parameters()).device
+        except StopIteration as exc:
+            raise ValueError(
+                "architecture proof model has no parameters/device") from exc
+        # E4 restores the model directly onto the worker-local accelerator.
+        # Leave no diagnostic tensors on the CPU: the model's embedding
+        # index_select rejects CPU token indices when its weights are CUDA.
+        probe = _torch.randint(0, config.model.vocab, (2, 12),
+                               device=model_device)
         return probe
 
     probe = _probe_batch()

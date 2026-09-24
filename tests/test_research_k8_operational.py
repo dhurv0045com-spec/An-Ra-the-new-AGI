@@ -936,6 +936,32 @@ class O07GateTests(unittest.TestCase):
             ops, handle, gates_enabled=True)
         self.assertIn("gate_gradients", proof)
 
+    def test_arch_proof_samples_on_the_model_device(self) -> None:
+        from unittest.mock import patch
+
+        from bramastra_lab.research.campaigns.phases.e4 import (
+            _prove_architecture_on_handle)
+        from bramastra_lab.research.campaigns.phases.ops import (
+            RecordingDoubleOps)
+        from bramastra_lab.research.config import BuildConfig
+        from bramastra_lab.research.models.gated import GatedReuseModel
+
+        config = BuildConfig.from_dict({"model": {"profile": "tiny"}})
+        model = GatedReuseModel(config, gates_enabled=True)
+        expected_device = next(model.parameters()).device
+        real_randint = torch.randint
+
+        def checked_randint(*args, **kwargs):
+            self.assertEqual(torch.device(kwargs["device"]), expected_device)
+            return real_randint(*args, **kwargs)
+
+        with patch("torch.randint", side_effect=checked_randint):
+            proof = _prove_architecture_on_handle(
+                RecordingDoubleOps(), {"model": model, "config": config},
+                gates_enabled=True)
+        self.assertTrue(proof["gate_gradients"])
+        self.assertTrue(proof["segment_isolation"])
+
 
 class O10NotebookTests(unittest.TestCase):
     def test_e0_probe_context_fits_canonical_prefix_and_action_candidates(self) -> None:

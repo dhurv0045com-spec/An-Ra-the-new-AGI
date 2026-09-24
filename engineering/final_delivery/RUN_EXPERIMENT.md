@@ -1,8 +1,13 @@
 # RUN_EXPERIMENT — owner operating guide (FINAL-K8)
 
-Everything except the final GPU launch is already done. The single owner
-action is the two-T4 Kaggle notebook session (one allocation, 480 minutes,
-training stops at 450, export reserve 30).
+The previous owner campaign `k8-b796a20ecc04` stopped at E4 because its probe
+created CPU token indices for a CUDA model. Gandiva now contains the device
+placement repair and focused regression coverage. Before the next GPU run,
+use the normal `notebooks/bramastra_k8.ipynb` on the updated branch and require
+its fresh data validation and source-bound `verify-build` to pass. Do not retry
+the failed campaign ID: its E4 reservations are closed. Start a fresh two-T4
+Kaggle allocation with a unique run ID and the registered 480-minute window
+(450 minutes training, 30 minutes export reserve).
 
 ## Inputs (verified)
 
@@ -76,7 +81,9 @@ evidence and independent confirmation.
 
 - A failed E0: preserve the run directory and stop; do not re-launch
   without reading the preserved evidence.
-- A crashed session: the ledger keeps per-phase receipts; rerun
-  `run --mode full` with the SAME run dir ONLY if the ledger deadline is
-  still live (no allowance reset), else keep the partial export.
+- A crashed session with still-open work: the ledger keeps per-phase receipts;
+  rerun `run --mode full` with the SAME run dir only if the ledger deadline is
+  still live (no allowance reset). A terminal failed reservation is closed and
+  cannot be retried in that run directory; preserve its partial export and use
+  a fresh run ID after fixing the cause.
 - Never overwrite an existing run directory or build report.

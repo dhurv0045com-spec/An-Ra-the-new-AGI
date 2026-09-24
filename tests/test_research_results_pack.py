@@ -49,6 +49,55 @@ class ResultsPackContracts(unittest.TestCase):
             self.assertIsNone(zipfile.ZipFile(out).testzip())
             self.assertTrue(os.path.isfile(os.path.join(tmp, "results.json")))
 
+    def test_results_zip_projects_restore_manifest_after_payload_filtering(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            run = os.path.join(tmp, "run")
+            os.makedirs(os.path.join(run, "checkpoints"))
+            with open(os.path.join(run, "checkpoints", "step.json"), "w",
+                      encoding="utf-8") as handle:
+                json.dump({"step": 4}, handle)
+            with open(os.path.join(run, "checkpoints", "payload.pt"), "wb") as handle:
+                handle.write(b"model-weights")
+            manifest = {
+                "complete": True,
+                "payload_files": 1,
+                "files": {
+                    "checkpoints/step.json": {"bytes": 11, "sha256": "json"},
+                    "checkpoints/payload.pt": {"bytes": 13, "sha256": "weights"},
+                },
+            }
+            with open(os.path.join(run, "artifact_manifest.json"), "w",
+                      encoding="utf-8") as handle:
+                json.dump(manifest, handle)
+            with open(os.path.join(run, "restore_evidence.json"), "w",
+                      encoding="utf-8") as handle:
+                json.dump({"payload_files_exported": 1, "note": "source export"},
+                          handle)
+
+            out = os.path.join(tmp, "results.zip")
+            _build([run], out, run_id="k8-test")
+            with zipfile.ZipFile(out) as archive:
+                projected = json.loads(archive.read(
+                    "source0-run/artifact_manifest.json"))
+                restore = json.loads(archive.read(
+                    "source0-run/restore_evidence.json"))
+                self.assertIsNone(archive.testzip())
+                self.assertNotIn("source0-run/checkpoints/payload.pt",
+                                 archive.namelist())
+            self.assertFalse(projected["complete"])
+            self.assertTrue(projected["source_export_complete"])
+            self.assertEqual(projected["source_payload_files"], 1)
+            self.assertEqual(projected["payload_files"], 0)
+            self.assertEqual(list(projected["files"]), ["checkpoints/step.json"])
+            self.assertFalse(projected["results_pack"]["restorable_from_archive"])
+            self.assertEqual(projected["results_pack"]["omitted_payload_files"],
+                             ["checkpoints/payload.pt"])
+            self.assertEqual(restore["payload_files_exported"], 0)
+            self.assertEqual(restore["source_payload_files_exported"], 1)
+            self.assertFalse(restore["results_pack"]["restorable_from_archive"])
+            self.assertIn("cannot restore", restore["note"])
+
     def test_hashes_archives_without_reading_the_full_zip(self) -> None:
         import inspect
         from bramastra_lab.research.campaigns import results_pack

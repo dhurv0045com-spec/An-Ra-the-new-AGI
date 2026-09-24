@@ -2,8 +2,10 @@
 
 Unlike the full artifact archive (gigabytes of .pt payloads), this pack
 contains ONLY results: ledger JSON export, phase outputs, build/xprobe
-reports, manifests, logs and summaries. Target is ~10MB so it downloads
-through the notebook Output panel without a version-save cycle.
+reports, manifests, logs and summaries. Embedded artifact manifests are
+projected to the files actually present in this ZIP and explicitly marked
+non-restorable when checkpoint payloads are omitted. Target is ~10MB so it
+downloads through the notebook Output panel without a version-save cycle.
 
 Excluded by contract (never results): *.pt, *.bin, *.safetensors,
 __pycache__, *.pyc, .git/, working checkpoints bytes.
@@ -98,8 +100,116 @@ def collect_result_files(sources: Sequence[str | os.PathLike[str]],
                     continue
                 rel = os.path.relpath(full, root)
                 if _allowed(rel):
-                    collected.append((full, f"{label}/{rel}"))
+                    archive_rel = rel.replace(os.sep, "/")
+                    collected.append((full, f"{label}/{archive_rel}"))
     return collected
+
+
+def _archive_name_for_manifest_path(parent: str, relative: str) -> str | None:
+    """Map a manifest-relative path into its candidate ZIP member safely."""
+    from pathlib import PurePosixPath
+
+    path = PurePosixPath(str(relative).replace("\\", "/"))
+    parts = path.parts
+    if path.is_absolute() or not parts or any(
+            part in ("", ".", "..") for part in parts):
+        return None
+    return "/".join((parent, *parts)) if parent else "/".join(parts)
+
+
+def _results_only_metadata(full: Path, arcname: str,
+                           archive_names: set[str]) -> bytes | None:
+    """Return truthful results-only metadata for K8 artifact records.
+
+    The source export may be restorable, but this ZIP deliberately filters
+    checkpoint payloads. Copying its original complete manifest verbatim
+    falsely implies that the checkpoint bytes are present in the ZIP.
+    """
+    if full.name not in {"artifact_manifest.json", "restore_evidence.json"}:
+        return None
+    try:
+        raw = full.read_bytes()
+        document = json.loads(raw)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(document, dict):
+        return None
+
+    parent = arcname.rpartition("/")[0]
+    if full.name == "artifact_manifest.json":
+        source_files = document.get("files")
+        if not isinstance(source_files, dict):
+            return None
+        included: dict[str, Any] = {}
+        omitted: list[str] = []
+        for relative, record in source_files.items():
+            candidate = _archive_name_for_manifest_path(parent, str(relative))
+            if candidate is not None and candidate in archive_names:
+                included[str(relative)] = record
+            else:
+                omitted.append(str(relative))
+        if not omitted:
+            return None
+        source_complete = bool(document.get("complete", False))
+        source_payload_files = int(document.get(
+            "payload_files", sum(Path(name).suffix.lower() in DENY_SUFFIXES
+                                  for name in source_files)))
+        included_payloads = sum(Path(name).suffix.lower() in DENY_SUFFIXES
+                                for name in included)
+        omitted_payloads = sorted(
+            name for name in omitted
+            if Path(name).suffix.lower() in DENY_SUFFIXES)
+        document["files"] = included
+        document["complete"] = False
+        document["source_export_complete"] = source_complete
+        document["source_payload_files"] = source_payload_files
+        document["payload_files"] = included_payloads
+        document["source_manifest_sha256"] = hashlib.sha256(raw).hexdigest()
+        document["results_pack"] = {
+            "schema": "bramastra-k8-results-pack-projection/v1",
+            "artifact_type": "results-only",
+            "restorable_from_archive": not bool(omitted_payloads),
+            "omitted_files": sorted(omitted),
+            "omitted_payload_files": omitted_payloads,
+            "payload_files_in_archive": included_payloads,
+        }
+        return (json.dumps(document, indent=2, sort_keys=True) + "\n").encode(
+            "utf-8")
+
+    manifest_path = full.with_name("artifact_manifest.json")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        manifest = {}
+    manifest_files = manifest.get("files", {}) if isinstance(manifest, dict) else {}
+    payload_paths = [
+        str(name) for name in manifest_files
+        if Path(str(name)).suffix.lower() in DENY_SUFFIXES
+    ] if isinstance(manifest_files, dict) else []
+    omitted_payloads = sorted(
+        name for name in payload_paths
+        if (candidate := _archive_name_for_manifest_path(parent, name)) is None
+        or candidate not in archive_names)
+    source_payload_files = int(document.get("payload_files_exported", 0) or 0)
+    if not omitted_payloads and source_payload_files <= 0:
+        return None
+    document["source_payload_files_exported"] = source_payload_files
+    document["payload_files_exported"] = max(
+        0, source_payload_files - len(omitted_payloads))
+    document["results_pack"] = {
+        "schema": "bramastra-k8-results-pack-projection/v1",
+        "artifact_type": "results-only",
+        "restorable_from_archive": not bool(omitted_payloads),
+        "omitted_payload_files": omitted_payloads,
+        "payload_files_in_archive": document["payload_files_exported"],
+    }
+    if omitted_payloads:
+        note = str(document.get("note", "")).strip()
+        suffix = ("Checkpoint payload bytes are intentionally omitted from this "
+                  "results-only ZIP; it cannot restore those checkpoints.")
+        document["note"] = f"{note} {suffix}".strip()
+    return (json.dumps(document, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8")
 
 
 def build_results_pack(sources: Sequence[str | os.PathLike[str]], out_zip: str | os.PathLike[str],
@@ -124,11 +234,17 @@ def _build(sources: Sequence[str | os.PathLike[str]], out_zip: str | os.PathLike
     tmp_fd, tmp_name = tempfile.mkstemp(suffix=".zip",
                                         dir=str(destination.parent))
     os.close(tmp_fd)
+    archive_names = {arcname for _, arcname in files}
     try:
         with zipfile.ZipFile(tmp_name, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
             for full, arcname in files:
                 try:
-                    bundle.write(full, arcname)
+                    projected = _results_only_metadata(full, arcname,
+                                                       archive_names)
+                    if projected is None:
+                        bundle.write(full, arcname)
+                    else:
+                        bundle.writestr(arcname, projected)
                 except OSError as exc:
                     raise ResultsPackError(f"cannot add {full}: {exc}") from exc
         with zipfile.ZipFile(tmp_name) as bundle:
@@ -198,13 +314,19 @@ def snapshot_run_dir(run_dir: str | os.PathLike[str], reason: str) -> dict[str, 
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     destination = out_dir / f"safety-{stamp}.zip"
     files = collect_result_files([root], exclude=[out_dir])
+    archive_names = {arcname for _, arcname in files}
     tmp_fd, tmp_name = tempfile.mkstemp(suffix=".zip", dir=str(out_dir))
     os.close(tmp_fd)
     try:
         with zipfile.ZipFile(tmp_name, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
             for full, arcname in files:
                 try:
-                    bundle.write(full, arcname)
+                    projected = _results_only_metadata(full, arcname,
+                                                       archive_names)
+                    if projected is None:
+                        bundle.write(full, arcname)
+                    else:
+                        bundle.writestr(arcname, projected)
                 except OSError:
                     continue
         with zipfile.ZipFile(tmp_name) as bundle:
@@ -278,13 +400,19 @@ def build_safety_snapshot(run_dir: str | os.PathLike[str],
         files: list[tuple[Path, str]] = []
     else:
         files = collect_result_files([run_path])
+    archive_names = {arcname for _, arcname in files}
     tmp_fd, tmp_name = tempfile.mkstemp(suffix=".zip", dir=str(work))
     os.close(tmp_fd)
     try:
         with zipfile.ZipFile(tmp_name, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
             for full, arcname in files:
                 try:
-                    bundle.write(full, arcname)
+                    projected = _results_only_metadata(full, arcname,
+                                                       archive_names)
+                    if projected is None:
+                        bundle.write(full, arcname)
+                    else:
+                        bundle.writestr(arcname, projected)
                 except OSError:
                     continue
         with zipfile.ZipFile(tmp_name) as bundle:

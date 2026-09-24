@@ -1,18 +1,46 @@
 # Gandiva engineering status
 
-## 24 September 2026 current verification
+## Owner Kaggle K8 results and repair — 24 September 2026
 
-The active `Gandiva` checkout is synchronized with `origin/Gandiva` and contains
-only the scoped specification/data-manifest edits described below. A current
-deterministic full bundle was generated and validated with data identity
+The owner supplied four integrity-valid ZIP exports from campaign
+`k8-b796a20ecc04`, instance `b5e0e88d1ca3`. They contain one run, not four.
+That run used source closure
+`01eeada0ab124aa167b1dd7bb2e7ee0b16c0337d4a369ba1953311b44d9a8177` and data
+identity `d64ff76188b612f5fa2744bd4739420e3f708a0d88c43be4e8fd1f0392f36681`.
+Those identities differ from the pre-campaign full-build report below, so the
+Kaggle results and that report must not be treated as evidence for each other.
+
+E0, E1, E2 and E3 executed. E1 produced no held-out successes (0/32 per arm);
+E2 policy, memory and workspace each had 0/256 successes with all episodes
+truncated, while the symbolic comparator scored 208/256. E3 verified tool
+execution receipts but had 0/4 retention successes per job. Both E4 workers
+failed before updating because the architecture probe generated CPU indices
+for a CUDA model. E5 did not run. This run is negative capability evidence for
+its registered tasks, not AGI or RSI evidence. Full analysis and hashes are in
+[`reports/K8_EXPERIMENT_20260923/RESULTS.md`](reports/K8_EXPERIMENT_20260923/RESULTS.md).
+
+On this branch, E4 now samples probe tokens on the restored model's device.
+The results-only packer also rewrites embedded restore manifests to reflect
+checkpoint weights excluded from ZIPs, and normalizes archive member paths on
+Windows. Focused checks passed 56 tests and 12 subtests. A temporary repack of
+the supplied ZIP confirmed the eight omitted checkpoint payloads are now
+reported accurately; the source ZIPs were untouched. A source-bound full build
+verification has not yet been rerun for this post-campaign patch; do not call
+the current checkout launch-ready from these focused tests alone.
+
+## Pre-campaign full build verification — 24 September 2026
+
+Before the owner campaign, the `Gandiva` checkout was synchronized with
+`origin/Gandiva`; a deterministic full bundle was generated and validated with data identity
 `7b354e0ac63dfd286e85df19ca7b5b076b8a119fd2184193239099acbf5d0bc0` and source
 closure `adb0a9f79b8a80231de5e6534f7604ad838a0967337a9e75831e3aa595d1831a`.
 
-A fresh `verify-build --no-updates` passed all 24 requirements, seven check
-groups, and seven production-interface exercises with zero local optimizer
-updates. Focused RSI/Kaggle/operational checks passed 68 tests and 12 subtests.
-Runtime gates G01–G04 still require a real two-T4 E0 session; no local training,
-GPU qualification, learned result, or AGI capability is claimed.
+A fresh `verify-build --no-updates` at that pre-campaign source passed all 24
+requirements, seven check groups, and seven production-interface exercises
+with zero local optimizer updates. Focused RSI/Kaggle/operational checks passed
+68 tests and 12 subtests. The owner later ran the Kaggle campaign described
+above. Runtime gates and scientific claims must be assessed against the exact
+source/data identities used by each run.
 
 ## Three-family cognition rehearsal — 23 September 2026
 
@@ -81,11 +109,13 @@ did not stage or replace that edit.
 
 The normal self-sustaining Kaggle notebook is
 [`../notebooks/bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb). The
-notebook contract is build-verified, but the actual two-T4 E0 runtime gates
-G01–G04 remain pending an owner Kaggle session. Those gates must establish both
-devices, real updates and exact resume, measured throughput, and live allocation
-before E1–E6. No optimizer updates, GPU qualification, learned result, or AGI
-capability are claimed by this build.
+notebook contract was build-verified before the owner campaign. That campaign
+qualified two CUDA workers and committed E0–E3 updates, but used an older
+source/data closure and stopped on the E4 defect described above. It therefore
+does not qualify the current checkout or establish a successful full E0–E6
+run. The next owner campaign must use the updated branch, pass fresh
+source-bound verification and E0, and use a new allocation/run ID. No AGI or
+RSI capability is claimed by the available results.
 
 The separate 100M TPU path remains a preflight and engineering design. It has
 not been trained or qualified on Kaggle TPU and is not part of the normal K8
