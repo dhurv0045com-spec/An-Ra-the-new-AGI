@@ -38,6 +38,10 @@ def _flags(**overrides: bool) -> dict[str, bool]:
 
 def test_protocol_invariants() -> None:
     protocol.assert_protocol()
+    assert protocol.CANONICAL_PROTOCOL_SHA256 == (
+        "ac2c330794aab69750ff25866f7e0e2b977d8308adc3a0004b7d41c647cceefe"
+    )
+    assert protocol.protocol_sha256() == protocol.CANONICAL_PROTOCOL_SHA256
     role_seed_sets = [
         set(protocol.CONFIRMATORY_SEEDS),
         set(protocol.CALIBRATION_SEEDS),
@@ -177,10 +181,10 @@ def test_preregistration_matches_protocol() -> None:
     assert preregistration["campaign"] == protocol.CAMPAIGN
     assert preregistration["protocol_source"] == "v5_experiments/role_transfer_protocol_v1.py"
     assert preregistration["protocol"] == protocol.protocol_payload()
-    assert preregistration["protocol_sha256"] in {
-        "PENDING_REMOTE_CANONICALIZATION",
-        protocol.protocol_sha256(),
-    }
+    assert preregistration["protocol_sha256"] == protocol.protocol_sha256()
+    assert preregistration["canonicalized_by_github_actions_run"] == 35936334033
+    design = (PREREGISTRATION.parent / "DESIGN.md").read_text(encoding="utf-8")
+    assert protocol.CANONICAL_PROTOCOL_SHA256 in design
     authorization = preregistration["authorization"]
     assert isinstance(authorization, dict)
     for key in (
@@ -202,10 +206,8 @@ def test_readiness_blocks_execution_and_rejects_bruteforce_scale() -> None:
     assert readiness["preregistration"] == (
         "docs/cymek/experiments/ROLE-TRANSFER-001/PREREGISTRATION_V1.json"
     )
-    assert readiness["protocol_sha256"] in {
-        "PENDING_REMOTE_CANONICALIZATION",
-        protocol.protocol_sha256(),
-    }
+    assert readiness["protocol_sha256"] == protocol.protocol_sha256()
+    assert readiness["canonicalized_by_github_actions_run"] == 35936334033
     assert readiness["status"] == "DESIGN_PREREGISTERED_EXECUTION_BLOCKED"
     assert readiness["upstream_evidence"]["current_campaign_must_remain_frozen"] is True
     assert readiness["scale_request"]["literal_10000x_multiplier_rejected"] is True

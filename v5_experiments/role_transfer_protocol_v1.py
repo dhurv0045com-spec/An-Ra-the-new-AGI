@@ -8,6 +8,7 @@ from typing import Any
 
 CAMPAIGN = "ROLE-TRANSFER-001"
 VERSION = "1"
+CANONICAL_PROTOCOL_SHA256 = "ac2c330794aab69750ff25866f7e0e2b977d8308adc3a0004b7d41c647cceefe"
 UPSTREAM_SCIENCE_COMMIT = "c15ad8beb409537db42d075684ea54847a074ebd"
 UPSTREAM_RECOVERY_COMMIT = "8609ba95f4e978cf3cdf8d20bd8a907eea8f6728"
 UPSTREAM_EVIDENCE_SHA256 = "3e3ad68cd7f80bd242733b61153d4bb8f3fedbb1e4fba8fbc0f3ebc5d904423f"
@@ -519,5 +520,5 @@ def assert_protocol() -> None:
         raise RuntimeError("global clip norm drifted")
     if payload["magnitude_matching"]["relative_norm_match_tolerance"] != NORM_MATCH_RELATIVE_TOLERANCE:
         raise RuntimeError("norm-match tolerance drifted")
-    if protocol_sha256() == "":
-        raise RuntimeError("protocol hash is empty")
+    if protocol_sha256() != CANONICAL_PROTOCOL_SHA256:
+        raise RuntimeError("canonical ROLE-TRANSFER protocol hash mismatch")

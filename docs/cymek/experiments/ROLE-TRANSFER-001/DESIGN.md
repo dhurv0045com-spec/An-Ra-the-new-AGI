@@ -2,6 +2,8 @@
 
 Status: **PREREGISTERED DESIGN — EXECUTION BLOCKED**
 
+Protocol SHA-256: `ac2c330794aab69750ff25866f7e0e2b977d8308adc3a0004b7d41c647cceefe`
+
 ## Decision
 
 Do not multiply the current experiment by an arbitrary 10,000×. The preserved run is floor-bound and its primary proxy is too narrow:

@@ -6,7 +6,8 @@
   "status": "DESIGN_PREREGISTERED_EXECUTION_BLOCKED",
   "protocol_source": "v5_experiments/role_transfer_protocol_v1.py",
   "preregistration": "docs/cymek/experiments/ROLE-TRANSFER-001/PREREGISTRATION_V1.json",
-  "protocol_sha256": "PENDING_REMOTE_CANONICALIZATION",
+  "protocol_sha256": "ac2c330794aab69750ff25866f7e0e2b977d8308adc3a0004b7d41c647cceefe",
+  "canonicalized_by_github_actions_run": 35936334033,
   "upstream_evidence": {
     "formation_mux_science_commit": "c15ad8beb409537db42d075684ea54847a074ebd",
     "formation_mux_recovery_commit": "8609ba95f4e978cf3cdf8d20bd8a907eea8f6728",
