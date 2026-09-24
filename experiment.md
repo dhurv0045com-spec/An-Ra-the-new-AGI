@@ -2,7 +2,7 @@
 
 **Current execution authority:** [FINAL-K8](engineering/FINAL_EXPERIMENT_EXECUTION.md) assigns the complete model/data/cognition/RSI/runtime/notebook delivery and overrides conflicting historical implementation notices below. Preserve this campaign budget and registered comparisons; apply the final task/schema amendments before owner execution. No experiment has been qualified by writing this assignment.
 
-Chief experiment design, 2026-09-13. Inspected implementation: `edee72726706e0f8f46ec98bb3c979ebc2930233`. **Status: experiment specified; notebook/integration work required; no campaign results exist.** This is the next executable milestone after the M00–M24 build, not another expansion of its module list.
+Chief experiment design, 2026-09-13. Inspected implementation: `edee72726706e0f8f46ec98bb3c979ebc2930233`. **Status: implementation is present and under local validation; no owner campaign results exist.** This is the next executable milestone after the M00–M24 build, not another expansion of its module list.
 
 ## 1. Objective and new authorization
 
@@ -48,7 +48,7 @@ Stop all new training by minute450. E6 has no new training. Hard stop before min
 
 Use the existing shared decoder with a campaign profile: vocabulary260, layers8, width256, heads4, FFN704, maximum context512, tied output embeddings, existing action/value heads. Analytical total is **6,493,952 parameters** before E4's two scalar gates; confirm by instantiation. This is a tractable mechanism-learning subject, not a claim that this scale is sufficient for AGI. All core weights begin randomly initialized in E1. Subsequent children trace to those from-scratch parents; no pretrained model, tokenizer, reward model or external LLM-generated answers enter the primary experiment.
 
-Initial optimizer candidate: AdamW, learning rate0.0003, betas(0.9,0.95), epsilon1e-8, weight decay0.01, global clip norm1.0, warmup over the first5% of each declared update schedule followed by cosine decay to10% of initial LR. These are fixed experimental choices, not proven optima. Use per-objective window denominators from the master algorithm; clip and step once per accumulated window. Use float32 for probability/loss reductions. FP16 autocast plus GradScaler is the initial CUDA precision path; unscale before clipping, keep the scaler consistent across accumulated microbatches, and checkpoint its state. Match the installed runtime's supported APIs. [PyTorch AMP examples](https://docs.pytorch.org/docs/2.14/notes/amp_examples.html).
+Initial optimizer candidate: AdamW, learning rate0.0003, betas(0.9,0.95), epsilon1e-8, weight decay0.01, global clip norm1.0, warmup over the first5% of each declared update schedule followed by cosine decay to10% of initial LR. These are fixed experimental choices, not proven optima. Use per-objective window denominators from the master algorithm; clip and step once per accumulated window. Use float32 for probability/loss reductions. FP32 is the registered default CUDA precision path; FP16 autocast plus GradScaler is an opt-in path only after a successful E0 calibration, with unscale before clipping, a consistent scaler across accumulated microbatches, and checkpointed scaler state. Match the installed runtime's supported APIs. [PyTorch AMP examples](https://docs.pytorch.org/docs/2.14/notes/amp_examples.html).
 
 E0 chooses microbatch size from 16,8,4,2 and accumulation from1,2,4 to fit the **heaviest** declared treatment, targeting64 decision/example units per update where feasible. Candidate actions create additional sequence rows: record that multiplier, not just the outer batch size. Use the same effective units and deterministic stream for paired treatments. Reserve memory for evaluation/checkpoint operations; no silent sequence truncation or vocabulary change to survive an OOM.
 
@@ -69,7 +69,7 @@ bramastra-k8-data/
   episodes/                     # real generated public trajectories, including failures
   supervision/                  # answer/EOS, action, value, world and pair records
   tools/                        # disposable table/file fixtures and independent verifiers
-  meta/                         # meta-task definitions; no invented outcome labels
+  meta/                         # meta-task definitions and separated prepared mechanism labels; no method-quality labels
   audit.json                    # leakage, solvability, length and target-count checks
 ```
 
@@ -79,9 +79,9 @@ Separate pools by mechanism equivalence: training, training-controller, developm
 
 E0 chooses the confirmation inventory size solely from timing:128,64 or32 clusters per family, largest predicted to fit the E2 allowance with20% reserve. Lock the chosen IDs before learning; do not downsample based on scores. Below32 is `EVALUATION_BUDGET_INSUFFICIENT`. All cases stay in the report; exceptions/timeouts count as failures, not dropped rows.
 
-Tool transfer uses new generated table/file tasks: read a public table schema, inspect rows, filter on a predicate, aggregate a bounded integer column, and write/check a small result. Define a finite tool API such as `read_table`, `filter_rows`, `sum_column`, `write_result`, `check_result`; bounded arguments come from public schemas, not the hidden solution. Tools operate on disposable per-episode files, with no network or unrestricted shell. Use256 training mechanisms and at least64 held-out compositions per seed; hold out operator order, table structure and value ranges separately. Free-form final answers still use the full vocabulary and EOS.
+Tool transfer uses new generated table/file tasks: read a public table schema, inspect rows, filter on a predicate, aggregate a bounded integer column, and write/check a small result. Define a finite tool API such as `read_table`, `filter_rows`, `sum_column`, `write_result`, `check_result`; bounded arguments come from public schemas, not the hidden solution. Tools operate on disposable per-episode files, with no network or unrestricted shell. Use 4096 training mechanisms and 256 held-out compositions per seed; hold out operator order, table structure and value ranges separately. Free-form final answers still use the full vocabulary and EOS.
 
-The meta bundle supplies24 meta-training mechanisms,6 reusable meta-validation mechanisms and6 fresh meta-confirmation mechanisms per seed, distinct from prior examination pools. Each has support examples, query examples and a protected old-family set. Outcome labels for method quality are measured during E5; never prefill them from a designer's guess. Local support adaptation/query measurement inside meta-training is training feedback, whereas final meta-confirmation remains examiner-only.
+The meta bundle supplies24 meta-training mechanisms,6 reusable meta-validation mechanisms and6 fresh meta-confirmation mechanisms per seed, distinct from prior examination pools. Each has support examples, query examples and a protected old-family set. Prepared per-mechanism answer labels are stored separately from learner inputs so query examples contain no answer; outcome labels for method quality are measured during E5 and never prefilled from a designer's guess. Local support adaptation/query measurement inside meta-training is training feedback, whereas final meta-confirmation remains examiner-only.
 
 Reject or count records whose mandatory public prefix/answer cannot fit context512. Preserve goal, real evidence and boundaries; do not hide required observations through arbitrary truncation. Report rejected-length fractions by family. Keep global IDs, hidden state, split names and evaluator answers out of learned tokens. Hash exact prepared bytes and bind every run to them.
 

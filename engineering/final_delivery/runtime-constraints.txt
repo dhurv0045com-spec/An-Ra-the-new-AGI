@@ -7,9 +7,8 @@
 
 numpy==2.4.6
 pytest==9.1.1
-# torch: installed by the platform image (verified with 2.14.0 locally;
-# any >=2.0 with the image's CUDA build is compatible — the code uses
-# autocast + GradScaler with fp16 and falls back to fp32 on CPU).
+# torch: installed by the platform image; it must provide >=2.6.
+# Do not force a CUDA wheel here; Kaggle T4 images ship the matching build.
 
 # The following standard-library-only assumptions hold:
 #   - sqlite3 (allocation ledger), json/hashlib/subprocess (verify-build).

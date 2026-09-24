@@ -73,7 +73,7 @@ E1-A weights: token 1, world/action/value/pair 0. E1-B: token 1, world 0.5, acti
 
 Precompute each window's denominators across microbatches, accumulate correctly normalized gradients, then unscale, clip and step once. Paired treatments consume the same example order and effective decision units. Candidate expansions are extra sequence work and must be measured. No per-row finalize masquerading as a 64-unit window. Overflow/nonfinite attempts do not advance optimizer/scheduler counters as if committed; their actual cost is charged and traceable.
 
-Use AdamW LR 3e-4, betas (0.9,0.95), eps 1e-8, weight decay 0.01, gradient norm clip 1, first 5% linear warmup and cosine decay to 10% initial LR over the declared update schedule. Use stable loss reductions and FP16 autocast/GradScaler on T4. Allocate all tensors/masks/spans on the model device; the current scorer fix is retained. Local tests use CPU forward/backward only, discard gradients and prove microbatch partition equivalence, masking, disabled-term behavior and gate-path connectivity. Actual optimizer commit/AMP qualification occurs in owner E0.
+Use AdamW LR 3e-4, betas (0.9,0.95), eps 1e-8, weight decay 0.01, gradient norm clip 1, first 5% linear warmup and cosine decay to 10% initial LR over the declared update schedule. Use stable loss reductions and FP32 on T4 by default; FP16 autocast/GradScaler is opt-in only after a successful E0 calibration. Allocate all tensors/masks/spans on the model device; the current scorer fix is retained. Local tests use CPU forward/backward only, discard gradients and prove microbatch partition equivalence, masking, disabled-term behavior and gate-path connectivity. Actual optimizer commit/AMP qualification occurs in owner E0.
 
 ## 7. Learned action, world and value consumers [F06]
 
@@ -193,14 +193,15 @@ At the reviewed source the real CLI has these flags. Preserve compatible command
 python -m pip install -e ".[bramastra]"
 python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 4096 --tool-heldout 256 --meta-train 24 --meta-validate 6 --meta-confirm 6
 python -m bramastra_lab.research.campaigns.k8 validate --bundle <offline-bundle>
-python -m bramastra_lab.research.campaigns.k8 verify-build --data <offline-bundle> --report-dir <new-build-report> --no-updates
-python -m bramastra_lab.research.campaigns.k8 run --mode e0 --run-dir <run> --data <bundle> --max-wall-minutes 480 --devices cuda:0,cuda:1 --precision fp16_autocast
-python -m bramastra_lab.research.campaigns.k8 run --mode full --run-dir <same-run> --data <same-bundle> --max-wall-minutes 480 --devices cuda:0,cuda:1 --precision fp16_autocast
+python -m bramastra_lab.research.campaigns.k8 verify-build --data <offline-bundle> --report-dir <new-build-report> --no-updates --notebook notebooks/bramastra_k8.ipynb
+python -m bramastra_lab.research.campaigns.k8 run --mode e0 --run-dir <run> --data <bundle> --max-wall-minutes 480 --devices cuda:0,cuda:1 --precision fp32 --build-report <new-build-report>/build_verification.json
+python -m bramastra_lab.research.campaigns.k8 run --mode full --run-dir <same-run> --data <same-bundle> --max-wall-minutes 480 --devices cuda:0,cuda:1 --precision fp32 --build-report <new-build-report>/build_verification.json
 python -m bramastra_lab.research.campaigns.k8 summarize --run-dir <same-run>
 python -m bramastra_lab.research.campaigns.k8 export --run-dir <same-run> --out <new-export>
+
 ```
 
-`verify-build` is new work, not an existing command. Preparation/validation/build verification happen before the GPU allocation; run commands belong only to the owner notebook. The current editable-install extra is unpinned; ship a tested runtime lock/constraints mechanism while preserving the Kaggle-compatible Torch build. The current notebook hardcodes a repository path and builds data in the GPU session: replace both with validated source/input discovery and the prebuilt bundle. Offline source archive and installed package paths must work without assuming a live Git checkout or downloading a moving branch.
+`verify-build` is new work, not an existing command. Preparation/validation/build verification happen before the GPU allocation; run commands belong only to the owner notebook. The current editable-install extra is unpinned; ship a tested runtime lock/constraints mechanism while preserving the Kaggle-compatible Torch build. The notebook uses validated source/input discovery and may generate the full bundle before verification; it must not carry a hardcoded host path. Offline source archive and installed package paths must work without assuming a live Git checkout or downloading a moving branch.
 
 ## 21. Export and result completeness [F20]
 
@@ -210,7 +211,7 @@ Verify every required payload and fresh-process restore before reporting a succe
 
 ## 22. Build verification and conditional readiness authorization [F21]
 
-The current readiness module returns `ready=False` unconditionally and carries an old reviewed disposition. Leaving that code unchanged after implementing everything would make the final notebook unusable. The chief therefore gives standing, conditional authorization in this work order to implement its replacement as part of F21 and clear build readiness only after F01–F24 have complete evidence. A new conversation or manual chief code edit is not a required final step. This does not authorize a bypass flag, hardcoded True, removal of runtime budget gates or an unverified claim.
+Readiness is derived from a fresh, source-bound `verify-build` report; absent, stale, tampered, or incomplete evidence returns `ready=False`. The chief gives standing, conditional authorization in this work order to implement and maintain that evidence gate as part of F21, and to clear build readiness only after F01–F24 have complete evidence. A new conversation or manual chief code edit is not a required final step. This does not authorize a bypass flag, hardcoded True, removal of runtime budget gates or an unverified claim.
 
 Implement `python -m bramastra_lab.research.campaigns.k8 verify-build --data <bundle> --report-dir <new-dir> --no-updates`. This is a required new CLI surface. It runs the registered local contract/integration checks, validates the full data/schema/config closure and notebook/release inputs, and writes a machine-readable report. The report has exact requirement IDs, test selectors, child command exit codes, duration, actual assertions/receipts, source/data/config hashes and explicit hardware checks still pending. Unrun, failed, timed-out or empty local checks cannot be PASS. Test-only capability doubles remain labeled; real interfaces must also be exercised without stepping. The command must enforce no optimizer commits and refuse production allocation creation.
 

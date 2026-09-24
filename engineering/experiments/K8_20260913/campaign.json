@@ -1,6 +1,6 @@
 {
   "schema": "bramastra-k8-campaign-design/v1",
-  "status": "specified_not_executed_notebook_implementation_required",
+  "status": "implementation_present_hardware_unqualified",
   "source_review": "edee72726706e0f8f46ec98bb3c979ebc2930233",
   "owner_authorization": {
     "scope": "One future owner-launched Kaggle campaign; build notebook now",
@@ -45,7 +45,7 @@
     "clip_norm": 1,
     "warmup_fraction": 0.05,
     "final_lr_fraction": 0.1,
-    "precision_candidate": "fp16_autocast_with_grad_scaler"
+    "precision_candidate": "fp32"
   },
   "e1_arms": {
     "A": {

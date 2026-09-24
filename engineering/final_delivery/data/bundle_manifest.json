@@ -44,7 +44,7 @@
     ]
   },
   "authorship": "bramastra-lab deterministic generators",
-  "created_unix": 1790112338.8871968,
+  "created_unix": 1790216393.5679054,
   "families": [
     "rule-inquiry",
     "inventory",
@@ -63,7 +63,8 @@
     "episodes\\rule-inquiry-sealed-confirmation.jsonl": "e23624943b7bf5a89abd807b4db3da771fa745a7e24ff9da9758c18dd9db53f4",
     "episodes\\rule-inquiry-training-controller.jsonl": "fa8b9e60b1e53f303531a4a55735210edf615e9fb9c8aca9e706d545c7e3364d",
     "episodes\\rule-inquiry-training.jsonl": "68a0ec4fa3234b27993ffd39b8b8ec2843dd2227a4826b66d008bc377e495aab",
-    "meta\\meta_tasks.jsonl": "8fd3613c84e54d1d4b6b5af41096feffd50f1b8a956013187cd092724c986a6a",
+    "meta\\meta_labels.jsonl": "ece4bf7a8800e77cc064f913865c52a1bd2f0fa4a6a4f3b1e3507eada5626d62",
+    "meta\\meta_tasks.jsonl": "a2f198e9140340c1d5676e0313cff8971c9bb028e57871f8e291e2a5fbb5ca70",
     "supervision\\inventory-development-measurement.jsonl": "97816fd1494e2ce2620acc1a706dca4d055cb45c330e1ef26656561bb072a12c",
     "supervision\\inventory-sealed-confirmation.jsonl": "31e3696f090d2eec978ec50acbfd45556e3156d8fd25fe6813dea68f6ed56672",
     "supervision\\inventory-training-controller.jsonl": "ee3cf9197f27cf9651e6758e7ab7b1481cc7bcba0fb38b135d73a81dbf983fba",
@@ -79,10 +80,10 @@
     "tools\\tool_tasks.jsonl": "a0fcf467ac04e3891ad607d0548f79458d628588c07447b84b2b365aff9d86a7"
   },
   "generation_seed": 8609,
-  "identity": "6fb94b7018406632b0e62dcd23ca777046ae5d881363bb8e8c78d74139785fd6",
+  "identity": "7b354e0ac63dfd286e85df19ca7b5b076b8a119fd2184193239099acbf5d0bc0",
   "license": "repository-generated (BRAMASTRA K8 generators)",
   "schema": "bramastra-k8-data/v1",
-  "source_bytes_identity": "fa9a41453967e5ae89c3b8a4c12484ef47f2be1985a27bfb655f05426fc1974b",
+  "source_bytes_identity": "adb0a9f79b8a80231de5e6534f7604ad838a0967337a9e75831e3aa595d1831a",
   "split_pools": {
     "development-measurement": 256,
     "sealed-confirmation": 128,

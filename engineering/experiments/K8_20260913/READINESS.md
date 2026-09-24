@@ -54,7 +54,7 @@ Acceptance: fake-model fixture tests through the actual integration seams, archi
 
 ## I05 — One supervisor, two workers, one persistent allowance
 
-Owner: runtime integrator. Concrete target entry point: **`python -m bramastra_lab.research.campaigns.k8`**, to be implemented with `prepare`, `validate`, `run`, `summarize`, and `export` subcommands. `run --mode e0` runs only E0; `run --mode full` executes the gated campaign. These commands are a target interface, not currently existing CLI claims.
+Owner: runtime integrator. The registered entry point is **`python -m bramastra_lab.research.campaigns.k8`**, implemented with `prepare`, `validate`, `run`, `summarize`, and `export` subcommands. `run --mode e0` runs only E0; `run --mode full` executes the gated campaign. Local verification and owner hardware qualification remain separate gates.
 
 Implement `campaigns/k8.py`, `campaigns/supervisor.py`, and a versioned ledger. Use one supervisor as the only accounting writer, with a transactional SQLite journal or an equivalently tested serialized event store. Required records: allocation ID/source hash/absolute deadline; job ID, parent job, worker/device, phase/arm/seed, reservation; event sequence, started/completed/failed status, committed updates, attempted updates, supervised exposure, device/time costs and checkpoint identity. Unique job IDs make retries idempotent.
 

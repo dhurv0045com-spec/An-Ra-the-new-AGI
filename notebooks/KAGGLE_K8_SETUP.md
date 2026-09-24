@@ -23,7 +23,7 @@ Attaching two Kaggle Datasets remains the offline/reproducible alternative.
    and validate this full bundle before launching the GPU notebook:
 
    ```text
-   python -m bramastra_lab.research.campaigns.k8 prepare --out <bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 256 --tool-heldout 64 --meta-train 24 --meta-validate 6 --meta-confirm 6
+   python -m bramastra_lab.research.campaigns.k8 prepare --out <bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 4096 --tool-heldout 256 --meta-train 24 --meta-validate 6 --meta-confirm 6
    python -m bramastra_lab.research.campaigns.k8 validate --bundle <bundle>
    ```
 
