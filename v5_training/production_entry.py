@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from v5_contracts.training_spec import build_training_spec
+from signac_100m.kaggle_artifacts import DEFAULT_CHECKPOINT_EVERY_UPDATES
 from v5_data.bucket_cursor import (
     BUCKET_CURSOR_SCHEMA,
     BucketCursorState,
@@ -395,6 +396,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
                  mirror_root: str | Path | None = None,
                  checkpoint_coordinator: Any | None = None,
                  replica_collective: Callable[[Any], str] | None = None,
+                 checkpoint_every_updates: int | None = DEFAULT_CHECKPOINT_EVERY_UPDATES,
                  ) -> dict[str, Any]:
     """Execute (or resume) a token-targeted certified production campaign.
 
@@ -488,6 +490,9 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         raise ValueError("campaign token budget must be positive")
     if max_updates is not None and max_updates < 0:
         raise ValueError("max_updates cannot be negative")
+    if checkpoint_every_updates is not None and (
+            type(checkpoint_every_updates) is not int or checkpoint_every_updates <= 0):
+        raise ValueError("checkpoint_every_updates must be a positive integer or None")
     if resume_store_root is not None and Path(resume_store_root).resolve() != Path(store_root).resolve():
         raise ValueError(
             "cross-store resume is unsupported: resume store must equal the campaign store")
@@ -592,6 +597,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
              "mixture_plan_sha256": mixture_plan_sha,
              "sampler_spec_sha256": sampler.sha256,
              "source_tree_sha256": source_tree_sha256,
+             "checkpoint_every_updates": checkpoint_every_updates,
              "seed": seed})).hexdigest(),
         optimizer_spec_sha256=hashlib.sha256(_canonical_json(
             {"optimizer": "AdamW", "beta1": topo["beta1"], "beta2": topo["beta2"],
@@ -1149,7 +1155,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
     final = train(
         state=state, controller=controller, store=store,
         payload_builder=payload_builder, backend_step=backend_step,
-        updates=total_remaining, checkpoint_every=None,
+        updates=total_remaining, checkpoint_every=checkpoint_every_updates,
         should_checkpoint=should_checkpoint, on_committed=on_committed,
         on_checkpoint_observed=on_checkpoint_observed,
         should_stop=should_stop,
@@ -1239,6 +1245,7 @@ def run_campaign(*, documents: list[dict[str, Any]], tokenizer: Any,
         "milestones_crossed": milestones_crossed,
         "recovery_checkpoint_count": len(recovery_shas),
         "recovery_tokens": recovery_every,
+        "checkpoint_every_updates": checkpoint_every_updates,
         "mixture_allocation": dict(allocation),
         "mixture_plan_sha256": mixture_plan_sha,
         "mixture_consumed": dict(final_cursor.mixture_consumed),
@@ -1277,6 +1284,7 @@ def run_500m_session(*, documents: list[dict[str, Any]], tokenizer: Any,
                      max_session_minutes: float = 90.0,
                      margin_seconds: float = 60.0,
                      recovery_interval_updates: int = 25,
+                     checkpoint_every_updates: int | None = DEFAULT_CHECKPOINT_EVERY_UPDATES,
                      development_mode: bool = False,
                      contamination_benchmarks: dict[str, str] | None = None,
                      cymek_sha: str | None = None,
@@ -1339,6 +1347,7 @@ def run_500m_session(*, documents: list[dict[str, Any]], tokenizer: Any,
         contamination_benchmarks=contamination_benchmarks,
         cymek_sha=cymek_sha, stop_gate=stop_gate, clock=clock,
         milestones=milestones, recovery_tokens=recovery_tokens,
+        checkpoint_every_updates=checkpoint_every_updates,
         mixture_fractions=mixture_fractions, cognition_map=cognition_map,
         allow_replay=allow_replay, dataset_lifecycle=dataset_lifecycle,
         tokenizer_freeze_sha256=tokenizer_freeze_sha256,
@@ -1355,6 +1364,7 @@ def run_500m_session(*, documents: list[dict[str, Any]], tokenizer: Any,
         "schema": "anra-v5-session-receipt/v1",
         "run_id": run_id, "campaign_tokens": campaign_tokens,
         "updates_executed": result["updates_executed"],
+        "checkpoint_every_updates": result["checkpoint_every_updates"],
         "cumulative_tokens": result["cumulative_tokens"],
         "milestones_crossed": [m["threshold_tokens"] for m in result["milestones_crossed"]],
         "losses": result["losses"][-20:] if result["losses"] else [],

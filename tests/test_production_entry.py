@@ -256,6 +256,7 @@ def test_exact_completion_single_partial_update():
         assert result["state_complete"] is True
         assert result["termination"] == "COMPLETE"
         assert result["resumed"] is False
+        assert result["checkpoint_every_updates"] == 200
         assert len(result["losses"]) == 1
         assert result["resume_equal"] is True
         last = result["last_update_receipt"]
@@ -927,12 +928,18 @@ def test_banned_symbols_absent_from_entry_source():
     for banned in _BANNED_SYMBOLS:
         assert banned not in source, f"stale symbol survives: {banned}"
     for required in ("run_500m_session", "microstep_buckets",
-                     "partial_microstep_plan", "checkpoint_every=None",
+                     "partial_microstep_plan", "checkpoint_every=checkpoint_every_updates",
                      "ProductionSampler", "BucketCursorState"):
         assert required in source, f"required construct missing: {required}"
     sampler_source = (ROOT / "v5_training" / "production_sampler.py").read_text(
         encoding="utf-8")
     assert "take_cell_window" in sampler_source
+
+
+def test_campaign_checkpoint_cadence_defaults_to_200_optimizer_updates():
+    assert production_entry_module.DEFAULT_CHECKPOINT_EVERY_UPDATES == 200
+    assert production_entry_module.run_campaign.__kwdefaults__["checkpoint_every_updates"] == 200
+    assert production_entry_module.run_500m_session.__kwdefaults__["checkpoint_every_updates"] == 200
 
 
 # -- helpers --------------------------------------------------------------------------
