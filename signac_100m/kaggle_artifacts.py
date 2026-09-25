@@ -62,6 +62,89 @@ def _source_files(repo_root: Path):
                 yield path, f"source/{path.relative_to(repo_root).as_posix()}", "source"
 
 
+def format_canary_failure_diagnostics(
+    *,
+    candidate: str,
+    return_code: int,
+    receipt_root: str | Path,
+    launcher_log: str | Path | None = None,
+    max_failures: int = 8,
+    max_error_chars: int = 600,
+    max_log_bytes: int = 12_000,
+) -> str:
+    """Build a bounded failure message from rank receipts and saved launcher output."""
+
+    if (not isinstance(candidate, str) or not candidate or candidate in {".", ".."}
+            or Path(candidate).name != candidate):
+        raise ValueError("candidate must be a non-empty path-free name")
+    if type(return_code) is not int:
+        raise ValueError("return_code must be an integer")
+    if type(max_failures) is not int or max_failures <= 0:
+        raise ValueError("max_failures must be a positive integer")
+    if type(max_error_chars) is not int or max_error_chars <= 0:
+        raise ValueError("max_error_chars must be a positive integer")
+    if type(max_log_bytes) is not int or max_log_bytes <= 0:
+        raise ValueError("max_log_bytes must be a positive integer")
+
+    candidate_dir = Path(receipt_root) / candidate
+    message = [f"{candidate} all-core Kaggle TPU canary failed (exit {return_code})."]
+    failures: list[str] = []
+    receipt_paths = sorted(candidate_dir.glob("rank-*.json"))
+    receipt_paths += sorted(candidate_dir.glob("resume-rank-*.json"))
+    receipt_paths += [
+        path for path in (candidate_dir / "launch-failure.json", candidate_dir / "aggregate-failure.json")
+        if path.is_file()
+    ]
+    for path in receipt_paths:
+        try:
+            receipt = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            failures.append(f"{path.name}: unreadable failure receipt ({type(exc).__name__}: {exc})")
+            continue
+        if not isinstance(receipt, dict) or receipt.get("status") != "FAIL":
+            continue
+        ordinal = receipt.get("ordinal", "unknown")
+        phase = receipt.get("phase")
+        scope = f"rank {ordinal}" if ordinal != "unknown" else str(phase or "parent process")
+        error_type = receipt.get("error_type", "Error")
+        detail = str(receipt.get("error", "No error message was recorded")).strip()
+        trace = str(receipt.get("traceback", "")).strip()
+        if trace:
+            trace_lines = [line.strip() for line in trace.splitlines() if line.strip()]
+            if trace_lines:
+                detail += "\n    Trace: " + " | ".join(trace_lines[-3:])
+        if len(detail) > max_error_chars:
+            detail = detail[:max_error_chars] + "... [truncated]"
+        failures.append(f"{path.name} ({scope}): {error_type}: {detail}")
+
+    if failures:
+        message.append("Worker and parent failure receipts:")
+        message.extend(f"  - {row}" for row in failures[:max_failures])
+        if len(failures) > max_failures:
+            message.append(f"  - ... {len(failures) - max_failures} additional receipt(s) in the results ZIP")
+    else:
+        message.append(
+            "No rank-scoped FAIL receipt was written; inspect the launcher output tail or saved launcher log."
+        )
+
+    if launcher_log is not None:
+        log_path = Path(launcher_log)
+        try:
+            with log_path.open("rb") as stream:
+                stream.seek(0, os.SEEK_END)
+                size = stream.tell()
+                stream.seek(max(0, size - max_log_bytes))
+                tail = stream.read(max_log_bytes).decode("utf-8", errors="replace").strip()
+            if tail:
+                message.append("Launcher output tail:")
+                message.append(tail)
+        except OSError as exc:
+            message.append(f"Launcher log unavailable ({type(exc).__name__}: {exc}).")
+
+    message.append("The failed run's receipts and launcher log are included in its verified results ZIP when packaging succeeds.")
+    return "\n".join(message)
+
+
 def create_kaggle_results_bundle(
     *,
     output_root: str | Path,
@@ -202,4 +285,9 @@ def create_kaggle_results_bundle(
     }
 
 
-__all__ = ["BUNDLE_SCHEMA", "DEFAULT_CHECKPOINT_EVERY_UPDATES", "create_kaggle_results_bundle"]
+__all__ = [
+    "BUNDLE_SCHEMA",
+    "DEFAULT_CHECKPOINT_EVERY_UPDATES",
+    "create_kaggle_results_bundle",
+    "format_canary_failure_diagnostics",
+]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -213,6 +215,32 @@ def test_run_rejects_source_identity_mismatch_before_runtime_launch(monkeypatch)
     )
     with pytest.raises(ValueError, match="does not match the live Signac source identity"):
         kaggle_tpu_canary.run(CanaryConfig(source_tree_sha256=TEST_SOURCE_SHA256))
+
+
+def test_run_preserves_parent_launcher_failure_receipt(tmp_path, monkeypatch) -> None:
+    from signac_100m import source_identity
+    from v5_training import kaggle_tpu_canary
+
+    monkeypatch.setattr(
+        source_identity, "build_source_identity",
+        lambda _root: {"source_tree_sha256": TEST_SOURCE_SHA256},
+    )
+
+    def fail_launch(*_args, **_kwargs):
+        raise RuntimeError("launcher failed before workers started")
+
+    monkeypatch.setitem(sys.modules, "torch_xla", SimpleNamespace(launch=fail_launch))
+    config = CanaryConfig(
+        output_dir=str(tmp_path), source_tree_sha256=TEST_SOURCE_SHA256,
+    )
+    with pytest.raises(RuntimeError, match="launcher failed before workers started"):
+        kaggle_tpu_canary.run(config)
+
+    failure = json.loads((tmp_path / config.candidate / "launch-failure.json").read_text())
+    assert failure["status"] == "FAIL"
+    assert failure["phase"] == "initial_worker_group"
+    assert failure["error"] == "launcher failed before workers started"
+    assert "Traceback" in failure["traceback"]
 
 
 def test_aggregate_requires_every_rank_and_replicated_state() -> None:

@@ -17,6 +17,7 @@ import os
 import platform
 import shutil
 import time
+import traceback
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -957,6 +958,28 @@ def _atomic_json(path: Path, value: object) -> None:
     os.replace(tmp, path)
 
 
+def _write_parent_failure_receipt(
+    *,
+    path: Path,
+    config: CanaryConfig,
+    phase: str,
+    error: BaseException,
+) -> None:
+    """Persist launcher/aggregation failures that cannot be attributed to one rank."""
+
+    _atomic_json(path, {
+        "schema": "anra-signac-kaggle-parent-failure/v1",
+        "status": "FAIL",
+        "candidate": config.candidate,
+        "phase": phase,
+        "source_tree_sha256": config.source_tree_sha256,
+        "error_type": type(error).__name__,
+        "error": str(error)[:4_000],
+        "traceback": traceback.format_exc()[-12_000:],
+        "config": asdict(config),
+    })
+
+
 def compare_gradient_parity(
     distributed_gradient: list[float],
     reference_gradient: list[float],
@@ -1633,6 +1656,7 @@ def _worker(local_index: int, raw_config: dict[str, object]) -> None:
             "local_index": int(local_index),
             "error_type": type(exc).__name__,
             "error": str(exc),
+            "traceback": traceback.format_exc()[-12_000:],
             "config": asdict(config),
         }
         _atomic_json(
@@ -1925,6 +1949,7 @@ def _resume_worker(local_index: int, raw_config: dict[str, object]) -> None:
             "ordinal": int(local_index),
             "error_type": type(exc).__name__,
             "error": str(exc),
+            "traceback": traceback.format_exc()[-12_000:],
         }
         _atomic_json(
             Path(config.output_dir) / config.candidate / f"resume-rank-{int(local_index):02d}.json",
@@ -1974,16 +1999,34 @@ def run(config: CanaryConfig) -> dict[str, object]:
     candidate_dir.mkdir(parents=True)
     # The callable is a top-level importable function. Device acquisition is
     # intentionally deferred to _worker, as required by torch_xla.launch.
-    torch_xla.launch(_worker, args=(asdict(config),))
+    try:
+        torch_xla.launch(_worker, args=(asdict(config),))
+    except BaseException as exc:
+        _write_parent_failure_receipt(
+            path=candidate_dir / "launch-failure.json",
+            config=config,
+            phase="initial_worker_group",
+            error=exc,
+        )
+        raise
 
-    rank_paths = sorted(candidate_dir.glob("rank-*.json"))
-    receipts = [json.loads(path.read_text(encoding="utf-8")) for path in rank_paths]
-    aggregate = aggregate_rank_receipts(
-        receipts,
-        expected_world_size=config.expected_world_size,
-        expected_global_devices=config.expected_global_devices,
-        expected_optimizer_step=config.optimizer_updates,
-    )
+    try:
+        rank_paths = sorted(candidate_dir.glob("rank-*.json"))
+        receipts = [json.loads(path.read_text(encoding="utf-8")) for path in rank_paths]
+        aggregate = aggregate_rank_receipts(
+            receipts,
+            expected_world_size=config.expected_world_size,
+            expected_global_devices=config.expected_global_devices,
+            expected_optimizer_step=config.optimizer_updates,
+        )
+    except BaseException as exc:
+        _write_parent_failure_receipt(
+            path=candidate_dir / "aggregate-failure.json",
+            config=config,
+            phase="initial_rank_receipt_aggregation",
+            error=exc,
+        )
+        raise
     restart_aggregate = None
     restart_checkpoint = None
     restart_checkpoint_sha256 = None
@@ -2028,18 +2071,36 @@ def run(config: CanaryConfig) -> dict[str, object]:
             },
         }
         _atomic_json(candidate_dir / "restart_reference.json", reference)
-        torch_xla.launch(_resume_worker, args=(asdict(config),))
-        resume_paths = sorted(candidate_dir.glob("resume-rank-*.json"))
-        resume_receipts = [
-            json.loads(path.read_text(encoding="utf-8")) for path in resume_paths
-        ]
-        restart_aggregate = aggregate_restart_receipts(
-            receipts,
-            resume_receipts,
-            config=config,
-            checkpoint_sha256=checkpoint_sha256,
-            rank_stream_checkpoint_sha256=rank_stream_checkpoint_hashes,
-        )
+        try:
+            torch_xla.launch(_resume_worker, args=(asdict(config),))
+        except BaseException as exc:
+            _write_parent_failure_receipt(
+                path=candidate_dir / "launch-failure.json",
+                config=config,
+                phase="restart_worker_group",
+                error=exc,
+            )
+            raise
+        try:
+            resume_paths = sorted(candidate_dir.glob("resume-rank-*.json"))
+            resume_receipts = [
+                json.loads(path.read_text(encoding="utf-8")) for path in resume_paths
+            ]
+            restart_aggregate = aggregate_restart_receipts(
+                receipts,
+                resume_receipts,
+                config=config,
+                checkpoint_sha256=checkpoint_sha256,
+                rank_stream_checkpoint_sha256=rank_stream_checkpoint_hashes,
+            )
+        except BaseException as exc:
+            _write_parent_failure_receipt(
+                path=candidate_dir / "aggregate-failure.json",
+                config=config,
+                phase="restart_receipt_aggregation",
+                error=exc,
+            )
+            raise
     result: dict[str, object] = {
         "schema": SCHEMA,
         "status": "PASS",

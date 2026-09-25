@@ -5,10 +5,76 @@ import tempfile
 import unittest
 import zipfile
 
-from signac_100m.kaggle_artifacts import create_kaggle_results_bundle
+from signac_100m.kaggle_artifacts import (
+    create_kaggle_results_bundle,
+    format_canary_failure_diagnostics,
+)
 
 
 class KaggleResultsBundleTests(unittest.TestCase):
+    def test_failure_diagnostics_show_failed_ranks_and_saved_launcher_tail(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            candidate = root / "run-001" / "m102_primary"
+            candidate.mkdir(parents=True)
+            (candidate / "rank-02.json").write_text(json.dumps({
+                "status": "FAIL", "ordinal": 2, "error_type": "RuntimeError",
+                "error": "TPU memory allocation failed",
+            }))
+            (candidate / "rank-00.json").write_text(json.dumps({
+                "status": "PASS", "ordinal": 0, "error": "must not appear",
+            }))
+            (candidate / "resume-rank-03.json").write_text(json.dumps({
+                "status": "FAIL", "ordinal": 3, "error_type": "ValueError",
+                "error": "resume state mismatch",
+            }))
+            (candidate / "launch-failure.json").write_text(json.dumps({
+                "status": "FAIL", "phase": "restart_worker_group",
+                "error_type": "RuntimeError", "error": "XLA child process exited",
+                "traceback": "Traceback\n  File 'runner.py', line 12\nRuntimeError",
+            }))
+            log = root / "m102_primary.launcher.log"
+            log.write_text("setup ok\nfinal XLA diagnostic\n", encoding="utf-8")
+
+            message = format_canary_failure_diagnostics(
+                candidate="m102_primary",
+                return_code=1,
+                receipt_root=root / "run-001",
+                launcher_log=log,
+            )
+
+            self.assertIn("rank-02.json (rank 2): RuntimeError: TPU memory allocation failed", message)
+            self.assertIn("resume-rank-03.json (rank 3): ValueError: resume state mismatch", message)
+            self.assertIn("launch-failure.json (restart_worker_group): RuntimeError: XLA child process exited", message)
+            self.assertIn("final XLA diagnostic", message)
+            self.assertNotIn("must not appear", message)
+
+    def test_failure_diagnostics_explain_missing_rank_receipts_and_bound_log_tail(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            log = root / "launcher.log"
+            log.write_text("x" * 100 + "\nLATEST", encoding="utf-8")
+
+            message = format_canary_failure_diagnostics(
+                candidate="m102_primary",
+                return_code=1,
+                receipt_root=root / "missing",
+                launcher_log=log,
+                max_log_bytes=20,
+            )
+
+            self.assertIn("No rank-scoped FAIL receipt was written", message)
+            self.assertIn("LATEST", message)
+            self.assertNotIn("x" * 21, message)
+
+    def test_failure_diagnostics_reject_path_traversal_candidate(self):
+        with self.assertRaises(ValueError):
+            format_canary_failure_diagnostics(
+                candidate="..",
+                return_code=1,
+                receipt_root=".",
+            )
+
     def test_bundle_contains_hashed_results_receipts_checkpoint_and_source(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -36,6 +102,9 @@ class KaggleResultsBundleTests(unittest.TestCase):
             checkpoint_bytes = b"checkpoint-payload" * 100
             checkpoint.write_bytes(checkpoint_bytes)
             (receipt_root / "candidate" / "rank-00.json").write_text('{"rank":0}\n')
+            (receipt_root / "candidate" / "candidate.launcher.log").write_text(
+                "TPU launcher output\n", encoding="utf-8",
+            )
 
             bundle_result = create_kaggle_results_bundle(
                 output_root=output,
@@ -58,6 +127,7 @@ class KaggleResultsBundleTests(unittest.TestCase):
                 self.assertNotIn("results/signac_100m_all_core_canaries.json", names)
                 self.assertNotIn("results/signac_100m_post_canary_preflight.json", names)
                 self.assertIn("receipts/run-001/candidate/restart.pt", names)
+                self.assertIn("receipts/run-001/candidate/candidate.launcher.log", names)
                 self.assertIn("source/signac_100m/spec.py", names)
                 self.assertIn("source/v5_model/core.py", names)
                 manifest = json.loads(archive.read("BUNDLE_MANIFEST.json"))
