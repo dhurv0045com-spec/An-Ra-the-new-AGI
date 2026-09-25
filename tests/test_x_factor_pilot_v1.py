@@ -169,5 +169,7 @@ def test_remote_trainer_checkpoint_resume(tmp_path):
     )
     assert second["status"] == "COMPLETE"
     assert second["resume_count"] == 1
-    assert second["resume_checkpoint_sha256"] == first_sha
+    body = torch.load(checkpoint, map_location="cpu", weights_only=True)
+    assert body["resume_checkpoint_sha256"] == first_sha
+    assert second["resume_checkpoint_sha256"] == train.file_sha256(checkpoint)
     assert second["updates"] == 2
