@@ -52,6 +52,10 @@ jobs:
           python -c "from v5_experiments import x_factor_pilot_protocol_v1 as p; print('PROTOCOL_HASH=' + p.protocol_sha256())"
           echo "SOURCE_COMMIT=$(git rev-parse HEAD)"
           echo "OPERATOR_BLOB=$(git hash-object tools/x_factor_pilot_001_kaggle_operator_v1.py)"
+      - name: Verify generated notebook
+        run: |
+          python experiments/COLAB/build_x_factor_pilot_kaggle.py
+          git diff --exit-code -- notebooks/X_FACTOR_PILOT_001_KAGGLE_T4X2.ipynb
       - name: Validate notebook JSON and code cells
         run: |
           python - <<'PY'
