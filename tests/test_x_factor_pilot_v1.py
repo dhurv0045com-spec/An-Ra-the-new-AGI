@@ -96,6 +96,30 @@ def test_factorized_surface_and_worker_command_are_remote_only():
     assert operator.hardware_receipt(TorchStub)["passed"] is False
 
 
+def test_colab_operator_uses_one_gpu_without_changing_science():
+    from tools import x_factor_pilot_001_colab_operator_v1 as operator
+
+    jobs = operator.one_gpu_jobs()
+    assert len(jobs) == len(protocol.ARMS) * len(protocol.MODEL_SEEDS)
+    assert all(job["gpu"] == 0 for job in jobs)
+    class TorchStub:
+        __version__ = "stub"
+
+        class version:
+            cuda = None
+
+        class cuda:
+            @staticmethod
+            def is_available():
+                return False
+
+            @staticmethod
+            def device_count():
+                return 0
+
+    assert operator.single_gpu_receipt(TorchStub)["passed"] is False
+
+
 def test_model_architecture_and_initial_forward_equivalence():
     import gc
     import torch

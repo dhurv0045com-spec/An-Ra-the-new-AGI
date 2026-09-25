@@ -7,9 +7,12 @@ on:
       - 'anra_v5/x_factor_pilot_*'
       - 'v5_experiments/x_factor_pilot_*'
       - 'tools/x_factor_pilot_*'
+      - 'tools/x_factor_pilot_001_colab_operator_v1.py'
       - 'tests/test_x_factor_pilot_v1.py'
       - 'experiments/COLAB/build_x_factor_pilot_kaggle.py'
+      - 'experiments/COLAB/build_x_factor_pilot_colab.py'
       - 'notebooks/X_FACTOR_PILOT_001_KAGGLE_T4X2.ipynb'
+      - 'notebooks/X_FACTOR_PILOT_001_COLAB_T4.ipynb'
       - '.github/workflows/x-factor-pilot.yml'
   pull_request:
     branches: [cymek-beta]
@@ -44,7 +47,9 @@ jobs:
             anra_v5/x_factor_pilot_train_v1.py \
             tools/x_factor_pilot_001_worker_v1.py \
             tools/x_factor_pilot_001_kaggle_operator_v1.py \
+            tools/x_factor_pilot_001_colab_operator_v1.py \
             experiments/COLAB/build_x_factor_pilot_kaggle.py \
+            experiments/COLAB/build_x_factor_pilot_colab.py \
             tests/test_x_factor_pilot_v1.py
       - name: Run pilot unit tests
         run: |
@@ -54,6 +59,7 @@ jobs:
           python -c "from v5_experiments import x_factor_pilot_protocol_v1 as p; print('PROTOCOL_HASH=' + p.protocol_sha256())"
           echo "SOURCE_COMMIT=$(git rev-parse HEAD)"
           echo "OPERATOR_BLOB=$(git hash-object tools/x_factor_pilot_001_kaggle_operator_v1.py)"
+          echo "COLAB_OPERATOR_BLOB=$(git hash-object tools/x_factor_pilot_001_colab_operator_v1.py)"
       - name: Verify generated notebook
         run: |
           python experiments/COLAB/build_x_factor_pilot_kaggle.py
@@ -72,4 +78,19 @@ jobs:
               if cell.get('cell_type') == 'code':
                   compile(''.join(cell.get('source', [])), f'x-factor-cell-{index}', 'exec')
           print('X_FACTOR_NOTEBOOK_JSON_PASS')
+          PY
+      - name: Validate Colab notebook JSON and code cells
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('notebooks/X_FACTOR_PILOT_001_COLAB_T4.ipynb')
+          notebook = json.loads(path.read_text(encoding='utf-8'))
+          assert notebook['nbformat'] == 4
+          assert notebook['metadata']['accelerator'] == 'GPU T4'
+          assert notebook['metadata']['campaign'] == 'X-FACTOR-PILOT-001'
+          for index, cell in enumerate(notebook['cells']):
+              if cell.get('cell_type') == 'code':
+                  compile(''.join(cell.get('source', [])), f'x-factor-colab-cell-{index}', 'exec')
+          print('X_FACTOR_COLAB_NOTEBOOK_JSON_PASS')
           PY
