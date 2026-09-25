@@ -75,7 +75,22 @@ def test_factorized_surface_and_worker_command_are_remote_only():
     )
     assert "--device" in command and command[command.index("--device") + 1] == "cuda"
     assert "--target-updates" not in command
-    assert operator.hardware_receipt(type("TorchStub", (), {"cuda": type("CudaStub", (), {"is_available": lambda self: False, "device_count": lambda self: 0})(), "__version__": "stub", "version": type("Version", (), {"cuda": None})()})["passed"] is False
+    class TorchStub:
+        __version__ = "stub"
+
+        class version:
+            cuda = None
+
+        class cuda:
+            @staticmethod
+            def is_available():
+                return False
+
+            @staticmethod
+            def device_count():
+                return 0
+
+    assert operator.hardware_receipt(TorchStub)["passed"] is False
 
 
 def test_model_architecture_and_initial_forward_equivalence():
