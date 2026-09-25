@@ -64,6 +64,10 @@ jobs:
         run: |
           python experiments/COLAB/build_x_factor_pilot_kaggle.py
           git diff --exit-code -- notebooks/X_FACTOR_PILOT_001_KAGGLE_T4X2.ipynb
+      - name: Verify generated Colab notebook
+        run: |
+          python experiments/COLAB/build_x_factor_pilot_colab.py
+          git diff --exit-code -- notebooks/X_FACTOR_PILOT_001_COLAB_T4.ipynb
       - name: Validate notebook JSON and code cells
         run: |
           python - <<'PY'
