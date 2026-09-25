@@ -7,7 +7,7 @@ from textwrap import dedent
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "notebooks" / "X_FACTOR_PILOT_001_KAGGLE_T4X2.ipynb"
 REMOTE = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
-SOURCE_COMMIT = "c3cba86ef79b1d9b96afa4b36d2a989ed41a18c7"
+SOURCE_COMMIT = "b11f19a7b242fe05033cdc3657b6a06e566d665e"
 OPERATOR_BLOB = "ca46af84ff17b2ef0dc6a45d00eddcce93264c33"
 PROTOCOL_HASH = "57da611ec78389397d1cf22c44588f52f2e860ebbfb318435c8802d03611069a"
 
