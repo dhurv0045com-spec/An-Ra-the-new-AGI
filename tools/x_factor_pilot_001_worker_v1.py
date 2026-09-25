@@ -53,6 +53,10 @@ def main(argv: list[str] | None = None) -> int:
             if hasattr(torch.backends, "cudnn"):
                 torch.backends.cudnn.deterministic = True
                 torch.backends.cudnn.benchmark = False
+            if hasattr(torch.backends, "cuda"):
+                torch.backends.cuda.enable_flash_sdp(False)
+                torch.backends.cuda.enable_mem_efficient_sdp(False)
+                torch.backends.cuda.enable_math_sdp(True)
         if args.device != "cuda" or not torch.cuda.is_available() or torch.cuda.device_count() != 1:
             raise RuntimeError("worker requires exactly one visible CUDA device")
         if "T4" not in torch.cuda.get_device_name(0).upper():
