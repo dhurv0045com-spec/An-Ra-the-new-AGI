@@ -1,7 +1,7 @@
 # K8 Kaggle launch setup
 
-The K8 notebook can acquire its own source and generated input bundle. With
-Internet enabled, it clones the `BRAMASTRA` branch into `/kaggle/working` and,
+The Gandiva K8 notebook can acquire its own source and generated input bundle.
+With Internet enabled, it clones the `Gandiva` branch into `/kaggle/working` and,
 when no valid K8 bundle is attached, generates the full deterministic bundle
 before build verification or GPU training begins. The cloned revision and the
 generated bundle manifest become part of the run evidence.
@@ -9,12 +9,12 @@ generated bundle manifest become part of the run evidence.
 ## Attach these inputs
 
 For the automatic path, select **GPU T4 x2** and enable **Internet** in Kaggle
-Session options, then run the notebook from its first cell. The notebook uses
-the public BRAMASTRA Git remote and branch by default.
+Session options, then run the normal self-sustaining notebook from its first
+cell. It uses the public An-Ra Git remote and `Gandiva` branch by default.
 
 Attaching two Kaggle Datasets remains the offline/reproducible alternative.
 
-1. **BRAMASTRA source.** Its root, or a directory one level below its root,
+1. **Gandiva source.** Its root, or a directory one level below its root,
    must contain both `pyproject.toml` and `bramastra_lab/`. Export the exact
    source revision to a Dataset; do not attach a ZIP file that remains
    compressed.
@@ -64,3 +64,7 @@ when it cannot find a valid input, when the package cannot be imported, or when
 Kaggle exposes any GPU count other than two. The build-verification cell uses a
 fresh report directory and the export cell uses a fresh output directory; no
 prior evidence directory is deleted.
+
+The environment-variable names retain the `BRAMASTRA_` prefix for notebook
+compatibility; the default branch is Gandiva. For branch scope and current
+owner-run state, see the [Gandiva guide](../GANDIVA.md).

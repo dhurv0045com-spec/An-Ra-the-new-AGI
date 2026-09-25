@@ -1,36 +1,20 @@
-# BRAMASTRA — An-Ra research from first principles
+# Gandiva — a from-scratch cognition experiment
 
-**Next milestone: [K8 experiment.md](experiment.md)** — one owner-run, 7–8-hour Kaggle campaign on two T4 GPUs covering learned cognition, tool transfer, gated architecture reuse and recursive method selection. The [current agent prompt](engineering/experiments/K8_20260913/AGENT_PROMPT.md) assigns notebook/data/runtime preparation; the experiment has not run.
+Gandiva is an An-Ra research branch with a narrow job: turn claims about learning, cognition, tool use, architecture adaptation, and recursive improvement into a real, inspectable experiment. Its current deliverable is the K8 campaign and its self-sustaining Kaggle notebook. It is a research instrument, not a claim that AGI has been built.
 
-**Current assignment:** [M00–M24, including cognition and recursive improvement](engineering/cognition_rsi_20260913/README.md). The [latest branch review](engineering/reports/B2_2_CHIEF_20260913/REVIEW.md) checks `acfa249`; the [current implementation-agent prompt](engineering/cognition_rsi_20260913/AGENT_PROMPT.md) invokes both design packets and the remaining repair gate.
+This branch grew from `BRAMASTRA` at `63d60b3`. It keeps the shared `bramastra_lab` package, model, and broad from-scratch objective, then adds the production paths, evidence contracts, tests, and notebook work needed for the Gandiva K8 campaign. The relationship and exact boundaries are in [GANDIVA.md](GANDIVA.md). The detailed code difference is available with `git diff BRAMASTRA...Gandiva`.
 
-**Agents start at [AGENTS.md](AGENTS.md), then [engineering headquarters](engineering/README.md) and [current status](engineering/STATUS.md).** The chief owns architecture, algorithms and experiments; execution agents receive substantial [work orders](engineering/work_orders/README.md) with interfaces, dependencies, file ownership and acceptance evidence. The active system is designed directly for BRAMASTRA.
+The latest local build verification passed F01–F24, seven test groups, and seven production-interface exercises with zero local optimizer updates. It permits a fresh owner-run experiment; Kaggle's two-T4 qualification and all learned outcomes remain untested. Read the [current status](engineering/STATUS.md) and [owner run guide](engineering/final_delivery/RUN_EXPERIMENT.md) before launching. Use the normal, self-sustaining [K8 notebook](notebooks/bramastra_k8.ipynb), not the separate GPU-only notebook.
 
-The [complete learner execution program](engineering/master_program_20260913/README.md) is the current architecture and implementation authority: M00–M18 connect shared prediction, trained decisions, memory, inquiry, continual learning and independent candidate evaluation. Start with its [implementation-agent prompt](engineering/master_program_20260913/AGENT_PROMPT.md). It is a designed build program, not a claim that these capabilities have been achieved. The older [full AGI blueprint](AGI_BLUEPRINT.md) preserves the broader research motivation.
+Start here according to what you need:
 
-The new [discovery prototype review](engineering/reports/PROTOTYPE_REVIEW.md) records executable rule-learning, learned inquiry, acquisition/replay comparisons and two development seeds. It also records unresolved retention failures. This is an experimental system, not an achieved AGI.
+- [Gandiva's purpose, inheritance, differences, and next work](GANDIVA.md)
+- [Agent instructions for this branch](AGENTS.md)
+- [Current engineering status and evidence](engineering/STATUS.md)
+- [Frozen K8 design and registered comparisons](experiment.md)
+- [Build acceptance contract F01–F24](engineering/FINAL_EXPERIMENT_EXECUTION.md)
+- [Kaggle launch and recovery instructions](engineering/final_delivery/RUN_EXPERIMENT.md)
+- [Previous owner-run results and their limits](engineering/reports/K8_EXPERIMENT_20260923/RESULTS.md)
+- [Separate 100M TPU preflight status](engineering/TPU_100M_COGNITION_PROGRESS.md)
 
-[BRAMASTRA.md](BRAMASTRA.md) preserves the initial experiment plan; the [research-loop note](docs/bramastra/RESEARCH_LOOP.md) records its earlier outline.
-
-The first [executable experiment](bramastra_lab/README.md) now trains a small random-initialized core, compares terminal supervision, measures fresh-world failures, and verifies local checkpoint continuation. [Results and limitations](docs/bramastra/RESULTS.md) distinguish demonstrated answer learning from unresolved query-sensitive transfer. Historical executable contracts remain unchanged.
-
-The ESOES overview below is preserved as historical context. Its architecture choices and phase ordering are not automatically adopted by BRAMASTRA.
-
-## Historical ESOES overview
-
-ESOES is a clean-sheet research branch for designing the next An-Ra neural Core. Its Git ancestry passes through `core-vnext`, but V4, VNext, PGE, SFT, and EXP are evidence sources—not inherited implementation.
-
-> **Read [`AN_RA_PROGRAM.md`](AN_RA_PROGRAM.md)** — the complete research guide: what was proved, what was falsified, the causal decomposition results, the non-negotiable rules, and what comes next.
-
-Start with [`blueprint/README.md`](blueprint/README.md).
-
-Current state: **V5 contracts, local canaries, and experiment plans are executable; learned E1–E5 runners and the production trainer still require implementation. `python -m v5_contracts.launch_readiness --output artifacts/v5/launch_readiness.json` checks the evidence inventory. It never authorizes the main 250M/5B run.**
-
-Previous-system evidence remains available at its original immutable branch/commit paths, especially:
-
-- `core-vnext@054619f` — canonical PGE audit and token-provenance evidence;
-- `core-vnext@4ee180a` — latest hardened VNext reference infrastructure;
-- `core-exp@51124de` — latest EXP causal-policy evidence;
-- `core-frozen-v4@f72f193` — frozen V4 reference.
-
-Nothing in those branches is silently treated as V5 code.
+Older blueprints and reports remain in the repository because they record how the work arrived here. Their wording and claims belong to their recorded dates; use the current status and evidence links above for today's state.

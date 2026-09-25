@@ -1,8 +1,8 @@
-# BRAMASTRA K8: cognition, tool transfer, architecture and recursive learning
+# Gandiva K8: cognition, tool transfer, architecture, and recursive learning
 
-**Current execution authority:** [FINAL-K8](engineering/FINAL_EXPERIMENT_EXECUTION.md) assigns the complete model/data/cognition/RSI/runtime/notebook delivery and overrides conflicting historical implementation notices below. Preserve this campaign budget and registered comparisons; apply the final task/schema amendments before owner execution. No experiment has been qualified by writing this assignment.
+This is the **frozen K8 experiment protocol**: its hypotheses, paired treatments, phase budgets, controls, and analysis rules. The implementation work described in its original dispatch is complete enough for local build verification; the next milestone is a fresh owner-run Kaggle campaign. For today's branch purpose and exact status, start at the [Gandiva guide](GANDIVA.md) and [engineering status](engineering/STATUS.md). For launch and recovery steps, use the [owner run guide](engineering/final_delivery/RUN_EXPERIMENT.md).
 
-Chief experiment design, 2026-09-13. Inspected implementation: `edee72726706e0f8f46ec98bb3c979ebc2930233`. **Status: implementation is present and under local validation; no owner campaign results exist.** This is the next executable milestone after the M00–M24 build, not another expansion of its module list.
+The design was written on 2026-09-13 against commit `edee72726706e0f8f46ec98bb3c979ebc2930233`. That commit's gap list below is historical rationale, not a current defect list. The current source has since connected and verified the registered K8 paths; Kaggle hardware qualification and learned results remain outstanding. Keep the registered comparisons and budget intact unless a separately versioned experiment amendment is reviewed before outcomes are observed.
 
 ## 1. Objective and new authorization
 
@@ -14,7 +14,12 @@ The milestone is a **learned, auditable cognitive loop with measured transfer**,
 
 Use two independent single-GPU workers, not distributed training: one model fits on each device, and we need independent seeds and paired controls more than a single larger checkpoint. Memory is not pooled across devices. Kaggle documents its accelerator selection and GPU usage controls; verify the live account/session allowance rather than assuming a guaranteed quota. [Kaggle notebook documentation](https://www.kaggle.com/docs/notebooks), [GPU usage documentation](https://www.kaggle.com/docs/efficient-gpu-usage).
 
-## 2. What the latest branch actually supports
+## 2. Original 13 September gap analysis (historical)
+
+The following findings described the inspected `edee727` revision and explain
+why FINAL-K8 was commissioned. They do not describe the current Gandiva source
+as of 2026-09-25; see the current status and source-bound build report linked
+above for present evidence.
 
 The `edee727` push adds real workspace, belief, memory, objective, planner, meta-episode and generation-contract modules. Its handoff correctly labels many learned paths unqualified. Chief review found the following campaign blockers:
 

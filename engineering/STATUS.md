@@ -1,5 +1,30 @@
 # Gandiva engineering status
 
+## Current position — 25 September 2026
+
+Gandiva's implementation is locally build-verified and ready for a **fresh
+owner-run Kaggle campaign**. The latest full verifier passed F01–F24, all seven
+test groups, and all seven production-interface exercises, with zero local
+optimizer updates. It verified code source `c6c64c89` and bundle identity
+`20c3d876136ee9023a085cc11ae67c3929a0c2520c830c647081c988a209cfbd`; see the
+[full report](reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json).
+The pushed `Gandiva` branch has since received documentation-only updates; the
+normal notebook runs a fresh verifier against the exact source it acquires.
+
+**What remains:** run the normal
+[`bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb) on two Kaggle T4s with
+a fresh run ID. Its live E0 gates must establish device identity, real updates
+and resume, measured cost, and current allocation before E1–E6 may proceed.
+Follow [`final_delivery/RUN_EXPERIMENT.md`](final_delivery/RUN_EXPERIMENT.md).
+The prior run's E1–E3 outcomes were negative and E4 stopped on a defect now
+fixed; those old results do not qualify the repaired source. No learned
+capability, RSI, or AGI result has been established.
+
+Use [`../GANDIVA.md`](../GANDIVA.md) for the branch's purpose, inheritance,
+differences, and reading map. The chronological entries below preserve
+historical evidence; older “not ready” or “implement FINAL-K8” instructions
+describe their recorded revisions and are no longer the active assignment.
+
 ## Owner Kaggle K8 results and repair — 24 September 2026
 
 The owner supplied four integrity-valid ZIP exports from campaign

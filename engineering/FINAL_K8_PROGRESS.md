@@ -1,5 +1,21 @@
 # FINAL-K8 progress cursor
 
+## Branch purpose and next milestone — 25 September 2026
+
+This is Gandiva's engineering cursor, not an open-ended instruction to keep
+adding modules. Read the [Gandiva branch guide](../GANDIVA.md) for its purpose,
+lineage, distinct work, and document map. The K8 implementation is locally
+build-verified; the next milestone is the owner's fresh two-T4 Kaggle run with
+the normal self-sustaining notebook. E0 decides whether the campaign can
+proceed. If it qualifies, E1–E6 run under the registered allocation; afterward
+we assess evidence and choose a follow-up from measured failures.
+
+The latest build report below was generated from source commit `c6c64c89`.
+Subsequent branch updates are documentation-only; Kaggle creates a fresh
+source-bound verification report for the exact source it downloads. Do not
+confuse local build readiness with accelerator qualification, learning,
+recursive self-improvement, or AGI.
+
 ## 25 September: source-bound owner-run readiness after E4 repair
 
 Generated and validated a fresh full data bundle with identity
@@ -191,9 +207,12 @@ Implementation revision: `f7d10985eaee0dcaadbe1db5480e46f683cfe8ba` on
 `notebooks/bramastra_k8.ipynb` and `tests/test_research_k8_real.py` were
 preserved and excluded from this commit.
 
-Active assignment: FINAL-K8, requirements F01–F24. The older ten-day schedule
-and 15 September source review are history; their defect lists and readiness
-labels predate the current implementation.
+At the time of this entry, FINAL-K8 requirements F01–F24 were the active
+implementation assignment. That build work is now complete to local
+verification; the current next step is the fresh owner Kaggle run described at
+the top of this file. The older ten-day schedule and 15 September source review
+are history; their defect lists and readiness labels predate the current
+implementation.
 
 ## Previously recorded evidence (historical)
 

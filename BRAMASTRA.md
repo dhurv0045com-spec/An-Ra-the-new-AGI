@@ -1,5 +1,7 @@
 # BRAMASTRA: a first-principles research blueprint for An-Ra
 
+> **Parent-branch design record.** This document describes the broader BRAMASTRA proposal; it is not the current Gandiva work order. Gandiva inherited this history and narrowed the active work to an executable, source-bound K8 cognition and recursive-method-selection campaign. See the [Gandiva branch guide](GANDIVA.md) for what changed, what was inherited, and what happens next.
+
 **Overall design superseded by the [full AGI blueprint](AGI_BLUEPRINT.md), with detailed [Cymek](docs/bramastra/CYMEK_100X_ROADMAP.md) and [Citadel](docs/bramastra/CITADEL_100X_ROADMAP.md) roadmaps dated 2026-09-06. This document retains the initial bounded experiment plan and its historical decisions.**
 
 Design date: 2026-09-05. Implementation update: 2026-09-06. The overall AGI design remains a research proposal; a bounded from-scratch instrument and development experiments now exist. See [results](docs/bramastra/RESULTS.md) and [the target research loop](docs/bramastra/RESEARCH_LOOP.md). Full B0/B1 campaigns have not run, and a learned discovery policy remains unimplemented.

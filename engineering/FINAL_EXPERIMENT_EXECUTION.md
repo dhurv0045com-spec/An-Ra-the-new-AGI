@@ -1,18 +1,16 @@
-# FINAL-K8 — finish the complete experiment implementation
+# FINAL-K8 — build contract and acceptance specification
 
-## 0. Assignment, authority and stopping condition
+## 0. Status and authority
 
-**Implement the complete K8 system and deliver the working owner notebook.** This is the only active assignment. It includes H01, every unresolved U01–U10/J01–J14 integration obligation, and the final readiness/export path. Do not stop after the one-hour slice, a subset of tests, or another architecture document. There is no one-hour stopping condition for this assignment. Use progress commits and a durable checklist to continue across context/session limits without asking the owner to prioritize the remaining work.
+This document preserves the **F01–F24 build contract** for Gandiva's K8 campaign: required model/data/runtime behavior, integrated checks, and acceptance conditions. It was written as an implementation assignment; that assignment has reached local build readiness. It is not a standing instruction to keep expanding the repository or an assertion that the Kaggle experiment has passed.
 
-Read AGENTS.md, the short engineering STATUS, this document and `final_delivery/REQUIREMENTS.json`. Then execute. Older packets are references for a specific implementation question, not mandatory opening reading. This document resolves the active scope and takes precedence over older dispatch/timebox notices. Routine architecture integration, code edits, focused tests, schema migration, notebook repair and scoped Git publication are authorized. No local optimizer updates or owner accelerator run is authorized by this implementation assignment.
+As of 2026-09-25, the source-bound no-update verifier passed F01–F24, all seven test groups, and all seven production-interface exercises with zero local optimizer updates. The exact evidence and the still-pending Kaggle E0 gates are in [`engineering/STATUS.md`](STATUS.md) and [`engineering/reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json`](reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json). The next milestone is a fresh owner-run on two T4s, using the [run guide](final_delivery/RUN_EXPERIMENT.md) and the normal notebook.
 
-**Completion means ready for the owner to run the experiment:** all production paths are implemented; local contract/integration checks pass; the full compatible data bundle and notebook are delivered; source/data/schema identities are pinned; build readiness passes without manual code edits; the notebook automatically qualifies real hardware in E0 and, if it passes, continues through E1–E6 under one allocation. The only remaining owner work is attach the supplied inputs, choose two T4s, set output/run paths and run the notebook. Missing implementation is never a GPU-only check.
+The build report establishes local readiness only. The Kaggle notebook must verify the exact downloaded source and fresh data, then pass live E0 checks for device identity, real updates/resume, measured workload cost, and the active allocation before it may run E1–E6. A valid campaign can fail scientifically. Neither this specification nor passing tests establish learning, recursive self-improvement, or AGI.
 
-Successful GPU qualification and learned results cannot be known before the owner runs them. A valid experiment may yield negative scientific results. The delivered system must implement cognition, learning, transfer, architecture adaptation and measured recursive method selection, not claim AGI from tests. The objective remains general intelligence trained from scratch; FINAL-K8 makes the actual experiment capable of evaluating the registered mechanisms.
+The original baseline note (`29df755`, H01 not yet implemented, and early scoring/device checks) records why this assignment began; it does not describe the current code. Keep the requirement sections below as the frozen acceptance contract. The [Gandiva guide](../GANDIVA.md) explains branch purpose and lineage; current status takes precedence over old dispatch language.
 
-Baseline checked by the chief: `29df755`, clean and synchronized before this packet. H01 was still unimplemented. The scoring/device repair has four chief-verified CPU test passes and two unrun CUDA tests. Do not replace this source with older copies or assume previous handoff claims establish acceptance.
-
-## 1. Implementation order and ownership
+## 1. Original implementation order (historical)
 
 Execute the following sequence without another owner dispatch: (1) public task and decision contracts, including H01 repairs; (2) complete learning/consumer interfaces; (3) cognition and actual controls; (4) tool and architecture children; (5) actual RSI trial/proposer chain; (6) scheduler/calibration/checkpoint/export integration; (7) final build verifier and owner notebook. Test each boundary as it is connected. Do not postpone integration until every isolated module has a passing mock test.
 

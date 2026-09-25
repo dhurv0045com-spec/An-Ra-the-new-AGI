@@ -1,11 +1,21 @@
-# BRAMASTRA engineering headquarters
+# Gandiva engineering desk
 
-**Start with the [15–24 September execution handoff](ten_day_handoff_20260915/README.md)** for the current review, next ten days, continuation prompts and cursor format. FINAL-K8 remains the complete technical assignment.
+Gandiva's purpose and lineage are in the [branch guide](../GANDIVA.md). This directory holds the engineering contract, evidence, and operation notes for the current from-scratch K8 cognition experiment.
 
-**Active assignment: [FINAL-K8 — complete the experiment implementation](FINAL_EXPERIMENT_EXECUTION.md).** Read [STATUS.md](STATUS.md), that execution document and the [24 requirements](final_delivery/REQUIREMENTS.json), then implement through final delivery.
+## Current work
 
-H01 is the first included repair, not the stopping point. All remaining AI/model, learning, cognition, architecture, RSI and operational requirements are in the final assignment. It includes exact implementation behavior, verification, conditional build-readiness authorization and owner commands. No additional owner prioritization is needed.
+The local implementation is ready for a fresh owner-run campaign. The full build report passed F01–F24, seven test groups, and seven production-interface exercises with zero optimizer updates. The live two-T4 qualification and the scientific outcomes are still pending. See [current status](STATUS.md), then follow the [owner run guide](final_delivery/RUN_EXPERIMENT.md).
 
-Historical details are available in the [integrated review](integrated_readiness_20260914/REVIEW.md) and [K8 experiment](../experiment.md) when a specific code question requires them. The active final document overrides conflicting earlier dispatches. Use the [handoff template](templates/HANDOFF.md) with the final requirement matrix.
+Use the normal self-sustaining notebook at [`../notebooks/bramastra_k8.ipynb`](../notebooks/bramastra_k8.ipynb). Do not follow the older ten-day handoff as a current assignment; it is retained as a record of earlier dispatches.
 
-End with a verified release, full data artifact, runnable notebook and concise owner instructions. Do not declare the experiment ready while a required production path is still missing.
+## Current authority
+
+- [Gandiva branch guide](../GANDIVA.md): purpose, differences from the BRAMASTRA parent, inheritance, and next milestone.
+- [STATUS.md](STATUS.md): latest evidence and pending runtime gates.
+- [FINAL_K8_PROGRESS.md](FINAL_K8_PROGRESS.md): chronological engineering cursor.
+- [FINAL_EXPERIMENT_EXECUTION.md](FINAL_EXPERIMENT_EXECUTION.md): frozen F01–F24 implementation and build acceptance contract.
+- [final_delivery/RUN_EXPERIMENT.md](final_delivery/RUN_EXPERIMENT.md): Kaggle launch, recovery, and export.
+- [../experiment.md](../experiment.md): frozen design, phase plan, treatments, and analysis rules.
+- [reports/K8_EXPERIMENT_20260923/RESULTS.md](reports/K8_EXPERIMENT_20260923/RESULTS.md): previous owner-run result, bound to its original source/data identities.
+
+Older work orders and dated handoffs remain for provenance. If their readiness wording conflicts with the current status or run guide, use the current evidence and retain the old wording as history.

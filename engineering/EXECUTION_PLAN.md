@@ -1,12 +1,12 @@
 # Agent execution plan
 
-**Historical queue:** the current assignment is [M00–M18](master_program_20260913/EXECUTION.md), beginning with B2.2 repairs and continuing through the complete learner build. Do not dispatch the old queue below as a competing program.
+**Historical queue.** When this plan was written, the assignment was [M00–M18](master_program_20260913/EXECUTION.md), beginning with B2.2 repairs and continuing through a broader learner build. That work queue is not Gandiva's current assignment; do not dispatch it as a competing program. Current scope and status are in the [Gandiva guide](../GANDIVA.md) and [engineering status](STATUS.md).
 
 ## Dispatch protocol
 
 Give an agent one work-order ID and a checked-out repository. The agent reads root `AGENTS.md`, this directory's entry point, the work order and its required specifications. No chat history is necessary.
 
-Suggested dispatch message:
+The following dispatch text is a historical example, not a current request:
 
 > Execute `engineering/work_orders/W02_ENVIRONMENTS.md` on BRAMASTRA. Read root AGENTS.md and the packet's required specifications. Own only its declared paths. Use the packet's CPU budget; do not start TPU/paid runs. Implement, test and submit a handoff under engineering/reports/W02/. Report blockers and negative findings. Do not merge or push other agents' changes.
 

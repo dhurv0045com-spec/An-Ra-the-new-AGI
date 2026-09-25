@@ -1,32 +1,23 @@
-# BRAMASTRA agent entry point
+# Gandiva branch instructions
 
-## Active work: FINAL-K8 — complete the owner experiment build
+## Mission
 
-**Execution schedule and continuity:** [Ten-day handoff, 15–24 September](engineering/ten_day_handoff_20260915/README.md) records the latest source review, daily work and reusable prompts. Follow it while completing the unchanged FINAL-K8 technical requirements. Maintain engineering/FINAL_K8_PROGRESS.md so work can resume without another chief conversation.
+Read [`GANDIVA.md`](GANDIVA.md) for the branch purpose, inheritance, current state, and work ahead. Gandiva is an An-Ra research branch for building and testing a small from-scratch cognition/learning system through the K8 campaign. The long-term AGI objective is a research aim, not a claim about this implementation.
 
-Read [engineering/README.md](engineering/README.md), [STATUS](engineering/STATUS.md), [FINAL_EXPERIMENT_EXECUTION.md](engineering/FINAL_EXPERIMENT_EXECUTION.md) and [REQUIREMENTS.json](engineering/final_delivery/REQUIREMENTS.json), then implement. These contain the complete remaining assignment. Older blueprints are optional references for specific questions, not a prerequisite reading queue.
+The implementation and local build checks are complete for the current K8 contract. The next milestone is the owner's fresh Kaggle run using the normal [`notebooks/bramastra_k8.ipynb`](notebooks/bramastra_k8.ipynb). Do not treat historical dispatches that say “implement all of FINAL-K8” as a new open-ended assignment. See [`engineering/STATUS.md`](engineering/STATUS.md) and [`engineering/final_delivery/RUN_EXPERIMENT.md`](engineering/final_delivery/RUN_EXPERIMENT.md).
 
-The owner now requires the entire experiment-ready implementation, not only H01. Finish the model/learning consumers, data, cognition, tools, architecture adaptation, RSI, runtime, notebook, build verifier and delivery artifacts. There is no one-hour stopping condition. Continue across progress commits/checkpoints until all 24 requirements are verified or a precise external blocker is established. Do not return another plan, a passing subset or a workload estimate as completion.
+## Work rules
 
-The final owner notebook must run without another code patch or design decision: validate the delivered build/data, qualify actual GPUs in E0, continue through E1–E6 under one allocation and export real evidence. Code readiness, hardware qualification and scientific support remain distinct.
+- Before editing, inspect `git status`, current branch, and local `AGENTS.md` files. Preserve unrelated changes and evidence. Stage only files needed for the scoped task.
+- Keep the primary model randomly initialized. Do not import pretrained weights or claim symbolic teachers, tools, tests, fixtures, or reference solvers as learned model capability.
+- Do not run local optimizer updates or launch paid/owner GPU work unless the owner explicitly authorizes that run. CPU diagnostics may execute forward/backward but must discard gradients and state zero optimizer commits.
+- Treat `experiment.md` and `engineering/FINAL_EXPERIMENT_EXECUTION.md` as frozen K8 protocol/acceptance records. A proposed protocol change must identify the question, affected schema/data/checkpoint identities, controls, and evidence; do not silently alter the campaign after results are seen.
+- Keep source, data, run, and checkpoint identities attached to every result. A report from an older code or data closure does not verify a newer run. Preserve failed-run artifacts and use unique run IDs.
+- Keep the two T4 workers independent as registered. Do not introduce DDP, extra sessions, hidden retries, or a different notebook as a convenience change.
+- Update the current branch guide/status only when the evidence changes. Preserve dated reports and historical plans; label stale material instead of erasing provenance.
+- Run focused checks for any code change and the full build verifier when its source contract changes. State exactly what was implemented, tested, run on hardware, and still unverified.
+- No force-push, destructive cleanup, or third-party messaging. Push only scoped, reviewed changes to `Gandiva` when publication is within the user's standing authorization.
 
-## Mission and authority
+## Documentation authority
 
-The objective is general intelligence trained from scratch, including transferable learning, investigation and improvement with retention. This is a research program: neither code nor passing tests establishes AGI. The chief owns architecture and claim acceptance; implementation agents own assigned code and focused verification. Follow the owner's latest instruction when it changes scope.
-
-## Working boundaries
-
-- Work on BRAMASTRA. Preserve user changes, nested repositories and unrelated trees. Inspect Git status before editing and stage only your scoped work. No force-push.
-- Use separate worktrees for concurrent editing where available; otherwise assign exclusive file ownership. Resolve actual conflicts before touching another agent's file.
-- Keep learned core weights randomly initialized unless the owner changes that constraint. Declare symbolic teachers and external priors separately.
-- No local optimizer updates. CPU forward/backward diagnostics are allowed with gradients discarded. The historical CPU ledger remains unchanged.
-- The future owner-launched K8 campaign has one 480-minute allocation on two T4 GPUs, training stop at 450, export 30. This work order does not launch it, authorize paid compute or bypass readiness.
-- Do not overwrite run/evidence directories. Use unique IDs. Keep weights, optimizer payloads and large datasets out of Git; preserve failure evidence.
-- Do not message third parties. The owner has authorized scoped Git publication; do not include others' uncommitted work.
-- Use Luna/Sol for useful bounded delegation; specify owned paths, exclusions, prerequisites, resource limits and evidence location. No vague “build AGI” agent assignments.
-
-## Completion
-
-Verify every FINAL-K8 requirement F01–F24 against the actual consumer. Run focused checks and the final build verifier/integrated rehearsal; no repeated full-suite runs without a reason. Write a concise handoff with exact commands, source identities, outcomes, measured time, limitations and next action. Distinguish implemented, CPU-tested, GPU-qualified and experimentally supported. Push scoped changes and report the commit. The chief gives standing conditional build-readiness authorization in FINAL_EXPERIMENT_EXECUTION.md section 22. Implement its evidence-backed gate; no new owner approval round is required after complete verification. Runtime GPU/allocation gates still apply.
-
-Earlier dispatches, including the one-hour stopping point, are historical references. FINAL-K8 is the only active assignment.
+For present purpose and scope, read [`GANDIVA.md`](GANDIVA.md). For current evidence and gates, read [`engineering/STATUS.md`](engineering/STATUS.md). For owner operations, read [`engineering/final_delivery/RUN_EXPERIMENT.md`](engineering/final_delivery/RUN_EXPERIMENT.md). The K8 protocol and F01–F24 details remain in their linked frozen documents. Older plans describe the state and instructions of their dates.

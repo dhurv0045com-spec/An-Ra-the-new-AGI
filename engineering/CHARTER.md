@@ -1,5 +1,7 @@
 # Engineering charter
 
+> This is the inherited An-Ra program-wide charter: it sets the long-term goal and evidence discipline. Gandiva's current scope is the bounded K8 campaign, not the entire AGI program. See the [Gandiva guide](../GANDIVA.md) and [current engineering status](STATUS.md) for branch-specific work and evidence.
+
 Owner direction recorded: 2026-09-07. Objective: AGI trained from scratch. Chief-engineer role: architecture, algorithms, experiments, data structures, learning methods, delegation and technical acceptance. Execution is delegated to implementation agents.
 
 ## What success means
