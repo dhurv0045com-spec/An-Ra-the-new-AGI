@@ -1,6 +1,38 @@
 # FINAL-K8 progress cursor
 
-## Branch purpose and next milestone — 25 September 2026
+## Latest owner campaign — 25 September 2026
+
+The owner supplied four CRC-valid ZIP exports for the same campaign,
+k8-d383144c62de, instance a0800c27d780. The exact source closure was
+f6d3cef20b34fe5481b4c2cbd4fd5001143115c504693d6eac7571e1707343d7, with data
+hash f71a3a45f5aca99279eaa27b0cdc227b8f3d2f7630821f01473e5471cba0f3fc.
+The run's full outcomes, archive hashes, coverage audit, E5 cause, and rerun
+gates are recorded in
+[the result report](reports/K8_EXPERIMENT_20260925/RESULTS.md).
+
+E0 qualified two T4s and committed 12 updates. E1/E3/E4 each reached their
+four 4,000-update targets. E1's 32 evaluation rows per job were only eight
+inventory mechanisms repeated four times, all unsuccessful. E2 ran 128 groups
+per seed instead of the frozen 128 per family; learned policy, workspace, and
+memory modes all consumed 16 calls and truncated on every case. E3's tool
+receipts were present but retention was 0/16. E4 passed gradient/segment
+proofs, but included no task-level effect. E5 failed both workers because its
+571-token prompt could not fit the 512-token context. Its raw checkpoint
+milestones and top-level phase counters require reconciliation. E6 xprobes
+passed as artifact checks, but correctly list E5 as incomplete.
+
+Before a new owner run, repair representative paired E1 sampling; exact
+128-per-family E2 coverage; a controller that preserves a final-answer call;
+the context-bounded, train/decode-matched E5 choice prompt; and accounting for
+intermediate versus qualified E5 updates. The results-only ZIP cannot resume
+training because its checkpoint weight payloads were omitted. Use a new source
+closure and run ID only after the build and E0 gates are rerun.
+
+## Pre-run branch purpose and next milestone — 25 September 2026
+
+This readiness entry describes the state before the owner campaign above.
+Its instruction to launch immediately is superseded by the measured repair
+gates at the top of this progress cursor.
 
 This is Gandiva's engineering cursor, not an open-ended instruction to keep
 adding modules. Read the [Gandiva branch guide](../GANDIVA.md) for its purpose,

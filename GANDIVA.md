@@ -29,7 +29,28 @@ The branch starts from `BRAMASTRA` commit `63d60b3523937703183f1e578fe066df08a53
 
 Gandiva is not a merge of the Cymek or Citadel code branches. Their published notes can inform later research, but this branch's claims must come from its own source, protocol, and results. Compare code and history with `git diff BRAMASTRA...Gandiva` and `git log BRAMASTRA..Gandiva`; a shared filename does not mean shared branch work.
 
-## Current state
+## Latest owner result
+
+The 25 September owner campaign is documented in
+[the result and protocol audit](engineering/reports/K8_EXPERIMENT_20260925/RESULTS.md).
+Both T4s qualified, and the source-bound build passed, but the campaign failed
+in E5. E1 measured only eight unique inventory mechanisms repeated four times;
+E2 ran 128 groups per seed instead of the frozen 128 per family, and all
+learned policy, memory, and workspace episodes exhausted their call budget.
+E3 retention was 0/16. E4 passed its gate-gradient and segment-isolation proof
+but recorded no task-level improvement. No cognition, RSI, or AGI result has
+been established.
+
+The four downloaded archives are views of one run, not replications. The
+results-only packages contain no model-weight payloads and cannot resume
+training. Do not launch another unchanged campaign. Close the E1 sampling,
+E2 coverage/controller, E5 prompt, and E5 accounting gates in the report,
+then rebuild and rerun E0 against a fresh source closure.
+
+## Pre-run build state
+
+The following build-readiness note is historical; it preceded the owner run
+above and does not authorize an unchanged rerun.
 
 The implementation is ready for a fresh owner-run K8 campaign. The last full local build verification passed all 24 F01–F24 requirements, all seven test groups, and all seven production-interface exercises. It made zero optimizer updates. The report is [`build_verification.json`](engineering/reports/FINAL_K8/gandiva-post-e4-c6c64c89-20260925-pytest-temp/build_verification.json); it records source commit `c6c64c89eb568c44cc1deed683a089580ff29494`, source closure `7f4a24d1b70639f5231cfec283ad0eb4a68feb977512ecdc58459998a70c0457`, and `ready_for_owner_experiment: true`. Later commits recorded verification and clarified documentation; they did not change the campaign implementation. The notebook performs fresh verification for the exact source it acquires.
 
@@ -37,7 +58,10 @@ An earlier owner campaign ran E0–E3 and stopped when both E4 workers hit a CPU
 
 The verification report establishes local build readiness only. It does not pass Kaggle's live E0 checks, show that the model learns, establish RSI, or establish AGI. No local optimizer updates were made during verification.
 
-## What happens next
+## Pre-run launch sequence
+
+This launch sequence was written before the latest owner campaign. Follow the
+repair gates in “Latest owner result” before using the notebook again.
 
 1. Start the normal self-sustaining [`notebooks/bramastra_k8.ipynb`](notebooks/bramastra_k8.ipynb) from the pushed `Gandiva` branch on Kaggle with two T4 GPUs. It acquires the source and prepares or validates the required data bundle.
 2. Let the notebook make a fresh source-bound build report. E0 then checks both physical devices, actual model updates and resume, measured workload cost, and the live allocation. If a gate fails, the campaign stops and preserves the evidence.

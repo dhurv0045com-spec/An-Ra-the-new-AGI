@@ -2,6 +2,31 @@
 
 ## Current position — 25 September 2026
 
+The latest owner Kaggle campaign is now audited in
+[reports/K8_EXPERIMENT_20260925/RESULTS.md](reports/K8_EXPERIMENT_20260925/RESULTS.md).
+Both T4 workers qualified and E1/E3/E4 reached their update targets, but the
+campaign failed in E5 when the P1 prompt exceeded the model context. E1 sampled
+only eight distinct inventory mechanisms (four duplicates each), and E2 ran
+128 groups total per seed instead of the frozen 128 per family. E2's learned
+policy, memory, and workspace modes exhausted all 16 calls in every episode
+without successful answers; E3 retention was zero. E4 proves the gate path can
+train but records no task-level improvement. No cognition, RSI, or AGI result
+has been established.
+
+The source-bound build verifier for the run's exact source commit
+9b806b68271b0da4aa13cc10f4b51d76818a73c6 passed and marked that build ready
+for an owner experiment. The result does not qualify the campaign: coverage,
+controller, and E5 defects remain. Do not repeat the unchanged run. First close
+the rerun gates in the result report, then rebuild the changed source, assign
+a fresh run ID, and requalify E0. The older c6c64c89 verification and earlier
+campaign below remain historical evidence for their own source/data identities.
+
+## Pre-run build checkpoint — 25 September 2026
+
+The following readiness note records the state before this owner campaign. Its
+“What remains” launch instruction is superseded by the result and repair gates
+above.
+
 Gandiva's implementation is locally build-verified and ready for a **fresh
 owner-run Kaggle campaign**. The latest full verifier passed F01–F24, all seven
 test groups, and all seven production-interface exercises, with zero local
