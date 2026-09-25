@@ -51,6 +51,10 @@ bramastra-verify-build = "bramastra_lab.research.campaigns.verify_build:main"
 bramastra-xprobe = "bramastra_lab.research.campaigns.xprobe:main"
 bramastra-package-results = "bramastra_lab.research.campaigns.results_pack:main"
 bramastra-gpu-throughput = "bramastra_lab.research.campaigns.gpu_throughput:main"
+anra-x1-real-1 = "x_factor.x1_real_1:main"
 
 [tool.setuptools.packages.find]
-include = ["bramastra_lab*", "e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["bramastra_lab*", "e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*", "x_factor*"]
+
+[tool.setuptools.package-data]
+x_factor = ["protocols/*.json", "registry/*.json", "*.md"]

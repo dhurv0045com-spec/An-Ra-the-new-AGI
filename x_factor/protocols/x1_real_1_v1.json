@@ -1,0 +1,399 @@
+{
+  "schema": "anra-x1-real-1-protocol/v1",
+  "brand": "euler",
+  "version": 1,
+  "phase": "FROZEN_TEMPLATE",
+  "authority": {
+    "real_model_spec": "x_factor/REAL_MODEL_CAUSAL_SPEC.md",
+    "synthetic_spec": "x_factor/SPEC.md",
+    "program_ledger": "AN_RA_PROGRAM.md",
+    "real_claims_only": true,
+    "low_rank_assumption": false,
+    "geometry": "open; response diversity is tested in the high-diversity tail of sparsity-matched global, column-marginal, row-marginal, and cluster-marginal nulls; compressibility is reported separately and is not a rank assumption"
+  },
+  "claim_ceiling": "A positive result supports prospective intervention selection in the tested real-model regime only. It does not establish general intelligence, general self-improvement, successful internalization, or architecture-independent cognition.",
+  "execution_boundary": {
+    "local_model_execution": false,
+    "local_training": false,
+    "package_role": "model_free_receipt_coordinator",
+    "external_execution_required": true,
+    "sealed_data_access": false,
+    "weights_download": false
+  },
+  "power_policy": {
+    "target_clusters_are_preferred": true,
+    "minimum_clusters_are_hard_gate": true,
+    "below_target_requires_explicit_deviation": true,
+    "underpowered_runs_must_be_labeled": true
+  },
+  "preflight_contract": {
+    "schema": "anra-x1-real-1-preflight/v1",
+    "required_before_external_execution": true,
+    "dry_run_forbidden_operations": ["local_model_execution", "local_training"],
+    "transformation_smoke_required": true,
+    "candidate_intake_required": true,
+    "candidate_intake_schema": "anra-x1-real-1-candidate-intake/v1",
+    "platform_profiles": ["COLAB", "KAGGLE", "PERSISTENT_GPU_RUNNER"],
+    "failure_policy": "BLOCKED"
+  },
+  "subject_binding": {
+    "manifest_schema": "anra-x1-real-1-subject/v1",
+    "required_identity_fields": [
+      "checkpoint_file_sha256",
+      "parameter_sha256",
+      "model_config_sha256",
+      "tokenizer_artifact_sha256",
+      "tokenizer_identity_sha256",
+      "runtime_source_revision",
+      "source_commit",
+      "identity_attestation_path",
+      "identity_attestation_sha256"
+    ],
+    "research_subject_required": true,
+    "eligible_states": ["READY_SCOPED", "READY", "QUALIFIED"],
+    "historical_controls_are_subjects": false,
+    "registry_entry_required": true,
+    "eligibility_artifacts_file_verified": true,
+    "release_manifest_required": true,
+    "basis_qualification_before_predictor_training": true
+  },
+  "interventions": [
+    {
+      "id": "NO_CHANGE",
+      "version": 1,
+      "family": "no_change",
+      "role": "NULL_CONTROL",
+      "assistance": "A0",
+      "cost": 0,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "identity",
+      "transformation_id": "identity",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Return the original visible task unchanged; cost unit is one abstract intervention unit."
+    },
+    {
+      "id": "NULL_REFORMAT",
+      "version": 2,
+      "family": "surface_control",
+      "role": "NULL_CONTROL",
+      "assistance": "A0",
+      "cost": 0,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_null_reformat",
+      "transformation_id": "null_reformat_v2",
+      "control_pair": "NO_CHANGE",
+      "preserves_task_answer_information": true,
+      "semantics": "Apply semantics-preserving whitespace and label churn; this is the matched sham control."
+    },
+    {
+      "id": "QUERY_DUPLICATION",
+      "version": 2,
+      "family": "query_salience",
+      "role": "DIAGNOSTIC",
+      "assistance": "A0",
+      "cost": 0,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_query_duplication",
+      "transformation_id": "query_duplication_v2",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Repeat the visible query once before the answer marker without adding answer information."
+    },
+    {
+      "id": "QUERY_FRONTLOAD",
+      "version": 2,
+      "family": "query_salience",
+      "role": "DIAGNOSTIC",
+      "assistance": "A1",
+      "cost": 1,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_query_frontload",
+      "transformation_id": "query_frontload_v2",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Place one copy of the visible query before the facts and retain the original query after the facts."
+    },
+    {
+      "id": "CANONICAL_CONTEXT",
+      "version": 2,
+      "family": "context_structure",
+      "role": "REPAIR",
+      "assistance": "A1",
+      "cost": 1,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_canonical_context",
+      "transformation_id": "canonical_context_v2",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Render the visible facts as a deterministic sorted item list without changing their contents."
+    },
+    {
+      "id": "REALIZATION_ENVELOPE",
+      "version": 2,
+      "family": "realization_support",
+      "role": "REPAIR",
+      "assistance": "A1",
+      "cost": 1,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_realization_envelope",
+      "transformation_id": "realization_envelope_v2",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Add a fixed output-format envelope using only the visible task and answer-format instruction."
+    },
+    {
+      "id": "STATE_TABLE",
+      "version": 2,
+      "family": "state_externalization",
+      "role": "REPAIR",
+      "assistance": "A3",
+      "cost": 2,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_state_table",
+      "transformation_id": "state_table_v2",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Re-express the visible facts as a deterministic state table; no fact is selected using truth."
+    },
+    {
+      "id": "LEXICAL_ADDRESSING_HINT",
+      "version": 2,
+      "family": "addressing_support",
+      "role": "REPAIR",
+      "assistance": "A2",
+      "cost": 2,
+      "information_class": "INFORMATION_PRESERVING",
+      "legality_inputs": ["visible_context", "visible_query", "visible_candidates", "visible_format"],
+      "transformation": "ibq_v2._t_lexical_hint",
+      "transformation_id": "lexical_addressing_hint_v2",
+      "control_pair": "NULL_REFORMAT",
+      "preserves_task_answer_information": true,
+      "semantics": "Mark visible entities sharing lexical tokens with the visible query; never consult the answer or evaluator metadata."
+    }
+  ],
+  "intervention_registry_sha256": "13794e0378b0eaaa0bb447e6b9c7e7bef76a8a4cf2caf5c26e89f99a93adb56a",
+  "cost_model": {
+    "unit": "abstract_intervention_unit",
+    "all_costs_predeclared": true,
+    "utility_lambda": 0.25,
+    "wall_clock_or_currency_claim": false
+  },
+  "execution_budget": {
+    "primary_cells": 960,
+    "replication_cells": 960,
+    "maximum_external_cells": 1920,
+    "cell_definition": "one independent-cluster task times one frozen intervention",
+    "cell_budget_fail_closed": true,
+    "local_execution_authorized": false,
+    "budget_status": "EXTERNAL_OPERATOR_AUTHORIZATION_REQUIRED"
+  },
+  "cohorts": {
+    "basis_qualification": {
+      "cohort_id": "BASIS_QUALIFICATION",
+      "role": "QUALIFICATION",
+      "seed": 81817,
+      "cohort_plan_sha256": "21c186b22edaf60abd0387fa2b2ed29104b8a13f953be1250a58bc7b15663336",
+      "target_independent_clusters": 60,
+      "minimum_independent_clusters": 20,
+      "purpose": "pre-training intervention-basis qualification; disjoint from development and evaluation"
+    },
+    "development": {
+      "cohort_id": "DEV_COHORT_V1",
+      "role": "DEVELOPMENT",
+      "seed": 81818,
+      "cohort_plan_sha256": "f69d9f14fc97dba864c4e7d29d1151ffb141d7a9a11b86d04c427b856afcbb56",
+      "target_independent_clusters": 60,
+      "minimum_independent_clusters": 20,
+      "purpose": "fit the frozen predictor and development-only fixed baselines"
+    },
+    "primary": {
+      "cohort_id": "PRIMARY_EVAL",
+      "role": "EVALUATION",
+      "seed": 81819,
+      "cohort_plan_sha256": "3aa54d2ec406cd0d7b7576ea991833c03658ba58b8ab17a289eab77b97ac55bb",
+      "target_independent_clusters": 120,
+      "minimum_independent_clusters": 40,
+      "purpose": "first prospective evaluation after prediction commitment"
+    },
+    "independent_task": {
+      "cohort_id": "INDEPENDENT_TASK_EVAL",
+      "role": "EVALUATION",
+      "seed": 81820,
+      "cohort_plan_sha256": "cf4123533170fbe535c70c385d184ec76064b732a2ce9e892f1686c8a6744213",
+      "target_independent_clusters": 120,
+      "minimum_independent_clusters": 40,
+      "purpose": "independent task/source cohort; no predictor or threshold fitting"
+    },
+    "checkpoint_replication": {
+      "cohort_id": "CHECKPOINT_REPLICATION",
+      "role": "REPLICATION",
+      "seed": 81821,
+      "cohort_plan_sha256": "6459c5107121766a4ac65db8b6d7f83b1b51bfd5fde368089a6ae78956948e29",
+      "target_independent_clusters": 120,
+      "minimum_independent_clusters": 40,
+      "purpose": "cross-checkpoint replication under the same frozen scientific contract"
+    }
+  },
+  "splits": {
+    "statistical_unit": "independent_latent_world_or_source_cluster",
+    "task_intervention_rows_are_paired_repeated_measures": true,
+    "cluster_overlap_between_splits": "forbidden",
+    "source_overlap_between_evaluation_splits": "forbidden",
+    "split_manifest_schema": "anra-x1-real-1-split/v1",
+    "task_ids_must_be_opaque": true,
+    "task_content_sha256s_required_per_cluster": true,
+    "repeated_prompts_are_not_independent_units": true
+  },
+  "observations": {
+    "closed_schema": true,
+    "public_task_fields": ["task_id", "context", "query", "visible_candidates", "format", "features"],
+    "feature_fields": ["confidence", "entropy", "margin", "output_len", "distinct_ratio", "prompt_tokens"],
+    "forbidden_fields": ["gold", "gold_answer", "correctness", "correctness_label", "family", "family_id", "cluster_id", "source_id", "world_id", "oracle", "intervention_outcome", "outcomes", "effect", "raw_output", "verifier"],
+    "prediction_receipt_before_reveal": true,
+    "nested_serialized_record_audit": true,
+    "policy_visible_input_is_physically_separate_from_evaluator_truth": true
+  },
+  "predictor": {
+    "name": "externally_frozen_observed_only_predictor",
+    "training_cohort": "DEV_COHORT_V1",
+    "training_procedure": "fit on development outcomes only, grouped by independent latent world/source cluster, with numeric feature standardization and a preregistered regularized independent Bernoulli repair model; no gold labels, family identity, or evaluation outcomes enter the feature vector",
+    "evaluation_procedure": "produce one calibrated repair probability per legal intervention for every primary evaluation task before any intervention outcome is revealed",
+    "feature_order": ["confidence", "entropy", "margin", "output_len", "distinct_ratio", "prompt_tokens"],
+    "low_rank_required": false,
+    "out_of_support_action": "abstain or select NO_CHANGE; do not claim a repair",
+    "source_identity_required": true,
+    "training_artifact_hash_required": true
+  },
+  "baselines": [
+    "ALWAYS_NEGATIVE",
+    "PREVALENCE_ONLY",
+    "BEST_FIXED_DEV",
+    "COST_AWARE_FIXED",
+    "SURFACE_SHORTCUT",
+    "SPARSITY_RANDOM"
+  ],
+  "metrics": {
+    "cell_level": ["cluster-macro AUPRC", "cluster-macro AUPRC_lift_over_prevalence", "cluster-macro Brier_skill_vs_development_prevalence", "cluster-macro calibration_error", "cluster-macro MCC", "raw_accuracy_diagnostic_only"],
+    "task_level": ["repair_capture", "false_intervention_rate", "intervention_regret", "repair_lift_over_no_change", "cost_adjusted_utility", "mean_excess_cost_vs_oracle"],
+    "uncertainty": "paired bootstrap resampling of independent latent world/source clusters; reported policy means and utility promotion use cluster-weighted means, with task-weighted values retained as diagnostics; utility promotion requires a preregistered lower CI above zero",
+    "null_control": "high-diversity-tail comparison against sparsity-matched global, column-marginal, row-marginal, and cluster-marginal response matrices; low-entropy compressibility is diagnostic only",
+    "oracle": "evaluator-only ceiling; never a policy input or baseline prediction"
+  },
+  "decision_thresholds": {
+    "basis": {
+      "min_oracle_coverage": 0.15,
+      "min_active_prevalence": 0.03,
+      "max_active_prevalence": 0.90,
+      "max_pairwise_redundancy": 0.40,
+      "min_signature_entropy_bits": 0.50,
+      "min_unique_signatures": 4,
+      "min_failures": 40,
+      "explicit_failure_required": true,
+      "min_independent_clusters": 20,
+      "max_null_p_value": 0.05,
+      "max_no_change_repair_rate": 0.05,
+      "max_control_excess_rate": 0.10,
+      "null_resamples": 200,
+      "null_seed": 81818
+    },
+  "predictor": {
+      "cost_lambda": 0.25,
+      "min_auprc_lift": 0.10,
+      "min_brier_skill": 0.05,
+      "max_calibration_error": 0.10,
+      "min_mcc": 0.05,
+      "min_repair_lift": 0.05,
+      "min_utility_margin": 0.0,
+      "require_ci_above_zero": true,
+      "min_score_variance": 0.000001,
+      "min_independent_clusters": 40,
+      "bootstrap_resamples": 2000,
+      "bootstrap_seed": 81818,
+      "primary_gate_requires": ["calibration", "AUPRC_lift", "Brier_skill", "MCC", "cost_adjusted_utility", "best_fixed", "cost_aware_fixed", "surface_shortcut", "repair_lift", "independent_clusters"]
+    },
+    "replication": {
+      "independent_task_cohort_required": true,
+      "cross_checkpoint_required": true,
+      "same_seed_forbidden": true,
+      "same_cohort_forbidden": true
+    }
+  },
+  "release_binding": {
+    "release_revision_required": true,
+    "protocol_artifact_must_match_supplied_protocol": true,
+    "attestation_artifact_required": true
+  },
+  "custody_phases": ["BASIS_QUALIFIED", "PREDICT_COMMITTED", "REVEAL_ACCEPTED"],
+  "prediction_parent_phase": "BASIS_QUALIFIED",
+  "reveal_evidence": {
+    "required_row_fields": [
+      "task_id", "intervention_id", "cluster_id", "source_id", "repaired", "baseline_failed", "effect",
+      "raw_output_sha256", "verifier_receipt_sha256", "gold_sha256", "transformed_prompt_sha256",
+      "transformed_prompt", "verifier_artifact_path", "verifier_artifact_sha256"
+    ],
+    "verifier_artifact_rule": "Each revealed row must bind a JSON verifier artifact with schema anra-x1-real-1-verifier/v1; its task, intervention, repaired label, gold hash, raw-output hash, and transformed-prompt hash must match the row, and verifier_receipt_sha256 must equal the artifact file hash."
+  },
+  "stop_conditions": [
+    "stop before predictor training when no eligible subject manifest passes strict identity and readiness",
+    "stop before predictor training when intervention basis qualification is not QUALIFIED",
+    "stop before reveal when prediction receipt, split manifest, source closure, or intervention registry identity is missing or mismatched",
+    "stop analysis when any evaluation cluster is reused across splits or any outcome row is missing",
+    "do not promote on raw accuracy, AUPRC without prevalence comparison, Brier without skill, or an oracle-only ceiling",
+    "do not train an internalized successor during X1"
+  ],
+  "next_rung_contract": {
+    "status": "FUTURE_ONLY_NOT_AUTHORIZED_BY_THIS_PROTOCOL",
+    "launch_condition": "X1 primary and independent replication gates both pass",
+    "required_evidence": [
+      "verified repair trajectories with evaluator receipts",
+      "external assistance removed from raw-core evaluation",
+      "raw-core performance improved relative to the frozen parent",
+      "intervention lift reduced relative to the assisted condition",
+      "earlier capability retained within a preregistered floor"
+    ],
+    "action_if_condition_fails": "stop and preserve the scoped negative or inconclusive result"
+  },
+  "decision_table": [
+    {"outcome": "NO_ELIGIBLE_CHECKPOINT", "meaning": "engineering prerequisite missing; not a scientific negative"},
+    {"outcome": "BASIS_NOT_QUALIFIED", "meaning": "instrument prerequisite missing; not a scientific negative"},
+    {"outcome": "RELEASE_MANIFEST_REQUIRED", "meaning": "source release/custody prerequisite missing; not a scientific negative"},
+    {"outcome": "ARTIFACT_MISMATCH", "meaning": "identity, phase, split, or evidence-firewall gate failed; not a scientific negative"},
+    {"outcome": "INCONCLUSIVE", "meaning": "valid artifacts but frozen power, independence, or replication gate is unresolved"},
+    {"outcome": "NOT_SUPPORTED", "meaning": "valid prospective evaluation completed but predictor failed one or more frozen scientific gates"},
+    {"outcome": "PRIMARY_GATE_PASS_REPLICATION_PENDING", "meaning": "primary signal cleared but no independent/cross-checkpoint promotion claim is allowed"},
+    {"outcome": "SUPPORTED_SCOPED", "meaning": "prospective intervention selection supported only in this tested regime; no internalization or AGI claim"}
+  ],
+  "identity": {
+    "base_revision": "49a3717ae9dc81138f55dc2398c7615f8c80b4b1",
+    "source_files": [
+      {"path": "AN_RA_PROGRAM.md", "sha256": "2a38db972e3c756c22312d324a0e8c64e4477188d5c6af22de09bb49d96c2e86"},
+      {"path": "x_factor/REAL_MODEL_CAUSAL_SPEC.md", "sha256": "49ebf4462ee5744efcc1c3c9d4832e373eab5ebfba97a204af1151dd2db6578d"},
+      {"path": "x_factor/SPEC.md", "sha256": "2f217ee426cf896bc4540e05e0f59370d1d7d038942e92e5712adaccafae132e"},
+      {"path": "x_factor/__init__.py", "sha256": "342c1ffbc4076378eeec203ee5dc64f4dea06521be528a291b19018c7d6bf92c"},
+      {"path": "x_factor/ladder.py", "sha256": "b166a2f6633437c56eb3b7bcbbd18eaeaf6a8a53f587bd55af4851be2f6acb10"},
+      {"path": "x_factor/contracts.py", "sha256": "be60419d9281a024db8ea9a2170fcadbfcaf2f80ddcc887d491e82660f791042"},
+      {"path": "x_factor/ibq.py", "sha256": "228059f8124a6c6605fa217aa8f7f3cde2266ff77775e3b0ac694886249c1958"},
+      {"path": "x_factor/ibq_v2.py", "sha256": "495d2e7e89f2d4e5caaffc92f1e31a6dd84ee2fa23be719f0ffd4e7f34088fc6"},
+      {"path": "x_factor/observed.py", "sha256": "5f2856f962875eb48f891e8727685ad89124d6f845a448830e365ed06a8147df"},
+      {"path": "x_factor/execution_policy.py", "sha256": "066d2f520fc48a1fbef8ffc5ff6dac2b775bf772b3c45daf62f047edaf0a9ab6"},
+      {"path": "x_factor/registry/checkpoints.json", "sha256": "e091c311a8b2f987eef1d5d17ca204ef4cebb632c2dfdbb5762116ad34968c3d"},
+      {"path": "x_factor/tests/test_x1_real_1.py", "sha256": "ae42cc54a798db821e4ba6cfa3937a91e33dbbdef7de89663444f67429e06e91"},
+      {"path": "x_factor/tests/test_x1_external_runner.py", "sha256": "4dc9da5b0ebf927a945b38894aed0d35499c36be2ab136ddc9da6e2f110806d5"},
+      {"path": "x_factor/tests/test_x1_cuda_canary.py", "sha256": "b7af8ab52524acca2061c4ad3937c675f411b13dcbda849f6397804506529a67"},
+      {"path": "x_factor/x1_real_1.py", "sha256": "bd1111bfd30a1ea3ded835f894f385ec589d0d896920c6a92c38f7b404d1fb3e"},
+      {"path": "x_factor/x1_external_runner.py", "sha256": "89570d0ef642dd710452519b48150ff027274e623a2f2161b3ba222babc6fc70"},
+      {"path": "x_factor/x1_cuda_canary.py", "sha256": "bc23d7ae4a944e407d56893e237a266389fb8f5a8dff419b9c16200a382ccacb"},
+      {"path": "pyproject.toml", "sha256": "302306a1174fa03f0d70c16cb797b188e75dec9893c229cfb2311ca08439923b"}
+    ],
+    "source_closure_sha256": "1d96bd89927f807f89061181823834c93ecb4002eedf35513db100afec0e9a89",
+    "protocol_sha256": "76f70891f440bafc3369a593729a70cdab1a25ff55830a755880ed7475a11b6d"
+  }
+}

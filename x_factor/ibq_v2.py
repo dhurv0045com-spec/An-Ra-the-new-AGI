@@ -109,7 +109,7 @@ def _t_realization_envelope(t):
 
 def _t_state_table(t):
     lines = sorted(t["block"].splitlines())
-    rows = [f"| {l.strip()[:20]} |" for l in lines if l.strip()]
+    rows = [f"| {l.strip()} |" for l in lines if l.strip()]
     return "STATE TABLE:\n" + "\n".join(rows) + f"\n{t['query']}\nAnswer:"
 
 
@@ -184,6 +184,8 @@ BASIS_V2_SHA = hashlib.sha256(
 
 
 def apply_probe(probe_id: str, task: dict) -> str:
+    if probe_id == "NO_CHANGE":
+        return f"{task['block']}\n{task['query']}\n{task['answer_marker']}"
     transform = {
         "NULL_REFORMAT": _t_null_reformat, "QUERY_DUPLICATION": _t_query_duplication,
         "QUERY_FRONTLOAD": _t_query_frontload, "CANONICAL_CONTEXT": _t_canonical_context,
@@ -222,8 +224,9 @@ def qualify_basis_v2(specs: list[Probe], M: list[list[int]], *,
     for family_name, maker in (("GLOBAL", null_global),
                                ("COLUMN", null_column_marginals),
                                ("ROW", null_row_marginals)):
+        family_seed = int(hashlib.sha256(family_name.encode("utf-8")).hexdigest()[:8], 16) % 1000
         null_results[family_name] = geometry_vs_nulls(M, n_nulls=100,
-                                                      seed=hash(family_name) % 1000,
+                                                      seed=family_seed,
                                                       null_maker=maker)
     checks["G10_beats_every_null_family"] = all(
         r["entropy_p_value_vs_nulls"] <= 0.05 for r in null_results.values())
