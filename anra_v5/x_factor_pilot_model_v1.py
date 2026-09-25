@@ -104,10 +104,10 @@ def _define_classes(torch: Any) -> tuple[Any, Any, Any]:
                 self.input_layer = LeviathanInput(
                     protocol.PHYSICAL_VOCAB,
                     protocol.WIDTH,
-                    base=protocol_payload()["x_factor"]["base"],
-                    components=protocol_payload()["x_factor"]["components"],
-                    seed_width=protocol_payload()["x_factor"]["seed_width"],
-                    heads=protocol_payload()["x_factor"]["heads"],
+                    base=protocol_payload()["base"],
+                    components=protocol_payload()["components"],
+                    seed_width=protocol_payload()["seed_width"],
+                    heads=protocol_payload()["heads"],
                 )
             else:
                 self.input_layer = DenseInput(protocol.PHYSICAL_VOCAB, protocol.WIDTH)
