@@ -40,14 +40,22 @@ CODE = dedent(
     try:
         import tokenizers
     except ImportError:
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'tokenizers==0.23.0rc0'], check=True)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'tokenizers>=0.23,<0.24'], check=True)
         import tokenizers
-    if tokenizers.__version__ != '0.23.0rc0':
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--upgrade', 'tokenizers==0.23.0rc0'], check=True)
+    if not tokenizers.__version__.startswith('0.23.'):
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--upgrade', 'tokenizers>=0.23,<0.24'], check=True)
         importlib.invalidate_caches()
         tokenizers = importlib.reload(tokenizers)
-    if tokenizers.__version__ != '0.23.0rc0':
-        raise RuntimeError('tokenizer version mismatch: ' + tokenizers.__version__)
+    if not tokenizers.__version__.startswith('0.23.'):
+        raise RuntimeError('tokenizers 0.23.x is required; observed ' + tokenizers.__version__)
+    try:
+        import pytest
+    except ImportError:
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'pytest'], check=True)
+    try:
+        import numpy
+    except ImportError:
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'numpy'], check=True)
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise RuntimeError('Select one GPU in Runtime → Change runtime type → GPU')
     gpu_name = torch.cuda.get_device_name(0)
