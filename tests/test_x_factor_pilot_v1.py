@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+
+import pytest
 
 from v5_experiments import x_factor_pilot_protocol_v1 as protocol
 
@@ -129,3 +132,42 @@ def test_model_architecture_and_initial_forward_equivalence():
     receipt = model_module.parameterization_receipt(lev)
     assert receipt["parameter_count"] == 14_210_048
     assert receipt["output_alias"] is False
+
+
+@pytest.mark.skipif(os.environ.get("X_FACTOR_SMOKE") != "1", reason="remote trainer smoke only")
+def test_remote_trainer_checkpoint_resume(tmp_path):
+    import torch
+    from anra_v5 import x_factor_pilot_train_v1 as train
+
+    torch.set_num_threads(1)
+    surface = protocol.build_positive_control_surface()
+    root = tmp_path / "run"
+    first = train.train_arm(
+        mode="canary",
+        arm=protocol.PRIMARY_ARM,
+        seed=protocol.CALIBRATION_SEED,
+        surface=surface,
+        out_dir=root,
+        torch=torch,
+        device=torch.device("cpu"),
+        target_updates=2,
+        stop_after=1,
+    )
+    assert first["status"] == "PARTIAL"
+    checkpoint = root / "canary" / protocol.PRIMARY_ARM / protocol.seed_label(protocol.CALIBRATION_SEED) / "resume.pt"
+    first_sha = train.file_sha256(checkpoint)
+    second = train.train_arm(
+        mode="canary",
+        arm=protocol.PRIMARY_ARM,
+        seed=protocol.CALIBRATION_SEED,
+        surface=surface,
+        out_dir=root,
+        torch=torch,
+        device=torch.device("cpu"),
+        target_updates=2,
+        stop_after=2,
+    )
+    assert second["status"] == "COMPLETE"
+    assert second["resume_count"] == 1
+    assert second["resume_checkpoint_sha256"] == first_sha
+    assert second["updates"] == 2
