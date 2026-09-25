@@ -72,7 +72,7 @@ CODE = dedent(
     OUTPUT = DRIVE_OUTPUT if DRIVE_OUTPUT.exists() else pathlib.Path('/content/X_FACTOR_PILOT_001')
 
     def run(*args, cwd=None):
-        return subprocess.run(list(args), cwd=cwd, check=True, text=True)
+        return subprocess.run(list(args), cwd=cwd, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def git(repo, *args):
         return run('git', '-C', str(repo), *args).stdout.strip()
