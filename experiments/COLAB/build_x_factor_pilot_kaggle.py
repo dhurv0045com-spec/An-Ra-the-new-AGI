@@ -103,8 +103,8 @@ CODE = CODE.replace("__SOURCE_COMMIT__", SOURCE_COMMIT).replace("__OPERATOR_BLOB
 
 
 def validate_pins() -> None:
-    for name, value in (("SOURCE_COMMIT", SOURCE_COMMIT), ("OPERATOR_BLOB", OPERATOR_BLOB), ("PROTOCOL_HASH", PROTOCOL_HASH)):
-        if len(value) != 64 or set(value) == {"0"}:
+    for name, value, width in (("SOURCE_COMMIT", SOURCE_COMMIT, 40), ("OPERATOR_BLOB", OPERATOR_BLOB, 40), ("PROTOCOL_HASH", PROTOCOL_HASH, 64)):
+        if len(value) != width or set(value) == {"0"}:
             raise ValueError(f"{name} is not a finalized immutable pin")
 
 
