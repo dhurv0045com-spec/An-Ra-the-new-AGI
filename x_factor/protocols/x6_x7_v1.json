@@ -1,0 +1,536 @@
+{
+  "schema": "anra-x6-x7-protocol/v1",
+  "protocol_id": "X6-X7-INTERNALIZATION-BRIDGE",
+  "version": 1,
+  "phase": "FROZEN_CONTRACT_PREREQUISITE_BLOCKED",
+  "authority_status": "PROSPECTIVE_AMENDMENT_PENDING_REVIEW",
+  "execution_authorized": false,
+  "claim_ceiling": "This package can test scoped internalization and dependence fall in a frozen real-model regime. Assisted repair, predictive selection, internalization, retention, and transfer remain separate claims. No result establishes AGI or general self-improvement.",
+  "canonical_authority": {
+    "owner_branch": "codex/x-factor-real",
+    "base_revision": "49a3717ae9dc81138f55dc2398c7615f8c80b4b1",
+    "real_model_spec": "x_factor/REAL_MODEL_CAUSAL_SPEC.md",
+    "ladder": "x_factor/ladder.py",
+    "program_ledger": "AN_RA_PROGRAM.md",
+    "retention_floor_absolute_accuracy": 0.10,
+    "retention_floor_source": "x_factor/ladder.py:96-106 and x_factor/SPEC.md:72-78",
+    "rehearsal_min_fraction": 0.50,
+    "rehearsal_source": "x_factor/ladder.py:96-106 and x_factor/SPEC.md:63-78",
+    "current_x6_definition": "Distill verified repair trajectories into SFT after removing the intervention's context change, retain the verified target, and require raw unaided gain.",
+    "current_control_gap": "The canonical rung names a no-intervention control and SFT on raw failures but does not fully specify a dose-matched ordinary supervised replay control. This protocol proposes that control prospectively and does not represent it as already ratified.",
+    "current_threshold_gap": "Current authority requires raw gain and protected-family parent-relative retention but gives no numeric minimum raw gain, lift reduction, transfer gain, independent-world count, or paired-seed count."
+  },
+  "gate_zero_at_freeze": {
+    "status": "BLOCKED_X1_NOT_SUPPORTED",
+    "historical_x1_receipt": "output/x1_real_receipt.json",
+    "historical_x1_schema": "anra-x1-real/v1",
+    "historical_x1_verdict": "INVALID_X1_REAL_0",
+    "historical_reasons": [
+      "always-negative cell accuracy is 0.9733 while the reported predictor accuracy is 0.9545",
+      "oracle repair coverage is 0.0889",
+      "the intervention basis is NOT_QUALIFIED",
+      "parameter_sha256 is null",
+      "the receipt is not an anra-x1-real-1-analysis/v1 receipt"
+    ],
+    "prospective_x1_status": "NOT_EXECUTED",
+    "eligible_research_subjects_in_current_registry": 0,
+    "execution_effect": "No training, no X6-ready designation, and no scientific X6 or X7 result.",
+    "future_unlock_requires": [
+      "a self-validating anra-x1-real-1-analysis/v1 receipt with decision status SUPPORTED_SCOPED",
+      "valid primary prediction and decision gates",
+      "valid independent replication",
+      "the X1 subject manifest matching the X6 parent checkpoint",
+      "an eligible qualified checkpoint with exact continuation identity"
+    ]
+  },
+  "claim_separation": {
+    "assisted_repair": "An external legal intervention improves evaluator-scored task performance.",
+    "predictive_selection": "Pre-intervention observations improve intervention choice or utility over frozen baselines; X6 inherits but does not re-establish this claim.",
+    "internalization": "Verified repair experience improves unaided performance and reduces target-intervention lift against a frozen matched control on fresh worlds.",
+    "retention": "Each previously qualified protected capability remains at or above its preregistered parent-relative floor after X6.",
+    "transfer": "Unaided gains hold on separately frozen instance, rendering, causal-structure, and task-family axes.",
+    "forbidden_inference": "Passing assisted repair, predictive selection, internalization, retention, or transfer alone never establishes AGI."
+  },
+  "x1_entry_gate": {
+    "required_receipt_schema": "anra-x1-real-1-analysis/v1",
+    "required_phase": "ANALYSIS_ACCEPTED",
+    "required_decision_status": "SUPPORTED_SCOPED",
+    "required_decision_supported": true,
+    "required_primary_gate_pass": true,
+    "required_prediction_verdict": "PASS",
+    "required_decision_verdict": "PASS",
+    "required_replication_valid": true,
+    "allowed_transfer_statuses": [
+      "SUPPORTED_SCOPED",
+      "SUPPORTED_SCOPED_CHECKPOINT_PENDING"
+    ],
+    "subject_match_required": true,
+    "allowed_checkpoint_replication_status": "PENDING",
+    "reject": [
+      "synthetic result",
+      "anra-x1-real/v1",
+      "X1-REAL-0",
+      "development-only predictor",
+      "oracle-only result",
+      "unqualified checkpoint",
+      "subject manifest mismatch",
+      "missing self-hash or custody identity",
+      "missing independent replication"
+    ]
+  },
+  "run_manifest_contract": {
+    "schema": "anra-x6-run-manifest/v1",
+    "one_manifest_per_source_release": true,
+    "covers_all_paired_seeds": true,
+    "execution_authorized": false
+  },
+  "run_manifest_required_bindings": {
+    "x1_entry_audit": [
+      "entry_audit_sha256",
+      "x1_analysis_receipt_sha256",
+      "x1_receipt_file_sha256",
+      "subject_manifest_sha256"
+    ],
+    "parent_checkpoint": [
+      "checkpoint_path",
+      "checkpoint_file_sha256",
+      "parameter_sha256",
+      "parent_state_tree_sha256",
+      "model_config_sha256",
+      "tokenizer_artifact_sha256",
+      "tokenizer_identity_sha256",
+      "runtime_source_revision",
+      "runtime_source_sha256",
+      "source_commit",
+      "training_lineage",
+      "stage",
+      "global_step",
+      "qualification_state",
+      "readiness_receipt_sha256",
+      "qualification_receipt_sha256",
+      "identity_attestation_sha256",
+      "checkpoint_file_verified",
+      "continuation_code",
+      "continuation_contract_sha256"
+    ],
+    "source_release": [
+      "protocol_sha256",
+      "source_closure_sha256",
+      "base_revision",
+      "release_revision",
+      "source_tree_status",
+      "files",
+      "custodian"
+    ],
+    "generators": [
+      "X6_EXPERIENCE",
+      "X6_REPLAY",
+      "X6_DEVELOPMENT",
+      "X6_RETENTION",
+      "X6_CONFIRMATION",
+      "X7_FOLLOWUP"
+    ],
+    "interventions": [
+      "registry_schema",
+      "registry_sha256",
+      "intervention_ids",
+      "transformation_hashes",
+      "information_class",
+      "legality_inputs",
+      "cost_model_sha256"
+    ],
+    "training": [
+      "optimizer_sha256",
+      "schedule_sha256",
+      "data_opportunity_sha256",
+      "checkpoint_cadence_sha256",
+      "evaluation_timing_sha256",
+      "resume_contract_sha256"
+    ],
+    "evaluation": [
+      "confirmation_manifest_sha256",
+      "retention_manifest_sha256",
+      "x7_followup_manifest_sha256",
+      "evaluator_source_sha256",
+      "verifier_source_sha256",
+      "frozen_policy_receipt_sha256_or_null",
+      "sealed_outcome_receipt_sha256_or_null"
+    ]
+  },
+  "intervention_contract": {
+    "registry_source": "Bind the accepted X1 intervention registry by exact SHA256; do not copy or weaken legality metadata.",
+    "eligible_for_training_experience": [
+      "information-preserving",
+      "answer-blind",
+      "mechanically legal",
+      "non-A4",
+      "verified successful repair of a baseline failure"
+    ],
+    "oracle_a4_role": "Evaluator-only ceiling; never training data or native capability.",
+    "target_intervention": "Bound one intervention ID in the run manifest before X6 experience collection.",
+    "cost_model": "Use the accepted X1 abstract intervention-unit cost model and bind its exact hash; no currency or wall-clock claim is implied.",
+    "external_support_removal": "Training prompt must be derived from the original unaided visible task by the bound support-removal transformation. The assisted prompt may remain only as a hash and provenance artifact.",
+    "answer_revelation_test": "The intervention transformation and legality receipt must establish that evaluator truth, gold answers, hidden failure labels, and answer-bearing oracle metadata were unavailable."
+  },
+  "training_data_contract": {
+    "eligible_experience_split": "X6_EXPERIENCE",
+    "eligible_replay_split": "X6_REPLAY",
+    "forbidden_training_sources": [
+      "X6_DEVELOPMENT",
+      "X6_RETENTION",
+      "X6_CONFIRMATION",
+      "X7_FOLLOWUP",
+      "X1 evaluation tasks or sealed outcomes",
+      "evaluator answer keys",
+      "model-generated explanations used as proof"
+    ],
+    "per_record_required": [
+      "source_task_id",
+      "cluster_id",
+      "latent_world_id",
+      "causal_structure_id",
+      "source_split_id",
+      "intervention_id and version",
+      "intervention_registry_sha256",
+      "legality_receipt_sha256",
+      "baseline_failed",
+      "baseline_raw_output_sha256",
+      "assisted_prompt_sha256",
+      "assisted_raw_output_sha256",
+      "assisted_verified_correct",
+      "verifier_receipt_sha256",
+      "verifier_source_sha256",
+      "verification_independent",
+      "verified training target and target_sha256",
+      "unaided prompt and unaided_prompt_sha256",
+      "support_removal_transformation_id",
+      "support_removal_receipt_sha256",
+      "external_support_removed",
+      "unaided and target token counts",
+      "protocol_sha256",
+      "record_sha256"
+    ],
+    "policy_visible_training_fields": [
+      "unaided_prompt",
+      "target_text"
+    ],
+    "supervision_rule": "Verified targets from the eligible experience and replay splits may be used. Evaluation labels and evaluator-only metadata may not flow into training records, policy-visible inputs, or checkpoint selection.",
+    "firewall_rule": "Reject missing identities, answer-revealing interventions, non-independent verification, retained external support, source-split mismatch, world or causal-structure collision, evaluation data, sealed outcomes, or answer keys."
+  },
+  "arms": [
+    {
+      "arm_id": "PARENT",
+      "role": "UNCHANGED_PARENT",
+      "training": false,
+      "causal_role": "Paired baseline checkpoint."
+    },
+    {
+      "arm_id": "REPAIR_INTERNALIZATION",
+      "role": "VERIFIED_REPAIR_EXTERNAL_CONTEXT_REMOVED",
+      "training": true,
+      "data": "Verified baseline failures repaired by the bound target intervention, transformed to unaided prompts, plus identical replay.",
+      "causal_role": "Repair-specific internalization treatment."
+    },
+    {
+      "arm_id": "RAW_FAILURE_SFT_CONTROL",
+      "role": "DOSE_MATCHED_ORDINARY_SUPERVISED_REPLAY",
+      "training": true,
+      "data": "Verified baseline failures not repaired in the experience collection, rendered from the same unaided prompt schema, plus identical replay.",
+      "causal_role": "Ordinary supervised exposure and replay control for the repair-specific signal.",
+      "authority_note": "Prospective clarification of the canonical no-intervention/raw-failure control; requires amendment approval."
+    }
+  ],
+  "fair_exposure_contract": {
+    "paired_parent_state": "Byte-identical parent file, parameter state tree, runtime, tokenizer, and source within each seed.",
+    "required_equal_fields": [
+      "optimizer_updates",
+      "training_examples",
+      "unaided_tokens",
+      "target_tokens",
+      "replay_examples",
+      "replay_target_tokens",
+      "replay_fraction",
+      "optimizer_sha256",
+      "schedule_sha256",
+      "checkpoint_cadence_sha256",
+      "evaluation_timing_sha256",
+      "data_opportunity_sha256"
+    ],
+    "minimum_replay_fraction": 0.50,
+    "mismatch_rule": "Any dose mismatch invalidates the paired causal claim; report it explicitly and do not pool across incompatible arms.",
+    "data_opportunity_rule": "Both trained arms receive equal opportunity to access eligible repair, raw-failure, and replay sources; selection is frozen before training."
+  },
+  "split_contract": {
+    "required_roles": [
+      "X6_EXPERIENCE",
+      "X6_REPLAY",
+      "X6_DEVELOPMENT",
+      "X6_RETENTION",
+      "X6_CONFIRMATION",
+      "X7_FOLLOWUP"
+    ],
+    "statistical_unit": "independent_latent_world_or_causal_structure_cluster",
+    "repeated_interventions_are": "paired repeated measures, not independent samples",
+    "cross_split_forbidden": [
+      "cluster_id",
+      "latent_world_id",
+      "causal_structure_id",
+      "source_id",
+      "task_id",
+      "task_content_sha256"
+    ],
+    "derivative_rule": "Every query, rendering, counterfactual, and task derived from one world or causal structure remains in the same split.",
+    "seed_rule": "A new random seed is an instance transfer only after split identity checks; it is never called structural transfer merely because the seed changed.",
+    "confirmation_freeze": "Freeze development, retention, X6 confirmation, and X7 follow-up cohorts before training, with inspection_count 0 and retirement-on-inspection required.",
+    "retirement_rule": "If a confirmation or follow-up cohort is inspected for debugging or tuning, retire it and generate a fresh cohort under a new manifest before confirmation.",
+    "transfer_axes": [
+      "KNOWN_STRUCTURE_INSTANCE",
+      "SURFACE_RENDERING",
+      "CAUSAL_STRUCTURE",
+      "TASK_FAMILY"
+    ],
+    "checkpoint_transfer": "Evaluate a distinct qualified checkpoint only when one exists; otherwise report NOT_AVAILABLE rather than substituting the parent."
+  },
+  "checkpoint_and_continuation": {
+    "checkpoint_selection": "Use a preregistered fixed final update or select only on X6_DEVELOPMENT metrics. Never use X6_RETENTION, X6_CONFIRMATION, X7_FOLLOWUP, sealed outcomes, or evaluator metadata for selection.",
+    "cadence": "Bind exact save points before training; a cadence proposal is not a receipt.",
+    "resume_contract": [
+      "checkpoint_file_sha256",
+      "parameter_sha256",
+      "optimizer_state_sha256",
+      "scheduler_state_sha256",
+      "rng_state_sha256",
+      "sampler_state_sha256",
+      "dataloader_cursor_sha256",
+      "token_ledger_sha256",
+      "source_tree_sha256",
+      "resume_contract_sha256",
+      "fresh_process_restore_receipt_sha256"
+    ],
+    "resume_validity": "A checkpoint without exact state and fresh-process restore evidence is not execution-ready.",
+    "architecture_rule": "No architecture changes and no silent fallback."
+  },
+  "primary_measurements": {
+    "unaided": [
+      "exact-answer accuracy",
+      "valid stopping rate",
+      "abstention rate",
+      "invalid-output rate",
+      "calibration and Brier score"
+    ],
+    "assisted": "Accuracy and valid stopping under every frozen legal intervention, including NO_CHANGE.",
+    "intervention_lift": "assisted accuracy minus unaided accuracy for the same task, cluster, arm, and seed",
+    "repair_choice_utility": "Report only when a frozen X1 policy receipt is bound; otherwise emit NOT_AVAILABLE.",
+    "paired_effects": [
+      "child unaided minus paired parent",
+      "child unaided minus matched raw-failure/replay control",
+      "parent target lift minus child target lift",
+      "control target lift minus child target lift"
+    ],
+    "retention": "Report every protected capability separately against the parent-relative floor.",
+    "transfer": "Report each frozen axis separately; do not hide a failed axis in an aggregate.",
+    "calibration": "Report calibration error and Brier score for unaided and assisted decisions.",
+    "costs": [
+      "training",
+      "evaluation",
+      "intervention",
+      "checkpoint"
+    ],
+    "resolution": [
+      "per seed",
+      "per independent world cluster",
+      "per intervention",
+      "per transfer axis"
+    ],
+    "controller": "Identify every controller as fixed, learned, human-supplied, externally assisted, or none."
+  },
+  "uncertainty": {
+    "primary_unit": "independent latent world or causal-structure cluster",
+    "paired_method": "paired cluster bootstrap",
+    "queries_and_repeated_interventions": "not independent resampling units",
+    "required_outputs": [
+      "cluster-macro point estimates",
+      "95 percent intervals",
+      "paired effects",
+      "seed-level outcomes",
+      "failures and invalid runs"
+    ]
+  },
+  "decision_thresholds": {
+    "authority_status": "PROPOSED_PENDING_REVIEW",
+    "current_authoritative": {
+      "retention_floor_absolute_accuracy": 0.10,
+      "rehearsal_min_fraction": 0.50
+    },
+    "unresolved_and_blocking": {
+      "min_unaided_gain_vs_parent": null,
+      "min_unaided_gain_vs_control": null,
+      "min_lift_reduction_vs_parent": null,
+      "min_lift_reduction_vs_control": null,
+      "min_transfer_gain_by_axis": null,
+      "minimum_independent_worlds": null,
+      "minimum_paired_seeds": null,
+      "bootstrap_resamples": null,
+      "require_ci_above_zero": null,
+      "x7_min_unaided_retention_vs_parent": null,
+      "x7_min_unaided_gain_vs_control": null,
+      "x7_min_target_lift_reduction_vs_parent": null,
+      "x7_min_target_lift_reduction_vs_control": null,
+      "x7_min_transfer_gain_by_axis": null,
+      "x7_max_unrelated_lift_change": null
+    },
+    "prospective_amendment_proposal": {
+      "min_unaided_gain_vs_parent": 0.05,
+      "min_unaided_gain_vs_control": 0.05,
+      "min_lift_reduction_vs_parent": 0.05,
+      "min_lift_reduction_vs_control": 0.05,
+      "min_transfer_gain_by_axis": {
+        "KNOWN_STRUCTURE_INSTANCE": 0.03,
+        "SURFACE_RENDERING": 0.03,
+        "CAUSAL_STRUCTURE": 0.03,
+        "TASK_FAMILY": 0.03
+      },
+      "minimum_independent_worlds": 80,
+      "target_independent_worlds": 120,
+      "minimum_paired_seeds": 3,
+      "bootstrap_resamples": 5000,
+      "require_ci_above_zero": true,
+      "x7_min_unaided_retention_vs_parent": 0.02,
+      "x7_min_unaided_gain_vs_control": 0.03,
+      "x7_min_target_lift_reduction_vs_parent": 0.05,
+      "x7_min_target_lift_reduction_vs_control": 0.03,
+      "x7_min_transfer_gain_by_axis": {
+        "KNOWN_STRUCTURE_INSTANCE": 0.03,
+        "SURFACE_RENDERING": 0.03,
+        "CAUSAL_STRUCTURE": 0.03,
+        "TASK_FAMILY": 0.03
+      },
+      "x7_max_unrelated_lift_change": 0.05,
+      "status": "PROPOSED_ONLY_NOT_AUTHORIZED"
+    },
+    "sample_size_rationale": "The proposal uses at least three paired seeds and 80 independent confirmation worlds, targeting 120, so uncertainty is based on world clusters rather than repeated queries. A simulation-based power analysis using development-only effect and variance estimates must be reviewed before these values become authoritative.",
+    "prospective_rule": "No threshold may be selected or altered after any confirmation outcome is inspected."
+  },
+  "x6_result_states": [
+    "PREREQUISITE_BLOCKED",
+    "INCONCLUSIVE",
+    "NOT_SUPPORTED",
+    "SUPPORTED_SCOPED_NO_TRANSFER",
+    "SUPPORTED_SCOPED_WITH_TRANSFER"
+  ],
+  "x6_internalization_rule": {
+    "necessary": [
+      "preregistered raw unaided gain over the paired parent",
+      "preregistered raw unaided gain over the dose-matched ordinary supervised/replay control",
+      "preregistered reduction in target-intervention lift versus parent and control",
+      "every protected capability passes the parent-relative retention floor",
+      "fresh confirmation worlds and frozen protocol"
+    ],
+    "insufficient": [
+      "assisted-only improvement",
+      "training-template performance",
+      "model-generated explanation",
+      "unaided gain without reduced intervention lift",
+      "gain matched by ordinary supervised exposure"
+    ]
+  },
+  "x7_contract": {
+    "status": "SEPARATE_FOLLOWUP_GATE_BLOCKED",
+    "entry_requires": "A valid supported X6 result, a fresh X7_FOLLOWUP cohort, the same frozen parent/control/child identities, and a new outcome-blind commitment.",
+    "assistance_removed": "No target-intervention context or controller support is present in unaided runs.",
+    "reduced_assistance": "Measure the same frozen legal intervention set separately; reduced target assistance cannot be inferred from missing evaluator data.",
+    "task_scope": "The frozen X6 target and transfer task distributions; no new task family may be introduced after X6 outcomes.",
+    "measurements": [
+      "unaided child gain over parent and matched control",
+      "parent target lift minus child target lift",
+      "control target lift minus child target lift",
+      "unrelated-intervention lift stability",
+      "per-capability retention",
+      "per-axis transfer"
+    ],
+    "dependence_fell_requires": [
+      "unaided gain is retained on X7_FOLLOWUP",
+      "target intervention lift falls versus parent and control",
+      "unrelated intervention lift remains within the authorized bound",
+      "retention passes",
+      "fresh transfer axes pass",
+      "the effect is not explained by ordinary task fine-tuning or training-template memorization"
+    ],
+    "failure_routes_to_x6": [
+      "unaided gain did not transfer",
+      "assistance remains necessary",
+      "matched control explains the gain",
+      "retention fails",
+      "memorization or training-template performance is the only positive result"
+    ],
+    "self_improvement_rule": "Repeated scripted training generations are not self-improvement. A fixed, learned, human, or externally assisted controller must be named, and external assistance cannot be counted as unaided."
+  },
+  "stop_rules": [
+    "Stop before dataset construction unless the X1 entry audit passes and binds the same parent subject.",
+    "Stop before training if any arm, split, source, checkpoint identity, continuation field, or protocol hash is missing or altered.",
+    "Stop if intervention legality, support removal, independent verification, or the training firewall fails.",
+    "Stop and retire a cohort if confirmation or follow-up data are inspected for debugging or tuning.",
+    "Stop checkpoint selection if protected evaluation labels or evaluator-only metadata are requested.",
+    "Do not pool arms with exposure, optimizer, schedule, data-opportunity, task, or cluster mismatches.",
+    "Do not declare internalization from assisted lift, raw training accuracy, or textual explanation.",
+    "Do not run X7 after a negative or inconclusive X6 result."
+  ],
+  "invalid_run_conditions": [
+    "altered protocol or source closure",
+    "synthetic or invalid X1 receipt",
+    "X1 subject mismatch",
+    "unqualified or unidentified parent",
+    "silent checkpoint fallback",
+    "split identity collision",
+    "confirmation inspected before freeze",
+    "evaluation task or sealed outcome in training",
+    "answer-revealing or A4 training intervention",
+    "external support retained in a repair record",
+    "non-independent target verification",
+    "incomplete arms or cells",
+    "non-byte-identical paired parent state",
+    "exposure mismatch",
+    "optimizer or schedule mismatch",
+    "evaluation labels used for checkpoint selection",
+    "missing exact continuation state",
+    "resume receipt mismatch",
+    "post-freeze protocol or threshold change",
+    "unbound controller or evaluator"
+  ],
+  "bounded_compute_estimate": {
+    "current_assignment": "No model inference, training, sealed evaluation, GPU/TPU campaign, or external job is authorized.",
+    "future_estimate_status": "REQUIRES_MEASURED_THROUGHPUT",
+    "method": "After an eligible checkpoint and generator are bound, measure tokens/second, optimizer-state bytes, checkpoint save/load time, and intervention cells/second on the authorized device. Multiply by the frozen update, world, intervention, seed, and checkpoint counts.",
+    "runbook_requirement": "A future operator must provide device type, memory, precision, expected wall time, storage, interruption budget, and exact resume/transfer custody before launch."
+  },
+  "unresolved_before_execution": [
+    "Accept or reject the prospective ordinary supervised/replay control amendment.",
+    "Approve or revise the proposed X6 and X7 numeric decision thresholds before any confirmation outcome exists.",
+    "Complete development-only simulation-based power analysis and freeze minimum independent worlds and paired seeds.",
+    "Obtain a valid qualified X1-REAL-1 analysis receipt and matching subject manifest.",
+    "Supply and qualify the exact parent checkpoint, parameter tree, tokenizer, runtime, source release, and continuation receipt.",
+    "Bind intervention registry, target intervention, cost model, and transformations.",
+    "Freeze generator identities and all six split manifests before training.",
+    "Bind optimizer, schedule, exposure counts, data opportunities, checkpoint cadence, evaluation timing, and controller provenance.",
+    "Freeze confirmation and X7 cohorts and seal evaluator/verifier identities."
+  ],
+  "exact_next_action": "The X-factor owner must review and version the proposed control/threshold amendment, then direct an authorized operator to complete the missing eligible-checkpoint and X1-REAL-1 prerequisites; do not train from this blocked package.",
+  "identity": {
+    "base_revision": "49a3717ae9dc81138f55dc2398c7615f8c80b4b1",
+    "source_paths": [
+      "AN_RA_PROGRAM.md",
+      "pyproject.toml",
+      "x_factor/REAL_MODEL_CAUSAL_SPEC.md",
+      "x_factor/SPEC.md",
+      "x_factor/checkpoint_identity.py",
+      "x_factor/contracts.py",
+      "x_factor/ladder.py",
+      "x_factor/provenance.py",
+      "x_factor/registry/checkpoints.json",
+      "x_factor/tests/test_x6_x7.py",
+      "x_factor/x6_x7.py"
+    ],
+    "source_closure_sha256": "fc2b3bace607b32b52cb3c9f46449362ff3216f457517c2641b6d0f6ac6ab3ef",
+    "protocol_sha256": "720d5679e13cd1246d57a8bc13ec3b6dfc90835a71b296002b723496209aafa0"
+  }
+}
