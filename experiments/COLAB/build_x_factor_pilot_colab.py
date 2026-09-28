@@ -16,15 +16,15 @@ MARKDOWN = """# X-FACTOR-PILOT-001 — Google Colab T4
 ## Before running
 
 1. In Colab, open **Runtime → Change runtime type → GPU**.
-2. Select a **T4 GPU** if the runtime offers a choice.
+2. Select any available CUDA GPU with at least 12 GB VRAM.
 3. Run the cells from top to bottom.
 4. Do not interrupt a training cell. The operator checkpoints at fixed boundaries and stops at the session guard rather than shortening the scientific target.
 
-This is the same executable V24,576 pilot as the tested Kaggle launcher, adapted to one visible T4. It uses production-BPE inputs, a tied baseline, an untied baseline, a Leviathan-style continuous-input arm, a positive-control gate, an exact-resume canary, and coordinator-only sealed scoring.
+This is the same executable V24,576 pilot as the tested Kaggle launcher, adapted to one visible CUDA GPU. It uses production-BPE inputs, a tied baseline, an untied baseline, a Leviathan-style continuous-input arm, a positive-control gate, an exact-resume canary, and coordinator-only sealed scoring.
 
 The default output is `/content/X_FACTOR_PILOT_001`. If Google Drive is already mounted at `/content/drive`, the notebook uses `/content/drive/MyDrive/X_FACTOR_PILOT_001` when that complete output tree exists. For cross-session resume, preserve that complete tree; the evidence ZIP alone is not resumable because it intentionally excludes `resume.pt` files.
 
-If the runtime has no CUDA device or does not expose a T4, stop and enable the correct runtime. The notebook will not silently fall back to CPU.
+If the runtime has no CUDA device or exposes less than 12 GB VRAM, stop and enable a suitable GPU runtime. The notebook will not silently fall back to CPU.
 """
 
 CODE = dedent(
@@ -57,11 +57,11 @@ CODE = dedent(
     except ImportError:
         subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'numpy'], check=True)
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
-        raise RuntimeError('Select one GPU in Runtime → Change runtime type → GPU')
+        raise RuntimeError('Select one CUDA GPU in Runtime → Change runtime type → GPU')
     gpu_name = torch.cuda.get_device_name(0)
     vram_bytes = int(torch.cuda.get_device_properties(0).total_memory)
-    if 'T4' not in gpu_name.upper() or not 14 * 1024 ** 3 <= vram_bytes <= 17 * 1024 ** 3:
-        raise RuntimeError('Select a T4 GPU with approximately 15 GB VRAM; observed ' + repr((gpu_name, vram_bytes)))
+    if vram_bytes < 12 * 1024 ** 3:
+        raise RuntimeError('Select a CUDA GPU with at least 12 GB VRAM; observed ' + repr((gpu_name, vram_bytes)))
 
     REMOTE = 'https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git'
     SOURCE_COMMIT = '__SOURCE_COMMIT__'

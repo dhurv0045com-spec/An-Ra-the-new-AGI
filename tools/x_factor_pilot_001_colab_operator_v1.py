@@ -14,6 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools import x_factor_pilot_001_kaggle_operator_v1 as base
 from v5_experiments import x_factor_pilot_protocol_v1 as protocol
 
+_BASE_WORKER_COMMAND = base.worker_command
+
+
+def _colab_worker_command(**kwargs: Any) -> list[str]:
+    return _BASE_WORKER_COMMAND(**kwargs) + ["--colab"]
+
+
 
 def single_gpu_receipt(torch: Any) -> dict[str, Any]:
     devices = []
@@ -21,14 +28,14 @@ def single_gpu_receipt(torch: Any) -> dict[str, Any]:
         for index in range(torch.cuda.device_count()):
             properties = torch.cuda.get_device_properties(index)
             devices.append({"index": index, "name": torch.cuda.get_device_name(index), "vram_bytes": int(properties.total_memory)})
-    passed = len(devices) == 1 and "T4" in devices[0]["name"].upper() and 14 * 1024 ** 3 <= devices[0]["vram_bytes"] <= 17 * 1024 ** 3
-    return {"schema": "anra.x-factor-pilot-colab-hardware/v1", "torch": torch.__version__, "cuda": torch.version.cuda, "devices": devices, "required": "one visible NVIDIA T4", "passed": passed}
+    passed = len(devices) == 1 and devices[0]["vram_bytes"] >= 12 * 1024 ** 3
+    return {"schema": "anra.x-factor-pilot-colab-hardware/v1", "torch": torch.__version__, "cuda": torch.version.cuda, "devices": devices, "required": "one visible CUDA GPU with at least 12 GB VRAM", "passed": passed}
 
 
 def require_single_t4(torch: Any) -> dict[str, Any]:
     receipt = single_gpu_receipt(torch)
     if not receipt["passed"]:
-        raise RuntimeError(f"COLAB_T4_REQUIRED: select one T4 GPU in Runtime Settings; observed {receipt['devices']}")
+        raise RuntimeError(f"COLAB_GPU_REQUIRED: select one CUDA GPU with at least 12 GB VRAM in Runtime Settings; observed {receipt['devices']}")
     return receipt
 
 
@@ -67,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("UNRESOLVED_COLAB_GLOBAL_FAILURE")
         frozen = base.verify_frozen_files(repo)
         hardware = require_single_t4(torch)
+        base.worker_command = _colab_worker_command
         base.atomic_json(out / "COLAB_ENVIRONMENT.json", {"execution_mode": "single_gpu_colab", "hardware": hardware, "resumed_from": resumed, "head": base._git(repo, "rev-parse", "HEAD")})
         public_path, control_path, surface_receipt = base.build_surfaces(repo, out)
         qualification = base.qualify(repo, out, control_path)

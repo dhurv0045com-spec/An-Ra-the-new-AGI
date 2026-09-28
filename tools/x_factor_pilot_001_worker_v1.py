@@ -28,6 +28,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-updates", type=int, default=None)
     parser.add_argument("--stop-after", type=int, default=None)
     parser.add_argument("--deadline-epoch", type=float, default=None)
+    parser.add_argument("--colab", action="store_true")
     return parser
 
 
@@ -59,10 +60,15 @@ def main(argv: list[str] | None = None) -> int:
                 torch.backends.cuda.enable_math_sdp(True)
         if args.device != "cuda" or not torch.cuda.is_available() or torch.cuda.device_count() != 1:
             raise RuntimeError("worker requires exactly one visible CUDA device")
-        if "T4" not in torch.cuda.get_device_name(0).upper():
-            raise RuntimeError("worker requires an NVIDIA T4 device")
-        if not 14 * 1024 ** 3 <= int(torch.cuda.get_device_properties(0).total_memory) <= 17 * 1024 ** 3:
-            raise RuntimeError("worker requires a T4-sized device")
+        vram_bytes = int(torch.cuda.get_device_properties(0).total_memory)
+        if args.colab:
+            if vram_bytes < 12 * 1024 ** 3:
+                raise RuntimeError("Colab requires a CUDA device with at least 12 GB VRAM")
+        else:
+            if "T4" not in torch.cuda.get_device_name(0).upper():
+                raise RuntimeError("worker requires an NVIDIA T4 device")
+            if not 14 * 1024 ** 3 <= vram_bytes <= 17 * 1024 ** 3:
+                raise RuntimeError("worker requires a T4-sized device")
         if args.mode == "official" and args.seed not in protocol.MODEL_SEEDS:
             raise RuntimeError("official seed is not registered")
         if args.mode == "control" and args.seed != protocol.CONTROL_SEED:
@@ -108,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_OK
     except RuntimeError as exc:
         message = str(exc)
-        global_markers = ("SEALED_ROWS_PRESENT", "protocol", "not registered", "official exposure", "control exposure", "CUDA", "T4", "checkpoint identity", "initial model")
+        global_markers = ("SEALED_ROWS_PRESENT", "protocol", "not registered", "official exposure", "control exposure", "CUDA", "T4", "Colab requires", "checkpoint identity", "initial model")
         code = EXIT_GLOBAL if any(marker in message for marker in global_markers) else EXIT_ARM_LOCAL
         payload = {
             "schema": "anra.x-factor-pilot-worker-failure/v1",
