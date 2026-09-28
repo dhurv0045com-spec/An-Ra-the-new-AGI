@@ -7,8 +7,8 @@ from textwrap import dedent
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "notebooks" / "X_FACTOR_PILOT_001_COLAB_T4.ipynb"
 REMOTE = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
-SOURCE_COMMIT = "4cf9a0a414bb944e8592b86354bb3459fe4584db"
-COLAB_OPERATOR_BLOB = "ca19443465b5868ab7b7af577e981047db8345d5"
+SOURCE_COMMIT = "14867ee4f574c7b5e3fdcd1d55d11f819ea5093f"
+COLAB_OPERATOR_BLOB = "1ffea4cb74e44d9087f85fa805d0ffc23a71be8f"
 PROTOCOL_HASH = "57da611ec78389397d1cf22c44588f52f2e860ebbfb318435c8802d03611069a"
 
 MARKDOWN = """# X-FACTOR-PILOT-001 — Google Colab T4
