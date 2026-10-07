@@ -160,6 +160,13 @@ def execute(job: JobInput, *, ops=None,
     except Exception:
         before_updates = 0
     committed = attempted = exposure = 0
+    # Declared mid-phase save cadence (same contract as E1): publish a
+    # checkpoint each time 200 steps or 200 committed updates accumulate,
+    # so a dead session loses at most that much of the active child.
+    checkpoint_every_updates = 200
+    checkpoint_every_steps = 200
+    committed_since_checkpoint = 0
+    steps_since_checkpoint = 0
     for batch, compiled, _pair_rows in stream:
         try:
             window, extra = ops.construct_objectives(
@@ -189,6 +196,27 @@ def execute(job: JobInput, *, ops=None,
         committed += int(outcome.get("committed", 0))
         attempted += int(outcome.get("attempted", 0))
         exposure += int(outcome.get("exposure", 0))
+        steps_since_checkpoint += 1
+        committed_since_checkpoint += int(outcome.get("committed", 0))
+        if (steps_since_checkpoint >= checkpoint_every_steps) or (
+                committed_since_checkpoint >= checkpoint_every_updates
+                and committed_since_checkpoint > 0):
+            try:
+                ops.publish_checkpoint(
+                    handle=child, run_dir=job.run_dir, phase="E3",
+                    arm=job.arm, seed=job.seed,
+                    update_index=int(ops.optimizer_updates(child)),
+                    parent_checkpoint_id=parent_record.get("checkpoint_id"),
+                    data_dir=job.data_dir)
+                committed_since_checkpoint = 0
+                steps_since_checkpoint = 0
+            except Exception as exc:
+                return PhaseResult(
+                    status="failed", committed_updates=committed,
+                    attempted_updates=attempted, supervised_exposure=exposure,
+                    device_seconds=time.monotonic() - started,
+                    error=f"E3 mid-phase checkpoint refused: {exc}",
+                    evidence_kind=EVIDENCE_FIXTURE, extra={"phase": "E3"})
     # Actual tool execution verification (never stored answers).
     try:
         tool_ok, tool_detail = _verify_tool_execution(job.data_dir)
