@@ -1101,5 +1101,40 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("fresh-reload-ok", completed.stdout)
 
 
+
+class BundleCardinalityGateTests(unittest.TestCase):
+    def test_insufficient_tool_bundle_is_skipped_with_diagnosis(self) -> None:
+        import json as _json
+        import os as _os
+        import tempfile as _tempfile
+
+        from bramastra_lab.research.campaigns.kaggle_env import (
+            BUNDLE_MANIFEST_SCHEMA, E3_TOOL_TRAINING_MINIMUM,
+            bundle_tool_cardinality, discover_bundle)
+
+        data_dir = _tempfile.mkdtemp()
+        _os.makedirs(_os.path.join(data_dir, "tools"), exist_ok=True)
+        _os.makedirs(_os.path.join(data_dir, "meta"), exist_ok=True)
+        with open(_os.path.join(data_dir, "manifest.json"), "w") as handle:
+            handle.write(_json.dumps({"schema": BUNDLE_MANIFEST_SCHEMA}))
+        with open(_os.path.join(data_dir, "tools", "tool_tasks.jsonl"),
+                  "w", encoding="utf-8") as handle:
+            for index in range(3):
+                handle.write(_json.dumps({
+                    "split": "tool-training",
+                    "mechanism_id": f"tool-{index:06d}"}) + chr(10))
+        self.assertEqual(bundle_tool_cardinality(data_dir)["tool-training"], 3)
+        found, diagnostics = discover_bundle(
+            configured=data_dir, input_root=_tempfile.mkdtemp())
+        self.assertIsNone(found)
+        self.assertTrue(any("SKIPPED" in d and "tool-training" in d
+                            for d in diagnostics))
+        # Disabling the gate admits the same bundle.
+        found, _ = discover_bundle(configured=data_dir,
+                                   input_root=_tempfile.mkdtemp(),
+                                   min_tool_training=None)
+        self.assertIsNotNone(found)
+        self.assertGreater(E3_TOOL_TRAINING_MINIMUM, 0)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,10 +1,10 @@
 {
   "check_groups": {
     "checkpoint_and_ledger": {
-      "duration_seconds": 6.907,
+      "duration_seconds": 7.094,
       "exit_code": 0,
       "group": "checkpoint_and_ledger",
-      "output_tail": "..............s.........................                                 [100%]\n39 passed, 1 skipped in 4.32s\n",
+      "output_tail": "..............s.........................                                 [100%]\n39 passed, 1 skipped in 4.35s\n",
       "status": "passed",
       "targets": [
         "tests/test_research_checkpoint.py",
@@ -13,10 +13,10 @@
       ]
     },
     "data_and_splits": {
-      "duration_seconds": 4.015,
+      "duration_seconds": 4.781,
       "exit_code": 0,
       "group": "data_and_splits",
-      "output_tail": "..................................                                       [100%]\n34 passed in 1.86s\n",
+      "output_tail": "..................................                                       [100%]\n34 passed in 2.17s\n",
       "status": "passed",
       "targets": [
         "tests/test_e3_data_objective.py",
@@ -25,10 +25,10 @@
       ]
     },
     "experience_codec": {
-      "duration_seconds": 5.0,
+      "duration_seconds": 5.969,
       "exit_code": 0,
       "group": "experience_codec",
-      "output_tail": ".................................................................        [100%]\n65 passed in 2.64s\n",
+      "output_tail": ".................................................................        [100%]\n65 passed in 3.50s\n",
       "status": "passed",
       "targets": [
         "tests/test_research_experience.py",
@@ -37,10 +37,10 @@
       ]
     },
     "foundation": {
-      "duration_seconds": 6.828,
+      "duration_seconds": 7.218,
       "exit_code": 0,
       "group": "foundation",
-      "output_tail": ".......................................s................................ [ 92%]\n....ss                                                                   [100%]\n75 passed, 3 skipped in 3.77s\n",
+      "output_tail": ".......................................s................................ [ 92%]\n....ss                                                                   [100%]\n75 passed, 3 skipped in 4.20s\n",
       "status": "passed",
       "targets": [
         "tests/test_research_k8_foundation.py",
@@ -50,10 +50,10 @@
       ]
     },
     "gate_and_readiness": {
-      "duration_seconds": 1.953,
+      "duration_seconds": 2.406,
       "exit_code": 0,
       "group": "gate_and_readiness",
-      "output_tail": "..........                                                               [100%]\n10 passed in 0.22s\n",
+      "output_tail": "..........                                                               [100%]\n10 passed in 0.28s\n",
       "status": "passed",
       "targets": [
         "tests/test_research_k8_launch_gate.py",
@@ -61,10 +61,10 @@
       ]
     },
     "phase_contracts": {
-      "duration_seconds": 21.172,
+      "duration_seconds": 19.454,
       "exit_code": 0,
       "group": "phase_contracts",
-      "output_tail": "........................................................................ [ 79%]\n...................                                          [100%]\n91 passed, 12 subtests passed in 18.56s\n",
+      "output_tail": "........................................................................ [ 78%]\n....................                                         [100%]\n92 passed, 12 subtests passed in 16.93s\n",
       "status": "passed",
       "targets": [
         "tests/test_e0_contracts.py",
@@ -76,10 +76,10 @@
       ]
     },
     "statistics_and_evaluation": {
-      "duration_seconds": 1.843,
+      "duration_seconds": 1.859,
       "exit_code": 0,
       "group": "statistics_and_evaluation",
-      "output_tail": ".....................................................                    [100%]\n53 passed in 0.14s\n",
+      "output_tail": ".....................................................                    [100%]\n53 passed in 0.17s\n",
       "status": "passed",
       "targets": [
         "tests/test_research_evaluation.py",
@@ -89,15 +89,18 @@
   },
   "codec_identity": "9df2e90c740e72835621b2270a98969c09eff230dc3b35bef076d2681bd5d383",
   "config_identity": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade",
-  "created_unix": 1791355061.1296387,
-  "data_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
-  "duration_seconds": 93.593,
+  "created_unix": 1791357046.3205495,
+  "data_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
+  "duration_seconds": 103.406,
   "exercises": {
     "bundle_contracts": {
       "error": null,
       "evidence": {
-        "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+        "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
         "compiled_rows": 12,
+        "e3_tool_minimum": 4000,
+        "tool_heldout_rows": 256,
+        "tool_training_rows": 4096,
         "witnessed_rows": 56832
       },
       "exercise": "bundle_contracts",
@@ -129,7 +132,7 @@
     "integrated_rehearsal": {
       "error": null,
       "evidence": {
-        "duration_seconds": 19.438,
+        "duration_seconds": 23.516,
         "note": "engineering rehearsal; not learned-campaign evidence",
         "rehearsal": "passed",
         "steps": {
@@ -144,7 +147,7 @@
               "inventory",
               "program"
             ],
-            "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+            "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
           },
           "e1_parents": {
             "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -257,12 +260,12 @@
   "no_updates": true,
   "optimizer_updates_local": 0,
   "ready_for_owner_experiment": true,
-  "report_identity": "9f7b5e5992b6d1c2209f9fe925d233bc6500601a52f4345e0456ce62e12e95b6",
+  "report_identity": "88199508a3d0ca43dbdac8c4aad0351770eb8d739a6af26a2c82665851a92023",
   "requirements": {
     "F01": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -304,7 +307,7 @@
     "F02": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -316,7 +319,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 4.015,
+          "duration_seconds": 4.781,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -329,8 +332,11 @@
         {
           "error": null,
           "evidence": {
-            "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+            "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
             "compiled_rows": 12,
+            "e3_tool_minimum": 4000,
+            "tool_heldout_rows": 256,
+            "tool_training_rows": 4096,
             "witnessed_rows": 56832
           },
           "kind": "real-interface-exercise",
@@ -356,7 +362,7 @@
     "F03": {
       "command_receipts": [
         {
-          "duration_seconds": 4.015,
+          "duration_seconds": 4.781,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -369,8 +375,11 @@
         {
           "error": null,
           "evidence": {
-            "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+            "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
             "compiled_rows": 12,
+            "e3_tool_minimum": 4000,
+            "tool_heldout_rows": 256,
+            "tool_training_rows": 4096,
             "witnessed_rows": 56832
           },
           "kind": "real-interface-exercise",
@@ -395,7 +404,7 @@
     "F04": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -407,7 +416,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 5.0,
+          "duration_seconds": 5.969,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -420,8 +429,11 @@
         {
           "error": null,
           "evidence": {
-            "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+            "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
             "compiled_rows": 12,
+            "e3_tool_minimum": 4000,
+            "tool_heldout_rows": 256,
+            "tool_training_rows": 4096,
             "witnessed_rows": 56832
           },
           "kind": "real-interface-exercise",
@@ -447,7 +459,7 @@
     "F05": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -490,7 +502,7 @@
     "F06": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -502,7 +514,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -561,7 +573,7 @@
     "F07": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -603,7 +615,7 @@
     "F08": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -645,7 +657,7 @@
     "F09": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -675,7 +687,7 @@
     "F10": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -689,7 +701,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -717,7 +729,7 @@
     "F11": {
       "command_receipts": [
         {
-          "duration_seconds": 4.015,
+          "duration_seconds": 4.781,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -728,7 +740,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -758,7 +770,7 @@
     "F12": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -789,7 +801,7 @@
     "F13": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -818,7 +830,7 @@
     "F14": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -832,7 +844,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 1.843,
+          "duration_seconds": 1.859,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -860,7 +872,7 @@
     "F15": {
       "command_receipts": [
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -871,7 +883,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -901,7 +913,7 @@
     "F16": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -945,7 +957,7 @@
     "F17": {
       "command_receipts": [
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -986,7 +998,7 @@
     "F18": {
       "command_receipts": [
         {
-          "duration_seconds": 1.843,
+          "duration_seconds": 1.859,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1011,7 +1023,7 @@
     "F19": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1049,7 +1061,7 @@
     "F20": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1063,7 +1075,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1076,7 +1088,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 19.438,
+            "duration_seconds": 23.516,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -1091,7 +1103,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+                "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1185,7 +1197,7 @@
     "F21": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1210,7 +1222,7 @@
     "F22": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1224,7 +1236,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1236,7 +1248,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 19.438,
+            "duration_seconds": 23.516,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -1251,7 +1263,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+                "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1345,7 +1357,7 @@
     "F23": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1383,7 +1395,7 @@
     "F24": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1395,7 +1407,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 19.438,
+            "duration_seconds": 23.516,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -1410,7 +1422,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+                "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1524,10 +1536,10 @@
     }
   ],
   "schema": "bramastra-k8-build-verification/v1",
-  "source_closure_sha256": "d82f184c464ba10bed63ed509541315ec4ca190937214dc2259dfd29b9071801",
+  "source_closure_sha256": "140e81e8e727344b669e49e6a5754efb3b05a069326760ef75753ca81c19714c",
   "source_identity": {
     "dirty": "true",
-    "git_head": "63d60b3523937703183f1e578fe066df08a53acd",
-    "source_closure_sha256": "d82f184c464ba10bed63ed509541315ec4ca190937214dc2259dfd29b9071801"
+    "git_head": "41a4808912598d838d64e32d51b6a3f34e019c31",
+    "source_closure_sha256": "140e81e8e727344b669e49e6a5754efb3b05a069326760ef75753ca81c19714c"
   }
 }

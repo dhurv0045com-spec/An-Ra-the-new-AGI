@@ -16,11 +16,11 @@ The objective is general intelligence trained from scratch, including transferab
 
 ## Working boundaries
 
-- Work on BRAMASTRA. Preserve user changes, nested repositories and unrelated trees. Inspect Git status before editing and stage only your scoped work. No force-push.
+- Work on BRAMASTRA (the delivery branch; the Gandiva branch is not the delivery line). Preserve user changes, nested repositories and unrelated trees. Inspect Git status before editing and stage only your scoped work. No force-push.
 - Use separate worktrees for concurrent editing where available; otherwise assign exclusive file ownership. Resolve actual conflicts before touching another agent's file.
 - Keep learned core weights randomly initialized unless the owner changes that constraint. Declare symbolic teachers and external priors separately.
 - No local optimizer updates. CPU forward/backward diagnostics are allowed with gradients discarded. The historical CPU ledger remains unchanged.
-- The future owner-launched K8 campaign has one 480-minute allocation on two T4 GPUs, training stop at 450, export 30. This work order does not launch it, authorize paid compute or bypass readiness.
+- The future owner-launched K8 campaign has one 600-minute allocation on two T4 GPUs (owner-authorized; Kaggle GPU sessions allow 12 h), training stop at 570, export 30. This work order does not launch it, authorize paid compute or bypass readiness.
 - Do not overwrite run/evidence directories. Use unique IDs. Keep weights, optimizer payloads and large datasets out of Git; preserve failure evidence.
 - Do not message third parties. The owner has authorized scoped Git publication; do not include others' uncommitted work.
 - Use Luna/Sol for useful bounded delegation; specify owned paths, exclusions, prerequisites, resource limits and evidence location. No vague “build AGI” agent assignments.

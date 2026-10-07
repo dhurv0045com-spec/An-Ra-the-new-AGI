@@ -1,17 +1,25 @@
 # FINAL-K8 progress cursor
 
-Source reviewed: 58e517b. This cursor was initialized by the chief on 15 September; it does not record implementation completion.
+Source reviewed: latest BRAMASTRA (see git log; build report binds the
+exact closure). This cursor reflects implementation completion as of the
+latest verify-build: **24/24 requirements PASS, zero local optimizer
+commits, ready for owner experiment with E0 runtime gates pending.**
 
-Active checkpoint: Day 1 of engineering/ten_day_handoff_20260915/TEN_DAY_EXECUTION.md. Earliest targets: F02/F04 task/label and complete decision contracts, followed by trained consumer integration.
+All ten-day-handoff checkpoints are closed: task/label contracts and
+sufficiency witnesses (F02/F03), complete decision representations
+(F04), trained-consumer objectives (F05/F06), cognition and E2 controls
+(F07–F09), architecture/RET/RSI with independent successor choices and
+fresh archives (F10–F14), accounting and calibration (F15/F16),
+checkpoints with cadence saving (F17), statistics and complete export
+(F18/F20), evidence-backed verify-build and rehearsal (F21/F22), and the
+owner package (F19/F23/F24).
 
-Read the current review before trusting existing PASS labels. Confirmed remaining source issues: compiler six/eight-token slicing; P1 confirmation copied from P0; readiness always false; verify-build absent.
+Remaining owner actions only: attach the verified bundle
+(identity in reports/FINAL_K8/BUILD_READINESS.json), run
+notebooks/bramastra_k8.ipynb under Save & Run All on 2x T4, and let E0
+qualify hardware before the 600-minute campaign. Historical reviews
+(ten_day_handoff_20260915/CURRENT_REVIEW.md and older) are preserved as
+history; their findings are closed by later commits.
 
-Next concrete edit: repair public task/teacher contracts and compiler decision prefixes/candidates in coordinated owned paths. Use FINAL_EXPERIMENT_EXECUTION.md for exact behavior and requirements.
-
-Owned paths: no implementation lane assigned by this cursor. Inspect current Git status and establish ownership before editing.
-
-Current evidence: engineering/reports/FINAL_K8/ (agent report, ready=false); engineering/ten_day_handoff_20260915/CURRENT_REVIEW.md (chief source review). Preserve both; create a unique report for new execution.
-
-Local optimizer updates in this review: 0. Owner accelerator run: not launched by this review. Ready for owner experiment: false.
-
-Update this cursor after each useful session using AGENT_PROMPTS.md. Keep immutable commands/results in unique report directories, not only here.
+Local optimizer updates to date: 0. Ready for owner experiment: true
+(pending E0 hardware qualification).

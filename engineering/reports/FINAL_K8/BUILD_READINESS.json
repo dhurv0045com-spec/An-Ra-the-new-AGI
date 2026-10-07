@@ -3,29 +3,29 @@
   "data_artifact": {
     "audit": "engineering/final_delivery/data/bundle_audit.json",
     "generation_command": "python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle> --training-mechanisms 4096 --controller-mechanisms 256 --development-mechanisms 256 --confirmation-mechanisms 128 --tool-mechanisms 4096 --tool-heldout 256 --meta-train 24 --meta-validate 6 --meta-confirm 6",
-    "identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+    "identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
     "manifest": "engineering/final_delivery/data/bundle_manifest.json"
   },
-  "data_manifest_sha256": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+  "data_manifest_sha256": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
   "derived_from": "build_verification.json",
   "executed_commands": [
     {
       "command": "python -m bramastra_lab.research.campaigns.k8 verify-build --data <offline-bundle> --report-dir <new-dir> --no-updates",
-      "report_identity": "9f7b5e5992b6d1c2209f9fe925d233bc6500601a52f4345e0456ce62e12e95b6"
+      "report_identity": "88199508a3d0ca43dbdac8c4aad0351770eb8d739a6af26a2c82665851a92023"
     }
   ],
-  "implementation_closure_sha256": "d82f184c464ba10bed63ed509541315ec4ca190937214dc2259dfd29b9071801",
+  "implementation_closure_sha256": "140e81e8e727344b669e49e6a5754efb3b05a069326760ef75753ca81c19714c",
   "model_config_sha256": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade",
   "optimizer_updates_local": 0,
   "owner_notebook": "notebooks/bramastra_k8.ipynb",
   "ready_for_owner_experiment": true,
   "remaining_blockers": [],
-  "report_identity": "9f7b5e5992b6d1c2209f9fe925d233bc6500601a52f4345e0456ce62e12e95b6",
+  "report_identity": "88199508a3d0ca43dbdac8c4aad0351770eb8d739a6af26a2c82665851a92023",
   "requirements": {
     "F01": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -66,7 +66,7 @@
     "F02": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -78,7 +78,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 4.015,
+          "duration_seconds": 4.781,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -91,8 +91,11 @@
         {
           "error": null,
           "evidence": {
-            "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+            "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
             "compiled_rows": 12,
+            "e3_tool_minimum": 4000,
+            "tool_heldout_rows": 256,
+            "tool_training_rows": 4096,
             "witnessed_rows": 56832
           },
           "kind": "real-interface-exercise",
@@ -117,7 +120,7 @@
     "F03": {
       "command_receipts": [
         {
-          "duration_seconds": 4.015,
+          "duration_seconds": 4.781,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -130,8 +133,11 @@
         {
           "error": null,
           "evidence": {
-            "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+            "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
             "compiled_rows": 12,
+            "e3_tool_minimum": 4000,
+            "tool_heldout_rows": 256,
+            "tool_training_rows": 4096,
             "witnessed_rows": 56832
           },
           "kind": "real-interface-exercise",
@@ -155,7 +161,7 @@
     "F04": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -167,7 +173,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 5.0,
+          "duration_seconds": 5.969,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -180,8 +186,11 @@
         {
           "error": null,
           "evidence": {
-            "bundle_identity": "cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4",
+            "bundle_identity": "ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0",
             "compiled_rows": 12,
+            "e3_tool_minimum": 4000,
+            "tool_heldout_rows": 256,
+            "tool_training_rows": 4096,
             "witnessed_rows": 56832
           },
           "kind": "real-interface-exercise",
@@ -206,7 +215,7 @@
     "F05": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -248,7 +257,7 @@
     "F06": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -260,7 +269,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -318,7 +327,7 @@
     "F07": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -359,7 +368,7 @@
     "F08": {
       "command_receipts": [
         {
-          "duration_seconds": 6.828,
+          "duration_seconds": 7.218,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -400,7 +409,7 @@
     "F09": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -429,7 +438,7 @@
     "F10": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -443,7 +452,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -470,7 +479,7 @@
     "F11": {
       "command_receipts": [
         {
-          "duration_seconds": 4.015,
+          "duration_seconds": 4.781,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -481,7 +490,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -510,7 +519,7 @@
     "F12": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -540,7 +549,7 @@
     "F13": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -568,7 +577,7 @@
     "F14": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -582,7 +591,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 1.843,
+          "duration_seconds": 1.859,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -609,7 +618,7 @@
     "F15": {
       "command_receipts": [
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -620,7 +629,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -649,7 +658,7 @@
     "F16": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -692,7 +701,7 @@
     "F17": {
       "command_receipts": [
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -732,7 +741,7 @@
     "F18": {
       "command_receipts": [
         {
-          "duration_seconds": 1.843,
+          "duration_seconds": 1.859,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -756,7 +765,7 @@
     "F19": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -793,7 +802,7 @@
     "F20": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -807,7 +816,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 6.907,
+          "duration_seconds": 7.094,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -820,7 +829,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 19.438,
+            "duration_seconds": 23.516,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -835,7 +844,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+                "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -928,7 +937,7 @@
     "F21": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -952,7 +961,7 @@
     "F22": {
       "command_receipts": [
         {
-          "duration_seconds": 21.172,
+          "duration_seconds": 19.454,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -966,7 +975,7 @@
           "status": "passed"
         },
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -978,7 +987,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 19.438,
+            "duration_seconds": 23.516,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -993,7 +1002,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+                "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1086,7 +1095,7 @@
     "F23": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1123,7 +1132,7 @@
     "F24": {
       "command_receipts": [
         {
-          "duration_seconds": 1.953,
+          "duration_seconds": 2.406,
           "exit_code": 0,
           "kind": "pytest-group",
           "selector": [
@@ -1135,7 +1144,7 @@
         {
           "error": null,
           "evidence": {
-            "duration_seconds": 19.438,
+            "duration_seconds": 23.516,
             "note": "engineering rehearsal; not learned-campaign evidence",
             "rehearsal": "passed",
             "steps": {
@@ -1150,7 +1159,7 @@
                   "inventory",
                   "program"
                 ],
-                "identity": "06c8563fae54baeb05c16106d86bf9017a4941af0f7ca106dde551cfdee452fa"
+                "identity": "4bc34b6d6591ad78c329526578e507d8734fd49ad5badee007005f1f7a593828"
               },
               "e1_parents": {
                 "E1-A": "bfc86c636d01a8f00e9bb23813fcd0177fe5468c6896bc5eeb91dad1f51258b1",
@@ -1268,5 +1277,5 @@
     "codec": "9df2e90c740e72835621b2270a98969c09eff230dc3b35bef076d2681bd5d383",
     "config": "5d9cf2155c9f84e034313cf5a605bf806a66bea8babcb23b446622cc1b5c4ade"
   },
-  "source_revision": "63d60b3523937703183f1e578fe066df08a53acd"
+  "source_revision": "41a4808912598d838d64e32d51b6a3f34e019c31"
 }

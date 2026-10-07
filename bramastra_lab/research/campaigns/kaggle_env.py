@@ -193,6 +193,30 @@ def discover_source(*, configured: str | os.PathLike[str] | None = None,
     return None, checked
 
 
+# Registered E3 demand (K8_20260922_RESULT): the frozen protocol
+# calibrates E3 update targets up to 4,000, and T0 consumes one distinct
+# tool-training row per update. An attached bundle with fewer rows cannot
+# finish E3 and must be rejected before GPU work begins.
+E3_TOOL_TRAINING_MINIMUM = 4000
+
+
+def bundle_tool_cardinality(path: str | os.PathLike[str]) -> dict[str, int]:
+    """Count tool rows per split from a bundle's tool_tasks.jsonl."""
+    tool_path = Path(path) / "tools" / "tool_tasks.jsonl"
+    counts = {"tool-training": 0, "tool-heldout": 0}
+    if not tool_path.is_file():
+        return counts
+    with open(tool_path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            split = str(json.loads(line).get("split", ""))
+            if split in counts:
+                counts[split] += 1
+    return counts
+
+
 def is_k8_bundle(path: str | os.PathLike[str]) -> bool:
     """A valid K8 bundle root carries manifest.json with the K8 schema."""
     manifest = Path(path) / "manifest.json"
@@ -205,8 +229,16 @@ def is_k8_bundle(path: str | os.PathLike[str]) -> bool:
 
 
 def discover_bundle(*, configured: str | os.PathLike[str] | None = None,
-                    input_root: str | os.PathLike[str] | None = None) -> tuple[Path | None, list[str]]:
-    """Locate an attached valid bundle. Returns (path, diagnostics)."""
+                    input_root: str | os.PathLike[str] | None = None,
+                    min_tool_training: int | None = E3_TOOL_TRAINING_MINIMUM,
+                    ) -> tuple[Path | None, list[str]]:
+    """Locate an attached valid bundle. Returns (path, diagnostics).
+
+    A structurally valid bundle whose tool-training cardinality cannot
+    satisfy the registered E3 demand is skipped (diagnosed, never silently
+    used): the 2026-09-22 campaign lost its E3 slot to exactly this.
+    Pass min_tool_training=None to disable the cardinality gate.
+    """
     checked: list[str] = []
     candidates: list[Path] = []
     env_bundle = os.environ.get("BRAMASTRA_BUNDLE_DIR")
@@ -225,6 +257,15 @@ def discover_bundle(*, configured: str | os.PathLike[str] | None = None,
         except OSError:
             continue
         if is_k8_bundle(resolved):
+            if min_tool_training is not None:
+                counts = bundle_tool_cardinality(resolved)
+                if counts["tool-training"] < int(min_tool_training):
+                    checked.append(
+                        f"SKIPPED {resolved}: tool-training rows "
+                        f"{counts['tool-training']} < required "
+                        f"{int(min_tool_training)} (E3 demand; see "
+                        f"docs/bramastra/K8_20260922_RESULT.md)")
+                    continue
             return resolved, checked
     return None, checked
 

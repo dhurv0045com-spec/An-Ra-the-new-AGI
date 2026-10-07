@@ -10,7 +10,7 @@ training stops at 570, export reserve 30).
   `engineering/reports/FINAL_K8/build_verification.json`
   (`source_identity.git_head` + `source_closure_sha256`).
 - Data: the offline bundle `bramastra-k8-data` (identity
-  `cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4`),
+  `ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0`),
   generated with the registered command below and validated
   (`validate_bundle`: hashes, splits, information-sufficiency witnesses).
   Keep it outside Git; its manifest/audit are committed under
@@ -19,7 +19,7 @@ training stops at 570, export reserve 30).
 Reproducible generation command (already executed; rerun only to rebuild):
 
 ```
-python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle>   --training-mechanisms 4096 --controller-mechanisms 256   --development-mechanisms 256 --confirmation-mechanisms 128   --tool-mechanisms 256 --tool-heldout 64   --meta-train 24 --meta-validate 6 --meta-confirm 6
+python -m bramastra_lab.research.campaigns.k8 prepare --out <offline-bundle>   --training-mechanisms 4096 --controller-mechanisms 256   --development-mechanisms 256 --confirmation-mechanisms 128   --tool-mechanisms 4096 --tool-heldout 256   --meta-train 24 --meta-validate 6 --meta-confirm 6
 ```
 
 ## Notebook

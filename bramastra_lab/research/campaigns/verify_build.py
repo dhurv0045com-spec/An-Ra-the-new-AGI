@@ -315,8 +315,14 @@ def exercise_bundle_contracts(data_dir: str, *, sample_limit: int = 12) -> dict[
                     compiled += 1
     if witnessed == 0:
         raise ValueError("bundle carries no episode rows to witness")
+    from bramastra_lab.research.campaigns.kaggle_env import (
+        E3_TOOL_TRAINING_MINIMUM, bundle_tool_cardinality)
+    tool_counts = bundle_tool_cardinality(data_dir)
     return {"bundle_identity": result.get("identity"),
-            "witnessed_rows": witnessed, "compiled_rows": compiled}
+            "witnessed_rows": witnessed, "compiled_rows": compiled,
+            "tool_training_rows": tool_counts["tool-training"],
+            "tool_heldout_rows": tool_counts["tool-heldout"],
+            "e3_tool_minimum": E3_TOOL_TRAINING_MINIMUM}
 
 
 def exercise_no_update_boundary(data_dir: str) -> dict[str, Any]:

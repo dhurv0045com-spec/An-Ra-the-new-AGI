@@ -124,8 +124,17 @@ class KaggleEnvContracts(unittest.TestCase):
             with open(os.path.join(bundle, "manifest.json"), "w", encoding="utf-8") as handle:
                 json.dump({"schema": "bramastra-k8-data/v1"}, handle)
             self.assertTrue(is_k8_bundle(bundle))
-            found_bundle, _ = discover_bundle(configured=bundle)
+            # Structural discovery with the cardinality gate disabled.
+            found_bundle, _ = discover_bundle(
+                configured=bundle, min_tool_training=None)
             self.assertIsNotNone(found_bundle)
+            # Default gate: a schema-valid bundle without the registered
+            # E3 tool cardinality is refused with a diagnostic (the
+            # 2026-09-22 campaign lost its E3 slot to exactly this).
+            refused, diagnostics = discover_bundle(configured=bundle)
+            self.assertIsNone(refused)
+            self.assertTrue(any("SKIPPED" in d and "tool-training" in d
+                                for d in diagnostics))
 
     def test_find_build_report_prefers_existing(self) -> None:
         import tempfile

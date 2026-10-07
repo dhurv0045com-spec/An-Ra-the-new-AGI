@@ -1,8 +1,8 @@
 # FINAL-K8 handoff (generated from build evidence)
 
-- Source revision: `63d60b3523937703183f1e578fe066df08a53acd`
-- Implementation closure: `d82f184c464ba10b...`
-- Data bundle identity: `cd8fde2b8f184562be6572dedc30f4147d9b262162e9b071cdeeabc2656e88b4`
+- Source revision: `41a4808912598d838d64e32d51b6a3f34e019c31`
+- Implementation closure: `140e81e8e727344b...`
+- Data bundle identity: `ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0`
 - Requirements PASS: 24/24
 - Local optimizer commits: 0
 - Ready for owner experiment: **True**
