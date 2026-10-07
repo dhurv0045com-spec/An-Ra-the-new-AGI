@@ -968,7 +968,9 @@ def build_k8_bundle(out_dir: str, *, families: list[str] | None = None,
         "verifier_consistent": "independently_recomputed_per_mechanism",
     }
 
-    file_hashes = {os.path.relpath(path, out_dir): _hash_file(path)
+    # Forward slashes: the manifest must be portable across Windows
+    # (generation) and Linux (Kaggle validation).
+    file_hashes = {os.path.relpath(path, out_dir).replace(os.sep, '/'): _hash_file(path)
                    for path in sorted(all_files)}
     try:
         from bramastra_lab.research.runtime.provenance import source_closure_sha256

@@ -10,7 +10,7 @@ training stops at 570, export reserve 30).
   `engineering/reports/FINAL_K8/build_verification.json`
   (`source_identity.git_head` + `source_closure_sha256`).
 - Data: the offline bundle `bramastra-k8-data` (identity
-  `ab2bd6fa0efe227a8bb4aed1a70112f3698c097a5e5ffcedffcaf080af3207f0`),
+  `0a62f35ba4da7ee35a6af240db55d26feeb2d09920a1aea4a0787b914d511492`),
   generated with the registered command below and validated
   (`validate_bundle`: hashes, splits, information-sufficiency witnesses).
   Keep it outside Git; its manifest/audit are committed under
