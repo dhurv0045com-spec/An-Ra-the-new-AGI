@@ -35,8 +35,8 @@ session with two T4s. The cells:
    (`releases/tag/k8-data-v1`, SHA-256-verified, unpacked losslessly
    under `/kaggle/working`), else generated in-session,
 3. validate the bundle,
-4. run `verify-build` (pre-allocation, zero optimizer commits) and refuse
-   to continue unless the build report verifies,
+4. run `verify-build` freshly in-session (so the gate evidence always
+   matches the cloned code — never stale) and E0's gate re-checks it,
 5. start the auto-safety thread: run-directory snapshots every 10 minutes
    and at each phase boundary into `/kaggle/working` (recovery ZIPs with
    ledger/phase outputs/logs; heavy payloads excluded),
