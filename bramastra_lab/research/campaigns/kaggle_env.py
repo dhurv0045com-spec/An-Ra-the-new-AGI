@@ -217,6 +217,24 @@ def bundle_tool_cardinality(path: str | os.PathLike[str]) -> dict[str, int]:
     return counts
 
 
+def reset_directory(path: str | os.PathLike[str]) -> None:
+    """Guarded recursive removal for notebook use (O10 disk-safety contract).
+
+    Refuses root-level or near-root targets and unresolved symlinks so a
+    bad variable can never wipe a filesystem root; the notebook must call
+    this instead of raw shutil.rmtree.
+    """
+    target = Path(path)
+    if target.is_symlink():
+        raise K8EnvironmentError(f"refusing to remove symlink: {target}")
+    resolved = target.resolve()
+    if len(resolved.parts) <= 2 or resolved.parent == resolved:
+        raise K8EnvironmentError(
+            f"refusing to remove a top-level directory: {resolved}")
+    if resolved.is_dir():
+        shutil.rmtree(resolved)
+
+
 def is_k8_bundle(path: str | os.PathLike[str]) -> bool:
     """A valid K8 bundle root carries manifest.json with the K8 schema."""
     manifest = Path(path) / "manifest.json"

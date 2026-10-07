@@ -1005,6 +1005,8 @@ class O10NotebookTests(unittest.TestCase):
         self.assertIn("testzip", _module_source)
         self.assertIn("FileLink", joined)
         self.assertNotIn("shutil.rmtree", joined)
+        # Deletions go through the guarded kaggle_env helper.
+        self.assertIn("reset_directory", joined)
         self.assertNotIn("globals()", joined)
         self.assertNotIn("RESULTS_ZIP.unlink", joined)
         self.assertIn("new_results_zip", joined)

@@ -29,13 +29,28 @@ session with two T4s. The cells:
 
 1. discover the checkout and print source/GPU identities (no hardcoded
    paths; operator inputs are the repo/data/output locations only),
-2. validate the bundle,
-3. run `verify-build` (pre-allocation, zero optimizer commits) and refuse
+2. **acquire the data automatically**: attached dataset first (rejected if
+   its tool cardinality cannot satisfy E3), else the registered bundle is
+   downloaded from the pinned GitHub release
+   (`releases/tag/k8-data-v1`, SHA-256-verified, unpacked losslessly
+   under `/kaggle/working`), else generated in-session,
+3. validate the bundle,
+4. run `verify-build` (pre-allocation, zero optimizer commits) and refuse
    to continue unless the build report verifies,
-4. run the E0 hardware-qualification gate (same allocation),
-5. run the full campaign on the SAME allocation, stopping on any failed
-   qualification,
-6. summarize, 7. export (partial runs export honestly).
+5. start the auto-safety thread: run-directory snapshots every 10 minutes
+   and at each phase boundary into `/kaggle/working` (recovery ZIPs with
+   ledger/phase outputs/logs; heavy payloads excluded),
+6. run the E0 hardware-qualification gate (same allocation),
+7. run the full campaign on the SAME allocation, stopping on any failed
+   qualification; E1/E3/E4 additionally checkpoint every 200 steps/updates,
+8. summarize, 9. export (partial runs export honestly), 10. xprobe,
+11. package `results-*.zip` — in Save & Run All mode it lands in the
+    version's Output tab automatically; in interactive mode a FileLink is
+    displayed, and the final safety sweep cell writes one last snapshot.
+
+No manual dataset attachment is required. Losing your own network
+connection does not stop a Save & Run All commit; the run continues
+server-side and the Output is saved when it completes.
 
 ## Manual equivalent (without the notebook)
 
