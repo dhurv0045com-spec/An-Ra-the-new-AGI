@@ -1,7 +1,7 @@
 # Protected Colab T4 training
 
 This is the operator guide for continuing the canonical 181M-parameter An-Ra
-V4 model with `notebooks/AN_RA_T4_PROTECTED_TRAINER_V4.ipynb`.
+V4 model with `notebooks/AN_RA_COLAB_T4_PROTECTED_TRAINER_V4.ipynb`.
 
 ## What this method does
 
@@ -19,7 +19,17 @@ continuation automatically. The 181M number is the model's parameter count,
 not a token limit.
 
 Separate Colab machines do not synchronize gradients over the public internet.
-Never run two notebooks with `WORKER_ROLE = "canonical_trainer"` simultaneously.
+Never run two training-enabled copies against the same canonical folder simultaneously.
+
+## Import into Google Colab
+
+1. Upload `notebooks/AN_RA_COLAB_T4_PROTECTED_TRAINER_V4.ipynb` to Google Drive or open it directly in Colab.
+2. In Colab, choose **Runtime → Change runtime type → T4 GPU**.
+3. Run all once with `RUN_TRAINING = False`; this is a read-only preflight and needs no Kaggle account, dataset, checkpoint, or Drive training folder.
+4. Review the printed status. A clean preflight ends with `PREFLIGHT COMPLETE` and never starts training.
+5. Only after the canonical assets pass should an authorized trainer set `RUN_TRAINING = True` and run the session.
+
+The notebook catches environment, clone, Drive, asset, and trainer failures and prints the exact diagnostic instead of raising a traceback. It cannot validate credentials, GPU availability, or Drive permissions until it runs in a real Colab runtime.
 
 ## Drive layout
 
@@ -33,7 +43,7 @@ My Drive/
     ├── anra-v4-current-full-resume.json
     ├── v4_phase_a_170m_seed1301.tar.gz.part00
     ├── v4_phase_a_170m_seed1301.tar.gz.part01
-    ├── AN_RA_T4_PROTECTED_TRAINER_V4.ipynb
+    ├── AN_RA_COLAB_T4_PROTECTED_TRAINER_V4.ipynb
     ├── anra-v4-recovery-signing-keys.json
     └── training-signing-keys.json
 ```
@@ -68,14 +78,13 @@ or its checkpoint into the second account.
 
 ## Before pressing Run all
 
-1. Open the notebook from the owner account or an authorized Editor account.
+1. Open `AN_RA_COLAB_T4_PROTECTED_TRAINER_V4.ipynb` from the owner account or an authorized Editor account.
 2. Select **Runtime → Change runtime type → T4 GPU**.
-3. Keep `WORKER_ROLE = "canonical_trainer"` only on the active trainer.
-4. Press **Run all** and approve the Google Drive mount.
+3. Leave `RUN_TRAINING = False` for the first run and review the preflight results.
+4. Set `RUN_TRAINING = True` only when Drive, the checkpoint, the signing identity, and the data pack pass every check.
+5. Press **Run all** and approve the Google Drive mount.
 
-The notebook refuses to train without a real T4, a clean checkout, compatible
-V4 checkpoint, verified data pack, owner-private signing keys, and signed token
-window.
+The default preflight is non-destructive and does not require Kaggle, a GPU, Drive assets, or a checkpoint. The training path refuses to start without a real GPU, a clean checkout, a compatible V4 checkpoint, verified data-pack bytes, owner-private signing keys, and a signed token window.
 
 The notebook accepts assets only when they are directly inside one mounted
 `ANRA_T4_TRAINING_HOME`. It uses the stable current checkpoint and its verified
@@ -104,12 +113,8 @@ The notebook verifies the portable checkpoint after copying it to scratch and
 signs a continuation. The next Drive checkpoint does not replace the previous
 one until verification succeeds.
 
-## Other T4 roles
+## Safe validation and handoff
 
-Use `WORKER_ROLE = "verify_only"` for source, pack, and checkpoint validation
-without advancing weights. Evaluators and data builders must never receive the
-canonical-writer role.
+Keep `RUN_TRAINING = False` for source, Drive, checkpoint, and pack validation without advancing weights. Only the active handoff session may set `RUN_TRAINING = True`; do not run two training sessions against the same canonical folder.
 
-Use only compute legitimately granted by the provider. For true simultaneous
-multi-GPU acceleration, use one low-latency host with locally connected GPUs
-and the repository's DDP/FSDP path.
+Use only compute legitimately granted by the provider. For true simultaneous multi-GPU acceleration, use one low-latency host with locally connected GPUs and the repository's DDP/FSDP path.

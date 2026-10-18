@@ -98,3 +98,23 @@ def test_frontier_trainer_has_no_legacy_brain_autosave() -> None:
     assert "sync_v2_artifacts" not in source
     assert "DRIVE_SESSION_MANAGER" not in source
     assert "compact evaluation failed after checkpoint save" in source
+
+
+def test_kaggle_free_colab_trainer_has_safe_default_and_no_reset() -> None:
+    notebook = json.loads(
+        (ROOT / "notebooks" / "AN_RA_COLAB_T4_PROTECTED_TRAINER_V4.ipynb").read_text(
+            encoding="utf-8"
+        )
+    )
+    source = "\n".join("".join(cell.get("source", [])) for cell in notebook["cells"])
+
+    assert "RUN_TRAINING = False" in source
+    assert "PREFLIGHT COMPLETE" in source
+    assert "drive.mount" in source
+    assert "torch.cuda.is_available" in source
+    assert "ANRA_T4_TRAINING_HOME" in source
+    assert "shutil.rmtree" not in source
+    assert "/kaggle/input" not in source
+    assert "/kaggle/working" not in source
+    assert "kaggle_assets" not in source
+    assert "import kaggle" not in source
