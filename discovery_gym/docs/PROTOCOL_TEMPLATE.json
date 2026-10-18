@@ -1,0 +1,41 @@
+{
+  "schema": "anra-discovery-gym/protocol/v2",
+  "protocol_id": "DG1-prospective-replace-me",
+  "stage": "DG1",
+  "hypothesis": "state the single learnability hypothesis before generating data",
+  "generator_version": "pin exact generator version",
+  "suite_manifest_sha256": "pin suite manifest hash",
+  "split_contract": {
+    "train": "training structures only",
+    "development": "development structures only",
+    "confirmation": "untouched confirmation structures",
+    "transfer": "one declared structural axis per result"
+  },
+  "policy_ids": ["learned-policy-id"],
+  "baseline_ids": [
+    "random",
+    "fixed",
+    "uncertainty",
+    "information_gain",
+    "no_experiment",
+    "oracle"
+  ],
+  "budget": 0,
+  "equal_action_budget": true,
+  "equal_inference_budget": true,
+  "primary_metrics": ["final_task_success", "prediction_accuracy"],
+  "secondary_metrics": [
+    "prediction_brier",
+    "information_gain_per_cost",
+    "regret"
+  ],
+  "prospective_thresholds": {
+    "primary_effect": "declare before confirmation",
+    "uncertainty": "cluster by independent world",
+    "model_training": "from scratch only; record initialization and checkpoint"
+  },
+  "confirmation_policy": "freeze hashes and thresholds before opening confirmation outcomes",
+  "tuning_policy": "development only; confirmation and transfer are never tuning pools",
+  "model_status": "PLANNED_NOT_RUN",
+  "attribution_policy": "separate learner, environment, evaluator, teacher, and external-tool decisions"
+}

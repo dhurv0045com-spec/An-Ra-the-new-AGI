@@ -51,6 +51,11 @@ bramastra-verify-build = "bramastra_lab.research.campaigns.verify_build:main"
 bramastra-xprobe = "bramastra_lab.research.campaigns.xprobe:main"
 bramastra-package-results = "bramastra_lab.research.campaigns.results_pack:main"
 bramastra-gpu-throughput = "bramastra_lab.research.campaigns.gpu_throughput:main"
+anra-discovery-gym = "discovery_gym.cli:main"
+anra-discovery-workbench = "discovery_gym.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["bramastra_lab*", "e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["bramastra_lab*", "e0_cognition*", "v5_contracts*", "v5_training*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*", "discovery_gym*"]
+
+[tool.setuptools.package-data]
+discovery_gym = ["schemas/*.json", "docs/*.json", "docs/*.md", "*.md"]

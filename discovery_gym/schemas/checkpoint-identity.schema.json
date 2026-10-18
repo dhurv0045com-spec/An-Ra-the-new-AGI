@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "anra-discovery-gym/checkpoint-identity/v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "experiment_id",
+    "model_id",
+    "initialization_sha256",
+    "checkpoint_sha256",
+    "resume_state_sha256",
+    "optimizer_sha256",
+    "protocol_sha256",
+    "status"
+  ],
+  "properties": {
+    "schema": {"const": "anra-discovery-gym/checkpoint-identity/v1"},
+    "experiment_id": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "initialization_sha256": {"type": "string"},
+    "checkpoint_sha256": {"type": ["string", "null"]},
+    "resume_state_sha256": {"type": ["string", "null"]},
+    "optimizer_sha256": {"type": ["string", "null"]},
+    "protocol_sha256": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

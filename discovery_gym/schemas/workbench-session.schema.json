@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "anra-discovery-gym/workbench-session/v1",
+  "type": "object",
+  "required": ["schema", "session_id", "dataset", "graph", "plan", "ledger"],
+  "properties": {
+    "schema": {"const": "anra-discovery-gym/workbench/v1"},
+    "session_id": {"type": "string", "minLength": 1},
+    "dataset": {"type": "object"},
+    "graph": {"type": "object"},
+    "plan": {"type": "object"},
+    "ledger": {"type": "object"}
+  },
+  "additionalProperties": false
+}

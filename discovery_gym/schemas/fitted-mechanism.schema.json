@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "anra-discovery-gym/fitted-mechanism/v1",
+  "type": "object",
+  "required": ["schema", "dataset_sha256", "graph_sha256", "columns", "parents", "counts", "majority", "mechanism_sha256"],
+  "properties": {
+    "schema": {"const": "anra-discovery-gym/fitted-mechanism/v1"},
+    "dataset_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "graph_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "columns": {"type": "array", "items": {"type": "string"}},
+    "parents": {"type": "object"},
+    "counts": {"type": "object"},
+    "majority": {"type": "object"},
+    "mechanism_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}
