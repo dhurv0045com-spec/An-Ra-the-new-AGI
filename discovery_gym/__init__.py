@@ -4,7 +4,9 @@ from .environment import DiscoveryEnvironment
 from .evaluation import run_episode, run_suite
 from .generator import generate_suite, suite_manifest
 from .workbench import (
+    CallbackExecutor,
     DiscoverySession,
+    ExperimentExecutor,
     ExperimentPlan,
     FittedMechanism,
     GraphHypothesis,
@@ -17,6 +19,8 @@ from .workbench import (
     discover_graph,
     fit_mechanism,
     graph_recovery_metrics,
+    LocalMechanismExecutor,
+    execute_experiment_plan,
     inventory_readiness,
     predictive_benchmark,
     qualification_receipt,
@@ -36,7 +40,9 @@ __all__ = [
     "run_episode",
     "run_suite",
     "suite_manifest",
+    "CallbackExecutor",
     "DiscoverySession",
+    "ExperimentExecutor",
     "ExperimentPlan",
     "FittedMechanism",
     "GraphHypothesis",
@@ -49,6 +55,8 @@ __all__ = [
     "discover_graph",
     "fit_mechanism",
     "graph_recovery_metrics",
+    "LocalMechanismExecutor",
+    "execute_experiment_plan",
     "inventory_readiness",
     "predictive_benchmark",
     "qualification_receipt",

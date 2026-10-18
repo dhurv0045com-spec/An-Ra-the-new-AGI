@@ -9,7 +9,7 @@
 - Canonical owner: Gandiva/BRAMASTRA research family
 - Active checkout and all other worktrees were left untouched.
 - Refined contract/generator/protocol identities are versioned `v2` because intervention safety and provenance validation changed.
-- No commit, push, merge, reset, clean, stash, branch switch, download, model load, GPU/TPU run, or local optimizer update was performed.
+- No merge, reset, clean, stash, branch switch, download, model load, GPU/TPU run, or local optimizer update was performed. One scoped commit was pushed to `origin/codex/anra-discovery-gym` at owner request.
 
 ## Overlap decision
 
@@ -38,6 +38,7 @@ The existing `bramastra_lab/discovery` component is a direct precursor for Boole
 | Stage gates | `docs/STAGE_GATES.md` | DG0–DG5 pass/fail/inconclusive boundaries |
 | CLI/workflow | `cli.py`, `__main__.py`, `pyproject.toml` | DG0 and workbench commands work |
 | Practical workbench | `workbench.py`, `docs/WORKBENCH.md`, `tests/test_discovery_workbench.py` | CSV/JSON ingest, graph hypotheses, stability, plans, readiness, replay ledger |
+| Bounded plan execution | `workbench.py` executor layer, `cli.py` `workbench-execute`, `docs/WORKBENCH.md` | Executor protocol, callback/local executors, cost/failure/useful accounting, ledger-verified reports |
 | Owner runbook | `docs/RUNBOOK.md` | CPU/static reproduction and future hardware boundary |
 | Resource status | `docs/RESOURCE_STATUS.md` | Host capacity captured; no hardware qualification claimed |
 | Handoff | this file | Current scoped continuation package |
@@ -47,7 +48,7 @@ The existing `bramastra_lab/discovery` component is a direct precursor for Boole
 The following were run in the isolated worktree:
 
 - `python -m compileall -q discovery_gym`: passed.
-- `python -m pytest tests/test_discovery_gym.py tests/test_discovery_workbench.py -q --tb=short`: 20 passed.
+- `python -m pytest tests/test_discovery_gym.py tests/test_discovery_workbench.py -q --tb=short`: 21 passed.
 - `python -m discovery_gym dg0 --output C:\Users\ankit\AppData\Local\Temp\opencode\dg0-recovered-final --seed 1701 --worlds-per-split 6 --budget 8`: exit 0.
 - DG0 audit: PASS across generator/split integrity, public firewall, legality/cost accounting, independent recomputation, shortcut controls, and confirmation firewall.
 - Final smoke receipt SHA-256: `e3ee3ccd6c53f760df4dea6f5ec599651d94e2994f0bfc6f63f8301715f796ba`.
@@ -57,7 +58,8 @@ The following were run in the isolated worktree:
 - Smoke suite: 24 generated worlds, 192 episodes, eight policy identities; public transcripts contain zero `success`/evaluator-label fields.
 - Current transparent controls: information gain 16/24, no-experiment 17/24, uncertainty-seeking 17/24, and oracle 24/24. These are instrument diagnostics, not model evidence.
 - Existing BRAMASTRA discovery/environment/inquiry focused tests: 33 passed.
-- Workbench end-to-end checks: CSV/JSON/JSONL identity, duplicate-group splits, exact graph recovery, bootstrap stability, plan prioritization, readiness, inventory reconciliation, from-scratch mechanism fitting/cross-validation, majority/full-conditional/graph predictive benchmark, CLI fit/benchmark/session/result/replay, and tamper detection passed.
+- Workbench end-to-end checks: CSV/JSON/JSONL identity, duplicate-group splits, exact graph recovery, bootstrap stability, plan prioritization, readiness, inventory reconciliation, from-scratch mechanism fitting/cross-validation, majority/full-conditional/graph predictive benchmark, CLI fit/benchmark/session/execute/result/replay, executor success/failure/local-simulation accounting, and tamper detection passed.
+- Bounded execution check: `workbench-execute` on a 3-column fixture with `--budget 4 --max-recommendations 1` executed 1 recommendation for actual cost 1, skipped the remaining 2, and left a session with 1 ledger event and ledger status PASS.
 - Workbench smoke artifact: `C:\Users\ankit\AppData\Local\Temp\opencode\workbench-demo-recovered-plan.json`; audit PASS, graph hypothesis `c -> a`, `c -> b`, and four budgeted recommendations totaling cost `8`.
 - Host resource probe: Ryzen 7 170 (8C/16T), about 15.3 GiB RAM, about 180.3 GiB free on C:, RTX 4050 reported 4 GiB; none qualified or used.
 
@@ -73,7 +75,7 @@ The full repository test suite, external hardware qualification, accelerator tra
 - **Can the evaluator reproduce outcomes without model labels?** Yes. It re-evaluates accepted events from the hidden rule and target assignment; a forged evaluator-label field is detected in tests, and public submit feedback contains no success label.
 - **Are costs fair?** All attempted actions, including rejected/repeated actions, are charged and reported. A later model must add inference and training costs.
 - **What would falsify the central hypothesis?** A learned policy that cannot beat the strongest equal-cost transparent control on fresh worlds, or gains explained by shortcuts, memorization, leakage, or unequal budgets.
-- **What is the smallest missing external resource for the next stage?** Owner-supplied tabular fixtures and one external experiment executor/owner identity. The workbench can now ingest, analyze, plan, and replay those inputs without claiming causality; it cannot execute real interventions itself.
+- **What is the smallest missing external resource for the next stage?** Owner-supplied tabular fixtures and one external experiment executor/owner identity. The workbench can now ingest, analyze, plan, execute a bounded plan through a named executor, account for its cost and failures, and replay those inputs without claiming causality; the only bundled executor is a local mechanism simulator, so real interventions still require an outside owner.
 - **Does any output invite a broader claim than the evidence permits?** No. The strongest claim is deterministic DG0 instrument validity.
 
 ## Biggest blockers
@@ -86,7 +88,7 @@ The full repository test suite, external hardware qualification, accelerator tra
 
 ## Single next action for DG1
 
-Validate the practical workbench on one owner-supplied tabular fixture and one explicitly owned external experiment record using the `docs/ROADMAP_100X.md` scorecard: inspect the data, freeze the dataset identity, generate and challenge the graph hypothesis, execute only the approved highest-priority recommendation, append its actual result, replay the session, and report useful experiments per interaction, cost to target competence, recovery quality, and transfer. Then freeze a one-hypothesis DG1 learner protocol only after the workbench utility receipt is reviewed.
+Validate the practical workbench on one owner-supplied tabular fixture and one explicitly owned external experiment record using the `docs/ROADMAP_100X.md` scorecard: inspect the data, freeze the dataset identity, generate and challenge the graph hypothesis, execute only the approved highest-priority recommendation through a `CallbackExecutor` bound to the named owner, append its actual result, replay the session, and report useful experiments per interaction, cost to target competence, recovery quality, and transfer. Then freeze a one-hypothesis DG1 learner protocol only after the workbench utility receipt is reviewed.
 
 ## Claim ceiling
 

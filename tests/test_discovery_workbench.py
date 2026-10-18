@@ -8,15 +8,18 @@ import pytest
 from discovery_gym.baselines import TransparentLookaheadPolicy
 from discovery_gym.cli import main
 from discovery_gym.workbench import (
+    CallbackExecutor,
     DiscoverySession,
     EvidenceEvent,
     ExperimentPlan,
     GraphHypothesis,
+    LocalMechanismExecutor,
     TableDataset,
     benchmark_graph_discovery,
     build_workbench_report,
     cross_validate_mechanism,
     discover_graph,
+    execute_experiment_plan,
     fit_mechanism,
     graph_recovery_metrics,
     inventory_readiness,
@@ -157,6 +160,30 @@ def test_evidence_ledger_session_replay_and_tamper_detection(tmp_path: Path):
         EvidenceEvent.from_dict(events[0])
 
 
+def test_experiment_executor_accounts_for_success_failure_and_local_simulation():
+    dataset = _and_dataset()
+    graph = discover_graph(dataset)
+    plan = recommend_experiments(dataset, graph, stability=stability_report(dataset, graph, replicates=2), budget=4)
+    session = DiscoverySession.create(dataset, graph, plan)
+    success = CallbackExecutor(
+        "fixture-success/v1",
+        lambda recommendation, assignment: {"outcome": "observed", "useful": True, "cost": recommendation.cost},
+    )
+    report = execute_experiment_plan(session, success, budget=4, max_recommendations=1)
+    assert report["completed"] and report["useful_experiments"] == 1
+    assert report["actual_cost"] == 3
+    assert session.ledger.verify()["status"] == "PASS"
+    failure = CallbackExecutor("fixture-failure/v1", lambda recommendation, assignment: (_ for _ in ()).throw(RuntimeError("simulated failure")))
+    failure_session = DiscoverySession.create(dataset, graph, plan)
+    failure_report = execute_experiment_plan(failure_session, failure, budget=4, max_recommendations=1)
+    assert failure_report["failed"] and failure_report["completed"] == []
+    local = LocalMechanismExecutor(fit_mechanism(dataset, graph))
+    local_session = DiscoverySession.create(dataset, graph, plan)
+    local_report = execute_experiment_plan(local_session, local, budget=4, max_recommendations=1)
+    assert local_report["executor_id"] == "local-mechanism-simulator/v1"
+    assert local_report["actual_cost"] == 3
+
+
 def test_workbench_cli_writes_inspection_and_plan(tmp_path: Path, capsys):
     source = tmp_path / "input.csv"
     source.write_text("a,b,c\n0,0,0\n0,1,0\n1,0,0\n1,1,1\n", encoding="utf-8")
@@ -187,6 +214,11 @@ def test_workbench_cli_writes_inspection_and_plan(tmp_path: Path, capsys):
     updated_path = tmp_path / "session-updated.json"
     replay_path = tmp_path / "replay.json"
     assert main(["workbench-session", "--input", str(source), "--output", str(session_path), "--stability-replicates", "2"]) == 0
+    executed_path = tmp_path / "session-executed.json"
+    assert main(["workbench-execute", "--input", str(session_path), "--output", str(executed_path), "--budget", "4", "--max-recommendations", "1"]) == 0
+    executed_session = json.loads(executed_path.read_text())
+    assert len(executed_session["ledger"]["events"]) == 1
+    assert DiscoverySession.load(executed_path).report()["observed_events"] == 1
     session_payload = json.loads(session_path.read_text())
     recommendation = session_payload["plan"]["recommendations"][0]
     assignment = recommendation["values"][0] if recommendation["values"] else None

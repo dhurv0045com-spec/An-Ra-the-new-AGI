@@ -15,6 +15,7 @@ python -m discovery_gym workbench-plan --input data.csv --output plan.json --bud
 python -m discovery_gym workbench-fit --input data.csv --output mechanism.json
 python -m discovery_gym workbench-benchmark --input data.csv --output predictive-benchmark.json
 python -m discovery_gym workbench-session --input data.csv --output session.json
+python -m discovery_gym workbench-execute --input session.json --output session-ran.json --budget 4
 python -m discovery_gym workbench-result --input session.json --output session-next.json --recommendation rec-id --executor lab-1 --assignment 1 --outcome '"observed"' --cost 3
 python -m discovery_gym workbench-replay --input session-next.json
 ```
@@ -70,6 +71,25 @@ Recommendations are ranked by edge uncertainty, entropy, and downstream relevanc
 
 Each recommendation carries a stable ID, cost, target, values, rationale, and evidence. The plan carries dataset and graph hashes, an optional experiment budget, the selected planned cost, and its own content hash. `record_external_result()` validates that a result refers to a planned recommendation, uses an allowed intervention value, names its executor, and records the actual cost.
 
+## Executing a bounded plan
+
+`execute_experiment_plan` closes the loop between a frozen plan and an executor. It walks the plan in priority order, stops at the budget or `max_recommendations`, and records every outcome as a ledger event:
+
+```python
+from discovery_gym.workbench import LocalMechanismExecutor, execute_experiment_plan, fit_mechanism
+
+executor = LocalMechanismExecutor(fit_mechanism(dataset, graph))
+report = execute_experiment_plan(session, executor, budget=4, max_recommendations=2)
+```
+
+The report accounts for `attempted`, `completed`, `failed`, and `skipped` recommendations, the `actual_cost` and `remaining_budget`, the count of `useful_experiments`, and `useful_per_cost`, which is the unit the 100x roadmap measures. Failures are not silent: a raising executor costs its planned budget and appends an `execution_failure` event with the exception text, so a crashed run is still auditable evidence. Executor-reported costs below the planned cost are rejected.
+
+An executor is any object with a nonempty `identity` and an `execute(recommendation, assignment)` method. `CallbackExecutor` wraps a function for external owners; `LocalMechanismExecutor` simulates interventions against the fitted mechanism so the loop can be rehearsed offline. Only the callback path with a real owner produces external evidence; the local simulator carries an explicit claim boundary in its report.
+
+```text
+python -m discovery_gym workbench-execute --input session.json --output session-next.json --budget 4 --max-recommendations 2
+```
+
 ## Durable evidence
 
 `EvidenceLedger` is an append-only hash chain. `DiscoverySession` binds the dataset, graph, plan, and ledger into one replayable record. `verify()` detects deletion, insertion, reordering, and payload mutation. A session can be reloaded without rerunning discovery. The serialized session and dataset identities also have JSON schemas under `discovery_gym/schemas/`.
@@ -86,6 +106,6 @@ This layer provides immediate value for dataset triage and experiment design:
 
 ## Boundaries
 
-The workbench does not yet infer latent variables, nonlinear mechanisms, continuous-time dynamics, or unmeasured confounding. It does not execute real-world interventions. A recommendation becomes evidence only after an external executor records the intervention identity, assignment policy, outcome, cost, and provenance. Those records should be appended to a session and independently reviewed.
+The workbench does not yet infer latent variables, nonlinear mechanisms, continuous-time dynamics, or unmeasured confounding. `workbench-execute` only runs the bundled local simulator; it never touches real hardware. A recommendation becomes evidence only after an external executor records the intervention identity, assignment policy, outcome, cost, and provenance. Those records should be appended to a session and independently reviewed.
 
 The next practical upgrades are explicit measurement error modeling, continuous-variable modeling beyond explicit discretization, DAG equivalence-class reporting, and adapters that execute approved plans against real experiment owners. The current workbench is deliberately useful before it is autonomous: it tells an investigator what is known, what is fragile, what to measure next, and how to preserve the result.

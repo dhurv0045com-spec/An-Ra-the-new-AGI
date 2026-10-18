@@ -10,7 +10,7 @@ import json
 import math
 from pathlib import Path
 import random
-from typing import Any
+from typing import Any, Protocol
 
 from .contracts import content_hash
 from .receipts import write_json_exclusive
@@ -1268,6 +1268,144 @@ class DiscoverySession:
     @classmethod
     def load(cls, path: Path) -> "DiscoverySession":
         return cls.from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+class ExperimentExecutor(Protocol):
+    identity: str
+
+    def execute(self, recommendation: Recommendation, assignment: str | None) -> Mapping[str, Any]:
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class CallbackExecutor:
+    identity: str
+    callback: Any
+
+    def execute(self, recommendation: Recommendation, assignment: str | None) -> Mapping[str, Any]:
+        return dict(self.callback(recommendation, assignment))
+
+
+@dataclass(frozen=True, slots=True)
+class LocalMechanismExecutor:
+    mechanism: FittedMechanism
+
+    @property
+    def identity(self) -> str:
+        return "local-mechanism-simulator/v1"
+
+    def execute(self, recommendation: Recommendation, assignment: str | None) -> Mapping[str, Any]:
+        base = {column: str(self.mechanism.majority.get(column, 0)) for column in self.mechanism.columns}
+        if recommendation.kind == "randomized_intervention":
+            if assignment is None:
+                raise ValueError("randomized intervention requires an assignment")
+            base[recommendation.target] = assignment
+            outcomes = {
+                column: self.mechanism.predict(column, base)
+                for column in self.mechanism.columns
+            }
+            child = recommendation.evidence.get("child")
+            useful = isinstance(child, str) and outcomes.get(child) != self.mechanism.predict(child, {**base, recommendation.target: str(self.mechanism.majority.get(recommendation.target, 0))})
+            return {"outcome": outcomes, "useful": bool(useful), "kind": "local_mechanism_simulation"}
+        return {"outcome": "replicate_measurement", "useful": False, "kind": "local_mechanism_simulation"}
+
+
+def execute_experiment_plan(
+    session: DiscoverySession,
+    executor: ExperimentExecutor,
+    *,
+    budget: int | None = None,
+    max_recommendations: int | None = None,
+) -> dict[str, Any]:
+    if not isinstance(executor.identity, str) or not executor.identity:
+        raise ValueError("executor identity must be nonempty")
+    if budget is None:
+        budget = session.plan.budget if session.plan.budget is not None else session.plan.planned_cost
+    if budget < 0:
+        raise ValueError("budget must be nonnegative")
+    if max_recommendations is not None and max_recommendations < 0:
+        raise ValueError("max_recommendations must be nonnegative")
+    declared_boundary = getattr(executor, "claim_boundary", None)
+    if isinstance(declared_boundary, str) and declared_boundary:
+        claim_boundary = declared_boundary
+    elif executor.identity.startswith("local-"):
+        claim_boundary = "local execution accounting; a local simulator is not external causal evidence"
+    else:
+        claim_boundary = "execution accounting only; external results still require independent review before causal use"
+    completed_before = session.completed_recommendations()
+    attempted: list[str] = []
+    completed: list[str] = []
+    failed: list[dict[str, Any]] = []
+    skipped: list[str] = []
+    actual_cost = 0
+    useful = 0
+    remaining = budget
+    for recommendation in session.plan.recommendations:
+        if recommendation.recommendation_id in completed_before or recommendation.recommendation_id in completed:
+            skipped.append(recommendation.recommendation_id)
+            continue
+        if max_recommendations is not None and len(attempted) >= max_recommendations:
+            skipped.append(recommendation.recommendation_id)
+            continue
+        if remaining < recommendation.cost:
+            skipped.append(recommendation.recommendation_id)
+            continue
+        attempted.append(recommendation.recommendation_id)
+        assignment = recommendation.values[0] if recommendation.kind == "randomized_intervention" and recommendation.values else None
+        try:
+            raw = dict(executor.execute(recommendation, assignment))
+            outcome = raw.get("outcome")
+            cost = raw.get("cost", recommendation.cost)
+            if isinstance(cost, bool) or not isinstance(cost, int) or cost < recommendation.cost:
+                raise ValueError("executor cost is below the planned cost")
+            metadata = dict(raw.get("metadata", {}))
+            metadata["executor_kind"] = raw.get("kind", "external")
+            event = session.record_external_result(
+                recommendation.recommendation_id,
+                executor_id=executor.identity,
+                assignment=assignment,
+                outcome=outcome,
+                cost=cost,
+                metadata=metadata,
+            )
+            completed.append(recommendation.recommendation_id)
+            actual_cost += cost
+            remaining -= cost
+            if bool(raw.get("useful", False)):
+                useful += 1
+            if event is None:
+                raise RuntimeError("executor did not produce a recorded result")
+        except Exception as exc:
+            cost = recommendation.cost
+            session.record(
+                "execution_failure",
+                {
+                    "recommendation_id": recommendation.recommendation_id,
+                    "executor_id": executor.identity,
+                    "assignment": assignment,
+                    "cost": cost,
+                    "error": f"{type(exc).__name__}: {exc}",
+                },
+            )
+            failed.append({"recommendation_id": recommendation.recommendation_id, "error": f"{type(exc).__name__}: {exc}", "cost": cost})
+            actual_cost += cost
+            remaining -= cost
+    return {
+        "schema": "anra-discovery-gym/experiment-execution/v1",
+        "session_id": session.session_id,
+        "executor_id": executor.identity,
+        "budget": budget,
+        "actual_cost": actual_cost,
+        "remaining_budget": remaining,
+        "attempted": attempted,
+        "completed": completed,
+        "failed": failed,
+        "skipped": skipped,
+        "useful_experiments": useful,
+        "useful_per_cost": useful / actual_cost if actual_cost else None,
+        "ledger": session.ledger.verify(),
+        "claim_boundary": claim_boundary,
+    }
 
 
 def load_dataset(path: Path) -> TableDataset:

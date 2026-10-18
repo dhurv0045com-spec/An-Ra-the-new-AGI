@@ -20,6 +20,8 @@ from .workbench import (
     DiscoverySession,
     build_workbench_report,
     discover_graph,
+    LocalMechanismExecutor,
+    execute_experiment_plan,
     inventory_readiness,
     load_dataset,
     predictive_benchmark,
@@ -267,6 +269,31 @@ def run_predictive_benchmark(
     return result
 
 
+def run_workbench_execute(
+    input_path: Path,
+    output: Path,
+    *,
+    executor_name: str,
+    budget: int,
+    max_recommendations: int | None,
+) -> dict[str, Any]:
+    session = DiscoverySession.load(input_path)
+    if executor_name != "local-mechanism":
+        raise ValueError("the CLI currently supports only the local-mechanism executor")
+    graph = discover_graph(session.dataset, max_parents=session.graph.max_parents)
+    if graph.graph_sha256 != session.graph.graph_sha256:
+        raise ValueError("session graph no longer matches its dataset")
+    executor = LocalMechanismExecutor(fit_mechanism(session.dataset, session.graph))
+    report = execute_experiment_plan(
+        session,
+        executor,
+        budget=budget,
+        max_recommendations=max_recommendations,
+    )
+    session.save(output)
+    return {**report, "output": str(output)}
+
+
 def run_inventory(input_path: Path, output: Path | None) -> dict[str, Any]:
     payload = json.loads(input_path.read_text(encoding="utf-8"))
     receipts = payload.get("receipts", []) if isinstance(payload, dict) else payload
@@ -326,6 +353,12 @@ def main(argv: list[str] | None = None) -> int:
     result.add_argument("--assignment")
     result.add_argument("--outcome", required=True)
     result.add_argument("--cost", type=int, required=True)
+    execute = commands.add_parser("workbench-execute", help="execute a bounded plan with the local mechanism simulator")
+    execute.add_argument("--input", type=Path, required=True)
+    execute.add_argument("--output", type=Path, required=True)
+    execute.add_argument("--executor", choices=["local-mechanism"], default="local-mechanism")
+    execute.add_argument("--budget", type=int, default=8)
+    execute.add_argument("--max-recommendations", type=int)
     fit = commands.add_parser("workbench-fit", help="fit and cross-validate a from-scratch discrete mechanism")
     fit.add_argument("--input", type=Path, required=True)
     fit.add_argument("--output", type=Path)
@@ -373,6 +406,16 @@ def main(argv: list[str] | None = None) -> int:
             return 0 if result.get("audit", {}).get("status") == "PASS" else 1
         if args.command == "workbench-benchmark":
             result = run_predictive_benchmark(args.input, args.output, max_parents=args.max_parents, seed=args.seed)
+            print(json.dumps(result, sort_keys=True))
+            return 0
+        if args.command == "workbench-execute":
+            result = run_workbench_execute(
+                args.input,
+                args.output,
+                executor_name=args.executor,
+                budget=args.budget,
+                max_recommendations=args.max_recommendations,
+            )
             print(json.dumps(result, sort_keys=True))
             return 0
         if args.command == "workbench-fit":
