@@ -263,6 +263,10 @@ def main(argv: list[str] | None = None) -> None:
     run.add_argument("--root", type=Path, required=True)
     run.add_argument("--output", type=Path, required=True)
     run.add_argument("--resume", action="store_true")
+    cognitive = sub.add_parser("cognitive-demo")
+    cognitive.add_argument("--checkpoint-root", type=Path)
+    cognitive.add_argument("--checkpoint-sha256")
+    cognitive.add_argument("--output", type=Path, required=True)
     rescore = sub.add_parser("rescore")
     rescore.add_argument("--receipt", type=Path, required=True)
     args = parser.parse_args(command_line)
@@ -276,6 +280,15 @@ def main(argv: list[str] | None = None) -> None:
         write_receipt(args.output, benchmark_audit())
     elif args.mode == "audit-v3":
         write_receipt(args.output, graph_audit(args.surface))
+    elif args.mode == "cognitive-demo":
+        from .cognitive_demo import FixedPolicy, NeuralCore, run_demo
+        if (args.checkpoint_root is None) != (args.checkpoint_sha256 is None):
+            parser.error("checkpoint root and SHA-256 must be supplied together")
+        source = committed_source()
+        policy = (FixedPolicy() if args.checkpoint_root is None else
+                  NeuralCore(args.checkpoint_root, args.checkpoint_sha256))
+        write_receipt(args.output, {**run_demo(policy), "source_commit": source,
+                                   "command": command_line})
     else:
         receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
         family = "copy" if receipt["arm"] == "copy" else "binding"

@@ -1,0 +1,13 @@
+# Good-first learner scorecard
+
+## Frozen development screen
+
+Reuse the ELD-DEV-004 seed-7 two-read checkpoint at its original 384-update boundary. Hash weights before and after the episode batch. Run the same fixture with the fixed public-evidence policy and the frozen neural policy. Always record the policy origin, full raw operation tokens, episode status, request count, model calls and input positions.
+
+- **Route.** Four prior and target pairs from different original development root clusters. Each pair shares one reusable public directory edge. The prior target answer differs from the new target answer. Score the new target with no memory, admitted memory retrieved by a charged fixed policy, and irrelevant extra context of the same symbolic token count. Select the first eligible graph pairs deterministically by fixture order, before scoring model outputs.
+- **Revision.** Four independently authored worlds include conflicting sources, missing state and explicit null. The environment offers one query channel. Compare the public-evidence query control to actual model-origin actions. The natural-language display is rendered to a symbolic model prompt. Free-form language understanding is outside this fixture.
+- **Mechanics gate.** Fixed policy must solve all four memory-enabled route targets and all four revision episodes, and zero no-memory and extra-context route targets. Require deterministic trace replay, identity-bound admission, source/tick distinctions, verifier isolation at the interface, and clean handling of budget and invalid actions.
+- **Development model floor.** Require at least 3/4 correct in each family and at least two more correct route targets with memory than both no-memory and extra-context controls. All four cases per arm count, including wrong answers, invalid EOS and exhausted budgets. This tiny, same-family screen cannot certify learned action choice or transfer.
+- **Metacognition.** Record the model's emitted-token confidence and work. A joint token likelihood is an uncalibrated proxy. Defer Brier, AUROC and accuracy–cost claims until a prospectively sized action-learning dataset and calibrated baselines exist.
+
+Keep the checkpoint and truth immutable. The evaluator supplies memory admission IDs from public provenance, rather than truth values. The fixed prefetch operation is charged and marked fixed even on the neural run. Pass of the fixed mechanics gate qualifies the execution loop. Model scores and any unmet floors are reported separately. Cloud cognitive-action training requires a positive learned or independently validated supervised control and a frozen dataset spanning distinct worlds.
