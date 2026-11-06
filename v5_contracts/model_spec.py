@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass
 
 
@@ -59,8 +60,11 @@ class ModelSpec:
             self.ffn_width,
             self.context_length,
         )
-        if any(value <= 0 for value in integers):
-            raise ValueError("all dimensions must be positive")
+        if any(type(value) is not int or value <= 0 for value in integers):
+            raise ValueError("all dimensions must be positive integers")
+        for name, value in (("RoPE base", self.rope_base), ("normalization epsilon", self.norm_epsilon)):
+            if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be finite and positive")
         if self.width != self.query_heads * self.head_dimension:
             raise ValueError("width must equal query_heads * head_dimension")
         if self.query_heads % self.kv_heads:

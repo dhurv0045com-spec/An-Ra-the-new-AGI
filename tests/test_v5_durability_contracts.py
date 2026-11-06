@@ -2,9 +2,12 @@
 Run: python tests/test_v5_durability_contracts.py
 """
 import json
+import shutil
 import sys
 import tempfile
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -305,3 +308,32 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def test_mirror_refuses_corrupt_existing_destination_without_advancing(tmp_path):
+    store = CheckpointStore(tmp_path / "local", "m")
+    state = _state()
+    identity = store.publish(state=state, payloads=_payloads(state), expected_parent_sha256=None)
+    mirror_root = tmp_path / "mirror"
+    existing = mirror_root / "m" / identity
+    shutil.copytree(store.objects / identity, existing)
+    (existing / "model.bin").write_bytes(b"corrupt")
+    with pytest.raises(ValueError, match="mirrored component corrupt"):
+        mirror_checkpoint(store, mirror_root, checkpoint_sha256=identity)
+    assert read_mirror_pointer(mirror_root, lineage_id="m") is None
+    fresh = CheckpointStore(tmp_path / "fresh", "m")
+    with pytest.raises(ValueError, match="mirrored component corrupt"):
+        materialize_local(mirror_root, fresh, checkpoint_sha256=identity)
+    assert not (fresh.objects / identity).exists()
+    assert fresh.latest_sha256() is None
+
+
+def test_mirror_fails_on_explicit_invalid_identity(tmp_path):
+    store = CheckpointStore(tmp_path / "local", "m")
+    mirror = tmp_path / "mirror"
+    for identity in ("", "../other"):
+        with pytest.raises(ValueError, match="lowercase SHA-256"):
+            mirror_checkpoint(store, mirror, checkpoint_sha256=identity)
+        with pytest.raises(ValueError, match="lowercase SHA-256"):
+            materialize_local(mirror, store, checkpoint_sha256=identity)
+    assert not mirror.exists()

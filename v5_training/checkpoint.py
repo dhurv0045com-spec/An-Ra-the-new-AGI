@@ -72,13 +72,24 @@ class Component:
     byte_size: int
 
 
+def _validate_lineage_id(lineage_id: str) -> None:
+    if (not isinstance(lineage_id, str) or not lineage_id or lineage_id in (".", "..")
+            or lineage_id.endswith((".", " "))
+            or any(ord(char) < 32 or char in '<>:"/\\|?*' for char in lineage_id)
+            or PureWindowsPath(lineage_id).is_reserved()):
+        raise ValueError("lineage id must be a safe single path component")
+
+
+def _validate_checkpoint_sha(identity: str) -> None:
+    if not isinstance(identity, str) or len(identity) != 64 or any(
+        character not in "0123456789abcdef" for character in identity
+    ):
+        raise ValueError("checkpoint identity must be a lowercase SHA-256")
+
+
 class CheckpointStore:
     def __init__(self, root: Path, lineage_id: str) -> None:
-        if (not isinstance(lineage_id, str) or not lineage_id or lineage_id in (".", "..")
-                or lineage_id.endswith((".", " "))
-                or any(ord(char) < 32 or char in '<>:"/\\|?*' for char in lineage_id)
-                or PureWindowsPath(lineage_id).is_reserved()):
-            raise ValueError("lineage id must be a safe single path component")
+        _validate_lineage_id(lineage_id)
         self.root = root.resolve()
         self.lineage_id = lineage_id
         self.lineage_root = self.root / lineage_id
@@ -318,8 +329,7 @@ class CheckpointStore:
         identity = self.latest_sha256() if checkpoint_sha256 is None else checkpoint_sha256
         if identity is None:
             raise ValueError("no committed checkpoint exists")
-        if not isinstance(identity, str) or len(identity) != 64 or any(character not in "0123456789abcdef" for character in identity):
-            raise ValueError("checkpoint identity must be a lowercase SHA-256")
+        _validate_checkpoint_sha(identity)
         return self._verify_directory(self.objects / identity, expected_sha256=identity)
 
     def restore_distributed(

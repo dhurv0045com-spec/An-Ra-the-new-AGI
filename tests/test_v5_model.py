@@ -44,6 +44,16 @@ class ModelConfigTests(unittest.TestCase):
         self.assertEqual(config.width, 896)
 
 
+    def test_spec_rejects_nonintegral_dimensions_and_nonfinite_scalars(self) -> None:
+        for changes in ({"layers": True}, {"context_length": 64.0},
+                        {"norm_epsilon": 0}, {"rope_base": float("inf")}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                dataclasses.replace(V5A_250M, **changes).sha256()
+        for epsilon in (float("inf"), float("nan"), True):
+            with self.subTest(epsilon=epsilon), self.assertRaises(ValueError):
+                from_spec(V5A_250M, qk_norm_epsilon=epsilon)
+
+
 @unittest.skipIf(torch is None, "PyTorch is not installed")
 class ModelCoreTests(unittest.TestCase):
     def test_tiny_model_inventory_matches_spec_and_runs(self) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 from v5_contracts.model_spec import ModelSpec
 
@@ -32,8 +33,8 @@ def from_spec(spec: ModelSpec, *, qk_norm_epsilon: float) -> ModelConfig:
         raise ValueError("V5 accepts only bias-free, dropout-free, tied-embedding specs")
     if spec.head_dimension % 2:
         raise ValueError("V5 requires an even head dimension for pairwise RoPE")
-    if not qk_norm_epsilon > 0:
-        raise ValueError("QK normalization epsilon must be positive")
+    if type(qk_norm_epsilon) not in (int, float) or not isfinite(qk_norm_epsilon) or qk_norm_epsilon <= 0:
+        raise ValueError("QK normalization epsilon must be finite and positive")
     return ModelConfig(
         vocabulary_size=spec.vocabulary_size,
         width=spec.width,

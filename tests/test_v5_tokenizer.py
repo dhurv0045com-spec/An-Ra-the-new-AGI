@@ -84,5 +84,29 @@ class TokenizerTests(unittest.TestCase):
         self.assertGreater(float(report["unknown_rate"]), 0.0)
 
 
+    def test_backend_outputs_and_batch_size_are_strict(self) -> None:
+        backend = _Backend({"hello": 10})
+        tokenizer = FrozenTokenizer(identity=_identity(), backend=backend)
+        for malformed in (2.5, "2", True):
+            backend.encode = lambda _text, value=malformed: [value]
+            with self.assertRaisesRegex(ValueError, "integer"):
+                tokenizer.encode("hello")
+            with self.assertRaisesRegex(ValueError, "integer"):
+                tokenizer.decode([malformed])
+        backend.encode_batch = lambda _texts: [[10]]
+        with self.assertRaisesRegex(ValueError, "wrong number"):
+            tokenizer.encode_batch(["hello", "hello"])
+        backend.decode = lambda _ids: None
+        with self.assertRaisesRegex(ValueError, "non-string"):
+            tokenizer.decode([10])
+
+    def test_tokenizer_defensively_snapshots_special_ids(self) -> None:
+        identity = _identity()
+        tokenizer = FrozenTokenizer(identity=identity, backend=_Backend({"hello": 10}))
+        identity.special_token_ids["bos"] = 10
+        tokenizer.identity.special_token_ids["eos"] = 11
+        self.assertEqual(tokenizer.segment([10]), [2, 10, 3])
+
+
 if __name__ == "__main__":
     unittest.main()

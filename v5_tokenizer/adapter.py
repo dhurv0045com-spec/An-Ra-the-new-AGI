@@ -9,8 +9,9 @@ hash, a corpus-manifest hash, a passing round-trip probe, and zero unknowns.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Mapping
+from dataclasses import dataclass, replace
+from operator import index
+from typing import Any, Iterable, Mapping
 
 from v5_contracts.data_spec import TokenizerReceipt
 from v5_contracts.lineage import ArtifactIdentity
@@ -81,12 +82,12 @@ class FrozenTokenizer:
             getattr(backend, "decode", None)
         ):
             raise ValueError("backend must expose encode(text) and decode(ids)")
-        self._identity = identity
+        self._identity = replace(identity, special_token_ids=dict(identity.special_token_ids))
         self._backend = backend
 
     @property
     def identity(self) -> TokenizerIdentity:
-        return self._identity
+        return replace(self._identity, special_token_ids=dict(self._identity.special_token_ids))
 
     @property
     def vocabulary_size(self) -> int:
@@ -99,23 +100,36 @@ class FrozenTokenizer:
     def encode_batch(self, texts: list[str]) -> list[list[int]]:
         """Batch-encode with identical validation semantics per text."""
 
-        if hasattr(self._backend, "encode_batch"):
-            return [self._checked(produced) for produced in self._backend.encode_batch(texts)]
+        if callable(encode_batch := getattr(self._backend, "encode_batch", None)):
+            batch = list(encode_batch(texts))
+            if len(batch) != len(texts):
+                raise ValueError("backend returned the wrong number of tokenized rows")
+            return [self._checked(produced) for produced in batch]
         return [self.encode(text) for text in texts]
 
     def _checked(self, produced: Any) -> list[int]:
-        raw = list(produced.ids) if hasattr(produced, "ids") else list(produced)
-        ids = [int(token) for token in raw]
-        for token in ids:
+        raw = produced.ids if hasattr(produced, "ids") else produced
+        return self._checked_ids(raw)
+
+    def _checked_ids(self, raw: Iterable[object]) -> list[int]:
+        ids = []
+        for value in raw:
+            if isinstance(value, bool):
+                raise ValueError("token ID must be an integer")
+            try:
+                token = index(value)
+            except TypeError as exc:
+                raise ValueError("token ID must be an integer") from exc
             if not 0 <= token < self._identity.vocabulary_size:
-                raise ValueError("backend emitted an out-of-vocabulary id")
+                raise ValueError("token ID is out-of-vocabulary")
+            ids.append(token)
         return ids
 
     def decode(self, ids: list[int]) -> str:
-        for token in ids:
-            if not 0 <= token < self._identity.vocabulary_size:
-                raise ValueError("cannot decode an out-of-vocabulary id")
-        return str(self._backend.decode(list(ids)))
+        text = self._backend.decode(self._checked_ids(ids))
+        if not isinstance(text, str):
+            raise ValueError("backend decoded a non-string result")
+        return text
 
     def audit(self, texts: list[str]) -> dict[str, object]:
         """Encode a probe corpus; report round-trip and unknown statistics."""
@@ -142,12 +156,11 @@ class FrozenTokenizer:
         """Wrap content IDs as a BOS-content-EOS training segment."""
 
         specials = self._identity.special_token_ids
-        for token in token_ids:
-            if not 0 <= token < self._identity.vocabulary_size:
-                raise ValueError("cannot segment an out-of-vocabulary id")
+        content = self._checked_ids(token_ids)
+        for token in content:
             if token in (specials["pad"], specials["bos"], specials["eos"]):
                 raise ValueError("content must not carry boundary markers")
-        return [specials["bos"], *token_ids, specials["eos"]]
+        return [specials["bos"], *content, specials["eos"]]
 
 
 __all__ = [
