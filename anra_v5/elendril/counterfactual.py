@@ -30,6 +30,7 @@ METHODS = {
     "capacity-matched": Method("paired", 0.5, "matched"),
     "lexical-only": Method("paired", 0.5, "lexical"),
     "context-only": Method("paired", 0.5, "context"),
+    "two-read": Method("paired", 0.5, "two-read"),
 }
 
 

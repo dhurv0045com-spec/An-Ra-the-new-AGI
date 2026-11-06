@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, replace
 from hashlib import sha256
 import io
+import os
 from pathlib import Path
 import platform
 import random
@@ -30,24 +31,46 @@ MODEL = replace(V5A_250M, vocabulary_size=VOCAB_SIZE, width=48, layers=2,
 BATCH_SIZE = 16
 LR = 0.003
 CLIP_NORM = 1.0
-MAX_STEPS = 400
+MAX_STEPS = 640
+PROFILES = {"micro": MODEL,
+            "expanded": replace(MODEL, width=128, layers=4, query_heads=4, kv_heads=2,
+                                head_dimension=32, ffn_width=256, context_length=64)}
+PROFILE_STEP_LIMIT = {"micro": MAX_STEPS, "expanded": 1536}
 SCHEDULE = {"kind": "constant", "lr": LR, "clip_norm": CLIP_NORM}
 SAMPLER = {"kind": "sample-without-replacement-per-update", "batch_size": BATCH_SIZE,
            "seed": "SHA256 of run seed and zero-based update"}
 
 
-def runtime_identity() -> dict:
-    return {"torch": str(torch.__version__), "python": platform.python_version(),
+def runtime_identity(device: torch.device | None = None) -> dict:
+    identity = {"torch": str(torch.__version__), "python": platform.python_version(),
             "platform": platform.platform(), "machine": platform.machine(),
             "cpu_capability": torch.backends.cpu.get_cpu_capability(),
             "intraop_threads": torch.get_num_threads(), "dtype": str(torch.get_default_dtype()),
             "deterministic": torch.are_deterministic_algorithms_enabled()}
+    if device is not None and device.type == "cuda":
+        identity["cuda"] = {"runtime": torch.version.cuda, "device": torch.cuda.get_device_name(device),
+                            "capability": torch.cuda.get_device_capability(device),
+                            "cublas_workspace": os.environ.get("CUBLAS_WORKSPACE_CONFIG")}
+    return identity
 
 
 def configure_cpu() -> None:
     torch.set_num_threads(1)
     torch.set_default_dtype(torch.float32)
     torch.use_deterministic_algorithms(True)
+
+
+def configure_device(name: str) -> torch.device:
+    configure_cpu()
+    device = torch.device(name)
+    if device.type == "cuda":
+        if os.environ.get("CUBLAS_WORKSPACE_CONFIG") not in (":4096:8", ":16:8"):
+            raise ValueError("set CUBLAS_WORKSPACE_CONFIG before starting the CUDA process")
+        if not torch.cuda.is_available():
+            raise ValueError("CUDA runtime and visible device are required")
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+    return device
 
 
 def data_sha(rows: Sequence[Example]) -> str:
@@ -60,18 +83,21 @@ def serialize(row: Example) -> tuple[tuple[int, ...], tuple[bool, ...]]:
     return prompt + answer, (False,) * len(prompt) + (True,) * len(answer)
 
 
-def batch_tensors(samples: Sequence[tuple[tuple[int, ...], tuple[bool, ...]]]) -> tuple:
+def batch_tensors(samples: Sequence[tuple[tuple[int, ...], tuple[bool, ...]]],
+                  device: torch.device | str = "cpu") -> tuple:
     length = max(len(tokens) for tokens, _ in samples)
     padding = [length - len(tokens) for tokens, _ in samples]
-    tokens = torch.tensor([ids + (PAD,) * n for (ids, _), n in zip(samples, padding)], device="cpu")
+    tokens = torch.tensor([ids + (PAD,) * n for (ids, _), n in zip(samples, padding)], device=device)
     segments = torch.tensor([(0,) * len(ids) + (-1,) * n
-                             for (ids, _), n in zip(samples, padding)], device="cpu")
-    eligible = torch.tensor([mask + (False,) * n for (_, mask), n in zip(samples, padding)], device="cpu")
+                             for (ids, _), n in zip(samples, padding)], device=device)
+    eligible = torch.tensor([mask + (False,) * n for (_, mask), n in zip(samples, padding)], device=device)
     return tokens, segments, eligible
 
 
-def logits_for(model, tokens: torch.Tensor, segments: torch.Tensor) -> torch.Tensor:
+def logits_for(model, tokens: torch.Tensor, segments: torch.Tensor, *, remove_second_read=False) -> torch.Tensor:
     positions, mask = packed_layout(segments, torch_module=torch)
+    if remove_second_read:
+        return model(tokens, positions, mask, remove_second_read=True)
     return model(tokens, positions, mask)
 
 
@@ -89,11 +115,17 @@ class Trainer:
     """One CPU writer and an index-addressed sampler. Restore creates a fresh instance."""
 
     def __init__(self, rows: Sequence[Example], *, seed: int, steps: int,
-                 root: Path, lineage: str, source_commit: str, resume: bool = False, method: str = "reference"):
+                 root: Path, lineage: str, source_commit: str, resume: bool = False, method: str = "reference",
+                 profile: str = "micro", device: torch.device | str = "cpu"):
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", lineage) is None:
             raise ValueError("lineage must be a safe checkpoint directory name")
-        if type(steps) is not int or not 1 <= steps <= MAX_STEPS:
-            raise ValueError(f"steps must be between 1 and {MAX_STEPS}")
+        if profile not in PROFILES:
+            raise ValueError("unknown model profile")
+        self.spec = PROFILES[profile]
+        self.device = torch.device(device)
+        limit = PROFILE_STEP_LIMIT[profile]
+        if type(steps) is not int or not 1 <= steps <= limit:
+            raise ValueError(f"steps must be between 1 and {limit}")
         if type(seed) is not int or not 0 <= seed < 2**32:
             raise ValueError("seed must be an unsigned 32-bit integer")
         if (torch.get_num_threads() != 1 or not torch.are_deterministic_algorithms_enabled()
@@ -113,11 +145,11 @@ class Trainer:
             raise ValueError("counterfactual budgets must contain complete exposure blocks")
         self.samples = tuple(serialize(row) for row in rows)
         lengths = {len(ids) - 1 for ids, _ in self.samples}  # All non-BOS, non-padding tokens.
-        if len(lengths) != 1 or max(lengths) >= MODEL.context_length:
+        if len(lengths) != 1 or max(lengths) >= self.spec.context_length:
             raise ValueError("reference updates require equal unpadded sequence lengths within context")
         self.seed = seed
-        self.model = initialize(MODEL, seed).cpu().float()
-        model_sha = MODEL.sha256()
+        self.model = initialize(self.spec, seed).cpu().float()
+        model_sha = self.spec.sha256()
         architecture = self.method.architecture
         if architecture == "matched":
             self.model = DenseCapacityControl(self.model, seed)
@@ -125,11 +157,12 @@ class Trainer:
         elif architecture != "dense":
             self.model = AssociativeDecoder(self.model, seed, mode=architecture)
             model_sha = digest([model_sha, "associative-copy-v2", architecture, WINDOW, ADDRESS_WIDTH])
+        self.model = self.model.to(self.device)
         self.optimizer = build_adamw_optimizer(self.model, lr=LR)
         self.rng = torch.Generator(device="cpu").manual_seed(seed)
         identity = data_sha(rows)
         tokens_per_update = BATCH_SIZE * lengths.pop()
-        run_spec = {"seed": seed, "steps": steps, "runtime": runtime_identity()}
+        run_spec = {"seed": seed, "steps": steps, "runtime": runtime_identity(self.device)}
         sampler = SAMPLER
         if self.batches is not None:
             run_spec["method"] = method_identity(self.method)
@@ -200,7 +233,7 @@ class Trainer:
         self.faulted = True
         self.model.train()
         indices = self.sample_indices()
-        tokens, segments, eligible = batch_tensors([self.samples[index] for index in indices])
+        tokens, segments, eligible = batch_tensors([self.samples[index] for index in indices], self.device)
         self.optimizer.zero_grad(set_to_none=True)
         with torch.random.fork_rng(devices=[]):
             torch.set_rng_state(self.rng.get_state())
@@ -210,7 +243,7 @@ class Trainer:
             contrast = None
             objective = loss
             if self.method.contrast_weight:
-                targets = torch.tensor([self.batches.targets[index] for index in indices], device="cpu")
+                targets = torch.tensor([self.batches.targets[index] for index in indices], device=self.device)
                 contrast = answer_contrast(logits, eligible, targets)
                 objective = loss + self.method.contrast_weight * contrast
             if not torch.isfinite(logits).all() or not torch.isfinite(objective):
@@ -268,21 +301,25 @@ class Trainer:
 
 
 @torch.inference_mode()
-def generate(model, prompts: Sequence[tuple[str, str]], *, max_new_tokens: int) -> tuple[tuple[Prediction, ...], dict]:
+def generate(model, prompts: Sequence[tuple[str, str]], *, max_new_tokens: int, remove_second_read: bool = False) -> tuple[tuple[Prediction, ...], dict]:
     """Greedy autoregression from prompt strings only, with a per-row context bound."""
-    if not 1 <= max_new_tokens <= MODEL.context_length or not prompts:
+    config = getattr(getattr(model, "core", model), "config", MODEL)
+    context_length = config.context_length
+    parameter = next(model.parameters(), None)
+    device = parameter.device if parameter is not None else "cpu"
+    if not 1 <= max_new_tokens <= context_length or not prompts:
         raise ValueError("generation requires prompts and a positive bounded token limit")
     model.eval()
     predictions = []
     forwards = evaluated_positions = 0
     for task_id, prompt in prompts:
         ids = [BOS, *encode(prompt)]
-        if len(ids) + max_new_tokens - 1 > MODEL.context_length:
+        if len(ids) + max_new_tokens - 1 > context_length:
             raise ValueError("generation exceeds native context")
         generated = []
         for _ in range(max_new_tokens):
-            tokens = torch.tensor([ids], device="cpu")
-            logits = logits_for(model, tokens, torch.zeros_like(tokens))
+            tokens = torch.tensor([ids], device=device)
+            logits = logits_for(model, tokens, torch.zeros_like(tokens), remove_second_read=remove_second_read)
             if not torch.isfinite(logits[0, -1]).all():
                 raise FloatingPointError("nonfinite inference logits")
             token = int(logits[0, -1].argmax())

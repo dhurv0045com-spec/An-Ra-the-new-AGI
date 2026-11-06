@@ -15,9 +15,9 @@ ADDRESS_WIDTH = 16
 class AssociativeDecoder(nn.Module):
     """Add a learned read gate over token-addressable positions to the dense decoder."""
 
-    def __init__(self, core: nn.Module, seed: int, *, mode: Literal["hybrid", "lexical", "context"] = "hybrid"):
+    def __init__(self, core: nn.Module, seed: int, *, mode: Literal["hybrid", "lexical", "context", "two-read"] = "hybrid"):
         super().__init__()
-        if mode not in ("hybrid", "lexical", "context"):
+        if mode not in ("hybrid", "lexical", "context", "two-read"):
             raise ValueError("unknown associative addressing mode")
         self.core = core
         self.mode = mode
@@ -33,6 +33,9 @@ class AssociativeDecoder(nn.Module):
         nn.init.constant_(self.read_gate.bias, -2)
         if mode != "context":
             self.lexical_weights = nn.Parameter(torch.zeros(WINDOW, WINDOW))
+        if mode == "two-read":
+            self.join_offsets = nn.Parameter(torch.zeros(WINDOW))
+            self.join_strength = nn.Parameter(torch.tensor(2.0))
 
     def _lexical_scores(self, tokens: torch.Tensor, positions: torch.Tensor) -> torch.Tensor:
         padded = F.pad(tokens, (WINDOW - 1, 0))
@@ -42,7 +45,28 @@ class AssociativeDecoder(nn.Module):
         valid_pairs = valid[:, :, None, :, None] & valid[:, None, :, None, :]
         return ((lexical & valid_pairs) * self.lexical_weights).sum(dim=(-2, -1))
 
-    def forward(self, tokens: torch.Tensor, positions: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def _copy(affinity: torch.Tensor, allowed: torch.Tensor,
+              tokens: torch.Tensor, base: torch.Tensor) -> torch.Tensor:
+        affinity = affinity.masked_fill(~allowed, torch.finfo(affinity.dtype).min)
+        attention = affinity.softmax(dim=-1).masked_fill(~allowed, 0)
+        source_ids = tokens[:, None, :].expand_as(attention)
+        return torch.zeros_like(base).scatter_add(-1, source_ids, attention)
+
+    def _join_scores(self, first: torch.Tensor, tokens: torch.Tensor,
+                     positions: torch.Tensor) -> torch.Tensor:
+        windows = F.pad(tokens, (WINDOW - 1, 0)).unfold(1, WINDOW, 1).flip(-1)
+        weights = self.join_offsets.softmax(dim=0)
+        scores = torch.zeros((*first.shape[:2], tokens.size(1)), dtype=first.dtype, device=first.device)
+        for offset in range(WINDOW):
+            symbols = windows[:, :, offset]
+            valid = (positions >= offset) & (symbols >= 3)
+            indices = symbols[:, None, :].expand(-1, first.size(1), -1)
+            scores = scores + weights[offset] * first.gather(-1, indices) * valid[:, None, :]
+        return F.softplus(self.join_strength) * torch.log1p(10 * scores)
+
+    def forward(self, tokens: torch.Tensor, positions: torch.Tensor, mask: torch.Tensor,
+                *, remove_second_read: bool = False) -> torch.Tensor:
         hidden = self.core.forward_hidden(tokens, positions, mask)
         base = F.linear(hidden, self.core.embedding.weight).log_softmax(dim=-1)
         context = torch.arange(tokens.size(1), device=tokens.device)
@@ -50,14 +74,15 @@ class AssociativeDecoder(nn.Module):
         if self.mode == "lexical":
             affinity = self._lexical_scores(tokens, positions)
         else:
-            affinity = self.address_query(hidden) @ self.address_key(hidden).transpose(-1, -2)
-            affinity = affinity / math.sqrt(ADDRESS_WIDTH)
-            if self.mode == "hybrid":
+            contextual = self.address_query(hidden) @ self.address_key(hidden).transpose(-1, -2)
+            contextual = contextual / math.sqrt(ADDRESS_WIDTH)
+            affinity = contextual
+            if self.mode in ("hybrid", "two-read"):
                 affinity = affinity + self._lexical_scores(tokens, positions)
-        affinity = affinity.masked_fill(~allowed, torch.finfo(affinity.dtype).min)
-        attention = affinity.softmax(dim=-1).masked_fill(~allowed, 0)
-        source_ids = tokens[:, None, :].expand_as(attention)
-        copied = torch.zeros_like(base).scatter_add(-1, source_ids, attention)
+        copied = self._copy(affinity, allowed, tokens, base)
+        if self.mode == "two-read" and not remove_second_read:
+            copied = self._copy(contextual + self._join_scores(copied, tokens, positions),
+                                allowed, tokens, base)
         gate = self.read_gate(hidden)
         # Finite log scores protect backward at vocabulary positions with zero copy mass.
         mixture = torch.logaddexp(
