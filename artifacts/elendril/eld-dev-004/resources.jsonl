@@ -1,0 +1,12 @@
+{"run": "capacity-matched-7", "elapsed_seconds": 18.48499999998603, "peak_rss_bytes": 309886976, "minimum_available_bytes": 7102345216, "exit": 0, "stop": null}
+{"run": "associative-7", "elapsed_seconds": 18.79599999997299, "peak_rss_bytes": 311500800, "minimum_available_bytes": 7115878400, "exit": 0, "stop": null}
+{"run": "context-only-7", "elapsed_seconds": 16.95300000003772, "peak_rss_bytes": 310124544, "minimum_available_bytes": 7087366144, "exit": 0, "stop": null}
+{"run": "two-read-7", "elapsed_seconds": 19.82799999997951, "peak_rss_bytes": 311365632, "minimum_available_bytes": 7338262528, "exit": 0, "stop": null}
+{"run": "capacity-matched-19", "elapsed_seconds": 20.60999999998603, "peak_rss_bytes": 309284864, "minimum_available_bytes": 7052345344, "exit": 0, "stop": null}
+{"run": "associative-19", "elapsed_seconds": 18.264999999955762, "peak_rss_bytes": 311025664, "minimum_available_bytes": 7370653696, "exit": 0, "stop": null}
+{"run": "context-only-19", "elapsed_seconds": 16.42200000002049, "peak_rss_bytes": 311287808, "minimum_available_bytes": 7336669184, "exit": 0, "stop": null}
+{"run": "two-read-19", "elapsed_seconds": 19.82799999997951, "peak_rss_bytes": 312434688, "minimum_available_bytes": 7383207936, "exit": 0, "stop": null}
+{"run": "capacity-matched-41", "elapsed_seconds": 20.389999999955762, "peak_rss_bytes": 309964800, "minimum_available_bytes": 7070138368, "exit": 0, "stop": null}
+{"run": "associative-41", "elapsed_seconds": 20.35999999998603, "peak_rss_bytes": 311238656, "minimum_available_bytes": 6875271168, "exit": 0, "stop": null}
+{"run": "context-only-41", "elapsed_seconds": 18.04699999996228, "peak_rss_bytes": 310112256, "minimum_available_bytes": 6908518400, "exit": 0, "stop": null}
+{"run": "two-read-41", "elapsed_seconds": 20.375, "peak_rss_bytes": 312438784, "minimum_available_bytes": 7158865920, "exit": 0, "stop": null}

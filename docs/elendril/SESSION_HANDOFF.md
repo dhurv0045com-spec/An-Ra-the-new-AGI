@@ -1,4 +1,6 @@
-# Elendril first-session handoff
+# Elendril research handoff
+
+**V2.** See the [current state](CURRENT_STATE.md), [engineering audit](ENGINEERING_AUDIT_V2.md), [ELD-DEV-004 results and replay](ELD_DEV_004_RESULTS.md), and [T4 operator budget](HARDWARE_INVENTORY_AND_BUDGET.md). Use the source named in each receipt when restoring its checkpoint. The historical first-session material follows.
 
 **Current branch experiment.** See the [capacity-matched relational comparison](RELATIONAL_RESULTS.md). The hybrid read head passed the ELD-DEV-003 formation and stress gates. The original two-fact follow-up remains documented below.
 
