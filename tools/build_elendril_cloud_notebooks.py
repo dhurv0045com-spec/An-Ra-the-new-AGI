@@ -30,6 +30,8 @@ The 315-minute training and 30-minute export caps are targets. Two subprocess la
              "The larger cloud profile repeats the screen arms on a structurally disjoint development partition and includes dense-intermediate recurrence for a sparse/dense comparison. It requires a complete matched screening result, independent rescore, a prespecified effect gate and explicit owner review.")
     yield "markdown", f"""# {heading}
 
+**V3 graph portfolio preserved during V4.** The integrated cognitive learner has a separate acceptance gate. Keep this campaign disabled unless the owner separately reopens the graph-only portfolio. This operator does not train or qualify cognitive action selection.
+
 **Questions.** Which representation change improves unfamiliar symbols and punctuation? Can weight-shared recurrence extend depth while retaining the base join? Do sparse intermediates preserve behavior and reduce measured cost? These are public development studies with matched seeded controls.
 
 {plans}
@@ -186,7 +188,7 @@ else:
 - **GO for campaign** only after every lane passes a new-process continuation check, the fixture audit matches its frozen hashes and the forecast can admit the next complete rung. Kaggle additionally requires a qualified and owner-reviewed Colab screen.
 - **NO-GO** on a source, runtime, GPU count, readback, fixture, learning or budget mismatch. Retrieve failed logs and return the compact bundle. Do not override the guards.
 - Resume from verified `COMMITTED.json` boundaries using the same run identity and compatible pinned runtime. Incomplete staging data never constitutes a checkpoint. Published resume outputs and compact results are separate. The bundle contains hashes and raw receipts, while resume needs the full `arms/` tree. Keep every published version used by a resumed campaign.
-- Results remain public development evidence. The independent replication generator does not authorize sealed or confirmatory promotion. Human review and independent held-out evidence are required for any promotion.
+- Results remain public development evidence. The same-generator, topology-disjoint replication partition does not authorize sealed or confirmatory promotion. Human review and independent held-out evidence are required for any promotion.
 """
 
 
