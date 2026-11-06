@@ -1,5 +1,7 @@
 # Next experiment decision
 
+**Update after ELD-DEV-003.** The capacity-matched and component comparisons below are complete. The hybrid read head passed direct retrieval on new value triples, unseen key symbols, and distractor shifts under the registered development thresholds. The next experiment is a two-hop join with independently generated chains, an explicit second causal read, and matched single-read and dense controls. [Results](RELATIONAL_RESULTS.md).
+
 **Update after ELD-DEV-002.** The paired-sampling comparison below has been executed. The clean associative model passed on the original two-fact surface and showed uneven robustness to aliases and distractors. The next study should preregister a capacity-matched dense comparator and lexical-relation/copy-gate ablations on a larger generator with disjoint latent worlds, variable distractor counts and independent key/separator aliases. Measure exact + EOS and paired query accuracy by world and cost. Keep staged transfer gated on separately qualified skills. See the [executed comparison](ASSOCIATIVE_RESULTS.md).
 
 ## Historical decision before ELD-DEV-002
