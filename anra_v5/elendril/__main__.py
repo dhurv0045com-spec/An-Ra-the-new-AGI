@@ -11,8 +11,10 @@ import subprocess
 import tempfile
 import time
 
-from .benchmark import FAMILIES, POLICIES, corrupt_binding, fixture, shortcut
+from .benchmark import (BINDING_PANELS, FAMILIES, POLICIES, binding_panel,
+                        binding_panel_prompts, corrupt_binding, fixture, shortcut)
 from .codec import CODEC_SHA, Prediction, answer_tokens, canonical, digest
+from .counterfactual import METHODS
 from .scoring import score
 
 
@@ -63,7 +65,7 @@ def committed_source() -> str:
 
 
 def pilot(args) -> dict:
-    from .training import MODEL, configure_cpu, data_sha, generate, runtime_identity, Trainer
+    from .training import configure_cpu, data_sha, generate, runtime_identity, Trainer
 
     if args.output.exists() or not args.output.parent.is_dir():
         raise ValueError("output must be a new file inside an existing directory")
@@ -74,14 +76,19 @@ def pilot(args) -> dict:
     started = time.perf_counter()
     cpu_started = time.process_time()
     family = "copy" if args.arm == "copy" else "binding"
+    if family != "binding" and args.method != "reference":
+        raise ValueError("counterfactual methods require binding")
     train = fixture(family, "train")
     corruption_seed = args.seed + 100_000
     if args.arm == "binding-permuted":
         train = corrupt_binding(train, corruption_seed)
     dev = fixture(family, "development")
     prompts = tuple((row.visible.task_id, row.visible.prompt) for row in dev)
+    lineage = f"{args.arm}-{args.seed}"
+    if args.method != "reference":
+        lineage = f"{args.method}-{lineage}"
     trainer = Trainer(train, seed=args.seed, steps=args.steps, root=args.root,
-                      lineage=f"{args.arm}-{args.seed}", source_commit=source, resume=args.resume)
+                      lineage=lineage, source_commit=source, resume=args.resume, method=args.method)
     start = trainer.state.global_update
     if start > args.until:
         raise ValueError("checkpoint is beyond the requested stop")
@@ -90,30 +97,42 @@ def pilot(args) -> dict:
     evaluations = []
     updates = []
 
-    def evaluate() -> None:
+    def evaluate(rows, visible_prompts) -> dict:
         begin = time.perf_counter()
-        predictions, cost = generate(trainer.model, prompts, max_new_tokens=max_new)
+        predictions, cost = generate(trainer.model, visible_prompts, max_new_tokens=max_new)
         raw = [asdict(item) for item in predictions]
-        evaluations.append({
+        return {
             "update": trainer.state.global_update, "checkpoint_sha256": trainer.parent,
             "inference": {**cost, "wall_seconds": time.perf_counter() - begin,
                           "emitted_tokens": sum(len(item.tokens) for item in predictions)},
-            "predictions": raw, "predictions_sha256": digest(raw), "metrics": score(dev, predictions),
-        })
+            "predictions": raw, "predictions_sha256": digest(raw), "metrics": score(rows, predictions),
+        }
 
-    evaluate()
+    evaluations.append(evaluate(dev, prompts))
     while trainer.state.global_update < args.until:
         updates.append(trainer.step())
         step = trainer.state.global_update
-        if step in (50, 150) or step == args.until:
+        scheduled = step in (50, 150) if args.method == "reference" else step % 84 == 0
+        if scheduled or step == args.until:
             trainer.save()
-            evaluate()
+            evaluations.append(evaluate(dev, prompts))
+    panels = {}
+    if args.method != "reference" and trainer.state.complete:
+        for name in BINDING_PANELS:
+            rows = binding_panel(name)
+            visible_prompts = binding_panel_prompts(name, rows)
+            panels[name] = {
+                **evaluate(rows, visible_prompts),
+                "fixture_sha256": digest([asdict(row) for row in rows]),
+                "model_prompts_sha256": digest(visible_prompts),
+            }
     return {
         "schema": "elendril-development-pilot/v1", "source_commit": source,
         "command": ["python", "-m", "anra_v5.elendril", *args.command_line],
         "arm": args.arm, "seed": args.seed, "corruption_seed": corruption_seed if family == "binding"
         and args.arm == "binding-permuted" else None,
-        "environment": runtime_identity(), "model_parameters": MODEL.parameter_receipt().total,
+        "method": args.method, "lineage": lineage,
+        "environment": runtime_identity(), "model_parameters": sum(p.numel() for p in trainer.model.parameters()),
         "identity": trainer.state.identities.canonical(), "codec_sha256": CODEC_SHA,
         "training_sha256": data_sha(train), "development_sha256": digest([asdict(row) for row in dev]),
         "benchmark_source_sha256": sha256(Path(__file__).with_name("benchmark.py").read_bytes()).hexdigest(),
@@ -122,7 +141,7 @@ def pilot(args) -> dict:
         "wall_seconds": time.perf_counter() - started, "process_cpu_seconds": time.process_time() - cpu_started,
         "stop_reason": "frozen_update_budget" if trainer.state.complete else "requested_boundary",
         "status": "completed" if trainer.state.complete else "partial", "updates": updates,
-        "evaluations": evaluations,
+        "evaluations": evaluations, "panels": panels,
     }
 
 
@@ -136,6 +155,7 @@ def main(argv: list[str] | None = None) -> None:
     audit.add_argument("--output", type=Path, required=True)
     run = sub.add_parser("pilot")
     run.add_argument("--arm", choices=("copy", "binding", "binding-permuted"), required=True)
+    run.add_argument("--method", choices=tuple(METHODS), default="reference")
     run.add_argument("--seed", type=int, required=True)
     run.add_argument("--steps", type=int, default=350)
     run.add_argument("--until", type=int)
@@ -157,14 +177,29 @@ def main(argv: list[str] | None = None) -> None:
         rows = fixture(family, "development")
         if receipt["development_sha256"] != digest([asdict(row) for row in rows]):
             raise ValueError("receipt development identity mismatch")
-        for item in receipt["evaluations"]:
+        def verify(item, fixture_rows):
             if digest(item["predictions"]) != item["predictions_sha256"]:
                 raise ValueError("receipt prediction identity mismatch")
-            metrics = score(rows, (Prediction(row["task_id"], tuple(row["tokens"]))
-                                   for row in item["predictions"]))
+            metrics = score(fixture_rows, (Prediction(row["task_id"], tuple(row["tokens"]))
+                                           for row in item["predictions"]))
             if metrics != item["metrics"]:
                 raise ValueError("receipt metrics disagree with independent scorer")
-        print(f"verified {len(receipt['evaluations'])} scoring snapshots")
+
+        for item in receipt["evaluations"]:
+            verify(item, rows)
+        panels = receipt.get("panels", {})
+        expected_panels = set(BINDING_PANELS) if (receipt.get("method", "reference") != "reference"
+                                                 and receipt["status"] == "completed") else set()
+        if panels.keys() != expected_panels:
+            raise ValueError("receipt panel coverage mismatch")
+        for name, item in panels.items():
+            panel_rows = binding_panel(name)
+            if digest([asdict(row) for row in panel_rows]) != item["fixture_sha256"]:
+                raise ValueError("receipt panel fixture mismatch")
+            if digest(binding_panel_prompts(name, panel_rows)) != item["model_prompts_sha256"]:
+                raise ValueError("receipt panel prompt identity mismatch")
+            verify(item, panel_rows)
+        print(f"verified {len(receipt['evaluations']) + len(panels)} scoring snapshots")
 
 
 if __name__ == "__main__":

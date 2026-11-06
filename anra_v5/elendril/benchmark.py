@@ -1,7 +1,7 @@
 """Deterministic synthetic train and development surfaces and shortcut controls."""
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations, permutations, product
 import random
 
@@ -137,3 +137,39 @@ def shortcut(task: VisibleTask, policy: str, rng: random.Random) -> Prediction:
 
 POLICIES = ("deliberate_failure", "length", "fixed", "format_copy", "recency",
             "query_blind", "random")
+
+
+BINDING_PANELS = ("train", "alias", "distractor", "query-neutral")
+
+
+def binding_panel(panel: str) -> tuple[Example, ...]:
+    """Development stress views reuse latent worlds and keep their original truth."""
+    if panel == "train":
+        return fixture("binding", "train")
+    rows = fixture("binding", "development")
+    if panel == "query-neutral":
+        return rows  # The model-facing query is replaced after projecting the visible rows.
+    if panel not in ("alias", "distractor"):
+        raise ValueError("unknown binding stress panel")
+    result = []
+    for row in rows:
+        task = row.visible
+        if panel == "alias":
+            prompt = task.prompt.translate(str.maketrans({"X": "U", "Y": "V", ";": "#"}))
+        else:
+            prefix, query = task.prompt.split("?")
+            left, right = prefix[2:].split(";")
+            extra = next(value for value in VALUES if value not in (left[-1], right[-1]))
+            # Vary the distractor's location without changing the matching query pair.
+            facts = [left, right]
+            facts.insert(int(digest(prefix), 16) % 3, f"Z:{extra}")
+            prompt = "B:" + ";".join(facts) + "?" + query
+        task_id = f"{task.task_id}/{panel}"
+        result.append(Example(replace(task, task_id=task_id, prompt=prompt),
+                              replace(row.truth, task_id=task_id)))
+    return tuple(result)
+
+
+def binding_panel_prompts(panel: str, rows: tuple[Example, ...]) -> tuple[tuple[str, str], ...]:
+    return tuple((row.visible.task_id, row.visible.prompt[:-2] + "Z>"
+                  if panel == "query-neutral" else row.visible.prompt) for row in rows)

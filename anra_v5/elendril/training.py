@@ -18,8 +18,10 @@ from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer, optimizer_group_receipt
 from v5_training.state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
+from .associative import ADDRESS_WIDTH, WINDOW, AssociativeDecoder
 from .benchmark import Example
 from .codec import BOS, CODEC_SHA, EOS, PAD, VOCAB_SIZE, Prediction, answer_tokens, canonical, digest, encode
+from .counterfactual import METHODS, CounterfactualBatches, answer_contrast, method_identity
 from .publication import quarantine_interrupted_publication, writer_lock
 
 
@@ -87,7 +89,7 @@ class Trainer:
     """One CPU writer and an index-addressed sampler. Restore creates a fresh instance."""
 
     def __init__(self, rows: Sequence[Example], *, seed: int, steps: int,
-                 root: Path, lineage: str, source_commit: str, resume: bool = False):
+                 root: Path, lineage: str, source_commit: str, resume: bool = False, method: str = "reference"):
         if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", lineage) is None:
             raise ValueError("lineage must be a safe checkpoint directory name")
         if type(steps) is not int or not 1 <= steps <= MAX_STEPS:
@@ -103,24 +105,40 @@ class Trainer:
             raise ValueError("trainer accepts only joined training rows")
         if len({row.visible.task_id for row in rows}) != len(rows):
             raise ValueError("duplicate training task ID")
+        if method not in METHODS:
+            raise ValueError("unknown training method")
+        self.method = METHODS[method]
+        self.batches = CounterfactualBatches(rows, BATCH_SIZE) if method != "reference" else None
+        if self.batches is not None and steps % self.batches.block_steps:
+            raise ValueError("counterfactual budgets must contain complete exposure blocks")
         self.samples = tuple(serialize(row) for row in rows)
         lengths = {len(ids) - 1 for ids, _ in self.samples}  # All non-BOS, non-padding tokens.
         if len(lengths) != 1 or max(lengths) >= MODEL.context_length:
             raise ValueError("reference updates require equal unpadded sequence lengths within context")
         self.seed = seed
         self.model = initialize(MODEL, seed).cpu().float()
+        model_sha = MODEL.sha256()
+        if self.method.associative:
+            self.model = AssociativeDecoder(self.model, seed)
+            model_sha = digest([model_sha, "associative-copy-v1", WINDOW, ADDRESS_WIDTH])
         self.optimizer = build_adamw_optimizer(self.model, lr=LR)
         self.rng = torch.Generator(device="cpu").manual_seed(seed)
         identity = data_sha(rows)
         tokens_per_update = BATCH_SIZE * lengths.pop()
-        run_sha = digest({"seed": seed, "steps": steps, "runtime": runtime_identity()})
+        run_spec = {"seed": seed, "steps": steps, "runtime": runtime_identity()}
+        sampler = SAMPLER
+        if self.batches is not None:
+            run_spec["method"] = method_identity(self.method)
+            sampler = {"kind": self.method.batching, "block_steps": self.batches.block_steps,
+                       "batch_size": BATCH_SIZE, "schema": "counterfactual-block-v1"}
+        run_sha = digest(run_spec)
         bindings = IdentityBindings(
-            schema=IDENTITY_SCHEMA, source_commit=source_commit, model_spec_sha256=MODEL.sha256(),
+            schema=IDENTITY_SCHEMA, source_commit=source_commit, model_spec_sha256=model_sha,
             tokenizer_sha256=CODEC_SHA, data_manifest_sha256=identity, pack_manifest_sha256=identity,
             run_spec_sha256=run_sha, optimizer_spec_sha256=optimizer_group_receipt(
                 self.model, self.optimizer)["sha256"],
             schedule_spec_sha256=digest(SCHEDULE), curriculum_spec_sha256=digest("single-stage"),
-            sampler_spec_sha256=digest(SAMPLER),
+            sampler_spec_sha256=digest(sampler),
         )
         self.store = CheckpointStore(root, lineage)
         self.parent = self.store.latest_sha256()
@@ -166,6 +184,8 @@ class Trainer:
             raise ValueError("optimizer counter does not match the completed update")
 
     def sample_indices(self) -> tuple[int, ...]:
+        if self.batches is not None:
+            return self.batches.indices(self.seed, self.state.global_update, self.method)
         rng = random.Random(int(digest([self.seed, self.state.global_update]), 16))
         return tuple(rng.sample(range(len(self.samples)), BATCH_SIZE))
 
@@ -183,9 +203,15 @@ class Trainer:
             logits = logits_for(self.model, tokens, segments)
             loss, supervised = causal_lm_loss(
                 logits, tokens, segments, bos_id=BOS, pad_id=PAD, eligible=eligible)
-            if not torch.isfinite(logits).all() or not torch.isfinite(loss):
+            contrast = None
+            objective = loss
+            if self.method.contrast_weight:
+                targets = torch.tensor([self.batches.targets[index] for index in indices], device="cpu")
+                contrast = answer_contrast(logits, eligible, targets)
+                objective = loss + self.method.contrast_weight * contrast
+            if not torch.isfinite(logits).all() or not torch.isfinite(objective):
                 raise FloatingPointError("nonfinite logits or loss")
-            loss.backward()
+            objective.backward()
             self.rng.set_state(torch.get_rng_state())
         pre_clip = torch.nn.utils.clip_grad_norm_(self.model.parameters(), CLIP_NORM, error_if_nonfinite=True)
         post_clip = torch.linalg.vector_norm(torch.stack([
@@ -204,8 +230,12 @@ class Trainer:
             rng_state_sha256=sha256(self._rng_bytes()).hexdigest(), parent_checkpoint_sha256=self.parent,
         )
         self.faulted = False
-        return {"update": update, "loss": loss.item(), "lr": LR, "supervised_tokens": supervised,
-                "pre_clip": pre_clip.item(), "post_clip": post_clip.item(), "indices": indices}
+        telemetry = {"update": update, "loss": loss.item(), "lr": LR, "supervised_tokens": supervised,
+                     "pre_clip": pre_clip.item(), "post_clip": post_clip.item(), "indices": indices}
+        if self.batches is not None:
+            telemetry.update(objective=objective.item(), contrast=None if contrast is None else contrast.item(),
+                             colocated_rows=self.batches.colocated(indices))
+        return telemetry
 
     def save(self) -> str:
         if self.faulted or self.state.global_update == 0:

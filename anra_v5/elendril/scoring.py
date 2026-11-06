@@ -36,7 +36,7 @@ def score(rows: tuple[Example, ...], predictions: Iterable[Prediction]) -> dict:
         exact += correct
         terminated += valid_eos
         clusters[task.cluster_id].append(correct)
-        if task.family in ("binding", "abstention") and task.prompt[-2] in "XY":
+        if task.family == "binding" or (task.family == "abstention" and task.prompt[-2] in "XY"):
             query_swaps[task.prompt.split("?")[0]].append(correct)
         content = actual[:actual.index(EOS)] if EOS in actual else actual
         prefix = 0

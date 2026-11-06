@@ -233,3 +233,87 @@ def test_trainer_rejects_unsafe_checkpoint_directory(tmp_path):
         with pytest.raises(ValueError, match="safe checkpoint directory name"):
             make_trainer(tmp_path, lineage=lineage)
     assert list(tmp_path.iterdir()) == []
+
+
+
+def test_counterfactual_exposure_and_manipulation():
+    from anra_v5.elendril.counterfactual import CounterfactualBatches, METHODS
+
+    rows = fixture("binding", "train")
+    batches = CounterfactualBatches(rows, 16)
+    assert batches.block_steps == 21
+    for method in ("shuffled-ce", "paired-ce"):
+        stream = [batches.indices(7, update, METHODS[method]) for update in range(21)]
+        assert Counter(i for batch in stream for i in batch) == dict.fromkeys(range(len(rows)), 2)
+        if method == "paired-ce":
+            assert all(batches.colocated(batch) == 16 for batch in stream)
+        else:
+            assert sum(batches.colocated(batch) for batch in stream) < 336
+    assert batches.targets[0] == batches.targets[batches.partners[0]][::-1]
+    with pytest.raises(ValueError, match="distinct queries"):
+        CounterfactualBatches((rows[0], rows[0]), 2)
+
+
+def test_contrast_targets_pre_answer_and_ignores_other_positions():
+    from anra_v5.elendril.counterfactual import answer_contrast
+
+    logits = torch.zeros((2, 5, 6), requires_grad=True)
+    eligible = torch.tensor([[0, 0, 0, 1, 1], [0, 0, 1, 1, 0]], dtype=torch.bool)
+    loss = answer_contrast(logits, eligible, torch.tensor([[3, 4], [4, 3]]))
+    loss.backward()
+    assert logits.grad[0, 2, 3] < 0 < logits.grad[0, 2, 4]
+    assert logits.grad[1, 1, 4] < 0 < logits.grad[1, 1, 3]
+    assert logits.grad.count_nonzero().item() == 4
+
+
+def test_associative_read_is_normalized_packed_causal_and_finite():
+    from anra_v5.elendril.associative import AssociativeDecoder
+
+    core = initialize(MODEL, 2)
+    model = AssociativeDecoder(initialize(MODEL, 2), 2)
+    assert_nested_equal(model.core.state_dict(), core.state_dict())
+    tokens = torch.tensor([(BOS, *encode("ABC"), BOS, *encode("DEF"), PAD)])
+    segments = torch.tensor([[0, 0, 0, 0, 1, 1, 1, 1, -1]])
+    original = logits_for(model, tokens, segments)
+    assert torch.isfinite(original).all()
+    torch.testing.assert_close(original.exp().sum(-1), torch.ones_like(tokens, dtype=torch.float32))
+    changed = tokens.clone()
+    changed[0, [2, 3, 7]] = torch.tensor(encode("HHH"))
+    alternative = logits_for(model, changed, segments)
+    assert torch.equal(original[:, :2], alternative[:, :2])
+    assert torch.equal(original[:, 4:7], alternative[:, 4:7])
+    original.sum().backward()
+    assert all(parameter.grad is not None and torch.isfinite(parameter.grad).all()
+               for parameter in model.parameters())
+    assert model.lexical_weights.grad.count_nonzero() > 0
+
+
+def test_associative_method_resume_and_recipe_identity(tmp_path):
+    config = {"steps": 21, "method": "associative"}
+    trainer = make_trainer(tmp_path, **config)
+    oracle = make_trainer(tmp_path, lineage="oracle", **config)
+    step = trainer.step()
+    assert step == oracle.step() and step["colocated_rows"] == 16 and step["contrast"] > 0
+    trainer.save()
+    with pytest.raises(ValueError, match="identity mismatch"):
+        make_trainer(tmp_path, steps=21, method="paired-contrast", resume=True)
+    resumed = make_trainer(tmp_path, resume=True, **config)
+    assert resumed.step() == oracle.step()
+    assert_nested_equal(resumed.model.state_dict(), oracle.model.state_dict())
+    assert_nested_equal(resumed.optimizer.state_dict(), oracle.optimizer.state_dict())
+
+
+def test_stress_panels_preserve_truth_and_pairing():
+    from anra_v5.elendril.benchmark import binding_panel, binding_panel_prompts
+
+    dev = fixture("binding", "development")
+    for name in ("alias", "distractor", "query-neutral"):
+        rows = binding_panel(name)
+        assert [r.truth.gold for r in rows] == [r.truth.gold for r in dev]
+        assert [r.visible.cluster_id for r in rows] == [r.visible.cluster_id for r in dev]
+        oracle = [Prediction(r.visible.task_id, answer_tokens(r.truth.gold)) for r in rows]
+        assert score(rows, oracle)["query_swap_both_correct"] == [28, 28]
+        if name != "query-neutral":
+            assert {r.visible.prompt for r in rows}.isdisjoint(r.visible.prompt for r in dev)
+    neutral = binding_panel_prompts("query-neutral", dev)
+    assert len({prompt for _, prompt in neutral}) == 28
