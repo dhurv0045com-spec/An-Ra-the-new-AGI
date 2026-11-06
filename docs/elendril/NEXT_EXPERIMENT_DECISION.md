@@ -1,5 +1,9 @@
 # Next experiment decision
 
+**Update after ELD-DEV-002.** The paired-sampling comparison below has been executed. The clean associative model passed on the original two-fact surface and showed uneven robustness to aliases and distractors. The next study should preregister a capacity-matched dense comparator and lexical-relation/copy-gate ablations on a larger generator with disjoint latent worlds, variable distractor counts and independent key/separator aliases. Measure exact + EOS and paired query accuracy by world and cost. Keep staged transfer gated on separately qualified skills. See the [executed comparison](ASSOCIATIVE_RESULTS.md).
+
+## Historical decision before ELD-DEV-002
+
 ## 1. Test whether training preserves the query-swap signal
 
 The read-only diagnostic places the first bottleneck at in-sample acquisition. Each clean seed attained exactly the positional baseline, 84/168, with 0/84 both-correct training swaps. The next cheapest discriminating intervention is matched paired sampling. It changes batch co-occurrence while preserving the symbolic representation, task family, training exposure and objective. The hypothesis is that presenting both query views with identical facts within each update helps the CE trainer learn query conditioning.

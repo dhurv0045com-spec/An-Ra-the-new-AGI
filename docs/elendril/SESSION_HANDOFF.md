@@ -1,5 +1,7 @@
 # Elendril first-session handoff
 
+**Later work.** See the [associative architecture and replay instructions](ASSOCIATIVE_ARCHITECTURE.md) and [ELD-DEV-002 results](ASSOCIATIVE_RESULTS.md). The entries below document ELD-DEV-001 and its pinned checkout.
+
 The working branch is **Elendril** in the sibling **An-Ra-Elendril** worktree. Starting lineage is `feac2948466832516b7f048435483fd95e53b078` via charter `448f3bafedbbd8d9e8180eb0d85c04e6cccae0dd`. The [evidence index](EVIDENCE_INDEX.json) gives pinned branch heads, original records and their hashes. The only new model weights are the locally initialized development instruments.
 
 ## Reproduce
