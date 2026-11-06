@@ -3,49 +3,24 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "anra-esoes-research"
-version = "0.7.0"
-description = "Executable ESOES cognition, tokenizer, architecture, data/objective, and V5 training contracts"
-requires-python = ">=3.10"
-dependencies = []
+name = "elendril-research"
+version = "0.3.0"
+description = "Reproducible neural relational learning and independent intervention research"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[project.optional-dependencies]
+train = ["torch>=2.8,<3"]
+test = ["pytest>=8,<10", "nbformat>=5.10,<6"]
 
 [project.scripts]
-anra-v5 = "anra_v5.cli:main"
-esoes-e0-certify = "e0_cognition.certify:main"
-esoes-e0-scoring = "e0_cognition.scoring_certification:main"
-esoes-v5-contracts = "v5_contracts.certify:main"
-esoes-v5-training-spec = "v5_contracts.training_spec:main"
-esoes-v5-readiness = "v5_contracts.launch_readiness:main"
-esoes-e0-seal = "e0_cognition.sealed:main"
-esoes-e1-audit = "e1_tokenizer.audit:main"
-esoes-e1-plan = "e1_tokenizer.tournament:main"
-esoes-e1-local = "e1_tokenizer.local_tournament:main"
-esoes-e1-perturbation-sweep = "e1_tokenizer.perturbation_sweep:main"
-esoes-e2-plan = "e2_architecture.plan:main"
-esoes-e2-device = "e2_architecture.device_benchmark:main"
-esoes-e2-device-aggregate = "e2_architecture.aggregate:main"
-esoes-e2-block = "e2_architecture.block_benchmark:main"
-esoes-e2-block-aggregate = "e2_architecture.block_aggregate:main"
-esoes-e2-signal = "e2_architecture.signal_benchmark:main"
-esoes-e2-qk-norm = "e2_architecture.qk_norm_benchmark:main"
-esoes-e2-precision = "e2_architecture.precision_benchmark:main"
-esoes-e2-rope = "e2_architecture.rope_benchmark:main"
-esoes-e2-update = "e2_architecture.update_benchmark:main"
-esoes-e2-cursor = "e2_architecture.cursor_benchmark:main"
-esoes-e2-scoring = "e2_architecture.scoring_benchmark:main"
-esoes-e2-scoring-policy-plan = "e2_architecture.scoring_policy:main"
-esoes-e2-scoring-policy-fixture = "e2_architecture.scoring_policy_fixture:main"
-esoes-e2-scoring-policy-tournament = "e2_architecture.scoring_policy_tournament:main"
-esoes-e3-plan = "e3_data_objective.plan:main"
-esoes-v5-transaction = "v5_training.transaction_canary:main"
-esoes-v5-miniature = "anra_v5.miniature_run:main"
-esoes-v5-production-canary = "v5_training.production_canary:main"
-esoes-v5a-canary = "v5_training.v5a_canary:main"
-esoes-v5-p35-canary = "v5_training.torch_canary:main"
-esoes-v5-durability = "v5_training.durability_canary:main"
-esoes-v5-target-preflight = "v5_training.target_preflight:main"
-esoes-v5-collect = "v5_remote.collect:main"
-esoes-boundaries = "v5_contracts.import_boundaries:main"
+elendril = "anra_v5.elendril.__main__:main"
+
+[tool.setuptools]
+py-modules = ["v5_checkpointing"]
 
 [tool.setuptools.packages.find]
-include = ["anra_v5*", "e0_cognition*", "v5_contracts*", "v5_data*", "v5_training*", "v5_remote*", "v5_model*", "v5_objectives*", "v5_evaluation*", "v5_promotion*", "v5_experiments*", "v5_registry*", "v5_tokenizer*", "e1_tokenizer*", "e2_architecture*", "e3_data_objective*"]
+include = ["elendril", "anra_v5", "anra_v5.elendril*", "v5_contracts", "v5_data", "v5_evaluation", "v5_model", "v5_objectives", "v5_training"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

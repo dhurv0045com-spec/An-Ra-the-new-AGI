@@ -1,5 +1,0 @@
-# ELD-DEV-001D read-only binding diagnostic
-
-Freeze this diagnostic after ELD-DEV-001 development scores and before checking training-set predictions. Restore the nine-run pilot's six final binding states by exact source, configuration and data identity. Evaluate each on the original training prompts once using the same three-token greedy cap. Join both the arm's actual training labels and the clean counterfactual labels to the same predictions. Check training-vs-development exact, both-correct and all-view counts.
-
-If clean training is also at or below the measured shortcut, the current budget/representation lacks even in-sample rule acquisition. If it clears the training gate but development stays below, generalization is the leading bottleneck. Intermediate outcomes remain inconclusive. Define the in-sample gate as 75% exact and 60% both-correct, matching the development thresholds. Use the same seeds and all 168 training rows. This diagnostic makes zero optimizer updates and uses no confirmation or sealed rows.
