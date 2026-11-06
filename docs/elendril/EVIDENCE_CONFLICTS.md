@@ -11,4 +11,4 @@
 | BRAMASTRA and Gandiva K8 exports have similar names. | Use run instance and closure. The four 25 September archives refer to one Gandiva run. Treat its E5 zero aggregate and intermediate snapshots as an unresolved accounting conflict. |
 | V5.1 reports zero prefix score alongside high exact score in some families. | Audit token rendering, shift and metric resolution before using the prefix diagnostic. |
 | HORM-001 hash in the September gap report includes a nonhex character. | Treat it as an unverified transcription. Obtain a fresh digest from the original custody record. |
-| Older prose describes two disconnected history shards. | September consolidation records a common ancestor and parented tips. Use Git topology and keep unreachable objects a distinct custody question. |
+| Older prose describes two disconnected history shards. | September consolidation records a common ancestor and parented tips. The local shallow graph confirms both parent links but cannot reproduce the recorded merge-base traversal. Keep unreachable objects a distinct custody question. |

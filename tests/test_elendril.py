@@ -226,3 +226,10 @@ def test_label_permutation_preserves_visible_rows_and_marginals():
     assert any(a.truth != b.truth for a, b in zip(rows, altered))
     assert Counter((row.visible.cluster_id, row.truth.gold) for row in rows) == Counter(
         (row.visible.cluster_id, row.truth.gold) for row in altered)
+
+
+def test_trainer_rejects_unsafe_checkpoint_directory(tmp_path):
+    for lineage in ("..", ".", "A/B", "A:B"):
+        with pytest.raises(ValueError, match="safe checkpoint directory name"):
+            make_trainer(tmp_path, lineage=lineage)
+    assert list(tmp_path.iterdir()) == []

@@ -7,6 +7,7 @@ import io
 from pathlib import Path
 import platform
 import random
+import re
 
 import torch
 
@@ -87,6 +88,8 @@ class Trainer:
 
     def __init__(self, rows: Sequence[Example], *, seed: int, steps: int,
                  root: Path, lineage: str, source_commit: str, resume: bool = False):
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", lineage) is None:
+            raise ValueError("lineage must be a safe checkpoint directory name")
         if type(steps) is not int or not 1 <= steps <= MAX_STEPS:
             raise ValueError(f"steps must be between 1 and {MAX_STEPS}")
         if type(seed) is not int or not 0 <= seed < 2**32:

@@ -14,6 +14,8 @@ The v1 generator admits only train and development partitions. All prompt string
 
 Train/development partitions are disjoint within each family. Binding and abstention share underlying worlds by design. State/order and composition overlap semantically. A future multi-family study must split globally by shared latent program before rendering. Treat each existing family as a separate instrument until that split is implemented.
 
+The longitudinal module joins scored cluster counts at identical fixture, model and seed identities. Retention requires positive intervening training exposure. Forward transfer requires equality across the full cumulative work vector. These checks support later comparison without authorizing a staged run. Causal interpretation still requires the preregistered acquisition and intervention controls.
+
 ## Metrics and validation
 
 Report exact complete answer plus valid EOS, valid EOS alone, content token accuracy by position, longest common prefix, both-correct swaps, and all views correct per cluster. Invalid special tokens, missing termination and extra output cannot earn exact credit. Keep raw emitted token IDs, including malformed or incomplete streams, with exact denominators. Query swaps are paired diagnostics. Latent clusters are the uncertainty unit, and paired seeds are the replication unit. Per-view rows are dependent. Tiny development fixture counts support descriptive ranges. A prospective study should preregister a paired cluster/bootstrap or randomization procedure with interval width calibrated using a separate development panel.

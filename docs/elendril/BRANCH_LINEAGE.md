@@ -17,4 +17,4 @@ The fetched Elendril charter commit `448f3bafedbbd8d9e8180eb0d85c04e6cccae0dd` h
 | Discovery Gym | Auditable bounded workbench and receipts. The workbench is a candidate design reference for a later independent verifier. |
 | September 25 consolidation | Evidence synthesis with receipts and decision reversals. Its source ordering governs historical claim interpretation. |
 
-The benchmark concepts and scope are adapted from the cited observations. The implementation reuses modules already in Elendril's ancestor. It imports zero donor commits. The older disconnected-history warning is superseded by the current Git graph.
+The benchmark concepts and scope are adapted from the cited observations. The implementation reuses modules already in Elendril's ancestor. It imports zero donor commits. This checkout is shallow. Parent links for 28bf57a and 90f77b7 are present. Local merge-base traversal to main returned no result, so the consolidation's recorded deeper common ancestor remains a cited claim.
