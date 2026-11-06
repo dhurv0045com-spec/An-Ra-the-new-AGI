@@ -15,6 +15,8 @@ from .benchmark import (BINDING_PANELS, FAMILIES, POLICIES, binding_panel,
                         binding_panel_prompts, corrupt_binding, fixture, shortcut)
 from .codec import CODEC_SHA, Prediction, answer_tokens, canonical, digest
 from .counterfactual import METHODS
+from .graph_v3 import (GRAPH_ONLY_METHODS, PANELS as GRAPH_PANELS, RENDER_TRANSFORM, SURFACES,
+                       graph_audit, graph_fixture, inference_inputs, restore_predictions)
 from .join import JOIN_PANELS, join_fixture
 from .relational import ROBUST_PANELS, relational_fixture
 from .scoring import score
@@ -66,7 +68,12 @@ def committed_source() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
 
-def experiment_rows(surface: str, family: str, split: str):
+def experiment_rows(surface: str, family: str, split: str, method: str = "reference"):
+    if surface in SURFACES:
+        if family != "binding":
+            raise ValueError("graph surface requires a binding arm")
+        transform = RENDER_TRANSFORM.get(method, "raw") if split == "train" else "raw"
+        return graph_fixture(surface, split, transform=transform)
     if surface == "join-v1":
         if family != "binding":
             raise ValueError("join surface requires a binding arm")
@@ -81,12 +88,16 @@ def experiment_rows(surface: str, family: str, split: str):
 
 
 def experiment_panels(surface: str):
+    if surface in SURFACES:
+        return ("train", *GRAPH_PANELS)
     if surface == "join-v1":
         return JOIN_PANELS
     return ROBUST_PANELS if surface == "relational-v1" else BINDING_PANELS
 
 
 def experiment_panel(surface: str, name: str):
+    if surface in SURFACES:
+        return graph_fixture(surface, "train" if name == "train" else "development", name)
     if name == "drop-second-read":
         return join_fixture("development")
     if surface == "join-v1":
@@ -97,12 +108,19 @@ def experiment_panel(surface: str, name: str):
 
 
 def pilot(args) -> dict:
-    from .training import configure_device, data_sha, generate, runtime_identity, Trainer
+    from .training import Trainer, configure_device, data_sha, generate, generate_batched, runtime_identity
 
     if args.output.exists() or not args.output.parent.is_dir():
         raise ValueError("output must be a new file inside an existing directory")
     if not 1 <= args.until <= args.steps:
         raise ValueError("until must be within the training budget")
+    if args.method in GRAPH_ONLY_METHODS and args.surface not in SURFACES:
+        raise ValueError("selected method requires a V3 graph surface")
+    if args.surface in SURFACES:
+        if args.arm != "binding":
+            raise ValueError("V3 graph surfaces require the binding arm")
+        if args.profile == "micro" and args.until == args.steps:
+            raise ValueError("full V3 graph evaluation requires expanded or cloud context")
     source = committed_source()
     device = configure_device(args.device)
     if device.type == "cuda":
@@ -114,7 +132,7 @@ def pilot(args) -> dict:
     family = "copy" if args.arm == "copy" else "binding"
     if family != "binding" and args.method != "reference":
         raise ValueError("counterfactual methods require binding")
-    train = experiment_rows(args.surface, family, "train")
+    train = experiment_rows(args.surface, family, "train", args.method)
     corruption_seed = args.seed + 100_000
     if args.arm == "binding-permuted":
         train = corrupt_binding(train, corruption_seed)
@@ -138,18 +156,33 @@ def pilot(args) -> dict:
     updates = []
     training_seconds = 0.0
 
-    def evaluate(rows, visible_prompts, *, remove_second_read=False) -> dict:
+    def evaluate(rows, visible_prompts, *, panel="base", remove_second_read=False) -> dict:
         begin = time.perf_counter()
-        predictions, cost = generate(trainer.model, visible_prompts, max_new_tokens=max_new,
-                                     remove_second_read=remove_second_read)
+        inverse = {}
+        if args.surface in SURFACES:
+            visible_prompts, inverse = inference_inputs(rows, panel, args.method)
+            predictions, cost = generate_batched(trainer.model, visible_prompts, max_new_tokens=max_new)
+        else:
+            predictions, cost = generate(trainer.model, visible_prompts, max_new_tokens=max_new,
+                                         remove_second_read=remove_second_read)
+        original = predictions
+        if inverse:
+            predictions = restore_predictions(predictions, inverse)
         raw = [asdict(item) for item in predictions]
-        return {
+        receipt = {
             "update": trainer.state.global_update, "checkpoint_sha256": trainer.parent,
             "segment_training_seconds": training_seconds,
             "inference": {**cost, "wall_seconds": time.perf_counter() - begin,
                           "emitted_tokens": sum(len(item.tokens) for item in predictions)},
             "predictions": raw, "predictions_sha256": digest(raw), "metrics": score(rows, predictions),
         }
+        if args.surface in SURFACES:
+            receipt["model_prompts_sha256"] = digest(visible_prompts)
+        if inverse:
+            native = [asdict(item) for item in original]
+            receipt["model_predictions"] = native
+            receipt["model_predictions_sha256"] = digest(native)
+        return receipt
 
     evaluations.append(evaluate(dev, prompts))
     while trainer.state.global_update < args.until:
@@ -157,7 +190,10 @@ def pilot(args) -> dict:
         updates.append(trainer.step())
         training_seconds += time.perf_counter() - begin
         step = trainer.state.global_update
-        if args.surface == "join-v1":
+        if args.surface in SURFACES:
+            interval = {"micro": 96, "expanded": 384, "cloud": 1024}[args.profile]
+            scheduled = step % interval == 0
+        elif args.surface == "join-v1":
             scheduled = step % (96 if args.profile == "micro" else 384) == 0
         elif args.surface == "relational-v1":
             scheduled = step % 88 == 0
@@ -175,9 +211,9 @@ def pilot(args) -> dict:
             rows = experiment_panel(args.surface, name)
             visible_prompts = binding_panel_prompts(name, rows)
             panels[name] = {
-                **evaluate(rows, visible_prompts, remove_second_read=name == "drop-second-read"),
+                **evaluate(rows, visible_prompts, panel=name, remove_second_read=name == "drop-second-read"),
                 "fixture_sha256": digest([asdict(row) for row in rows]),
-                "model_prompts_sha256": digest(visible_prompts),
+                **({"model_prompts_sha256": digest(visible_prompts)} if args.surface not in SURFACES else {}),
             }
     accelerator = None
     if device.type == "cuda":
@@ -193,7 +229,8 @@ def pilot(args) -> dict:
         "identity": trainer.state.identities.canonical(), "codec_sha256": CODEC_SHA,
         "training_sha256": data_sha(train), "development_sha256": digest([asdict(row) for row in dev]),
         "benchmark_source_sha256": sha256(Path(__file__).with_name(
-            {"join-v1": "join.py", "relational-v1": "relational.py"}.get(args.surface, "benchmark.py")).read_bytes()).hexdigest(),
+            ("graph_v3.py" if args.surface in SURFACES else
+             {"join-v1": "join.py", "relational-v1": "relational.py"}.get(args.surface, "benchmark.py"))).read_bytes()).hexdigest(),
         "start_update": start, "start_checkpoint_sha256": start_checkpoint,
         "training_tokens": trainer.state.cumulative_tokens, "final_checkpoint_sha256": trainer.parent,
         "wall_seconds": time.perf_counter() - started, "process_cpu_seconds": time.process_time() - cpu_started,
@@ -211,13 +248,16 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="mode", required=True)
     audit = sub.add_parser("audit")
     audit.add_argument("--output", type=Path, required=True)
+    audit_v3 = sub.add_parser("audit-v3")
+    audit_v3.add_argument("--surface", choices=SURFACES, default=SURFACES[0])
+    audit_v3.add_argument("--output", type=Path, required=True)
     run = sub.add_parser("pilot")
     run.add_argument("--arm", choices=("copy", "binding", "binding-permuted"), required=True)
     run.add_argument("--method", choices=tuple(METHODS), default="reference")
     run.add_argument("--seed", type=int, required=True)
-    run.add_argument("--surface", choices=("classic", "relational-v1", "join-v1"), default="classic")
-    run.add_argument("--profile", choices=("micro", "expanded"), default="micro")
-    run.add_argument("--device", choices=("cpu", "cuda:0"), default="cpu")
+    run.add_argument("--surface", choices=("classic", "relational-v1", "join-v1", *SURFACES), default="classic")
+    run.add_argument("--profile", choices=("micro", "expanded", "cloud"), default="micro")
+    run.add_argument("--device", choices=("cpu", "cuda:0", "cuda:1"), default="cpu")
     run.add_argument("--steps", type=int)
     run.add_argument("--until", type=int)
     run.add_argument("--root", type=Path, required=True)
@@ -229,11 +269,13 @@ def main(argv: list[str] | None = None) -> None:
     if args.mode == "pilot":
         args.command_line = command_line
         if args.steps is None:
-            args.steps = {"join-v1": 384, "relational-v1": 352}.get(args.surface, 350)
+            args.steps = 384 if args.surface in SURFACES else {"join-v1": 384, "relational-v1": 352}.get(args.surface, 350)
         args.until = args.steps if args.until is None else args.until
         write_receipt(args.output, pilot(args))
     elif args.mode == "audit":
         write_receipt(args.output, benchmark_audit())
+    elif args.mode == "audit-v3":
+        write_receipt(args.output, graph_audit(args.surface))
     else:
         receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
         family = "copy" if receipt["arm"] == "copy" else "binding"
@@ -241,7 +283,20 @@ def main(argv: list[str] | None = None) -> None:
         rows = experiment_rows(surface, family, "development")
         if receipt["development_sha256"] != digest([asdict(row) for row in rows]):
             raise ValueError("receipt development identity mismatch")
-        def verify(item, fixture_rows):
+        def verify(item, fixture_rows, panel="base"):
+            if surface in SURFACES:
+                visible, inverse = inference_inputs(fixture_rows, panel, receipt["method"])
+                if digest(visible) != item["model_prompts_sha256"]:
+                    raise ValueError("receipt graph prompt identity mismatch")
+                if inverse:
+                    native = item["model_predictions"]
+                    if digest(native) != item["model_predictions_sha256"]:
+                        raise ValueError("receipt canonical prediction identity mismatch")
+                    normalized = restore_predictions(tuple(
+                        Prediction(row["task_id"], tuple(row["tokens"])) for row in native
+                    ), inverse)
+                    if digest([asdict(row) for row in normalized]) != item["predictions_sha256"]:
+                        raise ValueError("receipt canonical decoding mismatch")
             if digest(item["predictions"]) != item["predictions_sha256"]:
                 raise ValueError("receipt prediction identity mismatch")
             metrics = score(fixture_rows, (Prediction(row["task_id"], tuple(row["tokens"]))
@@ -262,9 +317,9 @@ def main(argv: list[str] | None = None) -> None:
             panel_rows = experiment_panel(surface, name)
             if digest([asdict(row) for row in panel_rows]) != item["fixture_sha256"]:
                 raise ValueError("receipt panel fixture mismatch")
-            if digest(binding_panel_prompts(name, panel_rows)) != item["model_prompts_sha256"]:
+            if surface not in SURFACES and digest(binding_panel_prompts(name, panel_rows)) != item["model_prompts_sha256"]:
                 raise ValueError("receipt panel prompt identity mismatch")
-            verify(item, panel_rows)
+            verify(item, panel_rows, name)
         print(f"verified {len(receipt['evaluations']) + len(panels)} scoring snapshots")
 
 

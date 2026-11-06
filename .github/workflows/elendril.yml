@@ -27,3 +27,4 @@ jobs:
       - run: python -m pip install -e ".[test]"
       - run: python -m pytest -q
       - run: python -m elendril audit --output elendril-fixture-audit.json
+      - run: python -m tools.verify_elendril_evidence

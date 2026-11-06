@@ -31,6 +31,11 @@ METHODS = {
     "lexical-only": Method("paired", 0.5, "lexical"),
     "context-only": Method("paired", 0.5, "context"),
     "two-read": Method("paired", 0.5, "two-read"),
+    "three-read": Method("paired", 0.5, "three-read"),
+    "recurrent-read": Method("paired", 0.5, "recurrent"),
+    "recurrent-aug": Method("paired", 0.5, "recurrent"),
+    "recurrent-canon": Method("paired", 0.5, "recurrent"),
+    "recurrent-dense": Method("paired", 0.5, "recurrent-dense"),
 }
 
 

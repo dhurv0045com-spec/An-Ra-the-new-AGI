@@ -19,7 +19,7 @@ from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer, optimizer_group_receipt
 from v5_training.state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
-from .associative import ADDRESS_WIDTH, WINDOW, AssociativeDecoder, DenseCapacityControl
+from .associative import ADDRESS_WIDTH, RECURRENT_MODES, WINDOW, AssociativeDecoder, DenseCapacityControl
 from .benchmark import Example
 from .codec import BOS, CODEC_SHA, EOS, PAD, VOCAB_SIZE, Prediction, answer_tokens, canonical, digest, encode
 from .counterfactual import METHODS, CounterfactualBatches, answer_contrast, method_identity
@@ -34,8 +34,10 @@ CLIP_NORM = 1.0
 MAX_STEPS = 640
 PROFILES = {"micro": MODEL,
             "expanded": replace(MODEL, width=128, layers=4, query_heads=4, kv_heads=2,
-                                head_dimension=32, ffn_width=256, context_length=64)}
-PROFILE_STEP_LIMIT = {"micro": MAX_STEPS, "expanded": 1536}
+                                head_dimension=32, ffn_width=256, context_length=64),
+            "cloud": replace(MODEL, width=256, layers=8, query_heads=8, kv_heads=4,
+                             head_dimension=32, ffn_width=512, context_length=64)}
+PROFILE_STEP_LIMIT = {"micro": MAX_STEPS, "expanded": 1536, "cloud": 9216}
 SCHEDULE = {"kind": "constant", "lr": LR, "clip_norm": CLIP_NORM}
 SAMPLER = {"kind": "sample-without-replacement-per-update", "batch_size": BATCH_SIZE,
            "seed": "SHA256 of run seed and zero-based update"}
@@ -156,7 +158,8 @@ class Trainer:
             model_sha = digest([model_sha, "dense-residual-control-v2", ADDRESS_WIDTH])
         elif architecture != "dense":
             self.model = AssociativeDecoder(self.model, seed, mode=architecture)
-            model_sha = digest([model_sha, "associative-copy-v2", architecture, WINDOW, ADDRESS_WIDTH])
+            revision = "associative-recurrent-v3" if architecture in RECURRENT_MODES else "associative-copy-v2"
+            model_sha = digest([model_sha, revision, architecture, WINDOW, ADDRESS_WIDTH])
         self.model = self.model.to(self.device)
         self.optimizer = build_adamw_optimizer(self.model, lr=LR)
         self.rng = torch.Generator(device="cpu").manual_seed(seed)
@@ -331,3 +334,47 @@ def generate(model, prompts: Sequence[tuple[str, str]], *, max_new_tokens: int, 
             ids.append(token)
         predictions.append(Prediction(task_id, tuple(generated)))
     return tuple(predictions), {"forward_calls": forwards, "evaluated_positions": evaluated_positions}
+
+
+@torch.inference_mode()
+def generate_batched(model, prompts: Sequence[tuple[str, str]], *, max_new_tokens: int,
+                     batch_size: int = 16) -> tuple[tuple[Prediction, ...], dict]:
+    """Greedy batched generation with the same prompt-only inputs and per-row EOS rule."""
+    if not prompts or batch_size < 1 or max_new_tokens < 1:
+        raise ValueError("batched generation requires prompts and positive bounds")
+    config = getattr(getattr(model, "core", model), "config", MODEL)
+    device = next(model.parameters()).device
+    groups: dict[int, list[tuple[int, tuple[int, ...]]]] = {}
+    for index, (_, prompt) in enumerate(prompts):
+        tokens = (BOS, *encode(prompt))
+        if len(tokens) + max_new_tokens - 1 > config.context_length:
+            raise ValueError("generation exceeds native context")
+        groups.setdefault(len(tokens), []).append((index, tokens))
+    model.eval()
+    outputs: list[tuple[int, ...]] = [()] * len(prompts)
+    forwards = evaluated_positions = 0
+    for cases in groups.values():
+        for offset in range(0, len(cases), batch_size):
+            batch = cases[offset:offset + batch_size]
+            tokens = torch.tensor([case[1] for case in batch], device=device)
+            generated = [[] for _ in batch]
+            for _ in range(max_new_tokens):
+                logits = logits_for(model, tokens, torch.zeros_like(tokens))[:, -1]
+                if not torch.isfinite(logits).all():
+                    raise FloatingPointError("nonfinite inference logits")
+                next_tokens = logits.argmax(-1)
+                forwards += 1
+                evaluated_positions += tokens.numel()
+                for row, token in zip(generated, next_tokens.tolist()):
+                    if not row or row[-1] != EOS:
+                        row.append(token)
+                if all(row[-1] == EOS for row in generated):
+                    break
+                tokens = torch.cat((tokens, next_tokens[:, None]), dim=1)
+            for (index, _), output in zip(batch, generated):
+                outputs[index] = tuple(output)
+    predictions = tuple(Prediction(task_id, output) for (task_id, _), output in zip(prompts, outputs))
+    read_passes = {"context": 1, "lexical": 1, "hybrid": 1, "two-read": 2,
+                   "three-read": 3, "recurrent": 4, "recurrent-dense": 4}.get(getattr(model, "mode", ""), 0)
+    return predictions, {"forward_calls": forwards, "evaluated_positions": evaluated_positions,
+                         "read_invocations": read_passes * forwards}
