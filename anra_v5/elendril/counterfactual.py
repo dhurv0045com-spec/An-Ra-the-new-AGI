@@ -18,7 +18,7 @@ from .codec import digest, encode
 class Method:
     batching: str
     contrast_weight: float = 0.0
-    associative: bool = False
+    architecture: str = "dense"
 
 
 METHODS = {
@@ -26,7 +26,10 @@ METHODS = {
     "shuffled-ce": Method("shuffled"),
     "paired-ce": Method("paired"),
     "paired-contrast": Method("paired", 0.5),
-    "associative": Method("paired", 0.5, True),
+    "associative": Method("paired", 0.5, "hybrid"),
+    "capacity-matched": Method("paired", 0.5, "matched"),
+    "lexical-only": Method("paired", 0.5, "lexical"),
+    "context-only": Method("paired", 0.5, "context"),
 }
 
 
@@ -34,10 +37,13 @@ class CounterfactualBatches:
     """Each block contains exactly two exposures to every row in every arm."""
 
     def __init__(self, rows: Sequence[Example], batch_size: int):
+        if type(batch_size) is not int or batch_size < 2 or batch_size % 2:
+            raise ValueError("counterfactual batch size must be positive and even")
         groups = defaultdict(list)
         for index, row in enumerate(rows):
             facts, _, query = row.visible.prompt.rpartition("?")
-            if row.visible.family != "binding" or query not in ("X>", "Y>"):
+            if (row.visible.family != "binding" or len(query) != 2 or query[1] != ">"
+                    or not "A" <= query[0] <= "Z"):
                 raise ValueError("counterfactual batching requires canonical binding pairs")
             token_ids = encode(row.truth.gold)
             if len(token_ids) != 1:

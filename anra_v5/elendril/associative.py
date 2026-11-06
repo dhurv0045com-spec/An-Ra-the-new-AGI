@@ -1,6 +1,7 @@
 """Causal associative copy memory over the current packed context."""
 
 import math
+from typing import Literal
 
 import torch
 from torch import nn
@@ -14,19 +15,24 @@ ADDRESS_WIDTH = 16
 class AssociativeDecoder(nn.Module):
     """Add a learned read gate over token-addressable positions to the dense decoder."""
 
-    def __init__(self, core: nn.Module, seed: int):
+    def __init__(self, core: nn.Module, seed: int, *, mode: Literal["hybrid", "lexical", "context"] = "hybrid"):
         super().__init__()
+        if mode not in ("hybrid", "lexical", "context"):
+            raise ValueError("unknown associative addressing mode")
         self.core = core
+        self.mode = mode
         width = core.config.width
         # Leave the base model's initialization and caller RNG identical across arms.
         with torch.random.fork_rng(devices=[]):
             torch.manual_seed(seed)
-            self.address_query = nn.Linear(width, ADDRESS_WIDTH, bias=False)
-            self.address_key = nn.Linear(width, ADDRESS_WIDTH, bias=False)
+            if mode != "lexical":
+                self.address_query = nn.Linear(width, ADDRESS_WIDTH, bias=False)
+                self.address_key = nn.Linear(width, ADDRESS_WIDTH, bias=False)
             self.read_gate = nn.Linear(width, 1)
         nn.init.zeros_(self.read_gate.weight)
         nn.init.constant_(self.read_gate.bias, -2)
-        self.lexical_weights = nn.Parameter(torch.zeros(WINDOW, WINDOW))
+        if mode != "context":
+            self.lexical_weights = nn.Parameter(torch.zeros(WINDOW, WINDOW))
 
     def _lexical_scores(self, tokens: torch.Tensor, positions: torch.Tensor) -> torch.Tensor:
         padded = F.pad(tokens, (WINDOW - 1, 0))
@@ -41,8 +47,13 @@ class AssociativeDecoder(nn.Module):
         base = F.linear(hidden, self.core.embedding.weight).log_softmax(dim=-1)
         context = torch.arange(tokens.size(1), device=tokens.device)
         allowed = mask[:, 0] & (context[:, None] > context[None, :]) & (tokens[:, None, :] >= 3)
-        affinity = self.address_query(hidden) @ self.address_key(hidden).transpose(-1, -2)
-        affinity = affinity / math.sqrt(ADDRESS_WIDTH) + self._lexical_scores(tokens, positions)
+        if self.mode == "lexical":
+            affinity = self._lexical_scores(tokens, positions)
+        else:
+            affinity = self.address_query(hidden) @ self.address_key(hidden).transpose(-1, -2)
+            affinity = affinity / math.sqrt(ADDRESS_WIDTH)
+            if self.mode == "hybrid":
+                affinity = affinity + self._lexical_scores(tokens, positions)
         affinity = affinity.masked_fill(~allowed, torch.finfo(affinity.dtype).min)
         attention = affinity.softmax(dim=-1).masked_fill(~allowed, 0)
         source_ids = tokens[:, None, :].expand_as(attention)
@@ -53,3 +64,23 @@ class AssociativeDecoder(nn.Module):
             base + F.logsigmoid(-gate), copied.clamp_min(torch.finfo(copied.dtype).tiny).log()
             + F.logsigmoid(gate))
         return torch.where(allowed.any(dim=-1, keepdim=True), mixture, base)
+
+
+
+class DenseCapacityControl(nn.Module):
+    """Add a tokenwise residual MLP with six more parameters than the hybrid read head."""
+
+    def __init__(self, core: nn.Module, seed: int):
+        super().__init__()
+        self.core = core
+        width = core.config.width
+        with torch.random.fork_rng(devices=[]):
+            torch.manual_seed(seed)
+            self.up = nn.Linear(width, ADDRESS_WIDTH)
+            self.down = nn.Linear(ADDRESS_WIDTH, width)
+        nn.init.normal_(self.down.weight, std=0.02)
+        nn.init.zeros_(self.down.bias)
+
+    def forward(self, tokens: torch.Tensor, positions: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        hidden = self.core.forward_hidden(tokens, positions, mask)
+        return F.linear(hidden + self.down(F.silu(self.up(hidden))), self.core.embedding.weight)

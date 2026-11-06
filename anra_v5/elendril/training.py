@@ -18,7 +18,7 @@ from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer, optimizer_group_receipt
 from v5_training.state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
-from .associative import ADDRESS_WIDTH, WINDOW, AssociativeDecoder
+from .associative import ADDRESS_WIDTH, WINDOW, AssociativeDecoder, DenseCapacityControl
 from .benchmark import Example
 from .codec import BOS, CODEC_SHA, EOS, PAD, VOCAB_SIZE, Prediction, answer_tokens, canonical, digest, encode
 from .counterfactual import METHODS, CounterfactualBatches, answer_contrast, method_identity
@@ -118,9 +118,13 @@ class Trainer:
         self.seed = seed
         self.model = initialize(MODEL, seed).cpu().float()
         model_sha = MODEL.sha256()
-        if self.method.associative:
-            self.model = AssociativeDecoder(self.model, seed)
-            model_sha = digest([model_sha, "associative-copy-v1", WINDOW, ADDRESS_WIDTH])
+        architecture = self.method.architecture
+        if architecture == "matched":
+            self.model = DenseCapacityControl(self.model, seed)
+            model_sha = digest([model_sha, "dense-residual-control-v1", ADDRESS_WIDTH])
+        elif architecture != "dense":
+            self.model = AssociativeDecoder(self.model, seed, mode=architecture)
+            model_sha = digest([model_sha, "associative-copy-v2", architecture, WINDOW, ADDRESS_WIDTH])
         self.optimizer = build_adamw_optimizer(self.model, lr=LR)
         self.rng = torch.Generator(device="cpu").manual_seed(seed)
         identity = data_sha(rows)

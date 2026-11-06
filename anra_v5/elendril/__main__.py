@@ -15,6 +15,7 @@ from .benchmark import (BINDING_PANELS, FAMILIES, POLICIES, binding_panel,
                         binding_panel_prompts, corrupt_binding, fixture, shortcut)
 from .codec import CODEC_SHA, Prediction, answer_tokens, canonical, digest
 from .counterfactual import METHODS
+from .relational import ROBUST_PANELS, relational_fixture
 from .scoring import score
 
 
@@ -64,6 +65,26 @@ def committed_source() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
 
+def experiment_rows(surface: str, family: str, split: str):
+    if surface == "relational-v1":
+        if family != "binding":
+            raise ValueError("the relational surface requires a binding arm")
+        return relational_fixture(split)
+    if surface != "classic":
+        raise ValueError("unknown evaluation surface")
+    return fixture(family, split)
+
+
+def experiment_panels(surface: str):
+    return ROBUST_PANELS if surface == "relational-v1" else BINDING_PANELS
+
+
+def experiment_panel(surface: str, name: str):
+    if surface == "relational-v1":
+        return relational_fixture("train" if name == "train" else "development", name)
+    return binding_panel(name)
+
+
 def pilot(args) -> dict:
     from .training import configure_cpu, data_sha, generate, runtime_identity, Trainer
 
@@ -78,13 +99,15 @@ def pilot(args) -> dict:
     family = "copy" if args.arm == "copy" else "binding"
     if family != "binding" and args.method != "reference":
         raise ValueError("counterfactual methods require binding")
-    train = fixture(family, "train")
+    train = experiment_rows(args.surface, family, "train")
     corruption_seed = args.seed + 100_000
     if args.arm == "binding-permuted":
         train = corrupt_binding(train, corruption_seed)
-    dev = fixture(family, "development")
+    dev = experiment_rows(args.surface, family, "development")
     prompts = tuple((row.visible.task_id, row.visible.prompt) for row in dev)
     lineage = f"{args.arm}-{args.seed}"
+    if args.surface != "classic":
+        lineage = f"{args.surface}-{lineage}"
     if args.method != "reference":
         lineage = f"{args.method}-{lineage}"
     trainer = Trainer(train, seed=args.seed, steps=args.steps, root=args.root,
@@ -112,14 +135,17 @@ def pilot(args) -> dict:
     while trainer.state.global_update < args.until:
         updates.append(trainer.step())
         step = trainer.state.global_update
-        scheduled = step in (50, 150) if args.method == "reference" else step % 84 == 0
+        if args.surface == "relational-v1":
+            scheduled = step % 88 == 0
+        else:
+            scheduled = step in (50, 150) if args.method == "reference" else step % 84 == 0
         if scheduled or step == args.until:
             trainer.save()
             evaluations.append(evaluate(dev, prompts))
     panels = {}
     if args.method != "reference" and trainer.state.complete:
-        for name in BINDING_PANELS:
-            rows = binding_panel(name)
+        for name in experiment_panels(args.surface):
+            rows = experiment_panel(args.surface, name)
             visible_prompts = binding_panel_prompts(name, rows)
             panels[name] = {
                 **evaluate(rows, visible_prompts),
@@ -131,11 +157,12 @@ def pilot(args) -> dict:
         "command": ["python", "-m", "anra_v5.elendril", *args.command_line],
         "arm": args.arm, "seed": args.seed, "corruption_seed": corruption_seed if family == "binding"
         and args.arm == "binding-permuted" else None,
-        "method": args.method, "lineage": lineage,
+        "method": args.method, "lineage": lineage, "surface": args.surface,
         "environment": runtime_identity(), "model_parameters": sum(p.numel() for p in trainer.model.parameters()),
         "identity": trainer.state.identities.canonical(), "codec_sha256": CODEC_SHA,
         "training_sha256": data_sha(train), "development_sha256": digest([asdict(row) for row in dev]),
-        "benchmark_source_sha256": sha256(Path(__file__).with_name("benchmark.py").read_bytes()).hexdigest(),
+        "benchmark_source_sha256": sha256(Path(__file__).with_name(
+            "relational.py" if args.surface == "relational-v1" else "benchmark.py").read_bytes()).hexdigest(),
         "start_update": start, "start_checkpoint_sha256": start_checkpoint,
         "training_tokens": trainer.state.cumulative_tokens, "final_checkpoint_sha256": trainer.parent,
         "wall_seconds": time.perf_counter() - started, "process_cpu_seconds": time.process_time() - cpu_started,
@@ -157,7 +184,8 @@ def main(argv: list[str] | None = None) -> None:
     run.add_argument("--arm", choices=("copy", "binding", "binding-permuted"), required=True)
     run.add_argument("--method", choices=tuple(METHODS), default="reference")
     run.add_argument("--seed", type=int, required=True)
-    run.add_argument("--steps", type=int, default=350)
+    run.add_argument("--surface", choices=("classic", "relational-v1"), default="classic")
+    run.add_argument("--steps", type=int)
     run.add_argument("--until", type=int)
     run.add_argument("--root", type=Path, required=True)
     run.add_argument("--output", type=Path, required=True)
@@ -167,6 +195,8 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(command_line)
     if args.mode == "pilot":
         args.command_line = command_line
+        if args.steps is None:
+            args.steps = 352 if args.surface == "relational-v1" else 350
         args.until = args.steps if args.until is None else args.until
         write_receipt(args.output, pilot(args))
     elif args.mode == "audit":
@@ -174,7 +204,8 @@ def main(argv: list[str] | None = None) -> None:
     else:
         receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
         family = "copy" if receipt["arm"] == "copy" else "binding"
-        rows = fixture(family, "development")
+        surface = receipt.get("surface", "classic")
+        rows = experiment_rows(surface, family, "development")
         if receipt["development_sha256"] != digest([asdict(row) for row in rows]):
             raise ValueError("receipt development identity mismatch")
         def verify(item, fixture_rows):
@@ -188,12 +219,12 @@ def main(argv: list[str] | None = None) -> None:
         for item in receipt["evaluations"]:
             verify(item, rows)
         panels = receipt.get("panels", {})
-        expected_panels = set(BINDING_PANELS) if (receipt.get("method", "reference") != "reference"
+        expected_panels = set(experiment_panels(surface)) if (receipt.get("method", "reference") != "reference"
                                                  and receipt["status"] == "completed") else set()
         if panels.keys() != expected_panels:
             raise ValueError("receipt panel coverage mismatch")
         for name, item in panels.items():
-            panel_rows = binding_panel(name)
+            panel_rows = experiment_panel(surface, name)
             if digest([asdict(row) for row in panel_rows]) != item["fixture_sha256"]:
                 raise ValueError("receipt panel fixture mismatch")
             if digest(binding_panel_prompts(name, panel_rows)) != item["model_prompts_sha256"]:
