@@ -26,7 +26,7 @@ jobs:
       - name: Check ELENDRIL and shared contracts
         run: >-
           python -m pytest -q
-          tests/test_elendril.py tests/test_elendril_longitudinal.py tests/test_elendril_relational.py tests/test_elendril_join.py
+          tests/test_elendril.py tests/test_elendril_longitudinal.py tests/test_elendril_relational.py tests/test_elendril_join.py tests/test_elendril_lab.py
           tests/test_v5_checkpointing.py tests/test_v5_durability_contracts.py
           tests/test_v5_model.py tests/test_v5_tokenizer.py
       - run: python -m anra_v5.elendril audit --output elendril-fixture-audit.json

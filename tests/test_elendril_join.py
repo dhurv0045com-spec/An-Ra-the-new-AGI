@@ -18,6 +18,11 @@ def test_oracles_shortcuts_and_disjoint_graphs():
     assert scores["one_step"]["exact_eos"] == [0, 128]
     for policy in ("first", "last", "frequency"):
         assert scores[policy]["query_swap_both_correct"] == [0, 64]
+    for row in dev:
+        edges, root = parse(row.visible.prompt)
+        endpoints = {target for source, middle in edges if source == root
+                     for next_source, target in edges if middle == next_source}
+        assert endpoints == {row.truth.gold}
     for base, rewire in zip(dev, join_fixture("development", "rewire")):
         edges, root = parse(base.visible.prompt)
         changed, other = parse(rewire.visible.prompt)
@@ -44,3 +49,28 @@ def test_two_reads_are_causal_and_differentiable():
     assert model.join_strength.grad.abs().item() > 0
     assert torch.count_nonzero(model.join_offsets.grad) > 0
     assert torch.isfinite(model.address_query.weight.grad).all()
+
+
+def test_two_read_resume_matches_uninterrupted_tensors(tmp_path):
+    from anra_v5.elendril.training import Trainer, configure_cpu
+
+    threads = torch.get_num_threads()
+    deterministic = torch.are_deterministic_algorithms_enabled()
+    warn_only = torch.is_deterministic_algorithms_warn_only_enabled()
+    configure_cpu()
+    try:
+        config = dict(rows=join_fixture("train"), seed=7, steps=32, root=tmp_path,
+                      source_commit="a"*40, method="two-read")
+        reference = Trainer(**config, lineage="reference")
+        interrupted = Trainer(**config, lineage="interrupted")
+        assert reference.step() == interrupted.step()
+        interrupted.save()
+        resumed = Trainer(**config, lineage="interrupted", resume=True)
+        assert reference.step() == resumed.step()
+        assert all(torch.equal(a, b) for a, b in zip(reference.model.parameters(), resumed.model.parameters()))
+        for a, b in zip(reference.optimizer.state.values(), resumed.optimizer.state.values()):
+            assert a.keys() == b.keys()
+            assert all(torch.equal(a[key], b[key]) for key in a)
+    finally:
+        torch.set_num_threads(threads)
+        torch.use_deterministic_algorithms(deterministic, warn_only=warn_only)
