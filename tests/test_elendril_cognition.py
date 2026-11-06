@@ -14,11 +14,14 @@ def test_public_evidence_preserves_time_missing_null_and_conflicts():
     case = revision_cases()[2]
     state = CognitiveState(case.goal)
     assert belief(state.events, "A").status == "missing"
+    assert "A:1" in state.render()
     state = state.observe(case.environment.initial * 2)
     assert len(state.events) == len(case.environment.initial)
     assert belief(state.events, "A").status == "contradicted"
+    assert "A:3CH" in state.render()
     revised = state.observe(case.environment.channels["request-current-status"])
     assert belief(revised.events, "A").status == "null"
+    assert "A:2!" in revised.render()
     assert belief(state.events, "A").status == "contradicted"
     foreign = ExperienceEvent("other-world", "A", "operator", 10, "B")
     with pytest.raises(ValueError, match="outside goal custody"):

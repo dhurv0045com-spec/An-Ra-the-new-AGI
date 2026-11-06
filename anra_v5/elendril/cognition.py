@@ -108,9 +108,14 @@ class CognitiveState:
     def render(self) -> str:
         edges = []
         for subject in self.goal.slots:
-            value = belief(self.events, subject).value
-            if value is not None:
-                edges.append(f"{subject}:{value}")
+            current = belief(self.events, subject)
+            if self.goal.family == "revision":
+                code = {"missing": "1", "null": "2", "contradicted": "3", "derived": "4"}[current.status]
+                values = "".join(sorted({event.value or "!" for event in self.events
+                                         if event.identity in current.evidence}))
+                edges.append(f"{subject}:{code}{values}")
+            elif current.value is not None:
+                edges.append(f"{subject}:{current.value}")
         return "B:" + self.goal.separator.join(edges) + f"?{self.goal.subject}>"
 
 
