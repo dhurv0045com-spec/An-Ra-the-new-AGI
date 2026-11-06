@@ -1,0 +1,15 @@
+{
+  "checkpoint_sha256": "96a15fd5e7a3de495d93c049fe6dde49f4874a2c148ac64c762dd20c49c9bc76",
+  "checkpoint_source": "6615886b1a37fd535682bdee38157e4c44cd0783",
+  "files": {
+    "fixed-status.json": "449f605b8ce92bc135da847b1beea070f3714759d92ba7dc65072f6fc712ffe6",
+    "fixed.json": "b6dd9bc2c5c9a6b10479a9de2e166c0547c6055dc39142b5056db79e28d7f826",
+    "neural-status.json": "694635678e5621b9084a57d6f82aa67edd9ea99159909515f9c35695028af059",
+    "neural.json": "c2ad7aea1c7787409494171ef6b80e27a1b008fe85f9487d90aab52a9c4aa1a8"
+  },
+  "model_weights_sha256": "8734cfb9957f510a703c0d04e5f68a305e0af9552238c28f178e848dc9c2e863",
+  "optimizer_updates": 0,
+  "schema": "elendril-cognitive-v4-evidence/v1",
+  "source_commit": "11df60d9edb7297b03b57903b6e49562d0ded7fe",
+  "status_render_source_commit": "15d423e16ea41a96e7942370b13304625f4f1c88"
+}

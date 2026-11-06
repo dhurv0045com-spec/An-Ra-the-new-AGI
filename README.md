@@ -6,10 +6,10 @@ The active tree contains the research model and operator, the small V5 dependenc
 
 ## Research entry points
 
-- [Current state](docs/CURRENT_STATE.md) and [roadmap](docs/RESEARCH_ROADMAP.md)
+- [Current state](docs/CURRENT_STATE.md), [cognitive kernel](docs/COGNITIVE_KERNEL.md), and [handoff](docs/HANDOFF.md)
 - [Ranked hypotheses](docs/HYPOTHESIS_REGISTER.md) and [experiment protocols](docs/EXPERIMENT_PROTOCOLS.md)
 - [Cloud operations and launch gates](docs/OPERATIONS.md)
-- [Colab single-T4 screening](notebooks/ELENDRIL_SCREEN_COLAB_T4.ipynb)
+- Preserved V3 graph operators. [Colab single-T4 screening](notebooks/ELENDRIL_SCREEN_COLAB_T4.ipynb)
 - [Kaggle dual-T4 confirmation](notebooks/ELENDRIL_CONFIRM_KAGGLE_T4X2.ipynb)
 
 ## Local qualification
