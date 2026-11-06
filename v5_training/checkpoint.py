@@ -10,7 +10,7 @@ import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Mapping
 
 from .distributed_checkpoint import (
@@ -74,7 +74,10 @@ class Component:
 
 class CheckpointStore:
     def __init__(self, root: Path, lineage_id: str) -> None:
-        if not lineage_id or any(character in lineage_id for character in "/\\"):
+        if (not isinstance(lineage_id, str) or not lineage_id or lineage_id in (".", "..")
+                or lineage_id.endswith((".", " "))
+                or any(ord(char) < 32 or char in '<>:"/\\|?*' for char in lineage_id)
+                or PureWindowsPath(lineage_id).is_reserved()):
             raise ValueError("lineage id must be a safe single path component")
         self.root = root.resolve()
         self.lineage_id = lineage_id
@@ -312,10 +315,10 @@ class CheckpointStore:
     def _restore_transaction(
         self, checkpoint_sha256: str | None = None,
     ) -> tuple[TrainingState, dict[str, bytes]]:
-        identity = checkpoint_sha256 or self.latest_sha256()
+        identity = self.latest_sha256() if checkpoint_sha256 is None else checkpoint_sha256
         if identity is None:
             raise ValueError("no committed checkpoint exists")
-        if len(identity) != 64 or any(character not in "0123456789abcdef" for character in identity):
+        if not isinstance(identity, str) or len(identity) != 64 or any(character not in "0123456789abcdef" for character in identity):
             raise ValueError("checkpoint identity must be a lowercase SHA-256")
         return self._verify_directory(self.objects / identity, expected_sha256=identity)
 
@@ -481,6 +484,8 @@ class CheckpointStore:
                 raise ValueError(f"checkpoint component is corrupt: {item['name']}")
             payloads[item["name"]] = payload
         state = TrainingState.from_dict(manifest["state"])
+        if state.lineage_id != self.lineage_id:
+            raise ValueError("checkpoint training state belongs to another lineage")
         if state.sha256() != manifest["state_sha256"]:
             raise ValueError("training state hash mismatch")
         if payloads["training_state.json"] != _canonical_json(state.canonical()):

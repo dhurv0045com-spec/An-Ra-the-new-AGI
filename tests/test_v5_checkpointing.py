@@ -40,3 +40,22 @@ def test_xla_checkpoint_dispatch_uses_torch_xla_reentrant_api() -> None:
 
     assert float(value.item()) == 5.0
     assert calls == [{"use_reentrant": True, "preserve_rng_state": False}]
+
+
+
+@pytest.mark.parametrize("lineage", ["", ".", "..", "a/b", "a:b", "NUL", "name.", "name "])
+def test_checkpoint_store_rejects_unsafe_lineage(tmp_path, lineage):
+    from v5_training.checkpoint import CheckpointStore
+
+    with pytest.raises(ValueError, match="safe single path component"):
+        CheckpointStore(tmp_path / "store", lineage)
+    assert not (tmp_path / "store").exists()
+
+
+def test_checkpoint_explicit_empty_identity_fails_closed(tmp_path):
+    from v5_training.checkpoint import CheckpointStore
+
+    store = CheckpointStore(tmp_path, "safe")
+    store.latest.write_text("a" * 64)
+    with pytest.raises(ValueError, match="lowercase SHA-256"):
+        store.restore("")
