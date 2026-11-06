@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path, PureWindowsPath
 from typing import Mapping
 
+from .checkpoint_lock import checkpoint_writer
 from .distributed_checkpoint import (
     DISTRIBUTED_CHECKPOINT_SCHEMA,
     DISTRIBUTED_COMPONENTS,
@@ -115,14 +116,15 @@ class CheckpointStore:
     ) -> str:
         """Publish the established local v1 checkpoint format."""
 
-        return self._publish_transaction(
-            state=state,
-            payloads=payloads,
-            expected_parent_sha256=expected_parent_sha256,
-            inventory=REQUIRED_COMPONENTS,
-            manifest_schema=MANIFEST_SCHEMA,
-            inject_crash_at=inject_crash_at,
-        )
+        with checkpoint_writer(self.lineage_root):
+            return self._publish_transaction(
+                state=state,
+                payloads=payloads,
+                expected_parent_sha256=expected_parent_sha256,
+                inventory=REQUIRED_COMPONENTS,
+                manifest_schema=MANIFEST_SCHEMA,
+                inject_crash_at=inject_crash_at,
+            )
 
     def _publish_transaction(
         self,
@@ -219,14 +221,15 @@ class CheckpointStore:
             raise ValueError(
                 f"distributed checkpoint inventory mismatch; missing={missing}, extra={extra}"
             )
-        return self._publish_transaction(
-            state=state,
-            payloads=payloads,
-            expected_parent_sha256=expected_parent_sha256,
-            inventory=DISTRIBUTED_REQUIRED_COMPONENTS,
-            manifest_schema=DISTRIBUTED_MANIFEST_SCHEMA,
-            inject_crash_at=inject_crash_at,
-        )
+        with checkpoint_writer(self.lineage_root):
+            return self._publish_transaction(
+                state=state,
+                payloads=payloads,
+                expected_parent_sha256=expected_parent_sha256,
+                inventory=DISTRIBUTED_REQUIRED_COMPONENTS,
+                manifest_schema=DISTRIBUTED_MANIFEST_SCHEMA,
+                inject_crash_at=inject_crash_at,
+            )
 
     def prune(self, *, keep: set[str]) -> list[str]:
         """Delete committed generations outside ``keep`` for bounded rotation.
@@ -238,6 +241,10 @@ class CheckpointStore:
         recording them with ``record_milestone``. Returns removed SHAs.
         """
 
+        with checkpoint_writer(self.lineage_root):
+            return self._prune_locked(keep)
+
+    def _prune_locked(self, keep: set[str]) -> list[str]:
         import shutil
 
         protected = set(self.protected_shas())
@@ -269,6 +276,10 @@ class CheckpointStore:
         fails closed.
         """
 
+        with checkpoint_writer(self.lineage_root):
+            return self._record_milestone_locked(threshold_tokens, checkpoint_sha256)
+
+    def _record_milestone_locked(self, threshold_tokens: int, checkpoint_sha256: str) -> dict[str, object]:
         if threshold_tokens <= 0:
             raise ValueError("milestone threshold must be positive")
         if len(checkpoint_sha256) != 64 or any(

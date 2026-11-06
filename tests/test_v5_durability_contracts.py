@@ -337,3 +337,35 @@ def test_mirror_fails_on_explicit_invalid_identity(tmp_path):
         with pytest.raises(ValueError, match="lowercase SHA-256"):
             materialize_local(mirror, store, checkpoint_sha256=identity)
     assert not mirror.exists()
+
+
+def test_shared_checkpoint_writer_fences_different_generations(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    import v5_training.checkpoint as checkpoint
+
+    store = CheckpointStore(tmp_path, "m")
+    first, rival = _state(), _state(update=2, cumulative=8)
+    entered, release = Event(), Event()
+    write_sync = checkpoint._write_sync
+
+    def pause(path, payload):
+        if path.name == "model.bin" and path.parent.name == ".staging-1":
+            entered.set()
+            assert release.wait(5)
+        write_sync(path, payload)
+
+    monkeypatch.setattr(checkpoint, "_write_sync", pause)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        writer = pool.submit(store.publish, state=first, payloads=_payloads(first),
+                             expected_parent_sha256=None)
+        try:
+            assert entered.wait(5)
+            with pytest.raises(ValueError, match="writer lock unavailable"):
+                store.publish(state=rival, payloads=_payloads(rival), expected_parent_sha256=None)
+            with pytest.raises(ValueError, match="writer lock unavailable"):
+                store.prune(keep=set())
+        finally:
+            release.set()
+        assert writer.result(timeout=5) == store.latest_sha256()
+    assert store.restore()[0] == first

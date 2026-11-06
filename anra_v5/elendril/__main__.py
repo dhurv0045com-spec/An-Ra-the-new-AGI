@@ -105,6 +105,10 @@ def pilot(args) -> dict:
         raise ValueError("until must be within the training budget")
     source = committed_source()
     device = configure_device(args.device)
+    if device.type == "cuda":
+        import torch
+
+        torch.cuda.reset_peak_memory_stats(device)
     started = time.perf_counter()
     cpu_started = time.process_time()
     family = "copy" if args.arm == "copy" else "binding"
@@ -175,8 +179,12 @@ def pilot(args) -> dict:
                 "fixture_sha256": digest([asdict(row) for row in rows]),
                 "model_prompts_sha256": digest(visible_prompts),
             }
+    accelerator = None
+    if device.type == "cuda":
+        accelerator = {"peak_allocated_bytes": torch.cuda.max_memory_allocated(device),
+                       "peak_reserved_bytes": torch.cuda.max_memory_reserved(device)}
     return {
-        "schema": "elendril-development-pilot/v1", "source_commit": source,
+        "schema": "elendril-development-pilot/v1", "accelerator": accelerator, "source_commit": source,
         "command": ["python", "-m", "anra_v5.elendril", *args.command_line],
         "arm": args.arm, "seed": args.seed, "corruption_seed": corruption_seed if family == "binding"
         and args.arm == "binding-permuted" else None,

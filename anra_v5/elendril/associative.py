@@ -103,8 +103,8 @@ class DenseCapacityControl(nn.Module):
             torch.manual_seed(seed)
             self.up = nn.Linear(width, ADDRESS_WIDTH)
             self.down = nn.Linear(ADDRESS_WIDTH, width)
-        nn.init.normal_(self.down.weight, std=0.02)
-        nn.init.zeros_(self.down.bias)
+            nn.init.normal_(self.down.weight, std=0.02)
+            nn.init.zeros_(self.down.bias)
 
     def forward(self, tokens: torch.Tensor, positions: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         hidden = self.core.forward_hidden(tokens, positions, mask)

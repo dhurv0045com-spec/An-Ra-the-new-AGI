@@ -61,3 +61,14 @@ def test_lexical_address_scores_are_invariant_under_symbol_bijection():
     b = torch.tensor([(BOS, *encode("B:U:A;V:B?U>"))])
     positions, _ = packed_layout(torch.zeros_like(a), torch_module=torch)
     assert torch.equal(model._lexical_scores(a, positions), model._lexical_scores(b, positions))
+
+
+def test_dense_control_initialization_is_ambient_rng_independent():
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(43)
+        before = torch.get_rng_state().clone()
+        first = DenseCapacityControl(initialize(MODEL, 7), 7)
+        assert torch.equal(before, torch.get_rng_state())
+        torch.manual_seed(91)
+        second = DenseCapacityControl(initialize(MODEL, 7), 7)
+        assert all(torch.equal(a, b) for a, b in zip(first.parameters(), second.parameters()))

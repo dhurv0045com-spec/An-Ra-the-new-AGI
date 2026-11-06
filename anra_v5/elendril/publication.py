@@ -1,23 +1,13 @@
 """Serialize writers around the inherited local checkpoint publication fence."""
 
-from contextlib import contextmanager
 from pathlib import Path
-import os
 import uuid
 
+from v5_training.checkpoint_lock import checkpoint_writer
 
-@contextmanager
+
 def writer_lock(lineage_root: Path):
-    # OS-owned lock releases when a process dies. Never unlink the lock inode.
-    with (lineage_root / ".elendril-writer").open("a+b") as handle:
-        handle.seek(0)
-        if os.name == "nt":
-            import msvcrt
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        yield
+    return checkpoint_writer(lineage_root, filename=".elendril-writer")
 
 
 def quarantine_interrupted_publication(lineage_root: Path, generation: int) -> None:

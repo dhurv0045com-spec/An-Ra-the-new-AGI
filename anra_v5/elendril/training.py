@@ -153,7 +153,7 @@ class Trainer:
         architecture = self.method.architecture
         if architecture == "matched":
             self.model = DenseCapacityControl(self.model, seed)
-            model_sha = digest([model_sha, "dense-residual-control-v1", ADDRESS_WIDTH])
+            model_sha = digest([model_sha, "dense-residual-control-v2", ADDRESS_WIDTH])
         elif architecture != "dense":
             self.model = AssociativeDecoder(self.model, seed, mode=architecture)
             model_sha = digest([model_sha, "associative-copy-v2", architecture, WINDOW, ADDRESS_WIDTH])
