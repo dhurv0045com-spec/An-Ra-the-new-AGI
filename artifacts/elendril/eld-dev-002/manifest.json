@@ -77,6 +77,11 @@
     "restart/associative-binding-7/objects/13df52b27d6180284473aa69ddf4111d50d3205ec0f917e3d1999a9ea784b784/manifest.json": "13df52b27d6180284473aa69ddf4111d50d3205ec0f917e3d1999a9ea784b784",
     "restart/associative-binding-7/objects/b40f37cb934b44a5655cd2aba895a0e1451341f5d7d7ba08b463279bfb7acc96/manifest.json": "b40f37cb934b44a5655cd2aba895a0e1451341f5d7d7ba08b463279bfb7acc96"
   },
+  "original_local_crlf_receipts_sha256": {
+    "associative-restart.json": "e39e7372e9dedb6d3c1a330d8682d3d3af499417579f6d4d43d6d023268ab7ad",
+    "process-tree-memory.json": "51536664aee3397fc6f1ecda0cd5d6640b9f5f34ab7607efedf6c8daf6d3a493",
+    "resource-monitor.jsonl": "4fb445c6ee63e6cf65aee738eaa710d8e566881a1609489e78259ecd80bd772e"
+  },
   "receipts_sha256": {
     "associative-binding-19.json": "93149c9dbdd5323fca4fe96b59e87aa6a8868ffd7347816d6f07fe72250521bc",
     "associative-binding-41.json": "7b77388469f6d05b1fa9cfcb012c06a1c018367d2d55f64a53b6c92d4d4585fb",
@@ -84,7 +89,7 @@
     "associative-binding-permuted-19.json": "153b6d2ff319f246965b5983d95e5d6b67665cf20da3cc0b066dae6d7644f80e",
     "associative-binding-permuted-41.json": "cc3f960cd06e82488c49cd5fbd446e61de9e01bd370eefabd6f403dbdb51e20d",
     "associative-binding-permuted-7.json": "51ffefb38383984a75b15df981189f13703d864ca5c3d537e355991db2a45f95",
-    "associative-restart.json": "e39e7372e9dedb6d3c1a330d8682d3d3af499417579f6d4d43d6d023268ab7ad",
+    "associative-restart.json": "6f6c680fdee6e454d7d7407ce5485fb11770c4b42c8523a05e0b07b488843e86",
     "inverted-19.json": "8270312018b984dc31aeec4d726e03544ec5bd3575619c9fc9e25a2c6b3e206f",
     "inverted-41.json": "eb1fb81b5de224db7ff92ae8053ae947d2970aaf81c59201a602f0dbb7a9a7e4",
     "inverted-7.json": "b6f53886cf910b2c4aeb9adf62e0f3ee041dc038dda7997380c567e13064fe6b",
@@ -94,8 +99,8 @@
     "paired-contrast-binding-19.json": "45d86cfb2f2a2eb3edb9686c0e5d010cbda7084eb562198c88754991c648fada",
     "paired-contrast-binding-41.json": "a7cde139cc1069060fa72161489586aa92790717b69bae003aaad0fce8188915",
     "paired-contrast-binding-7.json": "976da57dbafa9a1d717006d1daacf126538f80c578ed55a2efdc67ddfb1316fb",
-    "process-tree-memory.json": "51536664aee3397fc6f1ecda0cd5d6640b9f5f34ab7607efedf6c8daf6d3a493",
-    "resource-monitor.jsonl": "4fb445c6ee63e6cf65aee738eaa710d8e566881a1609489e78259ecd80bd772e",
+    "process-tree-memory.json": "e2bb836f93d8a2a7f8ad88b1cd8e4b7be74f29994521ea58e0b947afe8f9268e",
+    "resource-monitor.jsonl": "56b75384349471ba64b8eb8d736d40ef35927cdb3c2922d6c5161ac4a1156ef0",
     "resume-after.json": "77655a482ad845bda1e4ec1485f63fdb6a05a2a271f838186e13c6344205ce4e",
     "resume-before.json": "e715fff9bfe6e853c6cb2c5209ea3b78cda663a2bbbd61c2fbca79410c8ac07f",
     "resume-oracle.json": "df4a618e61b3e7d418362ab7a9fc4e2e4e3a7b3ef38f4f467902c5867b0c425f",
