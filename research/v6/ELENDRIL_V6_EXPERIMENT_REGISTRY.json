@@ -1,0 +1,294 @@
+{
+  "schema": "elendril-v6-grand-diagnostic-protocol/draft-1",
+  "status": "DESIGN_ONLY_AWAITING_CODEX_IMPLEMENTATION_AND_OWNER_GPU_QUALIFICATION",
+  "historical_source": "0cd200730d43547294cdc9bf8540a478130cce9c",
+  "new_pinned_source_required": true,
+  "research_question": "Which mechanism, data condition, or compute bottleneck prevents one Elendril learner from selecting cost-effective cognitive actions and generalizing to new evidence? What is the smallest verified path toward memory and continual learning?",
+  "single_primary_endpoint": "Mean full-episode utility = terminal accuracy - 0.1 * verified queries; exact EOS mandatory. Declare model inference cost as a separate Pareto dimension, not free.",
+  "primary_acceptance": "Before looking at confirmation: >=0.90 complete-episode accuracy, >=0.80 by each public state kind, zero invalid actions, <=0.05 excess requests per episode versus fixed control, across both seeds. A candidate beating CE requires >=0.05 per-episode utility in both screen seeds and no >5pp subgroup regression.",
+  "data": {
+    "desired_train_bytes": [
+      2000000,
+      3000000
+    ],
+    "rule": "unique generated latent worlds; no padding/repeated filler; manifest world/generator/template/split hashes; new disjoint evaluation generator; do not claim language pretraining",
+    "no_test_leak": "frozen confirmation generator/splits before screening; task/event/prompt/window and near-duplicate audits"
+  },
+  "compute": {
+    "device": "Kaggle GPU T4 x2",
+    "physical_lanes": 2,
+    "min_free_vram_mib_each": 11000,
+    "estimated_total_hours": 5.5,
+    "hard_wall_hours_including_export": 6,
+    "export_reserve_minutes": 35,
+    "runtime_assumptions": "actual GPU/driver/quota/session must be observed; two T4 memory spaces not pooled",
+    "local_training": "forbidden"
+  },
+  "model_profiles": {
+    "S3": {
+      "width": 256,
+      "layers": 4,
+      "query_heads": 4,
+      "kv_heads": 1,
+      "head_dimension": 64,
+      "ffn_width": 768,
+      "context_length": 128,
+      "vocabulary": "legacy_or_qualified_utf8",
+      "approx_millions": 3.1
+    },
+    "S8": {
+      "width": 384,
+      "layers": 5,
+      "query_heads": 6,
+      "kv_heads": 2,
+      "head_dimension": 64,
+      "ffn_width": 1024,
+      "context_length": 128,
+      "vocabulary": "legacy_or_qualified_utf8",
+      "approx_millions": 8.0
+    },
+    "S20": {
+      "width": 512,
+      "layers": 7,
+      "query_heads": 8,
+      "kv_heads": 2,
+      "head_dimension": 64,
+      "ffn_width": 1408,
+      "context_length": 192,
+      "vocabulary": "legacy_or_qualified_utf8",
+      "approx_millions": 19.9
+    }
+  },
+  "arms": [
+    {
+      "id": "A0",
+      "role": "fixed-control",
+      "method": "fixed policy; always-query; never-query; random; oracle separate",
+      "scale": "no-train",
+      "initial_stage": "all panels where appropriate"
+    },
+    {
+      "id": "A1",
+      "role": "neural-control",
+      "method": "CE AdamW, uniform exposure, established V5 core",
+      "scale": "S3",
+      "initial_stage": "screen"
+    },
+    {
+      "id": "A2",
+      "role": "causal-arm",
+      "method": "action-weighted CE, identical examples and exposure",
+      "scale": "S3",
+      "initial_stage": "screen"
+    },
+    {
+      "id": "A3",
+      "role": "causal-arm",
+      "method": "uncertainty-first curriculum; equal full-epoch row multiset",
+      "scale": "S3",
+      "initial_stage": "screen"
+    },
+    {
+      "id": "A4",
+      "role": "causal-arm",
+      "method": "independent alias/template augmentation; same budget and audit",
+      "scale": "S3",
+      "initial_stage": "screen"
+    },
+    {
+      "id": "A5",
+      "role": "causal-arm",
+      "method": "learned decision or evidence-seeking regularizer; explicit objective and baseline",
+      "scale": "S3",
+      "initial_stage": "screen-if-qualified"
+    },
+    {
+      "id": "A6",
+      "role": "conditional-scale",
+      "method": "winning S3 mechanism; scale probe",
+      "scale": "S8",
+      "initial_stage": "only-after-screen"
+    },
+    {
+      "id": "A7",
+      "role": "conditional-scale",
+      "method": "winning S3 mechanism; scale probe",
+      "scale": "S20",
+      "initial_stage": "only-after-efficiency-gate"
+    },
+    {
+      "id": "A8",
+      "role": "conditional-confirmation",
+      "method": "best two preregistered S3 competitors, new seeds and sealed generator",
+      "scale": "S3",
+      "initial_stage": "only-after-screen"
+    }
+  ],
+  "panels": [
+    {
+      "id": "P01",
+      "name": "Positive-control learnability",
+      "hypothesis": "Can a neural model fit explicit QUERY+EOS before OOD tests?",
+      "metrics": "train loss; exact content+EOS; invalid tokens",
+      "gate": "Always run; training prompts and distinct validation shown"
+    },
+    {
+      "id": "P02",
+      "name": "Known-evidence answering",
+      "hypothesis": "Does it answer immediately when evidence is sufficient?",
+      "metrics": "correct; redundant query count; calibration",
+      "gate": "Always after P01; matched seen/unseen worlds"
+    },
+    {
+      "id": "P03",
+      "name": "Missing-evidence query",
+      "hypothesis": "Does it request useful evidence when facts are missing?",
+      "metrics": "query precision/recall; terminal accuracy; cost",
+      "gate": "Always after P01"
+    },
+    {
+      "id": "P04",
+      "name": "Conflicting-evidence query",
+      "hypothesis": "Does it avoid unsafe answers under unresolved conflicts?",
+      "metrics": "query rate; wrong-answer rate; later resolution",
+      "gate": "Always after P01"
+    },
+    {
+      "id": "P05",
+      "name": "Null and unavailable abstention",
+      "hypothesis": "Does it distinguish explicit null vs unavailable evidence?",
+      "metrics": "ABSTAIN accuracy; invalid actions; utility",
+      "gate": "Always after P01"
+    },
+    {
+      "id": "P06",
+      "name": "Post-query revision",
+      "hypothesis": "Can it incorporate a newly received observation and change its answer?",
+      "metrics": "end-to-end episode accuracy; intervention sensitivity",
+      "gate": "Always after P01"
+    },
+    {
+      "id": "P07",
+      "name": "Cost-aware thinking and queries",
+      "hypothesis": "Is it better than always-query, never-query and fixed?",
+      "metrics": "utility; requests; cost/quality Pareto",
+      "gate": "Always after P01"
+    },
+    {
+      "id": "P08",
+      "name": "Uncertainty and self-error detection",
+      "hypothesis": "Does pre-outcome confidence predict error on novel worlds?",
+      "metrics": "Brier; ECE; AUROC; accuracy/coverage; extra cost",
+      "gate": "Diagnostic only; fitting/calibration uses separate validation"
+    },
+    {
+      "id": "P09",
+      "name": "Legal action and EOS integrity",
+      "hypothesis": "Does it emit parseable actions and terminate exactly?",
+      "metrics": "exact+EOS; malformed outputs; loops; abstentions",
+      "gate": "Always; raw outputs never repaired"
+    },
+    {
+      "id": "P10",
+      "name": "Query swap and query blindness",
+      "hypothesis": "Does answer causally follow query, not a constant shortcut?",
+      "metrics": "paired both-correct; input intervention effect",
+      "gate": "Always; paired latent worlds"
+    },
+    {
+      "id": "P11",
+      "name": "Temporal/recency shortcuts",
+      "hypothesis": "Does it respect timestamps and provenance over text order?",
+      "metrics": "counterfactual pair accuracy; recency control",
+      "gate": "Always; time/source intervention pairs"
+    },
+    {
+      "id": "P12",
+      "name": "Representation and distractor OOD",
+      "hypothesis": "Does performance survive aliases, separators, new templates and distractors?",
+      "metrics": "separate/joint OOD accuracy; loss; failure clusters",
+      "gate": "Always; independent generator; do not train on sealed variants"
+    },
+    {
+      "id": "P13",
+      "name": "Compositional reasoning 2→3 hop",
+      "hypothesis": "Does the learned core generalize beyond action tokens and 2-hop joins?",
+      "metrics": "exact graph pair; 3-hop; shortcut controls",
+      "gate": "Conditional on qualified route/graph task; otherwise NOT_QUALIFIED"
+    },
+    {
+      "id": "P14",
+      "name": "Frozen-weight memory benefit",
+      "hypothesis": "Can admitted memory improve new episodes without a weight update?",
+      "metrics": "memory on/off; retrieval choice; cost; causal swaps",
+      "gate": "Conditional on available compatible learned or frozen model; provenance separate"
+    },
+    {
+      "id": "P15",
+      "name": "Sequential retention and transfer",
+      "hypothesis": "Does A survive B, and does B accelerate unseen C at equal total work?",
+      "metrics": "A-before/after; B; C curves; total GPU work",
+      "gate": "Conditional on independently qualified A and B; otherwise NOT_QUALIFIED"
+    }
+  ],
+  "stages": [
+    {
+      "id": "S0",
+      "name": "source/data/scorer/canary qualification",
+      "max_minutes": 30,
+      "stop": "any pin or GPU, data contamination, scorer, checkpoint restore, CUDA overfit failure"
+    },
+    {
+      "id": "S1",
+      "name": "cheap matched screen S3",
+      "max_minutes": 105,
+      "stop": "positive control fails; no minimum formation; budget exhausted"
+    },
+    {
+      "id": "S2",
+      "name": "best S3 candidates independent seeds",
+      "max_minutes": 105,
+      "stop": "no stable utility gain; subgroup regression"
+    },
+    {
+      "id": "S3",
+      "name": "conditional S8/S20 scaling probes",
+      "max_minutes": 75,
+      "stop": "not enough time/VRAM, poor smaller-scale signal, throughput loss"
+    },
+    {
+      "id": "S4",
+      "name": "full 15 diagnostic panels, independent rescore, charts, ZIP",
+      "max_minutes": 45,
+      "stop": "reserve export time; record NOT_QUALIFIED, FAILED, SKIPPED with cause"
+    }
+  ],
+  "artifacts": {
+    "files": [
+      "protocol.json",
+      "source.json",
+      "data_manifest.json",
+      "device_inventory.json",
+      "preflight.json",
+      "experiment_ledger.jsonl",
+      "all_arm_results.json",
+      "diagnostics_15panels.json",
+      "comparisons.json",
+      "checkpoint_manifest.json",
+      "plot_learning.png",
+      "plot_utility.png",
+      "plot_ood.png",
+      "decision_matrix.json",
+      "README_RESULTS.md",
+      "SHA256SUMS",
+      "ELENDRIL_V6_RESULTS.zip"
+    ],
+    "requirements": "every arm has declared status, reason, time, RNG, source/data/model/optimizer/tokenizer hashes; preserve failed and partial"
+  },
+  "no_claims": [
+    "passing canary is not learned cognition",
+    "successful narrow synthetic panels are not AGI",
+    "developer chosen intervention is not autonomous self-improvement",
+    "15 panels are not 15 independently replicated discoveries"
+  ]
+}
