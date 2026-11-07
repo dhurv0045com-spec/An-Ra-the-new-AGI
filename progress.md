@@ -27,3 +27,10 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 
 - Created this dated register and added the future logging convention to root `AGENTS.md`.
 - Documentation-only change; checked formatting and entry lengths without rerunning model tests.
+
+### 2026-11-07 | ChatGPT | V6 export-retry safety fix
+
+- Audited V6 Kaggle notebook against its generated source and observed CI evidence.
+- Removed the unnecessary T4 requirement from read-only, source-bound ZIP export retry; GPU training and recovery gates remain unchanged.
+- Replaced stale draft-only notebook footer with the accurate owner-run qualification state and added a regression contract.
+- No GPU training or Kaggle environment was executed; source remains pending live hardware qualification.

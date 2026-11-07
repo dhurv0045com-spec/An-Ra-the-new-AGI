@@ -204,3 +204,19 @@ def test_extract_verified_rejects_oversized_uncompressed_archive_before_destinat
     with pytest.raises(ValueError, match="uncompressed verification bound"):
         bundle.extract_verified(archive, destination, reserve_bytes=0)
     assert not destination.exists()
+
+def test_cpu_only_export_retry_is_separate_from_gpu_launch():
+    """The owner must be able to re-export saved data after GPU quota expires."""
+    notebook = build("a" * 40)
+    config = "".join(notebook["cells"][1]["source"]).replace("RUN_EXPORT = False", "RUN_EXPORT = True")
+    state = {}
+    exec(config, state)
+    assert state["RUN_EXPORT"] is True and state["RUN_PREFLIGHT"] is False
+    source = "".join(notebook["cells"][5]["source"])
+    assert "if RUN_PREFLIGHT or RUN_EXPORT:" in source
+    assert "if RUN_PREFLIGHT:\\n        import torch" in source
+    assert "v6.restore_output(PRIOR_CAMPAIGN_OUTPUT, OUTPUT" in source
+    assert "saved output source, protocol, or run ID differs" in source
+    assert "EXPORT_ONLY_SOURCE_AND_OUTPUT_BOUND" in source
+    assert "if PRIOR_CAMPAIGN_OUTPUT is not None:" in source
+    assert "independent_rescore_and_export" in "".join(notebook["cells"][11]["source"])
