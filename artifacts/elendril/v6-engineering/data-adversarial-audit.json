@@ -1,0 +1,178 @@
+{
+  "checks": {
+    "confirmation_generator_distinct_but_not_sealed": true,
+    "hidden_channel_payload_blind_before_query": true,
+    "timestamp_semantics_invariant_to_row_serialization": true,
+    "train_actual_text_bytes_within_2_to_3MB": true,
+    "train_kind_counts": {
+      "conflict": 717,
+      "known": 1032,
+      "memory": 723,
+      "missing": 697,
+      "null": 1048,
+      "route": 2069,
+      "unavailable": 1049
+    },
+    "train_max_tokens_within_registered_context": true,
+    "truth_label_not_used_in_supervision": true,
+    "unique_training_prompts": true,
+    "unique_training_worlds": true,
+    "validation_confirmation_fixed_kind_quotas": true,
+    "world_prompt_observed_state_splits_disjoint": true
+  },
+  "datasets": {
+    "confirmation": {
+      "actual_prompt_target_utf8_bytes": 26251,
+      "episodes": 80,
+      "examples": 115,
+      "generator": "confirmation-transition-ledger-v1",
+      "generator_limit": "related task semantics; development, not sealed external generalization",
+      "identity_sha256": "2aef9d090eff47d5aef5d01386c7e0651f30eec4e5e6e3c8424a07fcbad5b4ca",
+      "kind_counts": {
+        "conflict": 12,
+        "known": 12,
+        "memory": 12,
+        "missing": 11,
+        "null": 11,
+        "route": 11,
+        "unavailable": 11
+      },
+      "max_profile_context_tokens": 512,
+      "max_sequence_tokens": 268,
+      "prompt_sha256": "71abdde2ab3e8e35cb55263970c61d3af81665301baf81910f0dedd945d333a6",
+      "target_bytes_config": 0,
+      "world_sha256": "94d4787d5f9dd036c712333c8b49a110812bd8a787c87cc2423fd27eecc479c5"
+    },
+    "train": {
+      "actual_prompt_target_utf8_bytes": 2200185,
+      "episodes": 7335,
+      "examples": 9472,
+      "generator": "procedural-event-worlds",
+      "generator_limit": "related task semantics; development, not sealed external generalization",
+      "identity_sha256": "7786244187963f75e6cda5b10e4d4e0d81927b7000154126fff538dea15539e5",
+      "kind_counts": {
+        "conflict": 717,
+        "known": 1032,
+        "memory": 723,
+        "missing": 697,
+        "null": 1048,
+        "route": 2069,
+        "unavailable": 1049
+      },
+      "max_profile_context_tokens": 512,
+      "max_sequence_tokens": 268,
+      "prompt_sha256": "d9f4a4eae538f7275fb85881570dd8a905ff4c7d8ea1d72dc6e11e4abedc2f58",
+      "target_bytes_config": 2200000,
+      "world_sha256": "5b1ec3130366d1d21af8a2088cfbb8698390b1708b7782d281ce6dcd8ce23c46"
+    },
+    "validation": {
+      "actual_prompt_target_utf8_bytes": 26220,
+      "episodes": 80,
+      "examples": 115,
+      "generator": "procedural-event-worlds",
+      "generator_limit": "related task semantics; development, not sealed external generalization",
+      "identity_sha256": "c914c0d0505626e913c7f10af06a93c0b98a6ce6e741c52a3991cac6590c88f2",
+      "kind_counts": {
+        "conflict": 12,
+        "known": 12,
+        "memory": 12,
+        "missing": 11,
+        "null": 11,
+        "route": 11,
+        "unavailable": 11
+      },
+      "max_profile_context_tokens": 512,
+      "max_sequence_tokens": 268,
+      "prompt_sha256": "cdd516ce0dffed3bad3d2354135d53bdb37c20c2dfe90df4576c8ee6bc1dbfe0",
+      "target_bytes_config": 0,
+      "world_sha256": "a221ee8231cbd4f95bc3dbc4b8cbd9e3c6be8f35e1d1a960fca8b1d017aaaabe"
+    }
+  },
+  "elapsed_seconds": 26.422,
+  "findings": [
+    {
+      "id": "training_kind_mix",
+      "interpretation": "Owner directs preserving the duplicated route mass as a prospective choice for historical ELD004 composition formation. Registry/protocol amendment should state this mixture and resulting train/heldout distribution difference before scoring.",
+      "observed": "route is 2069/7335 (28.2%) train worlds; per-kind validation and confirmation are balanced at 16 worlds each in current 112-world campaign",
+      "severity": "documented_design_choice",
+      "source_committed": false
+    },
+    {
+      "id": "confirmation_independence",
+      "interpretation": "This is development confirmation only, not a sealed external benchmark or independently owned evaluator; the manifest says so. No external generalization claim is justified.",
+      "observed": "confirmation uses a separate transition-ledger construction path but retains closely related procedural task semantics, shared symbols and deterministic split hashing",
+      "severity": "method_limit"
+    },
+    {
+      "id": "representation_comparison",
+      "interpretation": "R0/R1 can isolate vocabulary effects on paired compact ASCII inputs, with vocab parameter and token/position differences reported. Raw-vs-ASCII additionally changes renderer and should be presented as a joint representation/input-format comparison; aliases are not represented in the ASCII arms.",
+      "observed": "legacy-ascii and utf8-ascii share a compact ASCII semantic renderer; raw UTF8 uses natural-language surface prompts",
+      "severity": "method_limit"
+    }
+  ],
+  "holdout_112_reaudit": {
+    "checks": {
+      "112_world_fixed_per_kind_quotas": true,
+      "state_hash_partition_excludes_train_states_by_construction": true,
+      "validation_and_confirmation_world_prompt_observed_state_disjoint": true
+    },
+    "confirmation": {
+      "actual_prompt_target_utf8_bytes": 36573,
+      "episodes": 112,
+      "examples": 160,
+      "generator": "confirmation-transition-ledger-v1",
+      "generator_limit": "related task semantics; development, not sealed external generalization",
+      "identity_sha256": "e6159337b25c7172216cd699f2e0bc800430aad849d1c0ad583313eca59193ee",
+      "kind_counts": {
+        "conflict": 16,
+        "known": 16,
+        "memory": 16,
+        "missing": 16,
+        "null": 16,
+        "route": 16,
+        "unavailable": 16
+      },
+      "max_sequence_tokens": 268,
+      "prompt_sha256": "53b7103b2e9af7d99f1ecf28ff990161cec356ae2e566b5869947b94f9c49bb3",
+      "world_sha256": "0a485c01d1c4cc074f9e29937e1aa4eff092770d9392dfc5971cdda65555bfd4"
+    },
+    "elapsed_seconds": 5.359,
+    "validation": {
+      "actual_prompt_target_utf8_bytes": 36543,
+      "episodes": 112,
+      "examples": 160,
+      "generator": "procedural-event-worlds",
+      "generator_limit": "related task semantics; development, not sealed external generalization",
+      "identity_sha256": "0cdfc18aa6b9465a7d1a77dd907b6e0c3a678dade92dd8c8f963f8b36852e256",
+      "kind_counts": {
+        "conflict": 16,
+        "known": 16,
+        "memory": 16,
+        "missing": 16,
+        "null": 16,
+        "route": 16,
+        "unavailable": 16
+      },
+      "max_sequence_tokens": 268,
+      "prompt_sha256": "8aee3f0b0704b565ec739734e68ccd1935bc0c4a7797addeb23aaca5821cab0f",
+      "world_sha256": "13eb34b7b32507a58fc568cc611549be6fc760fe67f8de0ceaeac0fe2386e72b"
+    }
+  },
+  "limits": [
+    "Confirmation is deterministic development data from a closely related procedural generator, not a sealed external test or independently owned evaluator.",
+    "World split is hash-partitioned over normalized observed-state keys; task semantics and symbols are shared across splits.",
+    "The test verifies generator-level input isolation and uniqueness; it is not evidence of learned capability or GPU qualification."
+  ],
+  "schema": "elendril-v6-data-adversarial-audit-v1",
+  "source_base_head": "777232f103312d80810c89f80d40cba94147f648",
+  "source_committed": false,
+  "source_file_sha256": {
+    "anra_v5/elendril/foundation_training.py": "1d6270e96d8377b6409219e3720fa528d39fc5fcc4b0c207724e683f30e73749",
+    "anra_v5/elendril/representation.py": "fbd8313af5c050abf7542bf7b20ee7c967882eb3bd7845e7f90c2782f83aadf3",
+    "anra_v5/elendril/v6_data.py": "5b78ff2dcfe595a932705f933dfeb440ffe992a19ff16bb5e8409acf8f2ae629",
+    "anra_v5/elendril/v6_registry.py": "51358e2e593066d36dbd2f88415c28a6ab0811f88d76b17e58db045c6e68d7e2",
+    "anra_v5/elendril/v6_training.py": "dac9d804108972ac24c5a7dfd93ac2a2480d74d4bdbbbe39365fa4d87dca654a",
+    "tools/build_elendril_v6_notebook.py": "c4a8bcb3695368cb2f4008a50a7e19a15cce522ec662fe855f4ebebced91bb01"
+  },
+  "status": "PASS_WITH_LIMITATIONS"
+}

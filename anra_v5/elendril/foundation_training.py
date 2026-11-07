@@ -135,9 +135,10 @@ class FoundationTrainer:
         self.data_sha = digest({"samples": [asdict(s) for s in self.samples], "provenance": data_provenance})
         # Explicit finite sampler plan makes variable eligible-token accounting
         # reproducible and prevents an interrupted update consuming an example.
+        self._epoch_orders = {}
         self.plan = tuple(self.indices(u) for u in range(recipe.total_updates))
         self.counts = tuple(sum(sum(self.samples[i].eligible) for i in batch) for batch in self.plan)
-        self.runtime = runtime_identity(self.device)
+        self.runtime = self.runtime_binding()
         self.metadata = {"schema": "elendril-foundation-training-v1", "recipe": asdict(recipe),
                          "model": spec.canonical(), "tensors": tensor_inventory(self.model),
                          "tokenizer": self.tokenizer, "provenance": data_provenance,
@@ -182,14 +183,24 @@ class FoundationTrainer:
         offset = update * self.recipe.batch_size
         while len(result) < self.recipe.batch_size:
             epoch, position = divmod(offset, len(self.samples))
-            pool = list(range(len(self.samples)))
-            random.Random(int(digest([self.recipe.seed, epoch, "foundation-order-v1"]), 16)).shuffle(pool)
-            if self.recipe.sampling == "uncertainty-first" and epoch == 0:
-                pool.sort(key=lambda i: self.samples[i].category not in ("missing", "conflict"))
+            if epoch not in self._epoch_orders:
+                pool = list(range(len(self.samples)))
+                random.Random(int(digest([self.recipe.seed, epoch, "foundation-order-v1"]), 16)).shuffle(pool)
+                if self.recipe.sampling == "uncertainty-first" and epoch == 0:
+                    pool.sort(key=lambda i: self.samples[i].category not in ("missing", "conflict"))
+                self._epoch_orders[epoch] = tuple(pool)
+            pool = self._epoch_orders[epoch]
             take = min(self.recipe.batch_size - len(result), len(pool) - position)
             result.extend(pool[position:position + take])
             offset += take
         return tuple(result)
+
+    def runtime_binding(self):
+        """Reference identity stays exact-host; specialized engines must version overrides."""
+        return runtime_identity(self.device)
+
+    def sample_cursor(self, completed_updates):
+        return completed_updates * self.recipe.batch_size
 
     def rng_bytes(self):
         return bytes(self.rng.get_state().tolist())
@@ -203,7 +214,7 @@ class FoundationTrainer:
         if state.identities != self.state.identities:
             raise ValueError("checkpoint source/model/tokenizer/data/recipe/runtime mismatch")
         u = state.global_update
-        expected_cursor = replace(self.state.cursor, sequence_ordinal=u * self.recipe.batch_size)
+        expected_cursor = replace(self.state.cursor, sequence_ordinal=self.sample_cursor(u))
         if (not 1 <= u <= self.recipe.total_updates or state.cursor != expected_cursor
                 or state.cumulative_tokens != sum(self.counts[:u]) or state.token_budget != sum(self.counts)
                 or state.tokens_per_update != max(self.counts)
@@ -315,7 +326,7 @@ class FoundationTrainer:
             cumulative_tokens=self.state.cumulative_tokens + self.counts[u],
             tokens_by_source={"action": self.state.cumulative_tokens + self.counts[u]},
             optimizer_step_max=u + 1, schedule_tokens=self.state.cumulative_tokens + self.counts[u],
-            cursor=replace(self.state.cursor, sequence_ordinal=(u + 1) * self.recipe.batch_size),
+            cursor=replace(self.state.cursor, sequence_ordinal=self.sample_cursor(u + 1)),
             rng_state_sha256=sha256(self.rng_bytes()).hexdigest(), parent_checkpoint_sha256=self.parent)
         self.state.assert_valid()
         self.faulted = False
