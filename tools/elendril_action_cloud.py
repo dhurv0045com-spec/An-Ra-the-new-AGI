@@ -200,7 +200,7 @@ def worker_canary(args, environment):
     from anra_v5.elendril.action_learning import action_fixture
     from v5_training.persistent_store import mirror_checkpoint
     import torch
-    started = time.monotonic()
+    started, cpu_started = time.monotonic(), time.process_time()
     output, mirror = args.output, args.durable
     output.mkdir(parents=True, exist_ok=False)
     # Formation control is owner-enabled CUDA work, never part of local tests.
@@ -262,7 +262,9 @@ def worker_canary(args, environment):
             "fresh_process": json.loads(proof_path.read_bytes())})
     summary = {"schema": SCHEMA + "/canary", "source": args.source, "platform": args.platform,
         "environment": environment, "results": results, "formation": learned,
-        "wall_seconds": time.monotonic() - started, "status": "PASS",
+        "wall_seconds": time.monotonic() - started, "process_cpu_seconds": time.process_time() - cpu_started,
+        "peak_cuda_allocated_bytes": torch.cuda.max_memory_allocated(),
+        "peak_cuda_reserved_bytes": torch.cuda.max_memory_reserved(), "status": "PASS",
         "off_session_persistence": "UNVERIFIED_OWNER_REATTACHMENT_REQUIRED"}
     write_json(args.receipt, summary)
     return summary
