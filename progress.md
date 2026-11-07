@@ -51,3 +51,10 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added RUN_ALL_19 as the only required launch toggle for one-session T4x2 screening, gated training and diagnostics.
 - Preserved default-disabled source, real canaries, immutable source pin and owner authorization.
 - Added regression that proves the launch switch enables the intended set without fresh-VM attestation.
+
+### 2026-11-07 | ChatGPT | V6 no-edit Kaggle release
+- Removed the off-by-default V6 campaign trap; Run All now starts the single-session campaign.
+- Replaced misleading second-session and unfinished-implementation notebook prose.
+- Added source-specific checkout directories and explicit default-on/restricted-preview tests.
+- Preserved pinned-source integrity, dual-T4 preflight, same-process-checkpoint gate and independent results export.
+- Still requires live Kaggle GPU qualification; CI alone cannot guarantee zero runtime bugs.

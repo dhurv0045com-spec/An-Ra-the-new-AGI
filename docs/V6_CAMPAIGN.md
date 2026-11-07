@@ -1,3 +1,9 @@
+# V6 — Run All without editing a launch switch
+
+The user authorized running the one-session V6 19-panel campaign. The **published** notebook is auto-enabled: `RUN_ALL_19=True` and the derived preflight, canary and campaign switches are true. There is no need to edit any code. On Kaggle select GPU T4×2, enable Internet, upload the latest `notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb`, and click Run All. The canary and fresh-process checkpoint tests run before any training; no separate Kaggle VM is required. Save the output version and the final `ELENDRIL_V6_RESULTS.zip`.
+
+This is a launch path, not a promise of zero platform failures or 19 scientific passes. Later model-scale arms and retention are conditional; all panels should have explicit status and the raw results should be exported even when partial. The default-enabled notebook is intended only for the owner-authorized GPU run; the builder test explicitly turns the switch off for CPU-only safety checks.
+
 # One-session V6 Kaggle launch
 
 The owner requested a single Kaggle GPU run, not an obligatory second notebook session. Use the generated notebook `notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb` with `ONE_SESSION_CAMPAIGN=True`, `RUN_PREFLIGHT=True`, `RUN_CANARIES=True`, `RUN_RECOVERY=False`, `OWNER_APPROVES_CAMPAIGN=True` and `RUN_CAMPAIGN=True`. Select the actual `GPU T4×2` accelerator, enable Internet and run the cells top to bottom. The notebook checks the pinned repository, exact registry, memory/disk, and two physical GPUs, runs actual trainability controls, then tests checkpoint/optimizer continuation in fresh child processes on EACH T4 before allowing the campaign to start. A separate fresh Kaggle VM is NOT mandatory for this single-run mode.

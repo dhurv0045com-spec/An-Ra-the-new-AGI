@@ -25,30 +25,25 @@ def build(source_sha: str) -> dict:
         "One bundled campaign preserves positive and negative evidence, independently rescores it, and creates one verified ZIP. Training requires two physical T4 UUIDs and native CUDA PyTorch; verified ZIP export retry can run CPU-only from saved evidence. No CUDA stack replacement is installed.\n",
         "\nThe original 15 panels are accompanied by four preregistered exploratory probes: effort budgets, symbol permutation, stale-memory interference and query-cost robustness. They reuse frozen checkpoints, add no training arms, and share the existing time/export ceiling.\n",
     ]
-    config = """# SINGLE OWNER CONFIGURATION CELL. All expensive switches are disabled.
+    config = """# OWNER-AUTHORIZED RUN-ALL RELEASE. Kaggle Run All starts the campaign; no code edits are needed.
 from pathlib import Path
 SOURCE_SHA = \"%s\"
 EXPECTED_REGISTRY_SHA256 = \"%s\"
-RUN_PREFLIGHT = False
-RUN_CANARIES = False
-RUN_RECOVERY = False
-ONE_SESSION_CAMPAIGN = True  # Keep recovery in the same Kaggle session using fresh per-T4 child-process replay.
+RUN_ALL_19 = True  # This release is pre-authorized for the user's one-session run.
+RUN_PREFLIGHT = RUN_ALL_19
+RUN_CANARIES = RUN_ALL_19
+RUN_RECOVERY = False  # Separate-VM recovery is intentionally not required.
+ONE_SESSION_CAMPAIGN = True  # Fresh-process checkpoint/optimizer recovery runs on both T4s.
 OWNER_ATTESTS_FRESH_VM = False
-OWNER_APPROVES_CAMPAIGN = False
-RUN_CAMPAIGN = False
-RUN_EXPORT = False  # Retry export from an existing result directory
+OWNER_APPROVES_CAMPAIGN = RUN_ALL_19
+RUN_CAMPAIGN = RUN_ALL_19
+RUN_EXPORT = False  # Separate CPU-only export retry; campaign exports automatically.
 SESSION_WALL_LIMIT_MINUTES = 360
 EXPORT_RESERVE_MINUTES = 35
 OUTPUT = Path('/kaggle/working/ELENDRIL_V6')
 CHECKPOINT_REATTACH_DIR = None
 PRIOR_CAMPAIGN_OUTPUT = None  # Optional saved partial campaign root/ZIP; same source and run ID.
 RUN_ID = \"elendril-v6-diagnostic-002\"
-RUN_ALL_19 = False  # Set ONLY this to True for one Kaggle session. It enables the full owner-authorized campaign.
-if RUN_ALL_19:
-    RUN_PREFLIGHT = True
-    RUN_CANARIES = True
-    OWNER_APPROVES_CAMPAIGN = True
-    RUN_CAMPAIGN = True
 assert type(RUN_ALL_19) is bool
 assert all(type(v) is bool for v in (RUN_PREFLIGHT,RUN_CANARIES,RUN_RECOVERY,OWNER_ATTESTS_FRESH_VM,OWNER_APPROVES_CAMPAIGN,RUN_CAMPAIGN,RUN_EXPORT))
 if (RUN_CANARIES or RUN_RECOVERY or RUN_CAMPAIGN) and not RUN_PREFLIGHT: raise RuntimeError('NO-GO: GPU action requires pinned-source preflight')
@@ -74,11 +69,11 @@ assert [s['id'] for s in REGISTRY['supplemental_experiments']]==['S16','S17','S1
 print('Additional experiments:',[(s['id'],s['name']) for s in REGISTRY['supplemental_experiments']])
 """ % (REGISTRY_SHA, json.dumps(registered, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
     notebook["cells"][3]["source"] = registry_source.splitlines(keepends=True)
-    notebook["cells"][5]["source"] = """# No network, disk writes, or GPU work with defaults.
+    notebook["cells"][5]["source"] = """# RUN ALL is enabled by default. Fail-closed admission happens before any campaign training.
 import os, re, subprocess, sys, shutil
 from pathlib import Path
 REPOSITORY = \"https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git\"
-REPO = Path('/tmp/elendril-v6-pinned-source')
+REPO = Path('/tmp') / ('elendril-v6-pinned-' + SOURCE_SHA[:12])
 ENVIRONMENT = None
 v6 = None
 if RUN_PREFLIGHT or RUN_EXPORT:
@@ -117,6 +112,34 @@ if RUN_PREFLIGHT or RUN_EXPORT:
         print('EXPORT_ONLY_SOURCE_AND_OUTPUT_BOUND; no CUDA device required')
 else: print('PREFLIGHT_DISABLED: no download, GPU access, or writes')
 """.splitlines(keepends=True)
+    notebook["cells"][6]["source"] = """## 3 · Automatic two-T4 canaries and checkpoint recovery
+
+Running this notebook top-to-bottom automatically checks both T4s, a positive-control training task, CUDA memory/timing, and checkpoint+optimizer recovery in independent child processes. **No second Kaggle session is required.** Any failed canary stops expensive training rather than returning misleading results.
+""".splitlines(keepends=True)
+    notebook["cells"][7]["source"] = """CANARY_RECEIPTS=None
+RECOVERY_RECEIPTS=None
+if RUN_CANARIES:
+    if not RUN_PREFLIGHT or ENVIRONMENT is None: raise RuntimeError('NO-GO: preflight first')
+    CANARY_RECEIPTS=v6.run_canaries(source=SOURCE_SHA,protocol_sha=EXPECTED_REGISTRY_SHA256,
+        preflight=ENVIRONMENT,output=OUTPUT/'qualification',per_device=True)
+    if CANARY_RECEIPTS.get('status')!='PASS': raise RuntimeError('NO-GO: T4 canaries did not pass; training has not started')
+    print('T4_CANARIES_PASSED; checked checkpoint/optimizer recovery in fresh child processes; starting single-session campaign next')
+else:
+    print('CANARIES_DISABLED_BY_PREVIEW_MODE')
+if RUN_RECOVERY:
+    if not RUN_PREFLIGHT or not OWNER_ATTESTS_FRESH_VM or CHECKPOINT_REATTACH_DIR is None:
+        raise RuntimeError('NO-GO: separate-VM recovery requires owner attestation and reattached evidence')
+    RECOVERY_RECEIPTS=v6.verify_off_session_recovery(source=SOURCE_SHA,
+        prior_dir=Path(CHECKPOINT_REATTACH_DIR),current_environment=ENVIRONMENT,
+        output=OUTPUT/'recovery',must_resume_optimizer=True)
+    if RECOVERY_RECEIPTS.get('status')!='PASS': raise RuntimeError('NO-GO: separate-VM recovery failed')
+else:
+    print('SEPARATE_VM_RECOVERY_NOT_REQUIRED_FOR_THIS_RUN')
+""".splitlines(keepends=True)
+    notebook["cells"][8]["source"] = """## 4 · Automatically launch the full 19-panel campaign
+
+**This release is ready for a user-initiated Kaggle Run All; there is no launch switch to edit.** Real T4 admission, positive learning controls and per-T4 checkpoint recovery execute before training. The operator runs registered training arms, shared P01–P15 diagnostic panels and S16–S19 exploratory probes within the measured budget; conditional arms may be skipped if not scientifically qualified. Partial or negative outcomes are retained, and the run exports a verified results ZIP.
+""".splitlines(keepends=True)
     notebook["cells"][9]["source"] = """CAMPAIGN_RESULT=None
 if RUN_CAMPAIGN:
     if not (ENVIRONMENT and CANARY_RECEIPTS and (ONE_SESSION_CAMPAIGN or RECOVERY_RECEIPTS)): raise RuntimeError('NO-GO: preflight, canary or mandatory recovery receipts missing')
@@ -150,7 +173,7 @@ A failed positive-control overfit test indicts objective, tokenizer, gradient or
         if cell["cell_type"] == "code":
             cell["execution_count"] = None
             cell["outputs"] = []
-    notebook["metadata"]["elendril_v6_status"] = "PINNED_OWNER_RUN_PREPARATION_UNQUALIFIED"
+    notebook["metadata"]["elendril_v6_status"] = "OWNER_RUN_ALL_ENABLED_GPU_QUALIFICATION_PENDING"
     notebook["metadata"]["source_reference"] = source_sha
     notebook["metadata"]["registry_sha256"] = REGISTRY_SHA
     return notebook
