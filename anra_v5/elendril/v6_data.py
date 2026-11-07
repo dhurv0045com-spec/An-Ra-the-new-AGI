@@ -543,5 +543,3 @@ def panel_cases(data, panel):
         _supervision(variant)
         result.append(variant)
     return tuple(result)
-
-

@@ -164,7 +164,9 @@ class ControlPolicy:
 def source_identity():
     """Bind evaluation to the actual source files used to build its receipts."""
     root = Path(__file__).parent
-    return digest({name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+    # Git enforces LF; normalize an existing Windows worktree's equivalent
+    # CRLF checkout too, so offline replay does not reject identical source.
+    return digest({name: hashlib.sha256((root / name).read_bytes().replace(b'\r\n',b'\n')).hexdigest()
                    for name in ("v6_evaluation.py", "v6_registry.py", "v6_data.py", "v6_training.py", "cognition.py", "representation.py")})
 
 
