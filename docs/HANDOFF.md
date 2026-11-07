@@ -1,4 +1,33 @@
-# ELENDRIL V5 handoff
+# ELENDRIL V6 handoff — 7 November 2026
+
+Continued the existing V5 system and fast-forward incorporated the complete research package at `777232f103312d80810c89f80d40cba94147f648`. All five package files were reviewed and preserved unchanged. The original Cymek worktree and historical checkpoint payloads were not modified. The previous V5 handoff is retained below.
+
+| Exact commit | Delivered change |
+| --- | --- |
+| `6273b0dddc84083a8ea6193d19f4afc48e3b2937` | V6 raw-world data, neural/action training, 15-panel evaluator, two-worker campaign, independent verifier, safe recovery ZIP, notebook builder, tests and prospective scientific amendment. |
+| `1cb3f37772d25c7569314031014d5372d490ad2e` | Canonical LF evaluator source identity for Windows/Linux replay. Immutable runtime and notebook source pin. |
+
+The publication commit containing this handoff adds the generated notebook, its schema/source-pin test, CPU receipts and updated import graph; identify its exact SHA with `git log -1`. [Notebook](../notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb) · [Launch/return instructions](V6_CAMPAIGN.md) · [Scientific amendments](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md)
+
+Implemented code: `v6_data.py` serializes/audits raw evidence, worlds, split state and transformed controls; `v6_registry.py` freezes profiles, arms and gates; `v6_training.py` reuses V5 tensors/checkpoints with true final batches, paired representations and explicit objective/curriculum differences; `v6_evaluation.py` records strict raw actions and independently replays them without exposing truth to neural setup. `foundation_training.py` caches exact epoch permutations. The tools implement bounded physical-UUID worker lanes, canaries, optimizer/RNG/cursor recovery, immutable selection, conditional scales, calibration before reserved evaluation, cached diagnostics, failure-preserving finalization and checksum-verified ZIP export/extraction. No whole branch was copied.
+
+Observed engineering evidence at the pinned source:
+
+- [Linux CPU CI](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42379351625): **204 passed, seven subtests, 29.60 seconds**; one NumPy-absence warning, no failing test. Publication-only notebook checks follow separately.
+- Closing Windows suite: **203 passed, one skipped, seven subtests, 62.54 seconds**. The skipped test requires Windows symlink privilege; it passes in Linux CI. The additional publication test then passed independently, validating the actual notebook with nbformat and checking exact generator/runtime bytes at its pin. All-default-disabled execution and recovery/export failure-injection tests are included in the suite.
+- Historical verifier: **78 hashes, 63 receipts, 519 scoring snapshots, 237 checkpoint manifests and 1,659 components** reverified. Old S5 custody gaps remain gaps.
+- [Dataset audit](../artifacts/elendril/v6-engineering/data-adversarial-audit.json): 2,200,185 prompt/target bytes, 7,335 worlds, 9,472 examples; base maximum268 tokens. Validation/reserved confirmation112 worlds each, 16 per kind. The audit is labeled as the actual pre-commit snapshot it inspected, not relabeled as a final-source receipt.
+- [CPU qualification](../artifacts/elendril/v6-engineering/cpu-qualification.json): actual S3/S8/S20 tensors contain **3,084,800 / 7,970,944 / 19,871,616** parameters; no forward/training on these full models. A separate width16 one-layer UTF8 model ran eight updates on four QUERY prompts: **4/4 exact QUERY+EOS**, loss **5.6562614→1.2048372**, update/save/generation wall **0.1733774 seconds**, overall harness1.0967 seconds. This is overfit correctness, not held-out cognition or the GPU positive-control gate.
+- The tiny checkpoint is `45f3886d3a71d72ac7a46ab419aa500d422fe996c598dd8083cda1d07e2a637f`, external root `C:/Users/ankit/Downloads/Elendril-V6-engineering-canary`, lineage `utf8-query-eos-micro`.
+- [Sampler-only timing](../artifacts/elendril/v6-engineering/sampler-micro.json): 4,096 samples, 256 batches of16, exactly identical index digest, one cached epoch; **0.2050423→0.0011164 seconds** in this single CPU measurement. No model was trained and no GPU efficiency is inferred.
+
+**Launch: GO only for owner-run preflight/canaries; NO-GO for research until live gates pass.** The notebook defaults every launch switch off and pins source `1cb3f377...`, registry `d1b516d4c078ef48e0f15618866e246ceea0c97d5e58266c5b770eefb9cdc673`. Its published SHA256 is `8c3912e3746f3413b9cf7079e1b964323ce4e845050c5bbe0d4f4b693abfaf42`. First run preflight/canaries, save complete output, then qualify optimizer continuation in a genuinely new VM using reattached output. Only then authorize the bundled campaign. The budget is a forecast ceiling, not measured T4 performance. Data is generated automatically under writable `/kaggle/working`, not read-only `/kaggle/input`. Native PyTorch is inspected rather than replaced.
+
+Completed jobs/checkpoints/results persist incrementally. Finalization attempts independent replay and `exports/ELENDRIL_V6_RESULTS.zip` even after failure; export failure preserves raw files and the previous valid ZIP. Download that ZIP and save a Kaggle output version. An abruptly destroyed unsaved VM/full disk cannot be guaranteed recoverable. One canonical VM writer owns each lineage.
+
+Scientific limits: no GPU, held-out neural success, metacognition, cumulative learning, forward transfer or self-improvement has been established. Confirmation is development evidence sharing task design/authorship, not an outside sealed evaluation. A5 uses extra supervision/work; R0/R1 have different vocabulary/embedding sizes; route worlds have extra training mass. P15 requires real separately acquired A/B and matched new C trajectories and stays NOT_QUALIFIED without them. S8/S20 can be skipped when gates/resources fail. The next decisive experiment is the all-kind T4 formation canary, followed by the frozen multi-seed S3 screen to separate action formation, evidence revision, invariance and depth failures before scaling.
+
+## Preserved V5 handoff
 
 Continued `Elendril` from `f516e0bdb8f9137532b35c0c23299f7f9dbdf185`; no reset, bulk branch merge or historical checkpoint overwrite. The working V4 source and paused V3 program are remotely preserved as `elendril-v4-working`. The pre-V3 archive remains `elendril-pre-v3`.
 

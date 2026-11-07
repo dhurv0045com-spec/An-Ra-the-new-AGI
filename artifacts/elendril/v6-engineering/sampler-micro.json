@@ -1,0 +1,13 @@
+{
+  "schema": "elendril-v6-sampler-micro-v1",
+  "reference_source": "0cd200730d43547294cdc9bf8540a478130cce9c",
+  "candidate_source": "1cb3f37772d25c7569314031014d5372d490ad2e",
+  "samples": 4096,
+  "updates": 256,
+  "batch_size": 16,
+  "reference_seconds": 0.20504229998914525,
+  "candidate_seconds": 0.001116400002501905,
+  "exact_indices_sha256": "ad2c6091e9e2d8cad312e874134047ff704523a84b8b8c912bf5baf30ac42198",
+  "epoch_orders_built": 1,
+  "scope": "single CPU sampler-only timing, no model, no training; not GPU or capability evidence"
+}

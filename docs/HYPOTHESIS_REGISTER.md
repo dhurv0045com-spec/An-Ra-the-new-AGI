@@ -11,4 +11,16 @@
 
 See [frozen gates and budgets](ALGORITHM_COMPARISONS.md). Curriculum prioritizes missing/conflicted-world examples including their observed post-query responses, not hidden truth. Cloud formation uses fresh weights intentionally and cannot establish retention of the old route checkpoint.
 
+V6 extends these questions using raw public observations rather than derived status codes. The source-pinned [registry](../anra_v5/elendril/v6_registry.py), [15-panel package](../research/v6/ELENDRIL_V6_EXPERIMENT_REGISTRY.json) and [prospective amendment](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md) specify exact exposures, denominators, gates and differences. All comparative outcomes remain pending owner GPU execution.
+
+| V6 question | Controlled test and falsifier |
+| --- | --- |
+| Does action formation survive real evidence revision? | Costed complete episodes with query-blind/payload-swap, time-order and row-order controls. Correct first actions without correct post-query revisions fail the stronger claim. |
+| Does augmentation improve semantic invariance? | A4 preserves ordered latent worlds while changing templates/aliases; OOD alias/template/distractor/combined panels. No stable held-out gain or subgroup regression rejects benefit. Byte/work differences are charged. |
+| Does generated intermediate reasoning improve depth? | A5 generates its own scratch; compare unchanged CE and direct controls on composition and three-hop cases. No improvement after accounting for added supervision/compute rejects the proposed advantage. |
+| Does retrieval guide a frozen learner on new instances? | Memory off/prefetch/irrelevant/swap interventions and before/after weight identities. Success explained by the controller or irrelevant context rejects learned memory-use attribution. |
+| Does representation change help at comparable input semantics? | R0 legacy-ASCII versus R1 UTF8-ASCII with identical worlds/rendering, explicit parameter/token/position differences. Broader raw UTF8 arms cannot isolate tokenizer benefit. |
+| Does scale address the measured bottleneck? | S8 winner versus unchanged CE at matched epochs/seeds after S3 gates; S20 requires both-seed S8 signal and available budget. Scaling without formation or reproducible signal is skipped. |
+| Can acquired skills support retention and genuinely new C learning? | P15 requires separately qualified A/B acquisitions and matched new-C work curves. No such chain is scheduled here; this panel remains NOT_QUALIFIED rather than treating repeated aliases as new skills. |
+
 V3 surface-invariance, recurrent-composition, intermediate-memory and later adaptation hypotheses remain preserved at [their exact V4 archive](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/blob/f516e0bdb8f9137532b35c0c23299f7f9dbdf185/docs/HYPOTHESIS_REGISTER.md). Historical negatives are unchanged.

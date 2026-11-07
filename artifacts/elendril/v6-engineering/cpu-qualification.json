@@ -1,0 +1,274 @@
+{
+  "schema": "elendril-v6-engineering-qualification-v1",
+  "source_commit": "1cb3f37772d25c7569314031014d5372d490ad2e",
+  "registry_sha256": "d1b516d4c078ef48e0f15618866e246ceea0c97d5e58266c5b770eefb9cdc673",
+  "profiles": {
+    "S3": {
+      "actual_parameters": 3084800,
+      "model_sha256": "e492fb8d511d3ba76afb7104d567aaaf6dbb863fdf59cc59c41f74063a364b78",
+      "constructor_seconds": 0.03918369999155402,
+      "forward_or_training": false
+    },
+    "S8": {
+      "actual_parameters": 7970944,
+      "model_sha256": "13a44db8bf0e0e1753716d825d29f81515baff7aad5f8a3ee95d67060ae67681",
+      "constructor_seconds": 0.0804708999930881,
+      "forward_or_training": false
+    },
+    "S20": {
+      "actual_parameters": 19871616,
+      "model_sha256": "941d0b2222729aa072f8ef2ed68a7cca7683c6a186c8e835c4cbcac44f920dc1",
+      "constructor_seconds": 0.1941019999794662,
+      "forward_or_training": false
+    }
+  },
+  "tiny_positive_control": {
+    "recipe": {
+      "seed": 7,
+      "total_updates": 8,
+      "batch_size": 4,
+      "micro_batch_size": 4,
+      "lr": 0.03,
+      "clip": 1.0,
+      "objective": "ce",
+      "action_weight": 3.0,
+      "sampling": "uniform",
+      "schedule": "constant",
+      "precision": "fp32",
+      "activation_checkpointing": false,
+      "version": "elendril-foundation-recipe-v1"
+    },
+    "model": {
+      "schema": "anra-v5-model-spec/v1",
+      "family": "dense-decoder-transformer",
+      "vocabulary_size": 260,
+      "width": 16,
+      "layers": 1,
+      "query_heads": 2,
+      "kv_heads": 1,
+      "head_dimension": 8,
+      "ffn_width": 32,
+      "context_length": 512,
+      "rope_base": 10000.0,
+      "norm_epsilon": 1e-05,
+      "tied_embeddings": true,
+      "qk_norm": true,
+      "qk_norm_affine": true,
+      "linear_bias": false,
+      "dropout": 0.0
+    },
+    "inputs": [
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of B? Query=1 Memory=0\nAt 785 map says G:C; At 784 map says M:H; At 783 s0 says J:G\nAction:",
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of N? Query=1 Memory=0\nAt 735 s0 says C:F; At 737 map says L:E; At 736 map says D:C\nAction:",
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of N? Query=1 Memory=0\nAt 447 map says I:O; At 448 map says A:D; At 446 s1 says O:N\nAction:",
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of B? Query=1 Memory=0\nAt 86 s0 says J:F; At 88 map says F:O; At 87 map says D:L\nAction:"
+    ],
+    "updates": [
+      {
+        "update": 1,
+        "loss": 5.656261444091797,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 4.521247863769531,
+        "lr": 0.03,
+        "indices": [
+          0,
+          2,
+          3,
+          1
+        ]
+      },
+      {
+        "update": 2,
+        "loss": 5.028368949890137,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 4.958507537841797,
+        "lr": 0.03,
+        "indices": [
+          3,
+          0,
+          2,
+          1
+        ]
+      },
+      {
+        "update": 3,
+        "loss": 4.303473949432373,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 2.9852986335754395,
+        "lr": 0.03,
+        "indices": [
+          2,
+          1,
+          0,
+          3
+        ]
+      },
+      {
+        "update": 4,
+        "loss": 3.6557228565216064,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 3.0018649101257324,
+        "lr": 0.03,
+        "indices": [
+          2,
+          1,
+          3,
+          0
+        ]
+      },
+      {
+        "update": 5,
+        "loss": 2.9565749168395996,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 2.9043500423431396,
+        "lr": 0.03,
+        "indices": [
+          2,
+          0,
+          3,
+          1
+        ]
+      },
+      {
+        "update": 6,
+        "loss": 2.266481876373291,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 2.6305081844329834,
+        "lr": 0.03,
+        "indices": [
+          2,
+          0,
+          3,
+          1
+        ]
+      },
+      {
+        "update": 7,
+        "loss": 1.6634701490402222,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 2.1417009830474854,
+        "lr": 0.03,
+        "indices": [
+          3,
+          1,
+          0,
+          2
+        ]
+      },
+      {
+        "update": 8,
+        "loss": 1.2048372030258179,
+        "weighted_denominator": 8.0,
+        "supervised_tokens": 8,
+        "input_positions": 881,
+        "examples": 4,
+        "microbatches": 1,
+        "pre_clip": 1.4975017309188843,
+        "lr": 0.03,
+        "indices": [
+          0,
+          2,
+          3,
+          1
+        ]
+      }
+    ],
+    "raw_outputs": [
+      {
+        "tokens": [
+          85,
+          2
+        ],
+        "token_probabilities": [
+          0.3988889753818512,
+          0.41053733229637146
+        ],
+        "ended_eos": true,
+        "forward_calls": 2,
+        "evaluated_positions": 439,
+        "stop_reason": "eos"
+      },
+      {
+        "tokens": [
+          85,
+          2
+        ],
+        "token_probabilities": [
+          0.3987734317779541,
+          0.4107828736305237
+        ],
+        "ended_eos": true,
+        "forward_calls": 2,
+        "evaluated_positions": 439,
+        "stop_reason": "eos"
+      },
+      {
+        "tokens": [
+          85,
+          2
+        ],
+        "token_probabilities": [
+          0.39904752373695374,
+          0.4103896915912628
+        ],
+        "ended_eos": true,
+        "forward_calls": 2,
+        "evaluated_positions": 439,
+        "stop_reason": "eos"
+      },
+      {
+        "tokens": [
+          85,
+          2
+        ],
+        "token_probabilities": [
+          0.3978450894355774,
+          0.40994560718536377
+        ],
+        "ended_eos": true,
+        "forward_calls": 2,
+        "evaluated_positions": 433,
+        "stop_reason": "eos"
+      }
+    ],
+    "exact_query_eos": 4,
+    "denominator": 4,
+    "first_loss": 5.656261444091797,
+    "last_loss": 1.2048372030258179,
+    "wall_seconds": 0.1733774000313133,
+    "process_cpu_seconds": 0.171875,
+    "checkpoint": "45f3886d3a71d72ac7a46ab419aa500d422fe996c598dd8083cda1d07e2a637f",
+    "checkpoint_root": "C:\\Users\\ankit\\Downloads\\Elendril-V6-engineering-canary"
+  },
+  "total_wall_seconds": 1.096671500010416,
+  "gpu_execution": "NOT_RUN_UNVERIFIED",
+  "scope": "8-update four-prompt UTF8 overfit; no heldout learning, no research campaign or cognition claim"
+}
