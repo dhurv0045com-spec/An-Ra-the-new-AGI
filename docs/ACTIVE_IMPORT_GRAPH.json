@@ -128,7 +128,14 @@
   "anra_v5/elendril/v6_registry.py": [
     "anra_v5/elendril/codec.py",
     "anra_v5/elendril/representation.py",
+    "anra_v5/elendril/v6_supplement.py",
     "v5_contracts/model_spec.py"
+  ],
+  "anra_v5/elendril/v6_supplement.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v6_evaluation.py"
   ],
   "anra_v5/elendril/v6_training.py": [
     "anra_v5/elendril/codec.py",
@@ -278,8 +285,20 @@
     "tools/build_elendril_v6_notebook.py",
     "tools/elendril_v6_export.py"
   ],
-  "tests/test_elendril_v6_publication.py": [
-    "tools/build_elendril_v6_notebook.py"
+  "tests/test_elendril_v6_publication.py": [],
+  "tests/test_elendril_v6_supplement.py": [
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v6_evaluation.py",
+    "anra_v5/elendril/v6_supplement.py"
+  ],
+  "tests/test_elendril_v6_supplement_worker.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v6_evaluation.py",
+    "tools/elendril_v6_worker.py",
+    "tools/verify_elendril_v6.py"
   ],
   "tests/test_elendril_v6_training.py": [
     "anra_v5/elendril/training.py",
@@ -339,6 +358,7 @@
   "tools/elendril_v6_campaign.py": [
     "anra_v5/elendril/v6_data.py",
     "anra_v5/elendril/v6_registry.py",
+    "anra_v5/elendril/v6_supplement.py",
     "anra_v5/elendril/v6_training.py",
     "tools/elendril_action_cloud.py",
     "tools/elendril_cloud.py",
@@ -350,10 +370,12 @@
   ],
   "tools/elendril_v6_worker.py": [
     "anra_v5/elendril/backend.py",
+    "anra_v5/elendril/codec.py",
     "anra_v5/elendril/training.py",
     "anra_v5/elendril/v6_data.py",
     "anra_v5/elendril/v6_evaluation.py",
     "anra_v5/elendril/v6_registry.py",
+    "anra_v5/elendril/v6_supplement.py",
     "anra_v5/elendril/v6_training.py",
     "tools/elendril_action_cloud.py",
     "tools/elendril_cloud.py",
@@ -369,6 +391,7 @@
     "anra_v5/elendril/v6_data.py",
     "anra_v5/elendril/v6_evaluation.py",
     "anra_v5/elendril/v6_registry.py",
+    "anra_v5/elendril/v6_supplement.py",
     "anra_v5/elendril/v6_training.py"
   ],
   "v5_checkpointing.py": [],

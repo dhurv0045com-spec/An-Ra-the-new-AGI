@@ -23,6 +23,7 @@ def build(source_sha: str) -> dict:
         f"**Pinned source:** `{source_sha}`\n\n",
         f"**Registered V6 registry SHA-256:** `{REGISTRY_SHA}`. Context lengths are 512/512/640 for S3/S8/S20.\n\n",
         "One bundled campaign preserves positive and negative evidence, independently rescores it, and creates one verified ZIP. Two physical T4 UUIDs and native CUDA PyTorch are mandatory. No CUDA stack replacement is installed.\n",
+        "\nThe original 15 panels are accompanied by four preregistered exploratory probes: effort budgets, symbol permutation, stale-memory interference and query-cost robustness. They reuse frozen checkpoints, add no training arms, and share the existing time/export ceiling.\n",
     ]
     config = """# SINGLE OWNER CONFIGURATION CELL. All expensive switches are disabled.
 from pathlib import Path
@@ -40,7 +41,7 @@ EXPORT_RESERVE_MINUTES = 35
 OUTPUT = Path('/kaggle/working/ELENDRIL_V6')
 CHECKPOINT_REATTACH_DIR = None
 PRIOR_CAMPAIGN_OUTPUT = None  # Optional saved partial campaign root/ZIP; same source and run ID.
-RUN_ID = \"elendril-v6-diagnostic-001\"
+RUN_ID = \"elendril-v6-diagnostic-002\"
 assert all(type(v) is bool for v in (RUN_PREFLIGHT,RUN_CANARIES,RUN_RECOVERY,OWNER_ATTESTS_FRESH_VM,OWNER_APPROVES_CAMPAIGN,RUN_CAMPAIGN,RUN_EXPORT))
 if (RUN_CANARIES or RUN_RECOVERY or RUN_CAMPAIGN or RUN_EXPORT) and not RUN_PREFLIGHT: raise RuntimeError('NO-GO: enabled action requires pinned-source preflight')
 if RUN_RECOVERY and not OWNER_ATTESTS_FRESH_VM: raise RuntimeError('NO-GO: recovery requires owner attestation of a genuinely fresh VM')
@@ -60,6 +61,8 @@ assert len(PANELS)==15 and [p['id'] for p in PANELS]==[f'P{i:02d}' for i in rang
 assert [MODEL_PROFILES[n]['model']['context_length'] for n in ('S3','S8','S20')]==[512,512,640]
 print('Registered panels:',[(p['id'],p['name']) for p in PANELS])
 print('Registered model contexts:',{n:MODEL_PROFILES[n]['model']['context_length'] for n in ('S3','S8','S20')})
+assert [s['id'] for s in REGISTRY['supplemental_experiments']]==['S16','S17','S18','S19']
+print('Additional experiments:',[(s['id'],s['name']) for s in REGISTRY['supplemental_experiments']])
 """ % (REGISTRY_SHA, json.dumps(registered, sort_keys=True, ensure_ascii=False, separators=(",", ":")))
     notebook["cells"][3]["source"] = registry_source.splitlines(keepends=True)
     notebook["cells"][5]["source"] = """# No network, disk writes, or GPU work with defaults.
@@ -132,7 +135,7 @@ def main() -> None:
     args = parser.parse_args()
     notebook = build(args.source_sha)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(notebook, indent=1, ensure_ascii=False)+"\n", encoding="utf-8")
+    args.output.write_text(json.dumps(notebook, indent=1, ensure_ascii=False)+"\n", encoding="utf-8", newline="\n")
     print(f"Wrote {args.output} for source {args.source_sha}; registry {REGISTRY_SHA}")
 
 if __name__ == "__main__": main()

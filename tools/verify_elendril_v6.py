@@ -84,16 +84,69 @@ def verify_campaign(root, campaign):
     from anra_v5.elendril.v6_evaluation import independent_rescore, diagnostic_cases
     for report in campaign.get("diagnostics", []):
         if not report.get("diagnostics"): continue
+        if report.get('receipt_file'):
+            raw = resolve_recorded(root, report['receipt_file'], campaign)
+            if sha256(raw.read_bytes()).hexdigest() != report['receipt_sha256']:
+                raise ValueError('diagnostic raw receipt hash mismatch')
+            original = json.loads(raw.read_bytes())
+            if any(original.get(k) != v for k,v in report.items()
+                   if k not in ('receipt_file','receipt_sha256','invocation_wall_seconds')):
+                raise ValueError('campaign altered a raw diagnostic receipt')
         diagnosis = report["diagnostics"]
         split=diagnosis['base']['split']
         if split not in ('validation','confirmation'):raise ValueError('unregistered diagnostic split')
         data = read_dataset(root / 'data' / (split+'.json'))
         independent_rescore(data, diagnosis["base"])
+        parents = [r for r in campaign.get('results', []) if r.get('status') == 'COMPLETE'
+                   and r.get('checkpoint') == report.get('checkpoint') and r.get('evaluation') == diagnosis['base']]
+        if not parents:
+            raise ValueError('diagnostics have no verified frozen parent result')
+        if report.get('weight_sha256_before') != report.get('weight_sha256_after') or not report.get('weight_sha256_before'):
+            raise ValueError('diagnostic frozen-weight evidence missing or changed')
         for name, record in diagnosis.get("variants", {}).items():
+            if record['model_identity'] != report['checkpoint']:
+                raise ValueError('diagnostic variant changed checkpoints')
             independent_rescore(diagnostic_cases(data, name), record)
+        if 'supplemental' in diagnosis:
+            verify_supplements(data, diagnosis['supplemental'], parents[0].get('controls', {}), report['checkpoint'])
         audits.append({"status": "DIAGNOSTIC_RESCORED", "panels": {p: r["status"] for p, r in diagnosis["panels"].items()}})
     return {"status": "PASS" if audits else "NO_COMPLETED_EVIDENCE", "audits": audits,
             "failed_and_partial_retained": True, "scientific_promotion": "NONE"}
+
+
+def verify_supplements(data, bundle, controls, checkpoint):
+    """Rebuild cohorts, replay raw conditions, and recompute every extra endpoint."""
+    from anra_v5.elendril.v6_supplement import SPECS, condition_specs, verify_experiment
+    from anra_v5.elendril.v6_evaluation import independent_rescore
+    if (bundle.get('schema') != 'elendril-v6-supplement-bundle-v1'
+            or set(bundle.get('experiments', {})) != {s['id'] for s in SPECS}
+            or bundle.get('limit_seconds') != 90):
+        raise ValueError('supplemental bundle protocol mismatch')
+    for experiment_id, report in bundle['experiments'].items():
+        for record in report.get('records', {}).values():
+            if record.get('model_identity') != checkpoint:
+                raise ValueError('supplemental checkpoint mismatch')
+        if report.get('status') in ('COMPLETE', 'NOT_QUALIFIED'):
+            verify_experiment(data, experiment_id, report, controls)
+        elif report.get('status') in ('PARTIAL', 'SKIPPED') and experiment_id != 'S19':
+            specs = condition_specs(data, experiment_id)
+            records = report.get('records', {})
+            if (report.get('schema') != 'elendril-v6-supplement-partial-v1'
+                    or report.get('experiment_id') != experiment_id
+                    or not set(records) < set(specs)
+                    or report.get('missing_conditions') != sorted(set(specs) - set(records))
+                    or report['status'] != ('PARTIAL' if records else 'SKIPPED')
+                    or report.get('reason') != 'supplemental time allowance or campaign deadline'):
+                raise ValueError('partial supplemental condition mismatch')
+            for name, record in records.items():
+                spec = specs[name]
+                if (record['budget'] != asdict(spec['budget']) or record['memory_mode'] != spec['memory_mode']
+                        or record['split'] != data.split):
+                    raise ValueError('partial supplemental budget mismatch')
+                independent_rescore(spec['cases'], record)
+        else:
+            raise ValueError('unknown supplemental completion status')
+    return True
 
 
 def comparisons(campaign):

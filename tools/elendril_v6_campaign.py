@@ -549,6 +549,7 @@ def run_campaign(*, source, protocol_sha, preflight, canary, recovery, run_id, o
                 "data_file": preflight["data"]["train"]["file"],
                 "eval_file":str(output/'data'/('confirmation.json' if result['job']['stage']=='replicate' else 'validation.json')),
                 "parent_result": result["receipt_file"], "positive_control": canary["results"][0].get("positive_control"),
+                "supplement_evaluation_seconds_per_episode": measures[result['job']['profile']]['evaluation_seconds_per_episode'],
                 "timecap_seconds": int(remaining - 30)}
             diagnostics.append(_invoke("diagnose", request, devices[index % 2], timeout=remaining))
             snapshot({"stage": "diagnose", "status": diagnostics[-1]["status"]})
@@ -615,6 +616,13 @@ def _render_outputs(output, campaign):
     derived("diagnostics_15panels.json", panels)
     derived('diagnostics_by_checkpoint.json', {r.get('checkpoint',str(i)):r.get('diagnostics',{}).get('panels',{})
             for i,r in enumerate(campaign.get('diagnostics',[]))})
+    from anra_v5.elendril.v6_supplement import SPECS
+    supplemental = {r.get('checkpoint', str(i)): r.get('diagnostics', {}).get('supplemental', {})
+                    for i,r in enumerate(campaign.get('diagnostics', []))}
+    derived('supplemental_experiments.json', {'registered': list(SPECS), 'by_checkpoint': supplemental,
+        'unattempted': {s['id']: {'status': 'NOT_QUALIFIED', 'reason': 'no completed diagnostic checkpoint'}
+                        for s in SPECS} if not any(supplemental.values()) else {},
+        'qualification': 'exploratory frozen-checkpoint contrasts; no automatic promotion'})
     derived("all_arm_results.json", campaign.get("results", []))
     manifests = []
     for p in sorted(output.rglob('manifest.json')):
@@ -658,3 +666,40 @@ def _render_outputs(output, campaign):
             ax.bar(list(panels), [1] * 15, color=[colors[p["status"]] for p in panels.values()])
             ax.set_yticks([])
         ax.set_title(title); fig.tight_layout(); fig.savefig(output / filename, dpi=140); plt.close(fig)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    for checkpoint, bundle in supplemental.items():
+        extra = bundle.get('experiments', {})
+        label = checkpoint[:12]
+        effort = extra.get('S16', {})
+        if effort.get('status') == 'COMPLETE':
+            records = effort['records']
+            axes[0,0].plot([1,2,4], [records[str(n)]['metrics']['all']['correct'] /
+                          records[str(n)]['metrics']['all']['episodes'] for n in (1,2,4)], marker='o', label=label)
+        permutation = extra.get('S17', {})
+        if permutation.get('status') == 'COMPLETE':
+            summary = permutation['summary']
+            pair = summary['paired']['baseline_vs_permuted']
+            axes[0,1].bar([label+' both-correct', label+' equivariance'],
+                          [pair['both_correct']/pair['pairs'], summary['output_equivariance']])
+        memory = extra.get('S18', {})
+        if memory.get('status') == 'COMPLETE':
+            pair = memory['summary']['paired']['baseline_vs_stale']
+            axes[1,0].plot(['empty prefetch','stale prefetch'],
+                          [pair['first']['accuracy'], pair['second']['accuracy']], marker='o', label=label)
+        cost = extra.get('S19', {})
+        if cost.get('status') == 'COMPLETE':
+            for name, values in cost['summary']['mean_utility_by_query_cost'].items():
+                xs = sorted(values, key=float)
+                axes[1,1].plot([float(x) for x in xs], [values[x] for x in xs],
+                               label=label+'/'+name)
+    for ax, title in zip(axes.flat, ('S16: accuracy vs decision budget', 'S17: binding and equivariance',
+                                    'S18: stale-memory interference', 'S19: fixed behavior vs query price')):
+        ax.set_title(title)
+        if ax.lines: ax.legend(fontsize=6)
+        if not ax.has_data(): ax.text(.5,.5,'Not completed / no evidence',ha='center',transform=ax.transAxes)
+    for ax in (axes[0,0], axes[0,1], axes[1,0]):
+        ax.set_ylim(0, 1.05); ax.set_ylabel('Fraction')
+    axes[0,0].set_xlabel('Decision ceiling')
+    axes[1,1].set_xlabel('Price per verified query'); axes[1,1].set_ylabel('Mean utility')
+    fig.suptitle('Exploratory frozen-checkpoint probes; no capability promotion')
+    fig.tight_layout(); fig.savefig(output/'plot_supplemental.png', dpi=140); plt.close(fig)

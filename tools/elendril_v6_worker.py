@@ -97,6 +97,67 @@ def _weights(model):
     return h.hexdigest()
 
 
+def run_supplemental(data, policy, base, controls, output, *, deadline, seconds_per_episode=None):
+    """Bounded frozen-checkpoint probes; commit each condition before proceeding."""
+    from anra_v5.elendril.v6_supplement import SPECS, condition_specs, summarize, verify_experiment
+    from anra_v5.elendril.v6_evaluation import evaluate, independent_rescore
+    from anra_v5.elendril.codec import canonical
+    started = time.monotonic()
+    expires = min(deadline - 15, started + 90)
+    if seconds_per_episode is not None and (type(seconds_per_episode) not in (float,int)
+            or not math.isfinite(seconds_per_episode) or seconds_per_episode <= 0):
+        raise ValueError('invalid supplemental timing forecast')
+    reports = {}
+    reused = []
+    # S19 only rescales existing behavior; it spends no additional model forwards.
+    reports['S19'] = summarize('S19', {'model': base}, controls)
+    verify_experiment(data, 'S19', reports['S19'], controls)
+    write_path = Path(output) / 'supplement-S19.json'
+    if write_path.exists():
+        if canonical(json.loads(write_path.read_bytes())) != canonical(reports['S19']):
+            raise ValueError('cached cost experiment differs from frozen parent')
+    else:
+        write_json(write_path, reports['S19'], exclusive=True)
+    for experiment in SPECS:
+        experiment_id = experiment['id']
+        if experiment_id == 'S19':
+            continue
+        specs = condition_specs(data, experiment_id)
+        records = {}
+        for name, spec in specs.items():
+            cache = Path(output) / f'supplement-{experiment_id}-{name}.json'
+            if cache.exists():
+                record = json.loads(cache.read_bytes())
+                if (record['model_identity'] != base['model_identity']
+                        or record['budget'] != asdict(spec['budget'])
+                        or record['memory_mode'] != spec['memory_mode']
+                        or record['split'] != base['split']):
+                    raise ValueError('cached supplemental condition binding differs')
+                independent_rescore(spec['cases'], record)
+                reused.append(f'{experiment_id}/{name}')
+            elif time.monotonic() + (2 * seconds_per_episode * len(spec['cases']) + 5
+                                     if seconds_per_episode is not None else 0) < expires:
+                record = evaluate(spec['cases'], policy, split=base['split'],
+                                  budget=spec['budget'], memory_mode=spec['memory_mode'])
+                write_json(cache, record, exclusive=True)
+            else:
+                break
+            records[name] = record
+        if set(records) == set(specs):
+            result = summarize(experiment_id, records, controls)
+            verify_experiment(data, experiment_id, result, controls)
+        else:
+            result = {'schema': 'elendril-v6-supplement-partial-v1', 'experiment_id': experiment_id,
+                      'status': 'PARTIAL' if records else 'SKIPPED', 'records': records,
+                      'missing_conditions': sorted(set(specs) - set(records)),
+                      'reason': 'supplemental time allowance or campaign deadline'}
+        reports[experiment_id] = result
+    return {'schema': 'elendril-v6-supplement-bundle-v1', 'experiments': reports,
+            'elapsed_seconds': time.monotonic() - started, 'limit_seconds': 90,
+            'reused_conditions': reused,
+            'qualification': 'exploratory fixed-checkpoint probes; no extra training or promotion'}
+
+
 def run(mode, req):
     import torch
     from anra_v5.elendril.v6_training import Job, create_trainer, policy_for
@@ -239,9 +300,16 @@ def run(mode, req):
                 report['calibration'] = fit_calibration(report['evaluation'])
             report['status'] = 'COMPLETE'
         elif mode == 'diagnose':
-            before = _weights(trainer.model); variants = {}; base = None
+            from anra_v5.elendril.v6_evaluation import independent_rescore
+            before = _weights(trainer.model); variants = {}; base = parent['evaluation']
+            if base['model_identity'] != trainer.parent:
+                raise ValueError('diagnostic parent checkpoint binding differs')
+            independent_rescore(eval_data, base)
             completed_names=[]; reused=[]
             controls = parent.get('controls', {})
+            supplemental = run_supplemental(eval_data, policy_for(trainer, job), base, controls,
+                                             output, deadline=deadline,
+                                             seconds_per_episode=req.get('supplement_evaluation_seconds_per_episode', 1.))
             for name in ('payload-swap','query-swap','time-order','row-order','alias','template','distractor','combined','three-hop','memory','memory-swap'):
                 if time.monotonic() >= deadline - 15: break
                 t = time.monotonic()
@@ -254,7 +322,7 @@ def run(mode, req):
                     for variant,raw in part['variants'].items():independent_rescore(diagnostic_cases(eval_data,variant),raw)
                     reused.append(name)
                 else:
-                    part = diagnose(eval_data, policy_for(trainer, job), variant_names=(name,), positive_control=req.get('positive_control'), controls=controls, weight_identity={'before': before, 'after': before}, base_record=base,
+                    part = diagnose(eval_data, policy_for(trainer, job), variant_names=(name,), positive_control=req.get('positive_control'), controls=controls, weight_identity={'before': before, 'after': before, 'checkpoint': trainer.parent}, base_record=base,
                                     calibration=parent.get('calibration') if eval_data.split!='validation' else None)
                     write_json(panel_path, {'elapsed_seconds':time.monotonic()-t, 'result':part}, exclusive=True)
                 base = part['base']; variants.update(part['variants'])
@@ -262,10 +330,12 @@ def run(mode, req):
             after = _weights(trainer.model)
             if before != after: raise ValueError('diagnostics altered weights')
             if base is not None:
-                report['diagnostics'] = {'base': base, 'variants': variants, 'panels': panel_report(base, variants, positive_control=req.get('positive_control'), controls=controls, weight_identity={'before': before, 'after': after},
+                report['diagnostics'] = {'base': base, 'variants': variants, 'supplemental': supplemental,
+                                        'panels': panel_report(base, variants, positive_control=req.get('positive_control'), controls=controls, weight_identity={'before': before, 'after': after, 'checkpoint': trainer.parent},
                                         calibration=parent.get('calibration') if eval_data.split!='validation' else None)}
             report.update(weight_sha256_before=before, weight_sha256_after=after, reused_panels=reused,
-                          status='COMPLETE' if len(completed_names) == 11 else 'PARTIAL')
+                          status='COMPLETE' if len(completed_names) == 11 and all(
+                              r['status'] in ('COMPLETE','NOT_QUALIFIED') for r in supplemental['experiments'].values()) else 'PARTIAL')
     report.update(wall_seconds=time.monotonic()-start, process_cpu_seconds=time.process_time()-cpu_started,
                   gpu_wall_reservation_seconds=time.monotonic()-start,
                   peak_cuda_allocated_bytes=torch.cuda.max_memory_allocated(), peak_cuda_reserved_bytes=torch.cuda.max_memory_reserved())

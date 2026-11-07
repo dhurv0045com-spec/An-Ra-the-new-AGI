@@ -97,6 +97,14 @@ class V6EvaluationTests(unittest.TestCase):
                           weight_identity={'before':'frozen-test-checkpoint','after':'frozen-test-checkpoint'})
         self.assertEqual(result['panels']['P06']['status'], 'PASS')
         self.assertEqual(result['panels']['P14']['status'], 'PASS')
+        # Tensor bytes and the checkpoint-manifest SHA are different identities.
+        separate = panel_report(result['base'], result['variants'], positive_control={'source':'test','passed':True},
+                                weight_identity={'before':'tensor-hash','after':'tensor-hash',
+                                                 'checkpoint':'frozen-test-checkpoint'})
+        self.assertEqual(separate['P14']['status'], 'PASS')
+        separate = panel_report(result['base'], result['variants'], positive_control={'source':'test','passed':True},
+                                weight_identity={'before':'tensor-hash','after':'tensor-hash','checkpoint':'wrong-checkpoint'})
+        self.assertEqual(separate['P14']['status'], 'NOT_QUALIFIED')
         blind = diagnose(self.data, ControlPolicy('query-blind'), variant_names=('payload-swap',),
                          positive_control={'source':'test','passed':True})
         self.assertEqual(blind['panels']['P06']['status'], 'FAIL')

@@ -5,9 +5,10 @@ import json
 from v5_contracts.model_spec import V5A_250M
 from .codec import canonical, digest, VOCAB_SIZE, CODEC_SHA
 from .representation import UTF8
+from .v6_supplement import SPECS as SUPPLEMENTAL_EXPERIMENTS
 
 
-VERSION = "elendril-v6-diagnostic-registry-v1"
+VERSION = "elendril-v6-diagnostic-registry-v2"
 PARENT_SOURCE = "0cd200730d43547294cdc9bf8540a478130cce9c"
 MODEL_PROFILES = {
     name: replace(V5A_250M, vocabulary_size=UTF8.vocabulary_size, width=width,
@@ -77,9 +78,15 @@ REGISTRY = {
         {"reason": "no genuinely sealed external evaluation is attached", "change": "independent development confirmation; no sealed or independent-promoter claim"},
         {"reason": "one efficient campaign, not15 independently retrained models", "change": "P01-P15 share checkpoint diagnostics; unqualified conditional panels retain explicit status"},
         {"reason": "A5 must have an executable, attributable mechanism", "change": "model emits own scratch symbol; controller stores it without oracle completion; extra work reported"},
+        {"reason": "owner requests additional investigator-designed experiments", "change": "S16-S19 frozen-checkpoint effort, symbol, stale-memory and cost contrasts; original P01-P15 retained"},
     ],
     "diagnostic_rules": {"P06": "every complete payload-swap pair makes a verified query in each member and both terminal outcomes are correct and differ", "P07": "mean primary utility strictly exceeds fixed, always-query and no-query on the same cases", "P08": "validation-fitted calibration on separate test: Brier no greater than validation base-rate baseline and ECE <= 0.10; descriptive only", "P14": "matched frozen-checkpoint memory on/off/irrelevant and causal swap; memory on strictly improves off and irrelevant, and every swap pair queries retrieval and both answers follow memory"},
     "promotion": "NONE; owner review and independent evidence required",
+    "supplemental_experiments": list(SUPPLEMENTAL_EXPERIMENTS),
+    "supplemental_budget": {"max_seconds_per_checkpoint": 90, "included_in_diagnostic_ceiling": True,
+                            "training_updates": 0, "cases_per_kind": 4,
+                            "selection": "stable world-id order; no outcome-based filtering",
+                            "inference": "exploratory development contrasts; no automatic promotion"},
 }
 REGISTRY_SHA = digest(REGISTRY)
 

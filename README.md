@@ -1,6 +1,6 @@
 # ELENDRIL
 
-ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. V6 adds a coordinated, gated raw-evidence diagnostic campaign on the V5 representation, training and recovery foundation. The frozen V4 learner and ELD-DEV-001–004 evidence remain preserved.
+ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. V6 adds a coordinated, gated raw-evidence campaign with 15 core diagnostic panels and four additional frozen-checkpoint experiments on the V5 representation, training and recovery foundation. The frozen V4 learner and ELD-DEV-001–004 evidence remain preserved.
 
 - [Current state](docs/CURRENT_STATE.md), [handoff](docs/HANDOFF.md) and [cognitive kernel](docs/COGNITIVE_KERNEL.md)
 - [Foundation decisions](docs/FOUNDATION_AUDIT.md), [qualification](docs/FOUNDATION_QUALIFICATION.md) and [algorithm comparisons](docs/ALGORITHM_COMPARISONS.md)

@@ -24,3 +24,5 @@ V6 extends these questions using raw public observations rather than derived sta
 | Can acquired skills support retention and genuinely new C learning? | P15 requires separately qualified A/B acquisitions and matched new-C work curves. No such chain is scheduled here; this panel remains NOT_QUALIFIED rather than treating repeated aliases as new skills. |
 
 V3 surface-invariance, recurrent-composition, intermediate-memory and later adaptation hypotheses remain preserved at [their exact V4 archive](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/blob/f516e0bdb8f9137532b35c0c23299f7f9dbdf185/docs/HYPOTHESIS_REGISTER.md). Historical negatives are unchanged.
+
+The investigator-designed S16–S19 supplement probes decision-budget sensitivity, consistent global symbol remapping, stale-memory interference and query-price robustness. These reuse the frozen checkpoints and preserve the original P01–P15. Exact cohorts, falsifiers, limitations and resulting engineering decisions are specified in the [prospective supplement](../research/v6/INVESTIGATOR_SUPPLEMENT_2026-11-07.md).
