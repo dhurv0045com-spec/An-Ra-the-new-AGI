@@ -12,6 +12,28 @@ from typing import Any, Sequence
 from .codec import digest
 
 
+def update_tensor_fingerprint(fingerprint, value, *, chunk_bytes: int = 1 << 20):
+    """Hash raw tensor bytes without an undeclared NumPy dependency.
+
+    Bounded host chunks avoid a Python integer list for an entire large table.
+    The byte stream is identical to the historical contiguous uint8 view.
+    This is host verification, outside the differentiable model path.
+    """
+    import torch
+    if type(chunk_bytes) is not int or chunk_bytes <= 0:
+        raise ValueError("tensor fingerprint chunk size must be positive")
+    raw = value.detach().cpu().contiguous().reshape(-1).view(torch.uint8)
+    for start in range(0, raw.numel(), chunk_bytes):
+        fingerprint.update(bytes(raw[start:start + chunk_bytes].tolist()))
+
+
+def tensor_sha256(value):
+    from hashlib import sha256
+    fingerprint = sha256()
+    update_tensor_fingerprint(fingerprint, value)
+    return fingerprint.hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class BackendIdentity:
     architecture_sha256: str

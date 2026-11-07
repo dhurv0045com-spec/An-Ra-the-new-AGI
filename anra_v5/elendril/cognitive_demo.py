@@ -138,11 +138,12 @@ class NeuralCore:
 
     def weights_sha256(self) -> str:
         from hashlib import sha256
+        from .backend import update_tensor_fingerprint
 
         fingerprint = sha256()
         for name, parameter in sorted(self.model.state_dict().items()):
             fingerprint.update(name.encode() + b"\0")
-            fingerprint.update(parameter.detach().contiguous().reshape(-1).view(self._torch.uint8).numpy().tobytes())
+            update_tensor_fingerprint(fingerprint, parameter)
         return fingerprint.hexdigest()
 
     def propose(self, state, legal, channels, positions):

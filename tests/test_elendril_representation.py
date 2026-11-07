@@ -4,6 +4,33 @@ import random
 
 import pytest
 
+
+def test_tensor_fingerprints_and_migration_need_no_numpy(monkeypatch):
+    import torch
+    from hashlib import sha256
+    from anra_v5.elendril.backend import tensor_sha256, update_tensor_fingerprint
+    from anra_v5.elendril.cognitive_demo import NeuralCore
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("NumPy is not a declared runtime dependency")
+    monkeypatch.setattr(torch.Tensor, "numpy", forbidden)
+    weight = torch.arange(46 * 8, dtype=torch.float32).view(46, 8)
+    fresh, receipt = migrate_tied_embedding(weight, legacy_to_utf8_migration(seed=91),
+                                           parent_model_sha256="a" * 64)
+    expected = sha256(bytes(fresh.reshape(-1).view(torch.uint8).tolist())).hexdigest()
+    assert tensor_sha256(fresh) == expected
+    for chunk in (1, 7, 65536):
+        fingerprint = sha256()
+        update_tensor_fingerprint(fingerprint, fresh, chunk_bytes=chunk)
+        assert fingerprint.hexdigest() == expected
+    policy = object.__new__(NeuralCore)
+    policy.model = torch.nn.Linear(8, 8, bias=False)
+    reference = sha256()
+    for name, value in sorted(policy.model.state_dict().items()):
+        reference.update(name.encode() + b"\0")
+        reference.update(bytes(value.reshape(-1).view(torch.uint8).tolist()))
+    assert policy.weights_sha256() == reference.hexdigest()
+
 from anra_v5.elendril import codec
 from anra_v5.elendril.benchmark import fixture
 from anra_v5.elendril.join import join_fixture

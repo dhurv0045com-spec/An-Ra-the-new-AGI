@@ -373,9 +373,8 @@ def migrate_tied_embedding(weight: Any, recipe: VocabularyMigration, *,
         raise ValueError("initialization is not finite in destination dtype")
     with torch.no_grad():
         fresh[list(recipe.source_to_destination)] = weight.detach()
-    from hashlib import sha256
-
-    embedding_sha = sha256(fresh.detach().cpu().contiguous().view(torch.uint8).numpy().tobytes()).hexdigest()
+    from .backend import tensor_sha256
+    embedding_sha = tensor_sha256(fresh)
     identity = codec.digest({"parent": parent_model_sha256, "migration": recipe.identity,
                              "embedding_sha256": embedding_sha,
                              "shape": list(fresh.shape), "dtype": str(fresh.dtype)})
