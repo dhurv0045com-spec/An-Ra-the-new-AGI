@@ -1,3 +1,13 @@
+# One-session V6 Kaggle launch
+
+The owner requested a single Kaggle GPU run, not an obligatory second notebook session. Use the generated notebook `notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb` with `ONE_SESSION_CAMPAIGN=True`, `RUN_PREFLIGHT=True`, `RUN_CANARIES=True`, `RUN_RECOVERY=False`, `OWNER_APPROVES_CAMPAIGN=True` and `RUN_CAMPAIGN=True`. Select the actual `GPU T4×2` accelerator, enable Internet and run the cells top to bottom. The notebook checks the pinned repository, exact registry, memory/disk, and two physical GPUs, runs actual trainability controls, then tests checkpoint/optimizer continuation in fresh child processes on EACH T4 before allowing the campaign to start. A separate fresh Kaggle VM is NOT mandatory for this single-run mode.
+
+This is a best-effort six-hour campaign, not a guarantee that every panel executes or passes. P01–P15 and supplemental S16–S19 all have registered outputs/statuses; large models S8/S20, confirmation and some diagnostics are conditional on learnability and time. If a measured positive control fails, do not defeat the guard or falsify scientific evidence. Partial and failed arms still save raw receipts and final ZIP attempts. Do not interrupt until you have downloaded the ZIP and saved the Kaggle output version; abrupt unsaved-VM loss cannot be prevented.
+
+Same-VM process-level checkpoint recovery is real but is NOT cross-VM recovery. Separate-VM recovery remains optionally available for durability research, not a precondition for running this campaign. The later CPU-only ZIP export path from saved output does not need GPU allocation.
+
+## Original detailed guidance and provenance
+
 # V6 owner launch and return
 
 Use the generated `ELENDRIL_V6_KAGGLE_T4X2.ipynb` (latest notebook source pin `9b2f1b29b9e05394e165ed375bae5e94693c6877`), not the historical blueprint. Its immutable source and registry hashes must match its runner. The original package is in [research/v6](../research/v6/README_FIRST.md); read the [prospective amendment](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md) for exact changes and limitations.

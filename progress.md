@@ -41,3 +41,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Verified Linux CI 214 tests and seven subtests, including exact pinned notebook generator equivalence.
 - Reconciled the owner documentation to the latest Kaggle notebook after the CPU-only export retry fix.
 - Live T4 training, off-session checkpoint recovery and Kaggle saved-output export remain unverified owner gates.
+
+### 2026-11-07 | ChatGPT | One-session V6 launch mode
+- Added explicit one-session full-campaign admission after positive training and same-T4 fresh-process optimizer resume.
+- Preserved honest cross-VM unverified status, existing scientific gates, failures, checkpoint and ZIP custody.
+- Added simulated admission/config tests and owner one-run instructions; no Kaggle GPU validation claimed.

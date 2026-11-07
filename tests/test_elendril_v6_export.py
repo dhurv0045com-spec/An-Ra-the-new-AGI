@@ -220,3 +220,17 @@ def test_cpu_only_export_retry_is_separate_from_gpu_launch():
     assert "EXPORT_ONLY_SOURCE_AND_OUTPUT_BOUND" in source
     assert "if PRIOR_CAMPAIGN_OUTPUT is not None:" in source
     assert "independent_rescore_and_export" in "".join(notebook["cells"][11]["source"])
+
+def test_single_session_config_allows_full_owner_run_without_second_vm():
+    notebook=build("a"*40)
+    config="".join(notebook["cells"][1]["source"])
+    assert "ONE_SESSION_CAMPAIGN = True" in config
+    configured=(config.replace("RUN_PREFLIGHT = False","RUN_PREFLIGHT = True")
+                      .replace("RUN_CANARIES = False","RUN_CANARIES = True")
+                      .replace("OWNER_APPROVES_CAMPAIGN = False","OWNER_APPROVES_CAMPAIGN = True")
+                      .replace("RUN_CAMPAIGN = False","RUN_CAMPAIGN = True"))
+    scope={}
+    exec(configured,scope)
+    assert scope["RUN_CAMPAIGN"] is True and scope["ONE_SESSION_CAMPAIGN"] is True
+    assert scope["RUN_RECOVERY"] is False
+    assert "one_session=ONE_SESSION_CAMPAIGN" in "".join(notebook["cells"][9]["source"])
