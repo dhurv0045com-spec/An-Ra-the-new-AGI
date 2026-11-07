@@ -1,26 +1,22 @@
-# Cloud operations
+# Owner operations
 
-## Launch decisions
+Install the CPU/platform-appropriate PyTorch separately, then `python -m pip install -e ".[test]"`. Run lightweight tests and read-only custody checks locally. Do not run research training campaigns locally.
 
-**V4 cognitive-action campaign: NO-GO.** The frozen learner did not request evidence on the revision tasks. A supervised query/answer/abstain positive control is the next gate. The preserved V3 notebooks concern graph composition. They do not train the integrated cognitive learner. Use their canary instructions only if the owner separately reopens that portfolio.
+~~~text
+python -m pytest -q
+python -m tools.verify_elendril_evidence --checkpoint-base C:/Users/ankit/Downloads
+python -m elendril inspect-checkpoint --root <root> --lineage <lineage>
+python -m elendril verify-checkpoint --root <root> --lineage <lineage> --sha <sha256>
+python -m elendril compare-checkpoints --root <root> --lineage <lineage> --sha <old> --other-sha <new>
+python -m elendril resume-dry-run --root <root> --lineage <action-lineage>
+~~~
 
-| Lane | Owner-run canary | Research campaign |
-| --- | --- | --- |
-| Colab, one T4 | **V3 only, conditional GO after preflight.** The notebook and its local contracts are qualified. Device parity and Drive recovery require live evidence. | **NO-GO until canary and recovery pass.** Screening target is 1–2 hours, including export margin. |
-| Kaggle, two T4s | **V3 only, conditional GO after preflight.** Verify two distinct physical device identities and two usable CUDA devices. | **NO-GO until the screening gate, both device canaries and a saved-output recovery drill pass.** Target is 5–6 hours including export. |
+Inspection safely decodes tensors with weights_only=True and a bounded payload read. Verification distinguishes byte/tensor checks from actual continuation. Exact dry-run reconstructs action data and the committed head without updates or writes, and requires matching clean source/runtime. `--allow-source-mismatch` is explicitly diagnostic. Legacy training continuation uses its original source. PREVIOUS is an explicit protected rollback SHA; corruption never silently falls back.
 
-The notebooks use a single shared pinned operator. Open them with their expensive switches disabled. Choose GPU acceleration, permit internet for the pinned source fetch, then inspect the forecast and output destination. Provide an authorized source checkout if the repository requires authentication. Keep credentials in the platform's secret facility. Never embed access tokens in clone URLs or exported logs.
+V5 owner notebooks target Colab one T4 and Kaggle two distinct physical T4 UUIDs. All switches are OFF initially. Run only the canaries first. Save their complete durable directory, including immutable checkpoint objects, mirror pointers, challenge JSON and expected generations. End the VM, reattach that output in a fresh VM, set recovery mappings, acknowledge the new session and execute recovery. A kernel restart on the same VM is insufficient. Same-device restart is exact; a different T4 UUID must pass recorded numerical-equivalence tolerances. Then qualify every current lane and inspect the full-plan timing forecast before enabling the campaign.
 
-## Colab
+Colab has a 105-minute training ceiling plus 15-minute export reserve. Kaggle has 315+30 minutes and independent worker lineages, not pooled VRAM. These are caps, not measured runtime promises. Faster completion stops immediately. Kaggle requires a complete independently rescored Colab screen, the prospective formation gate and explicit owner review. Preserve partial results on any failure. Drive copy/readback alone and Kaggle /working alone are not independent off-session custody.
 
-Use the one-T4 screening notebook and select a T4 GPU runtime. Mount Drive only when performing the owner-run recovery canary or campaign. The cloud canary checks numerical updates, same-device restart, scoring and persistence. Keep one session responsible for a run ID. Preserve the verified publication receipt and source identity for a restart. Colab dynamically allocates hardware and session lifetime. [Colab FAQ](https://research.google.com/colaboratory/faq.html)
+Official sources reviewed for this implementation: [Colab FAQ](https://research.google.com/colaboratory/faq.html), [Kaggle notebooks](https://www.kaggle.com/docs/notebooks), [native Kaggle images](https://github.com/Kaggle/docker-python), [saved-output retrieval](https://github.com/Kaggle/kagglehub), [PyTorch reproducibility](https://docs.pytorch.org/docs/2.15/notes/randomness.html) and [SDPA semantics](https://docs.pytorch.org/docs/2.15/generated/torch.nn.functional.scaled_dot_product_attention.html). Allocation, quotas and session lifetime vary. Native PyTorch is checked and bound in receipts; notebooks do not replace the CUDA stack.
 
-## Kaggle
-
-Import the dual-T4 notebook, select GPU T4 ×2 and enable Internet. The operator schedules independent lineages and assigns each worker one device. Each worker has the VRAM of one T4. Check account quotas in the notebook settings before opt-in. Save a notebook version with outputs after the canary or a scheduled rung. Download or reattach the versioned output and verify every checkpoint component before resuming in a fresh session. Treat `/kaggle/working` as session-local until versioned output has been independently retrieved. Recoverable saved outputs and session-local canary evidence have different custody. [Kaggle notebooks](https://www.kaggle.com/docs/notebooks) · [Kaggle runtime image](https://github.com/Kaggle/docker-python) · [Versioned output retrieval](https://github.com/Kaggle/kagglehub#download-notebook-outputs)
-
-## Common recovery and export
-
-Preserve a single run ID, the same immutable source, runtime identity, fixture, method, seed and budget across a resumed lineage. Each checkpoint records the optimizer and next update cursor. Copy a verified generation before moving a durable pointer. If a receipt or digest fails, stop and preserve both the prior good generation and the failure log. A new session should restore a verified checkpoint into a fresh local directory. Export compact result receipts separately from full checkpoint payloads.
-
-Run only the canary or campaign selected by the owner. Native platform PyTorch and CUDA must pass compatibility preflight. Operator receipts record the exact runtime used. The notebook hardware paths remain unverified until the returned canary logs are reviewed. [PyTorch installation guidance](https://pytorch.org/get-started/locally/)
+The old graph notebooks remain retrievable via `elendril-v4-working` and [the removal manifest](ARCHIVED_PROGRAMS.json). The low-level cloud utility remains because the new action operator reuses its hardware/source/copy verification functions. No live CUDA, Drive or Kaggle hardware qualification has occurred in this session.

@@ -6,8 +6,9 @@ import subprocess
 
 import pytest
 
-from tools import build_elendril_cloud_notebooks as builder
 from tools import elendril_cloud as cloud
+
+ARCHIVE = "f516e0bdb8f9137532b35c0c23299f7f9dbdf185"
 
 
 def test_notebooks_validate_and_run_all_default_cells_without_side_effects(monkeypatch, tmp_path):
@@ -16,8 +17,14 @@ def test_notebooks_validate_and_run_all_default_cells_without_side_effects(monke
     def forbidden(*args, **kwargs):
         raise AssertionError("default notebook attempted a subprocess or persistent write")
 
+    # The graph program is deliberately archived, not relabeled as V5 action
+    # training. Continue executing its exact historical disabled-cell contract.
+    import types
+    builder = types.ModuleType("archived_v3_notebook_builder")
+    exec(compile(subprocess.check_output(["git", "show", ARCHIVE + ":tools/build_elendril_cloud_notebooks.py"]),
+                 "archived_v3_notebook_builder.py", "exec"), builder.__dict__)
     for platform, filename in builder.FILES.items():
-        notebook = json.loads((Path("notebooks") / filename).read_bytes())
+        notebook = json.loads(subprocess.check_output(["git", "show", ARCHIVE + ":notebooks/" + filename]))
         nbformat.validate(nbformat.from_dict(notebook))
         source = notebook["metadata"]["elendril"]["source"]
         assert notebook == builder.build(platform, source)

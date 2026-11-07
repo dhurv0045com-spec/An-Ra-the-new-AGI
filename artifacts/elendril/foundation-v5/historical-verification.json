@@ -1,0 +1,18 @@
+{
+  "archive": "930ca3bb723e0b5b191700eec3d5f450875a6e25",
+  "counts": {
+    "checkpoint_components_verified": 1659,
+    "checkpoint_manifests_indexed": 237,
+    "checkpoint_manifests_verified": 237,
+    "operator_hashes": 2,
+    "pilot_receipts": 63,
+    "receipt_figure_resource_hashes": 78,
+    "scoring_snapshots": 519
+  },
+  "manifests_sha256": {
+    "eld-dev-001": "9e95fcc1a2827a84ac49f82594a9a0729b49e42b047dcd080290523689155281",
+    "eld-dev-002": "85551e565393d97c5350691e2a008230996f6ccb9530ab8017c063187db62301",
+    "eld-dev-003": "02436830dfa50b663ef1dfc743056d8f7d29dd9404364b6b6009fb7e46ce8ce1",
+    "eld-dev-004": "4cbeecaa841565964f288b2e0cf36ddff5049fc42f125246792a667565e40d6c"
+  }
+}

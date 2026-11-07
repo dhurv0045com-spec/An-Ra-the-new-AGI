@@ -1,0 +1,526 @@
+{
+  "byte_verification": "PASS",
+  "checkpoint_sha256": "2a4d108fabaf6b0b8515c94042eabfcf88fa201dc8ff976b0d0db0c35a095eaa",
+  "components": [
+    {
+      "byte_size": 182,
+      "name": "cursor.json",
+      "sha256": "689332d00e5e30d764723d55395fc208a2a1d2dc8ee6f0dff3c65dd2d5d4310f"
+    },
+    {
+      "byte_size": 13,
+      "name": "ledger.json",
+      "sha256": "4ab5044e736df78d92ea59183b1c6993717dbf3e61d7cbbafb2b772940035c6c"
+    },
+    {
+      "byte_size": 17276,
+      "name": "model.bin",
+      "sha256": "109be7734a557457707102920ab877eebf3d7e3c8a53ec9de7089b836d4c6940"
+    },
+    {
+      "byte_size": 35822,
+      "name": "optimizer.bin",
+      "sha256": "837677abf273c381de17e5f002c0df53e0c0953d6a6f09ec7970f6e42c33a4f5"
+    },
+    {
+      "byte_size": 5056,
+      "name": "rng.bin",
+      "sha256": "daf9268b18e87b0267a6ad240c6093eb98fe6f03872986bd31a497ba5ea2371a"
+    },
+    {
+      "byte_size": 2643,
+      "name": "scheduler.json",
+      "sha256": "1939376249fd605cf5447977a2136cafb71b5193839c62e6d64fd6dd9ab89c8a"
+    },
+    {
+      "byte_size": 1510,
+      "name": "training_state.json",
+      "sha256": "315dda7b361e2732b29e445fb538e4728b7ff4296f0e14c38b9c2e974dcb0574"
+    }
+  ],
+  "current_git_head": "ade2d5bf69abeb6b07daca162cf1d275a5f91bee",
+  "current_python_tree_clean": false,
+  "lineage": "query-eos-positive-v1",
+  "model_tensors": {
+    "blocks.0.attention.key.weight": {
+      "dtype": "torch.float32",
+      "elements": 128,
+      "finite": true,
+      "shape": [
+        8,
+        16
+      ]
+    },
+    "blocks.0.attention.key_scale": {
+      "dtype": "torch.float32",
+      "elements": 8,
+      "finite": true,
+      "shape": [
+        1,
+        8
+      ]
+    },
+    "blocks.0.attention.output.weight": {
+      "dtype": "torch.float32",
+      "elements": 256,
+      "finite": true,
+      "shape": [
+        16,
+        16
+      ]
+    },
+    "blocks.0.attention.query.weight": {
+      "dtype": "torch.float32",
+      "elements": 256,
+      "finite": true,
+      "shape": [
+        16,
+        16
+      ]
+    },
+    "blocks.0.attention.query_scale": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        2,
+        8
+      ]
+    },
+    "blocks.0.attention.value.weight": {
+      "dtype": "torch.float32",
+      "elements": 128,
+      "finite": true,
+      "shape": [
+        8,
+        16
+      ]
+    },
+    "blocks.0.attention_norm.weight": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "blocks.0.down.weight": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        16,
+        32
+      ]
+    },
+    "blocks.0.ffn_norm.weight": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "blocks.0.gate.weight": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        32,
+        16
+      ]
+    },
+    "blocks.0.up.weight": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        32,
+        16
+      ]
+    },
+    "embedding.weight": {
+      "dtype": "torch.float32",
+      "elements": 736,
+      "finite": true,
+      "shape": [
+        46,
+        16
+      ]
+    },
+    "final_norm.weight": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    }
+  },
+  "optimizer_steps": {
+    "0": 8.0,
+    "1": 8.0,
+    "10": 8.0,
+    "11": 8.0,
+    "12": 8.0,
+    "2": 8.0,
+    "3": 8.0,
+    "4": 8.0,
+    "5": 8.0,
+    "6": 8.0,
+    "7": 8.0,
+    "8": 8.0,
+    "9": 8.0
+  },
+  "optimizer_tensors": {
+    "state/0/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 128,
+      "finite": true,
+      "shape": [
+        8,
+        16
+      ]
+    },
+    "state/0/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 128,
+      "finite": true,
+      "shape": [
+        8,
+        16
+      ]
+    },
+    "state/0/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/1/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 256,
+      "finite": true,
+      "shape": [
+        16,
+        16
+      ]
+    },
+    "state/1/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 256,
+      "finite": true,
+      "shape": [
+        16,
+        16
+      ]
+    },
+    "state/1/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/10/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "state/10/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "state/10/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/11/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "state/11/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "state/11/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/12/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "state/12/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        16
+      ]
+    },
+    "state/12/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/2/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 256,
+      "finite": true,
+      "shape": [
+        16,
+        16
+      ]
+    },
+    "state/2/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 256,
+      "finite": true,
+      "shape": [
+        16,
+        16
+      ]
+    },
+    "state/2/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/3/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 128,
+      "finite": true,
+      "shape": [
+        8,
+        16
+      ]
+    },
+    "state/3/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 128,
+      "finite": true,
+      "shape": [
+        8,
+        16
+      ]
+    },
+    "state/3/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/4/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        16,
+        32
+      ]
+    },
+    "state/4/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        16,
+        32
+      ]
+    },
+    "state/4/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/5/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        32,
+        16
+      ]
+    },
+    "state/5/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        32,
+        16
+      ]
+    },
+    "state/5/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/6/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        32,
+        16
+      ]
+    },
+    "state/6/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 512,
+      "finite": true,
+      "shape": [
+        32,
+        16
+      ]
+    },
+    "state/6/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/7/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 736,
+      "finite": true,
+      "shape": [
+        46,
+        16
+      ]
+    },
+    "state/7/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 736,
+      "finite": true,
+      "shape": [
+        46,
+        16
+      ]
+    },
+    "state/7/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/8/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 8,
+      "finite": true,
+      "shape": [
+        1,
+        8
+      ]
+    },
+    "state/8/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 8,
+      "finite": true,
+      "shape": [
+        1,
+        8
+      ]
+    },
+    "state/8/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    },
+    "state/9/exp_avg": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        2,
+        8
+      ]
+    },
+    "state/9/exp_avg_sq": {
+      "dtype": "torch.float32",
+      "elements": 16,
+      "finite": true,
+      "shape": [
+        2,
+        8
+      ]
+    },
+    "state/9/step": {
+      "dtype": "torch.float32",
+      "elements": 1,
+      "finite": true,
+      "shape": []
+    }
+  },
+  "persistence_scope": "local bytes verified; no fresh cloud session qualified",
+  "schema": "elendril-checkpoint-inspection-v1",
+  "semantic_validation": "MODEL_TOKENIZER_RECIPE_COUNTERS_PASS; exact continuation requires resume-dry-run",
+  "source_binding": "recorded-not-currently-verified",
+  "state": {
+    "cumulative_tokens": 64,
+    "curriculum_phase": "action-formation",
+    "cursor": {
+      "pack_manifest_sha256": "61780c5a1985e6661d00424ad96ade4c96e21c034e4eec6e19c73a36dade3c56",
+      "schema": "anra-v5-pack-cursor/v1",
+      "sequence_ordinal": 32,
+      "shard_ordinal": 0,
+      "token_offset": 0
+    },
+    "generation": 8,
+    "global_update": 8,
+    "identities": {
+      "curriculum_spec_sha256": "88bb7a83001f785724793392953873fbbcdbf519a286888a649b8edb306402ef",
+      "data_manifest_sha256": "61780c5a1985e6661d00424ad96ade4c96e21c034e4eec6e19c73a36dade3c56",
+      "model_spec_sha256": "bd1a6301eae6ed067f6db78c68a330a81e9b53175578ae91823818f400182e60",
+      "optimizer_spec_sha256": "a7c99f660ea51ea688b8206dcde4c0c764dbba44da8b688e1ac1940d0278d640",
+      "pack_manifest_sha256": "61780c5a1985e6661d00424ad96ade4c96e21c034e4eec6e19c73a36dade3c56",
+      "run_spec_sha256": "9a72a77d85b3125fb85c740f4995dd24a75ade7f19beff1fdffcd80ccb06e230",
+      "sampler_spec_sha256": "b2818e52896aa6255504a0fe734676321f073250fb40bc50fce5c32c4bd8fae8",
+      "schedule_spec_sha256": "b3f6c57b886c5c27e5af6d915bd91d12b1aa4133350900faec30ca3f1672c947",
+      "schema": "anra-v5-identity-bindings/v1",
+      "source_commit": "ade2d5bf69abeb6b07daca162cf1d275a5f91bee",
+      "tokenizer_sha256": "6a2125c0014d09724930881a8b77f0817f0c18039f83a8d13606c3297e67de00"
+    },
+    "lineage_id": "query-eos-positive-v1",
+    "optimizer_step_max": 8,
+    "parent_checkpoint_sha256": null,
+    "rng_state_sha256": "daf9268b18e87b0267a6ad240c6093eb98fe6f03872986bd31a497ba5ea2371a",
+    "schedule_tokens": 64,
+    "schema": "anra-v5-training-state/v1",
+    "token_budget": 64,
+    "tokens_by_source": {
+      "action": 64
+    },
+    "tokens_per_update": 8
+  },
+  "training_format": "foundation-v1",
+  "verification": "PASS_WITH_DECLARED_FORMAT_SCOPE"
+}

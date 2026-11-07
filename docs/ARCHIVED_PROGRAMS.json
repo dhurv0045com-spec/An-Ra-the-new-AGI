@@ -1,0 +1,37 @@
+{
+  "schema": "elendril-active-cleanup-v5-v1",
+  "source_commit": "f516e0bdb8f9137532b35c0c23299f7f9dbdf185",
+  "tag": "elendril-v4-working",
+  "files": {
+    "notebooks/ELENDRIL_SCREEN_COLAB_T4.ipynb": {
+      "git_object": "c90a7a9e1a87bcc15ef1debe7a7923650ba4febc",
+      "retrieval": "git show f516e0bdb8f9137532b35c0c23299f7f9dbdf185:notebooks/ELENDRIL_SCREEN_COLAB_T4.ipynb",
+      "reason": "paused V3 graph wrapper or superseded planning; preserved independently from V5 action training"
+    },
+    "notebooks/ELENDRIL_CONFIRM_KAGGLE_T4X2.ipynb": {
+      "git_object": "25984d46d963e4af5657d5110a9e31c980f1b4ce",
+      "retrieval": "git show f516e0bdb8f9137532b35c0c23299f7f9dbdf185:notebooks/ELENDRIL_CONFIRM_KAGGLE_T4X2.ipynb",
+      "reason": "paused V3 graph wrapper or superseded planning; preserved independently from V5 action training"
+    },
+    "tools/build_elendril_cloud_notebooks.py": {
+      "git_object": "cba8cc46a3043e4e641a1fb3db1b507678026d95",
+      "retrieval": "git show f516e0bdb8f9137532b35c0c23299f7f9dbdf185:tools/build_elendril_cloud_notebooks.py",
+      "reason": "paused V3 graph wrapper or superseded planning; preserved independently from V5 action training"
+    },
+    "docs/EXPERIMENT_PROTOCOLS.md": {
+      "git_object": "96bb92c3c213c8c228f4426cab67060d0261a86c",
+      "retrieval": "git show f516e0bdb8f9137532b35c0c23299f7f9dbdf185:docs/EXPERIMENT_PROTOCOLS.md",
+      "reason": "paused V3 graph wrapper or superseded planning; preserved independently from V5 action training"
+    },
+    "docs/RESEARCH_ROADMAP.md": {
+      "git_object": "dcf63a0a84193b2b3ac77bc0fce42b4dd34f7636",
+      "retrieval": "git show f516e0bdb8f9137532b35c0c23299f7f9dbdf185:docs/RESEARCH_ROADMAP.md",
+      "reason": "paused V3 graph wrapper or superseded planning; preserved independently from V5 action training"
+    },
+    "docs/RUNTIME_IMPORTS.json": {
+      "git_object": "13d5f25f85afa547a46f3bbd3c49fd389786639d",
+      "retrieval": "git show f516e0bdb8f9137532b35c0c23299f7f9dbdf185:docs/RUNTIME_IMPORTS.json",
+      "reason": "paused V3 graph wrapper or superseded planning; preserved independently from V5 action training"
+    }
+  }
+}

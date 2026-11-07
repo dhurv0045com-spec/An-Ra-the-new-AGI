@@ -1,27 +1,21 @@
 # ELENDRIL
 
-ELENDRIL studies whether neural learners can acquire reusable skills, retain them, transfer prior learning to new tasks, and improve through independently verified interventions.
+ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. V5 strengthens its representation, training and recovery foundation while preserving the frozen V4 learner and ELD-DEV-001–004 evidence.
 
-The active tree contains the research model and operator, the small V5 dependency closure required for exact replay, regression tests, and ELD-DEV-001 through ELD-DEV-004 evidence. Older AN-RA programs live at their archived Git identities. [Evidence and provenance](docs/EVIDENCE_AND_PROVENANCE.md)
+- [Current state](docs/CURRENT_STATE.md), [handoff](docs/HANDOFF.md) and [cognitive kernel](docs/COGNITIVE_KERNEL.md)
+- [Foundation decisions](docs/FOUNDATION_AUDIT.md), [qualification](docs/FOUNDATION_QUALIFICATION.md) and [algorithm comparisons](docs/ALGORITHM_COMPARISONS.md)
+- [Hypotheses](docs/HYPOTHESIS_REGISTER.md), [next cognitive experiment](docs/NEXT_COGNITIVE_EXPERIMENT.md) and [owner operations](docs/OPERATIONS.md)
+- [Evidence custody](docs/EVIDENCE_AND_PROVENANCE.md) and [archived programs](docs/ARCHIVED_PROGRAMS.json)
 
-## Research entry points
-
-- [Current state](docs/CURRENT_STATE.md), [cognitive kernel](docs/COGNITIVE_KERNEL.md), and [handoff](docs/HANDOFF.md)
-- [Ranked hypotheses](docs/HYPOTHESIS_REGISTER.md) and [experiment protocols](docs/EXPERIMENT_PROTOCOLS.md)
-- [Cloud operations and launch gates](docs/OPERATIONS.md)
-- Preserved V3 graph operators. [Colab single-T4 screening](notebooks/ELENDRIL_SCREEN_COLAB_T4.ipynb)
-- [Kaggle dual-T4 confirmation](notebooks/ELENDRIL_CONFIRM_KAGGLE_T4X2.ipynb)
-
-## Local qualification
-
-Use Python 3.11 or later and install PyTorch for the actual platform. Local work is limited to source checks, receipt replay, unit tests and tiny correctness canaries. Train research campaigns only in owner-run cloud notebooks.
+Use Python 3.11+, the appropriate native PyTorch, and `python -m pip install -e ".[test]"`. Local hardware is for lightweight correctness tests and inference only.
 
 ~~~text
-python -m pip install -e ".[test]"
-python -m elendril --help
 python -m pytest -q
+python -m tools.verify_elendril_evidence
+python -m elendril --help
+python -m elendril inspect-checkpoint --root <checkpoint-root> --lineage <lineage>
+python -m elendril verify-checkpoint --root <checkpoint-root> --lineage <lineage>
+python -m elendril resume-dry-run --root <checkpoint-root> --lineage <action-lineage>
 ~~~
 
-The `elendril` command and the historical `python -m anra_v5.elendril` command run the same entry point. Historical receipt replay uses each receipt's original source where needed. [Official PyTorch installation](https://pytorch.org/get-started/locally/)
-
-[License](LICENSE)
+Owner-run notebooks keep all launch switches OFF. CUDA and fresh cloud-session recovery remain unverified until owner receipts return. No capability promotion follows from a passing test suite. [License](LICENSE)

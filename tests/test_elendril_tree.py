@@ -30,3 +30,11 @@ def test_unique_elendril_evidence_remains_at_identical_git_blobs():
     for path, entry in historical["files"].items():
         if path.startswith("artifacts/elendril/"):
             assert current[path] == entry["git_object"], path
+
+
+def test_v5_deprecated_wrappers_have_exact_archived_retrieval_objects():
+    archive = json.loads(Path("docs/ARCHIVED_PROGRAMS.json").read_bytes())
+    assert git("rev-parse", archive["tag"] + "^{commit}").decode().strip() == archive["source_commit"]
+    for path, entry in archive["files"].items():
+        assert not Path(path).exists(), path
+        assert git("rev-parse", archive["source_commit"] + ":" + path).decode().strip() == entry["git_object"]

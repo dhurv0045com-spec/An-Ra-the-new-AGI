@@ -161,7 +161,7 @@ def test_curriculum_has_identical_multiset_and_prospective_stage(datasets):
     fixed = curriculum_indices(data, seed=7, arm="fixed-mixture")
     candidate = curriculum_indices(data, seed=7, arm="uncertainty-first")
     assert sorted(fixed) == sorted(candidate) == list(range(len(data.examples)))
-    uncertain = [data.examples[index].action == "QUERY" for index in candidate]
+    uncertain = [data.examples[index].kind in {"missing", "conflict"} for index in candidate]
     assert uncertain == sorted(uncertain, reverse=True)
     assert curriculum_indices(data, seed=7, arm="fixed-mixture", epoch=1) == curriculum_indices(
         data, seed=7, arm="uncertainty-first", epoch=1)

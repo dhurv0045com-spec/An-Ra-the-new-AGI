@@ -374,7 +374,7 @@ def curriculum_indices(data: ActionDataset, *, seed: int, arm: str, epoch: int =
     if arm not in {"fixed-mixture", "uncertainty-first"} or type(epoch) is not int or epoch < 0:
         raise ValueError("unknown curriculum or invalid epoch")
     indices = list(range(len(data.examples)))
-    random.Random(int(digest([VERSION, seed, epoch]), 16)).shuffle(indices)
+    random.Random(int(digest([seed, epoch, "foundation-order-v1"]), 16)).shuffle(indices)
     if arm == "uncertainty-first" and epoch == 0:
-        indices.sort(key=lambda index: data.examples[index].action != "QUERY")
+        indices.sort(key=lambda index: data.examples[index].kind not in {"missing", "conflict"})
     return tuple(indices)

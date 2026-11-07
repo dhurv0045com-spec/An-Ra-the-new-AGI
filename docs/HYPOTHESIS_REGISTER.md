@@ -1,55 +1,14 @@
-# ELENDRIL V3 hypothesis register
+# Active hypothesis register
 
-V3 treats the ELD-DEV-004 two-read result as a useful prior. Its alias and three-hop failures set the priorities below. Evidence and thresholds apply to the task distribution and resource budget named in the receipts. A screen or same-generator replication is development evidence.
+| Priority | Hypothesis and unchanged control | Falsifier | Status |
+| --- | --- | --- | --- |
+| 1 | CE can learn costed ANSWER/QUERY/ABSTAIN in the existing episode loop; compare fixed, oracle, no-query, always-query, random, query-blind and recency | Formation floor or query-cost gate fails after positive overfit control | Dataset, objective, verifier and tiny token control qualified; full neural formation pending GPU. |
+| 2 | Action-token weighting improves complete actions over CE at equal examples/updates | No prospective utility improvement or a state-kind regression | Implemented and denominator-tested; comparative result pending. |
+| 3 | Uncertain-world first-epoch ordering improves formation over the identical row multiset in shuffled order | No utility gain, redundant queries, or accuracy regression | Implemented and exposure-tested; comparative result pending. |
+| 4 | Native-GQA execution improves resource use at equivalent gradients | Parity fails or measured cost worsens | CPU parity passed, measured latency worsened; default unchanged. CUDA unresolved. |
+| 5 | Versioned UTF8 representation enables broader inputs without corrupting legacy checkpoints | Round-trip, manifest, framing or migration fails | Engineering tests passed; language learning and representation efficiency untested. |
+| Later | Retention and genuinely new-skill forward transfer can coexist at matched cumulative work | Failed new-skill acquisition, lost old skill or gain explained by extra exposure/spend | Blocked on independently qualified skills. |
 
-## Ranked portfolio
+See [frozen gates and budgets](ALGORITHM_COMPARISONS.md). Curriculum prioritizes missing/conflicted-world examples including their observed post-query responses, not hidden truth. Cloud formation uses fresh weights intentionally and cannot establish retention of the old route checkpoint.
 
-| Priority | Hypothesis | Key rival explanation | Cheapest decisive comparison | Status |
-| --- | --- | --- | --- | --- |
-| 1 | H1. Learned address matching depends on superficial symbols or syntax. | Shift panels couple representation changes with different graph difficulty. | Compare raw recurrent, rendering augmentation and deterministic canonicalization on matched worlds, with a factorial symbol and separator stress panel. | Colab screen, then gated Kaggle replication. |
-| 2 | H2. Iterating one shared relational transition supports a depth distribution better than fixed read count. | More internal reads or a visible depth cue account for the gain. | Compare one-read, fixed two-read, fixed three-read, shared recurrence, pointer and dense controls at equal examples and steps. Report reads, GPU-seconds and memory separately. | Colab screen, then gated Kaggle replication. |
-| 3 | H3. Position-supported intermediate copy can reduce vocabulary-dependent memory traffic. | Dense output logits or the token-pair state dominate peak memory, or sparse contraction changes gradients. | Compare position contraction against vocabulary scatter-and-gather under duplicate IDs, masks and controlled tensor shapes. | Mechanical parity is a gate; GPU scaling remains empirical. |
-| 4 | H4. A and B acquisition can improve later C learning while preserving A/B. | Replay exposure, memorized task structure or higher cumulative spend explains the apparent gain. | Independently qualify A/B first, then pair scratch C and staged no-protection or fixed-replay arms on genuinely disjoint C. | Blocked on independently acquired skills. |
-| 5 | H5. A bounded selector learns which memory, weight or architecture intervention helps. | The selector exploits verifier feedback or spends more than the fixed policies. | Compare the selector with fixed, random and heuristic policies under a shared intervention catalog, hidden outcomes and equal work budgets. | Blocked on verified fixed interventions and independent evaluation. |
-
-## H1. Surface dependence
-
-**Prior.** In ELD-DEV-004, all three seeds reached 64/64 on two-hop base pairs. Combined aliases reached 1/64, 0/64, 0/64. In the diagnostic, symbol-only was 64/64, 12/64, 0/64 and separator-only was 2/64, 45/64, 59/64. The factor-specific failure is seed-dependent. The earlier perfect alias result on ELD-DEV-003 used a different direct-retrieval surface.
-
-**Mechanism and contrast.** Compare `recurrent-read` to `recurrent-aug` under the same architecture and raw task identities. The augmented arm deterministically permutes known symbols, order and separator for half the training graphs. The held-out symbol inventory stays unused by training. Contrast the deterministic `recurrent-canon` strategy, which renames visible symbols by occurrence and normalizes punctuation. Its success could come from preprocessing removing nuisance variability. It would establish an engineering strategy on this grammar. Only a gain in the raw-input learned arm supplies evidence for learned robustness. Depth, graph class, edge answers and the relevant counterfactual remain paired across panels. Treat symbol-only, separator-only, combined and reordered renders separately.
-
-**Measurement and falsifier.** A screen signal requires a gain of at least 10 percentage points in jointly correct, exact-plus-EOS base-world pairs under combined shift relative to raw recurrence in **both** seeds, with at most five points of base regression. A candidate failing either constraint does not clear H1. Inspect the three shift cells individually to localize errors. Compare per-cluster paired outcomes, preserve the finite development denominators and include blind, one-step, recency and symbolic oracle controls where admissible.
-
-**Cost and stop.** The raw recurrence baseline is shared with H2. The two added H1 methods consume four of the 16 planned Colab arms. Their arm step budgets and checkpoints match the other methods. Halt on audit, canary or resource failure, preserve any incomplete arms, and separate an exhausted budget from a completed negative result. Preserve fixture fingerprints, raw predictions by world/panel, exact/eos and pair counts, source, configuration, device, work, and complete checkpoint inventories.
-
-## H2. Reuse across depth
-
-**Prior.** ELD-DEV-004 passed matched two-hop formation, and a forced alternate middle symbol redirected 128/128 answers in every seed to the alternate chain’s terminal. Its three-hop score was 0/64 in every seed. The intervention supports a learned two-stage computation on that surface.
-
-**Mechanism and contrast.** Compare `recurrent-read` with the archived-style hybrid one-read `associative`, fixed `two-read`, fixed `three-read`, contextual pointer and capacity-matched dense arms. Give all models the same explicit depth cue. Bound maximum recurrence and apply the same learned join transition repeatedly. The experiment tests whether the transition transfers when the operator supplies depth. Learned halting is a separate future question. Compare matched base worlds, depth panels, rewiring and distractors, then read-off cost from the observed training and inference frontier. Pointer mixing and depth recurrence have published precedents. [Pointer-generator reference](https://aclanthology.org/P17-1099/) · [Universal Transformers](https://arxiv.org/abs/1807.03819).
-
-**Measurement and falsifier.** A screen signal requires the recurrent arm to exceed fixed two-read by at least 10 percentage points on the deepest held-out panel in **both** Colab seeds, with at most five points of base regression. Record layer/parameter counts, number of reads, supervised tokens, forward positions, measured time and memory. If the result disappears on structurally disjoint worlds, a rendered-depth shortcut remains a viable explanation. If runtime is materially higher, the capability contrast can remain informative while efficiency remains open. An independent first-state swap or depth mismatch on trained checkpoints would be diagnostic only, with no oracle state in normal inference.
-
-**Cost and stop.** The complete Colab matrix is eight methods × two seeds × 1,536 planned updates, with 105 minutes of compute plus 15 minutes reserved for export. The planned Kaggle replication is nine methods × five seeds × 6,144 updates, on two independent lanes with 315 minutes of compute plus 30 minutes reserved for export. The source-bound campaign inventory governs exact arm and step budgets. Those numbers are ceilings. Canary timings and stage deadlines determine how much work fits. Do not substitute a different accelerator, shorten individual arms after viewing their metrics, or report a partially run comparison as complete.
-
-## H3. Memory and numerical identity
-
-**Prior.** At B=16, L=4,096 and V=24,576, one dense FP32 copy tensor takes 6 GiB before autograd intermediates or the final dense logits. The prior lexical-match path also has quadratic token-pair intermediates. A recurrent candidate that avoids a separate vocabulary-sized tensor per intermediate read could help while preserving these other limits.
-
-**Mechanism and contrast.** Carry intermediate read mass on context positions and compute token equality against context sources. Retain the final dense vocabulary output. Compare the resulting copy retrieval values and gradients with a scatter-then-gather reference on duplicate IDs, missing support, masks and packed segment boundaries. Report how cost changes with sequence length as well as vocabulary.
-
-**Measurement and falsifier.** A deterministic FP32 mismatch outside 1e-6 absolute or 1e-5 relative tolerance rejects the tested equivalence claim. A scaling claim requires observed lower peak allocation at matched output/gradient tolerances and reported runtime on the actual GPU. The Kaggle matrix includes `recurrent-dense` to compare the same recurrent mechanism with vocabulary-scatter intermediates. Capture runtime and peak allocation for both methods. A wider vocabulary and context-length sweep is a separate experiment. Mechanical parity alone earns no measured speed or VRAM claim.
-
-**Cost and stop.** Run tensor-level tests before device allocation. Use the matched Kaggle recurrent arms for an observed cost point. Calibrate an owner-run scaling microbenchmark before reserving a separate GPU budget. Stop before allocation on an invalid shape or unqualified backend and record where parity or memory diverges.
-
-## H4. Accumulation under equal cumulative work
-
-Qualify two non-alias skill families using their own generators and shortcut controls. Candidate A is relational navigation robust across independent graph and rendering generators. Candidate B is an order-sensitive state transformation with disjoint primitives. Freeze a novel C that learns under scratch. Precommit the skill floors, minimum worthwhile C learning-curve improvement, the stage-transition authority, replay dose, fixed evaluation panels and total token, inference, memory/tool and elapsed-work caps. Pair by seed, world block and full cumulative work. Scratch C, no protection and fixed replay are the first controls. Extra A/B replay and checkpoints change total spend and are charged.
-
-The hypothesis fails under the tested curriculum if an apparent C advantage vanishes at matched cumulative spend, if either old skill drops below its frozen floor, or if independently trained B/C never reach acquisition. Before reserving GPU-hours, estimate cost from eligible individual task curves and stop failed-acquisition arms using a frozen gate. Archive every stage checkpoint and optimizer, pre/post A/B scores, raw C trajectories and signed parent-to-child transitions.
-
-## H5. Independently verified improvement
-
-Use distinct candidate, verifier and owner roles, with a fixed proposal budget, a versioned policy and immutable rollback target. A selector receives only data authorized for proposals. Compare it prospectively against fixed, random and heuristic policies using held-out intervention outcomes. Match the full cost of proposal generation, training and evaluation. The exact falsifier is failure to outperform the strongest fixed control on the preregistered held-out decision margin, or a claimed gain lost under independent reevaluation or rollback. Estimate the intervention budget from H4 before selecting a sample size. Stop on budget excess, a signature or custody mismatch, an unqualified verifier, or missing rollback state. Preserve rejected proposals and all costed decisions.
-
-The current review contract can bind evidence and rollback. It has no execution or promotion authority. The V3 notebooks run the H1/H2 portfolio with a matched H3 comparator on Kaggle. H4/H5 remain gated.
+V3 surface-invariance, recurrent-composition, intermediate-memory and later adaptation hypotheses remain preserved at [their exact V4 archive](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/blob/f516e0bdb8f9137532b35c0c23299f7f9dbdf185/docs/HYPOTHESIS_REGISTER.md). Historical negatives are unchanged.

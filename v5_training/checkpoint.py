@@ -162,6 +162,12 @@ class CheckpointStore:
         canonical_state = _canonical_json(state.canonical())
         if payloads["training_state.json"] != canonical_state:
             raise ValueError("training-state component disagrees with manifest state")
+        if self.payload_validator is not None and current is not None:
+            parent_state, _ = self._verify_directory(self.objects / current, expected_sha256=current)
+            if (state.identities != parent_state.identities or state.global_update <= parent_state.global_update
+                    or state.cumulative_tokens <= parent_state.cumulative_tokens
+                    or state.token_budget != parent_state.token_budget):
+                raise ValueError("semantic checkpoint lineage cannot regress or change identities")
 
         staging = self.lineage_root / f".staging-{state.generation}"
         if staging.exists():

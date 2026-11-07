@@ -244,8 +244,15 @@ def main(argv: list[str] | None = None) -> None:
     import sys
 
     command_line = sys.argv[1:] if argv is None else argv
+    checkpoint_commands = ("inspect-checkpoint", "verify-checkpoint", "compare-checkpoints", "resume-dry-run")
+    if command_line and command_line[0] in checkpoint_commands:
+        from .checkpoint_tools import main as checkpoint_main
+        checkpoint_main(command_line)
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)
+    for name in checkpoint_commands:
+        sub.add_parser(name, help="Read-only checkpoint operator (use command --help)")
     audit = sub.add_parser("audit")
     audit.add_argument("--output", type=Path, required=True)
     audit_v3 = sub.add_parser("audit-v3")
