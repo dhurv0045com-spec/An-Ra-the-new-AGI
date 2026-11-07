@@ -1,5 +1,24 @@
 # ELENDRIL V6 handoff — 7 November 2026
 
+Latest continuation adds four investigator-designed experiments to the same notebook. **Current source pin: `6ad497997f728d8161a42f7525e1dfb91ffe6d22`**, registry `6086c1cf5e437f44cb5a0c10046b36fd19cb39a7399a2bc2ddc559b16af24163`. The original15 panels remain intact. [Prospective supplement and falsifiers](../research/v6/INVESTIGATOR_SUPPLEMENT_2026-11-07.md)
+
+- S16: identical28 worlds at1/2/4 decisions; paired accuracy/utility/work gains and regressions.
+- S17: same28 worlds under one consistent subject/value/graph symbol bijection; both-correct and mapped-output equivariance.
+- S18: four known worlds with empty versus contradictory older same-source memory, both paying engineered prefetch costs.
+- S19: full existing raw evaluation and matched controls repriced at query costs0/0.1/0.5/1, with rankings and break-even price. No claim of adaptive cost-aware behavior.
+
+No training arms or separate notebooks were added. Each condition is saved immutably and independently replayed; cached conditions resume without another model call. A90-second measured admission allowance per checkpoint shares the existing diagnostic ceiling and export reserve. Forecast/deadline skips remain explicit. All extra raw conditions, summaries and the four-view chart join the same results ZIP. New registry/source identities require a fresh run/output; old results remain bound to their original pins.
+
+Integration repaired P14's comparison between two distinct identity types: before/after tensor fingerprints now agree separately from checkpoint-manifest binding. A regression test rejects a wrong checkpoint even when tensor fingerprints agree. Independent export verification now also binds diagnostic raw receipts to an already verified parent checkpoint/result and replays supplemental conditions/summaries.
+
+Closing Windows tests: **212 passed, one Windows symlink skip, seven subtests in75.19 seconds**. Additional generated-notebook/schema/default/export checks: **13 passed, one skip in7.60 seconds**. [Runtime Linux CI](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42381123330): **213 passed, seven subtests in37.13 seconds**, including the symlink test. A scripted test-double chart/ZIP check passed; it is not neural evidence.
+
+[Actual engineered-control audit](../artifacts/elendril/v6-engineering/supplement-control-audit.json) at the clean source pin took1.0731 wall seconds/1.0781 CPU seconds including112-world generation. Fixed controls improved16/28→28/28 between one and two decisions, showed28/28 both-correct/equivariant permutation pairs, and preserved4/4 known answers under stale memory. The full raw traces are preserved. S19 arithmetic, control matching and ties are unit-tested; no neural S19 result exists. No local research training or GPU execution occurred.
+
+**GO remains limited to owner preflight/canaries; the research campaign needs real T4 learning and fresh-VM recovery evidence.** The next scientific decision is whether the same frozen neural checkpoint reproduces these patterns, exposing a bottleneck in effort use, binding, memory interference or economics before architectural expansion.
+
+## Previous V6 delivery and preserved evidence
+
 Continued the existing V5 system and fast-forward incorporated the complete research package at `777232f103312d80810c89f80d40cba94147f648`. All five package files were reviewed and preserved unchanged. The original Cymek worktree and historical checkpoint payloads were not modified. The previous V5 handoff is retained below.
 
 | Exact commit | Delivered change |

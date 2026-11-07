@@ -1,0 +1,33 @@
+{
+  "control_audit_sha256": "7594efb8580e3fc4f099ee24085ceff30d8263ae35a840d1f38b9e017e569bea",
+  "exact_source_scripted_render_export": {
+    "bundle_manifest_sha256": "df00b3b8d3764ee679a6255885260e109c623bf22c150cebed506152af1ca295",
+    "plot_bytes": 114214,
+    "scope": "scripted test double; not neural or GPU evidence",
+    "status": "EXPORT_VERIFIED"
+  },
+  "gpu_execution": "NOT_RUN_UNVERIFIED",
+  "launch": "GO owner qualification only; research NO_GO until live T4 and newVM recovery pass",
+  "notebook_sha256": "e7d7b46777de92db1a96b12a0c58baab4d73f4cf63144ee5fc129f03cd2bb484",
+  "publication_focused_checks": {
+    "passed": 13,
+    "seconds": 7.6,
+    "skipped": 1
+  },
+  "registered_supplements": [
+    "S16",
+    "S17",
+    "S18",
+    "S19"
+  ],
+  "registry_sha256": "6086c1cf5e437f44cb5a0c10046b36fd19cb39a7399a2bc2ddc559b16af24163",
+  "schema": "elendril-v6-supplement-publication-v1",
+  "source_commit": "6ad497997f728d8161a42f7525e1dfb91ffe6d22",
+  "source_linux_ci": {
+    "passed": 213,
+    "seconds": 37.13,
+    "subtests_passed": 7,
+    "url": "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42381123330"
+  },
+  "training_updates_added": 0
+}
