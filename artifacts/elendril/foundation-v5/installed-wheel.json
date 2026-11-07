@@ -1,0 +1,17 @@
+{
+  "source_commit": "78ce7def7c1b7bdc4a73a3e1bb7022485880ceab",
+  "wheel_sha256": "ed58a3bdea021a69c36bc9f9af4091549449e61b1ed3a930a9dd05fe745696ce",
+  "installed_module": "C:\\Users\\ankit\\AppData\\Local\\Temp\\elendril-v5-qualified-install\\anra_v5\\elendril\\foundation_training.py",
+  "fixed_control": {
+    "episodes": 5,
+    "correct": 5,
+    "requests": 2,
+    "utility": 4.8,
+    "invalid": 0,
+    "model_calls": 0,
+    "model_positions": 0
+  },
+  "checkpoint_verification": "PASS_WITH_DECLARED_FORMAT_SCOPE",
+  "torch": "2.14.0+cpu",
+  "qualification": "isolated installed-wheel imports, Unicode, fixed cognitive action and existing checkpoint verification; zero optimizer updates"
+}

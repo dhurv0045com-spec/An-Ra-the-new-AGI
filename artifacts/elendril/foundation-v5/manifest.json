@@ -1,0 +1,33 @@
+{
+  "schema": "elendril-foundation-evidence-v5-v1",
+  "parent_source": "f516e0bdb8f9137532b35c0c23299f7f9dbdf185",
+  "qualified_source": "1d0c6aedbdccd05dbc85e57a66fbfe433e75eb12",
+  "artifacts": {
+    "action-controls.json": "745eb59a9e87e41c6b8be5dddf73a3dfa8a83a465d267302520055d9e7ff99ec",
+    "backend-micro.json": "a22b3d924788fdcada05771b04cae79889fd8576f42d4dc008a4fd3ac079f27f",
+    "checkpoint-inspection.json": "aeb0b6895720ca2e23e7ff1b1ec44a602a31c58d8f254a6d6cc23468b5edfe42",
+    "ci-failure-and-repair.json": "9d74c9fa632e57a44b54fb951d797ca3bcfc3e1510cfc5046c2819567fa47986",
+    "ci-source.json": "f499128ae383bcd6a9af11b970a90f22324800c4f42c335aaec0ad08bb3876e8",
+    "fixed-v4-replay.json": "56bd99288300a3d4e6f67b103c932a700689b5dc73f8128f755a33a974ae76c7",
+    "frozen-v4-numpy-free.json": "3e5a29b4ecef9feb34fe547dc262f7ff3679a3f460f7fdc88c2b215bd3b310e6",
+    "frozen-v4-replay.json": "3ceb2aeb680072fd254c91fda96e8d778380e27ba85c77ba9582ba89fd661779",
+    "historical-verification.json": "1d51f2376daffbd76d91c840c9d5d897cd2ab9fc3a19ab6bb1a9f5936fd457d8",
+    "installed-wheel-numpy-free.json": "e575080ed3e63f3bd6879404291a3358bb77a9d969b38b5775d06601eeb3a837",
+    "installed-wheel.json": "221b144066d09bc144d914b71ff52c8e9e376fcc18e8f78a56418819b7823ddd",
+    "learning-canary.json": "012150227877ef6f018d6c06b75973268dd9e1246d7aaa32f3d3e39d9a46fb41",
+    "qualification.png": "fc609c937b1984554148d3050b2d97aa3bddea91c3fd2ff0cb5f9c6cecd4f81b"
+  },
+  "gpu_execution": "UNVERIFIED_NOT_RUN",
+  "training_scope": "tiny8-update CPU overfit control and correctness tests only; no local research campaign",
+  "external_canary_root": "C:/Users/ankit/Downloads/Elendril-V5-foundation-canary",
+  "external_canary_checkpoint": "2a4d108fabaf6b0b8515c94042eabfcf88fa201dc8ff976b0d0db0c35a095eaa",
+  "promotion": "NONE",
+  "local_qualification": {
+    "command": "python -m pytest -q",
+    "tests_passed": 166,
+    "subtests_passed": 7,
+    "elapsed_seconds": 42.03,
+    "environment": "Windows Python3.11.15 PyTorch2.14.0+cpu, OMP/MKL threads1; nbformat5.10.4 from temporary dependency target",
+    "cloud_operator_subset": "10 passed; schema, disabled cells and exact immutable source verified; live CUDA not executed"
+  }
+}

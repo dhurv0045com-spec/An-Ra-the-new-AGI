@@ -92,6 +92,7 @@
   ],
   "anra_v5/elendril/representation.py": [
     "anra_v5/elendril/__init__.py",
+    "anra_v5/elendril/backend.py",
     "anra_v5/elendril/codec.py"
   ],
   "anra_v5/elendril/scoring.py": [
@@ -166,6 +167,7 @@
     "tools/compare_elendril_pairs.py",
     "tools/verify_elendril_evidence.py"
   ],
+  "tests/test_elendril_foundation_evidence.py": [],
   "tests/test_elendril_foundation_training.py": [
     "anra_v5/elendril/codec.py",
     "anra_v5/elendril/foundation_training.py",
@@ -197,8 +199,10 @@
   ],
   "tests/test_elendril_representation.py": [
     "anra_v5/elendril/__init__.py",
+    "anra_v5/elendril/backend.py",
     "anra_v5/elendril/benchmark.py",
     "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/cognitive_demo.py",
     "anra_v5/elendril/join.py",
     "anra_v5/elendril/relational.py",
     "anra_v5/elendril/representation.py"

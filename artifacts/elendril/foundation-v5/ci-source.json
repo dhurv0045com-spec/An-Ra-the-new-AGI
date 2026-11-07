@@ -1,0 +1,112 @@
+{
+  "conclusion": "success",
+  "databaseId": 42366390091,
+  "headSha": "1d0c6aedbdccd05dbc85e57a66fbfe433e75eb12",
+  "jobs": [
+    {
+      "completedAt": "2026-11-07T11:02:27Z",
+      "conclusion": "success",
+      "databaseId": 128385241444,
+      "name": "qualify",
+      "startedAt": "2026-11-07T11:01:27Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-11-07T11:01:29Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-11-07T11:01:28Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:01:33Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-11-07T11:01:29Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:01:33Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-11-07T11:01:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:01:53Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu",
+          "number": 4,
+          "startedAt": "2026-11-07T11:01:33Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:01:57Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install -e \".[test]\"",
+          "number": 5,
+          "startedAt": "2026-11-07T11:01:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:02:22Z",
+          "conclusion": "success",
+          "name": "Run python -m pytest -q",
+          "number": 6,
+          "startedAt": "2026-11-07T11:01:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:02:22Z",
+          "conclusion": "success",
+          "name": "Run python -m elendril audit --output elendril-fixture-audit.json",
+          "number": 7,
+          "startedAt": "2026-11-07T11:02:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:02:24Z",
+          "conclusion": "success",
+          "name": "Run python -m tools.verify_elendril_evidence",
+          "number": 8,
+          "startedAt": "2026-11-07T11:02:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:02:24Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 15,
+          "startedAt": "2026-11-07T11:02:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:02:25Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 16,
+          "startedAt": "2026-11-07T11:02:24Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-11-07T11:02:25Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 17,
+          "startedAt": "2026-11-07T11:02:25Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42366390091/job/128385241444"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42366390091",
+  "test_summary_lines": [
+    "164 passed, 1 warning, 7 subtests passed in 23.83s"
+  ],
+  "scope": "Linux CPU CI; GPU/cloud-session qualification not run"
+}

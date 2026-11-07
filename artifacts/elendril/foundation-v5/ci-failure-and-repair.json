@@ -1,0 +1,10 @@
+{
+  "run_id": 42356676271,
+  "source_commit": "78ce7def7c1b7bdc4a73a3e1bb7022485880ceab",
+  "url": "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42356676271",
+  "summary": "1 failed,162 passed,7 subtests; migration fingerprint called Tensor.numpy without declared NumPy dependency",
+  "error": "RuntimeError: Numpy is not available",
+  "repair_commit": "1d0c6aedbdccd05dbc85e57a66fbfe433e75eb12",
+  "repair": "bounded raw uint8 tensor bytes; no dependency installer or weakened assertion; exact frozen fingerprint retained",
+  "verification": "25 local representation/backend tests; Linux CI success in ci-source.json; NumPy conversion forbidden in isolated-wheel proof"
+}

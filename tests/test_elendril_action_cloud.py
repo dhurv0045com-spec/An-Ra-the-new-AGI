@@ -4,6 +4,8 @@ from copy import deepcopy
 from dataclasses import asdict
 import json
 from pathlib import Path
+import re
+import subprocess
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -72,6 +74,20 @@ def test_default_disabled_cells_schema_and_no_side_effects():
         assert namespace["FRESH_SESSION_ACK"] is False
         assert namespace["SOURCE"] == SOURCE
         assert namespace["CANARIES"] == []
+
+
+def test_committed_action_notebooks_match_exact_generator_and_immutable_source():
+    root = Path(__file__).resolve().parents[1]
+    for platform, filename in builder.FILES.items():
+        notebook = json.loads((root / "notebooks" / filename).read_bytes())
+        code = "\n".join("".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code")
+        match = re.search(r"^SOURCE = '([0-9a-f]{40})'$", code, re.MULTILINE)
+        assert match is not None
+        source = match.group(1)
+        assert notebook == builder.notebook(platform, source)
+        for path in ("tools/elendril_action_cloud.py", "tools/build_elendril_action_notebooks.py"):
+            archived = subprocess.check_output(["git", "show", source + ":" + path], cwd=root)
+            assert archived.replace(b"\r\n", b"\n") == (root / path).read_bytes().replace(b"\r\n", b"\n")
 
 
 def test_replay_independently_rejects_wrong_truth_actions_costs_and_denominators():

@@ -1,0 +1,10 @@
+{
+  "source_commit": "1d0c6aedbdccd05dbc85e57a66fbfe433e75eb12",
+  "wheel_sha256": "735e05dabf518e34aad76703be4c500ad945ee0dc7182a657239949cc4665d30",
+  "installed_module": "C:\\Users\\ankit\\AppData\\Local\\Temp\\elendril-v5-numpy-free-install\\anra_v5\\elendril\\representation.py",
+  "numpy_conversion": "forbidden by monkeypatch",
+  "migration": "PASS",
+  "legacy_weight_sha256": "8734cfb9957f510a703c0d04e5f68a305e0af9552238c28f178e848dc9c2e863",
+  "optimizer_updates": 0,
+  "qualification": "isolated installed wheel, no NumPy conversion, exact historical frozen tensor identity"
+}
