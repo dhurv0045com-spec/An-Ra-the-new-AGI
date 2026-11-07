@@ -299,7 +299,7 @@ def tokenizer_from_manifest(record: dict) -> Tokenizer:
     if not isinstance(record, dict):
         raise ValueError("tokenizer manifest must be a mapping")
     available = {tokenizer.manifest.version: tokenizer for tokenizer in (LEGACY, UTF8)}
-    if record.get("version") not in available:
+    if not isinstance(record.get("version"), str) or record["version"] not in available:
         raise ValueError("unknown tokenizer manifest version")
     tokenizer = available[record["version"]]
     tokenizer.require_manifest(record)

@@ -227,3 +227,129 @@ def test_curriculum_keeps_complete_epoch_exposure_and_strict_input(tmp_path):
                recipe=Recipe(total_updates=1, batch_size=1, micro_batch_size=1))
     with pytest.raises(ValueError, match="license"):
         engine(tmp_path / "leak", data_provenance={"split": "test"})
+
+
+def test_two_fresh_process_publishers_accept_exactly_one_parent_transition(tmp_path, committed):
+    """Race actual OS writer locks using precomputed payloads, with no training.
+
+    Readiness pipes form a deterministic barrier. The go file is created only
+    after both processes have loaded the same candidate. No timing-based sleep
+    determines who wins; the loser must fail the lock or stale-parent fence.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    t, first, second, _, _ = committed
+    target = tmp_path / "race"
+    store = CheckpointStore(target, "test", payload_validator=t.validate_payloads)
+    shutil.copytree(t.store.objects / first, store.objects / first)
+    store.latest.write_text(first + "\n", encoding="ascii")
+    go = tmp_path / "GO"
+    script = '''import sys
+from pathlib import Path
+from v5_training.checkpoint import CheckpointStore
+source=CheckpointStore(Path(sys.argv[1]),'test')
+target=CheckpointStore(Path(sys.argv[2]),'test')
+state,payloads=source.restore(sys.argv[3])
+print('READY',flush=True)
+assert sys.stdin.readline() == 'GO\\n'
+assert Path(sys.argv[5]).read_text() == 'release'
+try:
+    identity=target.publish(state=state,payloads=payloads,expected_parent_sha256=sys.argv[4])
+except ValueError as exc:
+    assert 'lock unavailable' in str(exc) or 'stale parent' in str(exc), str(exc)
+    print('REJECT '+str(exc),flush=True)
+else:
+    print('ACCEPT '+identity,flush=True)
+'''
+    processes = []
+    readers = ThreadPoolExecutor(max_workers=2)
+    try:
+        for _ in range(2):
+            processes.append(subprocess.Popen(
+                [sys.executable, "-c", script, str(t.store.root), str(target), second, first, str(go)],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                env={**os.environ, "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"},
+            ))
+        ready = [readers.submit(process.stdout.readline) for process in processes]
+        assert [future.result(timeout=45) for future in ready] == ["READY\n", "READY\n"]
+        go.write_text("release", encoding="ascii")
+        for process in processes:
+            process.stdin.write("GO\n")
+            process.stdin.flush()
+        outputs = [process.communicate(timeout=45) for process in processes]
+        assert all(process.returncode == 0 for process in processes), outputs
+        lines = [output.strip() for output, _ in outputs]
+        assert sum(line == "ACCEPT " + second for line in lines) == 1, lines
+        assert sum(line.startswith("REJECT ") for line in lines) == 1, lines
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.kill()
+            process.communicate(timeout=10)
+        readers.shutdown(wait=True)
+    assert store.latest_sha256() == second
+    assert store.restore()[0].global_update == 2
+    assert store.restore(first)[0].global_update == 1
+    assert (store.lineage_root / "PREVIOUS").read_text().strip() == first
+
+
+def test_nonempty_scaler_state_cannot_be_published_as_fp32(tmp_path, committed):
+    t, _, _, state, original = committed
+    candidate = replace(state, parent_checkpoint_sha256=None)
+    payloads = dict(original)
+    payloads["training_state.json"] = canonical(candidate.canonical())
+    scheduler = json.loads(payloads["scheduler.json"])
+    scheduler["scaler"] = {"scale": 65536., "growth_factor": 2., "backoff_factor": .5,
+                           "growth_interval": 2000, "_growth_tracker": 2}
+    payloads["scheduler.json"] = canonical(scheduler)
+    store = CheckpointStore(tmp_path / "bad-scaler", "test", payload_validator=t.validate_payloads)
+    with pytest.raises(ValueError, match="scaler"):
+        store.publish(state=candidate, payloads=payloads, expected_parent_sha256=None)
+    assert store.latest_sha256() is None
+
+
+def test_stage_migration_rejects_self_hashed_dtype_change(tmp_path, committed):
+    """A generic byte-valid parent cannot silently cast float64 into FP32."""
+    t, _, _, state, original = committed
+    candidate = replace(state, parent_checkpoint_sha256=None)
+    payloads = dict(original)
+    weights = _load(payloads["model.bin"])
+    weights["embedding.weight"] = weights["embedding.weight"].double()
+    payloads["model.bin"] = _dump(weights)
+    payloads["training_state.json"] = canonical(candidate.canonical())
+    # Generic store proves checksums only; stage admission must validate dtype.
+    parent_store = CheckpointStore(tmp_path / "generic-parent", "test")
+    checkpoint = parent_store.publish(state=candidate, payloads=payloads, expected_parent_sha256=None)
+    recipe = replace(t.recipe, seed=21)
+    probe = engine(tmp_path / "probe-dtype", recipe=recipe)
+    transition = StageTransition(checkpoint, digest(asdict(t.recipe)), digest(asdict(recipe)), probe.data_sha)
+    with pytest.raises(ValueError, match="dtype"):
+        engine(tmp_path / "dtype-child", recipe=recipe, transition=transition, parent_store=parent_store)
+
+
+def test_utf8_manifest_binds_actual_training_and_exact_resume(tmp_path):
+    from anra_v5.elendril.representation import UTF8
+
+    samples = []
+    for index, (prompt, answer) in enumerate((("स्थिति?", "हां"), ("🌌?", "é"))):
+        framed = UTF8.frame(prompt, answer)
+        samples.append(TokenSample(str(index), framed.ids, framed.loss_mask, str(index)))
+    kwargs = dict(samples=tuple(samples), spec=replace(SPEC, vocabulary_size=UTF8.vocabulary_size),
+                  tokenizer_manifest=UTF8.manifest.record(),
+                  recipe=Recipe(total_updates=2, batch_size=2, micro_batch_size=1))
+    t = engine(tmp_path / "utf8", **kwargs)
+    before = t.model.embedding.weight.detach().clone()
+    receipt = t.step()
+    assert receipt["supervised_tokens"] == sum(sum(row.eligible) for row in samples)
+    assert not torch.equal(before, t.model.embedding.weight)
+    checkpoint = t.save()
+    state, payloads = t.store.restore(checkpoint)
+    metadata = json.loads(payloads["scheduler.json"])["metadata"]
+    UTF8.require_manifest(metadata["tokenizer"])
+    assert state.identities.tokenizer_sha256 == UTF8.identity
+    assert metadata["model"]["vocabulary_size"] == UTF8.vocabulary_size
+    resumed = engine(tmp_path / "utf8", resume=True, **kwargs)
+    assert t.step() == resumed.step()
+    equal_tensors(t.model.state_dict(), resumed.model.state_dict())
+    with pytest.raises(ValueError, match="migration"):
+        engine(tmp_path / "wrong-vocab", **{**kwargs, "spec": SPEC})

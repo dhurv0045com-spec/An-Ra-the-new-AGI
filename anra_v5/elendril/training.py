@@ -180,7 +180,7 @@ class Trainer:
             schedule_spec_sha256=digest(SCHEDULE), curriculum_spec_sha256=digest("single-stage"),
             sampler_spec_sha256=digest(sampler),
         )
-        self.store = CheckpointStore(root, lineage)
+        self.store = CheckpointStore(root, lineage, payload_validator=self._validate_checkpoint_payloads)
         self.parent = self.store.latest_sha256()
         self.faulted = False
         self.published_update = 0
@@ -197,6 +197,44 @@ class Trainer:
 
     def _rng_bytes(self) -> bytes:
         return bytes(self.rng.get_state().tolist())
+
+    def _validate_checkpoint_payloads(self, state, payloads):
+        """Decode staged readback before publication without changing v1 bytes."""
+        if state.identities != self.state.identities:
+            raise ValueError("checkpoint identity mismatch")
+        if (payloads["scheduler.json"] != canonical(SCHEDULE)
+                or sha256(payloads["rng.bin"]).hexdigest() != state.rng_state_sha256
+                or state.cursor != replace(self.state.cursor, sequence_ordinal=BATCH_SIZE * state.global_update)
+                or state.token_budget != self.state.token_budget or state.tokens_per_update != self.state.tokens_per_update
+                or state.cumulative_tokens != state.global_update * state.tokens_per_update):
+            raise ValueError("checkpoint continuation metadata mismatch")
+        weights = _load(payloads["model.bin"])
+        if set(weights) != set(self.model.state_dict()):
+            raise ValueError("checkpoint model tensor inventory mismatch")
+        for name, value in weights.items():
+            expected = self.model.state_dict()[name]
+            if (not isinstance(value, torch.Tensor) or value.shape != expected.shape or value.dtype != expected.dtype
+                    or not torch.isfinite(value).all()):
+                raise ValueError("checkpoint model tensor shape/dtype/finite mismatch")
+        optimizer = _load(payloads["optimizer.bin"])
+        expected = self.optimizer.state_dict()["param_groups"]
+        if optimizer["param_groups"] != expected:
+            raise ValueError("checkpoint optimizer ownership/settings mismatch")
+        slots = [identity for group in expected for identity in group["params"]]
+        parameters = [p for group in self.optimizer.param_groups for p in group["params"]]
+        if set(optimizer["state"]) != set(slots):
+            raise ValueError("checkpoint optimizer inventory mismatch")
+        for identity, parameter in zip(slots, parameters):
+            slot = optimizer["state"][identity]
+            if (set(slot) != {"step", "exp_avg", "exp_avg_sq"} or not isinstance(slot["step"], torch.Tensor)
+                    or slot["step"].numel() != 1 or slot["step"].item() != state.global_update):
+                raise ValueError("checkpoint optimizer counter mismatch")
+            for key in ("exp_avg", "exp_avg_sq"):
+                value = slot[key]
+                if (not isinstance(value, torch.Tensor) or value.shape != parameter.shape or value.dtype != parameter.dtype
+                        or not torch.isfinite(value).all() or (key == "exp_avg_sq" and (value < 0).any())):
+                    raise ValueError("checkpoint optimizer moment mismatch")
+        torch.Generator().set_state(torch.tensor(list(payloads["rng.bin"]), dtype=torch.uint8))
 
     def _restore(self) -> None:
         if self.parent is None:
