@@ -46,3 +46,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added explicit one-session full-campaign admission after positive training and same-T4 fresh-process optimizer resume.
 - Preserved honest cross-VM unverified status, existing scientific gates, failures, checkpoint and ZIP custody.
 - Added simulated admission/config tests and owner one-run instructions; no Kaggle GPU validation claimed.
+
+### 2026-11-07 | ChatGPT | Single-switch owner launch
+- Added RUN_ALL_19 as the only required launch toggle for one-session T4x2 screening, gated training and diagnostics.
+- Preserved default-disabled source, real canaries, immutable source pin and owner authorization.
+- Added regression that proves the launch switch enables the intended set without fresh-VM attestation.

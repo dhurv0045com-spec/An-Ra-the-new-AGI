@@ -43,6 +43,13 @@ OUTPUT = Path('/kaggle/working/ELENDRIL_V6')
 CHECKPOINT_REATTACH_DIR = None
 PRIOR_CAMPAIGN_OUTPUT = None  # Optional saved partial campaign root/ZIP; same source and run ID.
 RUN_ID = \"elendril-v6-diagnostic-002\"
+RUN_ALL_19 = False  # Set ONLY this to True for one Kaggle session. It enables the full owner-authorized campaign.
+if RUN_ALL_19:
+    RUN_PREFLIGHT = True
+    RUN_CANARIES = True
+    OWNER_APPROVES_CAMPAIGN = True
+    RUN_CAMPAIGN = True
+assert type(RUN_ALL_19) is bool
 assert all(type(v) is bool for v in (RUN_PREFLIGHT,RUN_CANARIES,RUN_RECOVERY,OWNER_ATTESTS_FRESH_VM,OWNER_APPROVES_CAMPAIGN,RUN_CAMPAIGN,RUN_EXPORT))
 if (RUN_CANARIES or RUN_RECOVERY or RUN_CAMPAIGN) and not RUN_PREFLIGHT: raise RuntimeError('NO-GO: GPU action requires pinned-source preflight')
 if RUN_RECOVERY and not OWNER_ATTESTS_FRESH_VM: raise RuntimeError('NO-GO: recovery requires owner attestation of a genuinely fresh VM')

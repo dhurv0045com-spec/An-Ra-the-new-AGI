@@ -234,3 +234,12 @@ def test_single_session_config_allows_full_owner_run_without_second_vm():
     assert scope["RUN_CAMPAIGN"] is True and scope["ONE_SESSION_CAMPAIGN"] is True
     assert scope["RUN_RECOVERY"] is False
     assert "one_session=ONE_SESSION_CAMPAIGN" in "".join(notebook["cells"][9]["source"])
+
+def test_single_owner_switch_enables_all_requested_experiments_in_one_session():
+    notebook=build("a"*40)
+    config="".join(notebook["cells"][1]["source"])
+    assert "RUN_ALL_19 = False" in config
+    state={}
+    exec(config.replace("RUN_ALL_19 = False","RUN_ALL_19 = True"),state)
+    assert all(state[x] is True for x in ("RUN_PREFLIGHT","RUN_CANARIES","OWNER_APPROVES_CAMPAIGN","RUN_CAMPAIGN","ONE_SESSION_CAMPAIGN"))
+    assert state["RUN_RECOVERY"] is False and state["OWNER_ATTESTS_FRESH_VM"] is False
