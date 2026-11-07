@@ -387,7 +387,7 @@ def _receipt_gate(receipt, source, protocol_sha, kind, devices=None):
 
 
 def run_campaign(*, source, protocol_sha, preflight, canary, recovery, run_id, output,
-                 wall_limit_seconds=21600, export_reserve_seconds=2100, preserve_failed_and_partial=True):
+                 wall_limit_seconds=21600, export_reserve_seconds=2100, preserve_failed_and_partial=True, one_session=False):
     from anra_v5.elendril.v6_training import Job
     from anra_v5.elendril.v6_data import read_dataset
     if (type(wall_limit_seconds) is not int or not 5700 <= wall_limit_seconds <= 21600
@@ -395,10 +395,26 @@ def run_campaign(*, source, protocol_sha, preflight, canary, recovery, run_id, o
             or preserve_failed_and_partial is not True):
         raise ValueError("unsafe cap/export reserve or failure-preservation policy")
     devices = _validate_environment(preflight, source, protocol_sha)
-    _receipt_gate(canary, source, protocol_sha, "canary", devices); _receipt_gate(recovery, source, protocol_sha, "recovery", devices)
+    _receipt_gate(canary, source, protocol_sha, "canary", devices)
+    if type(one_session) is not bool:
+        raise ValueError("one_session must be a boolean")
+    if one_session:
+        if recovery is not None:
+            raise ValueError("one-session training must not relabel an older recovery as a current proof")
+        # Both physical T4 workers already verified fresh-process optimizer/model
+        # resume for S3, S8 and S20 during the live canary.
+        for receipt in canary["results"]:
+            if (receipt.get("positive_control", {}).get("passed") is not True
+                    or set(receipt.get("measurements", {})) != {"S3", "S8", "S20"}
+                    or len(receipt.get("challenges", ())) != 3
+                    or any(receipt["measurements"][name].get("same_device_resume_verified") is not True
+                           for name in ("S3", "S8", "S20"))):
+                raise ValueError("NO-GO: require real same-T4 fresh-process checkpoint/optimizer resume for every model profile")
+    else:
+        _receipt_gate(recovery, source, protocol_sha, "recovery", devices)
     if wall_limit_seconds > preflight["available_seconds"]:
         raise ValueError("campaign exceeds owner-reported current quota/session cap")
-    if recovery.get("physical_uuids") != [g.uuid for g in devices]:
+    if not one_session and recovery.get("physical_uuids") != [g.uuid for g in devices]:
         raise ValueError("each current physical lane must pass off-session recovery")
     safe_id(run_id); output = Path(output).resolve()
     if output != Path(preflight["output"]): raise ValueError("campaign output differs from admitted output")
@@ -414,7 +430,9 @@ def run_campaign(*, source, protocol_sha, preflight, canary, recovery, run_id, o
     results, skipped, diagnostics = [], [], []
     campaign = {"schema": SCHEMA, "source": source, "protocol_sha256": protocol_sha,
         "run_id": run_id, "status": "PARTIAL", "results": results, "skipped": skipped,
-        "diagnostics": diagnostics, "canary": canary, "recovery": recovery,
+        "diagnostics": diagnostics, "canary": canary,
+        "recovery": recovery if not one_session else {"status": "NOT_RUN", "reason": "separate-VM custody was not tested; same-T4 fresh-process recovery was verified"},
+        "qualification_mode": "same-T4-fresh-process" if one_session else "cross-VM",
         "started_session": session_identity(), "output_root": str(output), "promotion": "NONE"}
     def snapshot(event):
         append_event(output, {"source": source, "protocol_sha256": protocol_sha, **event})

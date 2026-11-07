@@ -32,6 +32,7 @@ EXPECTED_REGISTRY_SHA256 = \"%s\"
 RUN_PREFLIGHT = False
 RUN_CANARIES = False
 RUN_RECOVERY = False
+ONE_SESSION_CAMPAIGN = True  # Keep recovery in the same Kaggle session using fresh per-T4 child-process replay.
 OWNER_ATTESTS_FRESH_VM = False
 OWNER_APPROVES_CAMPAIGN = False
 RUN_CAMPAIGN = False
@@ -45,7 +46,8 @@ RUN_ID = \"elendril-v6-diagnostic-002\"
 assert all(type(v) is bool for v in (RUN_PREFLIGHT,RUN_CANARIES,RUN_RECOVERY,OWNER_ATTESTS_FRESH_VM,OWNER_APPROVES_CAMPAIGN,RUN_CAMPAIGN,RUN_EXPORT))
 if (RUN_CANARIES or RUN_RECOVERY or RUN_CAMPAIGN) and not RUN_PREFLIGHT: raise RuntimeError('NO-GO: GPU action requires pinned-source preflight')
 if RUN_RECOVERY and not OWNER_ATTESTS_FRESH_VM: raise RuntimeError('NO-GO: recovery requires owner attestation of a genuinely fresh VM')
-if RUN_CAMPAIGN and not (RUN_CANARIES and RUN_RECOVERY and OWNER_APPROVES_CAMPAIGN): raise RuntimeError('NO-GO: campaign needs canary, fresh-VM recovery, and explicit owner approval')
+if RUN_CAMPAIGN and not (RUN_CANARIES and OWNER_APPROVES_CAMPAIGN and (ONE_SESSION_CAMPAIGN or RUN_RECOVERY)): raise RuntimeError('NO-GO: campaign needs canaries, owner approval, and an admitted recovery mode')
+if RUN_CAMPAIGN and ONE_SESSION_CAMPAIGN and RUN_RECOVERY: raise RuntimeError('NO-GO: choose one-session mode OR fresh-VM recovery mode')
 print({\"source\":SOURCE_SHA,\"campaign_enabled\":RUN_CAMPAIGN})
 """ % (source_sha, REGISTRY_SHA)
     notebook["cells"][1]["source"] = config.splitlines(keepends=True)
@@ -110,9 +112,9 @@ else: print('PREFLIGHT_DISABLED: no download, GPU access, or writes')
 """.splitlines(keepends=True)
     notebook["cells"][9]["source"] = """CAMPAIGN_RESULT=None
 if RUN_CAMPAIGN:
-    if not (ENVIRONMENT and CANARY_RECEIPTS and RECOVERY_RECEIPTS): raise RuntimeError('NO-GO: preflight, canary, or recovery receipts are missing')
+    if not (ENVIRONMENT and CANARY_RECEIPTS and (ONE_SESSION_CAMPAIGN or RECOVERY_RECEIPTS)): raise RuntimeError('NO-GO: preflight, canary or mandatory recovery receipts missing')
     if SESSION_WALL_LIMIT_MINUTES < EXPORT_RESERVE_MINUTES+60 or SESSION_WALL_LIMIT_MINUTES>600: raise ValueError('invalid wall limit')
-    CAMPAIGN_RESULT=v6.run_campaign(source=SOURCE_SHA,protocol_sha=EXPECTED_REGISTRY_SHA256,preflight=ENVIRONMENT,canary=CANARY_RECEIPTS,recovery=RECOVERY_RECEIPTS,run_id=RUN_ID,output=OUTPUT,wall_limit_seconds=SESSION_WALL_LIMIT_MINUTES*60,export_reserve_seconds=EXPORT_RESERVE_MINUTES*60,preserve_failed_and_partial=True)
+    CAMPAIGN_RESULT=v6.run_campaign(source=SOURCE_SHA,protocol_sha=EXPECTED_REGISTRY_SHA256,preflight=ENVIRONMENT,canary=CANARY_RECEIPTS,recovery=RECOVERY_RECEIPTS,run_id=RUN_ID,output=OUTPUT,wall_limit_seconds=SESSION_WALL_LIMIT_MINUTES*60,export_reserve_seconds=EXPORT_RESERVE_MINUTES*60,preserve_failed_and_partial=True,one_session=ONE_SESSION_CAMPAIGN)
     print(CAMPAIGN_RESULT)
     export_report=CAMPAIGN_RESULT.get('export',{})
     if export_report.get('status')=='EXPORT_VERIFIED':
@@ -135,7 +137,7 @@ else: print('EXPORT_RETRY_DISABLED')
 
 A failed positive-control overfit test indicts objective, tokenizer, gradient or checkpoint mechanics before any scale experiment. Correct familiar actions but poor aliases suggest representation/data overfit. Good accuracy but wasteful queries requires cost-aware policy work. Two-hop success but three-hop failure indicates depth limits. Fixed-retrieval success does not imply a learned retrieval policy. Sequential retention without acquired B is not cumulative learning. Always preserve negatives and full raw receipts.
 
-**The V6 campaign implementation is source-pinned and CPU-engineering-qualified. Actual Kaggle GPU training, hardware canaries and fresh-VM recovery remain unverified owner gates.** ZIP retry can run in a CPU-only Kaggle session after reattaching and verifying saved output.
+**The V6 campaign implementation is source-pinned and CPU-engineering-qualified. In ONE Kaggle session, run preflight, live positive canaries, and fresh-process checkpoint/optimizer resume on BOTH T4s before the training campaign. Separate-VM recovery is optional, not a required extra session.** ZIP retry can run on CPU from saved output.
 """.splitlines(keepends=True)
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
