@@ -12,7 +12,7 @@ def writer_lock(lineage_root: Path):
 
 def quarantine_interrupted_publication(lineage_root: Path, generation: int) -> None:
     # Under the writer lock, only uncommitted paths for the retried generation move.
-    for name in (f".staging-{generation}", f".LATEST-{generation}"):
+    for name in (f".staging-{generation}", f".LATEST-{generation}", f".PREVIOUS-{generation}"):
         path = lineage_root / name
         if path.exists():
             path.rename(lineage_root / f".interrupted-{generation}-{uuid.uuid4().hex}")

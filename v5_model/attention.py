@@ -59,6 +59,9 @@ def build_attention(config: Any, *, torch_module: Any) -> Any:
     class Attention(nn.Module):
         def __init__(self) -> None:
             super().__init__()
+            # Nonpersistent execution choice. The reference path and state_dict
+            # stay unchanged for historical checkpoints and exact replays.
+            self.execution_backend = "repeat-sdpa"
             self.query = nn.Linear(config.width, config.width, bias=False)
             self.key = nn.Linear(config.width, kv_width, bias=False)
             self.value = nn.Linear(config.width, kv_width, bias=False)
@@ -110,11 +113,17 @@ def build_attention(config: Any, *, torch_module: Any) -> Any:
                 self.normalize(key, self.key_scale),
                 rope_cosine, rope_sine, torch_module=torch,
             )
-            repeats = config.query_heads // config.kv_heads
-            key = key.repeat_interleave(repeats, dim=1)
-            value = value.repeat_interleave(repeats, dim=1)
-            attended = functional.scaled_dot_product_attention(
-                query, key, value, attn_mask=mask, dropout_p=0.0)
+            if self.execution_backend == "repeat-sdpa":
+                repeats = config.query_heads // config.kv_heads
+                key = key.repeat_interleave(repeats, dim=1)
+                value = value.repeat_interleave(repeats, dim=1)
+                attended = functional.scaled_dot_product_attention(
+                    query, key, value, attn_mask=mask, dropout_p=0.0)
+            elif self.execution_backend == "native-gqa":
+                attended = functional.scaled_dot_product_attention(
+                    query, key, value, attn_mask=mask, dropout_p=0.0, enable_gqa=True)
+            else:
+                raise ValueError("unknown attention execution backend")
             return self.output(attended.transpose(1, 2).contiguous().view(
                 batch, length, config.width))
 

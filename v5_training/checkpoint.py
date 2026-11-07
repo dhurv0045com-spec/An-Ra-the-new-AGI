@@ -11,7 +11,7 @@ import json
 import os
 from dataclasses import asdict, dataclass
 from pathlib import Path, PureWindowsPath
-from typing import Mapping
+from typing import Callable, Mapping
 
 from .checkpoint_lock import checkpoint_writer
 from .distributed_checkpoint import (
@@ -89,13 +89,17 @@ def _validate_checkpoint_sha(identity: str) -> None:
 
 
 class CheckpointStore:
-    def __init__(self, root: Path, lineage_id: str) -> None:
+    def __init__(self, root: Path, lineage_id: str, *,
+                 payload_validator: Callable[[TrainingState, Mapping[str, bytes]], None] | None = None) -> None:
         _validate_lineage_id(lineage_id)
         self.root = root.resolve()
         self.lineage_id = lineage_id
         self.lineage_root = self.root / lineage_id
         self.objects = self.lineage_root / "objects"
         self.latest = self.lineage_root / "LATEST"
+        # Opt-in semantic decoder for new formats. Legacy manifests and payloads
+        # remain byte-identical; a new trainer must validate before publication.
+        self.payload_validator = payload_validator
         self.objects.mkdir(parents=True, exist_ok=True)
 
     def latest_sha256(self) -> str | None:
@@ -168,6 +172,8 @@ class CheckpointStore:
             payload = bytes(payloads[name])
             _write_sync(staging / name, payload)
             components.append(Component(name, _sha256(payload), len(payload)))
+            if inject_crash_at == f"after_component:{name}":
+                raise InjectedCrash(inject_crash_at)
         manifest = {
             "schema": manifest_schema,
             "lineage_id": self.lineage_id,
@@ -179,6 +185,8 @@ class CheckpointStore:
         manifest_bytes = _canonical_json(manifest)
         checkpoint_sha256 = _sha256(manifest_bytes)
         _write_sync(staging / "manifest.json", manifest_bytes)
+        if inject_crash_at == "after_manifest":
+            raise InjectedCrash(inject_crash_at)
         self._verify_directory(staging, expected_sha256=checkpoint_sha256)
         if inject_crash_at == "after_stage":
             raise InjectedCrash("after_stage")
@@ -196,6 +204,14 @@ class CheckpointStore:
 
         pointer_tmp = self.lineage_root / f".LATEST-{state.generation}"
         _write_sync(pointer_tmp, f"{checkpoint_sha256}\n".encode("ascii"))
+        if inject_crash_at == "after_pointer_stage":
+            raise InjectedCrash(inject_crash_at)
+        if current is not None:
+            # PREVIOUS is an additional rollback reference, never an automatic
+            # fallback that might hide a corrupt head. Use an explicit SHA.
+            previous_tmp = self.lineage_root / f".PREVIOUS-{state.generation}"
+            _write_sync(previous_tmp, f"{current}\n".encode("ascii"))
+            os.replace(previous_tmp, self.lineage_root / "PREVIOUS")
         os.replace(pointer_tmp, self.latest)
         if inject_crash_at == "after_pointer":
             raise InjectedCrash("after_pointer")
@@ -251,6 +267,11 @@ class CheckpointStore:
         head = self.latest_sha256()
         if head is not None:
             protected.add(head)
+        previous = self.lineage_root / "PREVIOUS"
+        if previous.exists():
+            identity = previous.read_text(encoding="ascii").strip()
+            _validate_checkpoint_sha(identity)
+            protected.add(identity)
         keep = set(keep) | protected
         removed: list[str] = []
         if not self.objects.exists():
@@ -421,7 +442,7 @@ class CheckpointStore:
         """Read the content-addressed parent format without rereading model weights."""
 
         manifest_path = self.objects / checkpoint_sha256 / "manifest.json"
-        if not manifest_path.is_file():
+        if manifest_path.is_symlink() or manifest_path.parent.is_symlink() or not manifest_path.is_file():
             raise ValueError("checkpoint parent manifest is missing")
         manifest_bytes = manifest_path.read_bytes()
         if _sha256(manifest_bytes) != checkpoint_sha256:
@@ -467,7 +488,7 @@ class CheckpointStore:
         self, directory: Path, *, expected_sha256: str
     ) -> tuple[TrainingState, dict[str, bytes]]:
         manifest_path = directory / "manifest.json"
-        if not manifest_path.is_file():
+        if manifest_path.is_symlink() or directory.is_symlink() or not manifest_path.is_file():
             raise ValueError("checkpoint manifest is missing")
         manifest_bytes = manifest_path.read_bytes()
         if _sha256(manifest_bytes) != expected_sha256:
@@ -498,7 +519,7 @@ class CheckpointStore:
             if set(item) != {"name", "sha256", "byte_size"}:
                 raise ValueError("component identity fields do not match schema")
             path = directory / item["name"]
-            if not path.is_file():
+            if path.is_symlink() or not path.is_file():
                 raise ValueError(f"checkpoint component is missing: {item['name']}")
             payload = path.read_bytes()
             if len(payload) != item["byte_size"] or _sha256(payload) != item["sha256"]:
@@ -524,4 +545,6 @@ class CheckpointStore:
             metadata = self._validate_distributed_payloads(state=state, payloads=payloads)
             if metadata.schema != DISTRIBUTED_CHECKPOINT_SCHEMA:
                 raise ValueError("distributed metadata schema does not match transaction version")
+        if self.payload_validator is not None:
+            self.payload_validator(state, payloads)
         return state, payloads

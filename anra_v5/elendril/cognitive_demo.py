@@ -112,6 +112,8 @@ class NeuralCore:
         from v5_training.checkpoint import CheckpointStore
         from .associative import ADDRESS_WIDTH, WINDOW, AssociativeDecoder
         from .training import MODEL, _load, configure_cpu
+        from .codec import CODEC_SHA
+        from .backend import BackendIdentity, NeuralBackend
 
         if re.fullmatch(r"[0-9a-f]{64}", checkpoint_sha256) is None:
             raise ValueError("expected a full checkpoint SHA-256")
@@ -123,6 +125,7 @@ class NeuralCore:
         expected = digest([MODEL.sha256(), "associative-copy-v2", "two-read", WINDOW, ADDRESS_WIDTH])
         if (state.identities.source_commit != CHECKPOINT_SOURCE
                 or state.identities.model_spec_sha256 != expected
+                or state.identities.tokenizer_sha256 != CODEC_SHA
                 or not state.complete or state.global_update != 384):
             raise ValueError("checkpoint identity does not match ELD-DEV-004")
         self.model = AssociativeDecoder(initialize(MODEL, 7), 7, mode="two-read")
@@ -130,6 +133,8 @@ class NeuralCore:
         self.model.eval().requires_grad_(False)
         self.model_identity = checkpoint_sha256
         self._torch = torch
+        self.backend = NeuralBackend(self.model, BackendIdentity(expected, CODEC_SHA,
+            MODEL.vocabulary_size, MODEL.context_length, checkpoint_sha256))
 
     def weights_sha256(self) -> str:
         from hashlib import sha256
@@ -149,11 +154,7 @@ class NeuralCore:
             return None
 
         def scores(ids):
-            tokens = torch.tensor([ids], device="cpu")
-            logits = logits_for(self.model, tokens, torch.zeros_like(tokens))[0, -1]
-            if not torch.isfinite(logits).all():
-                raise FloatingPointError("nonfinite model proposal")
-            return logits.softmax(-1)
+            return self.backend.next_distribution(ids)
 
         with torch.inference_mode():
             distribution = scores(ids)

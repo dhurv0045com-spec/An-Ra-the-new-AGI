@@ -1,0 +1,18 @@
+# Foundation decisions, V5
+
+Audited parent `f516e0bdb8f9137532b35c0c23299f7f9dbdf185`, matching origin/Elendril on 2026-11-07. Work continues the V4 learner. No historical payload or receipt is replaced. The pre-cleanup archive remains `930ca3bb723e0b5b191700eec3d5f450875a6e25`.
+
+| Boundary and dependency edges | Decision | Evidence/tests and semantic risk |
+| --- | --- | --- |
+| codec → fixtures, trainer, frozen cognitive renderer | KEEP | Exact symbolic IDs and CODEC_SHA are checkpoint identity. A broader tokenizer must use a separate manifest and explicit migration. |
+| ModelSpec → decoder → GQA/RoPE/RMSNorm/SwiGLU | KEEP reference; HARDEN adapter | Existing attention already uses SDPA with repeated KV. Native GQA is an experimental execution path, requiring forward/backward parity. Parameter names and default execution must stay stable. |
+| reference Trainer → paired sampler → CE/contrast → AdamW | KEEP replay; EXPERIMENTAL REPLACEMENT for new studies | Equal-length fixed rows and one microbatch restrict cognition training. New engine must use exact supervised-token denominators, explicit recipes and independent identity. |
+| new representation → backend → action policy → run_episode → verifier | HARDEN integrated seam | V4 neural revision 0/4, zero QUERY; fixed memory route 4/4. The next experiment trains the action mapping; fixed policies remain attributed controls. |
+| TrainingState → CheckpointStore → local objects/LATEST → persistent mirror | HARDEN | Byte hashes and writer fence exist. Add decoded tensor/optimizer/cursor validation before pointer publication, crash boundaries and fresh-process continuation. Local fsync is not remote custody. |
+| cognition → grounded ledger → versioned memory → independent truth join | KEEP | Missing/null/conflict, source/time, budget and memory admission tests survive. The verifier is in-process, not a security sandbox. |
+| V3 graph notebooks → pinned graph runner → graph fixtures | KEEP separate historical program | Default-disabled, CPU contracts qualified; CUDA and fresh cloud-session persistence unverified. Do not rename as cognitive training. Archive their wrappers out of the primary notebook directory without losing source pins. |
+| old planning duplicates → archived Git source | DEPRECATE active duplication | Keep exact retrieval SHA and useful hypotheses. Current instructions and launch decisions belong in living V5 documents. |
+
+Inherited evidence remains qualified in its original scope. ELD-DEV-004 source `6615886b1a37fd535682bdee38157e4c44cd0783` solved narrow two-hop tasks but failed combined alias and three-hop panels. The historical dense initializer defect was repaired at `cc38d9850053941097f1d80a4c0b3bbd57f765e7`; original negatives are preserved. Cymek's dependency closure comes from `feac2948466832516b7f048435483fd95e53b078`. Brahmastra source `3e66d0ea88aaf89c759a569a06521da8f6c0524f` informs provenance and budget contracts. Arkenstone's failed later skill formation prevents treating retention as transfer. See [component adoption](COMPONENT_ADOPTION.md) and [evidence custody](EVIDENCE_AND_PROVENANCE.md).
+
+Qualification matrix: legacy receipt replay; tokenizer Unicode/offset/special-token/migration tests; packed causal and gradient parity; variable-length accumulation equivalence; optimizer ownership and nonfinite failures; decoded checkpoint corruption/cursor checks; stale and racing publishers; crash stages; copied-directory fresh-process resume; full cognitive actions and cost controls; notebook disabled-cell execution and pin/canary failures. Live CUDA and independent cloud-session recovery remain owner gates. Passing mechanics does not establish learned cognition.
