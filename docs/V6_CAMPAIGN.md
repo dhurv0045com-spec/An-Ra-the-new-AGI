@@ -1,6 +1,6 @@
 # V6 owner launch and return
 
-Use the generated `ELENDRIL_V6_KAGGLE_T4X2.ipynb`, not the historical blueprint. Its immutable source and registry hashes must match its runner. The original package is in [research/v6](../research/v6/README_FIRST.md); read the [prospective amendment](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md) for exact changes and limitations.
+Use the generated `ELENDRIL_V6_KAGGLE_T4X2.ipynb` (latest notebook source pin `9b2f1b29b9e05394e165ed375bae5e94693c6877`), not the historical blueprint. Its immutable source and registry hashes must match its runner. The original package is in [research/v6](../research/v6/README_FIRST.md); read the [prospective amendment](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md) for exact changes and limitations.
 
 **Current decision: GO for owner-run preflight/qualification only; NO-GO for research training until actual device, learning and fresh-VM recovery gates pass.** No local GPU or research training campaign has run. A CPU/mocked test pass is not T4 evidence.
 

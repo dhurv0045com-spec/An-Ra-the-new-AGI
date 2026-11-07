@@ -34,3 +34,10 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Removed the unnecessary T4 requirement from read-only, source-bound ZIP export retry; GPU training and recovery gates remain unchanged.
 - Replaced stale draft-only notebook footer with the accurate owner-run qualification state and added a regression contract.
 - No GPU training or Kaggle environment was executed; source remains pending live hardware qualification.
+
+### 2026-11-07 | ChatGPT | V6 notebook release verification
+
+- Published regenerated notebook `90b083be` pinning fixed source `9b2f1b29`; no training mechanism or prior evidence was replaced.
+- Verified Linux CI 214 tests and seven subtests, including exact pinned notebook generator equivalence.
+- Reconciled the owner documentation to the latest Kaggle notebook after the CPU-only export retry fix.
+- Live T4 training, off-session checkpoint recovery and Kaggle saved-output export remain unverified owner gates.
