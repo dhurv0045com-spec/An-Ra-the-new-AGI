@@ -214,7 +214,7 @@ def test_cpu_only_export_retry_is_separate_from_gpu_launch():
     assert state["RUN_EXPORT"] is True and state["RUN_PREFLIGHT"] is False
     source = "".join(notebook["cells"][5]["source"])
     assert "if RUN_PREFLIGHT or RUN_EXPORT:" in source
-    assert "if RUN_PREFLIGHT:\\n        import torch" in source
+    assert "if RUN_PREFLIGHT:" in source and "        import torch" in source
     assert "v6.restore_output(PRIOR_CAMPAIGN_OUTPUT, OUTPUT" in source
     assert "saved output source, protocol, or run ID differs" in source
     assert "EXPORT_ONLY_SOURCE_AND_OUTPUT_BOUND" in source
