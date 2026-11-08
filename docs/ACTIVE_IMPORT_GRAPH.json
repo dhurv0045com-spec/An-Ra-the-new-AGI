@@ -173,6 +173,12 @@
   "elendril/__main__.py": [
     "anra_v5/elendril/__main__.py"
   ],
+  "tests/test_analyze_elendril_v7.py": [
+    "anra_v5/elendril/v7_protocol.py",
+    "tools/analyze_elendril_v7.py",
+    "tools/elendril_cloud.py",
+    "tools/elendril_v7_export.py"
+  ],
   "tests/test_elendril.py": [
     "anra_v5/elendril/__main__.py",
     "anra_v5/elendril/associative.py",
@@ -363,7 +369,17 @@
     "anra_v5/elendril/v7_protocol.py"
   ],
   "tests/test_elendril_v7_publication.py": [],
+  "tests/test_elendril_v7_release.py": [
+    "anra_v5/elendril/v7_protocol.py",
+    "tools/elendril_v6_campaign.py",
+    "tools/elendril_v7_campaign.py",
+    "tools/elendril_v7_release.py",
+    "tools/elendril_v7_worker.py"
+  ],
   "tests/test_elendril_v7_report.py": [
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v6_evaluation.py",
+    "anra_v5/elendril/v7_diagnostics.py",
     "tools/elendril_v7_report.py"
   ],
   "tests/test_elendril_v7_training.py": [
@@ -391,6 +407,14 @@
   "tests/test_v5_objectives.py": [
     "v5_objectives/causal_lm.py",
     "v5_objectives/query_swap.py"
+  ],
+  "tools/analyze_elendril_v7.py": [
+    "anra_v5/elendril/v7_protocol.py",
+    "tools/elendril_cloud.py",
+    "tools/elendril_v6_export.py",
+    "tools/elendril_v7_campaign.py",
+    "tools/elendril_v7_export.py",
+    "tools/elendril_v7_report.py"
   ],
   "tools/audit_elendril_v6_results.py": [
     "anra_v5/elendril/v6_data.py",
@@ -463,13 +487,24 @@
     "tools/elendril_v6_campaign.py",
     "tools/elendril_v6_export.py",
     "tools/elendril_v7_export.py",
+    "tools/elendril_v7_release.py",
     "tools/elendril_v7_report.py"
   ],
   "tools/elendril_v7_export.py": [
     "tools/elendril_v6_export.py",
     "v5_training/checkpoint_lock.py"
   ],
+  "tools/elendril_v7_release.py": [
+    "anra_v5/elendril/v7_protocol.py",
+    "tools/elendril_cloud.py",
+    "tools/elendril_v6_export.py",
+    "tools/elendril_v7_export.py",
+    "v5_training/checkpoint.py"
+  ],
   "tools/elendril_v7_report.py": [
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v7_diagnostics.py",
     "anra_v5/elendril/v7_protocol.py",
     "tools/elendril_v6_export.py"
   ],

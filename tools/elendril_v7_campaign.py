@@ -244,11 +244,10 @@ def run(*, output, source, owner_enabled=False, minutes=330):
         except Exception as exc:
             campaign['independent_replay']={'status':'FAILED','message':str(exc)}
             campaign['status']='INVALID_RESULTS'
-        immutable_json(output/'analysis'/('campaign-'+run_id+'.json'),campaign)
-        exports=export_results(output,source=source,protocol_sha=PROTOCOL_SHA,campaign=campaign,
-            rescore=lambda _root,_campaign: campaign['independent_replay'])
-        immutable_json(output/'analysis'/('export-'+run_id+'.json'),exports)
-        print(json.dumps({'status':campaign['status'],'exports':exports},indent=2),flush=True)
+        from tools.elendril_v7_release import finalize
+        finalize(output,campaign,run_id)
+        print(json.dumps({'status':campaign['status'],'delivery_status':campaign['delivery_status'],
+                          'exports':campaign['exports']},indent=2),flush=True)
     return campaign
 
 
@@ -258,7 +257,7 @@ def main(argv=None):
     p.add_argument('--owner-enabled',action='store_true'); p.add_argument('--minutes',type=float,default=330)
     args=p.parse_args(argv)
     result=run(output=args.output,source=args.source,owner_enabled=args.owner_enabled,minutes=args.minutes)
-    return 0 if result['status']=='EXECUTED' else 1
+    return 0 if result['status']=='COMPLETE' else 1
 
 
 if __name__=='__main__': raise SystemExit(main())

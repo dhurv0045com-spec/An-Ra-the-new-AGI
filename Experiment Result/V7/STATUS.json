@@ -1,0 +1,10 @@
+{
+  "status": "PENDING_OWNER_EXECUTION",
+  "scientific_conclusion": "CAUSE UNRESOLVED",
+  "registered_runs": 9,
+  "methods": ["uniform", "blocked", "interleaved"],
+  "seeds": [7, 19, 41],
+  "epochs_per_run": 4,
+  "gpu_research_results_present": false,
+  "engineering_tests_are_scientific_results": false
+}

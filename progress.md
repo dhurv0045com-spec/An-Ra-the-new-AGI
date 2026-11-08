@@ -75,3 +75,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - V7 focused suite passed 35 tests; full run passed 253 with one Windows-only scheduler-fixture failure and one skip.
 - Corrected that fixture without relaxing real Linux qualification; repaired scheduler and publication checks both passed.
 - Recorded data/replay/custody receipts; live Kaggle learning, timing and recovery qualification remain pending.
+
+### 2026-11-08 | Codex | Focused V7 release and scientific reporting repair
+- Enabled owner-authorized Run All while preserving all nine registered four-epoch runs and evaluation conditions.
+- Added mandatory-result coverage, current-run dual-ZIP verification and failure exit gates; partial evidence remains preserved.
+- Added descriptive case/reference/trajectory reports and immutable owner-result intake under Experiment Result/V7; CAUSE UNRESOLVED.
+- Focused CPU checks passed 43 tests; actual V7 GPU research and root-cause identification remain pending.

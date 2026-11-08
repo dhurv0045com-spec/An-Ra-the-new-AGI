@@ -22,13 +22,13 @@ def build(source_sha: str) -> dict:
         raise ValueError('source must be an immutable lowercase 40-hex commit')
     intro = f'''# ELENDRIL V7 · Kaggle T4×2
 
-**Owner launch:** Set `RUN_STUDY = True` in the next cell before choosing Run All. With the switch off, the notebook does not download source or launch the campaign. The pinned campaign CLI performs preflight and canaries before research. Native Kaggle PyTorch is used; no CUDA stack is installed or replaced. GPU qualification remains pending an actual successful run.
+**Owner-authorized automatic launch:** Run All starts the complete registered study after source, GPU, learning, recovery and capacity checks pass. `RUN_STUDY = True` is already set. Set it to False only for an explicit offline preview. Native Kaggle PyTorch is used; no CUDA stack is installed or replaced. GPU qualification remains pending an actual successful run.
 
 Pinned source commit: `{source_sha}`. The campaign obtains its own data; no dataset input is required. Results and failures remain in `/kaggle/working/elendril-v7`. Both archive links appear below even when the command fails; a link is usable only when the corresponding ZIP exists.
 '''
     config = f'''from pathlib import Path
 SOURCE_SHA = "{source_sha}"
-RUN_STUDY = False  # Owner: set True to explicitly launch with Run All.
+RUN_STUDY = True  # Owner-authorized Run All; False is an explicit offline preview.
 OUTPUT = Path('/kaggle/working/elendril-v7')
 assert type(RUN_STUDY) is bool
 '''
@@ -70,7 +70,7 @@ if RUN_STUDY:
         subprocess.run([sys.executable, '-m', 'tools.elendril_v7_campaign',
                         '--output', str(OUTPUT), '--owner-enabled', '--source', SOURCE_SHA],
                        cwd=REPO, env=env, check=True)
-        print('Campaign CLI completed. Inspect its reports for scientific and archive status.')
+        print('Campaign delivery completed: inspect FINAL_STATUS.json and scientific_report.md. Completion does not establish a root cause or scientific success.')
     except Exception as exc:
         campaign_failed = True
         print(f'Campaign did not complete: {type(exc).__name__}: {exc}')
@@ -83,6 +83,8 @@ for label, name in [('Analysis', 'ELENDRIL_V7_ANALYSIS.zip'), ('Full', 'ELENDRIL
     path = OUTPUT / 'exports' / name
     print(f'{label} archive: {path} (exists: {path.is_file()})')
     display(FileLink(str(path)))
+if RUN_STUDY:
+    display(FileLink(str(OUTPUT / 'exports' / 'FINAL_STATUS.json')))
 if campaign_failed:
     raise RuntimeError('Campaign failed or is incomplete. Inspect NO-GO/PARTIAL receipts and download available outputs; do not treat this as a successful study.')
 '''

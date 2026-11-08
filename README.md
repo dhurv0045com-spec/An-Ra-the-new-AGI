@@ -21,4 +21,4 @@ python -m elendril verify-checkpoint --root <checkpoint-root> --lineage <lineage
 python -m elendril resume-dry-run --root <checkpoint-root> --lineage <action-lineage>
 ~~~
 
-The V7 notebook requires the owner to set `RUN_STUDY = True`; it automatically obtains source and generates the data. Both physical GPUs must pass learning and same-session fresh-process recovery controls before training. Fresh-VM recovery remains unqualified; historical notebook launch behavior is preserved. No capability promotion follows from a passing test suite. [License](LICENSE)
+The owner-authorized V7 notebook launches with Run All; `RUN_STUDY = True` is already set. It automatically obtains source and generates data. Both physical GPUs must pass learning and same-session fresh-process recovery controls before training. Completion additionally requires all registered results and both verified current-run ZIPs. Fresh-VM recovery remains unqualified. No capability promotion follows from passing tests or completing a campaign. [License](LICENSE)

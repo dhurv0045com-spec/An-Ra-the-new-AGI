@@ -29,4 +29,4 @@ def test_published_notebook_rebuilds_from_pinned_commit(tmp_path):
     assert notebook['nbformat'] == 4
     intro = ''.join(notebook['cells'][0]['source'])
     config = ''.join(notebook['cells'][1]['source'])
-    assert 'RUN_STUDY = True' in intro and 'RUN_STUDY = False' in config
+    assert 'RUN_STUDY = True' in intro and 'RUN_STUDY = True' in config

@@ -19,7 +19,7 @@ def test_pin_and_code_syntax():
             ast.parse(''.join(cell['source']))
             assert cell['outputs'] == [] and cell['execution_count'] is None
     content = '\n'.join(''.join(cell['source']) for cell in notebook['cells'])
-    assert 'RUN_STUDY = False' in content
+    assert 'RUN_STUDY = True' in content
     assert 'tools.elendril_v7_campaign' in content
     assert "'--owner-enabled', '--source', SOURCE_SHA" in content
     assert 'ELENDRIL_V7_ANALYSIS.zip' in content and 'ELENDRIL_V7_FULL.zip' in content
@@ -43,9 +43,9 @@ def test_disabled_does_not_run_campaign_or_create_directories():
     with patch.dict('sys.modules', {'IPython': ipython, 'IPython.display': display_module}), \
          patch('subprocess.run', side_effect=AssertionError('subprocess launched')), \
          patch('pathlib.Path.mkdir', side_effect=AssertionError('directory created')):
-        for cell in notebook['cells']:
-            if cell['cell_type'] == 'code':
-                exec(''.join(cell['source']), scope)
+        exec(''.join(notebook['cells'][1]['source']),scope)
+        scope['RUN_STUDY']=False  # explicit offline preview, not the published default
+        exec(''.join(notebook['cells'][2]['source']),scope)
     assert display.call_count == 2
 
 
@@ -58,7 +58,7 @@ def test_generated_notebook_matches_generator():
 def test_enabled_existing_checkout_launches_exact_pinned_cli_and_displays_failure_outputs():
     notebook=build(PIN); scope={}
     exec(''.join(notebook['cells'][1]['source']),scope)
-    scope['RUN_STUDY']=True
+    assert scope['RUN_STUDY'] is True  # Run All must work without editing switches
     display=Mock(); module=types.ModuleType('IPython.display')
     module.display=display; module.FileLink=lambda path:path
     import subprocess
@@ -74,4 +74,16 @@ def test_enabled_existing_checkout_launches_exact_pinned_cli_and_displays_failur
     command=run.call_args.args[0]
     assert command[1:3]==['-m','tools.elendril_v7_campaign']
     assert command[-3:]==['--owner-enabled','--source',PIN]
-    assert display.call_count==2
+    assert display.call_count==3
+
+
+def test_wrong_pinned_checkout_stops_before_campaign():
+    notebook=build(PIN); scope={}; exec(''.join(notebook['cells'][1]['source']),scope)
+    module=types.ModuleType('IPython.display'); module.display=Mock(); module.FileLink=lambda path:path
+    with patch.dict('sys.modules',{'IPython.display':module}), \
+         patch('pathlib.Path.exists',return_value=True), patch('pathlib.Path.is_symlink',return_value=False), \
+         patch('pathlib.Path.is_dir',return_value=True), patch('pathlib.Path.is_file',return_value=False), \
+         patch('subprocess.check_output',side_effect=['b'*40+'\n','']), patch('subprocess.run') as run:
+        with pytest.raises(RuntimeError,match='Campaign failed'):
+            exec(''.join(notebook['cells'][2]['source']),scope)
+    run.assert_not_called()
