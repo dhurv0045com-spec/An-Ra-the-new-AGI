@@ -24,12 +24,12 @@ def build(source_sha: str) -> dict:
 
 **Owner-authorized automatic launch:** Run All starts the complete registered study after source, GPU, learning, recovery and capacity checks pass. `RUN_STUDY = True` is already set. Set it to False only for an explicit offline preview. Native Kaggle PyTorch is used; no CUDA stack is installed or replaced. GPU qualification remains pending an actual successful run.
 
-Pinned source commit: `{source_sha}`. The campaign obtains its own data; no dataset input is required. Results and failures remain in `/kaggle/working/elendril-v7`. Both archive links appear below even when the command fails; a link is usable only when the corresponding ZIP exists.
+Pinned source commit: `{source_sha}`. The campaign obtains its own data; no dataset input is required. Results and failures remain in the source-specific `OUTPUT` directory under `/kaggle/working`. This preserves older outputs while preventing cross-version identity conflicts. Both archive links appear below even when the command fails; a link is usable only when the corresponding ZIP exists.
 '''
     config = f'''from pathlib import Path
 SOURCE_SHA = "{source_sha}"
 RUN_STUDY = True  # Owner-authorized Run All; False is an explicit offline preview.
-OUTPUT = Path('/kaggle/working/elendril-v7')
+OUTPUT = Path('/kaggle/working') / ('elendril-v7-' + SOURCE_SHA[:12])
 assert type(RUN_STUDY) is bool
 '''
     launch = '''import os

@@ -24,6 +24,7 @@ def test_pin_and_code_syntax():
     assert "'--owner-enabled', '--source', SOURCE_SHA" in content
     assert 'ELENDRIL_V7_ANALYSIS.zip' in content and 'ELENDRIL_V7_FULL.zip' in content
     assert 'pip install' not in content
+    assert "'elendril-v7-' + SOURCE_SHA[:12]" in content
 
 
 @pytest.mark.parametrize('invalid', ['a' * 39, 'A' * 40, 'z' * 40, '', None])

@@ -97,3 +97,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Fixed deterministic recovery rejection: the worker precreated a directory that verified checkpoint copying requires to be new.
 - Added actual recovery-dispatch/copy regression with mocked CUDA, and exposed per-device errors in notebook logs.
 - All 29 targeted recovery/training/campaign/delivery checks passed; owner T4 rerun remains required.
+
+### 2026-11-08 | Codex | Isolate rerun output identities
+- Assigned each notebook source pin its own output directory, preserving failed-version receipts without source-identity collisions.
+- Kept automatic launch, canary gates, protocol and download links intact; added output-isolation regression.
