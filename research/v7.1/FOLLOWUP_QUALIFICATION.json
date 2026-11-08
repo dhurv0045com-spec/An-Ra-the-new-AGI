@@ -1,0 +1,25 @@
+{
+  "schema": "elendril-v71-followup-audit-v1",
+  "status": "PASS",
+  "seed": 17071,
+  "cohorts": 32,
+  "cases": 512,
+  "planned_contrasts": 48,
+  "partition_counts": {
+    "confirmation": 28,
+    "train": 300,
+    "validation": 184
+  },
+  "actual_training_disjoint": {
+    "status": "PASS",
+    "training_worlds": 7335,
+    "training_states": 9472
+  },
+  "cases_sha256": "2e74788849fc6d35e9a273082d89a1281c67f7a9c7b6c82670291c24121d1d05",
+  "limitations": [
+    "Only factor-one comparisons within the same question are predeclared; cross-question differences change the task.",
+    "Clamped changes the goal and is not injected internal state.",
+    "Original V7.1 independent chains had monotone hop-ordered rows and ticks; last-row/max-tick copying can solve them, so prior hop-4 accuracy is not proof of composition.",
+    "Transformed variants may map to the training partition; check exact overlap against the actual training dataset."
+  ]
+}

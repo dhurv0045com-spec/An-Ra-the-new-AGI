@@ -1,6 +1,6 @@
 # ELENDRIL V7.1 owner study
 
-This continues V7's verified learner and checkpoint machinery. No V7.1 GPU result exists yet. Read [PROTOCOL.md](PROTOCOL.md) and [HYPOTHESES.md](HYPOTHESES.md) before interpreting outcomes. Historical V7 evidence remains under `Experiment Result/V7/`.
+This continues V7's verified learner and checkpoint machinery. **Update 2026-11-09:** the owner core study completed; [verified results](../../Experiment%20Result/V7.1/20c80f66e76e4b589aed2053afbddffc/RESULTS.md) and the [next diagnostic iteration](NEXT_EXPERIMENT.md) are available. The launch instructions below preserve the original study's reproduction path. Read [PROTOCOL.md](PROTOCOL.md) and [HYPOTHESES.md](HYPOTHESES.md) before interpreting outcomes. Historical V7 evidence remains under `Experiment Result/V7/`.
 
 ## Launch
 
@@ -24,4 +24,4 @@ Completion requires every registered final report, mandatory intermediate report
 
 ## Current launch decision
 
-**GO for owner-run hardware qualification of core; GPU study qualification pending.** CPU data audits and mechanical regressions support attempting the canaries. They do not establish T4 compatibility or prove the whole campaign will fit. Scientific conclusions require the returned archives. If a gate fails, preserve the logs and partial outputs rather than treating the final wrapper exception as the underlying cause.
+**Core ran successfully on the owner's two T4s, with verified analysis delivery and independently replayed actions.** This qualifies the observed source/runtime execution, not future service/runtime combinations or scientific promotion. Full tensors and fresh-VM numerical restoration remain independently unverified. Keep admission canaries for any reproduction. Further scale/continual training is deferred pending the new diagnostic work; the next dataset is implemented, but its frozen inference wrapper and GPU qualification are still pending. If a gate fails, preserve the underlying logs and partial receipts.

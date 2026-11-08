@@ -1,12 +1,13 @@
 # ELENDRIL
 
-ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. V7.1 builds on the completed V7 study to test composition, evidence dependence, decoding, robustness and retention on the existing neural/training core. Historical implementations and ELD-DEV-001–004 evidence remain preserved. V7.1 GPU results are pending; the root cause of V7's remaining failures is unresolved.
+ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. V7.1 core completed nine owner-run models; its verified results show narrow evidence dependence alongside brittle serialization, action-availability and memory-correction behavior. Historical implementations and ELD-DEV-001–004 evidence remain preserved. Underlying neural causes remain unresolved; paired fixed-checkpoint diagnostics precede further training.
 
 - [Current state](docs/CURRENT_STATE.md), [handoff](docs/HANDOFF.md) and [cognitive kernel](docs/COGNITIVE_KERNEL.md)
 - [Foundation decisions](docs/FOUNDATION_AUDIT.md), [qualification](docs/FOUNDATION_QUALIFICATION.md) and [algorithm comparisons](docs/ALGORITHM_COMPARISONS.md)
 - [Hypotheses](docs/HYPOTHESIS_REGISTER.md), [next cognitive experiment](docs/NEXT_COGNITIVE_EXPERIMENT.md) and [owner operations](docs/OPERATIONS.md)
 - [Evidence custody](docs/EVIDENCE_AND_PROVENANCE.md) and [archived programs](docs/ARCHIVED_PROGRAMS.json)
-- Next owner-run study: [V7.1 Kaggle two T4s](notebooks/ELENDRIL_V71_KAGGLE_T4X2.ipynb), [launch and recovery instructions](research/v7.1/README.md), [protocol](research/v7.1/PROTOCOL.md), [hypotheses](research/v7.1/HYPOTHESES.md) and [CPU data qualification](research/v7.1/DATA_QUALIFICATION.json).
+- Preserved V7.1 core reproduction: [Kaggle two T4s](notebooks/ELENDRIL_V71_KAGGLE_T4X2.ipynb), [launch and recovery instructions](research/v7.1/README.md), [protocol](research/v7.1/PROTOCOL.md), [hypotheses](research/v7.1/HYPOTHESES.md) and [CPU data qualification](research/v7.1/DATA_QUALIFICATION.json).
+- [Completed V7.1 core results](Experiment%20Result/V7.1/20c80f66e76e4b589aed2053afbddffc/RESULTS.md) preserve raw evidence, negative findings, measured costs and the [next paired diagnostic iteration](research/v7.1/NEXT_EXPERIMENT.md). The original core notebook remains a reproduction, not the new follow-up launcher.
 - Completed V7: [preserved notebook](notebooks/ELENDRIL_V7_KAGGLE_T4X2.ipynb), [handoff](research/v7/HANDOFF.md), [protocol](research/v7/PROTOCOL.md), [historical evidence audit](research/v7/EVIDENCE.md) and [owner-run results](Experiment%20Result/V7/c9981309a94847a4a97d8115c56d75c8/RESULTS.md), documenting all nine runs and measured successes and failures.
 - Preserved V6 campaign: [notebook](notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb), [launch instructions](docs/V6_CAMPAIGN.md), [protocol package](research/v6/README_FIRST.md) and [implementation amendment](research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md).
 - Preserved V5 reproductions: [Colab one T4](notebooks/ELENDRIL_ACTION_COLAB_T4.ipynb), [Kaggle two T4s](notebooks/ELENDRIL_ACTION_KAGGLE_T4X2.ipynb).

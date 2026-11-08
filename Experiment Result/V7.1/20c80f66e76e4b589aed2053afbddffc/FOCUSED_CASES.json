@@ -1,0 +1,462 @@
+[
+  {
+    "job_id": "S3-blocked-ce-s19",
+    "cohort": "robustness-row-order",
+    "variant": "original",
+    "case_id": "918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+    "confidence": 0.9621622607514411,
+    "expected_public_sources": [
+      "63550663104561ca56f255004aebd683d1081e14311c8d93ee1b1910c1171b47",
+      "99adb2465817830a1cc39f69ab74499dadf0921ce4210aa2da979333556241f7",
+      "c919bf9968bade75235663b03cb217039817e4e269af434f2c16c0acc999ef61",
+      "8d090d7228e3356ecdc82603a4c84cf9863730dee8c84759c99ff0ee06ad1579",
+      "a2b9d3333d78411c378c4c6e690b9e52a4b90659e32eb2df3fc653a12a9e5abb",
+      "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50"
+    ],
+    "family": "revision",
+    "kind": "known",
+    "observed_public_sources": [
+      "63550663104561ca56f255004aebd683d1081e14311c8d93ee1b1910c1171b47",
+      "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50",
+      "8d090d7228e3356ecdc82603a4c84cf9863730dee8c84759c99ff0ee06ad1579",
+      "99adb2465817830a1cc39f69ab74499dadf0921ce4210aa2da979333556241f7",
+      "a2b9d3333d78411c378c4c6e690b9e52a4b90659e32eb2df3fc653a12a9e5abb",
+      "c919bf9968bade75235663b03cb217039817e4e269af434f2c16c0acc999ef61"
+    ],
+    "outcome": {
+      "admitted_public": [
+        "63550663104561ca56f255004aebd683d1081e14311c8d93ee1b1910c1171b47",
+        "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50",
+        "8d090d7228e3356ecdc82603a4c84cf9863730dee8c84759c99ff0ee06ad1579",
+        "99adb2465817830a1cc39f69ab74499dadf0921ce4210aa2da979333556241f7",
+        "a2b9d3333d78411c378c4c6e690b9e52a4b90659e32eb2df3fc653a12a9e5abb",
+        "c919bf9968bade75235663b03cb217039817e4e269af434f2c16c0acc999ef61"
+      ],
+      "correct": true,
+      "error": "none",
+      "trace_sha256": "5e15d5f809ab905cdcf65602557d78f168a5cfd6bd915a7c8346dc5f633c3e68"
+    },
+    "pair_id": "6140f7d8639e0ff3ba43b19e7cc7622787f60947f8da40e5466b1b0f31331ea5",
+    "panel": "row-order",
+    "prompts": [
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of A? Query=1 Memory=0\nC=G@364/map; A=G@361/s0; P=P@363/map; A=J@365/s0; K=E@362/s0\nAction:",
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of A? Query=0 Memory=0\nC=G@364/map; A=G@361/s0; P=P@363/map; A=J@365/s0; K=E@362/s0; A=J@366/s0\nAction:"
+    ],
+    "query_needed": false,
+    "trace": {
+      "answer": "J",
+      "decisions": [
+        {
+          "argument": "request-current-status",
+          "evidence": [
+            "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50"
+          ],
+          "model_calls": 2,
+          "model_positions": 439,
+          "operation": "QUERY",
+          "origin": "model",
+          "predicted_success": 0.542587031701288,
+          "raw_tokens": [
+            85,
+            2
+          ]
+        },
+        {
+          "argument": "J",
+          "evidence": [],
+          "model_calls": 2,
+          "model_positions": 463,
+          "operation": "ANSWER",
+          "origin": "model",
+          "predicted_success": 0.9621622607514411,
+          "raw_tokens": [
+            78,
+            2
+          ]
+        }
+      ],
+      "model_identity": "59f9100e6fc4715af116f8a3203cb89e112eee25848e9a2332f979b85db4b373",
+      "requests": 1,
+      "state": {
+        "events": [
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "map",
+            "subject": "C",
+            "tick": 364,
+            "value": "G"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "A",
+            "tick": 361,
+            "value": "G"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "map",
+            "subject": "P",
+            "tick": 363,
+            "value": "P"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "A",
+            "tick": 365,
+            "value": "J"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "K",
+            "tick": 362,
+            "value": "E"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "A",
+            "tick": 366,
+            "value": "J"
+          }
+        ],
+        "goal": {
+          "episode": "918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+          "family": "revision",
+          "reusable_scope": "memory-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+          "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+          "separator": ";",
+          "slots": [
+            "A",
+            "C",
+            "P",
+            "K"
+          ],
+          "subject": "A"
+        },
+        "hypothesis": null,
+        "verification": null
+      },
+      "status": "answered"
+    },
+    "trace_sha256": "5e15d5f809ab905cdcf65602557d78f168a5cfd6bd915a7c8346dc5f633c3e68",
+    "truth_sha256": "c7ff390ca220e5b2fca18178866ca85e3664bf21b7f04d87a8e7ed0c442dae29",
+    "utility": 0.9,
+    "world_id": "918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2"
+  },
+  {
+    "job_id": "S3-blocked-ce-s19",
+    "cohort": "robustness-row-order",
+    "variant": "reverse",
+    "case_id": "6140f7d8639e0ff3ba43b19e7cc7622787f60947f8da40e5466b1b0f31331ea5",
+    "confidence": 0.9644628167152405,
+    "expected_public_sources": [
+      "63550663104561ca56f255004aebd683d1081e14311c8d93ee1b1910c1171b47",
+      "99adb2465817830a1cc39f69ab74499dadf0921ce4210aa2da979333556241f7",
+      "c919bf9968bade75235663b03cb217039817e4e269af434f2c16c0acc999ef61",
+      "8d090d7228e3356ecdc82603a4c84cf9863730dee8c84759c99ff0ee06ad1579",
+      "a2b9d3333d78411c378c4c6e690b9e52a4b90659e32eb2df3fc653a12a9e5abb",
+      "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50"
+    ],
+    "family": "revision",
+    "kind": "known",
+    "observed_public_sources": [
+      "63550663104561ca56f255004aebd683d1081e14311c8d93ee1b1910c1171b47",
+      "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50",
+      "8d090d7228e3356ecdc82603a4c84cf9863730dee8c84759c99ff0ee06ad1579",
+      "99adb2465817830a1cc39f69ab74499dadf0921ce4210aa2da979333556241f7",
+      "a2b9d3333d78411c378c4c6e690b9e52a4b90659e32eb2df3fc653a12a9e5abb",
+      "c919bf9968bade75235663b03cb217039817e4e269af434f2c16c0acc999ef61"
+    ],
+    "outcome": {
+      "admitted_public": [
+        "63550663104561ca56f255004aebd683d1081e14311c8d93ee1b1910c1171b47",
+        "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50",
+        "8d090d7228e3356ecdc82603a4c84cf9863730dee8c84759c99ff0ee06ad1579",
+        "99adb2465817830a1cc39f69ab74499dadf0921ce4210aa2da979333556241f7",
+        "a2b9d3333d78411c378c4c6e690b9e52a4b90659e32eb2df3fc653a12a9e5abb",
+        "c919bf9968bade75235663b03cb217039817e4e269af434f2c16c0acc999ef61"
+      ],
+      "correct": false,
+      "error": "wrong_answer",
+      "trace_sha256": "6ffebfc81e62669dab6c5f9a337e46562e57239db4a775f14f3c4117a82e89e2"
+    },
+    "pair_id": "6140f7d8639e0ff3ba43b19e7cc7622787f60947f8da40e5466b1b0f31331ea5",
+    "panel": "row-order",
+    "prompts": [
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of A? Query=1 Memory=0\nK=E@362/s0; A=J@365/s0; P=P@363/map; A=G@361/s0; C=G@364/map\nAction:",
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nCurrent value of A? Query=0 Memory=0\nA=J@366/s0; K=E@362/s0; A=J@365/s0; P=P@363/map; A=G@361/s0; C=G@364/map\nAction:"
+    ],
+    "query_needed": false,
+    "trace": {
+      "answer": "G",
+      "decisions": [
+        {
+          "argument": "request-current-status",
+          "evidence": [
+            "74c613dd32b75d33f6e63a365aa9cf30446cbefba1092bf20c45505e37543f50"
+          ],
+          "model_calls": 2,
+          "model_positions": 439,
+          "operation": "QUERY",
+          "origin": "model",
+          "predicted_success": 0.46961090693211105,
+          "raw_tokens": [
+            85,
+            2
+          ]
+        },
+        {
+          "argument": "G",
+          "evidence": [],
+          "model_calls": 2,
+          "model_positions": 463,
+          "operation": "ANSWER",
+          "origin": "model",
+          "predicted_success": 0.9644628167152405,
+          "raw_tokens": [
+            75,
+            2
+          ]
+        }
+      ],
+      "model_identity": "59f9100e6fc4715af116f8a3203cb89e112eee25848e9a2332f979b85db4b373",
+      "requests": 1,
+      "state": {
+        "events": [
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "map",
+            "subject": "C",
+            "tick": 364,
+            "value": "G"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "A",
+            "tick": 361,
+            "value": "G"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "map",
+            "subject": "P",
+            "tick": 363,
+            "value": "P"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "A",
+            "tick": 365,
+            "value": "J"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "K",
+            "tick": 362,
+            "value": "E"
+          },
+          {
+            "parents": [],
+            "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+            "source": "s0",
+            "subject": "A",
+            "tick": 366,
+            "value": "J"
+          }
+        ],
+        "goal": {
+          "episode": "918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+          "family": "revision",
+          "reusable_scope": "memory-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+          "scope": "world-918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2",
+          "separator": ";",
+          "slots": [
+            "A",
+            "C",
+            "P",
+            "K"
+          ],
+          "subject": "A"
+        },
+        "hypothesis": null,
+        "verification": null
+      },
+      "status": "answered"
+    },
+    "trace_sha256": "6ffebfc81e62669dab6c5f9a337e46562e57239db4a775f14f3c4117a82e89e2",
+    "truth_sha256": "c7ff390ca220e5b2fca18178866ca85e3664bf21b7f04d87a8e7ed0c442dae29",
+    "utility": -0.1,
+    "world_id": "918eae8f0da7e7ad453b7eb35b5d3cdd901beb723a73503e3b3035a4d7c602e2"
+  },
+  {
+    "job_id": "S3-blocked-intermediate-s7",
+    "cohort": "memory-manipulations",
+    "case_id": "b72ae1b8a83886f8dcf14658871cd5ca256c7403ef1ecd76208df3a4937eab83",
+    "confidence": 0.24269758426034294,
+    "expected_public_sources": [
+      "8fb05fd975ed8ee61cf067336ec849ad5303ccfaeae1db0aa3a402f671d51a8f",
+      "dc80e88394de35705217e3c52319b8a01c4acc4659ced01b34ef893164caa9b0",
+      "4d4890782c325fd5690cab3870b2904d5b2ee9e6a48019e9ad8232d5674029b5",
+      "08ed0b1a4f10e88de15b4adc9335ac96362246d358c9aa3051dc9515a8609120",
+      "512a9cc6425d6462de2405a2e50099bfaac61decc9702b021109ecd403a03ab7",
+      "8e7b62c1e463977fd0ca3aeb4b65fecd46d3cb1c9ae25d3594efcfd2e5df2370"
+    ],
+    "family": "route",
+    "kind": "memory",
+    "observed_public_sources": [
+      "08ed0b1a4f10e88de15b4adc9335ac96362246d358c9aa3051dc9515a8609120",
+      "4d4890782c325fd5690cab3870b2904d5b2ee9e6a48019e9ad8232d5674029b5",
+      "512a9cc6425d6462de2405a2e50099bfaac61decc9702b021109ecd403a03ab7",
+      "8e7b62c1e463977fd0ca3aeb4b65fecd46d3cb1c9ae25d3594efcfd2e5df2370",
+      "8fb05fd975ed8ee61cf067336ec849ad5303ccfaeae1db0aa3a402f671d51a8f",
+      "dc80e88394de35705217e3c52319b8a01c4acc4659ced01b34ef893164caa9b0"
+    ],
+    "outcome": {
+      "admitted_public": [
+        "08ed0b1a4f10e88de15b4adc9335ac96362246d358c9aa3051dc9515a8609120",
+        "4d4890782c325fd5690cab3870b2904d5b2ee9e6a48019e9ad8232d5674029b5",
+        "512a9cc6425d6462de2405a2e50099bfaac61decc9702b021109ecd403a03ab7",
+        "8e7b62c1e463977fd0ca3aeb4b65fecd46d3cb1c9ae25d3594efcfd2e5df2370",
+        "8fb05fd975ed8ee61cf067336ec849ad5303ccfaeae1db0aa3a402f671d51a8f",
+        "dc80e88394de35705217e3c52319b8a01c4acc4659ced01b34ef893164caa9b0"
+      ],
+      "correct": false,
+      "error": "wrong_answer",
+      "trace_sha256": "72e4d91cef7ec2fbf72c1f893dc3de0e8302b7505ef66dd7b3bbc9e9d67cbd30"
+    },
+    "pair_id": "8fca063985f94188856ce484c7659499d4fbc0dde9469d9c3bdd60fef506bc88",
+    "panel": "memory-stale-corrected",
+    "prompts": [
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nFollow 2 links from L. Query=0 Memory=1\nN=K@656/map; C=J@655/s0; D=C@657/map; L=G@656/map\nAction:",
+      "Latest time per source counts; disagreement needs evidence. Output A-P, Q=query, !=abstain, R=memory, ~X=think.\nFollow 2 links from L. Query=0 Memory=0\nN=K@656/map; C=J@655/s0; D=C@657/map; L=G@656/map; G=A@656/map; G=M@657/map\nAction:"
+    ],
+    "query_needed": false,
+    "trace": {
+      "answer": "L",
+      "decisions": [
+        {
+          "argument": null,
+          "evidence": [
+            "512a9cc6425d6462de2405a2e50099bfaac61decc9702b021109ecd403a03ab7",
+            "8e7b62c1e463977fd0ca3aeb4b65fecd46d3cb1c9ae25d3594efcfd2e5df2370"
+          ],
+          "model_calls": 2,
+          "model_positions": 423,
+          "operation": "RETRIEVE",
+          "origin": "model",
+          "predicted_success": 0.9995532634533291,
+          "raw_tokens": [
+            86,
+            2
+          ]
+        },
+        {
+          "argument": "L",
+          "evidence": [],
+          "model_calls": 2,
+          "model_positions": 475,
+          "operation": "ANSWER",
+          "origin": "model",
+          "predicted_success": 0.24269758426034294,
+          "raw_tokens": [
+            80,
+            2
+          ]
+        }
+      ],
+      "model_identity": "74ff87ecfe86af9bb34fb863939c50a743623a8ccb95ae5946cbd8b343d319dd",
+      "requests": 1,
+      "state": {
+        "events": [
+          {
+            "parents": [],
+            "scope": "world-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+            "source": "map",
+            "subject": "N",
+            "tick": 656,
+            "value": "K"
+          },
+          {
+            "parents": [],
+            "scope": "world-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+            "source": "s0",
+            "subject": "C",
+            "tick": 655,
+            "value": "J"
+          },
+          {
+            "parents": [],
+            "scope": "world-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+            "source": "map",
+            "subject": "D",
+            "tick": 657,
+            "value": "C"
+          },
+          {
+            "parents": [],
+            "scope": "world-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+            "source": "map",
+            "subject": "L",
+            "tick": 656,
+            "value": "G"
+          },
+          {
+            "parents": [],
+            "scope": "memory-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+            "source": "map",
+            "subject": "G",
+            "tick": 656,
+            "value": "A"
+          },
+          {
+            "parents": [],
+            "scope": "memory-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+            "source": "map",
+            "subject": "G",
+            "tick": 657,
+            "value": "M"
+          }
+        ],
+        "goal": {
+          "episode": "b72ae1b8a83886f8dcf14658871cd5ca256c7403ef1ecd76208df3a4937eab83",
+          "family": "route",
+          "reusable_scope": "memory-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+          "scope": "world-2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527",
+          "separator": ";",
+          "slots": [
+            "L",
+            "N",
+            "C",
+            "D",
+            "G"
+          ],
+          "subject": "L"
+        },
+        "hypothesis": null,
+        "verification": null
+      },
+      "status": "answered"
+    },
+    "trace_sha256": "72e4d91cef7ec2fbf72c1f893dc3de0e8302b7505ef66dd7b3bbc9e9d67cbd30",
+    "truth_sha256": "4fbe63659649c688ad0e6cea3346ea485540a50f3cfd4813f2c4c9086ab110c9",
+    "utility": 0.0,
+    "world_id": "2944c7fca0fea8e88bff49b10da238f1d1b21ec1f4b3fe487aa8b75eaa726527"
+  }
+]

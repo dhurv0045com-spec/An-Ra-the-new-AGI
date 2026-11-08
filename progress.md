@@ -140,3 +140,15 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Generated owner-run Kaggle notebook from immutable source 6104ffd7134cb4cf4b3f340bd060d24a1e2dd200; default core launches automatically after gates.
 - All 29 publication/campaign/export checks passed, including exact reconstruction from the source commit and notebook-schema validation.
 - Added launch/recovery instructions and evidence-based handoff; no input dataset needed for core, GPU execution and scientific conclusions remain pending.
+
+### 2026-11-09 | Codex | Audit and preserve V7.1 owner results
+- Matched original 22,696,077-byte analysis ZIP to final-status SHA and replayed 55 suite reports plus four learning-control records.
+- Archived raw ZIP/status, per-seed metrics, trajectories, focused failures and measured-results figure; preserved V7/V6 evidence.
+- Blocked CE confirmation 80.4%, intermediate 80.1%; documented correction regression, ordering effects, chain shortcuts and unresolved neural causes.
+- Declared two-ULP derived Brier portability bound (six observed one-ULP fields), preserving strict raw-action/confidence/count validation.
+
+### 2026-11-09 | Codex | Build paired diagnostic follow-up
+- Implemented 512 records over 16 fixed route worlds, with 48 one-factor contrasts of timestamps, clutter and serialization under four explicit questions.
+- Nine focused tests pass; exact disjointness against actual 7,335-world training data passes, including disclosed transformed partition assignments.
+- Deferred larger training and intermediate promotion; frozen inference/cloud wrapper require full checkpoint custody and hardware qualification.
+- No local research training or new neural result was produced; source-pinned core notebook and historical protocols remain unchanged.

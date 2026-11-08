@@ -1,4 +1,5 @@
 {
+  "Experiment Result/V7.1/20c80f66e76e4b589aed2053afbddffc/plot_results.py": [],
   "Experiment Result/V7/c9981309a94847a4a97d8115c56d75c8/analyze.py": [
     "anra_v5/elendril/v6_data.py",
     "anra_v5/elendril/v7_diagnostics.py",
@@ -161,6 +162,12 @@
   "anra_v5/elendril/v71_evaluation.py": [
     "anra_v5/elendril/v7_measurement.py",
     "tools/elendril_v7_report.py"
+  ],
+  "anra_v5/elendril/v71_followup.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v71_data.py"
   ],
   "anra_v5/elendril/v71_policy.py": [
     "anra_v5/elendril/cognition.py",
@@ -398,6 +405,11 @@
     "tools/elendril_v71_export.py",
     "v5_training/checkpoint.py"
   ],
+  "tests/test_elendril_v71_followup.py": [
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v71_followup.py"
+  ],
   "tests/test_elendril_v71_notebook.py": [
     "tools/build_elendril_v71_notebook.py"
   ],
@@ -409,6 +421,13 @@
   ],
   "tests/test_elendril_v71_report.py": [
     "tools/elendril_v71_report.py"
+  ],
+  "tests/test_elendril_v71_result_analysis.py": [
+    "anra_v5/elendril/representation.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v6_evaluation.py",
+    "anra_v5/elendril/v71_evaluation.py",
+    "tools/analyze_elendril_v71_results.py"
   ],
   "tests/test_elendril_v71_training.py": [
     "anra_v5/elendril/training.py",
@@ -521,6 +540,14 @@
     "tools/elendril_v7_campaign.py",
     "tools/elendril_v7_export.py",
     "tools/elendril_v7_report.py"
+  ],
+  "tools/analyze_elendril_v71_results.py": [
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v71_data.py",
+    "anra_v5/elendril/v71_evaluation.py",
+    "anra_v5/elendril/v71_protocol.py",
+    "anra_v5/elendril/v7_measurement.py",
+    "tools/elendril_v6_export.py"
   ],
   "tools/audit_elendril_v6_results.py": [
     "anra_v5/elendril/v6_data.py",
