@@ -123,3 +123,15 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Archived final status, compact metrics, trajectories, selected successes/failures and a reproducible analysis script under Experiment Result/V7.
 - Blocked confirmation mean 80.4%, uniform 61.6%, interleaved 57.4%; query recall succeeds, routing and seed stability remain weak; CAUSE UNRESOLVED.
 - Documented derived-entropy rounding tolerance and absent full checkpoint custody; no new training or capability promotion.
+
+### 2026-11-08 | Codex | Build integrated V7.1 study
+- Combined suggested composition/evidence/memory/decision/stability/retention studies with balanced swaps, clamped routes and gold-free grammar controls.
+- Implemented staged core/scale/continual/frozen campaign, source-bound training, incremental checkpoints, recovery, raw-action replay and verified dual exports.
+- Qualified full 7,335-world training disjointness and 1,120-case portable suite; CPU data preparation passed in 33.735 seconds; no research training.
+- Fixed replay-scanner and serialized-surface preflight blockers; actual T4 qualification and scientific mechanism conclusions remain pending.
+
+### 2026-11-08 | Codex | Qualify V7.1 recovery and release gates
+- Passed full CPU suite: 335 tests and 14 subtests; two immutable-notebook publication checks await pinning, one platform-specific test skipped.
+- Exercised nine-job orchestration through raw-action replay and verified ZIP delivery; missing reports, corrupted checkpoints, interruptions and failed exports fail closed.
+- Added 16 GiB bounded FULL-archive recovery with source/protocol/phase admission; analysis-only resumes are rejected before extraction.
+- Historical evidence and fixture audits pass; no local research training or V7.1 GPU results.
