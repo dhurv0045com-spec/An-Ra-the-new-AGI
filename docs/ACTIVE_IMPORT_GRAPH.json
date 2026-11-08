@@ -369,6 +369,13 @@
     "anra_v5/elendril/v7_protocol.py"
   ],
   "tests/test_elendril_v7_publication.py": [],
+  "tests/test_elendril_v7_recovery_destination.py": [
+    "anra_v5/elendril/training.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v7_protocol.py",
+    "tools/elendril_action_cloud.py",
+    "tools/elendril_v7_worker.py"
+  ],
   "tests/test_elendril_v7_release.py": [
     "anra_v5/elendril/v7_protocol.py",
     "tools/elendril_v6_campaign.py",

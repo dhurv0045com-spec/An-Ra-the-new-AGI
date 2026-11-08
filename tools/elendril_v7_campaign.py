@@ -192,7 +192,13 @@ def run(*, output, source, owner_enabled=False, minutes=330):
         print('CANARIES: positive learning, production timing and fresh-process exact recovery on each GPU.',flush=True)
         with ThreadPoolExecutor(max_workers=2) as pool: canaries=list(pool.map(qualify,range(2)))
         campaign['canaries']=canaries
-        if any(c.get('status')!='PASS' for c in canaries): raise ValueError('NO-GO: learning/recovery canary failed')
+        if any(c.get('status')!='PASS' for c in canaries):
+            for c in canaries:
+                if c.get('status')!='PASS':
+                    print(json.dumps({'failed_canary':c.get('gpu_uuid'),'status':c.get('status'),
+                        'error_type':c.get('error_type'),'reason':c.get('message',c.get('reason')),
+                        'receipt':c.get('receipt_path'),'traceback':c.get('traceback')},indent=2),flush=True)
+            raise ValueError('NO-GO: learning/recovery canary failed; see per-device error above')
         per_epoch=math.ceil(data['train']['manifest']['examples']/16)
         update_seconds=max(c['production_seconds_per_update'] for c in canaries)
         eval_seconds=max(c['evaluation_seconds_per_episode'] for c in canaries)

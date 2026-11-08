@@ -91,3 +91,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned automatic Run All to ff49ad02d9e56fefa16a047d3a9290cdc0cd5a43 and verified exact reconstruction and notebook schema.
 - All 27 post-guard notebook/publication/delivery checks passed; local full suite had passed 274 with one Linux-only skip.
 - Preserved protocol and V6 evidence; owner Kaggle execution and scientific cause identification remain pending.
+
+### 2026-11-08 | Codex | Recovery canary destination repair
+- Kaggle version 366911754 passed GPU/data preflight and stopped at the canary gate; both ZIP exports were verified in its logs.
+- Fixed deterministic recovery rejection: the worker precreated a directory that verified checkpoint copying requires to be new.
+- Added actual recovery-dispatch/copy regression with mocked CUDA, and exposed per-device errors in notebook logs.
+- All 29 targeted recovery/training/campaign/delivery checks passed; owner T4 rerun remains required.

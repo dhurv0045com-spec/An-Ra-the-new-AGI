@@ -86,7 +86,10 @@ def run(mode, req):
     started = time.monotonic(); cpu = time.process_time()
     deadline = started + req['timecap_seconds']
     output = Path(req['output']); output.mkdir(parents=True, exist_ok=True)
-    cp_root = Path(req['checkpoint_root']); cp_root.mkdir(parents=True, exist_ok=True)
+    cp_root = Path(req['checkpoint_root'])
+    # Recovery copies a verified tree into a NEW destination. Precreating it
+    # makes copy_checkpoint reject every fresh-process recovery attempt.
+    if mode != 'recover': cp_root.mkdir(parents=True, exist_ok=True)
     job = req['job']
     data = read_dataset(req['data_file'])
     report = {'mode': mode, 'source': req['source'], 'protocol_sha256': PROTOCOL_SHA,
@@ -155,7 +158,7 @@ def run(mode, req):
                 timeout=max(1, deadline-time.monotonic()))
             recovered = json.loads(receipt.read_bytes())
             if result.returncode or recovered.get('status') != 'PASS':
-                raise ValueError('fresh-process exact recovery failed')
+                raise ValueError('fresh-process exact recovery failed: '+str(recovered.get('message',recovered.get('reason',recovered))))
             # A production-shaped, eight-update timing probe admits capacity;
             # its weights are discarded and are never reported as study results.
             production = read_dataset(req['production_file'])
