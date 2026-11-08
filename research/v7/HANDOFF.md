@@ -4,6 +4,8 @@ V7 is a focused continuation of the existing system. It does not replace the neu
 
 The published notebook's `metadata.source_reference` identifies its immutable runnable source. Its generator is independently rebuilt from that Git object by the publication test. Use the latest publication notebook, whose pin includes the complete V7 runner and release repairs.
 
+The repaired release pins source **`ff49ad02d9e56fefa16a047d3a9290cdc0cd5a43`**. Both packaged ZIP checksums and original checkpoint-component manifest bindings are mandatory delivery gates. The registered scientific protocol is unchanged.
+
 ## Launch decision
 
 **GO for owner hardware qualification; NO-GO for an unconditional GPU-qualified claim.** No V7 research campaign has run locally or in Kaggle. The notebook performs qualification and then starts the fixed study automatically only if its learning, exact same-device fresh-process recovery and capacity controls pass. Failed capability formation does not suppress diagnostic experiments. A failed engineering canary prevents research and still triggers result export.

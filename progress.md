@@ -86,3 +86,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Bound full-ZIP component hashes and sizes to each original content-addressed checkpoint manifest before delivery success.
 - Valid and deliberately corrupted byte-integrity fixtures passed; these are engineering tests, not trained models.
 - Local full suite passed 274 with one Linux-only skip before this guard; all 16 release-gate checks passed afterward.
+
+### 2026-11-08 | Codex | Repaired V7 notebook publication
+- Pinned automatic Run All to ff49ad02d9e56fefa16a047d3a9290cdc0cd5a43 and verified exact reconstruction and notebook schema.
+- All 27 post-guard notebook/publication/delivery checks passed; local full suite had passed 274 with one Linux-only skip.
+- Preserved protocol and V6 evidence; owner Kaggle execution and scientific cause identification remain pending.

@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-08",
+  "ai": "Codex",
+  "source_commit": "ff49ad02d9e56fefa16a047d3a9290cdc0cd5a43",
+  "protocol_sha256": "3ddaaffdc77b6e22b6c028afdf8f32ac92ff483bf196aee3b2db7fade68ab2e5",
+  "protocol_changed": false,
+  "focused_checks": {
+    "passed": 43,
+    "wall_seconds": 11.26
+  },
+  "local_full_before_final_checkpoint_guard": {
+    "passed": 274,
+    "skipped": 1,
+    "subtests_passed": 14,
+    "wall_seconds": 112.18
+  },
+  "post_guard_notebook_publication_and_release_checks": {
+    "passed": 27,
+    "wall_seconds": 3.19
+  },
+  "notebook_schema": "VALID",
+  "notebook_default_run_study": true,
+  "checkpoint_corruption_fixture": "REJECTED even with internally consistent packaging hashes",
+  "actual_v7_gpu_results": "NOT_RUN",
+  "scientific_conclusion": "CAUSE UNRESOLVED",
+  "local_research_training": false,
+  "linux_ci_at_publication": "Pending push; verify the publication commit workflow separately."
+}
