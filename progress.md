@@ -157,3 +157,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Removed supplied ZIP/full receipts and generated PNG/CSV/plot-script extras from the current branch; local Downloads are unchanged.
 - Kept focused reports, essential metrics/failure JSON and compact provenance hashes; moved unique V7 reproduction code into tools/.
 - Updated links and analysis lookup, and added result-folder ignore rules to prevent raw files returning to Git.
+
+### 2026-11-09 | Codex | Preserve concurrent independent review
+- Integrated the newly pushed V7.1 Markdown research review while retaining the requested curated-file cleanup.
+- Resolved the README conflict and marked its raw-file inventory as historical to the reviewed source snapshot.
