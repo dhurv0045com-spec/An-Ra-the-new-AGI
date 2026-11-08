@@ -6,7 +6,7 @@ ELENDRIL studies cumulative, resource-efficient learning through one neural cogn
 - [Foundation decisions](docs/FOUNDATION_AUDIT.md), [qualification](docs/FOUNDATION_QUALIFICATION.md) and [algorithm comparisons](docs/ALGORITHM_COMPARISONS.md)
 - [Hypotheses](docs/HYPOTHESIS_REGISTER.md), [next cognitive experiment](docs/NEXT_COGNITIVE_EXPERIMENT.md) and [owner operations](docs/OPERATIONS.md)
 - [Evidence custody](docs/EVIDENCE_AND_PROVENANCE.md) and [archived programs](docs/ARCHIVED_PROGRAMS.json)
-- Current diagnostic study: [V7 Kaggle two T4s](notebooks/ELENDRIL_V7_KAGGLE_T4X2.ipynb), [owner instructions and handoff](research/v7/HANDOFF.md), [protocol](research/v7/PROTOCOL.md) and [historical evidence audit](research/v7/EVIDENCE.md). Owner preflight remains pending; V7 research has not run.
+- Current diagnostic study: [V7 Kaggle two T4s](notebooks/ELENDRIL_V7_KAGGLE_T4X2.ipynb), [owner instructions and handoff](research/v7/HANDOFF.md), [protocol](research/v7/PROTOCOL.md) and [historical evidence audit](research/v7/EVIDENCE.md). [Completed owner-run V7 results](Experiment%20Result/V7/c9981309a94847a4a97d8115c56d75c8/RESULTS.md) now document all nine runs, measured successes and failures; neural root cause remains unresolved.
 - Preserved V6 campaign: [notebook](notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb), [launch instructions](docs/V6_CAMPAIGN.md), [protocol package](research/v6/README_FIRST.md) and [implementation amendment](research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md).
 - Preserved V5 reproductions: [Colab one T4](notebooks/ELENDRIL_ACTION_COLAB_T4.ipynb), [Kaggle two T4s](notebooks/ELENDRIL_ACTION_KAGGLE_T4X2.ipynb).
 

@@ -117,3 +117,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned V2 notebook to 413a3eccf4344ef2a39051b870e92feb6271b769 after fixing the exact JSON-path exception in supplied logs.
 - Full local suite passed 281 tests with one Linux-only skip and 14 subtests, including complete fresh-process recovery and corruption rejection.
 - Preserved exact comparison assertions and the registered study; real Kaggle GPU requalification remains pending.
+
+### 2026-11-08 | Codex | Analyze and archive completed V7 owner study
+- Matched the supplied analysis ZIP to final-status SHA and independently replayed 158 recorded-action reports using matching audited datasets.
+- Archived final status, compact metrics, trajectories, selected successes/failures and a reproducible analysis script under Experiment Result/V7.
+- Blocked confirmation mean 80.4%, uniform 61.6%, interleaved 57.4%; query recall succeeds, routing and seed stability remain weak; CAUSE UNRESOLVED.
+- Documented derived-entropy rounding tolerance and absent full checkpoint custody; no new training or capability promotion.

@@ -1,10 +1,15 @@
 {
-  "status": "PENDING_OWNER_EXECUTION",
+  "status": "OWNER_RUN_ARCHIVED",
+  "latest_run": "c9981309a94847a4a97d8115c56d75c8",
+  "source": "413a3eccf4344ef2a39051b870e92feb6271b769",
   "scientific_conclusion": "CAUSE UNRESOLVED",
   "registered_runs": 9,
   "methods": ["uniform", "blocked", "interleaved"],
   "seeds": [7, 19, 41],
   "epochs_per_run": 4,
-  "gpu_research_results_present": false,
+  "gpu_research_results_present": true,
+  "analysis_zip_integrity": "VERIFIED",
+  "independent_recorded_action_replays": 158,
+  "full_checkpoint_zip_independently_checked": false,
   "engineering_tests_are_scientific_results": false
 }

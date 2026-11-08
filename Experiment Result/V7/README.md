@@ -1,6 +1,6 @@
 # V7 owner-run evidence
 
-**PENDING OWNER EXECUTION — CAUSE UNRESOLVED.** No V7 Kaggle research results are present yet. Engineering fixtures and CI checks are not experimental findings. Historical V6 evidence remains unchanged in its own folder.
+**Owner results archived — CAUSE UNRESOLVED.** [Focused results, correctness and failures](c9981309a94847a4a97d8115c56d75c8/RESULTS.md) cover the completed nine-run study at source `413a3ecc`. The final status, compact measurements, trajectories and reproduction script are preserved beside the report. Historical V6 evidence remains unchanged in its own folder.
 
 After the registered study, retain `ELENDRIL_V7_FULL.zip`, `ELENDRIL_V7_ANALYSIS.zip` and `FINAL_STATUS.json`. The final status file certifies delivery separately from the pre-export receipts inside the ZIPs; a ZIP cannot contain a certificate of its own final hash.
 
