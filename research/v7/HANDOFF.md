@@ -4,7 +4,7 @@ V7 is a focused continuation of the existing system. It does not replace the neu
 
 The published notebook's `metadata.source_reference` identifies its immutable runnable source. Its generator is independently rebuilt from that Git object by the publication test. Use the latest publication notebook, whose pin includes the complete V7 runner and release repairs.
 
-The repaired release pins source **`ff49ad02d9e56fefa16a047d3a9290cdc0cd5a43`**. Both packaged ZIP checksums and original checkpoint-component manifest bindings are mandatory delivery gates. The registered scientific protocol is unchanged.
+The current recovery repair pins source **`413a3eccf4344ef2a39051b870e92feb6271b769`**. It supersedes the earlier ff49ad02/13ff77e1 releases: fresh recovery requires a new copy destination and must convert the JSON reference-checkpoint path to `Path`. Complete fresh-process CPU worker tests now reach the final exact payload comparison for all three methods and reject a corrupted reference. Both packaged ZIP checksums and original checkpoint-component manifest bindings remain mandatory delivery gates. The registered scientific protocol is unchanged; real GPU requalification remains pending.
 
 ## Launch decision
 

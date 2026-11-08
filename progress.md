@@ -112,3 +112,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Replaced reliance on the partial regression with complete fresh-process worker recovery for all three training methods.
 - Real tiny-CPU checkpoint/model/optimizer/RNG/state comparisons pass; corrupted reference is rejected; 15 focused checks passed.
 - Added GPU identity and nested recovery traceback to errors; no local research campaign or GPU qualification claim.
+
+### 2026-11-08 | Codex | Publish fully exercised recovery V2
+- Pinned V2 notebook to 413a3eccf4344ef2a39051b870e92feb6271b769 after fixing the exact JSON-path exception in supplied logs.
+- Full local suite passed 281 tests with one Linux-only skip and 14 subtests, including complete fresh-process recovery and corruption rejection.
+- Preserved exact comparison assertions and the registered study; real Kaggle GPU requalification remains pending.
