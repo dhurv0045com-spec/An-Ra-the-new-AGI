@@ -1,4 +1,8 @@
-# Latest V6 notebook export-retry repair — 7 November 2026
+# Current V7 handoff — 8 November 2026
+
+Use the [V7 engineering and owner handoff](../research/v7/HANDOFF.md), [preregistered protocol](../research/v7/PROTOCOL.md) and [evidence review](../research/v7/EVIDENCE.md). The V6 architecture, evidence and reproduction paths below remain intact. V7 research and real T4 qualification are pending; versioned recorded-action replay verifies 120 historical evaluations without changing them.
+
+# Historical V6 notebook export-retry repair — 7 November 2026
 
 The latest owner Kaggle notebook is [ELENDRIL_V6_KAGGLE_T4X2.ipynb](../notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb), published at `90b083bec629ebff4b653108f4ce2eca0fef9f94` and pinning runnable source `9b2f1b29b9e05394e165ed375bae5e94693c6877`. It allows verified ZIP reconstruction from a Kaggle saved output on a CPU-only session, while all training, canary and same-/fresh-VM recovery gates still require live dual T4s. The notebook's old draft-only message was corrected. The revised release passed [GitHub Actions CI](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42382874551): **214 passed, seven subtests**. This establishes CPU/code safety only, not a bug-free or GPU-qualified Kaggle run. The earlier V6 source pin and results documented below remain historical, not the currently recommended notebook.
 

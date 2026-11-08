@@ -58,3 +58,14 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added source-specific checkout directories and explicit default-on/restricted-preview tests.
 - Preserved pinned-source integrity, dual-T4 preflight, same-process-checkpoint gate and independent results export.
 - Still requires live Kaggle GPU qualification; CI alone cannot guarantee zero runtime bugs.
+
+### 2026-11-08 | Codex | V6 evidence reconstruction
+- Audited the supplied archive and replayed 14 model, 98 control and eight supplemental records without training.
+- All 120 pass versioned V7 replay; 60 historical strict failures are bounded utility-reduction differences only.
+- Preserved raw V6 evidence and recorded the export journal's verified/deferred events without inventing causes.
+
+### 2026-11-08 | Codex | V7 controlled diagnosis and recovery
+- Implemented evidence-supply diagnostics, exact utility accounting and matched-data uniform/blocked/interleaved training.
+- Added two-GPU owner-run orchestration, positive/recovery canaries, incremental checkpoints and separate analysis/full exports.
+- Built a source-pinned Kaggle notebook and fixed a Windows data-publication fsync failure found during validation.
+- V7 research training and live T4 qualification remain pending owner execution; no capability promotion.

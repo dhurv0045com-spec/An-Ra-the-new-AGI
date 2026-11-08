@@ -1,0 +1,36 @@
+{
+  "output": "C:\\Users\\ankit\\AppData\\Local\\Temp\\elendril-v7-data-check-j6btulez",
+  "wall_seconds": 98.03100000007544,
+  "datasets": {
+    "train": {
+      "identity": "7786244187963f75e6cda5b10e4d4e0d81927b7000154126fff538dea15539e5",
+      "worlds": 7335,
+      "examples": 9472,
+      "bytes": 2200185
+    },
+    "validation": {
+      "identity": "d6c29b0b20556503835a5eac47079d3d061b2dd50b5e5d75e5f18a108ae78be4",
+      "worlds": 112,
+      "examples": 160,
+      "bytes": 36569
+    },
+    "confirmation": {
+      "identity": "23aece3eb53b29624af67efd56c4bdab0688c906153b737d2583881d583b7e86",
+      "worlds": 112,
+      "examples": 160,
+      "bytes": 36567
+    },
+    "canary": {
+      "identity": "2c42acc8be967728417c7dd5cb6f4a9e43bade4f76d9e694118c513ab0943470",
+      "worlds": 14,
+      "examples": 20,
+      "bytes": 4565
+    },
+    "monitor": {
+      "identity": "1e9bf02688509232581ad907c5ace687efc97d5e459cd2bc5a96052c606059f4",
+      "worlds": 28,
+      "examples": 40,
+      "bytes": 9151
+    }
+  }
+}

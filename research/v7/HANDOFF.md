@@ -1,0 +1,37 @@
+# V7 owner handoff — 2026-11-08
+
+V7 is a focused continuation of the existing system. It does not replace the neural core, tokenizer, checkpoint format, cognition loop, V6 implementation or historical notebooks. The new study asks whether failure occurs in choosing to query, using available evidence, or acquiring and preserving value-answer behavior under different training orders. [Protocol](PROTOCOL.md) · [Starting evidence](EVIDENCE.md)
+
+## Launch decision
+
+**GO for owner hardware qualification; NO-GO for an unconditional GPU-qualified claim.** No V7 research campaign has run locally or in Kaggle. The notebook performs qualification and then starts the fixed study automatically only if its learning, exact same-device fresh-process recovery and capacity controls pass. Failed capability formation does not suppress diagnostic experiments. A failed engineering canary prevents research and still triggers result export.
+
+Import `notebooks/ELENDRIL_V7_KAGGLE_T4X2.ipynb` in Kaggle. Enable Internet and GPU T4×2. Set the one visible `RUN_STUDY` switch to `True` and choose Run All. Native PyTorch must be CUDA-enabled 2.8+ and below 3.0; Python must be 3.11+. The notebook does not replace the CUDA stack. No input dataset needs attaching: the pinned source generates and audits the procedural data under `/kaggle/working/elendril-v7/data`. `/kaggle/input` is read-only and is not a download destination. Stop and inspect any reported NO-GO rather than bypassing it.
+
+Nine fresh-weight S3 runs compare uniform, first-epoch blocked and proportional interleaved order with seeds 7/19/41. Each receives four epochs and the same data, CE objective and cosine horizon. A production-shaped timing probe estimates capacity before research; an excessive forecast stops the whole design rather than silently dropping seeds or epochs. The session cap is 330 minutes including qualification and export reserve, not a promise that it will take that long. Worker subprocess timeouts enforce bounds; a timed-out in-flight update is recovered from the last committed generation.
+
+## Outputs and recovery
+
+Download **ELENDRIL_V7_ANALYSIS.zip** for inspection and **ELENDRIL_V7_FULL.zip** for checkpoint custody, using the final links or Kaggle Output. Analysis contains text reports, immutable requests/receipts, raw action traces, dataset manifests, protocol, summary and CSV. Full additionally contains generated data, model/optimizer checkpoints, update logs and charts. ZIP integrity and independent action replay are reported separately. If an export is deferred, raw files and previous verified archives are retained; inspect the reason and rerun after writers finish.
+
+Each job saves every 64 updates and at every scientific milestone. Named milestone checkpoints and the previous generation survive pruning. Exact model/optimizer/RNG/cursor/scheduler recovery is tested in a fresh process on each physical GPU in the same session. Saved evaluation caches bind dataset, checkpoint, update, weight fingerprint and recomputed token probes before reuse. Python failures preserve requests, terminal error receipts, update logs and committed checkpoints; a partially executed update is never claimed as committed.
+
+Rerunning in the same working directory reuses validated data and resumes committed jobs; it repeats hardware qualification. For a new Kaggle session, save the complete notebook output and restore its directory to the same output location before rerunning. **Automatic saved-output attachment/extraction and independently verified fresh-VM recovery are not implemented in this V7 launcher.** Runtime or source mismatches reject optimizer continuation. Retain the full ZIP even when only sending the smaller analysis ZIP for review. Save Version/Save Output is a separate owner action; writing to a disposable VM does not guarantee long-term persistence.
+
+## Implemented changes and evidence
+
+- `v7_measurement`: exact integer tenths for query utility, versioned receipts and strict action replay. Historical aggregate utility alone receives a derived floating-point error bound; all other fields remain exact. V6 receipts and assertions remain unchanged.
+- `v7_diagnostics`: actual public-payload supply, paired payload changes, direct-known reporting, non-null/null breakdowns, answer entropy, first observable divergence and bounded value/EOS probes. Supplied evidence is an engineered intervention, not a model action; causes stay unresolved.
+- `v7_training` and protocol: same-multiset deterministic ordering with provenance and sampler-plan checkpoint binding. Unpadded exposure matches; padding/attention work and runtime can differ and are recorded.
+- `elendril_v7_worker/campaign`: isolated GPU lanes, positive learning and recovery gates, fixed monitoring, held-out confirmation for every arm, resource receipts and failure exports. No larger-model selection or outcome-driven tuning.
+- `elendril_v7_export/report`: separate small analysis and complete archives, streaming integrity checks, raw-data preservation, per-cohort summaries and trajectories. Missing plotting support cannot erase raw JSON/CSV.
+
+The actual V6 archive replay checked **120 records: 14 model evaluations, 98 controls and 8 supplemental conditions**. All passed V7 action replay. V6 strict replay passed 60 and rejected 60 only for floating-point utility reduction. [Machine-readable receipt](../../artifacts/elendril/v7-engineering/v6-archive-replay.json). The [journal audit](../../artifacts/elendril/v7-engineering/v6-export-journal.json) found seven verified and ten deferred exports, with no assertion that every historical attempt survived.
+
+Local validation includes bounded tiny-model exact recovery, dataset construction/readback, corrupted-receipt and identity rejection, failed-preflight and timeout custody, archive checks, notebook syntax/disabled behavior and source-pin reconstruction. These are engineering checks, not learned capability results. Original V6 weights were absent from the supplied analysis ZIP: V7 uses fresh weights and cannot claim frozen-checkpoint re-evaluation. See the engineering receipts for actual executions and costs.
+
+## Next scientific decision
+
+Run the fixed V7 study and return the analysis ZIP. First check train versus held-out non-null accuracy, whether supplying evidence helps, whether payload pairs are both correct, and when query/value behavior appears or disappears. Compare methods within seed, cohort and matched update; do not mix the 28-world monitor with 112-world development results or select only A3's best seed. The confirmation generator shares task authorship and is not externally sealed evidence.
+
+If even training prompts retain value collapse, investigate the objective/decoder/representation with a conventional pointer/copy comparator. If training improves but held-out payload pairs fail, prioritize relational generalization and anti-shortcut design. If query behavior is acquired and later lost, test targeted retention mechanisms against the measured order baseline. Memory adaptation and architecture changes require demonstrated acquisition first. No AGI or self-improvement promotion is authorized by this study.

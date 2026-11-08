@@ -1,5 +1,15 @@
 # Active hypothesis register
 
+Current V7 priority is to diagnose the observed V6 failures before increasing model size. [Fixed design](../research/v7/PROTOCOL.md) · [Evidence](../research/v7/EVIDENCE.md)
+
+| V7 hypothesis | Discriminating observation / falsifier | State |
+| --- | --- | --- |
+| Query choice limits otherwise usable evidence | Supplied public payload improves non-null outcomes and changed-payload pairs; no gain weakens this explanation | Implemented intervention; owner GPU execution pending |
+| Value-answer collapse reflects poor acquisition rather than query choice alone | Fixed training monitor also fails while terminal answers concentrate; successful fitting with held-out failure instead points toward generalization | Training/development trajectories and value/EOS probes implemented; pending |
+| First-epoch ordering causes an acquisition/retention tradeoff | Query/value trajectory rises then falls in blocked ordering more than uniform/interleaved across paired seeds; no reproducible difference falsifies this specific lead | Same multiset, four-epoch horizon, three seeds preregistered; pending |
+
+The historical register follows; its pending statements are not new positive results.
+
 | Priority | Hypothesis and unchanged control | Falsifier | Status |
 | --- | --- | --- | --- |
 | 1 | CE can learn costed ANSWER/QUERY/ABSTAIN in the existing episode loop; compare fixed, oracle, no-query, always-query, random, query-blind and recency | Formation floor or query-cost gate fails after positive overfit control | Dataset, objective, verifier and tiny token control qualified; full neural formation pending GPU. |

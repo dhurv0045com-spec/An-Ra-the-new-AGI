@@ -1,0 +1,16 @@
+{
+  "counts": {
+    "COMPLETE": 15,
+    "EXPORT_DEFERRED": 10,
+    "EXPORT_VERIFIED": 7,
+    "FINISHED": 1
+  },
+  "deferred_reasons": {
+    "checksum_inventory_mismatch": 1,
+    "lock_unavailable": 3,
+    "missing_file": 4,
+    "snapshot_changed": 2
+  },
+  "events": 33,
+  "limitations": "Ledger records reported errors and later verified exports; it does not establish root cause, archive contents, or raw evidence survival for every attempt."
+}
