@@ -107,7 +107,7 @@ def run(mode, req):
             raise ValueError('recovery cursor/head mismatch')
         while not trainer.state.complete: trainer.step()
         trainer.save()
-        expected = CheckpointStore(challenge['expected_path'], job['job_id'])
+        expected = CheckpointStore(Path(challenge['expected_path']), job['job_id'])
         _, left = expected.restore(challenge['head4'])
         _, right = trainer.store.restore(trainer.parent)
         compare_payloads(left, right, exact=True)
@@ -158,7 +158,8 @@ def run(mode, req):
                 timeout=max(1, deadline-time.monotonic()))
             recovered = json.loads(receipt.read_bytes())
             if result.returncode or recovered.get('status') != 'PASS':
-                raise ValueError('fresh-process exact recovery failed: '+str(recovered.get('message',recovered.get('reason',recovered))))
+                raise ValueError('fresh-process exact recovery failed: '+str(recovered.get('message',recovered.get('reason',recovered)))
+                                 +'\nRecovery worker traceback:\n'+recovered.get('traceback','Unavailable; inspect '+str(receipt)))
             # A production-shaped, eight-update timing probe admits capacity;
             # its weights are discarded and are never reported as study results.
             production = read_dataset(req['production_file'])
@@ -252,6 +253,7 @@ def main(argv=None):
         report = run(args.mode,req)
     except Exception as exc:
         report = {'status':'ERROR', 'source':req['source'], 'protocol_sha256':PROTOCOL_SHA,
+                  'mode':args.mode,'gpu_uuid':os.environ.get('CUDA_VISIBLE_DEVICES'),
                   'job':req.get('job'), 'checkpoint_root':str(cp), 'request_path':str(args.request),
                   'recovery_policy':'Resume last committed generation; in-flight updates are not committed.',
                   'error_type':type(exc).__name__, 'message':str(exc), 'traceback':traceback.format_exc()}

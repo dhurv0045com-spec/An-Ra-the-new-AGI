@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-08",
+  "failed_source": "13ff77e1e3ef4a1a5198355a10bd53ca47d32699",
+  "observed_error": "fresh-process exact recovery failed: 'str' object has no attribute 'resolve'",
+  "defect": "Recovery passes expected_path from JSON directly to CheckpointStore, which requires a Path.",
+  "repair": "Convert expected_path to Path at the worker boundary.",
+  "verification": {
+    "passed": 15,
+    "wall_seconds": 29.58,
+    "complete_fresh_process_recoveries": ["uniform", "blocked", "interleaved"],
+    "corrupt_reference": "REJECTED",
+    "checkpoint_copy_restore_resume_and_payload_comparison": "REAL",
+    "tensor_execution": "Tiny CPU models only; CUDA admission simulated"
+  },
+  "gpu_requalification": "PENDING_OWNER_RUN",
+  "local_research_campaign": false
+}

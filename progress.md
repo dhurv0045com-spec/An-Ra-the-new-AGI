@@ -106,3 +106,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned notebook to 13ff77e1e3ef4a1a5198355a10bd53ca47d32699 with recovery destination and output-isolation repairs.
 - All 12 notebook/publication/recovery-dispatch checks passed, following 29 related recovery/campaign checks.
 - Actual T4 rerun remains pending; the saved canary receipt is needed to confirm the failed run's exact exception.
+
+### 2026-11-08 | Codex | Fix confirmed JSON checkpoint-path failure
+- Supplied Kaggle logs identify str.resolve during recovery comparison; converted the serialized reference path to Path.
+- Replaced reliance on the partial regression with complete fresh-process worker recovery for all three training methods.
+- Real tiny-CPU checkpoint/model/optimizer/RNG/state comparisons pass; corrupted reference is rejected; 15 focused checks passed.
+- Added GPU identity and nested recovery traceback to errors; no local research campaign or GPU qualification claim.

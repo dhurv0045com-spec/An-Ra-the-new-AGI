@@ -376,6 +376,16 @@
     "tools/elendril_action_cloud.py",
     "tools/elendril_v7_worker.py"
   ],
+  "tests/test_elendril_v7_recovery_process.py": [
+    "anra_v5/elendril/foundation_training.py",
+    "anra_v5/elendril/representation.py",
+    "anra_v5/elendril/training.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v7_protocol.py",
+    "anra_v5/elendril/v7_training.py",
+    "tools/elendril_action_cloud.py",
+    "tools/elendril_v7_worker.py"
+  ],
   "tests/test_elendril_v7_release.py": [
     "anra_v5/elendril/v7_protocol.py",
     "tools/elendril_v6_campaign.py",
