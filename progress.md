@@ -69,3 +69,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added two-GPU owner-run orchestration, positive/recovery canaries, incremental checkpoints and separate analysis/full exports.
 - Built a source-pinned Kaggle notebook and fixed a Windows data-publication fsync failure found during validation.
 - V7 research training and live T4 qualification remain pending owner execution; no capability promotion.
+
+### 2026-11-08 | Codex | V7 notebook publication and validation
+- Pinned the notebook to bca0e53403bc5d2046ee262034cfd9ea89967236 and verified reconstruction from that Git object.
+- V7 focused suite passed 35 tests; full run passed 253 with one Windows-only scheduler-fixture failure and one skip.
+- Corrected that fixture without relaxing real Linux qualification; repaired scheduler and publication checks both passed.
+- Recorded data/replay/custody receipts; live Kaggle learning, timing and recovery qualification remain pending.

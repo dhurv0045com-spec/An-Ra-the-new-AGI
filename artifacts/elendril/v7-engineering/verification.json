@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-08",
+  "ai": "Codex",
+  "source_commit": "bca0e53403bc5d2046ee262034cfd9ea89967236",
+  "protocol_sha256": "3ddaaffdc77b6e22b6c028afdf8f32ac92ff483bf196aee3b2db7fade68ab2e5",
+  "runtime": {
+    "python": "3.11.15",
+    "torch": "2.14.0+cpu"
+  },
+  "focused_v7": {
+    "command": "python -m pytest -q <eight V7 test modules excluding publication>",
+    "passed": 35,
+    "subtests_passed": 7,
+    "wall_seconds": 12.2
+  },
+  "initial_full_suite": {
+    "command": "python -m pytest -q",
+    "passed": 253,
+    "failed": 1,
+    "skipped": 1,
+    "subtests_passed": 14,
+    "wall_seconds": 113.5,
+    "failure": "Existing V6 scheduler test requested a real Linux boot ID on Windows."
+  },
+  "repair_verification": {
+    "command": "python -m pytest -q tests/test_elendril_v6_campaign.py::test_one_session_canary_gate_proceeds_without_second_vm tests/test_elendril_v7_publication.py",
+    "passed": 2,
+    "wall_seconds": 6.35,
+    "repair": "Mocked session_identity in scheduler unit fixture; production Linux boot-ID gate unchanged."
+  },
+  "historical_custody": {
+    "status": "PASS",
+    "receipt_figure_resource_hashes": 78,
+    "pilot_receipts": 63,
+    "scoring_snapshots": 519,
+    "checkpoint_manifests_indexed": 237,
+    "operator_hashes": 2
+  },
+  "fixture_audit": {
+    "status": "PASS",
+    "command": "python -m elendril audit --output <temporary JSON>"
+  },
+  "local_research_training": false,
+  "t4_qualification": "NOT_RUN",
+  "owner_campaign": "NOT_RUN",
+  "limitation": "Local validation is engineering evidence; final published commit CI is reported separately."
+}

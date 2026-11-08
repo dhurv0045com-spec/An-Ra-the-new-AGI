@@ -112,6 +112,9 @@ def test_one_session_canary_gate_proceeds_without_second_vm(monkeypatch, tmp_pat
     from anra_v5.elendril import v6_data
     from anra_v5.elendril.v6_registry import REGISTRY_SHA
     import time
+    # This scheduler unit test supplies an engineered session identity on every
+    # host. Real owner qualification retains the Linux boot-ID requirement.
+    monkeypatch.setattr(v6, "session_identity", lambda: "scheduler-test-session")
     monkeypatch.setattr(v6, "_validate_environment", lambda *_: [SimpleNamespace(uuid="GPU-aa"), SimpleNamespace(uuid="GPU-bb")])
     monkeypatch.setattr(v6, "_receipt_gate", lambda *args: None)
     monkeypatch.setattr(v6, "_measurements", lambda *_: {p:{"seconds_per_update":.01,"evaluation_seconds_per_episode":.01} for p in ("S3","S8","S20")})

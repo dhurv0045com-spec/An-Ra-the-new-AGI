@@ -2,6 +2,8 @@
 
 V7 is a focused continuation of the existing system. It does not replace the neural core, tokenizer, checkpoint format, cognition loop, V6 implementation or historical notebooks. The new study asks whether failure occurs in choosing to query, using available evidence, or acquiring and preserving value-answer behavior under different training orders. [Protocol](PROTOCOL.md) · [Starting evidence](EVIDENCE.md)
 
+The published notebook pins runnable source **`bca0e53403bc5d2046ee262034cfd9ea89967236`**. Its generator is independently rebuilt from that Git object by the publication test. Use the notebook in the publication commit, whose pin includes the complete V7 runner.
+
 ## Launch decision
 
 **GO for owner hardware qualification; NO-GO for an unconditional GPU-qualified claim.** No V7 research campaign has run locally or in Kaggle. The notebook performs qualification and then starts the fixed study automatically only if its learning, exact same-device fresh-process recovery and capacity controls pass. Failed capability formation does not suppress diagnostic experiments. A failed engineering canary prevents research and still triggers result export.
@@ -29,6 +31,8 @@ Rerunning in the same working directory reuses validated data and resumes commit
 The actual V6 archive replay checked **120 records: 14 model evaluations, 98 controls and 8 supplemental conditions**. All passed V7 action replay. V6 strict replay passed 60 and rejected 60 only for floating-point utility reduction. [Machine-readable receipt](../../artifacts/elendril/v7-engineering/v6-archive-replay.json). The [journal audit](../../artifacts/elendril/v7-engineering/v6-export-journal.json) found seven verified and ten deferred exports, with no assertion that every historical attempt survived.
 
 Local validation includes bounded tiny-model exact recovery, dataset construction/readback, corrupted-receipt and identity rejection, failed-preflight and timeout custody, archive checks, notebook syntax/disabled behavior and source-pin reconstruction. These are engineering checks, not learned capability results. Original V6 weights were absent from the supplied analysis ZIP: V7 uses fresh weights and cannot claim frozen-checkpoint re-evaluation. See the engineering receipts for actual executions and costs.
+
+The [data construction receipt](../../artifacts/elendril/v7-engineering/data-path-check.json) records 98.031 seconds for automatic dataset construction/readback; the [cache/cohort receipt](../../artifacts/elendril/v7-engineering/data-cache-check.json) records 36.562 seconds for cached readback and the final six-dataset layout. These are CPU data-validation wall times, not GPU training costs. The first Windows attempt failed during fsync and was corrected to use a writable descriptor before these successful checks. Local V7 research training cost is zero.
 
 ## Next scientific decision
 

@@ -362,6 +362,7 @@
     "anra_v5/elendril/codec.py",
     "anra_v5/elendril/v7_protocol.py"
   ],
+  "tests/test_elendril_v7_publication.py": [],
   "tests/test_elendril_v7_report.py": [
     "tools/elendril_v7_report.py"
   ],
