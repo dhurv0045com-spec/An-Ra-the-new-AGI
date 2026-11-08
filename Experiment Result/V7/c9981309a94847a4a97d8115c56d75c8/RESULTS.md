@@ -47,4 +47,4 @@ The next focused experiment should isolate routing: on frozen checkpoints from a
 
 Recorded controller wall time is **61.37 minutes before final reporting/export**; summed worker reservations are **109.41 GPU-minutes**, including worker training/evaluation/recovery overhead, not pure kernel time. Final export overhead is excluded from the recorded controller wall measure.
 
-`FINAL_STATUS.json` preserves the supplied receipt. `METRICS.json`, `TRAJECTORIES.csv` and `analyze.py` preserve exact numbers and the reproduction path. Keep the original analysis ZIP and full checkpoint ZIP outside Git; their identities are recorded rather than duplicating large payloads here.
+`METRICS.json` preserves the measurements, trajectories and selected cases; `PROVENANCE.json` preserves essential source/archive hashes and verification status. Original owner-supplied receipts and ZIPs stay outside the current Git tree. Reproduction logic is maintained in `tools/analyze_elendril_v7_owner_results.py`, accepting externally retained input files.

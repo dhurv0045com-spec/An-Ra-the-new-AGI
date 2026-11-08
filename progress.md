@@ -152,3 +152,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Nine focused tests pass; exact disjointness against actual 7,335-world training data passes, including disclosed transformed partition assignments.
 - Deferred larger training and intermediate promotion; frozen inference/cloud wrapper require full checkpoint custody and hardware qualification.
 - No local research training or new neural result was produced; source-pinned core notebook and historical protocols remain unchanged.
+
+### 2026-11-09 | Codex | Curate V7 and V7.1 results folders
+- Removed supplied ZIP/full receipts and generated PNG/CSV/plot-script extras from the current branch; local Downloads are unchanged.
+- Kept focused reports, essential metrics/failure JSON and compact provenance hashes; moved unique V7 reproduction code into tools/.
+- Updated links and analysis lookup, and added result-folder ignore rules to prevent raw files returning to Git.

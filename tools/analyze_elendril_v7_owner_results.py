@@ -1,6 +1,6 @@
 """Reproduce compact owner-result analysis. No inference or training.
 
-python analyze.py --zip ANALYSIS.zip --final FINAL_STATUS.json --output NEW_DIRECTORY [--data-dir FULL_OUTPUT/data]
+python -m tools.analyze_elendril_v7_owner_results --zip ANALYSIS.zip --final FINAL_STATUS.json --output NEW_DIRECTORY [--data-dir FULL_OUTPUT/data]
 Datasets enable independent recorded-action replay; archive integrity is always checked.
 """
 import argparse
@@ -14,7 +14,7 @@ from pathlib import Path
 import sys
 import zipfile
 
-sys.path.insert(0,str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from tools.elendril_v6_export import verify_zip
 from anra_v5.elendril.v6_data import read_dataset
 from anra_v5.elendril.v7_diagnostics import verify_diagnosis, _summary, _cohorts

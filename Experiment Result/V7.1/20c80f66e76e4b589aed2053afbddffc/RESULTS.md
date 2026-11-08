@@ -4,7 +4,7 @@ Analyzed 2026-11-09 (Asia/Calcutta). Run `20c80f66e76e4b589aed2053afbddffc`; sou
 
 ## Custody and reproduction
 
-The original [analysis ZIP](ELENDRIL_V71_ANALYSIS.zip) is preserved byte-for-byte: 22,696,077 bytes, SHA256 `5f198fbed35c022b2c114e8cd11eb747bcba73c06916f79169e3f61169ff62c5`. Its complete file inventory, CRCs, manifest SHA and SHA256SUMS match the supplied [FINAL_STATUS.json](FINAL_STATUS.json). The final-status file transcribes the owner's pasted JSON; its Kaggle paths are provenance, not local files. The pinned reconstruction source files match Git blobs exactly after LF normalization. Suite identity matches the committed raw manifest: **1,120 case records over 288 unique worlds**, reused across interventions and models.
+The original owner-supplied analysis ZIP was verified byte-for-byte: 22,696,077 bytes, SHA256 `5f198fbed35c022b2c114e8cd11eb747bcba73c06916f79169e3f61169ff62c5`. Its complete inventory, CRCs, manifest SHA and SHA256SUMS matched the supplied final-status receipt. Original ZIPs and full receipts are kept outside the current Git tree; [PROVENANCE.json](PROVENANCE.json) retains only essential hashes, source identities and verification status. Reconstruction source files matched the pinned Git blobs after LF normalization. The reconstructed suite matched the raw manifest: **1,120 case records over 288 unique worlds**, reused across interventions and models.
 
 Independent offline replay passes for **55 suite reports plus four positive-control records**, including prompts, actions, outcomes and resource accounting. Six derived Brier fields differ across runtimes by at most `2.7755575615628914e-17` (one binary64 ULP). The offline adapter declares a two-ULP allowance only for derived Brier scores; entropy retains the historical verifier's bound. Original bytes, confidence values, raw actions, counts and all other checks remain strict. This is not regenerated neural inference.
 
@@ -13,10 +13,10 @@ The FULL ZIP is **reported** verified by Kaggle: 1,958,029,910 bytes, SHA256 `18
 Reproduce the compact audit from the repository root:
 
 ```text
-python -m tools.analyze_elendril_v71_results --zip "Experiment Result/V7.1/20c80f66e76e4b589aed2053afbddffc/ELENDRIL_V71_ANALYSIS.zip" --final "Experiment Result/V7.1/20c80f66e76e4b589aed2053afbddffc/FINAL_STATUS.json" --output NEW_OUTPUT --v7-zip PATH_TO_V7_ANALYSIS.zip --data-dir PATH_TO_MATCHING_DATA
+python -m tools.analyze_elendril_v71_results --zip PATH_TO_OWNER_ANALYSIS.zip --final PATH_TO_OWNER_FINAL_STATUS.json --output NEW_OUTPUT --v7-zip PATH_TO_V7_ANALYSIS.zip --data-dir PATH_TO_MATCHING_DATA
 ```
 
-The two final arguments are optional: V7 supplies receipt comparisons; the data directory supplies the canary/monitor datasets for four additional learning-control replays. The 55 suite reports are reconstructed without externally supplied data. [METRICS.json](METRICS.json) retains per-cohort counts, seed outcomes, decoder contrasts, failures, provenance and compute; [TRAJECTORIES.csv](TRAJECTORIES.csv) retains epoch 0/1/2/4 observations. [FOCUSED_CASES.json](FOCUSED_CASES.json) records the concrete failures below. The plot is reproducible with `plot_results.py` and matplotlib.
+The two final arguments are optional: V7 supplies receipt comparisons; the data directory supplies the canary/monitor datasets for four additional learning-control replays. The 55 suite reports are reconstructed without externally supplied data. [METRICS.json](METRICS.json) retains per-cohort counts, seed outcomes, decoder contrasts, failures, provenance and compute; its trajectories field retains epoch 0/1/2/4 observations. [FOCUSED_CASES.json](FOCUSED_CASES.json) records the concrete failures below. Original plots and duplicate CSV exports are excluded from this results folder.
 
 ## What was learned, and what was not
 
@@ -33,8 +33,6 @@ The six CE models have exactly matching **reported weight fingerprints and confi
 Intermediate supervision improves seed 7 but loses ground in seeds 19/41; aggregate non-null confirmation correctness is unchanged. It uses **3,068 updates and 109,280 supervised tokens per model**, versus CE's **2,368 and 75,776**: 29.6% more updates and 44.2% more supervised tokens. Its lower teacher-forced loss has a changed target distribution, so it is not evidence of superior general learning. **Do not promote it over blocked CE.**
 
 Balanced payload swaps provide positive evidence of narrow evidence dependence: both answers in each pair are correct for **45/48** blocked-CE model-pairs and **47/48** intermediate model-pairs, versus **22/48** uniform model-pairs. This is stronger than merely issuing QUERY, but remains a related synthetic evidence-reading task. Grammar leaves all nine base scores unchanged and changes confirmation by at most one answer; it does not explain away the main deficits.
-
-![Measured V7.1 results](RESULTS.png)
 
 ## Failures localized by actual interventions
 

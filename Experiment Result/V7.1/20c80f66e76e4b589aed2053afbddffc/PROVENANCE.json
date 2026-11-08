@@ -1,0 +1,25 @@
+{
+  "schema": "elendril-curated-provenance-v1",
+  "run_id": "20c80f66e76e4b589aed2053afbddffc",
+  "source": "6104ffd7134cb4cf4b3f340bd060d24a1e2dd200",
+  "protocol_sha256": "fd8ecd82d7405d9504d19db201cad372dcf7a2fb5d99dc38b0ee602e7476d170",
+  "owner_reported_status": "COMPLETE",
+  "exports": {
+    "analysis": {
+      "zip_sha256": "5f198fbed35c022b2c114e8cd11eb747bcba73c06916f79169e3f61169ff62c5",
+      "zip_bytes": 22696077,
+      "manifest_sha256": "7befd3824b29144216c9c3bbab394c8550f600d1a087612022e54605ad18039d"
+    },
+    "full": {
+      "zip_sha256": "1826c85b5a858d2a600661f7e5916f0fa812c55a8d53c37013c695df28a15d19",
+      "zip_bytes": 1958029910,
+      "manifest_sha256": "f5c9c762b1ee1746c94b6744b394ffd4b377e3adf2530b92c96a91a77bca6aaf"
+    }
+  },
+  "independent_analysis_zip_integrity": "VERIFIED",
+  "independent_suite_or_action_reports_replayed": 55,
+  "full_checkpoint_archive_independently_checked": false,
+  "removed_repository_receipt_sha256_lf": "f9af3640e970f18a068bd9b74d76a82a00d91a4b193b5a0282eec8fa9dd0653f",
+  "custody": "Original owner-supplied archives and full receipts are kept outside the current Git tree; this is a curated summary, not the original receipt.",
+  "additional_positive_control_records_replayed": 4
+}

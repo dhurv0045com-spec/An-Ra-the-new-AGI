@@ -186,7 +186,7 @@ def analyze(archive,final,*,data_dir=None,v7_zip=None):
                         verify_record(data,control[label]); positive+=1
         old_comparison=[]
         if v7_zip:
-            old_status=json.loads((repo/'Experiment Result/V7/c9981309a94847a4a97d8115c56d75c8/FINAL_STATUS.json').read_bytes())
+            old_status=json.loads((repo/'Experiment Result/V7/c9981309a94847a4a97d8115c56d75c8/PROVENANCE.json').read_bytes())
             if sha256(Path(v7_zip).read_bytes()).hexdigest()!=old_status['exports']['analysis']['zip_sha256']: raise ValueError('V7 archive hash differs')
             verify_zip(v7_zip)
             with zipfile.ZipFile(v7_zip) as old:
