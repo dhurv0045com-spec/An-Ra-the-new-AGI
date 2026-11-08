@@ -135,3 +135,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Exercised nine-job orchestration through raw-action replay and verified ZIP delivery; missing reports, corrupted checkpoints, interruptions and failed exports fail closed.
 - Added 16 GiB bounded FULL-archive recovery with source/protocol/phase admission; analysis-only resumes are rejected before extraction.
 - Historical evidence and fixture audits pass; no local research training or V7.1 GPU results.
+
+### 2026-11-08 | Codex | Publish source-pinned V7.1 notebook
+- Generated owner-run Kaggle notebook from immutable source 6104ffd7134cb4cf4b3f340bd060d24a1e2dd200; default core launches automatically after gates.
+- All 29 publication/campaign/export checks passed, including exact reconstruction from the source commit and notebook-schema validation.
+- Added launch/recovery instructions and evidence-based handoff; no input dataset needed for core, GPU execution and scientific conclusions remain pending.
