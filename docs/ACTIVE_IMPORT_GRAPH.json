@@ -372,9 +372,11 @@
   "tests/test_elendril_v7_release.py": [
     "anra_v5/elendril/v7_protocol.py",
     "tools/elendril_v6_campaign.py",
+    "tools/elendril_v6_export.py",
     "tools/elendril_v7_campaign.py",
     "tools/elendril_v7_release.py",
-    "tools/elendril_v7_worker.py"
+    "tools/elendril_v7_worker.py",
+    "v5_training/checkpoint.py"
   ],
   "tests/test_elendril_v7_report.py": [
     "anra_v5/elendril/v6_data.py",

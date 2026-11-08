@@ -81,3 +81,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added mandatory-result coverage, current-run dual-ZIP verification and failure exit gates; partial evidence remains preserved.
 - Added descriptive case/reference/trajectory reports and immutable owner-result intake under Experiment Result/V7; CAUSE UNRESOLVED.
 - Focused CPU checks passed 43 tests; actual V7 GPU research and root-cause identification remain pending.
+
+### 2026-11-08 | Codex | Packaged checkpoint integrity guard
+- Bound full-ZIP component hashes and sizes to each original content-addressed checkpoint manifest before delivery success.
+- Valid and deliberately corrupted byte-integrity fixtures passed; these are engineering tests, not trained models.
+- Local full suite passed 274 with one Linux-only skip before this guard; all 16 release-gate checks passed afterward.

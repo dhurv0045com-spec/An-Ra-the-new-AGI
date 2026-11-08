@@ -88,3 +88,27 @@ def test_cli_success_requires_delivered_completion(tmp_path,monkeypatch,status,c
     from tools import elendril_v7_campaign as campaign
     monkeypatch.setattr(campaign,'run',lambda **_:{'status':status})
     assert campaign.main(['--output',str(tmp_path),'--source','a'*40,'--owner-enabled'])==code
+
+
+@pytest.mark.parametrize('corrupt',[False,True])
+def test_packaged_checkpoint_remains_bound_to_committed_components(tmp_path,corrupt):
+    from hashlib import sha256
+    import zipfile
+    from tools.elendril_v6_export import MANIFEST_NAME,canonical
+    from v5_training.checkpoint import REQUIRED_COMPONENTS
+    # Byte-integrity fixture only, not a usable or trained model checkpoint.
+    payloads={name:b'original-'+name.encode() for name in REQUIRED_COMPONENTS}
+    cp=canonical({'components':[{'name':n,'sha256':sha256(b).hexdigest(),'byte_size':len(b)} for n,b in payloads.items()]})
+    prefix='checkpoints/jobs/fixture/fixture/objects/'+sha256(cp).hexdigest()
+    if corrupt: payloads['model.bin']=b'corrupted after checkpoint publication'
+    files={prefix+'/'+n:b for n,b in payloads.items()}; files[prefix+'/manifest.json']=cp
+    path=tmp_path/'fixture.zip'
+    with zipfile.ZipFile(path,'w') as archive:
+        for name,body in files.items(): archive.writestr(name,body)
+        # Packaging hashes are internally consistent even in the corrupt case.
+        archive.writestr(MANIFEST_NAME,canonical({'files':[{'name':n,'sha256':sha256(b).hexdigest(),'byte_size':len(b)} for n,b in files.items()]}))
+    with zipfile.ZipFile(path) as archive:
+        if corrupt:
+            with pytest.raises(ValueError,match='committed manifest'):
+                release.verify_checkpoint_members(archive,[prefix+'/manifest.json'])
+        else: release.verify_checkpoint_members(archive,[prefix+'/manifest.json'])

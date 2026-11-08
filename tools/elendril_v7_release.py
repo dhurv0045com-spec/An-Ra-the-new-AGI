@@ -1,5 +1,6 @@
 """Fail-closed coverage and delivery gates; execution is not scientific success."""
 import json
+from hashlib import sha256
 import math
 import re
 from pathlib import Path
@@ -7,7 +8,7 @@ import zipfile
 
 from anra_v5.elendril.v7_protocol import PROTOCOL_SHA, jobs, milestones
 from tools.elendril_cloud import fingerprint
-from tools.elendril_v6_export import verify_zip, immutable_json, _write_derived, canonical
+from tools.elendril_v6_export import MANIFEST_NAME, verify_zip, immutable_json, _write_derived, canonical
 from tools.elendril_v7_export import export_results
 from v5_training.checkpoint import REQUIRED_COMPONENTS
 
@@ -60,6 +61,25 @@ def required_results(root, campaign):
             'analysis_members':sorted(analysis),'checkpoint_members':sorted(checkpoints)}
 
 
+def verify_checkpoint_members(archive, required):
+    """Bind packaged tensor bytes to the original content-addressed checkpoint."""
+    outer=json.loads(archive.read(MANIFEST_NAME))
+    files={r['name']:r for r in outer['files']}
+    for name in required:
+        if not name.endswith('/manifest.json'): continue
+        payload=archive.read(name); parent=name.rsplit('/',1)[0]
+        if sha256(payload).hexdigest()!=parent.rsplit('/',1)[1]:
+            raise ValueError('checkpoint manifest identity mismatch')
+        manifest=json.loads(payload)
+        components=manifest['components']
+        if len(components)!=len(REQUIRED_COMPONENTS) or {c['name'] for c in components}!=REQUIRED_COMPONENTS:
+            raise ValueError('checkpoint component inventory mismatch')
+        for c in components:
+            record=files[parent+'/'+c['name']]
+            if record['sha256']!=c['sha256'] or record['byte_size']!=c['byte_size']:
+                raise ValueError('checkpoint component differs from committed manifest')
+
+
 def verify_delivery(root, exports, campaign, run_id):
     """Reopen both current-run ZIPs; status strings or stale files are insufficient."""
     root=Path(root); errors=[]; verified={}
@@ -82,7 +102,9 @@ def verify_delivery(root, exports, campaign, run_id):
                 if campaign.get('execution_status')=='EXECUTED':
                     coverage=campaign['required_results']
                     required.update(prefix+p for p in coverage['analysis_members'])
-                    if kind=='full': required.update(coverage['checkpoint_members'])
+                    if kind=='full':
+                        required.update(coverage['checkpoint_members'])
+                        verify_checkpoint_members(archive,coverage['checkpoint_members'])
                 if not required<=names: raise ValueError('current campaign or mandatory results absent from ZIP')
             verified[kind]=checked
         except (OSError,KeyError,TypeError,ValueError,zipfile.BadZipFile) as exc:
