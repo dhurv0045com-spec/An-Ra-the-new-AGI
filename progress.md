@@ -101,3 +101,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-08 | Codex | Isolate rerun output identities
 - Assigned each notebook source pin its own output directory, preserving failed-version receipts without source-identity collisions.
 - Kept automatic launch, canary gates, protocol and download links intact; added output-isolation regression.
+
+### 2026-11-08 | Codex | Publish recovery-fixed rerun notebook
+- Pinned notebook to 13ff77e1e3ef4a1a5198355a10bd53ca47d32699 with recovery destination and output-isolation repairs.
+- All 12 notebook/publication/recovery-dispatch checks passed, following 29 related recovery/campaign checks.
+- Actual T4 rerun remains pending; the saved canary receipt is needed to confirm the failed run's exact exception.
