@@ -2,13 +2,13 @@
   "schema": "elendril-v715-release-qualification-v1",
   "version": "V7.15",
   "report_date": "2026-11-09",
-  "pinned_source": "629ffc48db4183c2356e83196ff03cec021fdb6b",
+  "pinned_source": "e5779922a0072a070f64356f38ea47090e543d6a",
   "published_notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
-  "notebook_published_commit": "ea4670ee34da6624dc8d84fb8e8e1fc2702f9902",
+  "notebook_published_commit": "7d25bceb95f8fe07791f56b20b13a008e859895d",
   "verified_workflow": {
-    "id": 42587217469,
+    "id": 42588504447,
     "conclusion": "SUCCESS",
-    "tests_passed": 370,
+    "tests_passed": 372,
     "extra_subtests_passed": 14,
     "one_warning": "PyTorch optional NumPy initialization unavailable in CI environment"
   },
@@ -18,11 +18,21 @@
     "1120-case combined suite and training partition audit",
     "source-bound frozen worker registration",
     "archive checksum/repack and resume tests",
-    "existing V7.1 phase and checkpoint tests"
+    "existing V7.1 phase and checkpoint tests",
+    "six-job S8 versus per-seed S20 complete registered matrix partition",
+    "batch-aware conservative disk admission"
   ],
   "cpu_engineering_qualified": true,
   "owner_gpu_qualified": false,
   "new_v715_neural_results": false,
   "source_note": "V7.1 core was completed previously; this release does not reattribute it as V7.15 training.",
-  "required_next_owner_action": "Import notebook to Kaggle with T4x2 and Internet on, run one selected phase, preserve FINAL_STATUS and ZIP files."
+  "required_next_owner_action": "Import notebook to Kaggle with T4x2 and Internet on, run one selected phase, preserve FINAL_STATUS and ZIP files.",
+  "default_phase": "scale-s8",
+  "scale_batches": [
+    "scale-s8: six S8 jobs",
+    "scale-s20-seed7: two jobs",
+    "scale-s20-seed19: two jobs",
+    "scale-s20-seed41: two jobs"
+  ],
+  "registered_matrix_total": 12
 }
