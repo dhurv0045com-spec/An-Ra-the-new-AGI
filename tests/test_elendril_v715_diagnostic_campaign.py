@@ -44,3 +44,19 @@ def test_disallows_unqualified_frozen_suite_without_training():
     assert len(build_suite()) == 24 and len(paired()) == 32
     from anra_v5.elendril.v715_memory import build_suite as memory
     assert len(memory()) == 6
+
+
+def test_combined_frozen_study_is_public_and_disjoint():
+    from anra_v5.elendril.v6_data import make_dataset
+    from anra_v5.elendril.v71_data import suite_to_record, suite_from_record
+    train = make_dataset("train", worlds=32, seed=606)
+    suite, audits = suite_and_audit(train)
+    assert len(suite) == 64
+    assert sum(len(v) for v in suite.values()) == 1120
+    assert audits["paired"]["actual_training_disjoint"]["status"] == "PASS"
+    assert audits["anti"]["training_disjoint"]["status"] == "PASS"
+    assert audits["memory"]["training_disjoint"]["status"] == "PASS"
+    assert audits["query_disjoint"]["status"] == "PASS"
+    record = suite_to_record(suite)
+    restored = suite_from_record(record)
+    assert len(restored) == len(suite)
