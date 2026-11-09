@@ -1,4 +1,4 @@
-"""Generate the V.153 anti-shortcut development suite and audit it on CPU.
+"""Generate the V7.15 anti-shortcut development suite and audit it on CPU.
 
 This is dataset preparation, NOT GPU inference or a completed experiment.
 The suite includes evaluator-side truth: never feed its JSON directly to an actor.
@@ -14,7 +14,7 @@ import tempfile
 
 from anra_v5.elendril.v6_data import read_dataset
 from anra_v5.elendril.v71_data import suite_from_record, suite_to_record
-from anra_v5.elendril.v153_diagnostics import audit, build_suite
+from anra_v5.elendril.v715_diagnostics import audit, build_suite
 
 
 def prepare(destination, *, seed=153071, worlds=16, train_path=None):
@@ -31,17 +31,17 @@ def prepare(destination, *, seed=153071, worlds=16, train_path=None):
     payload = (json.dumps(portable, indent=2, sort_keys=True) + "\n").encode("utf-8")
     report = {
         **report,
-        "portable_file": "V153_ROUTE_SUITE.json",
+        "portable_file": "V715_ROUTE_SUITE.json",
         "portable_file_sha256": sha256(payload).hexdigest(),
         "scientific_status": "NOT_RUN: CPU dataset qualification only",
         "actor_truth_firewall": "Portable dataset includes evaluation truth; only public cases are exposed to neural policies.",
     }
     parent = dest.parent.resolve()
     parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=".v153-prepare-", dir=parent) as tmp:
+    with tempfile.TemporaryDirectory(prefix=".v715-prepare-", dir=parent) as tmp:
         temp = Path(tmp)
-        (temp / "V153_ROUTE_SUITE.json").write_bytes(payload)
-        (temp / "V153_ROUTE_AUDIT.json").write_text(
+        (temp / "V715_ROUTE_SUITE.json").write_bytes(payload)
+        (temp / "V715_ROUTE_AUDIT.json").write_text(
             json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         # Commit the directory atomically where possible; no partial final reports.

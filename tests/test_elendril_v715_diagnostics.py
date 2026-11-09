@@ -1,13 +1,13 @@
-"""CPU qualification for the V.153 anti-shortcut development benchmark."""
+"""CPU qualification for the V7.15 anti-shortcut development benchmark."""
 import unittest
 
 from anra_v5.elendril.cognition import CognitiveState
 from anra_v5.elendril.v6_data import make_dataset, public_action
 from anra_v5.elendril.v71_data import assert_training_disjoint, suite_from_record, suite_to_record
-from anra_v5.elendril.v153_diagnostics import audit, build_suite, planned_contrasts
+from anra_v5.elendril.v715_diagnostics import audit, build_suite, planned_contrasts
 
 
-class V153DiagnosticsTests(unittest.TestCase):
+class V715DiagnosticsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.suite = build_suite()

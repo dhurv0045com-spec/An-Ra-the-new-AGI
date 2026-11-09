@@ -1,23 +1,23 @@
-# V.153 — Completion and expansion plan for the existing Elendril research lineage
+# V7.15 — Completion and expansion plan for the existing Elendril research lineage
 
-**Status: RESEARCH / ENGINEERING PREPARATION. Not a completed V.153 training campaign.**
-Prepared: 2026-11-09. Label: **V.153**, per owner correction. This is the completion workstream following the V7.1 core; it does not rename or overwrite V7.1, invent a new lineage of trained models, or retroactively modify any sealed result. It should be revisited by Codex as a collaborator, not treated as immutable instructions.
+**Status: RESEARCH / ENGINEERING PREPARATION. Not a completed V7.15 training campaign.**
+Prepared: 2026-11-09. Label: **V7.15**, per owner correction. This is the completion workstream following the V7.1 core; it does not rename or overwrite V7.1, invent a new lineage of trained models, or retroactively modify any sealed result. It should be revisited by Codex as a collaborator, not treated as immutable instructions.
 
 ## 1. What we already know
 
-Original V7.1 run: 20c80f66e76e4b589aed2053afbddffc, executable source 6104ffd7134cb4cf4b3f340bd060d24a1e2dd200. Nine four-epoch S3 core jobs ran on the owner's Kaggle T4×2. Original findings are preserved at Experiment Result/V7.1/. This workstream imports their evidence but must never count it as newly run V.153 jobs.
+Original V7.1 run: 20c80f66e76e4b589aed2053afbddffc, executable source 6104ffd7134cb4cf4b3f340bd060d24a1e2dd200. Nine four-epoch S3 core jobs ran on the owner's Kaggle T4×2. Original findings are preserved at Experiment Result/V7.1/. This workstream imports their evidence but must never count it as newly run V7.15 jobs.
 
 Core confirmation across three seeds: uniform CE 207/336 (61.6%); blocked CE 270/336 (80.4%); blocked intermediate supervision 269/336 (80.1%). The three seeds reuse the same 112 worlds. Blocked CE is the working baseline. Intermediate supervision is not an upgrade: 29.6% more updates, 44.2% more supervised tokens, major memory-correction regression, no mean confirmation benefit.
 
-Recorded limitations that V.153 must address: changed row order 270/336 to 139/336 for blocked CE; aliases 78/336; distractors 65/336; changed template 42/336; original memory 45/48 versus stale-corrected 28/48 (blocked), and 48/48 versus 2/48 (intermediate). Query-unavailable cases exhibit invalid query attempts. One-hop independent chains already fail (3/48 blocked), so simple multi-hop deficiency is not isolated. Generated hop chains can be solved by copying the last row or max timestamp; a high hop score on those data is not proof of composition. Balanced payload pairs show real but narrow evidence-responsive behavior: blocked 45/48 both-correct pairs, intermediate 47/48.
+Recorded limitations that V7.15 must address: changed row order 270/336 to 139/336 for blocked CE; aliases 78/336; distractors 65/336; changed template 42/336; original memory 45/48 versus stale-corrected 28/48 (blocked), and 48/48 versus 2/48 (intermediate). Query-unavailable cases exhibit invalid query attempts. One-hop independent chains already fail (3/48 blocked), so simple multi-hop deficiency is not isolated. Generated hop chains can be solved by copying the last row or max timestamp; a high hop score on those data is not proof of composition. Balanced payload pairs show real but narrow evidence-responsive behavior: blocked 45/48 both-correct pairs, intermediate 47/48.
 
 V7.1 reports 55 independently replayed suite reports and four positive controls from archived analysis data, not independent neural inference. The original FULL ZIP was reported verified by the Kaggle receipt but has NOT been independently supplied/restored. The most serious training and cognitive causes remain unresolved.
 
 ## 2. Research direction and decision discipline
 
-V.153 should be a substantial **completion campaign**, not a cosmetically new version or a rush to parameter scaling. Cover positive capabilities and multiple failure families, use quantitative ablations, and retain a direct route to the proposed S8/S20 and continual phases. All phases must be explicitly listed as COMPLETED, NOT_RUN, BLOCKED, NOT_QUALIFIED or ENGINEERING_ERROR rather than implied finished.
+V7.15 should be a substantial **completion campaign**, not a cosmetically new version or a rush to parameter scaling. Cover positive capabilities and multiple failure families, use quantitative ablations, and retain a direct route to the proposed S8/S20 and continual phases. All phases must be explicitly listed as COMPLETED, NOT_RUN, BLOCKED, NOT_QUALIFIED or ENGINEERING_ERROR rather than implied finished.
 
-Codex is encouraged to challenge these hypotheses, add stronger controls, reduce wasted compute and propose more discriminating variants. Any change to existing preregistered V7.1 source/protocol must create a separate, pre-execution V.153 protocol hash; do not revise the meaning of the completed V7.1 run. Use new sealed holdouts for unbiased final claims and keep development diagnostics separate.
+Codex is encouraged to challenge these hypotheses, add stronger controls, reduce wasted compute and propose more discriminating variants. Any change to existing preregistered V7.1 source/protocol must create a separate, pre-execution V7.15 protocol hash; do not revise the meaning of the completed V7.1 run. Use new sealed holdouts for unbiased final claims and keep development diagnostics separate.
 
 ## 3. Immediate P0: evidence custody and release reliability
 
@@ -30,7 +30,7 @@ Codex is encouraged to challenge these hypotheses, add stronger controls, reduce
 
 **Existing controlled dataset:** anra_v5/elendril/v71_followup.py creates 512 records, 32 cohorts, 48 predeclared one-factor contrasts over 16 route worlds. Vary timestamps, irrelevant rows and serialization, under original two-hop, first-hop, clamped-one-hop and direct lookup questions. The different questions are not the same original prompt and cannot establish an internal intervention. The dataset is currently CPU qualified; its frozen checkpoint inference/execution wrapper is still not built.
 
-**New V.153 anti-shortcut developer suite:** anra_v5/elendril/v153_diagnostics.py creates 24 cohorts × 16 worlds = 384 case records. For each same-world one/two/three/four-hop question, compare original, reversed serialization, shifted timestamps, removed distractors, alternative distractor values at the same length/positions, and removal of a required edge (publicly correct behavior becomes abstain). It deliberately prevents last-visible-row and maximum-timestamp value copying from solving the original cases. Paired variants are not independent world samples. This is a development benchmark: its CPU unit and portable-readback qualification passed GitHub CI (356 pytest tests + 14 subtests, run 42577968675). Use tools.qualify_elendril_v153 with --train pointed to the actual V7.1 training JSON to generate a SHA-bound, replayable portable suite. A model has NOT yet been evaluated on it.
+**New V7.15 anti-shortcut developer suite:** anra_v5/elendril/v715_diagnostics.py creates 24 cohorts × 16 worlds = 384 case records. For each same-world one/two/three/four-hop question, compare original, reversed serialization, shifted timestamps, removed distractors, alternative distractor values at the same length/positions, and removal of a required edge (publicly correct behavior becomes abstain). It deliberately prevents last-visible-row and maximum-timestamp value copying from solving the original cases. Paired variants are not independent world samples. This is a development benchmark: its CPU unit and portable-readback qualification passed GitHub CI (356 pytest tests + 14 subtests, run 42577968675). Use tools.qualify_elendril_v715 with --train pointed to the actual V7.1 training JSON to generate a SHA-bound, replayable portable suite. A model has NOT yet been evaluated on it.
 
 For both suites, propose a frozen GPU harness that verifies/restores all nine V7.1 S3 final checkpoints (if available), evaluates raw neural and separately labeled grammar decoding on all preregistered conditions and writes per-case prompts/actions/pair hashes, no-update proof, GPU cost and an independently replayable small analysis bundle. Use V7.1 core FULL weights for these nine checkpoints; the older original-V7 frozen phase uses the **different** V7 FULL archive/source and should never be silently substituted.
 
@@ -87,11 +87,11 @@ The owner's request to include removal is important. The following must be *comp
 
 For every seed/phase/condition report non-null correctness, valid abstention, query precision/recall, invalid actions, both-correct evidence swaps, composition by hop and matched world, memory correction survival, surface robustness, training and held-out learning curves, retention and generalization, cost, and work-normalized improvement. Keep action traces with first divergence, expected versus actual public behavior, competing hypotheses, and specific next falsifier. Keep public teachers separate from neural policies.
 
-Every V.153 completed run should get a unique folder inside Experiment Result/V.153 with curated Markdown/JSON evidence, a provenance and status file, links/hashes to the raw analysis/FULL ZIP held outside Git, and methods for replay. Never re-upload multi-GB weights to Git. Report COMPLETED only after mandatory records and both delivered archives verify. Use CAUSE UNRESOLVED whenever mechanism is not established by a controlled replicated intervention.
+Every V7.15 completed run should get a unique folder inside Experiment Result/V7.15 with curated Markdown/JSON evidence, a provenance and status file, links/hashes to the raw analysis/FULL ZIP held outside Git, and methods for replay. Never re-upload multi-GB weights to Git. Report COMPLETED only after mandatory records and both delivered archives verify. Use CAUSE UNRESOLVED whenever mechanism is not established by a controlled replicated intervention.
 
-## 10. Exact definition of 'V.153 complete'
+## 10. Exact definition of 'V7.15 complete'
 
-V.153 can be marked scientifically executed only when registered and actually admitted phases have outcome receipts, including explicit NOT_QUALIFIED/DEFERRED status for infeasible or unexecuted work; all mandatory experiments and exclusions have documented reason codes. A complete engineering launch package alone does NOT complete the research. We should separate:
+V7.15 can be marked scientifically executed only when registered and actually admitted phases have outcome receipts, including explicit NOT_QUALIFIED/DEFERRED status for infeasible or unexecuted work; all mandatory experiments and exclusions have documented reason codes. A complete engineering launch package alone does NOT complete the research. We should separate:
 - ENGINEERING_READY (unit/CPU tests, source pins, qualified launcher, export/resume tests);
 - GPU_QUALIFIED (real dual-T4 canaries, capacity, weights, checkpoint recovery);
 - PHASE_EXECUTED (registered jobs/report coverage and sealed tests, or recorded owner-approved deferral);
@@ -100,4 +100,4 @@ V.153 can be marked scientifically executed only when registered and actually ad
 
 Codex should independently review this plan, correct errors, propose stronger tests, and contribute ideas. The collaboration should preserve scientific creativity; don't blindly implement a giant matrix without reviewing compute and interpretability.
 
-**Current truthful checkpoint:** V7.1 core is done; V.153 research training is NOT_RUN. A first controlled development benchmark and CPU tests have been committed, but live frozen inference and the big phases remain future work.
+**Current truthful checkpoint:** V7.1 core is done; V7.15 research training is NOT_RUN. A first controlled development benchmark and CPU tests have been committed, but live frozen inference and the big phases remain future work.

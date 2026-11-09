@@ -1,6 +1,6 @@
 {
-  "schema": "elendril-v153-completion-status-v1",
-  "label": "V.153",
+  "schema": "elendril-v715-completion-status-v1",
+  "label": "V7.15",
   "date": "2026-11-09",
   "program_status": "PREPARATION_NOT_SCIENTIFICALLY_COMPLETE",
   "predecessor_reference": {
@@ -10,7 +10,7 @@
     "jobs": 9,
     "core_reused_not_new": true
   },
-  "v153_executed_gpu_jobs": 0,
+  "v715_executed_gpu_jobs": 0,
   "deliverables": {
     "completion_plan": "WRITTEN",
     "anti_shortcut_route_benchmark": "IMPLEMENTED_CPU_CI_VERIFIED",
@@ -27,7 +27,7 @@
   },
   "scientific_conclusion": "CAUSE UNRESOLVED",
   "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
-  "disclaimer": "No Kaggle run was launched by this commit; no new V.153 neural inference or training results exist.",
+  "disclaimer": "No Kaggle run was launched by this commit; no new V7.15 neural inference or training results exist.",
   "latest_verified_engineering_commit": "c0f239369d31aa1c6e8f1564420d0fae0065361c",
   "latest_verified_ci": {
     "run_id": 42577968675,
@@ -41,8 +41,8 @@
     "cohorts": 24,
     "case_records": 384,
     "planned_paired_contrasts": 20,
-    "reference": "anra_v5/elendril/v153_diagnostics.py",
+    "reference": "anra_v5/elendril/v715_diagnostics.py",
     "qualification": "CPU test/engineering only, not neural inference",
-    "preparation_cli": "python -m tools.qualify_elendril_v153 --output PATH --train PATH_TO_V71_TRAIN_JSON"
+    "preparation_cli": "python -m tools.qualify_elendril_v715 --output PATH --train PATH_TO_V71_TRAIN_JSON"
   }
 }

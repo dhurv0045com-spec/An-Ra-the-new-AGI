@@ -1,4 +1,4 @@
-"""V.153 controlled development benchmark: 1-4 hops without row/tick shortcuts.
+"""V7.15 controlled development benchmark: 1-4 hops without row/tick shortcuts.
 
 No neural training or inference is performed by this module. Every reported
 contrast shares one synthetic world. The suite is a *development diagnostic*,
@@ -26,7 +26,7 @@ def _make_world(rng, seed, serial):
     nodes = rng.sample(SYMBOLS, 13)
     path_nodes, distractor_subjects, distractor_values = nodes[:5], nodes[5:9], nodes[9:13]
     ticks = rng.sample(range(120, 900), 8)
-    world = digest(["v153-world-v1", seed, serial, path_nodes, distractor_subjects, ticks])
+    world = digest(["v715-world-v1", seed, serial, path_nodes, distractor_subjects, ticks])
     scope = "world-" + world
     path = [
         ExperienceEvent(scope, path_nodes[i], "map", ticks[i], path_nodes[i + 1])
@@ -52,7 +52,7 @@ def _make_world(rng, seed, serial):
 
 
 def _build_case(world, nodes, events, noise_subjects, hops, variant):
-    key = digest(["v153-case-v1", world, hops, variant])
+    key = digest(["v715-case-v1", world, hops, variant])
     scope = "world-" + world
     goal = Goal(key, "route", nodes[0], scope, "memory-" + world, nodes)
     env_events = events
@@ -77,7 +77,7 @@ def _build_case(world, nodes, events, noise_subjects, hops, variant):
         key, world, "route", "route", goal, env,
         Truth(key, expected, _admitted(env, None)),
         ChainSurface(hops=hops, order="reverse" if variant == "reversed" else "original"),
-        pair_id=digest(["v153-pair", world, hops]), panel="v153-" + variant,
+        pair_id=digest(["v715-pair", world, hops]), panel="v715-" + variant,
     )
     return case
 
@@ -87,7 +87,7 @@ def build_suite(*, seed=153071, worlds=16):
         raise ValueError("seed must be uint32")
     if type(worlds) is not int or not 1 <= worlds <= 32:
         raise ValueError("worlds must be 1..32")
-    rng = random.Random(int(digest(["v153-route-seed-v1", seed]), 16))
+    rng = random.Random(int(digest(["v715-route-seed-v1", seed]), 16))
     suite = {f"hop-{h}|{v}": [] for h in HOPS for v in VARIANTS}
     admitted = set()
     attempts = 0
@@ -170,7 +170,7 @@ def audit(suite, *, seed=153071, train=None):
         if train is None else assert_training_disjoint(train, suite)
     )
     return {
-        "schema": "elendril-v153-route-audit-v1", "status": "PASS",
+        "schema": "elendril-v715-route-audit-v1", "status": "PASS",
         "seed": seed, "worlds": count, "cohorts": len(suite),
         "case_records": sum(len(v) for v in suite.values()),
         "planned_contrasts": len(contrasts),

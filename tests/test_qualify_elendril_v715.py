@@ -1,13 +1,13 @@
-"""V.153 CPU-only preparation and immutable output custody checks."""
+"""V7.15 CPU-only preparation and immutable output custody checks."""
 import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
-from tools.qualify_elendril_v153 import prepare
+from tools.qualify_elendril_v715 import prepare
 from anra_v5.elendril.v71_data import suite_from_record
-from anra_v5.elendril.v153_diagnostics import audit
+from anra_v5.elendril.v715_diagnostics import audit
 
 
 def test_prepare_writes_replayable_dataset_and_receipt(tmp_path):
@@ -17,8 +17,8 @@ def test_prepare_writes_replayable_dataset_and_receipt(tmp_path):
     assert report["case_records"] == 48
     assert report["cohorts"] == 24
     assert report["training_disjoint"]["status"] == "NOT_RUN"
-    data = (path / "V153_ROUTE_SUITE.json").read_bytes()
-    receipt = json.loads((path / "V153_ROUTE_AUDIT.json").read_text())
+    data = (path / "V715_ROUTE_SUITE.json").read_bytes()
+    receipt = json.loads((path / "V715_ROUTE_AUDIT.json").read_text())
     assert receipt["portable_file_sha256"] == hashlib.sha256(data).hexdigest()
     suite = suite_from_record(json.loads(data))
     assert audit(suite, seed=153071)["status"] == "PASS"
