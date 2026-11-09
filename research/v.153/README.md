@@ -8,7 +8,13 @@
 - [Existing V7.1 paired diagnostic design](../v7.1/NEXT_EXPERIMENT.md)
 - [V.153 evidence status](../../Experiment%20Result/V.153/STATUS.json)
 
-The initial V.153 source contribution is a CPU-auditable anti-shortcut route benchmark at anra_v5/elendril/v153_diagnostics.py and tests/test_elendril_v153_diagnostics.py. It covers 1–4 hops with reverse order, shifted timestamps, removal/replacement of distractors and removal of required evidence. It does not train or evaluate a neural checkpoint. GitHub CI passed for this implementation (354 pytest tests and 14 subtests, run 42577368035); this qualifies engineering tests, not neural capability.
+The initial V.153 source contribution is a CPU-auditable anti-shortcut route benchmark at anra_v5/elendril/v153_diagnostics.py and tests/test_elendril_v153_diagnostics.py. It covers 1–4 hops with reverse order, shifted timestamps, removal/replacement of distractors and removal of required evidence. It does not train or evaluate a neural checkpoint. GitHub CI passed for the benchmark and portable preparation CLI (356 pytest tests and 14 subtests, run 42577968675); this qualifies engineering tests, not neural capability.
+
+For CPU-only, non-neural preparation, from the repository root:
+
+    python -m tools.qualify_elendril_v153 --output /outside-repo/v153-prepared --train /path/to/real-v71-train.json
+
+Omit --train only when the original training dataset is unavailable; the resulting report then explicitly labels training disjointness NOT_RUN. The tool refuses to overwrite an existing output and writes a portable evaluator-side suite and a SHA-bound audit receipt. The portable file contains scoring truth and must never be used directly as a model-visible prompt.
 
 **Remaining execution:** frozen restored-checkpoint diagnostics, memory/action follow-ups, 12 larger-model S8/S20 training jobs, nine continual-learning jobs and optional old-V7 frozen evaluation. The owner operates any Kaggle GPU sessions after verified engineering qualification; completion is assessed from archived evidence, not from a document or a green CPU CI badge.
 
