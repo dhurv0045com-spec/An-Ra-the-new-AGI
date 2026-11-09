@@ -170,25 +170,32 @@ def _zip(output):
         members.append({"path": relative, "sha256": fingerprint(path), "bytes": path.stat().st_size})
     manifest = {"schema": "elendril-v715-analysis-manifest-v1",
                 "protocol_sha256": PROTOCOL_SHA, "members": members}
-    if not destination.exists():
-        tmp = destination.with_name("." + uuid4().hex + "-pending.zip")
-        try:
-            with zipfile.ZipFile(tmp, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6,
-                                 allowZip64=True) as z:
-                for entry in members:
-                    z.write(output / entry["path"], entry["path"])
-                z.writestr("MANIFEST.json", json.dumps(manifest, sort_keys=True).encode("utf-8"))
-            os.replace(tmp, destination)
-        finally:
-            tmp.unlink(missing_ok=True)
-    with zipfile.ZipFile(destination) as z:
-        recorded = json.loads(z.read("MANIFEST.json"))
-        if recorded != manifest or set(z.namelist()) != ({m["path"] for m in members} | {"MANIFEST.json"}):
-            raise ValueError("V7.15 archive inventory changed")
-        for member in members:
-            data = z.read(member["path"])
-            if len(data) != member["bytes"] or sha256(data).hexdigest() != member["sha256"]:
-                raise ValueError("V7.15 archive checksum mismatch")
+    candidate = destination.with_name("." + uuid4().hex + "-pending.zip")
+    try:
+        with zipfile.ZipFile(candidate, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6,
+                             allowZip64=True) as z:
+            for entry in members:
+                z.write(output / entry["path"], entry["path"])
+            z.writestr("MANIFEST.json", json.dumps(manifest, sort_keys=True).encode("utf-8"))
+        # Verify a candidate before atomically replacing any earlier delivery.
+        with zipfile.ZipFile(candidate) as z:
+            recorded = json.loads(z.read("MANIFEST.json"))
+            if recorded != manifest or set(z.namelist()) != ({m["path"] for m in members} | {"MANIFEST.json"}):
+                raise ValueError("V7.15 archive inventory changed")
+            for member in members:
+                data = z.read(member["path"])
+                if len(data) != member["bytes"] or sha256(data).hexdigest() != member["sha256"]:
+                    raise ValueError("V7.15 archive checksum mismatch")
+        if destination.exists() and fingerprint(candidate) != fingerprint(destination):
+            previous_sha = fingerprint(destination)
+            history = destination.parent / "history"
+            history.mkdir(exist_ok=True)
+            old = history / (previous_sha + "-" + ARCHIVE_NAME)
+            if not old.exists():
+                os.link(destination, old)
+        os.replace(candidate, destination)
+    finally:
+        candidate.unlink(missing_ok=True)
     return {"status": "VERIFIED", "file": ARCHIVE_NAME,
             "bytes": destination.stat().st_size,
             "sha256": fingerprint(destination), "members": len(members)}
@@ -278,6 +285,11 @@ def run(*, output, source, parent_archive, minutes=330, owner_enabled=False):
         snapshot = output / "analysis" / "CAMPAIGN_STATUS.json"
         # Write a fresh resumable status and don't falsely mark prior partial runs COMPLETE.
         if snapshot.exists():
+            history = output / "analysis" / "status-history"
+            history.mkdir(exist_ok=True)
+            old = history / (fingerprint(snapshot) + "-CAMPAIGN_STATUS.json")
+            if not old.exists():
+                os.link(snapshot, old)
             snapshot.unlink()
         immutable_json(snapshot, campaign)
         try:
@@ -291,6 +303,11 @@ def run(*, output, source, parent_archive, minutes=330, owner_enabled=False):
                 campaign["status"] = "COMPLETE"
         final = output / "exports" / "FINAL_STATUS.json"
         if final.exists():
+            history = output / "analysis" / "status-history"
+            history.mkdir(exist_ok=True)
+            old = history / (fingerprint(final) + "-FINAL_STATUS.json")
+            if not old.exists():
+                os.link(final, old)
             final.unlink()
         immutable_json(final, campaign)
     return campaign

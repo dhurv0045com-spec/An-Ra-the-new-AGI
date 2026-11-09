@@ -23,7 +23,7 @@ def build(source):
 reproducibility and capacity checks. All three seeds and both registered
 uniform/blocked methods are preserved. No external input is required.
 
-Optional phases: diagnostics (all nine frozen S3 V7.1 checkpoints; 896
+Optional phases: diagnostics (all nine frozen S3 V7.1 checkpoints; 1,120
 development cases and both decoders); continual (nine A-to-B learning
 comparators); historic-frozen (original V7 checkpoints). Diagnostics and
 continual require the genuine V7.1 core FULL ZIP, and historic-frozen requires

@@ -33,8 +33,9 @@ def test_analysis_archive_roundtrip_and_detects_data_tamper(tmp_path):
     assert manifest["protocol_sha256"] == PROTOCOL_SHA
     assert manifest["members"][0]["sha256"] == hashlib.sha256((target/"analysis"/"A.json").read_bytes()).hexdigest()
     (target/"data"/"B.json").write_text('{"worlds":99}\n')
-    with pytest.raises(ValueError, match="inventory changed"):
-        _zip(target)
+    newer = _zip(target)
+    assert newer["sha256"] != info["sha256"]
+    assert (target/"exports"/"history"/(info["sha256"]+"-ELENDRIL_V715_ANALYSIS.zip")).is_file()
 
 
 def test_disallows_unqualified_frozen_suite_without_training():
