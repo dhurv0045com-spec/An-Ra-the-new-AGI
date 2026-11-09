@@ -2,7 +2,7 @@
   "schema": "elendril-v715-release-status-v2",
   "label": "V7.15",
   "date": "2026-11-09",
-  "program_status": "NOTEBOOK_PUBLISHED_GPU_RESEARCH_NOT_RUN",
+  "program_status": "ENGINEERING_CI_VERIFIED_OWNER_GPU_NOT_RUN",
   "predecessor_reference": {
     "version": "V7.1",
     "run_id": "20c80f66e76e4b589aed2053afbddffc",
@@ -24,7 +24,7 @@
     "old_v7_frozen_phase": "NOT_RUN_OPTIONAL",
     "data_scaling": "PROPOSED_NOT_REGISTERED",
     "portable_benchmark_generator": "IMPLEMENTED_CPU_CI_VERIFIED",
-    "notebook": "PUBLISHED_SOURCE_PINNED_AWAITING_OWNER_GPU"
+    "notebook": "PUBLISHED_PINNED_AND_CI_VERIFIED"
   },
   "scientific_conclusion": "CAUSE UNRESOLVED: no V7.15 neural results.",
   "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
@@ -78,5 +78,17 @@
     },
     "budget_minutes_max": 330,
     "true_completion_rule": "Actual owner GPU results and verified exports; CI/notebook generation alone are not research completion."
+  },
+  "release_qualification": {
+    "status": "CPU_AND_PUBLICATION_TESTS_PASS",
+    "workflow_run_id": 42587217469,
+    "workflow_url": "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42587217469",
+    "tested_branch_commit": "ea4670ee34da6624dc8d84fb8e8e1fc2702f9902",
+    "notebook_source_sha": "629ffc48db4183c2356e83196ff03cec021fdb6b",
+    "passed_tests": 370,
+    "passed_additional_subtests": 14,
+    "warnings": 1,
+    "actual_GPU_runs": 0,
+    "limitations": "No original V7.1 FULL archive was supplied to this verifier; no Kaggle session or frozen neural checkpoint evaluation was performed."
   }
 }

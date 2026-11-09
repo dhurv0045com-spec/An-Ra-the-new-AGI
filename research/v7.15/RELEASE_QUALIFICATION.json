@@ -1,0 +1,28 @@
+{
+  "schema": "elendril-v715-release-qualification-v1",
+  "version": "V7.15",
+  "report_date": "2026-11-09",
+  "pinned_source": "629ffc48db4183c2356e83196ff03cec021fdb6b",
+  "published_notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
+  "notebook_published_commit": "ea4670ee34da6624dc8d84fb8e8e1fc2702f9902",
+  "verified_workflow": {
+    "id": 42587217469,
+    "conclusion": "SUCCESS",
+    "tests_passed": 370,
+    "extra_subtests_passed": 14,
+    "one_warning": "PyTorch optional NumPy initialization unavailable in CI environment"
+  },
+  "checks": [
+    "exact notebook builder reconstruction",
+    "import and CPU diagnostic cohorts",
+    "1120-case combined suite and training partition audit",
+    "source-bound frozen worker registration",
+    "archive checksum/repack and resume tests",
+    "existing V7.1 phase and checkpoint tests"
+  ],
+  "cpu_engineering_qualified": true,
+  "owner_gpu_qualified": false,
+  "new_v715_neural_results": false,
+  "source_note": "V7.1 core was completed previously; this release does not reattribute it as V7.15 training.",
+  "required_next_owner_action": "Import notebook to Kaggle with T4x2 and Internet on, run one selected phase, preserve FINAL_STATUS and ZIP files."
+}
