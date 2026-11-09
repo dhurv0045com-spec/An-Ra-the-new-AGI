@@ -245,7 +245,13 @@ def run(*,output,source,phase='core',owner_enabled=False,minutes=330,parent_outp
         if phase=='continual':
             parent_output=Path(parent_output).resolve()
             identity=json.loads((parent_output/'analysis'/'identity.json').read_bytes())
-            if identity!={'source':source,'protocol_sha256':PROTOCOL_SHA,'phase':'core'}: raise ValueError('parent core identity mismatch')
+            admitted_parents=(
+                {'source':source,'protocol_sha256':PROTOCOL_SHA,'phase':'core'},
+                {'source':'6104ffd7134cb4cf4b3f340bd060d24a1e2dd200','protocol_sha256':PROTOCOL_SHA,'phase':'core'},
+            )
+            if identity not in admitted_parents: raise ValueError('parent core identity mismatch')
+            campaign['parent_core_source']=identity['source']
+            campaign['parent_lineage_note']='Explicit V7.15 cross-source fresh-stage migration, never exact optimizer continuation.'
             coverage(parent_output,jobs('core'),suite)
         from anra_v5.elendril.v6_evaluation import ControlPolicy
         from anra_v5.elendril.v71_evaluation import evaluate_suite

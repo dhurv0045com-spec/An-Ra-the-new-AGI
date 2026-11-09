@@ -115,8 +115,10 @@ if RUN_STUDY:
                     raise ValueError("parent extraction destination exists; use PARENT_OUTPUT after verification")
                 restore = ("from tools.elendril_v71_export import restore_archive; import sys; "
                            "restore_archive(sys.argv[1],sys.argv[2],source=sys.argv[3],phase=sys.argv[4],parent=True)")
+                parent_source = ("6104ffd7134cb4cf4b3f340bd060d24a1e2dd200"
+                                 if PHASE == "continual" else SOURCE_SHA)
                 subprocess.run([sys.executable, "-c", restore, str(PARENT_ARCHIVE),
-                                str(parent), SOURCE_SHA, old_phase], cwd=REPO, env=env, check=True)
+                                str(parent), parent_source, old_phase], cwd=REPO, env=env, check=True)
             cmd = [sys.executable, "-m", "tools.elendril_v71_campaign", "--output", str(OUTPUT),
                    "--source", SOURCE_SHA, "--phase", old_phase,
                    "--minutes", str(MINUTES), "--owner-enabled"]

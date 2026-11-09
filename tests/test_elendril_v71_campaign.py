@@ -161,3 +161,10 @@ def test_chain_surface_roundtrip_uses_canonical_records_and_rejects_tampering():
     broken=copy.deepcopy(raw)
     broken['cohorts']['hop-2'][0]['truth']['expected']='A' if case.truth.expected!='A' else 'B'
     with pytest.raises(ValueError): suite_from_record(broken)
+
+
+def test_v715_explicit_parent_source_is_registered():
+    import inspect
+    body = inspect.getsource(campaign.run)
+    assert "6104ffd7134cb4cf4b3f340bd060d24a1e2dd200" in body
+    assert "parent_core_source" in body
