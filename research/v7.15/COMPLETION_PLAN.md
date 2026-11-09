@@ -28,7 +28,7 @@ Codex is encouraged to challenge these hypotheses, add stronger controls, reduce
 
 ## 4. P1: frozen-model diagnosis BEFORE major retraining
 
-**Existing controlled dataset:** anra_v5/elendril/v71_followup.py creates 512 records, 32 cohorts, 48 predeclared one-factor contrasts over 16 route worlds. Vary timestamps, irrelevant rows and serialization, under original two-hop, first-hop, clamped-one-hop and direct lookup questions. The different questions are not the same original prompt and cannot establish an internal intervention. The dataset is currently CPU qualified; its frozen checkpoint inference/execution wrapper is still not built.
+**Existing controlled dataset:** anra_v5/elendril/v71_followup.py creates 512 records, 32 cohorts, 48 predeclared one-factor contrasts over 16 route worlds. Vary timestamps, irrelevant rows and serialization, under original two-hop, first-hop, clamped-one-hop and direct lookup questions. The different questions are not the same original prompt and cannot establish an internal intervention. The dataset is currently CPU qualified; its frozen checkpoint inference/execution wrapper has now been implemented in tools/elendril_v715_diagnostic_campaign.py and tools/elendril_v715_worker.py, pending real GPU/model-custody qualification.
 
 **New V7.15 anti-shortcut developer suite:** anra_v5/elendril/v715_diagnostics.py creates 24 cohorts × 16 worlds = 384 case records. For each same-world one/two/three/four-hop question, compare original, reversed serialization, shifted timestamps, removed distractors, alternative distractor values at the same length/positions, and removal of a required edge (publicly correct behavior becomes abstain). It deliberately prevents last-visible-row and maximum-timestamp value copying from solving the original cases. Paired variants are not independent world samples. This is a development benchmark: its CPU unit and portable-readback qualification passed GitHub CI (356 pytest tests + 14 subtests, run 42577968675). Use tools.qualify_elendril_v715 with --train pointed to the actual V7.1 training JSON to generate a SHA-bound, replayable portable suite. A model has NOT yet been evaluated on it.
 
@@ -101,3 +101,8 @@ V7.15 can be marked scientifically executed only when registered and actually ad
 Codex should independently review this plan, correct errors, propose stronger tests, and contribute ideas. The collaboration should preserve scientific creativity; don't blindly implement a giant matrix without reviewing compute and interpretability.
 
 **Current truthful checkpoint:** V7.1 core is done; V7.15 research training is NOT_RUN. A first controlled development benchmark and CPU tests have been committed, but live frozen inference and the big phases remain future work.
+
+
+## Execution implementation update (2026-11-09)
+
+A source-pinned Kaggle notebook builder, dual-GPU frozen diagnostic campaign, original-V7.1 checkpoint source admission, and 64-cohort/1,120-record evaluation suite are implemented. Read RELEASE.md for the exact owner-run instructions. The current plan is historical and these implementation details supersede any earlier TODO phrasing; no GPU results have been produced by this update.

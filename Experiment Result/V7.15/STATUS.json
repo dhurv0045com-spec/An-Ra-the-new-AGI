@@ -1,8 +1,8 @@
 {
-  "schema": "elendril-v715-completion-status-v1",
+  "schema": "elendril-v715-release-status-v2",
   "label": "V7.15",
   "date": "2026-11-09",
-  "program_status": "PREPARATION_NOT_SCIENTIFICALLY_COMPLETE",
+  "program_status": "ENGINEERING_RELEASE_PREPARING_GPU_NOT_RUN",
   "predecessor_reference": {
     "version": "V7.1",
     "run_id": "20c80f66e76e4b589aed2053afbddffc",
@@ -15,17 +15,18 @@
     "completion_plan": "WRITTEN",
     "anti_shortcut_route_benchmark": "IMPLEMENTED_CPU_CI_VERIFIED",
     "anti_shortcut_route_cpu_tests": "PASSED_CI_356_TESTS_14_SUBTESTS",
-    "frozen_checkpoint_inference": "NOT_IMPLEMENTED",
+    "frozen_checkpoint_inference": "IMPLEMENTED_CPU_TESTED_AWAITING_FULL_ARCHIVE_AND_GPU",
     "original_v71_full_weights_independently_restored": "NOT_VERIFIED",
-    "memory_correction_equal_length": "NOT_RUN",
-    "query_legality_interventions": "NOT_RUN",
-    "s8_s20_scale_phase": "NOT_RUN_12_JOBS",
-    "continual_phase": "NOT_RUN_9_JOBS",
+    "memory_correction_equal_length": "IMPLEMENTED_CPU_TESTED_NEURAL_NOT_RUN",
+    "query_legality_interventions": "IMPLEMENTED_FROZEN_EVALUATION_NEURAL_NOT_RUN",
+    "s8_s20_scale_phase": "IMPLEMENTED_12_JOBS_NOT_RUN",
+    "continual_phase": "IMPLEMENTED_9_JOBS_NOT_RUN",
     "old_v7_frozen_phase": "NOT_RUN_OPTIONAL",
     "data_scaling": "PROPOSED_NOT_REGISTERED",
-    "portable_benchmark_generator": "IMPLEMENTED_CPU_CI_VERIFIED"
+    "portable_benchmark_generator": "IMPLEMENTED_CPU_CI_VERIFIED",
+    "notebook": "BUILDER_IMPLEMENTED_PINNED_NOTEBOOK_PENDING_RELEASE"
   },
-  "scientific_conclusion": "CAUSE UNRESOLVED",
+  "scientific_conclusion": "CAUSE UNRESOLVED: no V7.15 neural results.",
   "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
   "disclaimer": "No Kaggle run was launched by this commit; no new V7.15 neural inference or training results exist.",
   "latest_verified_engineering_commit": "c0f239369d31aa1c6e8f1564420d0fae0065361c",
@@ -44,5 +45,38 @@
     "reference": "anra_v5/elendril/v715_diagnostics.py",
     "qualification": "CPU test/engineering only, not neural inference",
     "preparation_cli": "python -m tools.qualify_elendril_v715 --output PATH --train PATH_TO_V71_TRAIN_JSON"
+  },
+  "release": {
+    "notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
+    "immutable_source_sha": "PENDING_NOTEBOOK_PUBLICATION",
+    "default_phase": "scale",
+    "phases": {
+      "scale": {
+        "status": "ENGINEERING_READY_GPU_NOT_RUN",
+        "registered_jobs": 12,
+        "requires_parent": false
+      },
+      "diagnostics": {
+        "status": "IMPLEMENTED_GPU_NOT_RUN",
+        "frozen_jobs": 9,
+        "cohorts": 64,
+        "case_records": 1120,
+        "requires_parent": true,
+        "original_parent_sha256": "1826c85b5a858d2a600661f7e5916f0fa812c55a8d53c37013c695df28a15d19"
+      },
+      "continual": {
+        "status": "IMPLEMENTED_GPU_NOT_RUN",
+        "registered_jobs": 9,
+        "requires_parent": true,
+        "source_transition": "EXPLICIT_HISTORIC_V71_PARENT"
+      },
+      "historic_frozen": {
+        "status": "OPTIONAL_UNVERIFIED_GPU_NOT_RUN",
+        "frozen_jobs": 9,
+        "requires_parent": true
+      }
+    },
+    "budget_minutes_max": 330,
+    "true_completion_rule": "Actual owner GPU results and verified exports; CI/notebook generation alone are not research completion."
   }
 }
