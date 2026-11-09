@@ -247,7 +247,16 @@ def run(*,output,source,phase='core',owner_enabled=False,minutes=330,parent_outp
         write_once(output/'analysis'/'identity.json',{'source':source,'protocol_sha256':PROTOCOL_SHA,'phase':phase})
         write_once(output/'analysis'/'protocol.json',protocol())
         # Conservative raw+snapshot budget. The exact available volume is recorded.
-        free=shutil.disk_usage(output).free; minimum=(19 if phase=='scale' else 12)*(1<<30)
+        free=shutil.disk_usage(output).free
+        # Keep the original 19-GiB full-scale reserve, but admit predeclared
+        # smaller V7.15 batches with proportional conservative free-space gates.
+        if phase!='scale' or profile_subset=='S8':
+            reserve_gib=12
+        elif profile_subset=='S20' and seed_subset is not None:
+            reserve_gib=15
+        else:
+            reserve_gib=19
+        minimum=reserve_gib*(1<<30)
         campaign['free_disk_bytes']=free
         if free<minimum: raise ValueError(f'NO-GO: {minimum/(1<<30):g} GiB free required; use a fresh session, preserve previous outputs')
         devices=_gpu_records(); runtimes=check_torch(REPO,devices)

@@ -188,3 +188,12 @@ def test_v715_predeclared_scale_slices_are_exact_partition():
         selected_jobs("core", "S8")
     with pytest.raises(ValueError):
         selected_jobs("scale", "S20", 999)
+
+
+def test_batch_disk_reserve_is_preflight_specific():
+    import inspect
+    src = inspect.getsource(campaign.run)
+    assert "profile_subset=='S8'" in src
+    assert "reserve_gib=12" in src
+    assert "reserve_gib=15" in src
+    assert "reserve_gib=19" in src
