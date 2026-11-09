@@ -213,7 +213,22 @@ def frozen_phase(output,parent_output,base,devices,deadline,campaign):
     return registered,required
 
 
-def run(*,output,source,phase='core',owner_enabled=False,minutes=330,parent_output=None):
+def selected_jobs(phase, profile_subset=None, seed_subset=None):
+    """Predeclared, balanced scale batches; original V7.1 protocol stays unchanged."""
+    if profile_subset not in (None, "S8", "S20") or seed_subset not in (None, 7, 19, 41):
+        raise ValueError("unknown fixed scale batch")
+    if phase != "scale" and (profile_subset is not None or seed_subset is not None):
+        raise ValueError("only scale may be partitioned across Kaggle sessions")
+    registered = [job for job in jobs(phase)
+                  if (profile_subset is None or job["profile"] == profile_subset)
+                  and (seed_subset is None or job["seed"] == seed_subset)]
+    if not registered:
+        raise ValueError("empty registered scale batch")
+    return registered
+
+
+def run(*,output,source,phase='core',owner_enabled=False,minutes=330,parent_output=None,
+        profile_subset=None,seed_subset=None):
     if owner_enabled is not True: raise ValueError('explicit owner launch required')
     if phase not in PHASES or type(minutes) not in (int,float) or not math.isfinite(minutes) or not 1<=minutes<=330: raise ValueError('invalid phase/budget')
     requested=Path(output)
@@ -223,7 +238,10 @@ def run(*,output,source,phase='core',owner_enabled=False,minutes=330,parent_outp
     output.mkdir(parents=True,exist_ok=True); started=time.monotonic(); deadline=started+minutes*60; run_id=uuid4().hex
     campaign={'schema':'elendril-v71-campaign-v1','run_id':run_id,'phase':phase,'source':source,'protocol_sha256':PROTOCOL_SHA,
         'status':'PREFLIGHT','results':[],'promotion':'NONE','cause_status':'CAUSE_UNRESOLVED','fresh_vm_recovery':'NOT_QUALIFIED until owner restoration'}
-    required=[]; registered=jobs(phase)
+    required=[]; registered=selected_jobs(phase,profile_subset,seed_subset)
+    campaign['registered_job_ids']=[j['job_id'] for j in registered]
+    campaign['predeclared_scale_slice']={'profile':profile_subset,'seed':seed_subset,
+        'subset_identity':digest(['v715-registered-slice-v1',phase,[j['job_id'] for j in registered]])}
     try:
         check_source(REPO,source)
         write_once(output/'analysis'/'identity.json',{'source':source,'protocol_sha256':PROTOCOL_SHA,'phase':phase})
@@ -355,7 +373,10 @@ def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__); p.add_argument('--output',type=Path,required=True); p.add_argument('--source',required=True)
     p.add_argument('--phase',choices=PHASES,default='core'); p.add_argument('--owner-enabled',action='store_true'); p.add_argument('--minutes',type=float,default=330)
     p.add_argument('--parent-output',type=Path)
-    a=p.parse_args(argv); result=run(output=a.output,source=a.source,phase=a.phase,owner_enabled=a.owner_enabled,minutes=a.minutes,parent_output=a.parent_output)
+    p.add_argument('--profile-subset',choices=('S8','S20'))
+    p.add_argument('--seed-subset',type=int,choices=(7,19,41))
+    a=p.parse_args(argv); result=run(output=a.output,source=a.source,phase=a.phase,owner_enabled=a.owner_enabled,minutes=a.minutes,parent_output=a.parent_output,
+        profile_subset=a.profile_subset,seed_subset=a.seed_subset)
     return 0 if result['status']=='COMPLETE' else 1
 
 

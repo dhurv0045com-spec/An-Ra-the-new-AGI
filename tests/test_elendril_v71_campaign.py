@@ -168,3 +168,23 @@ def test_v715_explicit_parent_source_is_registered():
     body = inspect.getsource(campaign.run)
     assert "6104ffd7134cb4cf4b3f340bd060d24a1e2dd200" in body
     assert "parent_core_source" in body
+
+
+def test_v715_predeclared_scale_slices_are_exact_partition():
+    from tools.elendril_v71_campaign import selected_jobs
+    full = selected_jobs("scale")
+    s8 = selected_jobs("scale", "S8")
+    s20 = selected_jobs("scale", "S20")
+    assert len(full) == 12 and len(s8) == len(s20) == 6
+    assert {j["job_id"] for j in full} == {j["job_id"] for j in s8 + s20}
+    for profile in ("S8", "S20"):
+        by_seed = [selected_jobs("scale", profile, seed) for seed in (7, 19, 41)]
+        assert all(len(s) == 2 for s in by_seed)
+        assert {j["job_id"] for batch in by_seed for j in batch} == {
+            j["job_id"] for j in selected_jobs("scale", profile)
+        }
+    import pytest
+    with pytest.raises(ValueError):
+        selected_jobs("core", "S8")
+    with pytest.raises(ValueError):
+        selected_jobs("scale", "S20", 999)
