@@ -13,8 +13,8 @@
   "v153_executed_gpu_jobs": 0,
   "deliverables": {
     "completion_plan": "WRITTEN",
-    "anti_shortcut_route_benchmark": "IMPLEMENTED_AWAITING_CI",
-    "anti_shortcut_route_cpu_tests": "IMPLEMENTED_AWAITING_CI",
+    "anti_shortcut_route_benchmark": "IMPLEMENTED_CPU_CI_VERIFIED",
+    "anti_shortcut_route_cpu_tests": "PASSED",
     "frozen_checkpoint_inference": "NOT_IMPLEMENTED",
     "original_v71_full_weights_independently_restored": "NOT_VERIFIED",
     "memory_correction_equal_length": "NOT_RUN",
@@ -26,5 +26,21 @@
   },
   "scientific_conclusion": "CAUSE UNRESOLVED",
   "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
-  "disclaimer": "No Kaggle run was launched by this commit; no new V.153 neural inference or training results exist."
+  "disclaimer": "No Kaggle run was launched by this commit; no new V.153 neural inference or training results exist.",
+  "latest_verified_engineering_commit": "4e910c7b316a6cb0e63b75f63489945bd23ade67",
+  "latest_verified_ci": {
+    "run_id": 42577368035,
+    "status": "SUCCESS",
+    "pytest_passed": 354,
+    "additional_subtests_passed": 14,
+    "warning_count": 1
+  },
+  "anti_shortcut_dev_suite": {
+    "worlds": 16,
+    "cohorts": 24,
+    "case_records": 384,
+    "planned_paired_contrasts": 20,
+    "reference": "anra_v5/elendril/v153_diagnostics.py",
+    "qualification": "CPU test/engineering only, not neural inference"
+  }
 }
