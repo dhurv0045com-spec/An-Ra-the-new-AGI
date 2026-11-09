@@ -17,10 +17,12 @@ def test_default_is_actual_scale_launch_without_attachment():
     ast.parse(cfg)
     ast.parse(launch)
     assert re.search(r"RUN_STUDY\s*=\s*True", cfg)
-    assert 'PHASE = "scale"' in cfg
+    assert 'PHASE = "scale-s8"' in cfg
     assert "PARENT_ARCHIVE = None" in cfg
     assert "tools.elendril_v715_diagnostic_campaign" in launch
     assert "tools.elendril_v71_campaign" in launch
+    assert "--profile-subset" in launch
+    assert "--seed-subset" in launch
     assert "git" in launch and "SOURCE_SHA" in launch
     assert "pip install" not in json.dumps(notebook)
 

@@ -2,7 +2,7 @@
   "schema": "elendril-v715-release-status-v2",
   "label": "V7.15",
   "date": "2026-11-09",
-  "program_status": "ENGINEERING_CI_VERIFIED_OWNER_GPU_NOT_RUN",
+  "program_status": "SOURCE_REPIN_REQUIRED_AFTER_SCALE_BATCH_ENHANCEMENT",
   "predecessor_reference": {
     "version": "V7.1",
     "run_id": "20c80f66e76e4b589aed2053afbddffc",
@@ -49,12 +49,24 @@
   "release": {
     "notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
     "immutable_source_sha": "629ffc48db4183c2356e83196ff03cec021fdb6b",
-    "default_phase": "scale",
+    "default_phase": "scale-s8",
     "phases": {
       "scale": {
         "status": "ENGINEERING_READY_GPU_NOT_RUN",
         "registered_jobs": 12,
-        "requires_parent": false
+        "requires_parent": false,
+        "predeclared_batches": [
+          "S8 (six jobs)",
+          "S20 seed7 (two jobs)",
+          "S20 seed19 (two jobs)",
+          "S20 seed41 (two jobs)"
+        ],
+        "fallback_s8": [
+          "S8 seed7",
+          "S8 seed19",
+          "S8 seed41"
+        ],
+        "matrix_completion": "ALL_TWELVE_UNIQUE_JOB_IDS"
       },
       "diagnostics": {
         "status": "IMPLEMENTED_GPU_NOT_RUN",

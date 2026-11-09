@@ -19,9 +19,11 @@ def build(source):
         raise ValueError("immutable 40-hex source SHA required")
     intro = f"""# ELENDRIL V7.15 — Kaggle T4×2
 
-**Run All** begins the 12-job S8/S20 scale study by default, after existing
-reproducibility and capacity checks. All three seeds and both registered
-uniform/blocked methods are preserved. No external input is required.
+**Run All** begins the first fixed six-job S8 scale batch by default, after existing
+reproducibility and capacity checks. Six S8 jobs include all three seeds and
+both registered uniform/blocked methods. No external input is required.
+Additional predeclared batches cover S20 by seed; all 12 together complete
+the original scaling matrix without dropping difficult runs.
 
 Optional phases: diagnostics (all nine frozen S3 V7.1 checkpoints; 1,120
 development cases and both decoders); continual (nine A-to-B learning
@@ -46,7 +48,7 @@ Markdown/JSON; retain original large Kaggle ZIP files externally.
     config = f"""from pathlib import Path
 SOURCE_SHA = "{source}"
 RUN_STUDY = True
-PHASE = "scale"  # scale / diagnostics / continual / historic-frozen
+PHASE = "scale-s8"  # scale-s8 / scale-s20-seed7,19,41 / scale-all / diagnostics / continual / historic-frozen
 MINUTES = 330
 PARENT_ARCHIVE = None  # Set Kaggle input path to matching original FULL ZIP for non-scale phases.
 PARENT_OUTPUT = None   # Optional existing verified extracted parent for continual/historic-frozen only.
@@ -65,7 +67,9 @@ if RUN_STUDY:
     try:
         if not re.fullmatch("[0-9a-f]{40}", SOURCE_SHA):
             raise ValueError("invalid source SHA")
-        if PHASE not in ("scale", "diagnostics", "continual", "historic-frozen"):
+        if PHASE not in ("scale-all", "scale-s8", "scale-s20", "scale-s8-seed7", "scale-s8-seed19", "scale-s8-seed41",
+                         "scale-s20-seed7", "scale-s20-seed19", "scale-s20-seed41",
+                         "diagnostics", "continual", "historic-frozen"):
             raise ValueError("unknown V7.15 phase")
         if type(MINUTES) not in (int, float) or not 0 < MINUTES <= 330:
             raise ValueError("invalid owner session minutes")
@@ -73,7 +77,7 @@ if RUN_STUDY:
             raise ValueError("select parent archive or extracted directory, not both")
         if PHASE == "diagnostics" and (PARENT_ARCHIVE is None or PARENT_OUTPUT is not None or RESTORE_ARCHIVE is not None):
             raise ValueError("diagnostics needs V7.1 core FULL ZIP through PARENT_ARCHIVE")
-        if PHASE == "scale" and (PARENT_ARCHIVE is not None or PARENT_OUTPUT is not None):
+        if PHASE.startswith("scale") and (PARENT_ARCHIVE is not None or PARENT_OUTPUT is not None):
             raise ValueError("scale uses fresh weights and no parent")
         if PHASE in ("continual", "historic-frozen") and PARENT_ARCHIVE is None and PARENT_OUTPUT is None:
             raise ValueError("phase requires its original FULL archive or previously extracted parent")
@@ -100,7 +104,7 @@ if RUN_STUDY:
                    "--parent-archive", str(PARENT_ARCHIVE), "--owner-enabled",
                    "--minutes", str(MINUTES)]
         else:
-            old_phase = "frozen" if PHASE == "historic-frozen" else PHASE
+            old_phase = "frozen" if PHASE == "historic-frozen" else "scale" if PHASE.startswith("scale") else PHASE
             if RESTORE_ARCHIVE is not None:
                 if OUTPUT.exists() or OUTPUT.is_symlink():
                     raise ValueError("restore requires a new destination")
@@ -124,6 +128,15 @@ if RUN_STUDY:
                    "--minutes", str(MINUTES), "--owner-enabled"]
             if parent is not None:
                 cmd += ["--parent-output", str(parent)]
+            if PHASE.startswith("scale"):
+                profile = ("S8" if PHASE.startswith("scale-s8") else
+                           "S20" if PHASE.startswith("scale-s20") else None)
+                seed = next((str(s) for s in (7, 19, 41)
+                             if PHASE.endswith("-seed" + str(s))), None)
+                if profile:
+                    cmd += ["--profile-subset", profile]
+                if seed:
+                    cmd += ["--seed-subset", seed]
         subprocess.run(cmd, cwd=REPO, env=env, check=True)
         print("Phase finished. Treat model performance and engineering delivery separately.")
     except Exception as exc:
