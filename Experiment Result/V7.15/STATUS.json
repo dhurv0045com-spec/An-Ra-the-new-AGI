@@ -24,7 +24,7 @@
     "old_v7_frozen_phase": "NOT_RUN_OPTIONAL",
     "data_scaling": "PROPOSED_NOT_REGISTERED",
     "portable_benchmark_generator": "IMPLEMENTED_CPU_CI_VERIFIED",
-    "notebook": "REPUBLISHED_SOURCE_PINNED_AWAITING_OWNER_GPU"
+    "notebook": "REPUBLISHED_PINNED_BATCHED_SOURCE"
   },
   "scientific_conclusion": "CAUSE UNRESOLVED: no V7.15 neural results.",
   "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
@@ -48,7 +48,7 @@
   },
   "release": {
     "notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
-    "immutable_source_sha": "eda65348ebeb8b7ac68f530c60a363bf22569977",
+    "immutable_source_sha": "e5779922a0072a070f64356f38ea47090e543d6a",
     "default_phase": "scale-s8",
     "phases": {
       "scale": {
