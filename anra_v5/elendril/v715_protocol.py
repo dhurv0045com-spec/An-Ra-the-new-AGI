@@ -24,6 +24,8 @@ def protocol():
         "cohorts": {
             "paired_surface": {"worlds": 16, "conditions": 32, "case_records": 512},
             "anti_shortcut": {"worlds": 16, "conditions": 24, "case_records": 384},
+            "memory_correction": {"worlds": 16, "conditions": 6, "case_records": 96},
+            "evidence_query": {"conditions": 2, "case_records": 128},
         },
         "evaluation_decoders": ["raw-neural", "engineered-legal-grammar"],
         "limits": {

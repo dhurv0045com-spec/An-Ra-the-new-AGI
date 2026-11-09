@@ -22,7 +22,8 @@ from anra_v5.elendril.v715_protocol import (
 )
 from anra_v5.elendril.v715_diagnostics import build_suite as build_anti, audit as audit_anti
 from anra_v5.elendril.v71_followup import build_suite as build_paired, audit as audit_paired
-from anra_v5.elendril.v71_data import suite_to_record, suite_from_record
+from anra_v5.elendril.v71_data import suite_to_record, suite_from_record, build_suite as build_v71, assert_training_disjoint
+from anra_v5.elendril.v715_memory import build_suite as build_memory, audit as audit_memory
 from anra_v5.elendril.v71_protocol import PROTOCOL_SHA as V71_SHA
 from anra_v5.elendril.v71_evaluation import verify_suite
 from anra_v5.elendril.v6_data import read_dataset
@@ -40,18 +41,26 @@ ARCHIVE_NAME = "ELENDRIL_V715_ANALYSIS.zip"
 def suite_and_audit(train):
     paired = build_paired(seed=17071)
     anti = build_anti(seed=SEED)
+    memory = build_memory(seed=17071)
+    original = build_v71(seed=17071)
+    query = {name: original[name] for name in ("query-crossed", "balanced-payload")}
     left, right = audit_paired(paired, seed=17071, train=train), audit_anti(anti, seed=SEED, train=train)
-    if left["status"] != "PASS" or right["status"] != "PASS":
+    mem = audit_memory(memory, seed=17071, train=train)
+    query_disjoint = assert_training_disjoint(train, query)
+    if left["status"] != "PASS" or right["status"] != "PASS" or mem["status"] != "PASS":
         raise ValueError("development diagnostic data failed qualification")
-    if left["actual_training_disjoint"]["status"] != "PASS" or right["training_disjoint"]["status"] != "PASS":
+    if (left["actual_training_disjoint"]["status"] != "PASS" or right["training_disjoint"]["status"] != "PASS"
+            or mem["training_disjoint"]["status"] != "PASS" or query_disjoint["status"] != "PASS"):
         raise ValueError("actual training-world/state disjointness not proven")
     combined = {
         **{"paired/" + k: v for k, v in paired.items()},
         **{"anti/" + k: v for k, v in anti.items()},
+        **{"memory/" + k: v for k, v in memory.items()},
+        **{"evidence/" + k: v for k, v in query.items()},
     }
-    if len(combined) != 56 or sum(len(v) for v in combined.values()) != 896:
+    if len(combined) != 64 or sum(len(v) for v in combined.values()) != 1120:
         raise ValueError("frozen suite coverage mismatch")
-    return combined, {"paired": left, "anti": right}
+    return combined, {"paired": left, "anti": right, "memory": mem, "query_disjoint": query_disjoint}
 
 
 def _identity(output, source):
@@ -120,7 +129,7 @@ def _replay(output, suite, expected):
             if row["evaluation"]["conditions"] != sorted(suite):
                 raise ValueError("frozen report missing a registered condition")
             counts["reports"] += 1
-            counts["episodes"] += 896
+            counts["episodes"] += sum(len(v) for v in suite.values())
     return {"status": "PASS", **counts,
             "qualification": "Recorded public actions/outcomes replayed; fresh neural probabilities not regenerated."}
 
@@ -144,7 +153,7 @@ def _summary(output):
                     "both_correct_pairs": item["both_correct_pairs"],
                 })
     return {"schema": "elendril-v715-frozen-summary-v1", "rows": rows,
-            "qualification": "56 development cohorts and related synthetic worlds; CAUSE UNRESOLVED"}
+            "qualification": "64 related synthetic development cohorts; CAUSE UNRESOLVED"}
 
 
 def _zip(output):

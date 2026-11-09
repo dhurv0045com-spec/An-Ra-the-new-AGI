@@ -41,3 +41,5 @@ def test_disallows_unqualified_frozen_suite_without_training():
     from anra_v5.elendril.v715_diagnostics import build_suite
     from anra_v5.elendril.v71_followup import build_suite as paired
     assert len(build_suite()) == 24 and len(paired()) == 32
+    from anra_v5.elendril.v715_memory import build_suite as memory
+    assert len(memory()) == 6
