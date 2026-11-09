@@ -2,7 +2,7 @@
   "schema": "elendril-v715-release-status-v2",
   "label": "V7.15",
   "date": "2026-11-09",
-  "program_status": "ENGINEERING_RELEASE_PREPARING_GPU_NOT_RUN",
+  "program_status": "NOTEBOOK_PUBLISHED_GPU_RESEARCH_NOT_RUN",
   "predecessor_reference": {
     "version": "V7.1",
     "run_id": "20c80f66e76e4b589aed2053afbddffc",
@@ -24,7 +24,7 @@
     "old_v7_frozen_phase": "NOT_RUN_OPTIONAL",
     "data_scaling": "PROPOSED_NOT_REGISTERED",
     "portable_benchmark_generator": "IMPLEMENTED_CPU_CI_VERIFIED",
-    "notebook": "BUILDER_IMPLEMENTED_PINNED_NOTEBOOK_PENDING_RELEASE"
+    "notebook": "PUBLISHED_SOURCE_PINNED_AWAITING_OWNER_GPU"
   },
   "scientific_conclusion": "CAUSE UNRESOLVED: no V7.15 neural results.",
   "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
@@ -48,7 +48,7 @@
   },
   "release": {
     "notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
-    "immutable_source_sha": "PENDING_NOTEBOOK_PUBLICATION",
+    "immutable_source_sha": "629ffc48db4183c2356e83196ff03cec021fdb6b",
     "default_phase": "scale",
     "phases": {
       "scale": {

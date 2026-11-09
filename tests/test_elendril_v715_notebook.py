@@ -29,3 +29,13 @@ def test_rejects_nonimmutable_source():
     for bad in ("", "main", "Elendril", "x"*40, "0"*39):
         with pytest.raises(ValueError):
             build(bad)
+
+
+def test_published_notebook_reconstructs_exactly_from_pinned_builder():
+    from pathlib import Path
+    notebook = Path(__file__).resolve().parents[1] / "notebooks" / "ELENDRIL_V715_KAGGLE_T4X2.ipynb"
+    published = json.loads(notebook.read_text(encoding="utf-8"))
+    source = published["metadata"]["source_reference"]
+    assert published == build(source)
+    assert published["cells"][1]["cell_type"] == "code"
+    assert len(published["cells"]) == 3
