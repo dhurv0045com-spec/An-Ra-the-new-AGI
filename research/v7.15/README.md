@@ -1,7 +1,8 @@
 # V7.15 — Elendril research release
 
-**Exact version: V7.15.** V7.1 core results remain historically separate. This release adds source-pinned Kaggle execution for scale, frozen diagnostics, continual learning and historical V7 comparison. **CPU/publication qualification passed (372 tests, 14 subtests); actual V7.15 GPU phases still require owner Kaggle execution.**
+**Exact version: V7.15.** V7.1 core results remain historically separate. This release adds source-pinned Kaggle execution for scale, frozen diagnostics, continual learning and historical V7 comparison. CPU and publication qualification passed with 372 tests and 14 subtests. The owner S8 GPU batch has since executed and its analysis passed independent replay.
 
+- [Archived S8 results and next steps](../../Experiment%20Result/V7.15/3981e34a2ffe4b4b9528b4b4d588883b/RESULTS.md)
 - [Kaggle notebook and detailed launch instructions](RELEASE.md)
 - [Completion plan, scientific gates and additional future studies](COMPLETION_PLAN.md)
 - [Current experiment delivery status](../../Experiment%20Result/V7.15/STATUS.json)

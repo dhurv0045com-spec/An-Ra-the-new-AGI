@@ -161,3 +161,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-09 | Codex | Preserve concurrent independent review
 - Integrated the newly pushed V7.1 Markdown research review while retaining the requested curated-file cleanup.
 - Resolved the README conflict and marked its raw-file inventory as historical to the reviewed source snapshot.
+
+### 2026-11-10 | Codex | Archive V7.15 S8 owner results
+- Verified the analysis ZIP, six registered jobs, 38 replay reports and four positive-control records.
+- Saved curated Markdown and JSON with matched S3 comparisons, compute, failure traces and provenance.
+- Recorded S8 execution separately from pending FULL/final delivery verification, S20 and frozen diagnostics.
+- Documented the next experiment and exact notebook phase and parent requirements.

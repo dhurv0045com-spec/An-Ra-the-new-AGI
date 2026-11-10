@@ -1,6 +1,8 @@
 # V7.15 — Result custody
 
-No V7.15 owner GPU run has yet been independently verified and archived. Historical V7.1 results are NOT new V7.15 observations.
+The owner S8 batch completed all six jobs. The analysis archive passed independent action replay. Final delivery and FULL-checkpoint verification are pending.
+
+- [S8 results, failure analysis and next steps](3981e34a2ffe4b4b9528b4b4d588883b/RESULTS.md)
 
 - [Current precise research/engineering status](STATUS.json)
 - [V7.15 source-pinned Kaggle launch](../../research/v7.15/RELEASE.md)

@@ -8,7 +8,7 @@ This is a **results folder only**. It is not an instruction to Codex and does no
 
 - **[V6 — Results of all 19 registered panels](V6/RESULTS.md)**: 15 primary evaluations, four exploratory probes, 14 training-arm results, measured failure patterns, limitations, and provenance.
 
-- **[V7.15 — Completion status and future result custody](V7.15/README.md)**: V7.1-derived completion workstream; CPU-verified anti-shortcut diagnostics, future GPU phases explicitly NOT_RUN. This is a status record, not a completed V7.15 scientific result.
+- **[V7.15 — Six-job S8 scale results](V7.15/3981e34a2ffe4b4b9528b4b4d588883b/RESULTS.md)**. Per-seed comparisons with S3, replay verification, failures and the next diagnostic phase.
 
 ## Filing rules for future research
 
