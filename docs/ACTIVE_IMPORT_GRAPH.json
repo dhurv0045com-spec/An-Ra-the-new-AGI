@@ -147,6 +147,22 @@
     "anra_v5/elendril/v6_evaluation.py",
     "anra_v5/elendril/v6_registry.py"
   ],
+  "anra_v5/elendril/v715_diagnostics.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v71_data.py"
+  ],
+  "anra_v5/elendril/v715_memory.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v71_data.py"
+  ],
+  "anra_v5/elendril/v715_protocol.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/v71_protocol.py"
+  ],
   "anra_v5/elendril/v71_data.py": [
     "anra_v5/elendril/codec.py",
     "anra_v5/elendril/cognition.py",
@@ -304,6 +320,10 @@
     "anra_v5/elendril/representation.py"
   ],
   "tests/test_elendril_result_curation.py": [],
+  "tests/test_elendril_s20_notebook.py": [
+    "tools/build_elendril_s20_notebook.py",
+    "tools/elendril_v71_campaign.py"
+  ],
   "tests/test_elendril_tree.py": [
     "tools/audit_tree.py"
   ],
@@ -370,6 +390,32 @@
   ],
   "tests/test_elendril_v6_worker.py": [
     "tools/elendril_v6_worker.py"
+  ],
+  "tests/test_elendril_v715_diagnostic_campaign.py": [
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v715_diagnostics.py",
+    "anra_v5/elendril/v715_memory.py",
+    "anra_v5/elendril/v715_protocol.py",
+    "anra_v5/elendril/v71_data.py",
+    "anra_v5/elendril/v71_followup.py",
+    "tools/elendril_v715_diagnostic_campaign.py"
+  ],
+  "tests/test_elendril_v715_diagnostics.py": [
+    "anra_v5/elendril/cognition.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v715_diagnostics.py",
+    "anra_v5/elendril/v71_data.py"
+  ],
+  "tests/test_elendril_v715_memory.py": [
+    "anra_v5/elendril/v715_memory.py"
+  ],
+  "tests/test_elendril_v715_notebook.py": [
+    "tools/build_elendril_v715_notebook.py"
+  ],
+  "tests/test_elendril_v715_worker.py": [
+    "anra_v5/elendril/v715_protocol.py",
+    "anra_v5/elendril/v71_protocol.py",
+    "tools/elendril_v715_worker.py"
   ],
   "tests/test_elendril_v71_campaign.py": [
     "anra_v5/elendril/representation.py",
@@ -508,6 +554,11 @@
     "anra_v5/elendril/v6_data.py",
     "anra_v5/elendril/v7_training.py"
   ],
+  "tests/test_qualify_elendril_v715.py": [
+    "anra_v5/elendril/v715_diagnostics.py",
+    "anra_v5/elendril/v71_data.py",
+    "tools/qualify_elendril_v715.py"
+  ],
   "tests/test_v5_checkpointing.py": [
     "v5_checkpointing.py",
     "v5_training/checkpoint.py"
@@ -534,6 +585,15 @@
     "tools/elendril_v7_campaign.py",
     "tools/elendril_v7_export.py",
     "tools/elendril_v7_report.py"
+  ],
+  "tools/analyze_elendril_v715_s8.py": [
+    "anra_v5/elendril/codec.py",
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v71_data.py",
+    "anra_v5/elendril/v71_protocol.py",
+    "anra_v5/elendril/v7_measurement.py",
+    "tools/analyze_elendril_v71_results.py",
+    "tools/elendril_v6_export.py"
   ],
   "tools/analyze_elendril_v71_results.py": [
     "anra_v5/elendril/v6_data.py",
@@ -565,9 +625,13 @@
   "tools/build_elendril_action_notebooks.py": [
     "tools/elendril_action_cloud.py"
   ],
+  "tools/build_elendril_s20_notebook.py": [
+    "tools/build_elendril_v715_notebook.py"
+  ],
   "tools/build_elendril_v6_notebook.py": [
     "anra_v5/elendril/v6_registry.py"
   ],
+  "tools/build_elendril_v715_notebook.py": [],
   "tools/build_elendril_v71_notebook.py": [],
   "tools/build_elendril_v7_notebook.py": [],
   "tools/compare_elendril_pairs.py": [],
@@ -609,6 +673,38 @@
     "tools/elendril_action_cloud.py",
     "tools/elendril_cloud.py",
     "tools/elendril_v6_export.py",
+    "v5_training/checkpoint.py"
+  ],
+  "tools/elendril_v715_diagnostic_campaign.py": [
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v715_diagnostics.py",
+    "anra_v5/elendril/v715_memory.py",
+    "anra_v5/elendril/v715_protocol.py",
+    "anra_v5/elendril/v71_data.py",
+    "anra_v5/elendril/v71_evaluation.py",
+    "anra_v5/elendril/v71_followup.py",
+    "anra_v5/elendril/v71_protocol.py",
+    "tools/elendril_cloud.py",
+    "tools/elendril_v6_campaign.py",
+    "tools/elendril_v6_export.py",
+    "tools/elendril_v71_campaign.py",
+    "tools/elendril_v71_export.py",
+    "v5_training/checkpoint.py"
+  ],
+  "tools/elendril_v715_worker.py": [
+    "anra_v5/elendril/backend.py",
+    "anra_v5/elendril/representation.py",
+    "anra_v5/elendril/training.py",
+    "anra_v5/elendril/v6_evaluation.py",
+    "anra_v5/elendril/v6_registry.py",
+    "anra_v5/elendril/v715_protocol.py",
+    "anra_v5/elendril/v71_data.py",
+    "anra_v5/elendril/v71_evaluation.py",
+    "anra_v5/elendril/v71_policy.py",
+    "tools/elendril_cloud.py",
+    "tools/elendril_v6_export.py",
+    "tools/elendril_v6_worker.py",
+    "v5_model/core.py",
     "v5_training/checkpoint.py"
   ],
   "tools/elendril_v71_campaign.py": [
@@ -709,6 +805,11 @@
     "v5_training/checkpoint.py"
   ],
   "tools/plot_elendril_foundation.py": [],
+  "tools/qualify_elendril_v715.py": [
+    "anra_v5/elendril/v6_data.py",
+    "anra_v5/elendril/v715_diagnostics.py",
+    "anra_v5/elendril/v71_data.py"
+  ],
   "tools/verify_elendril_evidence.py": [
     "anra_v5/elendril/__main__.py"
   ],

@@ -167,3 +167,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Saved curated Markdown and JSON with matched S3 comparisons, compute, failure traces and provenance.
 - Recorded S8 execution separately from pending FULL/final delivery verification, S20 and frozen diagnostics.
 - Documented the next experiment and exact notebook phase and parent requirements.
+
+### 2026-11-11 | Codex | Prepare S20 campaign from measured S8 budget
+- Added a dedicated automatic S20 Kaggle notebook builder for all six registered four-epoch jobs.
+- Used twice S8 observed time as a 91-minute planning target and twice its conservative forecast as a 200-minute campaign allowance.
+- Preserved whole-batch capacity admission, recovery and dual exports; S20 GPU qualification remains owner-run.
