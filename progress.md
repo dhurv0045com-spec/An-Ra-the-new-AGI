@@ -172,3 +172,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added a dedicated automatic S20 Kaggle notebook builder for all six registered four-epoch jobs.
 - Used twice S8 observed time as a 91-minute planning target and twice its conservative forecast as a 200-minute campaign allowance.
 - Preserved whole-batch capacity admission, recovery and dual exports; S20 GPU qualification remains owner-run.
+
+### 2026-11-11 | Codex | Publish pinned S20 owner notebook
+- Published the dedicated S20 notebook from source 4cc1e993 with automatic whole-batch launch and download links.
+- Sixteen launch, campaign and immutable-publication checks passed, including rebuilding the notebook from its pinned Git tree.
+- Owner-run T4 canaries and research execution remain pending.
