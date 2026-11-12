@@ -748,7 +748,8 @@ def test_promotion_gate_admits_only_the_preregistered_thresholds(tmp_path):
     def mechanism_output(correct_by_seed):
         root = tmp_path / ("mech-" + str(abs(hash(tuple(correct_by_seed.items())))))
         (root / "analysis").mkdir(parents=True, exist_ok=True)
-        summary = {"arm_aggregates": {"H4-OUTCOME-DELIB": {
+        summary = {"status": "AVAILABLE", "primary_decoder": "raw-neural",
+                   "arm_aggregates": {"H4-OUTCOME-DELIB": {
             "jobs": {f"H4-OUTCOME-DELIB-s{seed}": {
                 "base": {"correct": correct, "episodes": 112}}
                 for seed, correct in correct_by_seed.items()}}}}
@@ -780,6 +781,57 @@ def test_promotion_gate_admits_only_the_preregistered_thresholds(tmp_path):
     with pytest.raises(ValueError, match="no final evaluation"):
         promotion_gate("H9-UNREGISTERED",
                        mechanism_output({7: 94, 19: 93, 41: 92}), evidence)
+
+
+def test_v16_primary_report_uses_raw_not_grammar_assisted_scores(tmp_path):
+    """Grammar-verified perfection cannot authorize a failed raw policy."""
+    from tools.elendril_v716_report import write_summary
+
+    job_id = "H4-OUTCOME-DELIB-s7"
+    directory = tmp_path / "analysis" / "jobs" / job_id
+    directory.mkdir(parents=True)
+    raw = {"grammar": False, "update": 2368, "checkpoint": "raw-checkpoint",
+           "evaluation": {"cause_status": "CAUSE_UNRESOLVED",
+                          "metrics": {"base": {"all": {"correct": 2, "episodes": 112}}}}}
+    grammar = {"grammar": True, "update": 2368, "checkpoint": "same-checkpoint",
+               "evaluation": {"cause_status": "CAUSE_UNRESOLVED",
+                              "metrics": {"base": {"all": {"correct": 112,
+                                                           "episodes": 112}}}}}
+    (directory / "epoch-4.json").write_bytes(canonical(raw))
+    (directory / "grammar-final.json").write_bytes(canonical(grammar))
+    report = write_summary(tmp_path, campaign={"registered_job_ids": [job_id]})
+    assert report["status"] == "AVAILABLE"
+    assert report["primary_decoder"] == "raw-neural"
+    assert report["arm_aggregates"]["H4-OUTCOME-DELIB"]["base"] == {
+        "correct": 2, "episodes": 112, "accuracy": 2 / 112}
+    assert any(row["mode"] == "grammar" and row["correct"] == 112
+               for row in report["rows"])
+    assert any(row["mode"] == "free" and row["correct"] == 2
+               for row in report["rows"])
+
+
+def test_v16_promotion_rejects_legacy_or_incomplete_primary_summaries(tmp_path):
+    from tools.elendril_v716_campaign import promotion_gate
+
+    path = tmp_path / "analysis" / "summary.json"
+    path.parent.mkdir(parents=True)
+    jobs = {f"H4-OUTCOME-DELIB-s{seed}": {"base": {"correct": 100,
+                                                    "episodes": 112}}
+            for seed in (7, 19, 41)}
+    base = {"status": "AVAILABLE", "primary_decoder": "raw-neural",
+            "arm_aggregates": {"H4-OUTCOME-DELIB": {"jobs": jobs}}}
+    path.write_bytes(canonical({**base, "primary_decoder": "grammar"}))
+    with pytest.raises(ValueError, match="raw-neural"):
+        promotion_gate("H4-OUTCOME-DELIB", tmp_path, None)
+    path.write_bytes(canonical({**base, "status": "PARTIAL"}))
+    with pytest.raises(ValueError, match="complete"):
+        promotion_gate("H4-OUTCOME-DELIB", tmp_path, None)
+    wrong = {name: dict(value) for name, value in jobs.items()}
+    wrong["H4-OUTCOME-DELIB-s7"] = {"base": {"correct": 100, "episodes": 111}}
+    path.write_bytes(canonical({**base, "arm_aggregates": {
+        "H4-OUTCOME-DELIB": {"jobs": wrong}}}))
+    with pytest.raises(ValueError, match="112 valid raw observations"):
+        promotion_gate("H4-OUTCOME-DELIB", tmp_path, None)
 
 
 def test_report_identity_separates_delegated_stages_and_falls_back_exactly(tmp_path):

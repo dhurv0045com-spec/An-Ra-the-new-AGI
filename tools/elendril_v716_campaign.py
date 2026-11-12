@@ -15,6 +15,7 @@ import json
 import math
 from pathlib import Path
 from queue import Queue, Empty
+from threading import Lock
 import re
 import shutil
 import subprocess
@@ -94,6 +95,10 @@ def promotion_gate(arm, mechanism_output, evidence_path):
     if not path.is_file():
         raise ValueError("promotion requires the mechanism-phase summary")
     summary = json.loads(path.read_bytes())
+    # A grammar-constrained evaluator is not a substitute for learned
+    # free-decoding. Old or partial summaries have no promotion authority.
+    if summary.get("status") != "AVAILABLE" or summary.get("primary_decoder") != "raw-neural":
+        raise ValueError("promotion requires a complete raw-neural primary summary")
     entry = (summary.get("arm_aggregates") or {}).get(arm)
     if not entry or "jobs" not in entry:
         raise ValueError(f"mechanism summary carries no final evaluation for {arm}")
@@ -105,9 +110,17 @@ def promotion_gate(arm, mechanism_output, evidence_path):
         seed = int(match.group(1))
         base = cohorts.get("base")
         if base:
+            if seed in seeds:
+                raise ValueError("promotion summary duplicates a registered seed")
             seeds[seed] = base
     if sorted(seeds) != sorted(SEEDS):
         raise ValueError("promotion gate requires all three registered seeds")
+    if any(type(row.get("correct")) is not int
+           or type(row.get("episodes")) is not int
+           or row["episodes"] != 112
+           or not 0 <= row["correct"] <= row["episodes"]
+           for row in seeds.values()):
+        raise ValueError("promotion requires exactly 112 valid raw observations per seed")
     aggregate = sum(row["correct"] for row in seeds.values())
     observations = sum(row["episodes"] for row in seeds.values())
     if observations != 336:
@@ -124,9 +137,9 @@ def promotion_gate(arm, mechanism_output, evidence_path):
             raise ValueError("promotion evidence schema mismatch")
         stale = evidence.get("stale_memory_corrected")
         consistency = evidence.get("row_reversal_consistency")
-        if not isinstance(stale, int) or not 0 <= stale <= 48:
+        if type(stale) is not int or not 0 <= stale <= 48:
             raise ValueError("promotion evidence stale-memory score must be X/48")
-        if not isinstance(consistency, (int, float)) or not 0 <= consistency <= 1:
+        if type(consistency) not in (int, float) or not math.isfinite(consistency) or not 0 <= consistency <= 1:
             raise ValueError("promotion evidence row-reversal consistency must be in [0,1]")
         checks["stale_memory"] = f"{stale}/48"
         checks["stale_memory_pass"] = stale >= 28
@@ -415,6 +428,10 @@ def run(*, output, source, phase="mechanism", owner_enabled=False, minutes=330,
         if estimate["seconds"] > deadline - time.monotonic():
             raise ValueError("whole registered slice exceeds measured remaining capacity; "
                              "DEFERRED, no silent matrix reduction")
+        # Worker lanes may finish together; V7.16 post-transport renaming is
+        # outside the lower V7 export writer lock. Keep all snapshot and
+        # readback phases serialized while preserving parallel GPU workers.
+        export_lock = Lock()
         pending = Queue()
         for job in registered:
             pending.put(job)
@@ -484,8 +501,9 @@ def run(*, output, source, phase="mechanism", owner_enabled=False, minutes=330,
                 print(job["job_id"] + ": " + row["status"], flush=True)
                 if row["status"] == "ERROR":
                     print(json.dumps(row, indent=2), flush=True)
-                export_results(output, source=source, protocol_sha=PROTOCOL_SHA,
-                               campaign=campaign, full=False, rescore=rescore)
+                with export_lock:
+                    export_results(output, source=source, protocol_sha=PROTOCOL_SHA,
+                                   campaign=campaign, full=False, rescore=rescore)
             return rows
 
         with ThreadPoolExecutor(max_workers=2) as pool:

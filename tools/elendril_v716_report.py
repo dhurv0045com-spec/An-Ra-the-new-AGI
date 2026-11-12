@@ -117,8 +117,13 @@ def write_summary(output, *, campaign=None):
                         continue
                     rows.append(_row(directory.name, identity, None, grammar, cohort,
                                      metrics, mode='grammar'))
-                arms[identity['arm'] or identity['mechanism'] or directory.name]\
-                    [directory.name] = grammar['evaluation']['metrics']
+                # Grammar-constrained decoding is a separate diagnostic. The
+                # preregistered primary outcome is the final RAW neural policy.
+                # Never use a grammar-assisted score for primary aggregates or
+                # downstream S8 admission.
+                if final_epoch is not None:
+                    arms[identity['arm'] or identity['mechanism'] or directory.name]\
+                        [directory.name] = final_epoch[1]['evaluation']['metrics']
                 if final_epoch is None and directory.name in registered:
                     missing.append({'job_id': directory.name,
                                     'reason': 'final epoch evaluation unavailable'})
@@ -139,22 +144,26 @@ def write_summary(output, *, campaign=None):
                 if cohort in metrics and metrics[cohort] is not None
                 and metrics[cohort].get('all')}
         for cohort in _AGGREGATE_COHORTS:
-            correct = sum(row["correct"] for row in entry["jobs"].values()
+            correct = sum(row[cohort]["correct"] for row in entry["jobs"].values()
                           if cohort in row)
-            episodes = sum(row["episodes"] for row in entry["jobs"].values()
+            episodes = sum(row[cohort]["episodes"] for row in entry["jobs"].values()
                            if cohort in row)
             if episodes:
                 entry[cohort] = {'correct': correct, 'episodes': episodes,
                                  'accuracy': correct / episodes}
         base = entry.get('base')
         if base and base['episodes'] % 112 == 0:
-            entry['confirmation_per_seed'] = base['correct'] // (base['episodes'] // 112)
+            entry['confirmation_per_seed'] = {
+                job_id: f"{cohorts['base']['correct']}/{cohorts['base']['episodes']}"
+                for job_id, cohorts in entry['jobs'].items() if 'base' in cohorts
+            }
             entry['confirmation_total'] = f"{base['correct']}/{base['episodes']}"
         aggregate[arm] = entry
     complete = (bool(registered) and all(job in seen_finals for job in registered)
                 and not [row for row in missing if row.get('job_id') in registered]
                 and not errors)
-    report = {'status': 'AVAILABLE' if complete and rows else
+    report = {'primary_decoder': 'raw-neural',
+              'status': 'AVAILABLE' if complete and rows else
               'PARTIAL' if rows or missing or errors else 'NOT_RUN',
               'cause_status': 'CAUSE_UNRESOLVED',
               'registered_jobs': registered, 'rows': rows, 'arm_aggregates': aggregate,
