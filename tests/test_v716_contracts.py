@@ -1066,3 +1066,50 @@ def test_notebook_builder_structure_defaults_pin_and_parent_guard():
         build("0" * 39)
     with pytest.raises(ValueError):
         build("A" * 40)
+
+
+def test_v16_owner_launch_profile_is_explicit_and_keeps_master_safe():
+    from tools.build_elendril_v716_notebook import build, build_owner_launch
+    source = "a" * 40
+    safe = build(source)
+    ready = build_owner_launch(source)
+    assert len(safe["cells"]) == 3 and len(ready["cells"]) == 4
+    assert "RUN_STUDY = False" in "".join(safe["cells"][1]["source"])
+    cfg = "".join(ready["cells"][1]["source"])
+    preflight = "".join(ready["cells"][2]["source"])
+    launch = "".join(ready["cells"][3]["source"])
+    assert "RUN_STUDY = True" in cfg
+    assert 'ARM_SUBSET = "H2B-NORM"' in cfg
+    assert "SEED_SUBSET = 7" in cfg
+    assert "PARENT_ARCHIVE = None" in cfg
+    assert ready["metadata"]["source_reference"] == source
+    assert ready["metadata"]["owner_enabled"] is True
+    assert "PINNED_PARENT_SHA256" in preflight
+    assert "V16 INPUT NO-GO" in preflight
+    assert "tools.elendril_v716_campaign" in launch
+    assert "RUN_STUDY = True" not in "".join(safe["cells"][1]["source"])
+    for index, cell in enumerate(ready["cells"]):
+        if cell["cell_type"] == "code":
+            compile("".join(cell["source"]), f"owner-cell-{index}", "exec")
+
+
+def test_v16_owner_launch_detects_only_sha_matching_zip(tmp_path):
+    """CPU fixture: refuse decoys, locate an authentic exact-hash input."""
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT
+    source = OWNER_FIRST_RUN_PREFLIGHT.split("# EXECUTE OWNER PREFLIGHT")[0]
+    namespace = {}
+    exec(compile(source, "owner-preflight-definitions", "exec"), namespace)
+    good = tmp_path / "z" / "random-name.zip"
+    good.parent.mkdir(parents=True)
+    good.write_bytes(b"fixture-full-archive-input")
+    wrong = tmp_path / "a.zip"
+    wrong.write_bytes(b"wrong-parent")
+    expected = hashlib.sha256(good.read_bytes()).hexdigest()
+    assert namespace["_find_parent_archive"](tmp_path, expected) == good
+    with pytest.raises(RuntimeError, match="none of the 2 attached ZIP files matches"):
+        namespace["_find_parent_archive"](tmp_path, "0" * 64)
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    with pytest.raises(RuntimeError, match="no ZIP files"):
+        namespace["_find_parent_archive"](empty, expected)
+

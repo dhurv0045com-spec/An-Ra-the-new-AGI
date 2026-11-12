@@ -5,6 +5,7 @@ on:
     branches:
       - review/v16-preflight-2026-11-12
       - opposing-star
+      - fix/v16-owner-launch-ready-2026-11-12
       - fix/v16-kaggle-disabled-false-success-2026-11-12
       - review/v16-final-custody-2026-11-12
   workflow_dispatch:
@@ -44,6 +45,16 @@ jobs:
           config = "".join(notebook["cells"][1]["source"])
           assert "RUN_STUDY = False" in config
           print("V16 cells parse and owner launch defaults OFF")
+          owner_path = Path("notebooks/ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb")
+          owner = json.loads(owner_path.read_text(encoding="utf-8"))
+          assert len(owner["cells"]) == 4
+          assert owner["metadata"]["source_reference"] == notebook["metadata"]["source_reference"]
+          assert "RUN_STUDY = True" in "".join(owner["cells"][1]["source"])
+          assert "RUN_STUDY = False" not in "".join(owner["cells"][1]["source"])
+          for idx, cell in enumerate(owner["cells"]):
+              if cell["cell_type"] == "code":
+                  compile("".join(cell["source"]), f"{owner_path}:cell{idx}", "exec")
+          print("Owner launch cells parse, parent hash preflight included, and research pin unchanged")
           PY
       - name: V16 bounded CPU contract tests
         run: python -m pytest -q tests/test_v716_contracts.py
