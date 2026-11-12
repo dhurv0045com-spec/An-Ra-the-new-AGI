@@ -42,3 +42,9 @@ jobs:
           PY
       - name: V16 bounded CPU contract tests
         run: python -m pytest -q tests/test_v716_contracts.py
+      - name: Repository-wide CPU regression
+        run: python -m pytest -q
+      - name: Evidence verification (fixtures only)
+        run: |
+          python -m elendril audit --output elendril-fixture-audit.json
+          python -m tools.verify_elendril_evidence
