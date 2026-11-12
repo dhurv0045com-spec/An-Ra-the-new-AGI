@@ -203,3 +203,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Campaign/report/notebook fixes: fresh-b reads `initial.json`, continual profiles one S3 shape via `_profile_conditions`, delegated stage identities map to `H6-ARK017-CONTINUAL`, and the notebook passes `--parent-archive` only when no extracted parent exists.
 - Added six contract tests (46 in the file): CPU stage-migration canary proving parent weights load, `selected_jobs` slices, profile conditions, promotion-gate admit/block matrix, delegated identity mapping, notebook builder structure/parse/parent guard.
 - Full suite 420 passed, 1 skipped, 14 subtests; GPU execution remains owner-run with status NOT_RUN, CAUSE_UNRESOLVED.
+
+### 2026-11-12 | OpenCode | Re-pin V7.16 notebook to the fixed tree
+- Regenerated `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` pinned to the review-iteration commit `d5ac75be`; the previous pin still carried the six defects.
+- Verified schema, safe default-off, both owner cells parse, the parent-flag guard and that the pinned tree contains the campaign, worker, custody files and the shared provenance helper.
+- Old pin `08407c95` must not be used for owner sessions; the fixed pin is `d5ac75be`.
