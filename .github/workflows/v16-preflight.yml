@@ -5,6 +5,7 @@ on:
     branches:
       - review/v16-preflight-2026-11-12
       - opposing-star
+      - fix/v16-correct-v71-core-parent-guidance-2026-11-13
       - review/v16-owner-input-diagnostic-2026-11-13
       - fix/v16-owner-launch-ready-2026-11-12
       - fix/v16-kaggle-disabled-false-success-2026-11-12
