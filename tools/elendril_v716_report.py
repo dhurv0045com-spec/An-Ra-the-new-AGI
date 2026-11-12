@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 
 from anra_v5.elendril.codec import canonical
+from anra_v5.elendril.v716_protocol import ARM_MECHANISMS
 from tools.elendril_v6_export import _write_derived
 
 _COLUMNS = ('job_id', 'arm', 'profile', 'mechanism', 'seed', 'epoch', 'update', 'checkpoint',
@@ -24,18 +25,37 @@ _AGGREGATE_COHORTS = ('base', 'memory-manipulations', 'hop-1', 'hop-2', 'hop-3',
                       'balanced-payload', 'robustness-row-order')
 
 
+_STAGE_JOB = re.compile(r'(S3|S8)-(b-only|replay|fresh-b|ark017-sparse)-ce-s(\d+)')
+_ARM_JOB = re.compile(r'(S8-)?(H\d[A-Z0-9-]+?)-s(\d+)')
+
+
 def _identity(directory):
+    """Registered arm identity from the saved request, else the job-id shape."""
     for path in sorted(directory.glob('*-request.json')):
         try:
             job = json.loads(path.read_bytes()).get('job', {})
-            if job.get('job_id') == directory.name:
-                return {key: job.get(key) for key in ('arm', 'profile', 'mechanism', 'seed')}
         except (OSError, ValueError, AttributeError):
             continue
-    match = re.fullmatch(r'(S3|S8)-([a-z0-9-]+)-s(\d+)', directory.name)
-    if match:
-        return {'arm': None, 'profile': match.group(1), 'mechanism': match.group(2),
-                'seed': int(match.group(3))}
+        if job.get('job_id') != directory.name:
+            continue
+        identity = {key: job.get(key) for key in ('arm', 'profile', 'mechanism', 'seed')}
+        if identity['arm'] is None and identity['mechanism'] == 'ce':
+            # Delegated v7.15 control jobs carry the v7.1 six-key identity; the
+            # registered V7.16 arm comes from the stage encoded in the job id
+            # so b-only/replay/fresh-b never merge into one 'ce' aggregate.
+            stage = _STAGE_JOB.fullmatch(directory.name)
+            if stage:
+                return {'arm': 'H6-ARK017-CONTINUAL', 'profile': stage.group(1),
+                        'mechanism': 'continual', 'seed': int(stage.group(3))}
+        return identity
+    stage = _STAGE_JOB.fullmatch(directory.name)
+    if stage:
+        return {'arm': 'H6-ARK017-CONTINUAL', 'profile': stage.group(1),
+                'mechanism': 'continual', 'seed': int(stage.group(3))}
+    arm = _ARM_JOB.fullmatch(directory.name)
+    if arm and arm.group(2) in ARM_MECHANISMS:
+        return {'arm': arm.group(2), 'profile': 'S8' if arm.group(1) else 'S3',
+                'mechanism': ARM_MECHANISMS[arm.group(2)], 'seed': int(arm.group(3))}
     return {'arm': None, 'profile': None, 'mechanism': None, 'seed': None}
 
 

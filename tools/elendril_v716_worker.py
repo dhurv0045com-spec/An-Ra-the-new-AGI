@@ -36,6 +36,7 @@ from anra_v5.elendril.cognition import OperationCandidate, run_episode, verify
 from anra_v5.elendril.foundation_training import StageTransition, TokenSample
 from anra_v5.elendril.representation import UTF8, SpecialToken
 from anra_v5.elendril.v6_data import action_text, read_dataset
+from anra_v5.elendril.v7_training import sampling_provenance
 from anra_v5.elendril.v6_evaluation import (DEFAULT_BUDGET, NeuralPolicy, PublicCase,
                                             parse_action)
 from anra_v5.elendril.v71_data import suite_from_record
@@ -283,11 +284,16 @@ def create(data, job, *, source, root, resume=False, transition=None, parent_sto
 
 
 def stage_transition(data, job, stage_samples, replay_samples, parent, payloads):
-    """Bind the ark017-sparse stage transition to the exact child plan."""
+    """Bind the ark017-sparse stage transition to the exact child plan.
+
+    ``child_data`` digests the V7-enriched provenance (``sampling_provenance``)
+    because the engine computes ``data_sha`` after that enrichment; the bare
+    ``_continual_provenance`` mapping would never match.
+    """
     _, _, recipe = _continual_recipe(job, stage_samples)
     provenance, _ = _continual_provenance(data, job, stage_samples, replay_samples)
     child_data = digest({"samples": [asdict(sample) for sample in stage_samples],
-                         "provenance": provenance})
+                         "provenance": sampling_provenance(provenance, "blocked")})
     parent_recipe = digest(json.loads(payloads["scheduler.json"])["metadata"]["recipe"])
     return StageTransition(parent["checkpoint"], parent_recipe, digest(asdict(recipe)),
                            child_data)

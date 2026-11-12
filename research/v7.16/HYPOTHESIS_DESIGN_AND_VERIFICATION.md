@@ -143,13 +143,54 @@ ark017-sparse are fresh-only and refuse recovery by design).
 ## 5. Verification status
 
 **CPU-verified (this branch, before any GPU session):**
-- 40 contract tests in `tests/test_v716_contracts.py` (protocol round-trip,
+- 46 contract tests in `tests/test_v716_contracts.py` (protocol round-trip,
   custody gate fixture verification, write-once semantics, exposure locks,
   per-arm mechanism contracts including RLOO selection and utility accounting,
   H4 shape gating, H5 fresh-only refusal, ark017 ledger bounds, diagnostics
-  determinism).
+  determinism) plus the post-review harness seam tests: an ark017-sparse CPU
+  stage-migration canary proving the parent weights actually load through
+  `migrate_stage`, predeclared `selected_jobs` slices, `_profile_conditions`
+  (one measured S3 shape for continual), the promotion gate's admit/block
+  matrix, the report's delegated-stage identity mapping and the notebook
+  builder's structure, parseability and parent-flag guard.
 - H4 provider end-to-end smoke on real cases (above).
 - Preregistration/binding byte round-trips (`research/v7.16/*.json`).
+
+### 5.1 Review iteration (helper-contract verification pass)
+
+A second pass re-derived the contracts of every reused helper against its
+source. Defects found were fixed and are now contract-tested:
+
+- **Stage migration was never forwarded** — `_continual_trainer` accepted
+  `transition`/`parent_store` but dropped them at the `V716Trainer` call, so
+  ark017-sparse would have trained from scratch. The engine now receives both
+  (migration canary proves parent weights load and `stage_transition` is
+  recorded in metadata).
+- **Child-data digest drift** — the engine computes `data_sha` from the
+  V7-enriched provenance (`v7_sampling_method` injected by `V7Trainer`), so the
+  worker's transition builder must digest the same enriched mapping. The
+  enrichment is now the shared helper `v7_training.sampling_provenance`, used
+  by both the engine and `stage_transition`; the bare mapping could never have
+  satisfied `migrate_stage`, even on GPU.
+- **fresh-b retention source** — the delegated v7.1 worker writes the
+  pre-training B state to `initial.json` when its request carries no parent;
+  the campaign retention block now reads `initial.json` for fresh-b and
+  `after-transfer-before-B.json` for every parent-carrying arm.
+- **Continual profiling waste** — the continual phase profiled all seven S3
+  mechanism shapes (14 lane runs); it now profiles exactly one (`_profile_conditions`)
+  because the protocol forecasts continual capacity from a single S3 shape
+  with a 1.25 margin.
+- **Delegated identity collision** — the report's `_identity` read the
+  delegated v7.1 job's `mechanism='ce'`, merging b-only/replay/fresh-b into one
+  aggregate; the registered arm now comes from the stage encoded in the job id
+  (`H6-ARK017-CONTINUAL`), with exact fallbacks for registered job-id shapes.
+- **Promotion gate parsing** — seed extraction uses the `-s(\d+)$` suffix
+  match, and the mechanism-summary fingerprint is a plain SHA-256 of the file
+  bytes (`digest()` expects JSON-able values, not bytes).
+- **Notebook custody flags** — the launch cell passes `--parent-archive` only
+  when no extracted parent exists; after extraction the verified directory is
+  the sole custody input, so the gate record never carries a misleading
+  archive-mismatch row.
 
 **Pending GPU (owner-run only):** all 21 mechanism jobs, 12 continual jobs,
 promotion jobs, production profiles, positive control canaries, independent

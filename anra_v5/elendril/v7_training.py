@@ -43,6 +43,19 @@ def ordered_indices(samples, seed, epoch, method='uniform'):
     return tuple(order)
 
 
+def sampling_provenance(data_provenance, method):
+    """The exact provenance enrichment V7Trainer applies before data_sha.
+
+    Stage-transition builders must derive child data digests from THIS
+    enriched mapping; the bare caller mapping would never match the engine.
+    """
+    provenance = dict(data_provenance)
+    if provenance.get('v7_sampling_method', method) != method:
+        raise ValueError('V7 sampling provenance mismatch')
+    provenance['v7_sampling_method'] = method
+    return provenance
+
+
 class V7Trainer(V6Trainer):
     """V6 updates with a source-bound, finite V7 ordering plan."""
     def __init__(self, *args, method='uniform', **kwargs):
@@ -50,11 +63,7 @@ class V7Trainer(V6Trainer):
             raise ValueError('unknown V7 sampling method')
         if kwargs['recipe'].sampling != 'uniform':
             raise ValueError('V7 sampling requires a uniform recipe')
-        provenance = dict(kwargs['data_provenance'])
-        if provenance.get('v7_sampling_method', method) != method:
-            raise ValueError('V7 sampling provenance mismatch')
-        provenance['v7_sampling_method'] = method
-        kwargs['data_provenance'] = provenance
+        kwargs['data_provenance'] = sampling_provenance(kwargs['data_provenance'], method)
         self.method = method
         super().__init__(*args, **kwargs)
 

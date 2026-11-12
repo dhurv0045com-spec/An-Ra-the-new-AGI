@@ -649,3 +649,193 @@ def test_e_family_aggregation_helpers():
                                      "c|grammar": {"evaluation": {"metrics": {"invalid": 0}}}})
     assert invalid["invalid"] == {"raw": 10, "grammar": 0}
     assert invalid["recorded_reference"].startswith("861 raw")
+
+
+# ---------------------------------------------------------------------------
+# Review iteration: harness seams verified against their reused helpers
+# ---------------------------------------------------------------------------
+
+def test_ark017_sparse_stage_migration_loads_parent_weights(data, tmp_path):
+    """The continual factory must forward the transition to the engine.
+
+    Without the forwarding, ark017-sparse would silently train from scratch
+    instead of loading the verified parent through ``migrate_stage``.
+    """
+    from dataclasses import asdict
+    from anra_v5.elendril.v716_training import (_continual_provenance,
+                                                _continual_recipe)
+    spec = micro_spec()
+    parent = create_trainer(data, job("H1-COADAPT-MASK"), source='d' * 40,
+                            root=tmp_path / "parent", **CANARY,
+                            spec_override=spec, updates_override=1)
+    parent.step()
+    parent.save()
+    parent_model = [parameter.detach().clone() for parameter in parent.model.parameters()]
+    _, payloads = parent.store.restore(parent.parent)
+    parent_recipe = digest(json.loads(payloads["scheduler.json"])["metadata"]["recipe"])
+    ark = next(entry for entry in v716_protocol.jobs("continual")
+               if entry["stage"] == "ark017-sparse" and entry["seed"] == 7)
+    stage_samples = tuple(data.samples)[:64]
+    replay_samples = tuple(TokenSample(f"pool-{index}", (1, 65, 2),
+                                       (False, True, True), f"w{index}",
+                                       category="memory") for index in range(8))
+    _, _, base_recipe = _continual_recipe(ark, stage_samples)
+    recipe = replace(base_recipe, total_updates=2)  # the bounded CPU canary plan
+    provenance, _ = _continual_provenance(data, ark, stage_samples, replay_samples)
+    # The engine computes data_sha from the V7-enriched provenance; the bare
+    # mapping would never satisfy the transition check.
+    from anra_v5.elendril.v7_training import sampling_provenance
+    child_data = digest({"samples": [asdict(sample) for sample in stage_samples],
+                         "provenance": sampling_provenance(provenance, "blocked")})
+    transition = StageTransition(parent.parent, parent_recipe,
+                                 digest(asdict(recipe)), child_data)
+    child = create_trainer(data, ark, source='d' * 40, root=tmp_path / "child",
+                           **CANARY, spec_override=spec, updates_override=2,
+                           parent_store=parent.store, transition=transition,
+                           stage_samples=stage_samples, replay_samples=replay_samples)
+    assert child.metadata["stage_transition"] == asdict(transition)
+    assert child.state.global_update == 0  # fresh child lineage, AdamW reset
+    assert all(torch.equal(loaded, saved) for loaded, saved
+               in zip(child.model.parameters(), parent_model))
+    with pytest.raises(ValueError, match="not yet checkpoint-qualified|fresh lineages"):
+        create_trainer(data, ark, source='d' * 40, root=tmp_path / "child",
+                       **CANARY, spec_override=spec, updates_override=2,
+                       parent_store=parent.store, transition=transition,
+                       stage_samples=stage_samples, replay_samples=replay_samples,
+                       resume=True)
+
+
+def test_selected_jobs_slices_are_predeclared_and_exact():
+    from tools.elendril_v716_campaign import selected_jobs
+    assert len(selected_jobs("mechanism")) == 21
+    h4 = selected_jobs("mechanism", arm_subset="H4-OUTCOME-DELIB")
+    assert len(h4) == 3 and {entry["arm"] for entry in h4} == {"H4-OUTCOME-DELIB"}
+    s19 = selected_jobs("mechanism", seed_subset=19)
+    assert len(s19) == 7 and {entry["seed"] for entry in s19} == {19}
+    continual = selected_jobs("continual", stage_subset="ark017-sparse")
+    assert len(continual) == 3
+    assert {entry["stage"] for entry in continual} == {"ark017-sparse"}
+    promo = selected_jobs("promotion", promotion_arm="H2-ARK014-INVARIANCE")
+    assert len(promo) == 3 and {entry["profile"] for entry in promo} == {"S8"}
+    with pytest.raises(ValueError, match="mechanism arm"):
+        selected_jobs("mechanism", arm_subset="H9-UNREGISTERED")
+    with pytest.raises(ValueError, match="registered seed"):
+        selected_jobs("mechanism", seed_subset=3)
+    with pytest.raises(ValueError, match="continual stage"):
+        selected_jobs("continual", stage_subset="fresh-c")
+    with pytest.raises(ValueError, match="winning arm"):
+        selected_jobs("promotion")
+
+
+def test_profile_conditions_profile_one_s3_shape_for_continual():
+    from tools.elendril_v716_campaign import _profile_conditions
+    # Continual: exactly one measured S3 mechanism shape (H1), never fourteen.
+    assert _profile_conditions("continual", []) == [("S3", "coadapt-mask")]
+    mechanism = _profile_conditions("mechanism", v716_protocol.jobs("mechanism"))
+    assert mechanism == sorted({("S3", name) for name
+                                in v716_protocol.ARM_MECHANISMS.values()})
+    promotion = _profile_conditions("promotion", v716_protocol.jobs("promotion"))
+    assert ("S8", "coadapt-mask") in promotion and len(promotion) == 7
+
+
+def test_promotion_gate_admits_only_the_preregistered_thresholds(tmp_path):
+    from tools.elendril_v716_campaign import promotion_gate
+    evidence = tmp_path / "evidence.json"
+    evidence.write_bytes(canonical({
+        "schema": "elendril-v716-promotion-evidence-v1",
+        "stale_memory_corrected": 30, "row_reversal_consistency": 0.6}))
+
+    def mechanism_output(correct_by_seed):
+        root = tmp_path / ("mech-" + str(abs(hash(tuple(correct_by_seed.items())))))
+        (root / "analysis").mkdir(parents=True, exist_ok=True)
+        summary = {"arm_aggregates": {"H4-OUTCOME-DELIB": {
+            "jobs": {f"H4-OUTCOME-DELIB-s{seed}": {
+                "base": {"correct": correct, "episodes": 112}}
+                for seed, correct in correct_by_seed.items()}}}}
+        (root / "analysis" / "summary.json").write_bytes(canonical(summary))
+        return root
+
+    passing = promotion_gate("H4-OUTCOME-DELIB",
+                             mechanism_output({7: 94, 19: 93, 41: 92}), evidence)
+    assert passing["schema"] == "elendril-v716-promotion-gate-v1"
+    assert passing["checks"]["admitted"] is True
+    assert passing["checks"]["aggregate_pass"] is True
+    assert passing["checks"]["per_seed_pass"] is True
+    with pytest.raises(ValueError, match="thresholds not met"):  # aggregate floor
+        promotion_gate("H4-OUTCOME-DELIB",
+                       mechanism_output({7: 96, 19: 95, 41: 85}), evidence)
+    with pytest.raises(ValueError, match="thresholds not met"):  # per-seed floor
+        promotion_gate("H4-OUTCOME-DELIB",
+                       mechanism_output({7: 105, 19: 100, 41: 74}), evidence)
+    weak_evidence = tmp_path / "weak.json"
+    weak_evidence.write_bytes(canonical({
+        "schema": "elendril-v716-promotion-evidence-v1",
+        "stale_memory_corrected": 27, "row_reversal_consistency": 0.9}))
+    with pytest.raises(ValueError, match="thresholds not met"):  # stale-memory floor
+        promotion_gate("H4-OUTCOME-DELIB",
+                       mechanism_output({7: 94, 19: 93, 41: 92}), weak_evidence)
+    with pytest.raises(ValueError, match="evidence not supplied"):
+        promotion_gate("H4-OUTCOME-DELIB",
+                       mechanism_output({7: 94, 19: 93, 41: 92}), None)
+    with pytest.raises(ValueError, match="no final evaluation"):
+        promotion_gate("H9-UNREGISTERED",
+                       mechanism_output({7: 94, 19: 93, 41: 92}), evidence)
+
+
+def test_report_identity_separates_delegated_stages_and_falls_back_exactly(tmp_path):
+    from tools.elendril_v716_report import _identity
+
+    def jobdir(name, payload):
+        directory = tmp_path / name
+        directory.mkdir()
+        (directory / "0001-request.json").write_bytes(canonical(payload))
+        return directory
+
+    delegated = jobdir("S3-b-only-ce-s7", {"job": {
+        "job_id": "S3-b-only-ce-s7", "profile": "S3", "method": "blocked",
+        "seed": 7, "epochs": 2, "mechanism": "ce", "stage": "b-only"}})
+    assert _identity(delegated) == {"arm": "H6-ARK017-CONTINUAL", "profile": "S3",
+                                    "mechanism": "continual", "seed": 7}
+    native = jobdir("S3-ark017-sparse-ce-s41", {"job": {
+        "job_id": "S3-ark017-sparse-ce-s41", "arm": "H6-ARK017-CONTINUAL",
+        "profile": "S3", "seed": 41, "epochs": 2, "mechanism": "continual",
+        "stage": "ark017-sparse", "exposure": "stage-transition"}})
+    assert _identity(native)["arm"] == "H6-ARK017-CONTINUAL"
+    # Fallbacks apply when a request file is missing; registered shapes only.
+    empty = tmp_path / "H4-OUTCOME-DELIB-s7"
+    empty.mkdir()
+    assert _identity(empty) == {"arm": "H4-OUTCOME-DELIB", "profile": "S3",
+                                "mechanism": "outcome-deliberation", "seed": 7}
+    promoted = tmp_path / "S8-H2-ARK014-INVARIANCE-s41"
+    promoted.mkdir()
+    assert _identity(promoted) == {"arm": "H2-ARK014-INVARIANCE", "profile": "S8",
+                                   "mechanism": "ark014-invariance", "seed": 41}
+    replayed = tmp_path / "S3-replay-ce-s19"
+    replayed.mkdir()
+    assert _identity(replayed) == {"arm": "H6-ARK017-CONTINUAL", "profile": "S3",
+                                   "mechanism": "continual", "seed": 19}
+    unknown = tmp_path / "canary0"
+    unknown.mkdir()
+    assert set(_identity(unknown).values()) == {None}
+
+
+def test_notebook_builder_structure_defaults_pin_and_parent_guard():
+    from tools.build_elendril_v716_notebook import build
+    source = "a" * 40
+    notebook = build(source)
+    assert notebook["nbformat"] == 4 and len(notebook["cells"]) == 3
+    config = "".join(notebook["cells"][1]["source"])
+    launch = "".join(notebook["cells"][2]["source"])
+    compile(config, "config", "exec")  # the owner cells must always parse
+    compile(launch, "launch", "exec")
+    assert "RUN_STUDY = False" in config  # safe default-off
+    assert f'SOURCE_SHA = "{source}"' in config
+    assert "tools.elendril_v716_campaign" in launch
+    # An extracted parent output replaces the archive flag; never both.
+    assert "PARENT_ARCHIVE is not None and parent is None" in launch
+    assert "--parent-archive" in launch and "--parent-output" in launch
+    assert notebook["metadata"]["source_reference"] == source
+    with pytest.raises(ValueError):
+        build("0" * 39)
+    with pytest.raises(ValueError):
+        build("A" * 40)

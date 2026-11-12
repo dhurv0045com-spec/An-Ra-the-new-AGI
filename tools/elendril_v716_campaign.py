@@ -10,10 +10,12 @@ preregistered thresholds). Imports never launch training.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from hashlib import sha256
 import json
 import math
 from pathlib import Path
 from queue import Queue, Empty
+import re
 import shutil
 import subprocess
 import time
@@ -97,7 +99,10 @@ def promotion_gate(arm, mechanism_output, evidence_path):
         raise ValueError(f"mechanism summary carries no final evaluation for {arm}")
     seeds = {}
     for job_id, cohorts in entry["jobs"].items():
-        seed = int(job_id.rsplit("s", 1)[1])
+        match = re.search(r"-s(\d+)$", job_id)
+        if not match:
+            raise ValueError(f"cannot parse the registered seed from {job_id}")
+        seed = int(match.group(1))
         base = cohorts.get("base")
         if base:
             seeds[seed] = base
@@ -138,7 +143,7 @@ def promotion_gate(arm, mechanism_output, evidence_path):
         raise ValueError(reason + "; no S8 run may start")
     return {"schema": "elendril-v716-promotion-gate-v1", "arm": arm,
             "thresholds": rules, "checks": checks,
-            "mechanism_summary_sha256": digest(path.read_bytes())}
+            "mechanism_summary_sha256": sha256(path.read_bytes()).hexdigest()}
 
 
 def verify_parent_output(parent_output, source):
@@ -181,6 +186,26 @@ def bind_execution(output, source, *, gate, parent_evidence, data, suite, profil
     })
     custody_gate.write_once(Path(output) / "analysis" / "EXECUTION_BINDING.json", binding)
     return binding
+
+
+def _profile_source(phase, registered):
+    """Jobs whose shapes the phase's profiles must measure."""
+    return v716_jobs("mechanism") if phase == "continual" else registered
+
+
+def _profile_conditions(phase, registered):
+    """Production-shaped profile pairs for the phase's capacity forecast.
+
+    Continual arms are fresh-only and are never profiled; the whole phase is
+    forecast from ONE measured S3 mechanism shape plus the protocol's 1.25
+    margin, not from fourteen profile-lane runs.
+    """
+    source = _profile_source(phase, registered)
+    conditions = sorted({(job["profile"], job["mechanism"]) for job in source
+                         if job["mechanism"] != "continual"})
+    if phase == "continual":
+        conditions = [("S3", v716_protocol.ARM_MECHANISMS[v716_protocol.ARMS[0]])]
+    return conditions
 
 
 def forecast(registered, profiles, data, suite):
@@ -354,11 +379,9 @@ def run(*, output, source, phase="mechanism", owner_enabled=False, minutes=330,
         campaign["positive_controls"] = canaries
         require_pass(canaries, "positive learning/recovery canary")
         profiles = []
-        profile_source = v716_jobs("mechanism") if phase == "continual" else registered
-        conditions = sorted({(job["profile"], job["mechanism"]) for job in profile_source
-                             if job["mechanism"] != "continual"})
+        conditions = _profile_conditions(phase, registered)
         for profile_spec, mechanism in conditions:
-            job = next(job for job in profile_source
+            job = next(job for job in _profile_source(phase, registered)
                        if job["profile"] == profile_spec and job["mechanism"] == mechanism)
             request_phase = "promotion" if profile_spec == "S8" else "mechanism"
 
@@ -439,7 +462,11 @@ def run(*, output, source, phase="mechanism", owner_enabled=False, minutes=330,
                 if job["mechanism"] == "continual" and row["status"] == "COMPLETE":
                     final = json.loads((Path(request["output"]) / "epoch-2.json")
                                        .read_bytes())["evaluation"]["metrics"]
-                    initial_file = "after-transfer-before-B.json"
+                    # The qualified v7.1 worker writes the pre-training B state to
+                    # initial.json for fresh-b (no parent in its request) and to
+                    # after-transfer-before-B.json for every parent-carrying arm.
+                    initial_file = ("initial.json" if job["stage"] == "fresh-b"
+                                    else "after-transfer-before-B.json")
                     initial = json.loads((Path(request["output"]) / initial_file)
                                          .read_bytes())["evaluation"]["metrics"]
                     row["B_before"] = acquisition_gate(initial["hop-3"]["all"])

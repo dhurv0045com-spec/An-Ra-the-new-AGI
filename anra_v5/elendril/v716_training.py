@@ -604,4 +604,5 @@ def _continual_trainer(data, job, *, source, root, device, resume, cpu_canary,
                        data_provenance=provenance,
                        tokenizer_manifest=UTF8.manifest.record(), device=device,
                        method="blocked", epoch_samples=None,
+                       transition=transition, parent_store=parent_store,
                        replay_buffer=buffer)

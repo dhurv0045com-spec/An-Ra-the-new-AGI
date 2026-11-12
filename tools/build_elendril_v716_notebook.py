@@ -152,7 +152,10 @@ if RUN_STUDY:
         cmd = [sys.executable, "-m", "tools.elendril_v716_campaign", "--output", str(OUTPUT),
                "--source", SOURCE_SHA, "--phase", PHASE, "--minutes", str(MINUTES),
                "--owner-enabled"]
-        if PARENT_ARCHIVE is not None:
+        # The parent archive is verified before extraction (continual) or by
+        # the campaign gate (mechanism/promotion); once an extracted parent
+        # directory exists it is the custody input, never both.
+        if PARENT_ARCHIVE is not None and parent is None:
             cmd += ["--parent-archive", str(PARENT_ARCHIVE)]
         if parent is not None:
             cmd += ["--parent-output", str(parent)]

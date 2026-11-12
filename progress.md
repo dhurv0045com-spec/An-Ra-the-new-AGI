@@ -196,3 +196,10 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Verified notebook schema, disabled default, source pin and that the pinned tree contains the campaign, worker and committed custody files.
 - Made the notebook builder write UTF-8 bytes so Windows hosts publish the Unicode intro without cp1252 failures.
 - Owner-run T4 sessions for every research number remain pending.
+
+### 2026-11-12 | OpenCode | V7.16 review iteration: harness seams hardened
+- Re-derived every reused helper contract against its source; fixed six defects, the critical one being that `_continual_trainer` never forwarded `transition`/`parent_store`, so ark017-sparse would have trained from scratch instead of migrating the verified parent.
+- Found a digest-drift defect by canary: the engine computes `data_sha` from V7-enriched provenance, so the transition builder now shares `v7_training.sampling_provenance` with the engine; also fixed the promotion gate's bytes argument to `digest` (latent TypeError) and its seed parsing.
+- Campaign/report/notebook fixes: fresh-b reads `initial.json`, continual profiles one S3 shape via `_profile_conditions`, delegated stage identities map to `H6-ARK017-CONTINUAL`, and the notebook passes `--parent-archive` only when no extracted parent exists.
+- Added six contract tests (46 in the file): CPU stage-migration canary proving parent weights load, `selected_jobs` slices, profile conditions, promotion-gate admit/block matrix, delegated identity mapping, notebook builder structure/parse/parent guard.
+- Full suite 420 passed, 1 skipped, 14 subtests; GPU execution remains owner-run with status NOT_RUN, CAUSE_UNRESOLVED.
