@@ -1181,3 +1181,161 @@ def test_v16_owner_diagnostic_flags_mistaken_scale_s8_export(tmp_path):
     assert evidence["wrong_v715_scale_s8_detected"] is True
     assert evidence["zip_archives"][0]["looks_like_wrong_s8_stage"] is True
     assert evidence["expected_parent_bytes"] == 1958029910
+
+
+def test_v16_worker_modes_agree_on_deadline_signature():
+    """Regression for observed real T4 failure: recover(req) got 2 args."""
+    import inspect
+    from tools import elendril_v716_worker as worker
+    for handler in (worker.train, worker.profile, worker.recover):
+        assert tuple(inspect.signature(handler).parameters) == ("req", "deadline")
+
+
+@pytest.mark.parametrize("mode", ("profile", "recover", "train"))
+def test_v16_worker_cli_dispatch_smoke_cpu_mock(monkeypatch, tmp_path, mode):
+    """Exercise the real CLI dispatch without allocating a GPU or training."""
+    from tools import elendril_v716_worker as worker
+    import time
+    target = tmp_path / mode
+    target.mkdir()
+    request_file = tmp_path / f"{mode}-request.json"
+    request = {
+        "source": "a" * 40,
+        "protocol_sha": v716_protocol.PROTOCOL_SHA,
+        "timecap_seconds": 40,
+        "output": str(target),
+        "checkpoint_root": str(tmp_path / f"{mode}-checkpoints"),
+        "phase": "mechanism",
+        "job": next(j for j in v716_protocol.jobs("mechanism")
+                    if j["arm"] == "H2B-NORM" and j["seed"] == 7),
+    }
+    request_file.write_bytes(canonical(request))
+    receipt_path = target / "receipt.json"
+    called = []
+
+    def handler(req, deadline):
+        called.append((req, deadline))
+        assert deadline > time.monotonic()
+        return {"status": "PASS", "qualified": True}
+    monkeypatch.setattr(worker, mode, handler)
+    monkeypatch.setattr(worker, "check_source", lambda *args: None)
+    monkeypatch.setattr(worker.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(worker.torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(worker.torch.cuda, "max_memory_allocated", lambda: 0)
+    monkeypatch.setattr(worker.torch.cuda, "max_memory_reserved", lambda: 0)
+    monkeypatch.setattr(worker.signal, "signal", lambda *args: None)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "mocked-physical-T4")
+    assert worker.main([mode, "--owner-enabled",
+                        "--request", str(request_file),
+                        "--receipt", str(receipt_path)]) == 0
+    assert len(called) == 1
+    assert called[0][0] == request
+    receipt = json.loads(receipt_path.read_bytes())
+    assert receipt["status"] == "PASS"
+    assert receipt["mode"] == mode
+    assert receipt["gpu_uuid"] == "mocked-physical-T4"
+
+
+def test_v16_worker_recover_rejects_expired_deadline_before_io():
+    from tools import elendril_v716_worker as worker
+    import time
+    with pytest.raises(TimeoutError, match="recover deadline"):
+        worker.recover({}, time.monotonic() - 1)
+
+
+def test_v16_auto_fetch_original_core_strict_hash_and_source(tmp_path, monkeypatch):
+    """No input needed when KaggleHub can provide the exact saved CORE archive."""
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT
+    import sys
+    import types
+    namespace = {}
+    source = OWNER_FIRST_RUN_PREFLIGHT.split("# EXECUTE OWNER PREFLIGHT")[0]
+    exec(compile(source, "<auto-fetch-definitions>", "exec"), namespace)
+    archive = tmp_path / "ELENDRIL_V71_FULL.zip"
+    archive.write_bytes(b"unique historical core fixture")
+    namespace["PARENT_CORE_BYTES"] = archive.stat().st_size
+    hub = types.ModuleType("kagglehub")
+    calls = []
+    def remote(handle, *, path):
+        calls.append((handle, path))
+        return str(archive)
+    hub.notebook_output_download = remote
+    monkeypatch.setitem(sys.modules, "kagglehub", hub)
+    expected = hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert namespace["_auto_fetch_original_core"](expected) == archive
+    assert calls == [("ankitrajm7c/elendril-v71-kaggle-t4x2",
+                      "elendril-v71-6104ffd7134c-core/exports/ELENDRIL_V71_FULL.zip")]
+    with pytest.raises(RuntimeError, match="SHA-256 mismatch"):
+        namespace["_auto_fetch_original_core"]("0" * 64)
+    namespace["PARENT_CORE_BYTES"] = 3
+    with pytest.raises(RuntimeError, match="size mismatched"):
+        namespace["_auto_fetch_original_core"](expected)
+
+
+def test_v16_auto_fetch_official_path_present_in_owner_notebook():
+    import json
+    from pathlib import Path
+    from tools.build_elendril_v716_notebook import build_owner_launch
+    source = "a" * 40
+    rebuilt = build_owner_launch(source)
+    assert source in "".join(rebuilt["cells"][1]["source"])
+    assert source in "".join(rebuilt["cells"][0]["source"])
+    assert "_auto_fetch_original_core" in "".join(rebuilt["cells"][2]["source"])
+    assert "AUTO_FETCHED_PARENT_VERIFIED" in "".join(rebuilt["cells"][2]["source"])
+    assert "RUN_STUDY = True" in "".join(rebuilt["cells"][1]["source"])
+    safe = json.loads(Path("notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb").read_text())
+    assert "RUN_STUDY = False" in "".join(safe["cells"][1]["source"])
+
+
+def test_v16_recover_replays_real_h2b_checkpoint_on_bounded_cpu(
+        data, tmp_path, monkeypatch):
+    """Real checkpoint serializer/resume + exact state comparison, no GPU."""
+    from tools import elendril_v716_worker as worker
+    import time
+
+    source = "d" * 40
+    base = tmp_path / "expected"
+    work = dict(data=data, job=job("H2B-NORM"), source=source,
+                root=base, **CANARY, spec_override=micro_spec(),
+                updates_override=8)
+    trainer = create_trainer(**work)
+    heads = {}
+    for update in range(1, 5):
+        trainer.step()
+        if update in (2, 4):
+            trainer.save()
+            heads[update] = trainer.parent
+    assert heads[2] != heads[4]
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "CPU-test-isolated-lane")
+    monkeypatch.setattr(worker, "read_dataset", lambda _: data)
+
+    def bounded_create(dataset, chosen_job, *, source, root, resume=False,
+                       transition=None, parent_store=None, stage_samples=None,
+                       replay_samples=None, rollout_provider=None):
+        return create_trainer(
+            dataset, chosen_job, source=source, root=root, resume=resume,
+            transition=transition, parent_store=parent_store,
+            stage_samples=stage_samples, replay_samples=replay_samples,
+            rollout_provider=rollout_provider, **CANARY,
+            spec_override=micro_spec(), updates_override=8)
+    monkeypatch.setattr(worker, "create", bounded_create)
+
+    challenge_file = tmp_path / "challenge.json"
+    challenge_file.write_bytes(canonical({
+        "source": source,
+        "protocol_sha256": v716_protocol.PROTOCOL_SHA,
+        "gpu_uuid": "CPU-test-isolated-lane",
+        "expected_root": str(base),
+        "head2": heads[2], "head4": heads[4],
+    }))
+    request = {
+        "job": job("H2B-NORM"), "source": source,
+        "challenge": str(challenge_file), "data_file": "fixture-data",
+        "checkpoint_root": str(tmp_path / "recovery")
+    }
+    result = worker.recover(request, time.monotonic() + 60)
+    assert result["status"] == "PASS"
+    assert result["global_update"] == 4
+    assert result["comparison"] == "exact full payload comparison"
+    assert result["checkpoint"] == heads[4]

@@ -37,3 +37,28 @@ SHA-256 `1826c85b5a858d2a600661f7e5916f0fa812c55a8d53c37013c695df28a15d19`.
 The filename is identical between phases; only byte size and hash distinguish
 them. This original artifact is not committed to GitHub and must be located in
 the prior owner V7.1 CORE Kaggle output or external owner backup.
+
+## 13 November 2026: real T4 profile-recovery dispatcher incident
+
+The V16 owner session confirmed the original V7.1 CORE FULL ZIP SHA-256, both
+physical T4s, source pin and dataset preflight. It stopped during the S3
+production-shaped profile on both lanes with `TypeError: recover() takes 1
+positional argument but 2 were given`. This was a deterministic V16 worker
+interface defect, not missing/incorrect data or a scientific learning result.
+The recovery worker now accepts the shared (request, deadline) signature used
+by the CLI dispatcher, enforces its deadline during replay, and has CPU
+regression checks for all three CLI modes (profile, recover, train). The
+source-pinned owner notebook must be repinned to include this repair; prior
+notebook source commit `6614864...` is known defective and must not be rerun.
+
+## Automatic historical Kaggle-parent attachment
+
+The V16 OWNER_LAUNCH notebook now tries existing mounted inputs first. If the
+original V7.1 CORE FULL ZIP is not mounted, it calls Kaggle's supported
+`kagglehub.notebook_output_download` for the exact historical file under
+`ankitrajm7c/elendril-v71-kaggle-t4x2`. The retrieved file must match the
+recorded 1,958,029,910 bytes AND SHA-256 or the run ends with NO-GO before
+training. Automatic access may fail for private, removed or unavailable notebook
+outputs and cannot be guaranteed. No backup training data is fabricated.
+The code recovery bug is repaired in source `682c40e1b525424d805e6fb44f0f29afee6c756c`. Download the updated
+owner notebook; earlier source `6614864f09066e5626d5c7407cc6d7a80e830144` is known broken and must not be reused.
