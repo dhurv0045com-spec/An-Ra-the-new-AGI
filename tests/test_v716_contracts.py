@@ -1018,6 +1018,34 @@ def test_report_identity_separates_delegated_stages_and_falls_back_exactly(tmp_p
     assert set(_identity(unknown).values()) == {None}
 
 
+def test_v16_kaggle_disabled_path_fails_loudly_without_gpu(tmp_path, monkeypatch):
+    """Kaggle must never report a successful experiment when RUN_STUDY=False."""
+    import sys
+    import types
+    from tools.build_elendril_v716_notebook import build
+
+    ipython = types.ModuleType("IPython")
+    ipython.__path__ = []
+    display_module = types.ModuleType("IPython.display")
+    display_module.FileLink = lambda path: path
+    display_module.display = lambda *args, **kwargs: None
+    monkeypatch.setitem(sys.modules, "IPython", ipython)
+    monkeypatch.setitem(sys.modules, "IPython.display", display_module)
+    notebook = build("a" * 40)
+    launch = "".join(notebook["cells"][2]["source"])
+    with pytest.raises(RuntimeError, match="V16 NOT STARTED"):
+        exec(compile(launch, "<v16-disabled-notebook>", "exec"), {
+            "SOURCE_SHA": "a" * 40,
+            "RUN_STUDY": False,
+            "PHASE": "mechanism",
+            "ARM_SUBSET": None,
+            "SEED_SUBSET": None,
+            "MINUTES": 330,
+            "OUTPUT": tmp_path / "none",
+        })
+    assert not list(tmp_path.iterdir())  # no training, checkout or results
+
+
 def test_notebook_builder_structure_defaults_pin_and_parent_guard():
     from tools.build_elendril_v716_notebook import build
     source = "a" * 40

@@ -32,7 +32,9 @@ def build(source):
     arms = ", ".join(f"`{arm}`" for arm in ARMS)
     intro = f"""# ELENDRIL V7.16 — Causal Falsification & Mechanism Suite (Kaggle T4×2)
 
-**Run All does nothing until you set `RUN_STUDY = True`.** The suite executes
+**IMPORTANT: Set `RUN_STUDY = True` in the configuration cell to actually run.**
+With the default `False`, Kaggle now stops with a clear `V16 NOT STARTED`
+error instead of falsely displaying a successful experiment. The suite executes
 the preregistered falsification arms H1–H6 against the blocked cross-entropy
 baseline with the exposure ledger locked (4 epochs / 2,368 updates /
 75,776 supervised tokens at S3; unpadded input positions recorded per epoch).
@@ -71,7 +73,7 @@ Pinned source: {source}
 """
     config = f"""from pathlib import Path
 SOURCE_SHA = "{source}"
-RUN_STUDY = False
+RUN_STUDY = False  # REQUIRED: change to True to launch; False reports V16 NOT STARTED (not success)
 PHASE = "mechanism"  # mechanism / continual / promotion
 MINUTES = 330
 ARM_SUBSET = None     # mechanism: e.g. "H4-OUTCOME-DELIB"
@@ -93,7 +95,10 @@ from IPython.display import FileLink, display
 REPOSITORY = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
 REPO = Path("/kaggle/working") / ("elendril-v716-source-" + SOURCE_SHA)
 failed = False
+if type(RUN_STUDY) is not bool:
+    raise TypeError("RUN_STUDY must be an explicit Python bool: True to launch or False to block")
 if RUN_STUDY:
+    print(f"V16 OWNER LAUNCH REQUESTED: phase={PHASE}, arm={ARM_SUBSET}, seed={SEED_SUBSET}, budget={MINUTES}m", flush=True)
     try:
         if not re.fullmatch("[0-9a-f]{40}", SOURCE_SHA):
             raise ValueError("invalid source SHA")
@@ -120,7 +125,11 @@ if RUN_STUDY:
                 if value is None or not Path(value).exists():
                     raise ValueError("promotion requires an existing " + name)
         if PARENT_ARCHIVE is None and PARENT_OUTPUT is None:
-            raise ValueError("custody requires PARENT_ARCHIVE or PARENT_OUTPUT")
+            raise ValueError("V16 NO-GO: attach the genuine V7.15 parent FULL ZIP as a Kaggle input and set PARENT_ARCHIVE, or provide a verified PARENT_OUTPUT")
+        if PARENT_ARCHIVE is not None and not Path(PARENT_ARCHIVE).is_file():
+            raise FileNotFoundError("V16 NO-GO: PARENT_ARCHIVE is not an existing file: " + str(PARENT_ARCHIVE))
+        if PARENT_OUTPUT is not None and not Path(PARENT_OUTPUT).is_dir():
+            raise FileNotFoundError("V16 NO-GO: PARENT_OUTPUT is not an existing directory: " + str(PARENT_OUTPUT))
         if not REPO.exists():
             stage = REPO.parent / (".v716-source-" + uuid4().hex)
             stage.mkdir(parents=True)
@@ -178,7 +187,8 @@ if RUN_STUDY:
         print("V7.16 phase incomplete:", type(exc).__name__, str(exc))
         print("Raw output and partial receipts are retained when available.")
 else:
-    print("Experiment disabled by owner.")
+    print("V16 NOT STARTED: RUN_STUDY=False. Set RUN_STUDY=True in the first code cell, attach the verified parent FULL ZIP, and select Kaggle GPU T4x2.", flush=True)
+    raise RuntimeError("V16 NOT STARTED: notebook deliberately disabled; zero optimizer updates ran. A disabled run must not appear as Kaggle SUCCESS.")
 names = ["ELENDRIL_V716_ANALYSIS.zip", "ELENDRIL_V716_FULL.zip"]
 for name in names:
     file = OUTPUT / "exports" / name
