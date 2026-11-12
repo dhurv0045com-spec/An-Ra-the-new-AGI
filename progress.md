@@ -177,3 +177,16 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Published the dedicated S20 notebook from source 4cc1e993 with automatic whole-batch launch and download links.
 - Sixteen launch, campaign and immutable-publication checks passed, including rebuilding the notebook from its pinned Git tree.
 - Owner-run T4 canaries and research execution remain pending.
+
+### 2026-11-12 | OpenCode | Create opposing-star branch from Elendril
+- Fetched origin and confirmed `Elendril` existed only remotely at `29b1da64`, with tags `elendril-pre-v3` and `elendril-v4-working`.
+- Created and checked out local branch `opposing-star` from `origin/Elendril`, set to track it.
+- Untracked working files were untouched; no source, evidence or configuration changes were made.
+- Git housekeeping only; no tests, training or research execution ran.
+
+### 2026-11-12 | OpenCode | V7.16 mechanism suite and execution harness
+- Implemented the six falsifiable arms H1–H6 (protocol, custody gate, trainer factory, mechanisms, diagnostics) with the exposure ledger locked to 4 epochs / 2,368 updates / 75,776 supervised tokens.
+- Added the owner-run harness: v716 worker (executed-rollout H4 provider, profiles, exact recovery), custody-gated campaign with write-once binding and preregistered promotion gate, V7.16 export/report tools.
+- Committed preregistration and binding under `research/v7.16` and wrote HYPOTHESIS_DESIGN_AND_VERIFICATION.md; Kaggle notebook generated in a follow-up commit.
+- CPU verification: 40 new contract tests plus the full 414-test suite passed; H4 provider smoke substituted 12/12 tasks with an unchanged exposure ledger and deterministic replay.
+- GPU sessions, profiles, canaries and every research number remain pending owner execution; status NOT_RUN, CAUSE_UNRESOLVED.
