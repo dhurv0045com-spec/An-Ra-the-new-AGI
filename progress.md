@@ -190,3 +190,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Committed preregistration and binding under `research/v7.16` and wrote HYPOTHESIS_DESIGN_AND_VERIFICATION.md; Kaggle notebook generated in a follow-up commit.
 - CPU verification: 40 new contract tests plus the full 414-test suite passed; H4 provider smoke substituted 12/12 tasks with an unchanged exposure ledger and deterministic replay.
 - GPU sessions, profiles, canaries and every research number remain pending owner execution; status NOT_RUN, CAUSE_UNRESOLVED.
+
+### 2026-11-12 | OpenCode | Publish pinned V7.16 Kaggle notebook
+- Published `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` pinned to suite commit `08407c95` with `RUN_STUDY = False` (safe default) and mechanism/continual/promotion phases.
+- Verified notebook schema, disabled default, source pin and that the pinned tree contains the campaign, worker and committed custody files.
+- Made the notebook builder write UTF-8 bytes so Windows hosts publish the Unicode intro without cp1252 failures.
+- Owner-run T4 sessions for every research number remain pending.

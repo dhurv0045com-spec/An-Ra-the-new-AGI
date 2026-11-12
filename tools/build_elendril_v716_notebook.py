@@ -201,7 +201,8 @@ def main(argv=None):
     p.add_argument("--output", type=Path, default=DEST)
     args = p.parse_args(argv)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(build(args.source_sha), indent=2, ensure_ascii=False) + "\n")
+    payload = json.dumps(build(args.source_sha), indent=2, ensure_ascii=False) + "\n"
+    args.output.write_bytes(payload.encode("utf-8"))
     print(f"published {args.output} pinned to {args.source_sha}")
 
 
