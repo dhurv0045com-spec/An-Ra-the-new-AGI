@@ -1285,3 +1285,57 @@ def test_v16_auto_fetch_official_path_present_in_owner_notebook():
     assert "RUN_STUDY = True" in "".join(rebuilt["cells"][1]["source"])
     safe = json.loads(Path("notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb").read_text())
     assert "RUN_STUDY = False" in "".join(safe["cells"][1]["source"])
+
+
+def test_v16_recover_replays_real_h2b_checkpoint_on_bounded_cpu(
+        data, tmp_path, monkeypatch):
+    """Real checkpoint serializer/resume + exact state comparison, no GPU."""
+    from tools import elendril_v716_worker as worker
+    import time
+
+    source = "d" * 40
+    base = tmp_path / "expected"
+    work = dict(data=data, job=job("H2B-NORM"), source=source,
+                root=base, **CANARY, spec_override=micro_spec(),
+                updates_override=8)
+    trainer = create_trainer(**work)
+    heads = {}
+    for update in range(1, 5):
+        trainer.step()
+        if update in (2, 4):
+            trainer.save()
+            heads[update] = trainer.parent
+    assert heads[2] != heads[4]
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "CPU-test-isolated-lane")
+    monkeypatch.setattr(worker, "read_dataset", lambda _: data)
+
+    def bounded_create(dataset, chosen_job, *, source, root, resume=False,
+                       transition=None, parent_store=None, stage_samples=None,
+                       replay_samples=None, rollout_provider=None):
+        return create_trainer(
+            dataset, chosen_job, source=source, root=root, resume=resume,
+            transition=transition, parent_store=parent_store,
+            stage_samples=stage_samples, replay_samples=replay_samples,
+            rollout_provider=rollout_provider, **CANARY,
+            spec_override=micro_spec(), updates_override=8)
+    monkeypatch.setattr(worker, "create", bounded_create)
+
+    challenge_file = tmp_path / "challenge.json"
+    challenge_file.write_bytes(canonical({
+        "source": source,
+        "protocol_sha256": v716_protocol.PROTOCOL_SHA,
+        "gpu_uuid": "CPU-test-isolated-lane",
+        "expected_root": str(base),
+        "head2": heads[2], "head4": heads[4],
+    }))
+    request = {
+        "job": job("H2B-NORM"), "source": source,
+        "challenge": str(challenge_file), "data_file": "fixture-data",
+        "checkpoint_root": str(tmp_path / "recovery")
+    }
+    result = worker.recover(request, time.monotonic() + 60)
+    assert result["status"] == "PASS"
+    assert result["global_update"] == 4
+    assert result["comparison"] == "exact full payload comparison"
+    assert result["checkpoint"] == heads[4]
