@@ -1113,3 +1113,47 @@ def test_v16_owner_launch_detects_only_sha_matching_zip(tmp_path):
     with pytest.raises(RuntimeError, match="no ZIP files"):
         namespace["_find_parent_archive"](empty, expected)
 
+
+
+def test_v16_owner_input_diagnostic_reports_extracted_only_dataset(tmp_path, capsys):
+    """The actual user error: a previous Kaggle output, but no FULL ZIP."""
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT
+    namespace = {}
+    source = OWNER_FIRST_RUN_PREFLIGHT.split("# EXECUTE OWNER PREFLIGHT")[0]
+    exec(compile(source, "owner-preflight-definitions", "exec"), namespace)
+    root = tmp_path / "input"
+    extracted = root / "ELENDRIL_V715_KAGGLE_T4X2" / "elendril-v715-e5779-scale-s8"
+    extracted.mkdir(parents=True)
+    (extracted / "analysis.json").write_text('{"phase":"scale-s8"}')
+    (extracted / "checkpoint.bin").write_bytes(b"not-a-full-zip")
+    diagnostic = tmp_path / "working" / "V16_INPUT_DIAGNOSTIC.json"
+    with pytest.raises(RuntimeError, match="no ZIP files"):
+        namespace["_find_parent_archive"](root, "0" * 64, diagnostic)
+    record = json.loads(diagnostic.read_text())
+    assert record["status"] == "NO_ZIP_ARCHIVES"
+    assert record["file_count"] == 2
+    assert record["attached_datasets"] == ["ELENDRIL_V715_KAGGLE_T4X2"]
+    assert "V16 input example:" in capsys.readouterr().out
+
+
+def test_v16_owner_input_diagnostic_rejects_wrong_zip_and_records_hash(tmp_path):
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT
+    namespace = {}
+    source = OWNER_FIRST_RUN_PREFLIGHT.split("# EXECUTE OWNER PREFLIGHT")[0]
+    exec(compile(source, "owner-preflight-definitions", "exec"), namespace)
+    root = tmp_path / "input"
+    root.mkdir()
+    original = root / "wrong-analysis.zip"
+    original.write_bytes(b"fake analysis archive")
+    diagnostic = tmp_path / "working" / "V16_INPUT_DIAGNOSTIC.json"
+    with pytest.raises(RuntimeError, match="none of the 1 attached ZIP files matches"):
+        namespace["_find_parent_archive"](root, "f" * 64, diagnostic)
+    report = json.loads(diagnostic.read_text())
+    assert report["status"] == "ZIP_PRESENT_BUT_HASH_MISMATCH"
+    assert report["zip_archives"][0]["sha256"] == hashlib.sha256(original.read_bytes()).hexdigest()
+    expected = hashlib.sha256(original.read_bytes()).hexdigest()
+    selected = namespace["_find_parent_archive"](root, expected, diagnostic)
+    assert selected == original
+    verified = json.loads(diagnostic.read_text())
+    assert verified["status"] == "VERIFIED_PARENT_FULL"
+    assert verified["zip_archives"][0]["parent_full_match"] is True

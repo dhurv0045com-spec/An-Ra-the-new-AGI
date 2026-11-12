@@ -5,6 +5,7 @@ on:
     branches:
       - review/v16-preflight-2026-11-12
       - opposing-star
+      - review/v16-owner-input-diagnostic-2026-11-13
       - fix/v16-owner-launch-ready-2026-11-12
       - fix/v16-kaggle-disabled-false-success-2026-11-12
       - review/v16-final-custody-2026-11-12
@@ -50,6 +51,7 @@ jobs:
           assert len(owner["cells"]) == 4
           assert owner["metadata"]["source_reference"] == notebook["metadata"]["source_reference"]
           assert "RUN_STUDY = True" in "".join(owner["cells"][1]["source"])
+          assert "V16_INPUT_DIAGNOSTIC.json" in "".join(owner["cells"][2]["source"])
           assert "RUN_STUDY = False" not in "".join(owner["cells"][1]["source"])
           for idx, cell in enumerate(owner["cells"]):
               if cell["cell_type"] == "code":
