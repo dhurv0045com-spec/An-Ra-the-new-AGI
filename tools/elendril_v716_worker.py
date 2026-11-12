@@ -486,7 +486,14 @@ def profile(req, deadline):
                              "no skill claim"}
 
 
-def recover(req):
+def recover(req, deadline):
+    """Verify a real fresh-process checkpoint replay within the worker time budget.
+
+    Every mode has the same (request, deadline) handler contract: main()
+    invokes recover through the exact same dispatcher as profile and train.
+    """
+    if time.monotonic() >= deadline:
+        raise TimeoutError("recover deadline elapsed before checkpoint restoration")
     from tools.elendril_action_cloud import compare_payloads
 
     job = req["job"]
@@ -511,7 +518,11 @@ def recover(req):
     if trainer.state.global_update != 2:
         raise ValueError("recovery cursor mismatch")
     while trainer.state.global_update < 4:
+        if time.monotonic() >= deadline:
+            raise TimeoutError("recover deadline elapsed during checkpoint replay")
         trainer.step()
+    if time.monotonic() >= deadline:
+        raise TimeoutError("recover deadline elapsed before checkpoint publication")
     trainer.save()
     _, left = reference.restore(challenge["head4"])
     _, right = trainer.store.restore(trainer.parent)
@@ -554,6 +565,7 @@ def main(argv=None):
         if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
             raise ValueError("one isolated CUDA GPU required")
         handler = {"profile": profile, "recover": recover, "train": train}[arguments.mode]
+        # Shared (request, deadline) protocol: monitor every execution mode.
         result = handler(request, started + cap)
         result.update(gpu_uuid=os.environ["CUDA_VISIBLE_DEVICES"],
                       wall_seconds=time.monotonic() - started,

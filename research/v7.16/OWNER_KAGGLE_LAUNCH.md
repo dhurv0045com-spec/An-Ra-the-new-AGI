@@ -37,3 +37,16 @@ SHA-256 `1826c85b5a858d2a600661f7e5916f0fa812c55a8d53c37013c695df28a15d19`.
 The filename is identical between phases; only byte size and hash distinguish
 them. This original artifact is not committed to GitHub and must be located in
 the prior owner V7.1 CORE Kaggle output or external owner backup.
+
+## 13 November 2026: real T4 profile-recovery dispatcher incident
+
+The V16 owner session confirmed the original V7.1 CORE FULL ZIP SHA-256, both
+physical T4s, source pin and dataset preflight. It stopped during the S3
+production-shaped profile on both lanes with `TypeError: recover() takes 1
+positional argument but 2 were given`. This was a deterministic V16 worker
+interface defect, not missing/incorrect data or a scientific learning result.
+The recovery worker now accepts the shared (request, deadline) signature used
+by the CLI dispatcher, enforces its deadline during replay, and has CPU
+regression checks for all three CLI modes (profile, recover, train). The
+source-pinned owner notebook must be repinned to include this repair; prior
+notebook source commit `6614864...` is known defective and must not be rerun.

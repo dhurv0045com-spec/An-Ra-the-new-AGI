@@ -1181,3 +1181,63 @@ def test_v16_owner_diagnostic_flags_mistaken_scale_s8_export(tmp_path):
     assert evidence["wrong_v715_scale_s8_detected"] is True
     assert evidence["zip_archives"][0]["looks_like_wrong_s8_stage"] is True
     assert evidence["expected_parent_bytes"] == 1958029910
+
+
+def test_v16_worker_modes_agree_on_deadline_signature():
+    """Regression for observed real T4 failure: recover(req) got 2 args."""
+    import inspect
+    from tools import elendril_v716_worker as worker
+    for handler in (worker.train, worker.profile, worker.recover):
+        assert tuple(inspect.signature(handler).parameters) == ("req", "deadline")
+
+
+@pytest.mark.parametrize("mode", ("profile", "recover", "train"))
+def test_v16_worker_cli_dispatch_smoke_cpu_mock(monkeypatch, tmp_path, mode):
+    """Exercise the real CLI dispatch without allocating a GPU or training."""
+    from tools import elendril_v716_worker as worker
+    import time
+    target = tmp_path / mode
+    target.mkdir()
+    request_file = tmp_path / f"{mode}-request.json"
+    request = {
+        "source": "a" * 40,
+        "protocol_sha": v716_protocol.PROTOCOL_SHA,
+        "timecap_seconds": 40,
+        "output": str(target),
+        "checkpoint_root": str(tmp_path / f"{mode}-checkpoints"),
+        "phase": "mechanism",
+        "job": next(j for j in v716_protocol.jobs("mechanism")
+                    if j["arm"] == "H2B-NORM" and j["seed"] == 7),
+    }
+    request_file.write_bytes(canonical(request))
+    receipt_path = target / "receipt.json"
+    called = []
+
+    def handler(req, deadline):
+        called.append((req, deadline))
+        assert deadline > time.monotonic()
+        return {"status": "PASS", "qualified": True}
+    monkeypatch.setattr(worker, mode, handler)
+    monkeypatch.setattr(worker, "check_source", lambda *args: None)
+    monkeypatch.setattr(worker.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(worker.torch.cuda, "device_count", lambda: 1)
+    monkeypatch.setattr(worker.torch.cuda, "max_memory_allocated", lambda: 0)
+    monkeypatch.setattr(worker.torch.cuda, "max_memory_reserved", lambda: 0)
+    monkeypatch.setattr(worker.signal, "signal", lambda *args: None)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "mocked-physical-T4")
+    assert worker.main([mode, "--owner-enabled",
+                        "--request", str(request_file),
+                        "--receipt", str(receipt_path)]) == 0
+    assert len(called) == 1
+    assert called[0][0] == request
+    receipt = json.loads(receipt_path.read_bytes())
+    assert receipt["status"] == "PASS"
+    assert receipt["mode"] == mode
+    assert receipt["gpu_uuid"] == "mocked-physical-T4"
+
+
+def test_v16_worker_recover_rejects_expired_deadline_before_io():
+    from tools import elendril_v716_worker as worker
+    import time
+    with pytest.raises(TimeoutError, match="recover deadline"):
+        worker.recover({}, time.monotonic() - 1)
