@@ -50,3 +50,15 @@ by the CLI dispatcher, enforces its deadline during replay, and has CPU
 regression checks for all three CLI modes (profile, recover, train). The
 source-pinned owner notebook must be repinned to include this repair; prior
 notebook source commit `6614864...` is known defective and must not be rerun.
+
+## Automatic historical Kaggle-parent attachment
+
+The V16 OWNER_LAUNCH notebook now tries existing mounted inputs first. If the
+original V7.1 CORE FULL ZIP is not mounted, it calls Kaggle's supported
+`kagglehub.notebook_output_download` for the exact historical file under
+`ankitrajm7c/elendril-v71-kaggle-t4x2`. The retrieved file must match the
+recorded 1,958,029,910 bytes AND SHA-256 or the run ends with NO-GO before
+training. Automatic access may fail for private, removed or unavailable notebook
+outputs and cannot be guaranteed. No backup training data is fabricated.
+The code recovery bug is repaired in source `682c40e1b525424d805e6fb44f0f29afee6c756c`. Download the updated
+owner notebook; earlier source `6614864f09066e5626d5c7407cc6d7a80e830144` is known broken and must not be reused.

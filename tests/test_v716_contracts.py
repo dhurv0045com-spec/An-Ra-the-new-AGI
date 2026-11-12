@@ -1241,3 +1241,47 @@ def test_v16_worker_recover_rejects_expired_deadline_before_io():
     import time
     with pytest.raises(TimeoutError, match="recover deadline"):
         worker.recover({}, time.monotonic() - 1)
+
+
+def test_v16_auto_fetch_original_core_strict_hash_and_source(tmp_path, monkeypatch):
+    """No input needed when KaggleHub can provide the exact saved CORE archive."""
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT
+    import sys
+    import types
+    namespace = {}
+    source = OWNER_FIRST_RUN_PREFLIGHT.split("# EXECUTE OWNER PREFLIGHT")[0]
+    exec(compile(source, "<auto-fetch-definitions>", "exec"), namespace)
+    archive = tmp_path / "ELENDRIL_V71_FULL.zip"
+    archive.write_bytes(b"unique historical core fixture")
+    namespace["PARENT_CORE_BYTES"] = archive.stat().st_size
+    hub = types.ModuleType("kagglehub")
+    calls = []
+    def remote(handle, *, path):
+        calls.append((handle, path))
+        return str(archive)
+    hub.notebook_output_download = remote
+    monkeypatch.setitem(sys.modules, "kagglehub", hub)
+    expected = hashlib.sha256(archive.read_bytes()).hexdigest()
+    assert namespace["_auto_fetch_original_core"](expected) == archive
+    assert calls == [("ankitrajm7c/elendril-v71-kaggle-t4x2",
+                      "elendril-v71-6104ffd7134c-core/exports/ELENDRIL_V71_FULL.zip")]
+    with pytest.raises(RuntimeError, match="SHA-256 mismatch"):
+        namespace["_auto_fetch_original_core"]("0" * 64)
+    namespace["PARENT_CORE_BYTES"] = 3
+    with pytest.raises(RuntimeError, match="size mismatched"):
+        namespace["_auto_fetch_original_core"](expected)
+
+
+def test_v16_auto_fetch_official_path_present_in_owner_notebook():
+    import json
+    from pathlib import Path
+    from tools.build_elendril_v716_notebook import build_owner_launch
+    source = "a" * 40
+    rebuilt = build_owner_launch(source)
+    assert source in "".join(rebuilt["cells"][1]["source"])
+    assert source in "".join(rebuilt["cells"][0]["source"])
+    assert "_auto_fetch_original_core" in "".join(rebuilt["cells"][2]["source"])
+    assert "AUTO_FETCHED_PARENT_VERIFIED" in "".join(rebuilt["cells"][2]["source"])
+    assert "RUN_STUDY = True" in "".join(rebuilt["cells"][1]["source"])
+    safe = json.loads(Path("notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb").read_text())
+    assert "RUN_STUDY = False" in "".join(safe["cells"][1]["source"])
