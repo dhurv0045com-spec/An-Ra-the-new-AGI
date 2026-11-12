@@ -5,6 +5,7 @@ on:
     branches:
       - review/v16-preflight-2026-11-12
       - opposing-star
+      - review/v16-final-custody-2026-11-12
   workflow_dispatch:
 
 permissions:

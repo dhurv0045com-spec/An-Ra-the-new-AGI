@@ -210,17 +210,45 @@ def promotion_gate(arm, mechanism_output, evidence_path):
             "mechanism_summary_sha256": sha256(path.read_bytes()).hexdigest()}
 
 
-def verify_parent_output(parent_output, source):
-    """A previously extracted parent must carry the verified V7.1 core identity."""
-    parent_output = Path(parent_output).resolve()
+def verify_parent_output(parent_output, source, *, required_seeds):
+    """Verify historical V7.1 identity AND each selected core checkpoint.
+
+    Do not admit merely plausible metadata as a restored parent. Checkpoint
+    components are content-addressed and verified before GPU canaries start.
+    """
+    requested = Path(parent_output)
+    if requested.is_symlink():
+        raise ValueError("linked extracted parent output forbidden")
+    parent_output = requested.resolve(strict=True)
     identity = json.loads((parent_output / "analysis" / "identity.json").read_bytes())
-    admitted = ({"source": source, "protocol_sha256": V71_PROTOCOL_SHA, "phase": "core"},
-                {"source": v716_protocol.V71_CORE_SOURCE_SHA,
-                 "protocol_sha256": V71_PROTOCOL_SHA, "phase": "core"})
-    if identity not in admitted:
+    expected = {"source": v716_protocol.V71_CORE_SOURCE_SHA,
+                "protocol_sha256": V71_PROTOCOL_SHA, "phase": "core"}
+    if identity != expected:
         raise ValueError("parent core identity mismatch")
-    return {"status": "PASS", "via": "extracted_parent_output", "identity": identity,
-            "path": str(parent_output)}
+    seeds = sorted(set(required_seeds))
+    if not seeds or any(type(seed) is not int or seed not in SEEDS for seed in seeds):
+        raise ValueError("parent verification requires registered seed checkpoints")
+    from v5_training.checkpoint import CheckpointStore
+
+    verified = {}
+    for seed in seeds:
+        job_id = f"S3-blocked-ce-s{seed}"
+        report_path = parent_output / "analysis" / "jobs" / job_id / "epoch-4.json"
+        if not report_path.is_file() or report_path.is_symlink():
+            raise ValueError(f"required parent epoch-4 report missing: {job_id}")
+        report = json.loads(report_path.read_bytes())
+        if report.get("grammar") is not False or report.get("update") != 2368:
+            raise ValueError(f"parent final training report is not qualified: {job_id}")
+        head = report.get("checkpoint")
+        store = CheckpointStore(parent_output / "checkpoints" / "jobs" / job_id, job_id)
+        state, _payloads = store.restore(head)
+        if (not state.complete or state.lineage_id != job_id
+                or state.identities.source_commit != v716_protocol.V71_CORE_SOURCE_SHA):
+            raise ValueError(f"parent checkpoint lineage is not qualified: {job_id}")
+        verified[job_id] = head
+    return {"status": "PASS", "via": "extracted_parent_output",
+            "identity": identity, "execution_source": source,
+            "verified_final_checkpoints": verified, "path": str(parent_output)}
 
 
 def bind_execution(output, source, *, gate, parent_evidence, data, suite, profiles):
@@ -382,7 +410,9 @@ def run(*, output, source, phase="mechanism", owner_enabled=False, minutes=330,
             require_s8_analysis=phase == "promotion")
         campaign["custody_gate"] = gate
         if parent_output is not None:
-            parent_evidence = verify_parent_output(parent_output, source)
+            parent_evidence = verify_parent_output(
+                parent_output, source,
+                required_seeds={job["seed"] for job in registered})
         elif gate["parent_archive"]["match"] is True:
             parent_evidence = {"status": "PASS", "via": "parent_archive",
                                "sha256": gate["parent_archive"]["sha256"],

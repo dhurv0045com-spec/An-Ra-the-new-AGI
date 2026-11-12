@@ -791,6 +791,39 @@ def test_ark017_sparse_stage_migration_loads_parent_weights(data, tmp_path):
                        resume=True)
 
 
+
+def test_v16_extracted_parent_rejects_source_spoof_and_missing_checkpoint(tmp_path):
+    """A V16-looking identity is never a historical V7.1 checkpoint."""
+    from tools.elendril_v716_campaign import verify_parent_output
+    root = tmp_path / "parent"
+    (root / "analysis").mkdir(parents=True)
+    execution_source = "f" * 40
+    identity = {"source": execution_source, "protocol_sha256": V71_SHA,
+                "phase": "core"}
+    (root / "analysis" / "identity.json").write_bytes(canonical(identity))
+    with pytest.raises(ValueError, match="parent core identity mismatch"):
+        verify_parent_output(root, execution_source, required_seeds=(7,))
+    identity["source"] = v716_protocol.V71_CORE_SOURCE_SHA
+    (root / "analysis" / "identity.json").write_bytes(canonical(identity))
+    with pytest.raises(ValueError, match="required parent epoch-4 report missing"):
+        verify_parent_output(root, execution_source, required_seeds=(7,))
+    with pytest.raises(ValueError, match="registered seed"):
+        verify_parent_output(root, execution_source, required_seeds=())
+
+
+def test_v16_parent_restore_rejects_bad_final_epoch_before_gpu_canary(tmp_path):
+    from tools.elendril_v716_campaign import verify_parent_output
+    root = tmp_path / "parent"
+    (root / "analysis" / "jobs" / "S3-blocked-ce-s7").mkdir(parents=True)
+    identity = {"source": v716_protocol.V71_CORE_SOURCE_SHA,
+                "protocol_sha256": V71_SHA, "phase": "core"}
+    (root / "analysis" / "identity.json").write_bytes(canonical(identity))
+    report = {"grammar": True, "update": 2368, "checkpoint": "a" * 64}
+    (root / "analysis" / "jobs" / "S3-blocked-ce-s7" /
+     "epoch-4.json").write_bytes(canonical(report))
+    with pytest.raises(ValueError, match="not qualified"):
+        verify_parent_output(root, "f" * 40, required_seeds=(7,))
+
 def test_selected_jobs_slices_are_predeclared_and_exact():
     from tools.elendril_v716_campaign import selected_jobs
     assert len(selected_jobs("mechanism")) == 21
