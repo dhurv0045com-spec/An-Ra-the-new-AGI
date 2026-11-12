@@ -12,3 +12,14 @@ This notebook is explicitly **enabled** for the user to launch manually:
 - No paid GPU runtime was launched by the author of this notebook.
 
 The auto-discovery never accepts an arbitrary ZIP or substitutes analysis-only archive for parent custody. Do not bypass failed custody gates. If no authentic historical FULL archive is available, locate that original artifact first.
+
+## Diagnosing an attached V7.15 notebook output
+
+The input sidebar may show `ELENDRIL_V715_KAGGLE_T4X2` and individual
+`scale-s8` files. These visible names do not establish a historical
+parent FULL archive. The owner-launch notebook now prints dataset folders,
+file counts, up to 15 sample paths, and hashes of any ZIP candidates before
+any GPU training. It saves a JSON record at
+`/kaggle/working/V16_INPUT_DIAGNOSTIC.json`, including exact observed hashes
+and whether the required parent SHA-256 matched. A missing ZIP or mismatch is
+an explicit custody NO-GO, not an experiment failure. Do not bypass the gate.
