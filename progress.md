@@ -215,3 +215,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Fixed the H3 consistent-control: with 3+ subject rows it moved only the first stale row in row order, possibly leaving the memory-carried oldest value attributed to the subject; it now moves every non-latest subject row while preserving supervision shape parity for all eligible cases.
 - Enforced the preregistered invalid-action promotion rule ("raw <= 861/6,720; grammar == 0") via a rate-matched ceiling `floor(861*records/6720)` over the arm's final raw rows plus zero grammar invalid; added `opposing-star` to the v16-preflight CI push triggers.
 - Full suite 424 passed, 1 environmental skip (Windows symlink privilege), 14 subtests; 50 V7.16 contract tests; reconciled the historical "423" claim as 422 passed + 1 skip. GPU execution remains owner-run; preregistration files untouched.
+
+### 2026-11-12 | OpenCode | Re-pin V7.16 notebook to the audited source
+- Regenerated `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` pinned to the audit-fix commit `09eff159b17e0c6efe633f1011ee4d2a7ca86559`; the previous pin `48aaa7b8` still carried the defective H2 audit ledger, the partial H3 control and the unenforced invalid-action promotion rule.
+- Verified schema, safe default-off (`RUN_STUDY = False`), both owner cells compile, the owner gate and the notebook-builder contract test against the new pin.
+- Owner sessions must use pin `09eff159b17e0c6efe633f1011ee4d2a7ca86559`; commit is local on `opposing-star`, not pushed.
