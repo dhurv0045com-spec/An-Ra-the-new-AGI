@@ -2,6 +2,18 @@
   "date": "2026-11-13",
   "scientific_status": "NOT_RUN: owner GPU execution pending",
   "cause": "UNRESOLVED",
+  "runtime_source_commit": "724af4cb508173e0eb3f4397d5dcb4a42a66712f",
+  "publication_validation": {
+    "pytest_passed": 396,
+    "pytest_skipped": 1,
+    "pytest_subtests_passed": 14,
+    "pytest_wall_seconds": 234.44,
+    "immutable_git_archive_notebook_rebuild": "BYTE_IDENTICAL",
+    "notebook_schema": "PASS",
+    "historical_evidence_verification": "PASS",
+    "fixture_audit": "PASS",
+    "scope": "CPU mechanics and source publication; not GPU or scientific qualification"
+  },
   "training_data_identity": "7786244187963f75e6cda5b10e4d4e0d81927b7000154126fff538dea15539e5",
   "row_order_data_identity": "afcf7f7b44502492124d87d7b82ea288c748d421b12a0925cae190f17e485b7b",
   "observed_data_audit": {

@@ -189,3 +189,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added train/validation teacher and decoded diagnostics, per-parameter gradient parity, checkpoint-linked reporting and two-T4 scheduling.
 - Audited all 9,472 training prompts: no contradictory duplicates; row intervention preserves targets and sequence lengths.
 - CPU mechanics checks pass; owner GPU qualification and root-cause findings remain pending.
+
+### 2026-11-13 | Codex | Publish immutable S20 diagnosis notebook
+- Published the automatic-launch Kaggle notebook pinned to source 724af4cb; Git-archive rebuild is byte-identical and schema-valid.
+- Full CPU regression: 396 passed, one Windows skip, 14 subtests; historical evidence verification and fixture audit passed.
+- Recorded exact validation and launch/recovery limits; no local research campaign or GPU qualification occurred.
