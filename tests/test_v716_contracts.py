@@ -1157,3 +1157,27 @@ def test_v16_owner_input_diagnostic_rejects_wrong_zip_and_records_hash(tmp_path)
     verified = json.loads(diagnostic.read_text())
     assert verified["status"] == "VERIFIED_PARENT_FULL"
     assert verified["zip_archives"][0]["parent_full_match"] is True
+
+def test_v16_owner_parent_is_original_v71_core_not_v715_s8():
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT, OWNER_FIRST_RUN_INTRO
+    assert 'PARENT_CORE_RUN_ID = "20c80f66e76e4b589aed2053afbddffc"' in OWNER_FIRST_RUN_PREFLIGHT
+    assert "PARENT_CORE_BYTES = 1958029910" in OWNER_FIRST_RUN_PREFLIGHT
+    assert "V7.1 CORE" in OWNER_FIRST_RUN_INTRO
+    assert "2,933,151,710 bytes" in OWNER_FIRST_RUN_INTRO
+
+
+def test_v16_owner_diagnostic_flags_mistaken_scale_s8_export(tmp_path):
+    from tools.build_elendril_v716_notebook import OWNER_FIRST_RUN_PREFLIGHT
+    namespace = {}
+    exec(compile(OWNER_FIRST_RUN_PREFLIGHT.split("# EXECUTE OWNER PREFLIGHT")[0],
+                 "preflight-definitions", "exec"), namespace)
+    wrong = tmp_path / "input" / "v715-scale-s8" / "exports"
+    wrong.mkdir(parents=True)
+    (wrong / "ELENDRIL_V71_FULL.zip").write_bytes(b"synthetic wrong stage")
+    report = tmp_path / "V16_INPUT_DIAGNOSTIC.json"
+    with pytest.raises(RuntimeError, match="earlier V7.1 CORE Kaggle output"):
+        namespace["_find_parent_archive"](tmp_path / "input", "f" * 64, report)
+    evidence = json.loads(report.read_text())
+    assert evidence["wrong_v715_scale_s8_detected"] is True
+    assert evidence["zip_archives"][0]["looks_like_wrong_s8_stage"] is True
+    assert evidence["expected_parent_bytes"] == 1958029910
