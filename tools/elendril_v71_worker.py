@@ -84,7 +84,7 @@ def recover(req):
     return {'status':'PASS','checkpoint':trainer.parent,'global_update':4,'comparison':'exact full payload comparison'}
 
 
-def profile(req,deadline):
+def profile(req,deadline,*,worker_module='tools.elendril_v71_worker'):
     import torch
     job=req['job']; root=Path(req['checkpoint_root']); output=Path(req['output'])
     trainer=create(read_dataset(req['data_file']),job,source=req['source'],root=root/'expected')
@@ -109,7 +109,7 @@ def profile(req,deadline):
     child={**req,'checkpoint_root':str(root/'recovery'),'output':str(output/'recovery'),
            'challenge':str(output/'challenge.json'),'timecap_seconds':max(1,deadline-time.monotonic())}
     request=output/'recovery-request.json'; receipt=output/'recovery'/'receipt.json'; immutable_json(request,child)
-    process=subprocess.run([sys.executable,'-m','tools.elendril_v71_worker','recover','--owner-enabled',
+    process=subprocess.run([sys.executable,'-m',worker_module,'recover','--owner-enabled',
         '--request',str(request),'--receipt',str(receipt)],cwd=REPO,timeout=max(1,deadline-time.monotonic()))
     recovered=json.loads(receipt.read_bytes())
     if process.returncode or recovered['status']!='PASS': raise ValueError('profile recovery failed: '+str(recovered))

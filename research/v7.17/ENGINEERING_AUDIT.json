@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-13",
+  "scientific_status": "NOT_RUN: owner GPU execution pending",
+  "cause": "UNRESOLVED",
+  "training_data_identity": "7786244187963f75e6cda5b10e4d4e0d81927b7000154126fff538dea15539e5",
+  "row_order_data_identity": "afcf7f7b44502492124d87d7b82ea288c748d421b12a0925cae190f17e485b7b",
+  "observed_data_audit": {
+    "examples": 9472,
+    "unique_visible_prompts": 9472,
+    "contradictory_prompt_targets": 0,
+    "row_order_examples": 9472,
+    "same_targets": true,
+    "same_per_example_sequence_lengths": true,
+    "target_distribution": {"!":2463,"A":295,"B":308,"C":307,"D":284,"E":303,"F":312,"G":299,"H":326,"I":328,"J":276,"K":308,"L":327,"M":294,"N":311,"O":293,"P":301,"Q":1414,"R":723}
+  },
+  "static_audit": {
+    "confirmed": ["historical initialization and sampler order share one seed", "blocked priority affects epoch zero only"],
+    "no_demonstrated_defect_in_inspected_paths": ["causal mask direction", "next-token shift", "prompt/target mask", "microbatch denominator", "tied parameter ownership", "training versus inference prefix"],
+    "limitation": "Bounded source inspection does not prove absence of bugs or establish a neural failure mechanism."
+  },
+  "qualification": {
+    "local_research_training": false,
+    "gpu_execution": false,
+    "small_model_cpu_updates": "Bounded mechanical tests only; no capability conclusion",
+    "positive_S20_skill_acquisition": "NOT_ESTABLISHED",
+    "fresh_process_mechanical_recovery": "CPU tested; S20 GPU checked by owner-run profile",
+    "fresh_VM_numerical_recovery": "NOT_ESTABLISHED"
+  }
+}

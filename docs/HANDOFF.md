@@ -1,4 +1,8 @@
-# Current V7 handoff — 8 November 2026
+# Current S20 investigation — 13 November 2026
+
+Use [V7.17 implementation, scientific interpretation and owner instructions](../research/v7.17/README.md). The new source-pinned notebook investigates optimization and evidence formatting with S20-only research arms. Historical V7.16 results and every prior reproduction remain intact. Local verification covers mechanics; owner GPU results are pending and **CAUSE UNRESOLVED**.
+
+# Historical V7 handoff — 8 November 2026
 
 Use the [V7 engineering and owner handoff](../research/v7/HANDOFF.md), [preregistered protocol](../research/v7/PROTOCOL.md) and [evidence review](../research/v7/EVIDENCE.md). The V6 architecture, evidence and reproduction paths below remain intact. V7 research and real T4 qualification are pending; versioned recorded-action replay verifies 120 historical evaluations without changing them.
 

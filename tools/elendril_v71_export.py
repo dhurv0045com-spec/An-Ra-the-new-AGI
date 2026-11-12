@@ -270,8 +270,9 @@ def restore_archive(zip_path, destination, *, source, phase, parent=False):
     """
     from anra_v5.elendril.v71_protocol import PHASES, PROTOCOL_SHA
     from anra_v5.elendril.v7_protocol import PROTOCOL_SHA as V7_PROTOCOL_SHA
+    from anra_v5.elendril.v717_protocol import PHASES as DIAG_PHASES, PROTOCOL_SHA as DIAG_SHA
     v6._sha(source, 40)
-    if phase not in PHASES or type(parent) is not bool:
+    if phase not in (*PHASES, *DIAG_PHASES) or type(parent) is not bool:
         raise ValueError('invalid restore phase or parent flag')
     if parent and phase not in ('continual', 'frozen'):
         raise ValueError('parent archives are only allowed for continual or frozen')
@@ -280,7 +281,7 @@ def restore_archive(zip_path, destination, *, source, phase, parent=False):
         expected_protocol = V7_PROTOCOL_SHA
         identity = {'source': expected_source, 'protocol_sha256': expected_protocol}
     else:
-        expected_source, expected_protocol = source, PROTOCOL_SHA
+        expected_source, expected_protocol = source, DIAG_SHA if phase in DIAG_PHASES else PROTOCOL_SHA
         identity = {'source': expected_source, 'protocol_sha256': expected_protocol,
                     'phase': 'core' if parent else phase}
     requested = Path(zip_path)

@@ -183,3 +183,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Saved curated report and JSON with original source/protocol, full three-size comparison, costs and failure evidence.
 - Extended the existing audit command for the registered S20 batch; six focused checks pass.
 - FULL custody and final delivery verification remain pending; documented frozen diagnostics as the next experiment.
+
+### 2026-11-13 | Codex | Implement S20 failure investigation with Luna review
+- Separated initialization/order seeds; added fixed S20 LR and evidence-row interventions with unchanged four-epoch exposure.
+- Added train/validation teacher and decoded diagnostics, per-parameter gradient parity, checkpoint-linked reporting and two-T4 scheduling.
+- Audited all 9,472 training prompts: no contradictory duplicates; row intervention preserves targets and sequence lengths.
+- CPU mechanics checks pass; owner GPU qualification and root-cause findings remain pending.
