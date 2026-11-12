@@ -143,11 +143,13 @@ ark017-sparse are fresh-only and refuse recovery by design).
 ## 5. Verification status
 
 **CPU-verified (this branch, before any GPU session):**
-- 46 contract tests in `tests/test_v716_contracts.py` (protocol round-trip,
+- 50 contract tests in `tests/test_v716_contracts.py` (protocol round-trip,
   custody gate fixture verification, write-once semantics, exposure locks,
   per-arm mechanism contracts including RLOO selection and utility accounting,
   H4 shape gating, H5 fresh-only refusal, ark017 ledger bounds, diagnostics
-  determinism) plus the post-review harness seam tests: an ark017-sparse CPU
+  determinism, the single-pass H2 audit ledger, the H3 multi-stale-row
+  control, and the enforced invalid-action promotion rule) plus the
+  post-review harness seam tests: an ark017-sparse CPU
   stage-migration canary proving the parent weights actually load through
   `migrate_stage`, predeclared `selected_jobs` slices, `_profile_conditions`
   (one measured S3 shape for continual), the promotion gate's admit/block
@@ -191,6 +193,66 @@ source. Defects found were fixed and are now contract-tested:
   when no extracted parent exists; after extraction the verified directory is
   the sole custody input, so the gate record never carries a misleading
   archive-mismatch row.
+
+### 5.2 Adversarial first-principles audit (independent re-verification)
+
+A third pass re-audited the whole pipeline from first principles, tracing
+execution paths end to end rather than trusting prior conclusions. Verified
+sound (no change needed): H1 mask causality (`packed_layout` returns a
+`[b,1,q,k]` broadcast mask, so the H5 copy pathway's `mask[:,0]` is
+per-query causal — no leak, no cripple); H2B train/eval isolation
+(evaluation renders through the arm-agnostic `render_public`, so H2B must
+generalize); H3B penalty applied exactly once per epoch at the first
+update via `_epoch_pairs` with the extra forward/backward ledgered; H4
+provider (real episodes, real `verify()` outcomes, shape-contract
+substitution, every rejection ledgered, rollout acceptance/substitution
+counts surfaced in the worker result); H6 acquisition gates with
+NOT_QUALIFIED records preserved and `after-transfer-before-B` retention
+source; exposure-ledger accounting; optimizer ownership and nonfinite
+guards; worker profile/recovery (challenge-verified republish plus exact
+payload comparison); `prepare_data` transactional reuse; double-verified
+ZIP export; the campaign's dual-lane queue with serialized snapshot
+exports; and the notebook's safe default-off launch path.
+
+Defects found were fixed and are now contract-tested:
+
+- **H2 audit inflated the committed fallback ledger** — `audit()`
+  evaluated every epoch three times (examples, case count, determinism
+  digest), each recording into the same fallback counters, so provenance
+  reported up to four times the fallback count actually consumed by the
+  training row build. The audit now runs one pure evaluation per epoch
+  (`_evaluate_epoch`), reports that pass's counters, and leaves the
+  consumption ledger untouched: audit provenance is position-independent
+  and equals exactly one consumption per epoch.
+- **H3 consistent-control did not neutralize the planted memory value** —
+  with three or more subject rows only the first stale row in row order
+  was re-attributed, which could leave the oldest row (the one the paired
+  stale-overwrite arm attaches to memory) attributed to the subject. The
+  control now re-attributes every non-latest subject row to the distractor,
+  guaranteeing a single-latest consistent subject history; supervision
+  shape parity is preserved for every eligible case because `belief`
+  resolves per-source latest values and the keeper row is untouched. The
+  shipped generator produces at most two subject rows per eligible case,
+  so S3 data is unchanged; the fix matters for donor data and future
+  dataset variants.
+- **Preregistered invalid-action promotion rule was never enforced** —
+  `promotion_requires` includes "raw <= 861 across 6,720 records;
+  grammar == 0", but the gate checked only accuracy, stale-memory and
+  row-reversal thresholds. The gate now sums the arm's final-epoch raw
+  invalid actions and grammar invalid actions from the summary rows and
+  blocks when `raw > floor(861*records/6720)` (the V7.15 blocked-CE
+  invalid rate, reproduced exactly at the registered 6,720-record scope)
+  or when any grammar row is nonzero. Real reports always carry integer
+  `invalid` per cohort, so the check cannot spuriously block a complete
+  run.
+- **CI never ran on the working branch** — `.github/workflows/v16-preflight.yml`
+  triggered only on `review/v16-preflight-2026-11-12`; `opposing-star`
+  is now a push trigger so every branch push runs the CPU preflight.
+- **Test-count reconciliation** — the historical "423 passed" claim
+  corresponds to 422 passed + 1 environmental skip (Windows symlink
+  privilege, `test_elendril_v6_export.py:60`); the count is now 424
+  passed + 1 skipped with the two new mechanism regression tests, and
+  50 V7.16 contract tests.
 
 **Pending GPU (owner-run only):** all 21 mechanism jobs, 12 continual jobs,
 promotion jobs, production profiles, positive control canaries, independent

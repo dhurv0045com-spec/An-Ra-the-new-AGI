@@ -130,6 +130,51 @@ def promotion_gate(arm, mechanism_output, evidence_path):
               "per_seed": {str(seed): f"{row['correct']}/{row['episodes']}"
                            for seed, row in sorted(seeds.items())},
               "per_seed_pass": all(row["correct"] >= 79 for row in seeds.values())}
+    # Registered rule "raw <= 861 across 6,720 records; grammar == 0": the
+    # invalid-action ceiling scales with the evaluated record count so the
+    # V7.15 blocked-CE invalid rate (861/6720) is reproduced exactly at the
+    # registered scope and applied at the same rate to the arm's own final
+    # family. Grammar-constrained decoding must remain exactly zero-invalid.
+    final_free, grammar_rows = {}, []
+    job_ids = set(entry["jobs"])
+    for row in summary.get("rows") or []:
+        if row.get("arm") != arm or row.get("job_id") not in job_ids:
+            continue
+        if row.get("mode") == "grammar":
+            grammar_rows.append(row)
+        elif row.get("mode") == "free":
+            job_id, epoch = row.get("job_id"), row.get("epoch")
+            if type(epoch) is not int:
+                raise ValueError(f"raw row for {job_id} lacks an integer epoch")
+            if job_id not in final_free or epoch > final_free[job_id]:
+                final_free[job_id] = epoch
+    if not final_free:
+        raise ValueError(f"promotion summary carries no raw evaluation rows for {arm}")
+    records, raw_invalid = 0, 0
+    for row in summary.get("rows") or []:
+        if row.get("arm") != arm or row.get("job_id") not in job_ids:
+            continue
+        if row.get("mode") != "free" or row.get("epoch") != final_free[row["job_id"]]:
+            continue
+        episodes, invalid = row.get("episodes"), row.get("invalid")
+        if type(episodes) is not int or type(invalid) is not int \
+                or not 0 <= invalid <= episodes:
+            raise ValueError(f"invalid-action accounting unusable for "
+                             f"{row.get('job_id')}/{row.get('cohort')}")
+        records += episodes
+        raw_invalid += invalid
+    grammar_invalid = 0
+    for row in grammar_rows:
+        invalid = row.get("invalid")
+        if type(invalid) is not int or invalid < 0:
+            raise ValueError(f"grammar invalid accounting unusable for "
+                             f"{row.get('job_id')}/{row.get('cohort')}")
+        grammar_invalid += invalid
+    ceiling = records * 861 // 6720
+    checks["invalid_actions"] = {"raw": raw_invalid, "records": records,
+                                 "ceiling": ceiling, "grammar": grammar_invalid,
+                                 "rule": "raw <= floor(861*records/6720); grammar == 0",
+                                 "pass": raw_invalid <= ceiling and grammar_invalid == 0}
     stale, consistency = None, None
     if evidence_path is not None:
         evidence = json.loads(Path(evidence_path).read_bytes())
@@ -146,13 +191,19 @@ def promotion_gate(arm, mechanism_output, evidence_path):
         checks["row_reversal_consistency"] = consistency
         checks["row_reversal_pass"] = consistency >= 0.5
     checks["admitted"] = (checks["aggregate_pass"] and checks["per_seed_pass"]
+                          and checks["invalid_actions"]["pass"]
                           and stale is not None and consistency is not None
                           and checks["stale_memory_pass"] and checks["row_reversal_pass"])
     if not checks["admitted"]:
-        reason = ("PROMOTION_BLOCKED: preregistered thresholds not met"
-                  if stale is not None else
-                  "PROMOTION_BLOCKED: stale-memory and row-reversal diagnostic "
-                  "evidence not supplied (--promotion-evidence)")
+        if not checks["invalid_actions"]["pass"]:
+            reason = ("PROMOTION_BLOCKED: invalid-action rule failed "
+                      f"(raw {raw_invalid}/{records} vs ceiling {ceiling}; "
+                      f"grammar {grammar_invalid})")
+        elif stale is not None:
+            reason = "PROMOTION_BLOCKED: preregistered thresholds not met"
+        else:
+            reason = ("PROMOTION_BLOCKED: stale-memory and row-reversal diagnostic "
+                      "evidence not supplied (--promotion-evidence)")
         raise ValueError(reason + "; no S8 run may start")
     return {"schema": "elendril-v716-promotion-gate-v1", "arm": arm,
             "thresholds": rules, "checks": checks,

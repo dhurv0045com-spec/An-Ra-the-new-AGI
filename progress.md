@@ -208,3 +208,10 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Regenerated `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` pinned to the review-iteration commit `d5ac75be`; the previous pin still carried the six defects.
 - Verified schema, safe default-off, both owner cells parse, the parent-flag guard and that the pinned tree contains the campaign, worker, custody files and the shared provenance helper.
 - Old pin `08407c95` must not be used for owner sessions; the fixed pin is `d5ac75be`.
+
+### 2026-11-12 | OpenCode | V16 adversarial first-principles audit
+- Traced mechanisms, training, diagnostics, worker, campaign, report and export end to end at `159b066e`; verified H1 masking causality (`packed_layout` `[b,1,q,k]` broadcast), H2B arm-agnostic evaluation isolation, H3B single-penalty accounting, H4 real-episode provider, H6 acquisition/retention gates, recovery challenge checks and transactional data preparation.
+- Fixed the H2 provenance ledger: `audit()` triple-evaluated every epoch and inflated committed fallback counts up to 4x; it now reports one pure evaluation per epoch and leaves the consumption ledger untouched (regression-tested, position-independent).
+- Fixed the H3 consistent-control: with 3+ subject rows it moved only the first stale row in row order, possibly leaving the memory-carried oldest value attributed to the subject; it now moves every non-latest subject row while preserving supervision shape parity for all eligible cases.
+- Enforced the preregistered invalid-action promotion rule ("raw <= 861/6,720; grammar == 0") via a rate-matched ceiling `floor(861*records/6720)` over the arm's final raw rows plus zero grammar invalid; added `opposing-star` to the v16-preflight CI push triggers.
+- Full suite 424 passed, 1 environmental skip (Windows symlink privilege), 14 subtests; 50 V7.16 contract tests; reconciled the historical "423" claim as 422 passed + 1 skip. GPU execution remains owner-run; preregistration files untouched.

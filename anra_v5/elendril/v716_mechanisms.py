@@ -283,27 +283,42 @@ class Ark014SurfaceAugmenter:
     def epoch_cases(self, epoch):
         if type(epoch) is not int or not 1 <= epoch <= self.epochs:
             raise ValueError("epoch outside the registered plan")
+        cases, fallbacks, admitted = self._evaluate_epoch(epoch)
+        plan = self.EPOCH_PLAN[epoch - 1]
+        self.fallbacks[plan] += fallbacks
+        self.permutations_admitted += admitted
+        return cases
+
+    def _evaluate_epoch(self, epoch):
+        """One deterministic plan evaluation that touches no ledger state.
+
+        Returns the epoch's cases plus the fallback and admitted deltas a
+        recorded consumption of this evaluation would accumulate. Used both
+        by ``epoch_cases`` (which applies the deltas) and by ``audit`` (which
+        reports a single canonical pass instead of re-counting state
+        accumulated by its callers).
+        """
         plan = self.EPOCH_PLAN[epoch - 1]
         if plan == "canonical":
-            return self.cases
+            return self.cases, 0, 0
         if plan == "reversed-rows":
             return tuple(replace(case, surface=replace(case.surface, order="reverse"))
-                         for case in self.cases)
-        result, used = [], set()
+                         for case in self.cases), 0, 0
+        result, used, fallbacks, admitted = [], set(), 0, 0
         for case in self.cases:
             transformed = (self._shifted(case, epoch) if plan == "shifted-timestamps"
                            else self._permuted(case, epoch))
             if transformed is None or transformed.world_id in self.reserved_world_ids \
                     or transformed.world_id in used or not _split_safe(transformed):
-                self.fallbacks[plan] += 1
+                fallbacks += 1
                 result.append(case)
                 used.add(case.world_id)
                 continue
             if plan == "symbol-permutation":
-                self.permutations_admitted += 1
+                admitted += 1
             result.append(transformed)
             used.add(transformed.world_id)
-        return tuple(result)
+        return tuple(result), fallbacks, admitted
 
     def _shifted(self, case, epoch):
         """Uniform rank-preserving tick offset that preserves rendered width.
@@ -360,12 +375,29 @@ class Ark014SurfaceAugmenter:
                      for example in supervision(case)[0])
 
     def audit(self):
-        epochs = {}
+        """Single-pass plan audit; the ledger is read, never written.
+
+        ``epoch_cases`` records every genuine consumption in the fallback
+        ledger. The committed provenance must describe the registered plan
+        itself, so the audit evaluates each epoch exactly once through the
+        pure evaluator and reports that pass's counters. Re-counting state
+        accumulated by callers would inflate the committed fallback counts
+        by the number of redundant evaluations (previously three per epoch
+        here, on top of the training row build).
+        """
+        from .v6_data import _supervision as supervision
+        epochs, records, fallbacks, admitted = {}, [], {}, 0
         for epoch in range(1, self.epochs + 1):
-            examples = self.epoch_examples(epoch)
+            cases, epoch_fallbacks, epoch_admitted = self._evaluate_epoch(epoch)
+            plan = self.EPOCH_PLAN[epoch - 1]
+            fallbacks[plan] = fallbacks.get(plan, 0) + epoch_fallbacks
+            admitted += epoch_admitted
+            records.extend(case_to_record(case) for case in cases)
+            examples = tuple(example for case in cases
+                             for example in supervision(case)[0])
             samples = tuple(example.sample for example in examples)
-            epochs[self.EPOCH_PLAN[epoch - 1]] = {
-                "epoch": epoch, "cases": len(self.epoch_cases(epoch)),
+            epochs[plan] = {
+                "epoch": epoch, "cases": len(cases),
                 "examples": len(examples),
                 "supervised_tokens": sum(sum(s.eligible) for s in samples),
                 "input_positions": sum(len(s.tokens) for s in samples),
@@ -376,11 +408,10 @@ class Ark014SurfaceAugmenter:
                      and value["input_positions"] == reference["input_positions"]
                      for value in epochs.values())
         return {"schema": self.schema, "epochs": epochs, "exposure_parity": parity,
-                "fallbacks": dict(self.fallbacks),
-                "permutations_admitted": self.permutations_admitted,
-                "determinism_sha256": digest([case_to_record(case)
-                                              for epoch in range(1, self.epochs + 1)
-                                              for case in self.epoch_cases(epoch)])}
+                "fallbacks": {plan: fallbacks.get(plan, 0)
+                              for plan in self.EPOCH_PLAN},
+                "permutations_admitted": admitted,
+                "determinism_sha256": digest(records)}
 
 
 def canonical_events_key(event):
@@ -492,23 +523,27 @@ class CounterfactualMemoryGenerator:
                         expected=case.truth.expected, panel="v716-stale-overwrite")
 
     def consistent_control(self, case):
-        """Rewrite the subject's stale row onto a distractor entity.
+        """Rewrite every stale subject row onto a distractor entity.
 
-        Exactly one non-latest subject observation is re-attributed to a fresh
+        All non-latest subject observations are re-attributed to one fresh
         symbol, leaving a single-latest consistent subject history to answer
-        from. Rows of other entities are never touched.
+        from. The oldest row the paired stale-overwrite arm attaches to
+        memory is always among the moved rows, so the control neutralizes
+        exactly the value the treatment plants. Rows of other entities are
+        never touched.
         """
         subject_rows = self._subject_rows(case)
         if len(subject_rows) < 2:
             return None
         keeper = max(subject_rows, key=lambda row: row[2])
-        stale = [row for row in subject_rows if row is not keeper]
+        stale = {row for row in subject_rows
+                 if row is not keeper and row != keeper}
         slots = set(case.goal.slots) | {case.truth.expected}
         distractor = next((s for s in SYMBOLS if s not in slots), None)
         if distractor is None:
             return None
-        target = stale[0]
-        initial_rows = [(distractor, row[1], row[2], row[3]) if row == target else row
+        moved = lambda row: row[0] == case.goal.subject and row in stale
+        initial_rows = [(distractor, row[1], row[2], row[3]) if moved(row) else row
                         for row in _rows(case.environment.initial)]
         hidden_rows = [r for values in case.environment.channels.values() for r in _rows(values)]
         return _rebuild(case, initial_rows=initial_rows, hidden_rows=hidden_rows,

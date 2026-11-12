@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - review/v16-preflight-2026-11-12
+      - opposing-star
   workflow_dispatch:
 
 permissions:

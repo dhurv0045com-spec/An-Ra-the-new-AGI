@@ -265,6 +265,42 @@ def test_h2_augmenter_parity_determinism_and_fallback_ledger(data):
     assert set(first["fallbacks"]) == set(Ark014SurfaceAugmenter.EPOCH_PLAN)
 
 
+def test_h2_audit_is_single_pass_and_ledger_pure(small):
+    """Committed provenance must count exactly one evaluation per epoch.
+
+    The audit previously re-evaluated every epoch three times (examples,
+    case count and determinism digest), inflating the committed fallback
+    counts on top of the training row build. A digit-ceiling tick forces a
+    deterministic shifted-timestamp fallback to observe the ledger.
+    """
+    from anra_v5.elendril.v716_mechanisms import _rebuild
+    source = small.cases[0]
+    ceiling_rows = [(event.subject, event.source, 999, event.value)
+                    for event in source.environment.initial]
+    hidden_rows = [(event.subject, event.source, 999, event.value)
+                   for values in source.environment.channels.values()
+                   for event in values]
+    remembered_rows = [(event.subject, event.source, 999, event.value)
+                       for event in source.memory.events] \
+        if source.memory is not None else []
+    ceiling = _rebuild(source, initial_rows=ceiling_rows, hidden_rows=hidden_rows,
+                       remembered_rows=remembered_rows, expected=source.truth.expected)
+    augmenter = Ark014SurfaceAugmenter((ceiling,), seed=5, epochs=4)
+    first = augmenter.audit()
+    assert first["exposure_parity"] is True
+    # No shift room at the digit ceiling: epoch 3 must fall back exactly once.
+    assert first["fallbacks"]["shifted-timestamps"] == 1
+    # The audit consumes nothing; the ledger still reads zero.
+    assert augmenter.fallbacks == {plan: 0 for plan in augmenter.EPOCH_PLAN}
+    assert augmenter.permutations_admitted == 0
+    for epoch in range(1, 5):
+        augmenter.epoch_cases(epoch)
+    # One recorded consumption per epoch equals the single-pass audit counts.
+    assert augmenter.fallbacks == first["fallbacks"]
+    assert augmenter.permutations_admitted == first["permutations_admitted"]
+    assert augmenter.audit() == first  # provenance is position-independent
+
+
 def test_h2_epoch_plan_is_registered_and_shift_is_length_safe(small):
     augmenter = Ark014SurfaceAugmenter(small.cases, seed=5, epochs=4)
     assert augmenter.EPOCH_PLAN == ("canonical", "reversed-rows",
@@ -340,6 +376,56 @@ def test_h3_variants_are_shape_matched_and_parity_safe(data):
                            for a, b in zip(base_examples, variant_examples))
             assert variant.panel.startswith("v716-")
     assert audit["replaced"] <= audit["selected"]
+
+
+def test_h3_consistent_control_reattributes_every_stale_row(data):
+    """The control must neutralize the value the stale-overwrite arm plants.
+
+    With three subject rows the control previously re-attributed only the
+    first stale row in row order, so later stale values stayed attributed
+    to the subject and the oldest row — the one the treatment attaches to
+    memory — could survive untouched. Every non-latest subject row must
+    move, leaving a single-latest consistent subject history.
+    """
+    from anra_v5.elendril.v716_mechanisms import SYMBOLS, _rebuild
+    generator = CounterfactualMemoryGenerator(seed=4242)
+    candidates = [case for case in data.cases if generator.eligible(case)
+                  and len(generator._subject_rows(case)) >= 2]
+    assert candidates, "the fixture must contain multi-overwrite revision cases"
+    base = candidates[0]
+    subject_rows = generator._subject_rows(base)
+    keeper = max(subject_rows, key=lambda row: row[2])
+    ticks = [row[2] for row in subject_rows]
+    shift = 2 if min(ticks) < 2 else 0
+    rows = [(event.subject, event.source, event.tick + shift, event.value)
+            for event in base.environment.initial]
+    hidden = [(event.subject, event.source, event.tick + shift, event.value)
+              for values in base.environment.channels.values() for event in values]
+    remembered = [(event.subject, event.source, event.tick + shift, event.value)
+                  for event in base.memory.events] if base.memory is not None else []
+    taken = set(base.goal.slots) | {base.truth.expected} \
+        | {row[3] for row in subject_rows if row[3]}
+    stale_value = next(symbol for symbol in SYMBOLS if symbol not in taken)
+    extra = (base.goal.subject, keeper[1], min(ticks) + shift - 1, stale_value)
+    three = _rebuild(base, initial_rows=[extra, *rows], hidden_rows=hidden,
+                     remembered_rows=remembered, expected=base.truth.expected)
+    assert generator.eligible(three), "the three-overwrite history stays answerable"
+    variant = generator.consistent_control(three)
+    assert variant is not None
+    survivors = generator._subject_rows(variant)
+    assert len(survivors) == 1 and survivors[0][2] == max(ticks) + shift
+    assert survivors[0][3] == base.truth.expected
+    moved = [(event.subject, event.source, event.tick, event.value)
+             for event in variant.environment.initial
+             if event.subject != base.goal.subject]
+    treatment = generator.stale_overwrite(three)
+    assert treatment is not None
+    planted = [event.value for event in treatment.memory.events]
+    assert planted and all(value in {row[3] for row in moved} for value in planted)
+    base_examples, variant_examples = _supervision(three)[0], _supervision(variant)[0]
+    assert len(base_examples) == len(variant_examples) == 1
+    assert sum(base_examples[0].sample.eligible) == sum(variant_examples[0].sample.eligible)
+    assert len(base_examples[0].sample.tokens) == len(variant_examples[0].sample.tokens)
 
 
 def test_h3_selection_is_deterministic_and_fraction_bounded(data):
@@ -745,10 +831,25 @@ def test_promotion_gate_admits_only_the_preregistered_thresholds(tmp_path):
         "schema": "elendril-v716-promotion-evidence-v1",
         "stale_memory_corrected": 30, "row_reversal_consistency": 0.6}))
 
-    def mechanism_output(correct_by_seed):
-        root = tmp_path / ("mech-" + str(abs(hash(tuple(correct_by_seed.items())))))
+    def mechanism_output(correct_by_seed, *, raw_invalid_per_seed=0,
+                         grammar_invalid=0):
+        root = tmp_path / ("mech-" + str(abs(hash((tuple(correct_by_seed.items()),
+                                                   raw_invalid_per_seed,
+                                                   grammar_invalid)))))
         (root / "analysis").mkdir(parents=True, exist_ok=True)
+        rows = []
+        for seed in correct_by_seed:
+            job_id = f"H4-OUTCOME-DELIB-s{seed}"
+            rows.append({"job_id": job_id, "arm": "H4-OUTCOME-DELIB", "mode": "free",
+                         "epoch": 4, "cohort": "base", "episodes": 112, "invalid": 0})
+            rows.append({"job_id": job_id, "arm": "H4-OUTCOME-DELIB", "mode": "free",
+                         "epoch": 4, "cohort": "memory-manipulations", "episodes": 112,
+                         "invalid": raw_invalid_per_seed})
+            rows.append({"job_id": job_id, "arm": "H4-OUTCOME-DELIB", "mode": "grammar",
+                         "epoch": None, "cohort": "base", "episodes": 112,
+                         "invalid": grammar_invalid})
         summary = {"status": "AVAILABLE", "primary_decoder": "raw-neural",
+                   "rows": rows,
                    "arm_aggregates": {"H4-OUTCOME-DELIB": {
             "jobs": {f"H4-OUTCOME-DELIB-s{seed}": {
                 "base": {"correct": correct, "episodes": 112}}
@@ -757,17 +858,30 @@ def test_promotion_gate_admits_only_the_preregistered_thresholds(tmp_path):
         return root
 
     passing = promotion_gate("H4-OUTCOME-DELIB",
-                             mechanism_output({7: 94, 19: 93, 41: 92}), evidence)
+                             mechanism_output({7: 94, 19: 93, 41: 92},
+                                              raw_invalid_per_seed=10), evidence)
     assert passing["schema"] == "elendril-v716-promotion-gate-v1"
     assert passing["checks"]["admitted"] is True
     assert passing["checks"]["aggregate_pass"] is True
     assert passing["checks"]["per_seed_pass"] is True
+    invalid = passing["checks"]["invalid_actions"]
+    assert invalid["raw"] == 30 and invalid["records"] == 672
+    assert invalid["ceiling"] == 672 * 861 // 6720  # rate-matched registered ceiling
+    assert invalid["grammar"] == 0 and invalid["pass"] is True
     with pytest.raises(ValueError, match="thresholds not met"):  # aggregate floor
         promotion_gate("H4-OUTCOME-DELIB",
                        mechanism_output({7: 96, 19: 95, 41: 85}), evidence)
     with pytest.raises(ValueError, match="thresholds not met"):  # per-seed floor
         promotion_gate("H4-OUTCOME-DELIB",
                        mechanism_output({7: 105, 19: 100, 41: 74}), evidence)
+    with pytest.raises(ValueError, match="invalid-action rule failed"):  # raw ceiling
+        promotion_gate("H4-OUTCOME-DELIB",
+                       mechanism_output({7: 94, 19: 93, 41: 92},
+                                        raw_invalid_per_seed=40), evidence)
+    with pytest.raises(ValueError, match="invalid-action rule failed"):  # grammar != 0
+        promotion_gate("H4-OUTCOME-DELIB",
+                       mechanism_output({7: 94, 19: 93, 41: 92}, grammar_invalid=1),
+                       evidence)
     weak_evidence = tmp_path / "weak.json"
     weak_evidence.write_bytes(canonical({
         "schema": "elendril-v716-promotion-evidence-v1",
