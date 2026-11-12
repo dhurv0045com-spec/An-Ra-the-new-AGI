@@ -277,3 +277,15 @@ about the Elendril development lineage at matched exposure. It cannot and does
 not claim: general reasoning improvement, any AGI-adjacent capability, or that
 a passing promotion gate establishes a cause — only that the preregistered
 falsification conditions did not fire at S8. Failures are reported as results.
+
+### 5.3 Final extracted-parent checkpoint qualification (12 November 2026)
+
+An extracted parent can no longer pass on identity.json alone. The current
+V16 execution source is rejected as a V7.1 core identity: only the registered
+historical V7.1 core SHA is accepted. For every requested seed, the preflight
+now verifies the historical raw epoch-4 report and restores the content-
+addressed checkpoint through CheckpointStore before any positive GPU
+canaries. Missing or corrupt parent payloads produce NO_GO before training.
+CPU regression fixtures cover source spoofing, missing parent and invalid
+epoch metadata. This checks restored components but does not substitute for
+an externally recorded owner-run FULL archive hash or real Kaggle GPU tests.
