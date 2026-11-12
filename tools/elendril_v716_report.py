@@ -144,16 +144,19 @@ def write_summary(output, *, campaign=None):
                 if cohort in metrics and metrics[cohort] is not None
                 and metrics[cohort].get('all')}
         for cohort in _AGGREGATE_COHORTS:
-            correct = sum(row["correct"] for row in entry["jobs"].values()
+            correct = sum(row[cohort]["correct"] for row in entry["jobs"].values()
                           if cohort in row)
-            episodes = sum(row["episodes"] for row in entry["jobs"].values()
+            episodes = sum(row[cohort]["episodes"] for row in entry["jobs"].values()
                            if cohort in row)
             if episodes:
                 entry[cohort] = {'correct': correct, 'episodes': episodes,
                                  'accuracy': correct / episodes}
         base = entry.get('base')
         if base and base['episodes'] % 112 == 0:
-            entry['confirmation_per_seed'] = base['correct'] // (base['episodes'] // 112)
+            entry['confirmation_per_seed'] = {
+                job_id: f"{cohorts['base']['correct']}/{cohorts['base']['episodes']}"
+                for job_id, cohorts in entry['jobs'].items() if 'base' in cohorts
+            }
             entry['confirmation_total'] = f"{base['correct']}/{base['episodes']}"
         aggregate[arm] = entry
     complete = (bool(registered) and all(job in seen_finals for job in registered)
