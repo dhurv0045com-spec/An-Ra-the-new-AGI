@@ -177,3 +177,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Published the dedicated S20 notebook from source 4cc1e993 with automatic whole-batch launch and download links.
 - Sixteen launch, campaign and immutable-publication checks passed, including rebuilding the notebook from its pinned Git tree.
 - Owner-run T4 canaries and research execution remain pending.
+
+### 2026-11-12 | Codex | Archive S20 results as V7.16
+- Verified six S20 jobs, original archive integrity, 38 suite reports and four positive-control replays.
+- Saved curated report and JSON with original source/protocol, full three-size comparison, costs and failure evidence.
+- Extended the existing audit command for the registered S20 batch; six focused checks pass.
+- FULL custody and final delivery verification remain pending; documented frozen diagnostics as the next experiment.

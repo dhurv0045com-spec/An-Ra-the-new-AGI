@@ -1,4 +1,4 @@
-"""Audit the returned V7.15 S8 batch and emit curated results without extracting its ZIP."""
+"""Audit registered S8/S20 scale results and emit curated measurements."""
 
 import argparse
 from collections import Counter
@@ -34,12 +34,17 @@ def outcome_pairs(left, right):
         ("right_only", (False, True)), ("neither", (False, False)))}
 
 
-def analyze(path, data_dir=None):
+def analyze(path, data_dir=None, profile="S8"):
+    studies = {
+        "S8": (SOURCE, RUN),
+        "S20": ("4cc1e993c09d1475a3bc1e250fda58909d539407", "51f3aeb7cb604c6d8c80f6ae4cd9f3ff"),
+    }
+    source, run_id = studies[profile]
     identity = verify_zip(path)
-    if (identity["source"], identity["protocol_sha256"], identity["campaign_status"]) != (SOURCE, PROTOCOL_SHA, "EXECUTED"):
+    if (identity["source"], identity["protocol_sha256"], identity["campaign_status"]) != (source, PROTOCOL_SHA, "EXECUTED"):
         raise ValueError("unexpected source, protocol or execution status")
     subprocess.run(
-        ["git", "diff", "--exit-code", SOURCE, "--", "anra_v5/elendril", "tools/elendril_v7_report.py"],
+        ["git", "diff", "--exit-code", source, "--", "anra_v5/elendril", "tools/elendril_v7_report.py"],
         cwd=ROOT, check=True, stdout=subprocess.DEVNULL,
     )
     suite = build_suite()
@@ -48,8 +53,8 @@ def analyze(path, data_dir=None):
     manifest = suite_manifest(suite)
     core = json.loads(CORE.read_bytes())
     if core["suite"]["identity"] != manifest["suite_sha256"]:
-        raise ValueError("S3 and S8 evaluation suites differ")
-    expected = {job["job_id"]: job for job in jobs("scale") if job["profile"] == "S8"}
+        raise ValueError("reference and current evaluation suites differ")
+    expected = {job["job_id"]: job for job in jobs("scale") if job["profile"] == profile}
     rounding = []
     models = {}
     confirmation_records = {}
@@ -66,14 +71,14 @@ def analyze(path, data_dir=None):
             raise ValueError("expected one campaign marker")
         marker = read(markers[0])
         campaign = marker["campaign"]
-        if (marker["run_id"], marker["source"], marker["protocol_sha256"]) != (RUN, SOURCE, PROTOCOL_SHA):
+        if (marker["run_id"], marker["source"], marker["protocol_sha256"]) != (run_id, source, PROTOCOL_SHA):
             raise ValueError("campaign marker identity differs")
         if (campaign["run_id"], campaign["source"], campaign["protocol_sha256"],
                 campaign["phase"], campaign["status"], campaign["completed_jobs"]) != (
-                    RUN, SOURCE, PROTOCOL_SHA, "scale", "EXECUTED", len(expected)):
-            raise ValueError("S8 batch execution identity differs")
+                    run_id, source, PROTOCOL_SHA, "scale", "EXECUTED", len(expected)):
+            raise ValueError("scale batch execution identity differs")
         if marker["required_jobs"] != list(expected) or campaign["registered_job_ids"] != list(expected):
-            raise ValueError("S8 job inventory differs")
+            raise ValueError("scale job inventory differs")
         if campaign["predeclared_scale_slice"]["subset_identity"] != digest(
             ["v715-registered-slice-v1", "scale", list(expected)]
         ):
@@ -144,7 +149,7 @@ def analyze(path, data_dir=None):
                 "examples", "supervised_tokens", "input_positions", "padded_input_positions", "padded_attention_pairs", "wall_seconds")}
             if work["supervised_tokens"] != worker["supervised_tokens"] or worker["global_update"] != len(logs):
                 raise ValueError("update receipt disagrees with logs")
-            s3_id = job_id.replace("S8-", "S3-", 1)
+            s3_id = job_id.replace(profile + "-", "S3-", 1)
             s3_work = next(row for row in core["training"] if row["job"]["job_id"] == s3_id)
             s3_score = next(row["raw"]["correct"] for row in core["rows"]
                             if row["job_id"] == s3_id and row["cohort"] == "confirmation")
@@ -166,7 +171,7 @@ def analyze(path, data_dir=None):
                     "memory-manipulations", "query-crossed", "hop-2-clamped", "robustness-row-order")},
                 "confirmation_by_kind": {kind: compact(value) for kind, value in raw["metrics"]["confirmation"]["by_kind"].items()},
             }
-            if job_id == "S8-blocked-ce-s41":
+            if job_id == f"{profile}-blocked-ce-s41":
                 row = next(row for row in records["hop-3"] if row["trace"]["status"] == "invalid_action")
                 case = next(case for case in suite["hop-3"] if case.case_id == row["case_id"])
                 example = {"job_id": job_id, "case_id": row["case_id"], "expected": case.truth.expected,
@@ -179,7 +184,7 @@ def analyze(path, data_dir=None):
     with path.open("rb") as handle:
         archive_hash = file_digest(handle, "sha256").hexdigest()
     return {
-        "run_id": RUN, "source": SOURCE, "protocol_sha256": PROTOCOL_SHA,
+        "run_id": run_id, "source": source, "profile": profile, "protocol_sha256": PROTOCOL_SHA,
         "archive": {"bytes": path.stat().st_size, "sha256": archive_hash, "manifest_sha256": identity["manifest_sha256"],
                     "verified_members": identity["files"], "final_delivery_receipt_available": False,
                     "full_checkpoint_zip_available": False},
@@ -194,8 +199,8 @@ def analyze(path, data_dir=None):
         "data": {"train_identity": data_manifest["train"]["identity"], "suite_identity": manifest["suite_sha256"],
                  "case_records": manifest["total_cases"], "unique_worlds": len({c.world_id for cases in suite.values() for c in cases})},
         "models": models,
-        "confirmation_uniform_vs_blocked": {seed: outcome_pairs(confirmation_records[f"S8-uniform-ce-s{seed}"],
-            confirmation_records[f"S8-blocked-ce-s{seed}"]) for seed in (7, 19, 41)},
+        "confirmation_uniform_vs_blocked": {seed: outcome_pairs(confirmation_records[f"{profile}-uniform-ce-s{seed}"],
+            confirmation_records[f"{profile}-blocked-ce-s{seed}"]) for seed in (7, 19, 41)},
         "example_failure": example,
         "cause_status": "CAUSE_UNRESOLVED",
     }
@@ -206,8 +211,9 @@ def main():
     parser.add_argument("--zip", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--data-dir", type=Path)
+    parser.add_argument("--profile", choices=("S8", "S20"), default="S8")
     args = parser.parse_args()
-    result = analyze(args.zip, args.data_dir)
+    result = analyze(args.zip, args.data_dir, args.profile)
     with args.output.open("x", encoding="utf8") as handle:
         json.dump(result, handle, indent=2)
         handle.write("\n")
