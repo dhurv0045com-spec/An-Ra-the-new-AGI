@@ -1,6 +1,8 @@
 # V7.17: locate the S20 failure
 
 Status: optimization phase executed by the owner; [audited results](../../Experiment%20Result/V7.17/README.md) show a consistent lower-LR improvement and continued novel-chain failures. Representation training remains pending. The protocol below preserves the original registered design.
+
+The offline owner-result analyzer is bound to the supplied archive's exact SHA256 and run ID; a different export or rerun requires separate admission and analysis, rather than inheriting this run's conclusions.
 **CAUSE UNRESOLVED.** This continues the existing learner and preserves every
 V6/V7/V7.1/V7.15/V7.16 result and checkpoint reproduction path.
 

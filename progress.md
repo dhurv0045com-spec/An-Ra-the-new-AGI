@@ -200,3 +200,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Saved focused results and essential metrics: matched lower LR improves all three seeds; novel chains still fail and aliases regress.
 - Confirmed V7.16 baseline metric reproduction across all 16 cohorts; preserved raw/grammar distinctions and unresolved causes.
 - Added offline analyzer with eight passing regression checks; no research training or local neural inference performed.
+
+### 2026-11-13 | Codex | Bind owner analysis to exact evidence
+- Bound the V7.17 analyzer to the verified ZIP SHA256 and run ID so a later rerun cannot inherit these conclusions.
+- Retained the original immutable notebook source and external checkpoint-custody limitations.

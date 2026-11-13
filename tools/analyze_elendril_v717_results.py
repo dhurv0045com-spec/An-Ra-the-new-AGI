@@ -19,6 +19,8 @@ from tools.elendril_v6_export import verify_zip
 
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE='724af4cb508173e0eb3f4397d5dcb4a42a66712f'
+RUN='f443d3f4141b4163bbc130d46ebd7395'
+ARCHIVE_SHA='10d024a5daa64b24a63e549b6c8a78c31c8eff141772ec84efee4b5a9f02e1fc'
 STAGES=(('initial',0),('epoch-1',592),('epoch-2',1184),('epoch-4',2368))
 
 
@@ -118,6 +120,8 @@ def analyze(path, *, train_file=None):
     path=Path(path); integrity=verify_zip(path)
     if (integrity['source'],integrity['protocol_sha256'],integrity['campaign_status'])!=(SOURCE,PROTOCOL_SHA,'EXECUTED'):
         raise ValueError('unexpected owner study identity')
+    with path.open('rb') as stream: archive_sha=file_digest(stream,'sha256').hexdigest()
+    if archive_sha!=ARCHIVE_SHA: raise ValueError('not the registered owner archive; require a separate analysis for another run')
     subprocess.run(['git','diff','--exit-code',SOURCE,'--','anra_v5/elendril'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL)
     train=read_dataset(Path(train_file)) if train_file else make_dataset('train',seed=606,target_bytes=2200000)
     validation=make_dataset('validation',seed=707,worlds=112)
@@ -131,7 +135,7 @@ def analyze(path, *, train_file=None):
         markers=[n for n in z.namelist() if n.startswith('campaign-') and n.endswith('.json')]
         if len(markers)!=1: raise ValueError('expected single campaign marker')
         marker=read(markers[0]); campaign=marker['campaign']
-        if (campaign['source'],campaign['protocol_sha256'],campaign['phase'],campaign['status'],campaign['completed_jobs'])!=(SOURCE,PROTOCOL_SHA,'optimization','EXECUTED',8):
+        if (campaign['source'],campaign['protocol_sha256'],campaign['phase'],campaign['status'],campaign['completed_jobs'],campaign['run_id'])!=(SOURCE,PROTOCOL_SHA,'optimization','EXECUTED',8,RUN):
             raise ValueError('campaign inventory differs')
         if (marker['source']!=SOURCE or marker['protocol_sha256']!=PROTOCOL_SHA or marker['run_id']!=campaign['run_id']
                 or marker['required_jobs']!=list(expected)): raise ValueError('marker binding differs')
@@ -224,7 +228,6 @@ def analyze(path, *, train_file=None):
                                                     finals[jid]['evaluation']['records']['confirmation']['raw']['episodes']),
                 'base_pairs':outcome_pairs(finals[base]['evaluation']['records']['base']['raw']['episodes'],
                                             finals[jid]['evaluation']['records']['base']['raw']['episodes'])})
-    with path.open('rb') as stream: archive_sha=file_digest(stream,'sha256').hexdigest()
     return dict(schema='elendril-v717-owner-audit-v1',run_id=campaign['run_id'],source=SOURCE,protocol_sha256=PROTOCOL_SHA,
         archive={'filename':path.name,'bytes':path.stat().st_size,'sha256':archive_sha,**integrity},
         verification={'suite_reports_replayed':checked,'measurement_milestones_audited':measurements,
