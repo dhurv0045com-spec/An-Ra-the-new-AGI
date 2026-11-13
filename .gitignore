@@ -22,3 +22,17 @@ artifacts/cymek/p35_store/
 artifacts/cymek/v5a_store/
 artifacts/v5/CYMEK_GPU_RESEARCH_*_RESULTS.zip
 foundry_data/
+
+# V7 / V7.1 results are curated reports and essential JSON only.
+/Experiment Result/V7/**
+!/Experiment Result/V7/**/
+!/Experiment Result/V7/**/*.md
+!/Experiment Result/V7/**/*.json
+/Experiment Result/V7/**/FINAL_STATUS.json
+/Experiment Result/V7/**/raw/
+/Experiment Result/V7.1/**
+!/Experiment Result/V7.1/**/
+!/Experiment Result/V7.1/**/*.md
+!/Experiment Result/V7.1/**/*.json
+/Experiment Result/V7.1/**/FINAL_STATUS.json
+/Experiment Result/V7.1/**/raw/

@@ -1,0 +1,134 @@
+{
+  "qualification": "CPU data, identity and disjointness audit only; no research training or GPU qualification",
+  "protocol_sha256": "fd8ecd82d7405d9504d19db201cad372dcf7a2fb5d99dc38b0ee602e7476d170",
+  "suite": {
+    "total_cases": 1120,
+    "suite_sha256": "bd0b1f5b9d4186345833974f9ce17eb0ed7e9a542fc42644fdf838ce1ce0b053",
+    "cohorts": {
+      "balanced-payload": {
+        "count": 32,
+        "cases_sha256": "c9326d4eab9e2ebd6a07af27b2719802043e1ad835c23622e98d132df826331c"
+      },
+      "base": {
+        "count": 112,
+        "cases_sha256": "9c4b36af3deab93386d0ce05e35396e7343996b7dc6395e8c825108de3768f45"
+      },
+      "confirmation": {
+        "count": 112,
+        "cases_sha256": "1ce57b8c0b0e5642cf62b8acb24b580100546e32afa9822d563bdd075b98521e"
+      },
+      "hop-1": {
+        "count": 16,
+        "cases_sha256": "c66bc541e740c4437a692c42903509251b53e0985dbad63950e18957b83cde36"
+      },
+      "hop-2": {
+        "count": 16,
+        "cases_sha256": "7657e2173f32e7c9e3ea6a4536862a5e9c16bcb4e96192388bab3c606bd18070"
+      },
+      "hop-2-clamped": {
+        "count": 32,
+        "cases_sha256": "8f7aae9b459c37bafb40feeebce6b6acde3fd42472677b2c92d7c5301365804e"
+      },
+      "hop-3": {
+        "count": 16,
+        "cases_sha256": "2daec48488ab99e2b59615d302c3281804bd3ec80c48b4e2c447ee2e71aed166"
+      },
+      "hop-4": {
+        "count": 16,
+        "cases_sha256": "1145d2c4f24499803b3775f531417159ed60dbd4bbbca5ff6356de057f3b0b13"
+      },
+      "intermediate-vs-sham": {
+        "count": 32,
+        "cases_sha256": "49a09d5b30249ce12bc1548ba1f7f9587856502a74f05d29d20f5b6910d99c70"
+      },
+      "memory-manipulations": {
+        "count": 64,
+        "cases_sha256": "ababe05538d3b998ecd5edd4d183a3686cdd9961bbe5a7811f84b9abcf177ae9"
+      },
+      "query-crossed": {
+        "count": 96,
+        "cases_sha256": "95b57e56e159cdd7cd35582c196f6826265d501641ae38fa5236dab05a9520da"
+      },
+      "query-irrelevant": {
+        "count": 16,
+        "cases_sha256": "f57077ab1683bb2fa9a43f7d2245398640281d2c187ef5e8e4e8f15ddc240b65"
+      },
+      "robustness-alias": {
+        "count": 112,
+        "cases_sha256": "232b10c1116bcee26c2fed5cac1b5719df7ee2fdbef58e4e744d413b1f9e718c"
+      },
+      "robustness-distractor": {
+        "count": 112,
+        "cases_sha256": "45a91d1d8e80cdf5fc39ae66edbbaebf6673c91c0697938363745985e3c12e0d"
+      },
+      "robustness-row-order": {
+        "count": 224,
+        "cases_sha256": "24f87dd722522eee88690f2cecd88e966b982127017937c6ffe0a80484833e1d"
+      },
+      "robustness-template": {
+        "count": 112,
+        "cases_sha256": "73b191639cef9cf6773dec54776be215f8700073f57c54ea65f8c38a50b3dbe4"
+      }
+    }
+  },
+  "datasets": {
+    "train": {
+      "identity": "7786244187963f75e6cda5b10e4d4e0d81927b7000154126fff538dea15539e5",
+      "worlds": 7335,
+      "samples": 9472,
+      "input_positions": 2228601
+    },
+    "validation": {
+      "identity": "d6c29b0b20556503835a5eac47079d3d061b2dd50b5e5d75e5f18a108ae78be4",
+      "worlds": 112,
+      "samples": 160,
+      "input_positions": 37049
+    },
+    "confirmation": {
+      "identity": "23aece3eb53b29624af67efd56c4bdab0688c906153b737d2583881d583b7e86",
+      "worlds": 112,
+      "samples": 160,
+      "input_positions": 37047
+    },
+    "canary": {
+      "identity": "2c42acc8be967728417c7dd5cb6f4a9e43bade4f76d9e694118c513ab0943470",
+      "worlds": 14,
+      "samples": 20,
+      "input_positions": 4625
+    },
+    "monitor": {
+      "identity": "1e9bf02688509232581ad907c5ace687efc97d5e459cd2bc5a96052c606059f4",
+      "worlds": 28,
+      "samples": 40,
+      "input_positions": 9271
+    },
+    "new-b": {
+      "identity": "50db06f3c4f6a2ad124ebc2cf549b51b1b4a391e8d93cb8c3b346f12077b88f3",
+      "worlds": 512,
+      "samples": 512,
+      "input_positions": 104253
+    },
+    "replay": {
+      "identity": "fdab968cb2233bca619ef1b11d4a4e85bb301aa7590d1941f912ca3ebdb7930e",
+      "worlds": 640,
+      "samples": 768,
+      "input_positions": 163156
+    }
+  },
+  "intermediate_samples": 12264,
+  "intermediate_updates_4epochs": 3068,
+  "wall_seconds": 33.73499999998603,
+  "checks": {
+    "original_train_disjoint": "PASS",
+    "new_b_disjoint": "PASS",
+    "replay_disjoint": "PASS",
+    "portable_suite_identity": "PASS",
+    "historical_train_identity_unchanged": "PASS"
+  },
+  "python": "3.11.15 (main, Jun 23 2026, 15:20:37) [MSC v.1944 64 bit (AMD64)]",
+  "constructor_files": {
+    "anra_v5/elendril/v71_data.py": "486ce8201cc625bbb12e2595bda3472ff561929ff8ac99e2fcf5469ade840dab",
+    "anra_v5/elendril/v6_data.py": "88fc201df3cd497aa11bbcc52f6ed26261fb777c3d4b7d9c24a341fe296ccd66"
+  },
+  "constructor_digest_encoding": "UTF-8 with LF line endings"
+}

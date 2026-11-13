@@ -6,7 +6,7 @@ Updated: 2026-11-14. Branch: `hitchhiker`.
 
 The user proposed mechanisms A–H for compact cognitive generalization and asked for a technical, evidence-producing experiment design before implementation. The first deliverable is complete: [conclusion and experiment design](research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md). The [original supplied proposal](research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md) is preserved byte-for-byte, with its hypotheses and reported numbers unchanged.
 
-The current publication request covers these documents, README, and branch context. Implementation, checkpoint inference, and new training have not started. The next implementation instruction should use the reviewed conclusions and explicit mechanism tests below.
+The documentation deliverable established the reviewed design ([conclusion and experiment design](research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md)) alongside the [original supplied proposal](research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md). The Hitchhiker evidence-producing experiment harness, 7-factor counterfactual suite, cognitive health probes, Stage 0 diagnostic decoders, deterministic Stage 1–2 training arms, and bounded CPU mechanical verification are now implemented locally; frozen S20-low-lr checkpoint restoration and GPU Stage 1–3 training runs remain pending.
 
 ## Source identities
 
@@ -19,7 +19,7 @@ The current publication request covers these documents, README, and branch conte
 | Local Hitchhiker worktree | `C:/Users/ankit/Downloads/An-Ra-hitchhiker` |
 | Local audited V7 checkout | `C:/Users/ankit/Downloads/An-Ra-Elendril-V7` |
 
-The branch base is an ancestor of the audited V7 source. This publication adds documentation to the existing base; it does not merge the V7 implementation. Before building, explicitly integrate the reviewed source and record the resulting commit and protocol identity. Existing V6 documents retain their historical context.
+The branch base is an ancestor of the audited V7 source (`0c9cb284d2c8c949e17ac342959c6f2bf351bd30`), which is integrated in the working tree (`MERGE_HEAD`) and bound in `anra_v5/elendril/hitchhiker_protocol.py`. Existing V6 documents retain their historical context.
 
 The audited [V7.17 result report](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/blob/0c9cb284d2c8c949e17ac342959c6f2bf351bd30/Experiment%20Result/V7.17/f443d3f4141b4163bbc130d46ebd7395/RESULTS.md) records earlier execution and replay. This document does not claim those experiments were run again for Hitchhiker.
 
@@ -47,7 +47,7 @@ The full design specifies proposed thresholds, compute matching, uncertainty, fa
 
 ## Current handoff state
 
-- Complete: repository audit, critique of A–H, proposed experimental protocol, original proposal preservation, README/context documentation.
-- Verified locally: original proposal copy hashes match; documentation formatting and links checked before publication.
-- Pending: source integration, checkpoint restoration, diagnostic implementation/execution, all proposed training and capability claims.
+- Complete: repository audit, critique of A–H, proposed experimental protocol, original proposal preservation, integration of `0c9cb284d2c8c949e17ac342959c6f2bf351bd30` (`MERGE_HEAD`), and Hitchhiker implementation across `anra_v5/elendril/hitchhiker_{protocol,data,diagnostics,training,evaluation}.py`, `tools/elendril_hitchhiker_runner.py`, and `tests/test_elendril_hitchhiker.py`.
+- Verified locally: `tests/test_elendril_hitchhiker.py` (`9 passed`), `python -m tools.elendril_hitchhiker_runner --mode cpu-mechanical-check` (receipt at `artifacts/elendril/hitchhiker/mechanical_verification.json`, `claim_status="IMPLEMENTED"`, `formation_gate="MECHANICAL_ONLY_NOT_FORMATION_QUALIFIED"`), and `python -m tools.verify_elendril_evidence` (`410 passed, 1 skipped` in `pytest -q`, with 3 historical notebook `HEAD`-ancestry checks awaiting commit of `MERGE_HEAD`).
+- Pending: mounting external S20-low-lr checkpoints for live Stage 0 audit (`CHECKPOINT_AUDIT_PENDING`), GPU execution of Stage 1–3 training/confirmation runs, and all capability claims (second-wave mechanisms E–H remain deferred).
 - No V8/V8.1 specification was located in the searched research/docs trees. V8 compatibility in the design is a proposed interface contract, not a verified match to an unseen specification.

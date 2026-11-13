@@ -1,0 +1,3070 @@
+{
+  "arm_runs": [
+    {
+      "arm": "B0",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "b0a20cd22d9fe28ce970192ddc537f1509d9059342d1df05e2f672d9e3578e25",
+      "examples_processed": 8,
+      "final_loss": 5.494355916976929,
+      "input_positions": 1874,
+      "job_id": "HH-stage1_s3_screen-S3-B0-s7",
+      "parameters": 52784,
+      "stage": "stage1_s3_screen",
+      "stream_counts": {
+        "accepted_candidates": 64,
+        "rejected_candidates": 0
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "A",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "020694552e62e9a3798871c7750848f65186670f9af64942665db19f7e5b1baa",
+      "examples_processed": 8,
+      "final_loss": 5.528240203857422,
+      "input_positions": 1880,
+      "job_id": "HH-stage1_s3_screen-S3-A-s7",
+      "parameters": 52784,
+      "stage": "stage1_s3_screen",
+      "stream_counts": {
+        "accepted_candidates": 8,
+        "rejected_candidates": 8
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "B",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "085376d5d5069b067245dbfe8f2ee330441fee2b484a3679762378d13b5d4a0e",
+      "examples_processed": 8,
+      "final_loss": 5.479337215423584,
+      "input_positions": 1874,
+      "job_id": "HH-stage1_s3_screen-S3-B-s7",
+      "parameters": 52784,
+      "stage": "stage1_s3_screen",
+      "stream_counts": {
+        "accepted_candidates": 8,
+        "rejected_candidates": 0
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "AB",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "6f303e27c273d5984a41b635d46a3ca91ed578d26d99f2497bb08e1e0c9b79ce",
+      "examples_processed": 8,
+      "final_loss": 5.527217388153076,
+      "input_positions": 1880,
+      "job_id": "HH-stage1_s3_screen-S3-AB-s7",
+      "parameters": 52784,
+      "stage": "stage1_s3_screen",
+      "stream_counts": {
+        "accepted_candidates": 8,
+        "rejected_candidates": 8
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "C",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "d0fd4e40412cffcab37e1f98f40375188623191dae85656da999f39166d80de6",
+      "examples_processed": 8,
+      "final_loss": 5.505667448043823,
+      "input_positions": 1790,
+      "job_id": "HH-stage1_s3_screen-S3-C-s7",
+      "parameters": 52784,
+      "stage": "stage1_s3_screen",
+      "stream_counts": {
+        "accepted_candidates": 64,
+        "rejected_candidates": 33
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "AB+C",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "9f89281833e64bac5ed33cb1d25e8a7cfc9686152940ea9ab82bd3ee2d6325b1",
+      "examples_processed": 8,
+      "final_loss": 5.489211559295654,
+      "input_positions": 1792,
+      "job_id": "HH-stage2_followups-S3-AB+C-s7",
+      "parameters": 52784,
+      "stage": "stage2_followups",
+      "stream_counts": {
+        "accepted_candidates": 8,
+        "rejected_candidates": 8
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "C+penalty",
+      "attribution_origin": "model",
+      "checkpoint_sha256": "6c887a023bfb2335d8faffb85d1dd064c2e452b8c70226ede9412aa5e8e1ad3c",
+      "examples_processed": 8,
+      "final_loss": 5.50599217414856,
+      "input_positions": 1790,
+      "job_id": "HH-stage2_followups-S3-C+penalty-s7",
+      "parameters": 52784,
+      "stage": "stage2_followups",
+      "stream_counts": {
+        "accepted_candidates": 64,
+        "rejected_candidates": 33
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    },
+    {
+      "arm": "D-external",
+      "attribution_origin": "engineered_canonicalizer",
+      "checkpoint_sha256": "d37ede8117747fe1c9b3b51e2dc284374972827f6ca9455f10137d67376e63cf",
+      "examples_processed": 8,
+      "final_loss": 5.493211507797241,
+      "input_positions": 1874,
+      "job_id": "HH-stage2_followups-S3-D-external-s7",
+      "parameters": 52784,
+      "stage": "stage2_followups",
+      "stream_counts": {
+        "accepted_candidates": 64,
+        "rejected_candidates": 0
+      },
+      "supervised_tokens": 16,
+      "updates_executed": 2
+    }
+  ],
+  "capability_claim": "NO_COGNITION_CLAIM_FROM_MECHANICAL_OR_UNEXECUTED_CHECKS",
+  "claim_status": "IMPLEMENTED",
+  "decision_table": [
+    {
+      "attribution": "model_vs_mask_vs_grammar",
+      "evidence_summary": "Missing-weights receipt=CHECKPOINT_AUDIT_PENDING; local admission=ADMITTED.",
+      "mechanism": "Stage 0 frozen S20 audit harness",
+      "next_action": "Execute against real S20-low-lr checkpoints when mounted.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "model",
+      "evidence_summary": "Fresh split-disjoint stream built and ran 2 tiny CPU updates.",
+      "mechanism": "A (Procedural world diversity)",
+      "next_action": "Execute 3-seed S3 screen on GPU.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "model",
+      "evidence_summary": "Episode-consistent A-P relabeling stream ran 2 tiny CPU updates.",
+      "mechanism": "B (Entity permutation invariance)",
+      "next_action": "Execute 3-seed S3 screen on GPU.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "model",
+      "evidence_summary": "2 tiny CPU updates verified; formation_gate=MECHANICAL_ONLY_NOT_FORMATION_QUALIFIED.",
+      "mechanism": "AB (Fresh + Entity relabeling)",
+      "next_action": "Execute 3-seed S3 screen on GPU.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "model",
+      "evidence_summary": "Matched completeness x availability stream ran 2 tiny CPU updates.",
+      "mechanism": "C (Matched coverage across availability)",
+      "next_action": "Execute 3-seed S3 screen on GPU.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "model",
+      "evidence_summary": "Gradient probe=PASS; ran 2 tiny CPU updates.",
+      "mechanism": "C+penalty (Aux illegal-action penalty)",
+      "next_action": "Conditional Stage 2 arm if availability illegality persists under C.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "engineered_canonicalizer",
+      "evidence_summary": "Public-only canonicalization + dereferencing ran and replayed cleanly.",
+      "mechanism": "D-external (Public canonicalizer control)",
+      "next_action": "Run as non-learned diagnostic baseline in Stage 2.",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "attribution": "deferred",
+      "evidence_summary": "Explicitly deferred until Stage 1-3 empirical bottlenecks justify.",
+      "mechanism": "Second-wave E/F/G/H",
+      "next_action": "Remain deferred until Stage 1-3 screening completes.",
+      "status": "PENDING"
+    }
+  ],
+  "mechanical_checks": {
+    "ab_entity_equivariance": {
+      "argmax_equivariance_rate": 1.0,
+      "complete_pairs": 8,
+      "equivariant_and_both_correct_rate": 0.0,
+      "mean_answer_distribution_tv": 0.0647434367978554
+    },
+    "ab_mechanical_probes": {
+      "belief_revision": {
+        "both_correct_timestamp_pairs": 0,
+        "correct": 0,
+        "episodes": 4,
+        "total_timestamp_pairs": 2
+      },
+      "distractor_trap": {
+        "accuracy": 0.0,
+        "correct": 0,
+        "episodes": 2
+      },
+      "missing_bridge": {
+        "combined_gate_pass": false,
+        "counts": {
+          "mb-complete": 2,
+          "mb-memory": 2,
+          "mb-query": 2,
+          "mb-unsolvable": 2
+        },
+        "invalid_action_rate": 1.0,
+        "memory_retrieve_recall": 0.0,
+        "query_recall": 0.0,
+        "solvable_answer_accuracy": 0.0,
+        "unsolvable_abstain_accuracy": 0.0
+      },
+      "preservation": {
+        "reason": "no independently acquired A/B stage and matched C trajectories",
+        "status": "NOT_QUALIFIED"
+      }
+    },
+    "admitted_local_b0_classification": {
+      "accuracy_gain_under_mask": 0.0,
+      "findings": [],
+      "invalid_rate_drop": 0.0,
+      "masked_accuracy": 0.0,
+      "raw_accuracy": 0.0
+    },
+    "admitted_local_b0_decoders": {
+      "availability-only": {
+        "attribution_origin": "model",
+        "cohort_metrics": {
+          "factor-alias-clause": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 32,
+                "invalid": 32,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "surface-alias-no-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-alias-with-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-neutral-length-matched": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-standard": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 32,
+            "invalid": 32,
+            "invalid_rate": 1.0,
+            "model_calls": 32,
+            "model_positions": 7440,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-answer-edge-swap": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "edge-intervened": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "edge-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3080,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-answer-query-swap": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "qswap-subject-a": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "qswap-subject-b": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3600,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-distractors": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "distractors-matched3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "distractors-none": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3440,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-entity-permutation": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "perm-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "perm-relabeled": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3080,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-row-order": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 24,
+                "invalid": 24,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "order-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-random": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-reverse": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 24,
+            "invalid": 24,
+            "invalid_rate": 1.0,
+            "model_calls": 24,
+            "model_positions": 4620,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-timestamps": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "ticks-in-range": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "ticks-large": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3100,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-wording": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 4,
+                "invalid": 4,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "wording-current-value": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              },
+              "wording-follow-1": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 2,
+            "correct": 0,
+            "episodes": 4,
+            "invalid": 4,
+            "invalid_rate": 1.0,
+            "model_calls": 4,
+            "model_positions": 686,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-1": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-1": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 346,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-2": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-2": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 372,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-3": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 398,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-4": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-4": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 424,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          }
+        },
+        "decoder_schema": "utf8-availability-only",
+        "factor_summary": {
+          "factor-alias-clause": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "surface-alias-no-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-alias-with-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-neutral-length-matched": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-standard": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": null
+          },
+          "factor-answer-edge-swap": {
+            "accuracy": 0.0,
+            "both_correct_rate": 0.0,
+            "by_panel": {
+              "edge-intervened": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "edge-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-answer-query-swap": {
+            "accuracy": 0.0,
+            "both_correct_rate": 0.0,
+            "by_panel": {
+              "qswap-subject-a": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "qswap-subject-b": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-distractors": {
+            "accuracy": 0.0,
+            "accuracy_gap": 0.0,
+            "by_panel": {
+              "distractors-matched3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "distractors-none": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-entity-permutation": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "perm-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "perm-relabeled": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-row-order": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "order-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-random": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-reverse": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": null
+          },
+          "factor-timestamps": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "ticks-in-range": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "ticks-large": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-wording": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "wording-current-value": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              },
+              "wording-follow-1": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          }
+        },
+        "health_probe_scores": {
+          "belief_revision": {
+            "both_correct_timestamp_pairs": 0,
+            "correct": 0,
+            "episodes": 4,
+            "total_timestamp_pairs": 2
+          },
+          "distractor_trap": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 2
+          },
+          "missing_bridge": {
+            "combined_gate_pass": false,
+            "counts": {
+              "mb-complete": 2,
+              "mb-memory": 2,
+              "mb-query": 2,
+              "mb-unsolvable": 2
+            },
+            "invalid_action_rate": 1.0,
+            "memory_retrieve_recall": 0.0,
+            "query_recall": 0.0,
+            "solvable_answer_accuracy": 0.0,
+            "unsolvable_abstain_accuracy": 0.0
+          },
+          "preservation": {
+            "reason": "no independently acquired A/B stage and matched C trajectories",
+            "status": "NOT_QUALIFIED"
+          }
+        }
+      },
+      "grammar": {
+        "attribution_origin": "model",
+        "cohort_metrics": {
+          "factor-alias-clause": {
+            "abstained": 1,
+            "accuracy": 0.125,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.125,
+                "correct": 4,
+                "episodes": 32,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "surface-alias-no-clause": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "surface-alias-with-clause": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "surface-neutral-length-matched": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "surface-standard": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 4,
+            "episodes": 32,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 77,
+            "model_positions": 18903,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-answer-edge-swap": {
+            "abstained": 0,
+            "accuracy": 0.0625,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0625,
+                "correct": 1,
+                "episodes": 16,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "edge-intervened": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "edge-original": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 1,
+            "episodes": 16,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 32,
+            "model_positions": 6176,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-answer-query-swap": {
+            "abstained": 0,
+            "accuracy": 0.0625,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0625,
+                "correct": 1,
+                "episodes": 16,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "qswap-subject-a": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "qswap-subject-b": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 1,
+            "episodes": 16,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 32,
+            "model_positions": 7216,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-distractors": {
+            "abstained": 0,
+            "accuracy": 0.125,
+            "both_correct_pairs": 1,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.125,
+                "correct": 2,
+                "episodes": 16,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "distractors-matched3": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "distractors-none": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 2,
+            "episodes": 16,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 32,
+            "model_positions": 6896,
+            "pair_accuracy": 0.125,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-entity-permutation": {
+            "abstained": 0,
+            "accuracy": 0.125,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.125,
+                "correct": 2,
+                "episodes": 16,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "perm-original": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "perm-relabeled": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 2,
+            "episodes": 16,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 32,
+            "model_positions": 6176,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-row-order": {
+            "abstained": 0,
+            "accuracy": 0.125,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.125,
+                "correct": 3,
+                "episodes": 24,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "order-original": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "order-random": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "order-reverse": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 3,
+            "episodes": 24,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 48,
+            "model_positions": 9264,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-timestamps": {
+            "abstained": 0,
+            "accuracy": 0.125,
+            "both_correct_pairs": 1,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.125,
+                "correct": 2,
+                "episodes": 16,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "ticks-in-range": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "ticks-large": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 2,
+            "episodes": 16,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 32,
+            "model_positions": 6216,
+            "pair_accuracy": 0.125,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-wording": {
+            "abstained": 0,
+            "accuracy": 0.5,
+            "both_correct_pairs": 1,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.5,
+                "correct": 2,
+                "episodes": 4,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "wording-current-value": {
+                "accuracy": 0.5,
+                "correct": 1,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "wording-follow-1": {
+                "accuracy": 0.5,
+                "correct": 1,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 2,
+            "correct": 2,
+            "episodes": 4,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 8,
+            "model_positions": 1376,
+            "pair_accuracy": 0.5,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-1": {
+            "abstained": 0,
+            "accuracy": 0.5,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.5,
+                "correct": 1,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "hop-1": {
+                "accuracy": 0.5,
+                "correct": 1,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 1,
+            "episodes": 2,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 4,
+            "model_positions": 694,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-2": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "hop-2": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 4,
+            "model_positions": 746,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-3": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "hop-3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 4,
+            "model_positions": 798,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-4": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "by_panel": {
+              "hop-4": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 0,
+            "invalid_rate": 0.0,
+            "model_calls": 4,
+            "model_positions": 850,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          }
+        },
+        "decoder_schema": "utf8-grammar-control",
+        "factor_summary": {
+          "factor-alias-clause": {
+            "accuracy": 0.125,
+            "by_panel": {
+              "surface-alias-no-clause": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "surface-alias-with-clause": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "surface-neutral-length-matched": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "surface-standard": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": null
+          },
+          "factor-answer-edge-swap": {
+            "accuracy": 0.0625,
+            "both_correct_rate": 0.0,
+            "by_panel": {
+              "edge-intervened": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "edge-original": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-answer-query-swap": {
+            "accuracy": 0.0625,
+            "both_correct_rate": 0.0,
+            "by_panel": {
+              "qswap-subject-a": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "qswap-subject-b": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-distractors": {
+            "accuracy": 0.125,
+            "accuracy_gap": 0.0,
+            "by_panel": {
+              "distractors-matched3": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "distractors-none": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": 0.125
+          },
+          "factor-entity-permutation": {
+            "accuracy": 0.125,
+            "by_panel": {
+              "perm-original": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "perm-relabeled": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-row-order": {
+            "accuracy": 0.125,
+            "by_panel": {
+              "order-original": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "order-random": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "order-reverse": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": null
+          },
+          "factor-timestamps": {
+            "accuracy": 0.125,
+            "by_panel": {
+              "ticks-in-range": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "ticks-large": {
+                "accuracy": 0.125,
+                "correct": 1,
+                "episodes": 8,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": 0.125
+          },
+          "factor-wording": {
+            "accuracy": 0.5,
+            "by_panel": {
+              "wording-current-value": {
+                "accuracy": 0.5,
+                "correct": 1,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              },
+              "wording-follow-1": {
+                "accuracy": 0.5,
+                "correct": 1,
+                "episodes": 2,
+                "invalid": 0,
+                "invalid_rate": 0.0
+              }
+            },
+            "invalid_rate": 0.0,
+            "pair_accuracy": 0.5
+          }
+        },
+        "health_probe_scores": {
+          "belief_revision": {
+            "both_correct_timestamp_pairs": 0,
+            "correct": 0,
+            "episodes": 4,
+            "total_timestamp_pairs": 2
+          },
+          "distractor_trap": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 2
+          },
+          "missing_bridge": {
+            "combined_gate_pass": false,
+            "counts": {
+              "mb-complete": 2,
+              "mb-memory": 2,
+              "mb-query": 2,
+              "mb-unsolvable": 2
+            },
+            "invalid_action_rate": 0.0,
+            "memory_retrieve_recall": 0.0,
+            "query_recall": 0.0,
+            "solvable_answer_accuracy": 0.0,
+            "unsolvable_abstain_accuracy": 0.0
+          },
+          "preservation": {
+            "reason": "no independently acquired A/B stage and matched C trajectories",
+            "status": "NOT_QUALIFIED"
+          }
+        }
+      },
+      "raw": {
+        "attribution_origin": "model",
+        "cohort_metrics": {
+          "factor-alias-clause": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 32,
+                "invalid": 32,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "surface-alias-no-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-alias-with-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-neutral-length-matched": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-standard": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 32,
+            "invalid": 32,
+            "invalid_rate": 1.0,
+            "model_calls": 32,
+            "model_positions": 7440,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-answer-edge-swap": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "edge-intervened": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "edge-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3080,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-answer-query-swap": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "qswap-subject-a": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "qswap-subject-b": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3600,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-distractors": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "distractors-matched3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "distractors-none": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3440,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-entity-permutation": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "perm-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "perm-relabeled": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3080,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-row-order": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 24,
+                "invalid": 24,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "order-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-random": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-reverse": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 24,
+            "invalid": 24,
+            "invalid_rate": 1.0,
+            "model_calls": 24,
+            "model_positions": 4620,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-timestamps": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 16,
+                "invalid": 16,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "ticks-in-range": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "ticks-large": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 8,
+            "correct": 0,
+            "episodes": 16,
+            "invalid": 16,
+            "invalid_rate": 1.0,
+            "model_calls": 16,
+            "model_positions": 3100,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "factor-wording": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 4,
+                "invalid": 4,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "wording-current-value": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              },
+              "wording-follow-1": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 2,
+            "correct": 0,
+            "episodes": 4,
+            "invalid": 4,
+            "invalid_rate": 1.0,
+            "model_calls": 4,
+            "model_positions": 686,
+            "pair_accuracy": 0.0,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-1": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-1": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 346,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-2": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-2": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 372,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-3": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 398,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          },
+          "hop-4": {
+            "abstained": 0,
+            "accuracy": 0.0,
+            "both_correct_pairs": 0,
+            "by_kind": {
+              "route": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "by_panel": {
+              "hop-4": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "complete_pairs": 0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0,
+            "model_calls": 2,
+            "model_positions": 424,
+            "pair_accuracy": null,
+            "queries": 0,
+            "retrievals": 0
+          }
+        },
+        "decoder_schema": "utf8-raw",
+        "factor_summary": {
+          "factor-alias-clause": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "surface-alias-no-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-alias-with-clause": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-neutral-length-matched": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "surface-standard": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": null
+          },
+          "factor-answer-edge-swap": {
+            "accuracy": 0.0,
+            "both_correct_rate": 0.0,
+            "by_panel": {
+              "edge-intervened": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "edge-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-answer-query-swap": {
+            "accuracy": 0.0,
+            "both_correct_rate": 0.0,
+            "by_panel": {
+              "qswap-subject-a": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "qswap-subject-b": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-distractors": {
+            "accuracy": 0.0,
+            "accuracy_gap": 0.0,
+            "by_panel": {
+              "distractors-matched3": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "distractors-none": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-entity-permutation": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "perm-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "perm-relabeled": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-row-order": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "order-original": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-random": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "order-reverse": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": null
+          },
+          "factor-timestamps": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "ticks-in-range": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              },
+              "ticks-large": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 8,
+                "invalid": 8,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          },
+          "factor-wording": {
+            "accuracy": 0.0,
+            "by_panel": {
+              "wording-current-value": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              },
+              "wording-follow-1": {
+                "accuracy": 0.0,
+                "correct": 0,
+                "episodes": 2,
+                "invalid": 2,
+                "invalid_rate": 1.0
+              }
+            },
+            "invalid_rate": 1.0,
+            "pair_accuracy": 0.0
+          }
+        },
+        "health_probe_scores": {
+          "belief_revision": {
+            "both_correct_timestamp_pairs": 0,
+            "correct": 0,
+            "episodes": 4,
+            "total_timestamp_pairs": 2
+          },
+          "distractor_trap": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 2
+          },
+          "missing_bridge": {
+            "combined_gate_pass": false,
+            "counts": {
+              "mb-complete": 2,
+              "mb-memory": 2,
+              "mb-query": 2,
+              "mb-unsolvable": 2
+            },
+            "invalid_action_rate": 1.0,
+            "memory_retrieve_recall": 0.0,
+            "query_recall": 0.0,
+            "solvable_answer_accuracy": 0.0,
+            "unsolvable_abstain_accuracy": 0.0
+          },
+          "preservation": {
+            "reason": "no independently acquired A/B stage and matched C trajectories",
+            "status": "NOT_QUALIFIED"
+          }
+        }
+      }
+    },
+    "admitted_local_b0_first_byte": [
+      {
+        "abstain_mass_masked": 0.004388182889670134,
+        "abstain_mass_raw": 0.004354929085820913,
+        "answer_only_forced_choice": {
+          "correct": true,
+          "label": "FORCED_CHOICE_DIAGNOSTIC_NOT_AUTONOMOUS_POLICY",
+          "predicted_symbol": "M",
+          "probability": 0.004475820809602737
+        },
+        "case_id": "bf8419bc3fea9b5a7f9491c7102a83b06420118a42c36ffd6b0aeb80348ba34b",
+        "complete_action_score": {
+          "argument": null,
+          "ended_eos": false,
+          "joint_probability": 0.009056058712303638,
+          "label": "COMPLETE_ACTION_SCORE_SEPARATE_FROM_FIRST_BYTE",
+          "operation": "INVALID",
+          "raw_tokens": [
+            3
+          ]
+        },
+        "gold_action": {
+          "argument": "M",
+          "operation": "ANSWER",
+          "text": "M",
+          "token_id": 81
+        },
+        "gold_rank_among_answers": 1,
+        "gold_rank_overall_masked": 24,
+        "gold_rank_overall_raw": 24,
+        "illegal_action_mass": 0.007577942684292793,
+        "logit_gap_Q_minus_max_answer": -0.10846392810344696,
+        "logit_gap_R_minus_max_answer": -0.22831541299819946,
+        "memory_available": false,
+        "panel": "hop-1",
+        "query_available": false,
+        "top_k_masked": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8858884572982788,
+            "probability": 0.009125209413468838,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.36759892106056213,
+            "probability": 0.00543441204354167,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3621515929698944,
+            "probability": 0.005404889117926359,
+            "token_id": 38
+          },
+          {
+            "label": "x",
+            "logit": 0.32613685727119446,
+            "probability": 0.005213696975260973,
+            "token_id": 124
+          },
+          {
+            "label": "T",
+            "logit": 0.3216829001903534,
+            "probability": 0.005190527532249689,
+            "token_id": 88
+          }
+        ],
+        "top_k_raw": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8858884572982788,
+            "probability": 0.009056058712303638,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.36759892106056213,
+            "probability": 0.005393229890614748,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3621515929698944,
+            "probability": 0.005363930948078632,
+            "token_id": 38
+          },
+          {
+            "label": "x",
+            "logit": 0.32613685727119446,
+            "probability": 0.0051741874776780605,
+            "token_id": 124
+          },
+          {
+            "label": "T",
+            "logit": 0.3216829001903534,
+            "probability": 0.005151194054633379,
+            "token_id": 88
+          }
+        ],
+        "total_answer_letter_mass_masked": 0.06312157167121768,
+        "total_answer_letter_mass_raw": 0.06264323741197586,
+        "world_id": "bf8419bc3fea9b5a7f9491c7102a83b06420118a42c36ffd6b0aeb80348ba34b"
+      },
+      {
+        "abstain_mass_masked": 0.004388182889670134,
+        "abstain_mass_raw": 0.004354929085820913,
+        "answer_only_forced_choice": {
+          "correct": true,
+          "label": "FORCED_CHOICE_DIAGNOSTIC_NOT_AUTONOMOUS_POLICY",
+          "predicted_symbol": "M",
+          "probability": 0.004475820809602737
+        },
+        "case_id": "87125d6c4e7f14636b1f04394315d4c7d01082e40993ef4116a013b54d5c2c1c",
+        "complete_action_score": {
+          "argument": null,
+          "ended_eos": false,
+          "joint_probability": 0.009056058712303638,
+          "label": "COMPLETE_ACTION_SCORE_SEPARATE_FROM_FIRST_BYTE",
+          "operation": "INVALID",
+          "raw_tokens": [
+            3
+          ]
+        },
+        "gold_action": {
+          "argument": "M",
+          "operation": "ANSWER",
+          "text": "M",
+          "token_id": 81
+        },
+        "gold_rank_among_answers": 1,
+        "gold_rank_overall_masked": 24,
+        "gold_rank_overall_raw": 24,
+        "illegal_action_mass": 0.007577942684292793,
+        "logit_gap_Q_minus_max_answer": -0.10846392810344696,
+        "logit_gap_R_minus_max_answer": -0.22831541299819946,
+        "memory_available": false,
+        "panel": "perm-original",
+        "query_available": false,
+        "top_k_masked": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8858884572982788,
+            "probability": 0.009125209413468838,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.36759892106056213,
+            "probability": 0.00543441204354167,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3621515929698944,
+            "probability": 0.005404889117926359,
+            "token_id": 38
+          },
+          {
+            "label": "x",
+            "logit": 0.32613685727119446,
+            "probability": 0.005213696975260973,
+            "token_id": 124
+          },
+          {
+            "label": "T",
+            "logit": 0.3216829001903534,
+            "probability": 0.005190527532249689,
+            "token_id": 88
+          }
+        ],
+        "top_k_raw": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8858884572982788,
+            "probability": 0.009056058712303638,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.36759892106056213,
+            "probability": 0.005393229890614748,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3621515929698944,
+            "probability": 0.005363930948078632,
+            "token_id": 38
+          },
+          {
+            "label": "x",
+            "logit": 0.32613685727119446,
+            "probability": 0.0051741874776780605,
+            "token_id": 124
+          },
+          {
+            "label": "T",
+            "logit": 0.3216829001903534,
+            "probability": 0.005151194054633379,
+            "token_id": 88
+          }
+        ],
+        "total_answer_letter_mass_masked": 0.06312157167121768,
+        "total_answer_letter_mass_raw": 0.06264323741197586,
+        "world_id": "bf8419bc3fea9b5a7f9491c7102a83b06420118a42c36ffd6b0aeb80348ba34b"
+      },
+      {
+        "abstain_mass_masked": 0.0044078822247684,
+        "abstain_mass_raw": 0.004374710377305746,
+        "answer_only_forced_choice": {
+          "correct": false,
+          "label": "FORCED_CHOICE_DIAGNOSTIC_NOT_AUTONOMOUS_POLICY",
+          "predicted_symbol": "M",
+          "probability": 0.004469188861548901
+        },
+        "case_id": "bd661901b94740cf6557b91062b09cb44ab56c20f99999777c3451bd500934a8",
+        "complete_action_score": {
+          "argument": null,
+          "ended_eos": false,
+          "joint_probability": 0.009055773727595806,
+          "label": "COMPLETE_ACTION_SCORE_SEPARATE_FROM_FIRST_BYTE",
+          "operation": "INVALID",
+          "raw_tokens": [
+            3
+          ]
+        },
+        "gold_action": {
+          "argument": null,
+          "operation": "ABSTAIN",
+          "text": "!",
+          "token_id": 37
+        },
+        "gold_rank_among_answers": null,
+        "gold_rank_overall_masked": 34,
+        "gold_rank_overall_raw": 34,
+        "illegal_action_mass": 0.007525586290284991,
+        "logit_gap_Q_minus_max_answer": -0.11470721662044525,
+        "logit_gap_R_minus_max_answer": -0.23287232592701912,
+        "memory_available": false,
+        "panel": "mb-unsolvable",
+        "query_available": false,
+        "top_k_masked": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8854246735572815,
+            "probability": 0.009124440141022205,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.3708745837211609,
+            "probability": 0.005454312078654766,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3649987578392029,
+            "probability": 0.005422357004135847,
+            "token_id": 38
+          },
+          {
+            "label": "T",
+            "logit": 0.32695984840393066,
+            "probability": 0.005219970364123583,
+            "token_id": 88
+          },
+          {
+            "label": "x",
+            "logit": 0.32674387097358704,
+            "probability": 0.005218843463808298,
+            "token_id": 124
+          }
+        ],
+        "top_k_raw": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8854246735572815,
+            "probability": 0.009055773727595806,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.3708745837211609,
+            "probability": 0.005413265433162451,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3649987578392029,
+            "probability": 0.005381550639867783,
+            "token_id": 38
+          },
+          {
+            "label": "T",
+            "logit": 0.32695984840393066,
+            "probability": 0.005180687177926302,
+            "token_id": 88
+          },
+          {
+            "label": "x",
+            "logit": 0.32674387097358704,
+            "probability": 0.005179568659514189,
+            "token_id": 124
+          }
+        ],
+        "total_answer_letter_mass_masked": 0.06321005942299962,
+        "total_answer_letter_mass_raw": 0.06273436895571649,
+        "world_id": "251c86e2a480ec473c817afd1272cb8bc87278294392786b1f74a71cdf2ebc17"
+      },
+      {
+        "abstain_mass_masked": 0.004392808768898249,
+        "abstain_mass_raw": 0.004375309683382511,
+        "answer_only_forced_choice": {
+          "correct": false,
+          "label": "FORCED_CHOICE_DIAGNOSTIC_NOT_AUTONOMOUS_POLICY",
+          "predicted_symbol": "M",
+          "probability": 0.004471088293939829
+        },
+        "case_id": "87d846bf170a6f53f6bcdb71ea5e1a0db66084cfe723f22c34f8e325800f73f8",
+        "complete_action_score": {
+          "argument": null,
+          "ended_eos": false,
+          "joint_probability": 0.009053734131157398,
+          "label": "COMPLETE_ACTION_SCORE_SEPARATE_FROM_FIRST_BYTE",
+          "operation": "INVALID",
+          "raw_tokens": [
+            3
+          ]
+        },
+        "gold_action": {
+          "argument": null,
+          "operation": "RETRIEVE",
+          "text": "R",
+          "token_id": 86
+        },
+        "gold_rank_among_answers": null,
+        "gold_rank_overall_masked": 188,
+        "gold_rank_overall_raw": 189,
+        "illegal_action_mass": 0.003983594011515379,
+        "logit_gap_Q_minus_max_answer": -0.11544741690158844,
+        "logit_gap_R_minus_max_answer": -0.23308223485946655,
+        "memory_available": true,
+        "panel": "mb-memory",
+        "query_available": false,
+        "top_k_masked": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8852477669715881,
+            "probability": 0.009089944884181023,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.36972129344940186,
+            "probability": 0.005428388714790344,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3655121922492981,
+            "probability": 0.005405588541179895,
+            "token_id": 38
+          },
+          {
+            "label": "x",
+            "logit": 0.3268931806087494,
+            "probability": 0.005200809333473444,
+            "token_id": 124
+          },
+          {
+            "label": "T",
+            "logit": 0.32611361145973206,
+            "probability": 0.005196756683290005,
+            "token_id": 88
+          }
+        ],
+        "top_k_raw": [
+          {
+            "label": "<ANSWER>",
+            "logit": 0.8852477669715881,
+            "probability": 0.009053734131157398,
+            "token_id": 3
+          },
+          {
+            "label": "byte:248",
+            "logit": 0.36972129344940186,
+            "probability": 0.00540676387026906,
+            "token_id": 252
+          },
+          {
+            "label": "\"",
+            "logit": 0.3655121922492981,
+            "probability": 0.005384054966270924,
+            "token_id": 38
+          },
+          {
+            "label": "x",
+            "logit": 0.3268931806087494,
+            "probability": 0.005180091131478548,
+            "token_id": 124
+          },
+          {
+            "label": "T",
+            "logit": 0.32611361145973206,
+            "probability": 0.0051760547794401646,
+            "token_id": 88
+          }
+        ],
+        "total_answer_letter_mass_masked": 0.06298615410923958,
+        "total_answer_letter_mass_raw": 0.06273524183779955,
+        "world_id": "251c86e2a480ec473c817afd1272cb8bc87278294392786b1f74a71cdf2ebc17"
+      }
+    ],
+    "aux_penalty_gradient_probe": {
+      "aux_illegal_weight": 0.1,
+      "max_gradient_diff": 1.1920928955078125e-07,
+      "microbatch_loss": 5.5301055908203125,
+      "reference_loss": 5.530105471611023,
+      "status": "PASS"
+    },
+    "cpu_model_parameters": 52784,
+    "cpu_model_spec": {
+      "context_length": 512,
+      "dropout": 0.0,
+      "family": "dense-decoder-transformer",
+      "ffn_width": 96,
+      "head_dimension": 16,
+      "kv_heads": 1,
+      "layers": 2,
+      "linear_bias": false,
+      "norm_epsilon": 1e-05,
+      "qk_norm": true,
+      "qk_norm_affine": true,
+      "query_heads": 3,
+      "rope_base": 10000.0,
+      "schema": "anra-v5-model-spec/v1",
+      "tied_embeddings": true,
+      "vocabulary_size": 260,
+      "width": 48
+    },
+    "d_external_attribution_origin": "engineered_canonicalizer",
+    "d_external_factor_summary": {
+      "factor-alias-clause": {
+        "accuracy": 0.0,
+        "by_panel": {
+          "surface-alias-no-clause": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "surface-alias-with-clause": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "surface-neutral-length-matched": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "surface-standard": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": null
+      },
+      "factor-answer-edge-swap": {
+        "accuracy": 0.0,
+        "both_correct_rate": 0.0,
+        "by_panel": {
+          "edge-intervened": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "edge-original": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": 0.0
+      },
+      "factor-answer-query-swap": {
+        "accuracy": 0.0,
+        "both_correct_rate": 0.0,
+        "by_panel": {
+          "qswap-subject-a": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "qswap-subject-b": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": 0.0
+      },
+      "factor-distractors": {
+        "accuracy": 0.0,
+        "accuracy_gap": 0.0,
+        "by_panel": {
+          "distractors-matched3": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "distractors-none": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": 0.0
+      },
+      "factor-entity-permutation": {
+        "accuracy": 0.0,
+        "by_panel": {
+          "perm-original": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "perm-relabeled": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": 0.0
+      },
+      "factor-row-order": {
+        "accuracy": 0.0,
+        "by_panel": {
+          "order-original": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "order-random": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "order-reverse": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": null
+      },
+      "factor-timestamps": {
+        "accuracy": 0.0,
+        "by_panel": {
+          "ticks-in-range": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          },
+          "ticks-large": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 8,
+            "invalid": 8,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": 0.0
+      },
+      "factor-wording": {
+        "accuracy": 0.0,
+        "by_panel": {
+          "wording-current-value": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0
+          },
+          "wording-follow-1": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "episodes": 2,
+            "invalid": 2,
+            "invalid_rate": 1.0
+          }
+        },
+        "invalid_rate": 1.0,
+        "pair_accuracy": 0.0
+      }
+    },
+    "dataset_smoke_worlds": 49,
+    "formation_gate_mechanical": {
+      "edge_pair_accuracy": 0.0,
+      "hop_accuracies": {
+        "hop-1": 0.0,
+        "hop-2": 0.0,
+        "hop-3": 0.0,
+        "hop-4": 0.0
+      },
+      "max_invalid_rate": 1.0,
+      "query_swap_pair_accuracy": 0.0,
+      "reason": "confirmation world count 2 below required 512",
+      "renaming_consistency": 1.0,
+      "status": "MECHANICAL_ONLY_NOT_FORMATION_QUALIFIED",
+      "stress_accuracies": {
+        "factor-alias-clause": 0.0,
+        "factor-answer-edge-swap": 0.0,
+        "factor-answer-query-swap": 0.0,
+        "factor-distractors": 0.0,
+        "factor-entity-permutation": 0.0,
+        "factor-row-order": 0.0,
+        "factor-timestamps": 0.0,
+        "factor-wording": 0.0
+      }
+    },
+    "holm_example": [
+      0.03,
+      0.08,
+      0.2
+    ],
+    "screening_gate_mechanical": {
+      "all_seeds_positive": false,
+      "holm_adjusted_contrasts": {
+        "ab_vs_b0_perm": 1.0,
+        "dext_vs_b0_perm": 1.0
+      },
+      "max_original_kind_regression": 0.0,
+      "mean_primary_gain": 0.0,
+      "primary_cohort": "factor-entity-permutation",
+      "seed_differences": {
+        "7": 0.0
+      },
+      "seeds": [
+        7
+      ],
+      "status": "FALSIFIED",
+      "world_cluster_contrast": {
+        "ci_95": [
+          0.0,
+          0.0
+        ],
+        "left_mean": 0.0,
+        "mean_diff": 0.0,
+        "p_value": 1.0,
+        "right_mean": 0.0,
+        "worlds": 8
+      }
+    },
+    "suite_verification": {
+      "cohorts": 12,
+      "status": "PASS",
+      "verified_cases": 148
+    }
+  },
+  "protocol_sha256": "740490547aaa91cf2d21598fe382e834dd4871a93b9aac51d3a07ce7b1550ceb",
+  "schema": "elendril-hitchhiker-manifest-v1",
+  "source_commit": "0c9cb284d2c8c949e17ac342959c6f2bf351bd30",
+  "stage": "cpu_mechanical_verification",
+  "stage0_checkpoint_audit": {
+    "checkpoint_root": "C:\\Users\\ankit\\AppData\\Local\\Temp\\tmp83ubkovj\\missing_checkpoints",
+    "fabricate_permitted": false,
+    "lineage": "S20-low-lr-i7-o7",
+    "reason": "PARENT_WEIGHTS_UNAVAILABLE",
+    "status": "CHECKPOINT_AUDIT_PENDING"
+  }
+}

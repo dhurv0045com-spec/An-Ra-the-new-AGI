@@ -1,0 +1,117 @@
+{
+  "schema": "elendril-v715-release-status-v2",
+  "label": "V7.15",
+  "date": "2026-11-10",
+  "program_status": "S8_AND_S20_EXECUTED_ANALYSES_VERIFIED",
+  "predecessor_reference": {
+    "version": "V7.1",
+    "run_id": "20c80f66e76e4b589aed2053afbddffc",
+    "status": "OWNER_CORE_EXECUTED",
+    "jobs": 9,
+    "core_reused_not_new": true
+  },
+  "v715_executed_gpu_jobs": 12,
+  "deliverables": {
+    "completion_plan": "WRITTEN",
+    "anti_shortcut_route_benchmark": "IMPLEMENTED_CPU_CI_VERIFIED",
+    "anti_shortcut_route_cpu_tests": "PASSED_CI_356_TESTS_14_SUBTESTS",
+    "frozen_checkpoint_inference": "IMPLEMENTED_CPU_TESTED_AWAITING_FULL_ARCHIVE_AND_GPU",
+    "original_v71_full_weights_independently_restored": "NOT_VERIFIED",
+    "memory_correction_equal_length": "IMPLEMENTED_CPU_TESTED_NEURAL_NOT_RUN",
+    "query_legality_interventions": "IMPLEMENTED_FROZEN_EVALUATION_NEURAL_NOT_RUN",
+    "s8_s20_scale_phase": "TWELVE_JOBS_EXECUTED_ANALYSES_VERIFIED_FULL_CUSTODY_PENDING",
+    "continual_phase": "IMPLEMENTED_9_JOBS_NOT_RUN",
+    "old_v7_frozen_phase": "NOT_RUN_OPTIONAL",
+    "data_scaling": "PROPOSED_NOT_REGISTERED",
+    "portable_benchmark_generator": "IMPLEMENTED_CPU_CI_VERIFIED",
+    "notebook": "PUBLISHED_SOURCE_PINNED_CI_VERIFIED"
+  },
+  "scientific_conclusion": "CAUSE UNRESOLVED. S8 blocked beats S8 uniform and trails the prior S3 blocked mean at matched exposure.",
+  "archives_policy": "Curated Markdown/JSON in Git; owner FULL/ANALYSIS ZIPs outside Git with hashes and identity.",
+  "latest_verified_engineering_commit": "c0f239369d31aa1c6e8f1564420d0fae0065361c",
+  "latest_verified_ci": {
+    "run_id": 42577968675,
+    "status": "SUCCESS",
+    "pytest_passed": 356,
+    "additional_subtests_passed": 14,
+    "warning_count": 1
+  },
+  "anti_shortcut_dev_suite": {
+    "worlds": 16,
+    "cohorts": 24,
+    "case_records": 384,
+    "planned_paired_contrasts": 20,
+    "reference": "anra_v5/elendril/v715_diagnostics.py",
+    "qualification": "CPU test/engineering only, not neural inference",
+    "preparation_cli": "python -m tools.qualify_elendril_v715 --output PATH --train PATH_TO_V71_TRAIN_JSON"
+  },
+  "release": {
+    "notebook": "notebooks/ELENDRIL_V715_KAGGLE_T4X2.ipynb",
+    "immutable_source_sha": "e5779922a0072a070f64356f38ea47090e543d6a",
+    "default_phase": "scale-s8",
+    "phases": {
+      "scale": {
+        "status": "S8_AND_S20_EXECUTED_ANALYSES_VERIFIED",
+        "registered_jobs": 12,
+        "requires_parent": false,
+        "predeclared_batches": [
+          "S8 (six jobs)",
+          "S20 seed7 (two jobs)",
+          "S20 seed19 (two jobs)",
+          "S20 seed41 (two jobs)"
+        ],
+        "fallback_s8": [
+          "S8 seed7",
+          "S8 seed19",
+          "S8 seed41"
+        ],
+        "matrix_completion": "ALL_TWELVE_UNIQUE_JOB_IDS"
+      },
+      "diagnostics": {
+        "status": "IMPLEMENTED_GPU_NOT_RUN",
+        "frozen_jobs": 9,
+        "cohorts": 64,
+        "case_records": 1120,
+        "requires_parent": true,
+        "original_parent_sha256": "1826c85b5a858d2a600661f7e5916f0fa812c55a8d53c37013c695df28a15d19"
+      },
+      "continual": {
+        "status": "IMPLEMENTED_GPU_NOT_RUN",
+        "registered_jobs": 9,
+        "requires_parent": true,
+        "source_transition": "EXPLICIT_HISTORIC_V71_PARENT"
+      },
+      "historic_frozen": {
+        "status": "OPTIONAL_UNVERIFIED_GPU_NOT_RUN",
+        "frozen_jobs": 9,
+        "requires_parent": true
+      }
+    },
+    "budget_minutes_max": 330,
+    "true_completion_rule": "Actual owner GPU results and verified exports; CI/notebook generation alone are not research completion."
+  },
+  "release_qualification": {
+    "status": "CPU_AND_NOTEBOOK_PUBLICATION_TESTS_PASS",
+    "run_id": 42588504447,
+    "tests_passed": 372,
+    "subtests_passed": 14,
+    "warning_count": 1,
+    "published_notebook_commit": "7d25bceb95f8fe07791f56b20b13a008e859895d",
+    "immutable_runtime_source": "e5779922a0072a070f64356f38ea47090e543d6a",
+    "real_kaggle_run": "S8_EXECUTED_ANALYSIS_VERIFIED"
+  },
+  "owner_s8_run": {
+    "run_id": "3981e34a2ffe4b4b9528b4b4d588883b",
+    "source": "e5779922a0072a070f64356f38ea47090e543d6a",
+    "phase": "scale-s8",
+    "completed_jobs": 6,
+    "analysis_integrity": "VERIFIED",
+    "suite_reports_replayed": 38,
+    "positive_control_records_replayed": 4,
+    "final_delivery_receipt": "PENDING",
+    "full_checkpoint_verification": "PENDING",
+    "report": "3981e34a2ffe4b4b9528b4b4d588883b/RESULTS.md"
+  },
+  "s20_results_label": "V7.16",
+  "s20_report": "../V7.16/51f3aeb7cb604c6d8c80f6ae4cd9f3ff/RESULTS.md"
+}

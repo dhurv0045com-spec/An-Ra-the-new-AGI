@@ -1,6 +1,22 @@
+# V6 — Run All without editing a launch switch
+
+The user authorized running the one-session V6 19-panel campaign. The **published** notebook is auto-enabled: `RUN_ALL_19=True` and the derived preflight, canary and campaign switches are true. There is no need to edit any code. On Kaggle select GPU T4×2, enable Internet, upload the latest `notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb`, and click Run All. The canary and fresh-process checkpoint tests run before any training; no separate Kaggle VM is required. Save the output version and the final `ELENDRIL_V6_RESULTS.zip`.
+
+This is a launch path, not a promise of zero platform failures or 19 scientific passes. Later model-scale arms and retention are conditional; all panels should have explicit status and the raw results should be exported even when partial. The default-enabled notebook is intended only for the owner-authorized GPU run; the builder test explicitly turns the switch off for CPU-only safety checks.
+
+# One-session V6 Kaggle launch
+
+The owner requested a single Kaggle GPU run, not an obligatory second notebook session. Use the generated notebook `notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb` with `ONE_SESSION_CAMPAIGN=True`, `RUN_PREFLIGHT=True`, `RUN_CANARIES=True`, `RUN_RECOVERY=False`, `OWNER_APPROVES_CAMPAIGN=True` and `RUN_CAMPAIGN=True`. Select the actual `GPU T4×2` accelerator, enable Internet and run the cells top to bottom. The notebook checks the pinned repository, exact registry, memory/disk, and two physical GPUs, runs actual trainability controls, then tests checkpoint/optimizer continuation in fresh child processes on EACH T4 before allowing the campaign to start. A separate fresh Kaggle VM is NOT mandatory for this single-run mode.
+
+This is a best-effort six-hour campaign, not a guarantee that every panel executes or passes. P01–P15 and supplemental S16–S19 all have registered outputs/statuses; large models S8/S20, confirmation and some diagnostics are conditional on learnability and time. If a measured positive control fails, do not defeat the guard or falsify scientific evidence. Partial and failed arms still save raw receipts and final ZIP attempts. Do not interrupt until you have downloaded the ZIP and saved the Kaggle output version; abrupt unsaved-VM loss cannot be prevented.
+
+Same-VM process-level checkpoint recovery is real but is NOT cross-VM recovery. Separate-VM recovery remains optionally available for durability research, not a precondition for running this campaign. The later CPU-only ZIP export path from saved output does not need GPU allocation.
+
+## Original detailed guidance and provenance
+
 # V6 owner launch and return
 
-Use the generated `ELENDRIL_V6_KAGGLE_T4X2.ipynb`, not the historical blueprint. Its immutable source and registry hashes must match its runner. The original package is in [research/v6](../research/v6/README_FIRST.md); read the [prospective amendment](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md) for exact changes and limitations.
+Use the generated `ELENDRIL_V6_KAGGLE_T4X2.ipynb` (latest notebook source pin `9b2f1b29b9e05394e165ed375bae5e94693c6877`), not the historical blueprint. Its immutable source and registry hashes must match its runner. The original package is in [research/v6](../research/v6/README_FIRST.md); read the [prospective amendment](../research/v6/IMPLEMENTATION_AMENDMENT_2026-11-07.md) for exact changes and limitations.
 
 **Current decision: GO for owner-run preflight/qualification only; NO-GO for research training until actual device, learning and fresh-VM recovery gates pass.** No local GPU or research training campaign has run. A CPU/mocked test pass is not T4 evidence.
 
@@ -22,3 +38,5 @@ This supplement changes the registry/source identity. Use the newly published no
 Official references checked for the operator: [Kaggle notebook requirements](https://www.kaggle.com/docs/notebooks), [native runtime images](https://github.com/Kaggle/docker-python), [saved notebook outputs](https://github.com/Kaggle/kagglehub), [PyTorch AMP behavior](https://docs.pytorch.org/docs/2.15/notes/amp_examples.html) and [reproducibility](https://docs.pytorch.org/docs/2.15/notes/randomness.html). Device access, quotas, runtime images and session duration vary. The current recipe is FP32; no mixed-precision speed claim is made.
 
 Return the ZIP with its SHA256 and the actual Kaggle saved-version reference. If qualification fails, return that output instead of running the campaign. The next decision depends on observed failure: formation, query choice, post-query revision, surface invariance, depth, retrieval choice, forgetting or resource/recovery. A narrow development success does not establish AGI, calibrated awareness, forward transfer or self-improvement.
+
+**CPU-only ZIP recovery (without spending GPU quota):** In a later Kaggle session, keep `RUN_PREFLIGHT=False`, `RUN_CANARIES=False`, `RUN_RECOVERY=False`, and `RUN_CAMPAIGN=False`; set `RUN_EXPORT=True` and `PRIOR_CAMPAIGN_OUTPUT` to the complete saved output directory or verified ZIP attached under `/kaggle/input`. Keep the same pinned `SOURCE_SHA`, protocol identity and `RUN_ID`, and use a clean writable `OUTPUT` when reattaching a ZIP. The notebook checks out the immutable code and checks source/protocol/run identity, then independently rescored artifacts and the verified ZIP can be produced with CPU PyTorch and matplotlib. Do not use this path to bypass live T4 canaries or enable training; export-only does not qualify GPUs.

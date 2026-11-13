@@ -72,12 +72,17 @@ import subprocess
 from tools.build_elendril_v6_notebook import build
 
 
-def test_generated_notebook_is_registry_bound_and_all_gates_default_off():
+def test_generated_notebook_is_registry_bound_and_auto_launch_enabled():
     notebook = build("a" * 40)
     assert notebook["nbformat"] == 4
     config = "".join(notebook["cells"][1]["source"])
     assert "EXPECTED_REGISTRY_SHA256 = \"" + notebook["metadata"]["registry_sha256"] + "\"" in config
-    assert "RUN_PREFLIGHT = False" in config and "RUN_CAMPAIGN = False" in config and "RUN_EXPORT = False" in config
+    assert "RUN_ALL_19 = True" in config and "RUN_PREFLIGHT = RUN_ALL_19" in config
+    state = {}
+    exec(config, state)
+    assert state["RUN_PREFLIGHT"] and state["RUN_CANARIES"] and state["RUN_CAMPAIGN"]
+    assert state["OWNER_APPROVES_CAMPAIGN"] and state["ONE_SESSION_CAMPAIGN"]
+    assert state["RUN_RECOVERY"] is False and state["RUN_EXPORT"] is False
     rendered = "".join(notebook["cells"][3]["source"])
     assert "RENDERED_REGISTRY_SHA256" in rendered
     assert not any(line.startswith("EXPECTED_REGISTRY_SHA256 =") for line in rendered.splitlines())
@@ -97,9 +102,12 @@ def test_all_disabled_cells_have_no_network_gpu_or_filesystem_side_effects(monke
     monkeypatch.setattr(Path, "mkdir", forbidden)
     monkeypatch.setattr(Path, "open", forbidden)
     state = {}
-    for cell in notebook["cells"]:
+    for i, cell in enumerate(notebook["cells"]):
         if cell["cell_type"] == "code":
-            exec("".join(cell["source"]), state)
+            text = "".join(cell["source"])
+            if i == 1:
+                text = text.replace("RUN_ALL_19 = True", "RUN_ALL_19 = False")
+            exec(text, state)
     assert state["RUN_CAMPAIGN"] is False
     assert state["ENVIRONMENT"] is None and state["v6"] is None
 
@@ -204,3 +212,52 @@ def test_extract_verified_rejects_oversized_uncompressed_archive_before_destinat
     with pytest.raises(ValueError, match="uncompressed verification bound"):
         bundle.extract_verified(archive, destination, reserve_bytes=0)
     assert not destination.exists()
+
+def test_cpu_only_export_retry_is_separate_from_gpu_launch():
+    """The owner must be able to re-export saved data after GPU quota expires."""
+    notebook = build("a" * 40)
+    config = ("".join(notebook["cells"][1]["source"])
+              .replace("RUN_ALL_19 = True", "RUN_ALL_19 = False")
+              .replace("RUN_EXPORT = False", "RUN_EXPORT = True"))
+    state = {}
+    exec(config, state)
+    assert state["RUN_EXPORT"] is True and state["RUN_PREFLIGHT"] is False
+    source = "".join(notebook["cells"][5]["source"])
+    assert "if RUN_PREFLIGHT or RUN_EXPORT:" in source
+    assert "if RUN_PREFLIGHT:" in source and "        import torch" in source
+    assert "v6.restore_output(PRIOR_CAMPAIGN_OUTPUT, OUTPUT" in source
+    assert "saved output source, protocol, or run ID differs" in source
+    assert "EXPORT_ONLY_SOURCE_AND_OUTPUT_BOUND" in source
+    assert "if PRIOR_CAMPAIGN_OUTPUT is not None:" in source
+    assert "independent_rescore_and_export" in "".join(notebook["cells"][11]["source"])
+
+def test_single_session_config_allows_full_owner_run_without_second_vm():
+    notebook=build("a"*40)
+    config="".join(notebook["cells"][1]["source"])
+    assert "ONE_SESSION_CAMPAIGN = True" in config
+    configured = config
+    scope={}
+    exec(configured,scope)
+    assert scope["RUN_CAMPAIGN"] is True and scope["ONE_SESSION_CAMPAIGN"] is True
+    assert scope["RUN_RECOVERY"] is False
+    assert "one_session=ONE_SESSION_CAMPAIGN" in "".join(notebook["cells"][9]["source"])
+
+def test_single_owner_switch_enables_all_requested_experiments_in_one_session():
+    notebook=build("a"*40)
+    config="".join(notebook["cells"][1]["source"])
+    assert "RUN_ALL_19 = True" in config
+    state={}
+    exec(config,state)
+    assert all(state[x] is True for x in ("RUN_PREFLIGHT","RUN_CANARIES","OWNER_APPROVES_CAMPAIGN","RUN_CAMPAIGN","ONE_SESSION_CAMPAIGN"))
+    assert state["RUN_RECOVERY"] is False and state["OWNER_ATTESTS_FRESH_VM"] is False
+
+def test_auto_run_notebook_does_not_instruct_owner_to_end_vm_or_edit_switch():
+    notebook = build("a" * 40)
+    assert "SAVE this entire qualification output; end VM" not in "".join(notebook["cells"][7]["source"])
+    assert "SEPARATE_VM_RECOVERY_NOT_REQUIRED_FOR_THIS_RUN" in "".join(notebook["cells"][7]["source"])
+    assert "no launch switch to edit" in "".join(notebook["cells"][8]["source"])
+    assert "Set ONLY this to True" not in "".join(notebook["cells"][1]["source"])
+    assert "RUN_ALL_19 = True" in "".join(notebook["cells"][1]["source"])
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            compile("".join(cell["source"]), "<V6 Kaggle cell>", "exec")

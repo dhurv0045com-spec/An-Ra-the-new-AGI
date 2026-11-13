@@ -248,7 +248,7 @@ def run(mode, req):
             request_path = folder / 'same-gpu-request.json'; receipt_path = folder / 'same-gpu-recovery' / 'receipt.json'; write_json(request_path, recovery_req, exclusive=True)
             process = subprocess.run([sys.executable, '-m', 'tools.elendril_v6_worker', 'recover', '--owner-enabled', '--request', str(request_path), '--receipt', str(receipt_path)], cwd=REPO, timeout=max(1, deadline-time.monotonic()))
             if process.returncode or json.loads(receipt_path.read_text(encoding='utf-8')).get('status') != 'PASS': raise ValueError('same GPU recovery failed')
-            measurements[profile] = {'seconds_per_update': seconds, 'evaluation_seconds_per_episode': per_episode, 'peak_cuda_allocated_bytes': peak, 'parameter_count': parameters, 'evaluation': evaluation}
+            measurements[profile] = {'seconds_per_update': seconds, 'evaluation_seconds_per_episode': per_episode, 'peak_cuda_allocated_bytes': peak, 'parameter_count': parameters, 'evaluation': evaluation, 'same_device_resume_verified': True}
             write_json(folder/'measurement.json',{'source':req['source'],'protocol_sha256':req['protocol_sha'],
                        'profile':profile,**measurements[profile]},exclusive=True)
             challenges.append(str(challenge_path))

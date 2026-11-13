@@ -1,0 +1,18 @@
+{
+  "schema": "elendril-v716-owner-status-v1",
+  "label": "V7.16",
+  "date": "2026-11-12",
+  "run_id": "51f3aeb7cb604c6d8c80f6ae4cd9f3ff",
+  "source": "4cc1e993c09d1475a3bc1e250fda58909d539407",
+  "protocol_sha256": "fd8ecd82d7405d9504d19db201cad372dcf7a2fb5d99dc38b0ee602e7476d170",
+  "profile": "S20",
+  "program_status": "S20_EXECUTED_ANALYSIS_VERIFIED",
+  "completed_jobs": 6,
+  "suite_reports_replayed": 38,
+  "positive_records_replayed": 4,
+  "final_delivery_receipt": "PENDING",
+  "full_checkpoint_verification": "PENDING",
+  "cause": "UNRESOLVED",
+  "report": "51f3aeb7cb604c6d8c80f6ae4cd9f3ff/RESULTS.md",
+  "raw_archives_policy": "Owner ZIPs and raw receipts stay outside Git."
+}

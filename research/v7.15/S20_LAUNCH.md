@@ -1,0 +1,11 @@
+# S20 after the completed S8 batch
+
+Upload `notebooks/ELENDRIL_V715_S20_KAGGLE_T4X2.ipynb` to Kaggle, select T4 ×2, enable Internet and Run All. The default is the complete six-job S20 batch. Inputs are generated automatically.
+
+S20 has 19,871,616 parameters. Uniform and blocked CE each run at seeds 7, 19 and 41 for four epochs. The data, updates, supervision and evaluation conditions retain the registered comparison with S8. Each final model receives the 1,120-case suite with raw and grammar decoding. Intermediate evaluations, checkpoint recovery, independent action replay and verified analysis/FULL exports use the existing qualified execution path.
+
+The owner requested approximately twice the S8 time. S8 recorded 45.68 minutes before finalization, so twice its observed time is 91.36 minutes. This is an approximate planning target whose validity requires S20 GPU measurements. S8's conservative capacity forecast was 98.86 minutes. The S20 notebook therefore grants a **200-minute campaign budget**, approximately twice that forecast, to accommodate canaries, variation and reserved export time. Final export duration can extend elapsed notebook time. This increases the time allowance while keeping four epochs for scientific comparability.
+
+Production-shaped S20 canaries on both GPUs must pass update/recovery checks. The whole-batch forecast must fit the remaining allowance, and the existing 19 GiB free-space admission must pass. Failure produces saved NO_GO/PARTIAL evidence. Actual S20 hardware qualification remains pending. A single seed pair is also available by explicitly selecting `scale-s20-seed7`, `scale-s20-seed19` or `scale-s20-seed41` in separate sessions, retaining all six registered job identities across the study.
+
+Download `ELENDRIL_V71_ANALYSIS.zip`, `ELENDRIL_V71_FULL.zip` and `FINAL_STATUS.json`. Preserve all seed results and failed outcomes. The files retain inherited export names and carry the new source and S20 job identities. Save original archives outside Git. A completed S20 comparison will test whether this architecture profile benefits under the fixed exposure that was used for S3/S8. Larger models may require a different optimization or data budget, which would be a separate prospective comparison.

@@ -87,3 +87,51 @@ def test_coordinated_scheduler_reaches_final_export_even_after_worker_failure(tm
         assert any(r['job']['representation']=='legacy-ascii' for r in result['results'])
         assert any(r['evaluation']['split']=='confirmation' for r in result['results'])
         assert any(r.get('profile')=='S20' and r['status']=='SKIPPED' for r in result['skipped'])
+
+def test_one_session_rejects_canary_without_real_same_device_checkpoint_resume(monkeypatch, tmp_path):
+    """One-session mode is not permission to skip mechanical GPU recovery."""
+    import time
+    from types import SimpleNamespace
+    from tools import elendril_v6_campaign as v6
+    from anra_v5.elendril.v6_registry import REGISTRY_SHA
+    monkeypatch.setattr(v6, "_validate_environment", lambda *_: [SimpleNamespace(uuid="GPU-aa"), SimpleNamespace(uuid="GPU-bb")])
+    monkeypatch.setattr(v6, "_receipt_gate", lambda *args: None)
+    bad = {"results": [{"positive_control": {"passed": True},
+                        "challenges": ["s3", "s8", "s20"],
+                        "measurements": {name: {"same_device_resume_verified": False} for name in ("S3", "S8", "S20")}}]*2}
+    with pytest.raises(ValueError, match="same-T4"):
+        v6.run_campaign(source="a"*40, protocol_sha=REGISTRY_SHA,
+            preflight={"output": str(tmp_path), "created_monotonic": time.monotonic(), "available_seconds": 21600},
+            canary=bad, recovery=None, run_id="single", output=tmp_path, one_session=True)
+
+
+def test_one_session_canary_gate_proceeds_without_second_vm(monkeypatch, tmp_path):
+    """Reach the scheduler and preserve the true absence of cross-VM proof."""
+    from types import SimpleNamespace
+    from tools import elendril_v6_campaign as v6
+    from anra_v5.elendril import v6_data
+    from anra_v5.elendril.v6_registry import REGISTRY_SHA
+    import time
+    # This scheduler unit test supplies an engineered session identity on every
+    # host. Real owner qualification retains the Linux boot-ID requirement.
+    monkeypatch.setattr(v6, "session_identity", lambda: "scheduler-test-session")
+    monkeypatch.setattr(v6, "_validate_environment", lambda *_: [SimpleNamespace(uuid="GPU-aa"), SimpleNamespace(uuid="GPU-bb")])
+    monkeypatch.setattr(v6, "_receipt_gate", lambda *args: None)
+    monkeypatch.setattr(v6, "_measurements", lambda *_: {p:{"seconds_per_update":.01,"evaluation_seconds_per_episode":.01} for p in ("S3","S8","S20")})
+    monkeypatch.setattr(v6_data, "read_dataset", lambda *args: SimpleNamespace(manifest={"examples": 32}))
+    monkeypatch.setattr(v6, "checkpoint_export", lambda *args,**kw: {"status": "EXPORT_VERIFIED"})
+    monkeypatch.setattr(v6, "_render_outputs", lambda *args: None)
+    monkeypatch.setattr(v6, "independent_rescore_and_export", lambda **kw: {"status":"EXPORT_VERIFIED","zip_path":"mock.zip"})
+    monkeypatch.setattr(v6, "_invoke", lambda mode, req, gpu, timeout: {
+        "source":"a"*40,"protocol_sha256":REGISTRY_SHA,
+        "status":"FAILED","job":req["job"],"receipt_file":str(tmp_path/"dummy"),
+        "receipt_sha256":"b"*64})
+    good = {"results": [{"positive_control":{"passed":True}, "challenges":["s3","s8","s20"],
+                        "measurements": {name: {"same_device_resume_verified": True} for name in ("S3","S8","S20")}}]*2}
+    preflight={"output":str(tmp_path),"data":{"train":{"file":"train"},"validation":{"file":"validation"}},
+               "created_monotonic":time.monotonic(),"available_seconds":21600}
+    report=v6.run_campaign(source="a"*40,protocol_sha=REGISTRY_SHA,preflight=preflight,
+        canary=good,recovery=None,run_id="single",output=tmp_path,one_session=True)
+    assert report["qualification_mode"]=="same-T4-fresh-process"
+    assert report["recovery"]["status"]=="NOT_RUN"
+    assert report["export"]["status"]=="EXPORT_VERIFIED"

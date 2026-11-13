@@ -1,0 +1,112 @@
+{
+  "schema": "experiment-result-v1",
+  "campaign": "Elendril V6",
+  "source_archive_sha256": "939b3389f236a803444e40386b76a5eae1ca04b98fc45e0862689ec3a6b4a011",
+  "primary_counts": {
+    "PASS": 2,
+    "FAIL": 10,
+    "NOT_QUALIFIED": 3
+  },
+  "supplemental_count": 4,
+  "training_records_complete": 14,
+  "training_profile": "S3",
+  "status_by_panel": {
+    "P01": {
+      "name": "Positive-control learnability",
+      "status": "PASS",
+      "observation": "14/14 on the small positive-control rawtrainval check; only 6/14 on distinct validation (1 invalid)"
+    },
+    "P02": {
+      "name": "Known-evidence answering",
+      "status": "FAIL",
+      "observation": "1/16 correct; 10 unnecessary queries when zero were needed; 1 invalid"
+    },
+    "P03": {
+      "name": "Missing-evidence query",
+      "status": "FAIL",
+      "observation": "16/16 useful first queries; 2/16 correct terminal answers"
+    },
+    "P04": {
+      "name": "Conflicting-evidence query",
+      "status": "FAIL",
+      "observation": "16/16 useful first queries; 4/16 correct answers"
+    },
+    "P05": {
+      "name": "Null and unavailable abstention",
+      "status": "PASS",
+      "observation": "32/32 correct abstentions; zero queries; zero invalid"
+    },
+    "P06": {
+      "name": "Post-query revision",
+      "status": "FAIL",
+      "observation": "0/32 complete intervention pairs both followed the changed observation"
+    },
+    "P07": {
+      "name": "Cost-aware thinking and queries",
+      "status": "FAIL",
+      "observation": "Model utility 0.3107/episode vs fixed 0.9714, always-query 0.9429, no-query 0.7679"
+    },
+    "P08": {
+      "name": "Uncertainty/self-error detection",
+      "status": "NOT_QUALIFIED",
+      "observation": "Descriptive Brier 0.0174, ECE 0.0491, AUROC 0.9965 on 112; report labels DIAGNOSTIC"
+    },
+    "P09": {
+      "name": "Legal action and EOS integrity",
+      "status": "FAIL",
+      "observation": "1 invalid action in 112 episodes; 39/112 correct"
+    },
+    "P10": {
+      "name": "Query swap/query blindness",
+      "status": "FAIL",
+      "observation": "0/16 paired query-swap cases both correct; aggregate 3/32; 2 invalid"
+    },
+    "P11": {
+      "name": "Temporal/recency shortcuts",
+      "status": "FAIL",
+      "observation": "0/16 ordered intervention pairs both correct; 1/32 stress answers; 12 invalid"
+    },
+    "P12": {
+      "name": "Representation and distractor OOD",
+      "status": "FAIL",
+      "observation": "Aliases 4/112, templates 28/112, distractors 13/112, combined 13/112"
+    },
+    "P13": {
+      "name": "Compositional 2-to-3 hop",
+      "status": "NOT_QUALIFIED",
+      "observation": "2-hop prerequisite failed; 3-hop exploratory score 0/16"
+    },
+    "P14": {
+      "name": "Frozen-weight memory benefit",
+      "status": "FAIL",
+      "observation": "Memory on/off/irrelevant/prefetch all 0/16; 0/16 causal-swap pairs followed"
+    },
+    "P15": {
+      "name": "Sequential retention and transfer",
+      "status": "NOT_QUALIFIED",
+      "observation": "No independently acquired A/B stages and matched C trajectories"
+    },
+    "S16": {
+      "name": "Thinking-budget sensitivity",
+      "status": "COMPLETE_EXPLORATORY",
+      "observation": "1 decision 8/28; 2 decisions 11/28; 4 decisions 11/28"
+    },
+    "S17": {
+      "name": "Fixed symbol-permutation probe",
+      "status": "COMPLETE_EXPLORATORY",
+      "observation": "Baseline 11/28; fixed permutation 10/28; output equivariance 0.3571"
+    },
+    "S18": {
+      "name": "Stale-memory interference",
+      "status": "COMPLETE_EXPLORATORY",
+      "observation": "Baseline 1/4 and stale 1/4; stale consumed fewer requests/positions"
+    },
+    "S19": {
+      "name": "Query-cost sensitivity",
+      "status": "COMPLETE_EXPLORATORY",
+      "observation": "Model mean utility 0.3107 at cost 0.1; fixed 0.9714; at cost 1 model -0.0268 vs no-query 0.7679"
+    }
+  },
+  "raw_files_in_repo": false,
+  "reference": "V6/RESULTS.md"
+}

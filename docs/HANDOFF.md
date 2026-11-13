@@ -1,3 +1,15 @@
+# Current S20 investigation — 13 November 2026
+
+Use [V7.17 owner results](../Experiment%20Result/V7.17/README.md) and [implementation/owner instructions](../research/v7.17/README.md). Eight S20 optimization runs executed: lower LR improves all three matched seeds, but novel one-hop/three-hop failures and alias regressions remain. Representation training is unrun, and FULL/final delivery custody remains unverified locally. Historical results and all reproduction paths remain intact. **CAUSE UNRESOLVED** for the remaining neural failure.
+
+# Historical V7 handoff — 8 November 2026
+
+Use the [V7 engineering and owner handoff](../research/v7/HANDOFF.md), [preregistered protocol](../research/v7/PROTOCOL.md) and [evidence review](../research/v7/EVIDENCE.md). The V6 architecture, evidence and reproduction paths below remain intact. V7 research and real T4 qualification are pending; versioned recorded-action replay verifies 120 historical evaluations without changing them.
+
+# Historical V6 notebook export-retry repair — 7 November 2026
+
+The latest owner Kaggle notebook is [ELENDRIL_V6_KAGGLE_T4X2.ipynb](../notebooks/ELENDRIL_V6_KAGGLE_T4X2.ipynb), published at `90b083bec629ebff4b653108f4ce2eca0fef9f94` and pinning runnable source `9b2f1b29b9e05394e165ed375bae5e94693c6877`. It allows verified ZIP reconstruction from a Kaggle saved output on a CPU-only session, while all training, canary and same-/fresh-VM recovery gates still require live dual T4s. The notebook's old draft-only message was corrected. The revised release passed [GitHub Actions CI](https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI/actions/runs/42382874551): **214 passed, seven subtests**. This establishes CPU/code safety only, not a bug-free or GPU-qualified Kaggle run. The earlier V6 source pin and results documented below remain historical, not the currently recommended notebook.
+
 # ELENDRIL V6 handoff — 7 November 2026
 
 Latest continuation adds four investigator-designed experiments to the same notebook. **Current source pin: `6ad497997f728d8161a42f7525e1dfb91ffe6d22`**, registry `6086c1cf5e437f44cb5a0c10046b36fd19cb39a7399a2bc2ddc559b16af24163`. The original15 panels remain intact. [Prospective supplement and falsifiers](../research/v6/INVESTIGATOR_SUPPLEMENT_2026-11-07.md)
