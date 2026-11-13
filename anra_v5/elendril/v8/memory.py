@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 import random
 
@@ -101,7 +102,7 @@ def evaluate_e16_memory_regimes(
             w_stale = {
                 **w,
                 "hops": 1,
-                "hidden": {**w["hidden"], "memory_payload": [row.__dict__ for row in stale_mem]},
+                "hidden": {**w["hidden"], "memory_payload": [asdict(row) for row in stale_mem]},
             }
             regime_records["stale_then_public_correction"].append(
                 run_episode(pol_raw, w_stale, extra_initial_facts=stale_mem + public_fix)

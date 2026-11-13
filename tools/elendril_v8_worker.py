@@ -78,7 +78,8 @@ def run_canary(
 ) -> dict[str, object]:
     """Run the positive-control canary check (action/episode accuracy & loss drop gates)."""
 
-    canary = make_positive_canary_cohort(num_worlds=32 if cpu_canary else 32)
+    d1_src = build_d1_training_dataset(quota_per_family=16 if cpu_canary else 64)
+    canary = make_positive_canary_cohort(d1_src, worlds_target=32)
     v8_spec = _tiny_cpu_spec(arm) if cpu_canary else build_v8_model_spec(arm)
     steps = canary.steps[:32] if cpu_canary else canary.steps
     typed_samples = teacher_steps_to_typed_samples(steps)
@@ -113,6 +114,8 @@ def run_canary(
         device=device,
         cpu_canary=cpu_canary,
     )
+    initial_diag = diagnostic_probe(trainer.model, v8_spec, steps, max_probe_steps=len(steps))
+    initial_probe_nll = float(initial_diag["mean_total_nll"])
     losses: list[float] = []
     t0 = time.perf_counter()
     for _ in range(updates):
@@ -121,20 +124,25 @@ def run_canary(
     wall = time.perf_counter() - t0
     trainer.save()
 
-    diag = diagnostic_probe(trainer.model, v8_spec, steps, max_probe_steps=32)
+    diag = diagnostic_probe(trainer.model, v8_spec, steps, max_probe_steps=len(steps))
+    final_probe_nll = float(diag["mean_total_nll"])
     eps = evaluate_worlds_by_mode(trainer.model, v8_spec, canary.worlds[:32], model_identity=f"canary-{arm}", modes=("raw",))
     ep_acc = sum(1 for e in eps["raw"] if e.outcome.correct) / len(eps["raw"])
     action_acc = float(diag["op_accuracy"]) * float(diag.get("val_accuracy_given_op_correct") or 1.0)
-    loss_ratio = (losses[-1] / max(losses[0], 1e-12)) if losses else 1.0
-    passed = (ep_acc >= 0.90 and action_acc >= 0.95 and loss_ratio <= 0.20) if not cpu_canary else (losses[-1] <= losses[0])
+    loss_ratio = final_probe_nll / max(initial_probe_nll, 1e-12)
+    passed = (
+        (ep_acc >= 0.90 and action_acc >= 0.95 and loss_ratio <= 0.20)
+        if not cpu_canary
+        else (final_probe_nll < initial_probe_nll)
+    )
 
     result = {
         "schema": "elendril-v8-canary-v1",
         "arm": arm,
         "cpu_canary": cpu_canary,
         "updates": updates,
-        "initial_loss": losses[0],
-        "final_loss": losses[-1],
+        "initial_loss": initial_probe_nll,
+        "final_loss": final_probe_nll,
         "loss_ratio": loss_ratio,
         "raw_episode_accuracy": ep_acc,
         "raw_action_accuracy": action_acc,

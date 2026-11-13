@@ -263,6 +263,8 @@ def run_campaign(
     repo_root: Path | None = None,
     cpu_smoke: bool = False,
     free_bytes_override: int | None = None,
+    safety_reserve_seconds: float = DEFAULT_SAFETY_RESERVE_SECONDS,
+    eval_seconds_per_job: float = 45.0,
     job_runner: Callable[[dict[str, object], Path], dict[str, object]] | None = None,
     canary_runner: Callable[[], dict[str, object]] | None = None,
     profile_runner: Callable[[dict[str, object]], dict[str, object]] | None = None,
@@ -391,6 +393,8 @@ def run_campaign(
         updates_per_job=updates_est,
         canary_seconds=float(canary_res.get("wall_seconds", 0.0)),
         profile_seconds=profile_wall,
+        eval_seconds_per_job=eval_seconds_per_job,
+        safety_reserve_seconds=safety_reserve_seconds,
     )
     remaining_s = deadline - time.monotonic()
     if forecast["total_forecast_seconds"] > remaining_s:

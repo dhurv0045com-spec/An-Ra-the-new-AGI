@@ -204,3 +204,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-13 | Codex | Bind owner analysis to exact evidence
 - Bound the V7.17 analyzer to the verified ZIP SHA256 and run ID so a later rerun cannot inherit these conclusions.
 - Retained the original immutable notebook source and external checkpoint-custody limitations.
+
+### 2026-11-14 | Gemini | Implement V8 typed/pointer mechanism lab runtime
+- Added V8 protocol registry (6 jobs/phase), truth-firewalled teacher/verifier/D1/confirmation splits, and J/F/P/F-cap/U heads.
+- Built transactional V8 trainer, 4-mode evaluator, pointer interventions, 2-lane T4x2 campaign runner, verified exporter, and W8 gates.
+- Passed all 14 bounded CPU V8 tests covering mechanics, 5 crash-point recovery parity, admission denials, and export verification.
