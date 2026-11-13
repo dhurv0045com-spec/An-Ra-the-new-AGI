@@ -1,0 +1,151 @@
+{
+  "schema": "elendril-v8-source-audit-v1",
+  "audit_date": "2026-11-14",
+  "timezone": "Asia/Calcutta",
+  "repository": "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI",
+  "base_branch": "origin/Elendril",
+  "verified_elendril_head": "0c9cb284d2c8c949e17ac342959c6f2bf351bd30",
+  "scientific_parent_source": "724af4cb508173e0eb3f4397d5dcb4a42a66712f",
+  "implementation_branch": "codex/v8-mechanism-lab",
+  "dirty_tree_handling": {
+    "planning_worktree_preserved": "An-Ra-Elendril-V7 (dirty progress.md and untracked research/v8/GEMINI_EXECUTION_GUIDE.md left untouched)",
+    "implementation_worktree": "Created separate clean worktree An-Ra-Elendril-V8 on branch codex/v8-mechanism-lab from 0c9cb284d2c8c949e17ac342959c6f2bf351bd30"
+  },
+  "parent_weights_custody": {
+    "status": "PARENT_WEIGHTS_UNAVAILABLE",
+    "v717_run_id": "f443d3f4141b4163bbc130d46ebd7395",
+    "v717_analysis_archive_sha256": "10d024a5daa64b24a63e549b6c8a78c31c8eff141772ec84efee4b5a9f02e1fc",
+    "v717_full_archive_available": false,
+    "d0_training_data_identity": "7786244187963f75e6cda5b10e4d4e0d81927b7000154126fff538dea15539e5"
+  },
+  "verified_backbone_and_optimizer_defaults": {
+    "s20_parameter_total": 19871616,
+    "s20_model_spec_sha256": "941d0b2222729aa072f8ef2ed68a7cca7683c6a186c8e835c4cbcac44f920dc1",
+    "utf8_tokenizer_identity": "8343d8d2429e28ec91545a321ad4be4553ca87a89c30d86521b9d9e73acce270",
+    "utf8_vocabulary_size": 260,
+    "optimizer_schema": "anra-v5-optimizer-receipt/v1",
+    "optimizer_name": "AdamW",
+    "beta1": 0.9,
+    "beta2": 0.95,
+    "epsilon": 1e-08,
+    "weight_decay": 0.1,
+    "no_decay_rule": "ndim < 2 or endswith('.query_scale', '.key_scale') or ('.weight' in name and '.norm' in name)",
+    "cosine_terminal_ratio": 0.1,
+    "grad_clip": 1.0,
+    "precision": "fp32",
+    "batch_size": 16,
+    "micro_batch_size": 2
+  },
+  "donors": [
+    {
+      "donor": "Elendril neural/training/checkpoint core",
+      "immutable_source": "0c9cb284d2c8c949e17ac342959c6f2bf351bd30 (V7.17 runtime 724af4cb508173e0eb3f4397d5dcb4a42a66712f)",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "AUDITED_HERE",
+      "interface_assumptions": "Pure Core(ModelSpec) with forward_hidden, tied embedding, CheckpointStore transactions, semantic AdamW grouping",
+      "expected_parameter_changes": "B0 unchanged at 19871616; J/F/P/F-cap/U wrap Core via explicit pre-optimizer factory",
+      "standalone_effect": "V7.17 1e-4 confirmed 84.52% mean base/confirmation vs 62.80% at 3e-4; novel chains 0/48",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "B0 default fallback and unchanged historical FoundationTrainer/V7Trainer path"
+    },
+    {
+      "donor": "V7.17 owner results",
+      "immutable_source": "Experiment Result/V7.17/f443d3f4141b4163bbc130d46ebd7395/ (ZIP SHA256 10d024a5daa64b24a63e549b6c8a78c31c8eff141772ec84efee4b5a9f02e1fc)",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "AUDITED_HERE",
+      "interface_assumptions": "44 replayed reports and 32 diagnostic milestones; FULL weights absent in audit",
+      "expected_parameter_changes": "None; comparator baseline and frozen diagnostic conditional on FULL custody",
+      "standalone_effect": "Lower LR improves standard confirmation 62.80%->84.52%; 46/48 three-hop failures emit RETRIEVE at Memory=0",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Treat as historical comparator only; fresh D0/B0 lineage if FULL weights unavailable"
+    },
+    {
+      "donor": "Cymek branch",
+      "immutable_source": "feac2948466832516b7f048435483fd95e53b078 (origin/cymek-upgraded)",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "UNVERIFIED",
+      "interface_assumptions": "No Cymek module imported directly without per-file audit",
+      "expected_parameter_changes": "None in V8 initial release",
+      "standalone_effect": "UNREVIEWED_FOR_V8",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Not integrated"
+    },
+    {
+      "donor": "ARK-017 V2",
+      "immutable_source": "4ae9e3b6dc806d6ada7b7b2f05d32271d072d543 (origin/Arkenstone; runner 377c4743f8017e3455f576eafb75bb8ab9c50284)",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "REPORTED_EXTERNAL_AUDIT",
+      "interface_assumptions": "Do not transplant ARK-017 movement caps into S20; implement sparse replay as competing hypothesis",
+      "expected_parameter_changes": "Zero model parameters; replay buffer state only in conditional W8",
+      "standalone_effect": "Reported external micro replay/movement result; raw bundle not reaudited here",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Disable replay (arm N) or prefer static S over adaptive G"
+    },
+    {
+      "donor": "ARK-019 V4",
+      "immutable_source": "Runner 8e858c614d764335100dfd41dda6f8e0d0c877a7 (transcribed external audit)",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "REPORTED_EXTERNAL_AUDIT",
+      "interface_assumptions": "Motivation for retention; static replay remains primary control",
+      "expected_parameter_changes": "Zero model parameters; EMA/allocation state in conditional W8",
+      "standalone_effect": "Transcribed external audit only",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Prefer static stratified replay S"
+    },
+    {
+      "donor": "Pointer reader P",
+      "immutable_source": "See, Liu & Manning (2017) pointer-generator adaptation in anra_v5/elendril/v8/models.py",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "PROPOSED",
+      "interface_assumptions": "Uses F operation head + q/k width-64 attention over public A-P byte tokens + scalar gate bias=-2; copy_enabled=False reproduces F",
+      "expected_parameter_changes": "+66049 pointer params over F (+76309 total over S20 backbone), paired against matched F-cap bottleneck",
+      "standalone_effect": "NOT_RUN",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "copy_enabled=False reverts cleanly to F; F-cap isolates capacity"
+    },
+    {
+      "donor": "Factorized policy F",
+      "immutable_source": "New ELENDRIL V8 hypothesis in anra_v5/elendril/v8/models.py",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "PROPOSED",
+      "interface_assumptions": "Separate linear op_head [512->4] and val_head [512->16], joint 19-way decoding, compared vs J [512->19]",
+      "expected_parameter_changes": "+10260 params over S20 (+513 vs J's +9747)",
+      "standalone_effect": "NOT_RUN",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Use J or B0 if factorization fails to beat J"
+    },
+    {
+      "donor": "Recurrent refinement U",
+      "immutable_source": "Universal Transformers (Dehghani et al. 2018) restricted adaptation in anra_v5/elendril/v8/models.py",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "PROPOSED",
+      "interface_assumptions": "Conditional only after one-hop qualifies; shared q/k/v attention width-64 + GRUCell[512->512] for T steps",
+      "expected_parameter_changes": "Conditional stage only; excluded from initial 18-job screen",
+      "standalone_effect": "NOT_RUN",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Keep T=0 (non-recurrent F/P)"
+    },
+    {
+      "donor": "Memory / Guardian / Adapters (W8)",
+      "immutable_source": "Chaudhry et al. (2019), Rolnick et al. (2019) and ELENDRIL V8 W8 contracts",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "PROPOSED",
+      "interface_assumptions": "Conditional stages strictly gated on prerequisite qualification reports",
+      "expected_parameter_changes": "Zero for replay/memory; adapters conditional on observed interference",
+      "standalone_effect": "NOT_RUN",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Do not admit until prerequisites pass"
+    },
+    {
+      "donor": "Triquetra / Bramastra branches",
+      "immutable_source": "Local repo refs origin/triquetra, origin/BRAMASTRA (uninspected)",
+      "license": "Repository LICENSE",
+      "raw_evidence_tier": "UNVERIFIED",
+      "interface_assumptions": "Unreviewed; not imported or relied upon",
+      "expected_parameter_changes": "None",
+      "standalone_effect": "UNREVIEWED",
+      "interaction_result": "NOT_RUN",
+      "rollback_path": "Not integrated"
+    }
+  ]
+}
