@@ -244,3 +244,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Fixed the comparison to `final_epoch[0]` and added regression `test_v16_report_tracks_final_epoch_across_multiple_epoch_files` reproducing the exact failure; the defective export's `summary.json` is documented, not rewritten.
 - Full suite green: 443 passed, 1 environmental skip, 14 subtests; suite-code change requires re-pinning both V16 Kaggle notebooks to the fix commit (follow-up).
 - Detailed results report drafted under `Experiment Result/V16/`; curated METRICS.json and README link to follow before the report commit.
+
+### 2026-11-13 | OpenCode | Re-pin both V16 Kaggle notebooks to the report fix
+- Regenerated `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` (canonical, default-off) and `notebooks/ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb` (owner `RUN_STUDY=True` launch) pinned to the report-fix commit `3ef9dec7d09a40a4b960bce0a7eece6f32abbce2`; zero stale `682c40e1` references remain in either.
+- Updated the `OWNER_KAGGLE_LAUNCH.md` freeze line to the new pin (historical `682c40e1` noted as the recovery fix verified on the real T4 run); the doc/notebook pin-drift contract now passes.
+- Contract suite 69 passed; future owner sessions must use pin `3ef9dec7`.
