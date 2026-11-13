@@ -220,3 +220,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Regenerated `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` pinned to the audit-fix commit `09eff159b17e0c6efe633f1011ee4d2a7ca86559`; the previous pin `48aaa7b8` still carried the defective H2 audit ledger, the partial H3 control and the unenforced invalid-action promotion rule.
 - Verified schema, safe default-off (`RUN_STUDY = False`), both owner cells compile, the owner gate and the notebook-builder contract test against the new pin.
 - Owner sessions must use pin `09eff159b17e0c6efe633f1011ee4d2a7ca86559`; commit is local on `opposing-star`, not pushed.
+
+### 2026-11-13 | OpenCode | Verify merged T4 recovery fix and correct stale launch pin
+- Fast-forwarded `opposing-star` to merge `bc349045` and audited all 15 incoming commits; full suite green at HEAD: 441 passed, 1 environmental skip, 14 subtests.
+- Audited the owner-notebook auto-parent retrieval (fail-closed byte+SHA gates, GPU precheck), extracted-parent checkpoint validation, disabled-run false-success guard, CLI dispatch smoke tests and the real CPU H2B checkpoint restore/replay regression; no further launch-path defect found.
+- Fixed the stale launch doc: `OWNER_KAGGLE_LAUNCH.md` still froze source `6614864` (known broken) while the notebooks pin the recovery fix `682c40e1`; corrected the freeze line and added a contract test so doc/notebook pin drift fails CI.
+- Next owner run must use `ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb` pinned `682c40e1b525424d805e6fb44f0f29afee6c756c`; doc-only and test-only change, no suite code touched, so no notebook re-pin was required.

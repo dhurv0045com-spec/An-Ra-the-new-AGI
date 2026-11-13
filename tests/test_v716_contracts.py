@@ -1339,3 +1339,32 @@ def test_v16_recover_replays_real_h2b_checkpoint_on_bounded_cpu(
     assert result["global_update"] == 4
     assert result["comparison"] == "exact full payload comparison"
     assert result["checkpoint"] == heads[4]
+
+
+def test_v16_owner_launch_doc_matches_notebook_source_pin():
+    """Regression: the launch doc froze the known-broken pin 6614864 after the
+    notebooks were re-pinned to the recovery fix 682c40e1, so the operational
+    instructions contradicted the executable source. All launch surfaces must
+    name the same frozen source."""
+    import json
+    import re
+    from pathlib import Path
+
+    def notebook_pin(name):
+        notebook = json.loads(Path("notebooks", name).read_text(encoding="utf-8"))
+        config = "".join(notebook["cells"][1]["source"])
+        match = re.search(r'SOURCE_SHA = "([0-9a-f]{40})"', config)
+        assert match, f"{name} config cell has no pinned SOURCE_SHA"
+        return match.group(1)
+
+    pins = {name: notebook_pin(name) for name in (
+        "ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb",
+        "ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb")}
+    assert len(set(pins.values())) == 1, "notebooks disagree on the frozen source"
+    pin = next(iter(pins.values()))
+
+    doc = Path("research", "v7.16", "OWNER_KAGGLE_LAUNCH.md").read_text(encoding="utf-8")
+    freeze = re.search(r"source is frozen to `([0-9a-f]{40})`", doc)
+    assert freeze, "launch doc does not state the frozen source"
+    assert freeze.group(1) == pin, (
+        "launch doc freeze line contradicts the notebook source pin")
