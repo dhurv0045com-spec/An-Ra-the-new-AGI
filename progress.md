@@ -194,3 +194,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Published the automatic-launch Kaggle notebook pinned to source 724af4cb; Git-archive rebuild is byte-identical and schema-valid.
 - Full CPU regression: 396 passed, one Windows skip, 14 subtests; historical evidence verification and fixture audit passed.
 - Recorded exact validation and launch/recovery limits; no local research campaign or GPU qualification occurred.
+
+### 2026-11-13 | Codex | Audit and archive V7.17 owner results with Luna review
+- Verified owner analysis ZIP, independently replayed 44 reports and audited 32 milestone measurements plus eight complete update logs.
+- Saved focused results and essential metrics: matched lower LR improves all three seeds; novel chains still fail and aliases regress.
+- Confirmed V7.16 baseline metric reproduction across all 16 cohorts; preserved raw/grammar distinctions and unresolved causes.
+- Added offline analyzer with eight passing regression checks; no research training or local neural inference performed.

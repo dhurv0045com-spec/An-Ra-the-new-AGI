@@ -6,6 +6,8 @@ This is a **results folder only**. It is not an instruction to Codex and does no
 
 ## Saved results
 
+- **[V7.17 — S20 optimization and seed investigation](V7.17/f443d3f4141b4163bbc130d46ebd7395/RESULTS.md)**. Eight verified runs; lower LR improves all three matched seeds, while novel chain tasks and alias robustness remain failures.
+
 - **[V6 — Results of all 19 registered panels](V6/RESULTS.md)**: 15 primary evaluations, four exploratory probes, 14 training-arm results, measured failure patterns, limitations, and provenance.
 
 - **[V7.15 — Six-job S8 scale results](V7.15/3981e34a2ffe4b4b9528b4b4d588883b/RESULTS.md)**. Per-seed comparisons with S3, replay verification, failures and the next diagnostic phase.

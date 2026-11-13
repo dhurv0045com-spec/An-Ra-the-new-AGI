@@ -1,6 +1,6 @@
 # Current S20 investigation — 13 November 2026
 
-Use [V7.17 implementation, scientific interpretation and owner instructions](../research/v7.17/README.md). The new source-pinned notebook investigates optimization and evidence formatting with S20-only research arms. Historical V7.16 results and every prior reproduction remain intact. Local verification covers mechanics; owner GPU results are pending and **CAUSE UNRESOLVED**.
+Use [V7.17 owner results](../Experiment%20Result/V7.17/README.md) and [implementation/owner instructions](../research/v7.17/README.md). Eight S20 optimization runs executed: lower LR improves all three matched seeds, but novel one-hop/three-hop failures and alias regressions remain. Representation training is unrun, and FULL/final delivery custody remains unverified locally. Historical results and all reproduction paths remain intact. **CAUSE UNRESOLVED** for the remaining neural failure.
 
 # Historical V7 handoff — 8 November 2026
 

@@ -1,6 +1,6 @@
 # ELENDRIL
 
-ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. Completed V7.1 and S8/S20 owner studies show narrow evidence dependence with brittle generalization and substantial seed variation. Historical implementations and ELD-DEV-001–004 evidence remain preserved. Underlying neural causes remain unresolved. The current [V7.17 S20 investigation](research/v7.17/README.md) separates initialization/order seeds and measures acquisition, decoding and interactive behavior before attributing failure to capacity. Owner GPU execution remains pending.
+ELENDRIL studies cumulative, resource-efficient learning through one neural cognitive loop. Completed V7.1 and S8/S20 owner studies show narrow evidence dependence with brittle generalization and substantial seed variation. Historical implementations and ELD-DEV-001–004 evidence remain preserved. The [V7.17 owner study](Experiment%20Result/V7.17/README.md) demonstrates a matched lower-LR improvement while novel chain tasks still fail. Underlying causes of the remaining grounding/composition failure are unresolved; [the registered investigation](research/v7.17/README.md) separates initialization/order effects from capacity claims.
 
 - [Current state](docs/CURRENT_STATE.md), [handoff](docs/HANDOFF.md) and [cognitive kernel](docs/COGNITIVE_KERNEL.md)
 - [Foundation decisions](docs/FOUNDATION_AUDIT.md), [qualification](docs/FOUNDATION_QUALIFICATION.md) and [algorithm comparisons](docs/ALGORITHM_COMPARISONS.md)
