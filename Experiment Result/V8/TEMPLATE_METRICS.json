@@ -1,0 +1,162 @@
+{
+  "schema": "elendril-v8-report-v1",
+  "phase": "TEMPLATE_NOT_EXECUTED",
+  "status": "NOT_RUN",
+  "source_commit": "95c4b95da28a116e9ebfbd208e291e80b83dee75",
+  "runs": [],
+  "paired_comparisons": [],
+  "cost_views": {
+    "equal_exposure_view": {},
+    "equal_measured_work_view": {}
+  },
+  "advancement": null,
+  "scenario_ledger": [
+    {
+      "id": "F01",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Public entity aliases with fixed answer-code legend"
+    },
+    {
+      "id": "F02",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Multiple entities, changed relevant attribute, row/distractor controls"
+    },
+    {
+      "id": "F03",
+      "stage": "diagnostic-extension",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Reverse relation question with unique inverse vs ambiguous inverse; no training on held-out inverse labels"
+    },
+    {
+      "id": "F04",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Longer aliases and different notation within 512-token bound"
+    },
+    {
+      "id": "G05",
+      "stage": "formation-robustness",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Novel input aliases and consistent symbol permutations"
+    },
+    {
+      "id": "G06",
+      "stage": "formation-robustness",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Row shuffle and independent timestamps"
+    },
+    {
+      "id": "G07",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Matched-length distractors, same-source revision, cross-source conflict"
+    },
+    {
+      "id": "G08",
+      "stage": "confirmation",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Separate generator/renderer, explicit author provenance"
+    },
+    {
+      "id": "R09",
+      "stage": "primary-endpoint",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Direct one-hop, raw/J/F/P comparison"
+    },
+    {
+      "id": "R10",
+      "stage": "composition-prerequisite",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Two-hop routes, counterfactual edge replacement"
+    },
+    {
+      "id": "R11",
+      "stage": "conditional-composition",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Held-out three-hop, unrelated/sham clamp controls"
+    },
+    {
+      "id": "R12",
+      "stage": "conditional-transfer",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Source revision plus route task C"
+    },
+    {
+      "id": "E13",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Fully sufficient facts with tools available/unavailable independently"
+    },
+    {
+      "id": "E14",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Missing fact, legitimate query, changed returned payload"
+    },
+    {
+      "id": "E15",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Conflicting sources and subsequent authoritative observation"
+    },
+    {
+      "id": "E16",
+      "stage": "conditional-memory",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Stale memory followed by public correction"
+    },
+    {
+      "id": "A17",
+      "stage": "diagnostic",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Raw vs grammar vs public-availability-only vs direct-answer-only modes"
+    },
+    {
+      "id": "A18",
+      "stage": "diagnostic-extension",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Available queries at fixed-policy repricing costs 0/0.1/0.5/1"
+    },
+    {
+      "id": "A19",
+      "stage": "formation",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Null/unavailable vs obtainable unknown"
+    },
+    {
+      "id": "A20",
+      "stage": "diagnostic-extension",
+      "status": "IMPLEMENTED_NOT_RUN",
+      "description": "Wrong proposed answer followed by public corrective evidence"
+    },
+    {
+      "id": "C21",
+      "stage": "conditional-retention",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Qualified A->B, no replay"
+    },
+    {
+      "id": "C22",
+      "stage": "conditional-retention",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Same B with fixed random/stratified sparse replay"
+    },
+    {
+      "id": "C23",
+      "stage": "conditional-retention",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "Same replay quota, adaptive allocation and charged monitoring"
+    },
+    {
+      "id": "C24",
+      "stage": "conditional-transfer",
+      "status": "PREREQUISITE_NOT_QUALIFIED",
+      "description": "A->B->C vs unrelated-history/fresh controls"
+    }
+  ],
+  "notes": [
+    "Pre-run schema template only; no Kaggle execution metrics populated."
+  ]
+}

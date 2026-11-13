@@ -209,3 +209,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added V8 protocol registry (6 jobs/phase), truth-firewalled teacher/verifier/D1/confirmation splits, and J/F/P/F-cap/U heads.
 - Built transactional V8 trainer, 4-mode evaluator, pointer interventions, 2-lane T4x2 campaign runner, verified exporter, and W8 gates.
 - Passed all 14 bounded CPU V8 tests covering mechanics, 5 crash-point recovery parity, admission denials, and export verification.
+
+### 2026-11-14 | Gemini | Publish immutable V8 Kaggle notebook and pre-run result template
+- Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to runtime commit `95c4b95da28a116e9ebfbd208e291e80b83dee75` with inert `RUN_STUDY=False` defaults.
+- Verified `git archive` rebuild reproduces an identical notebook (`b4ad288c0c260d9a86db751d2ac4548e1f95329f6540cb8f681b03bf695233a9`) and staged `Experiment Result/V8/` templates.
+- No local GPU research training or S20 campaign ran; ready for owner push and Kaggle 2xT4 execution.

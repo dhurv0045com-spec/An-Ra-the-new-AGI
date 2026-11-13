@@ -117,3 +117,15 @@ def test_v8_campaign_guards_failures_and_export_integrity(tmp_path: Path) -> Non
         job_runner=slow_first_job,
     )
     assert res_partial["status"] == "PARTIAL"
+
+
+def test_v8_published_notebook_and_result_template_are_inert_and_pinned() -> None:
+    from tools.build_elendril_v8_notebook import verify_notebook_file
+
+    repo = Path(__file__).resolve().parents[1]
+    nb_path = repo / "notebooks" / "ELENDRIL_V8_KAGGLE_T4X2.ipynb"
+    info = verify_notebook_file(nb_path)
+    assert info["verified"] is True
+    tpl = json.loads((repo / "Experiment Result" / "V8" / "TEMPLATE_METRICS.json").read_text(encoding="utf-8"))
+    assert tpl["status"] == "NOT_RUN"
+    assert tpl["source_commit"] == info["source_commit"]
