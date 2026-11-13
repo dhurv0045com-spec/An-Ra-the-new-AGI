@@ -1,0 +1,586 @@
+{
+  "artifacts": {
+    "dataset_provenance": {
+      "cases": "dabc2d7c7f6a3d8edbeb7b0209d655f6ebd4b9252a447aca6c5b32a0c9a782f5",
+      "examples": "d9f4a4eae538f7275fb85881570dd8a905ff4c7d8ea1d72dc6e11e4abedc2f58",
+      "plan": "010f28a36af37328beed937ac5dc2c03f7b72ae441488a9e427bd15cf9e872ac"
+    },
+    "full_export": "present in Kaggle output but not yet downloaded by the owner; required for later promotion-phase custody",
+    "kaggle_output_dir": "/kaggle/working/elendril-v716-682c40e1b525-mechanism/",
+    "owner_export": {
+      "byte_size": 6030579,
+      "entries": 61,
+      "file": "ELENDRIL_V716_ANALYSIS.zip",
+      "internal_sha256sums_verified": "59/59",
+      "kept_outside_git": true,
+      "sha256": "3451e93300bbbbf14b8db13470d1544c3681c8733db2abddcc0431c76fcdb7c4"
+    },
+    "report": "Experiment Result/V16/RESULTS.md"
+  },
+  "control_semantics": {
+    "fixed/always-query": "hand-written public algorithm (queries allowed): 112/112 base, 16/16 every hop",
+    "no-query": "public algorithm without queries: 89/112 base, 16/16 every hop",
+    "random/query-blind": "chance floors (5/112 and 1/112 base)",
+    "recency": "hop-aware last-value heuristic: 68/112 base, 16/16 every hop"
+  },
+  "custody": {
+    "CUSTODY_STATUS": "PASS",
+    "execution_binding": "BOUND (write-once); matched seed-7 initialization 08131f4b5d61329ba05aa6644178aa28b790acb2d16d9e4e40b080a4bfc78fd7; seeds 19/41 null",
+    "failures": [],
+    "manual_attachment_note": "parent attached via Add Input > Notebook Output in the interactive editor (Kaggle refuses runtime attachment in Save & Run All)",
+    "parent": {
+      "byte_size": 1958029910,
+      "file": "ELENDRIL_V71_FULL.zip",
+      "sha256": "1826c85b5a858d2a600661f7e5916f0fa812c55a8d53c37013c695df28a15d19",
+      "status": "PASS",
+      "via": "parent_archive"
+    }
+  },
+  "defect": {
+    "export_summary_policy": "the defective run's summary.json is documented, not rewritten",
+    "fix": "compare against final_epoch[0]; regression test test_v16_report_tracks_final_epoch_across_multiple_epoch_files; full suite 443 passed, 1 environmental skip, 14 subtests",
+    "fix_commit": "3ef9dec7d09a40a4b960bce0a7eece6f32abbce2",
+    "impact": "training, custody, checkpoints and all raw cohort reports intact (59/59 internal SHA256SUMS verified); only the derived summary aggregates wrong",
+    "mechanism": "tools/elendril_v716_report.py compared integer epoch against the (epoch, data) final-epoch tuple",
+    "observed": "summary.json status PARTIAL; 2 errors on jobs/H2B-NORM-s7/epoch-2.json and epoch-4.json: '>' not supported between instances of 'int' and 'tuple'; epoch-1 aggregates (base 42/112, hop-3 0/16) published as final"
+  },
+  "engineered_controls_same_data": {
+    "always-query": {
+      "base_accuracy": 1.0,
+      "base_correct": 112,
+      "base_episodes": 112,
+      "hop1_correct": 16,
+      "hop4_correct": 16
+    },
+    "fixed": {
+      "base_accuracy": 1.0,
+      "base_correct": 112,
+      "base_episodes": 112,
+      "hop1_correct": 16,
+      "hop4_correct": 16
+    },
+    "no-query": {
+      "base_accuracy": 0.7946,
+      "base_correct": 89,
+      "base_episodes": 112,
+      "hop1_correct": 16,
+      "hop4_correct": 16
+    },
+    "query-blind": {
+      "base_accuracy": 0.0089,
+      "base_correct": 1,
+      "base_episodes": 112,
+      "hop1_correct": 2,
+      "hop4_correct": 0
+    },
+    "random": {
+      "base_accuracy": 0.0446,
+      "base_correct": 5,
+      "base_episodes": 112,
+      "hop1_correct": 0,
+      "hop4_correct": 1
+    },
+    "recency": {
+      "base_accuracy": 0.6071,
+      "base_correct": 68,
+      "base_episodes": 112,
+      "hop1_correct": 16,
+      "hop4_correct": 16
+    }
+  },
+  "final_free_decoding_epoch4": {
+    "available_paired_comparisons": [
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 0,
+        "left": "base",
+        "left_only": 3,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 13,
+        "paired_denominator": 16,
+        "right": "query-irrelevant",
+        "right_only": 0,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 1,
+        "left": "base",
+        "left_only": 59,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 52,
+        "paired_denominator": 112,
+        "right": "robustness-alias",
+        "right_only": 0,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 24,
+        "left": "base",
+        "left_only": 36,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 51,
+        "paired_denominator": 112,
+        "right": "robustness-distractor",
+        "right_only": 1,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 1,
+        "left": "base",
+        "left_only": 59,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 51,
+        "paired_denominator": 112,
+        "right": "robustness-template",
+        "right_only": 1,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 0,
+        "left": "query-irrelevant",
+        "left_only": 0,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 16,
+        "paired_denominator": 16,
+        "right": "robustness-alias",
+        "right_only": 0,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 0,
+        "left": "query-irrelevant",
+        "left_only": 0,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 14,
+        "paired_denominator": 16,
+        "right": "robustness-distractor",
+        "right_only": 2,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 0,
+        "left": "query-irrelevant",
+        "left_only": 0,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 16,
+        "paired_denominator": 16,
+        "right": "robustness-template",
+        "right_only": 0,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 1,
+        "left": "robustness-alias",
+        "left_only": 0,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 87,
+        "paired_denominator": 112,
+        "right": "robustness-distractor",
+        "right_only": 24,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 0,
+        "left": "robustness-alias",
+        "left_only": 1,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 109,
+        "paired_denominator": 112,
+        "right": "robustness-template",
+        "right_only": 2,
+        "status": "AVAILABLE"
+      },
+      {
+        "ambiguous_worlds": 0,
+        "both_correct": 1,
+        "left": "robustness-distractor",
+        "left_only": 24,
+        "matching": "unique shared world_id only; ambiguous repeated worlds omitted",
+        "neither_correct": 86,
+        "paired_denominator": 112,
+        "right": "robustness-template",
+        "right_only": 1,
+        "status": "AVAILABLE"
+      }
+    ],
+    "cohorts": {
+      "balanced-payload": {
+        "accuracy": 0.5625,
+        "answer_entropy_bits": 3.3789280318460246,
+        "correct": 18,
+        "episodes": 32,
+        "invalid": 0
+      },
+      "base": {
+        "accuracy": 0.535714,
+        "answer_entropy_bits": 3.2260365725530624,
+        "correct": 60,
+        "episodes": 112,
+        "invalid": 2
+      },
+      "confirmation": {
+        "accuracy": 0.571429,
+        "answer_entropy_bits": 3.2865993190994893,
+        "correct": 64,
+        "episodes": 112,
+        "invalid": 2
+      },
+      "hop-1": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": 2.48345859334435,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "hop-2": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": null,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "hop-2-clamped": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": null,
+        "correct": 0,
+        "episodes": 32,
+        "invalid": 0
+      },
+      "hop-3": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": 2.1556390622295662,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 6
+      },
+      "hop-4": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": null,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 16
+      },
+      "intermediate-vs-sham": {
+        "accuracy": 0.125,
+        "answer_entropy_bits": 3.114855987527073,
+        "correct": 4,
+        "episodes": 32,
+        "invalid": 1
+      },
+      "memory-manipulations": {
+        "accuracy": 0.09375,
+        "answer_entropy_bits": 2.506448313330357,
+        "correct": 6,
+        "episodes": 64,
+        "invalid": 34
+      },
+      "query-crossed": {
+        "accuracy": 0.229167,
+        "answer_entropy_bits": 3.213997686018166,
+        "correct": 22,
+        "episodes": 96,
+        "invalid": 42
+      },
+      "query-irrelevant": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": 3.077819531114783,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "robustness-alias": {
+        "accuracy": 0.008929,
+        "answer_entropy_bits": 3.289835936097406,
+        "correct": 1,
+        "episodes": 112,
+        "invalid": 0
+      },
+      "robustness-distractor": {
+        "accuracy": 0.223214,
+        "answer_entropy_bits": 3.431220544185154,
+        "correct": 25,
+        "episodes": 112,
+        "invalid": 2
+      },
+      "robustness-row-order": {
+        "accuracy": 0.5,
+        "answer_entropy_bits": 3.2911727198502083,
+        "correct": 112,
+        "episodes": 224,
+        "invalid": 4
+      },
+      "robustness-template": {
+        "accuracy": 0.017857,
+        "answer_entropy_bits": 3.3148063014646385,
+        "correct": 2,
+        "episodes": 112,
+        "invalid": 33
+      }
+    },
+    "invalid_rate_ceiling_v715_scope": 143,
+    "totals": {
+      "correct": 314,
+      "episodes": 1120,
+      "invalid": 142,
+      "invalid_rate": 0.126786
+    },
+    "update": 2368,
+    "within_ceiling": true
+  },
+  "grammar_final_diagnostic": {
+    "cohorts": {
+      "balanced-payload": {
+        "accuracy": 0.5625,
+        "answer_entropy_bits": 3.3789280318460246,
+        "correct": 18,
+        "episodes": 32,
+        "invalid": 0
+      },
+      "base": {
+        "accuracy": 0.544643,
+        "answer_entropy_bits": 3.252195980523428,
+        "correct": 61,
+        "episodes": 112,
+        "invalid": 0
+      },
+      "confirmation": {
+        "accuracy": 0.571429,
+        "answer_entropy_bits": 3.3423942969151526,
+        "correct": 64,
+        "episodes": 112,
+        "invalid": 0
+      },
+      "hop-1": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": 2.48345859334435,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "hop-2": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": null,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "hop-2-clamped": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": null,
+        "correct": 0,
+        "episodes": 32,
+        "invalid": 0
+      },
+      "hop-3": {
+        "accuracy": 0.0625,
+        "answer_entropy_bits": 2.5654483718208256,
+        "correct": 1,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "hop-4": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": 2.524397470347699,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "intermediate-vs-sham": {
+        "accuracy": 0.15625,
+        "answer_entropy_bits": 3.105337797403416,
+        "correct": 5,
+        "episodes": 32,
+        "invalid": 0
+      },
+      "memory-manipulations": {
+        "accuracy": 0.109375,
+        "answer_entropy_bits": 2.750534820564257,
+        "correct": 7,
+        "episodes": 64,
+        "invalid": 0
+      },
+      "query-crossed": {
+        "accuracy": 0.260417,
+        "answer_entropy_bits": 3.3924841713527027,
+        "correct": 25,
+        "episodes": 96,
+        "invalid": 0
+      },
+      "query-irrelevant": {
+        "accuracy": 0.0,
+        "answer_entropy_bits": 3.077819531114783,
+        "correct": 0,
+        "episodes": 16,
+        "invalid": 0
+      },
+      "robustness-alias": {
+        "accuracy": 0.008929,
+        "answer_entropy_bits": 3.289835936097406,
+        "correct": 1,
+        "episodes": 112,
+        "invalid": 0
+      },
+      "robustness-distractor": {
+        "accuracy": 0.223214,
+        "answer_entropy_bits": 3.423662355870597,
+        "correct": 25,
+        "episodes": 112,
+        "invalid": 0
+      },
+      "robustness-row-order": {
+        "accuracy": 0.504464,
+        "answer_entropy_bits": 3.342230916567185,
+        "correct": 113,
+        "episodes": 224,
+        "invalid": 0
+      },
+      "robustness-template": {
+        "accuracy": 0.017857,
+        "answer_entropy_bits": 3.2956887066966636,
+        "correct": 2,
+        "episodes": 112,
+        "invalid": 0
+      }
+    },
+    "note": "grammar-constrained decoding is diagnostic, not the preregistered primary",
+    "totals": {
+      "correct": 322,
+      "episodes": 1120,
+      "invalid": 0,
+      "invalid_rate": 0.0
+    },
+    "update": 2368
+  },
+  "learning_curve_free_decoding": {
+    "1": {
+      "cohorts": {
+        "base": {
+          "correct": 42,
+          "episodes": 112,
+          "invalid": 0
+        },
+        "hop-3": {
+          "correct": 0,
+          "episodes": 16,
+          "invalid": 16
+        }
+      },
+      "update": 592
+    },
+    "2": {
+      "cohorts": {
+        "base": {
+          "correct": 52,
+          "episodes": 112,
+          "invalid": 2
+        },
+        "hop-3": {
+          "correct": 0,
+          "episodes": 16,
+          "invalid": 14
+        }
+      },
+      "update": 1184
+    },
+    "4": {
+      "cohorts": {
+        "base": {
+          "correct": 60,
+          "episodes": 112,
+          "invalid": 2
+        },
+        "hop-3": {
+          "correct": 0,
+          "episodes": 16,
+          "invalid": 6
+        }
+      },
+      "update": 2368
+    }
+  },
+  "note": "Curated headline metrics for the first owner T4x2 V16 mechanism screening slice, recomputed directly from the owner ANALYSIS export's raw epoch and grammar reports. The export's own summary.json carries a report-writer defect (see defect) and its published aggregates are superseded by this file.",
+  "pipeline": {
+    "campaign_wall_seconds": 828.002110309,
+    "capacity_forecast_seconds": 2286.743382059434,
+    "data": {
+      "episodes": 7335,
+      "examples": 9472,
+      "generator_seed": 606,
+      "max_sequence_tokens": 268,
+      "text_bytes": 2200185
+    },
+    "gpu_worker_reservation_seconds": 870.1,
+    "independent_replay": {
+      "reports_replayed": 13,
+      "status": "PASS"
+    },
+    "positive_canaries": {
+      "lane0": "PASS (41.7 s, recovery PASS)",
+      "lane1": "PASS (recovery PASS)"
+    },
+    "profiles": {
+      "lane0": "PASS S3-canonical-normalizer, 0.3138 s/update, recovery replay PASS",
+      "lane1": "PASS S3-canonical-normalizer, recovery replay PASS"
+    }
+  },
+  "provenance": {
+    "computed_from": "ELENDRIL_V716_ANALYSIS.zip raw epoch/grammar/control reports",
+    "fix_commit": "3ef9dec7d09a40a4b960bce0a7eece6f32abbce2",
+    "notebook_pin": "3ef9dec7d09a40a4b960bce0a7eece6f32abbce2"
+  },
+  "registered_thresholds_context": {
+    "aggregate_base": "279/336",
+    "note": "descriptive context from preregistration; no promotion gate was run",
+    "observed_row_reversal_aggregate": 0.5,
+    "per_seed_base": "79/112",
+    "row_reversal_consistency": 0.5,
+    "row_reversal_paired_status": "UNAVAILABLE in this export (all 112 shared worlds ambiguous)",
+    "stale_memory": "28/48"
+  },
+  "run": {
+    "campaign_status": "EXECUTED",
+    "cause_status": "CAUSE_UNRESOLVED",
+    "data_split_sha256": "22e5a91f7465094eeeb2cd1ef565c0708042109b742a70ad621a9f48c56dc5b6",
+    "hardware": "2x Tesla T4, driver 580.178.04, CUDA 13.0, torch 2.11.0+cu130, Python 3.13.16",
+    "phase": "mechanism",
+    "predeclared_slice": {
+      "arm": "H2B-NORM",
+      "seed": 7,
+      "subset_identity": "63bba4fd722bdb595839e6b80ba382359f2b9fd2caaccde1f846b8326099dafb"
+    },
+    "preregistration_sha256": "3a098a597684eb294f9eeccb5c00b66c3356a9f204036d0913aadfd15ffaa624",
+    "promotion": "NONE",
+    "protocol_sha256": "26617d4512f68435a0955d978bd89db3068867f0dddbf6a7e22ef20a3e0abe0e",
+    "run_id": "b89a011f1b88470891394942af00eb18",
+    "source_sha256": "682c40e1b525424d805e6fb44f0f29afee6c756c"
+  },
+  "schema": "elendril-v16-metrics-v1",
+  "training": {
+    "checkpoint_sha256": "f0199921a19e6d1d9e28524a852d96c0d3791e0bf6cf88c151da60b2ca59fdcd",
+    "epochs": 4,
+    "interrupted": null,
+    "job_id": "H2B-NORM-s7",
+    "loss_first": 5.684453,
+    "loss_last": 0.75744,
+    "model": "dense decoder, 4 layers, width 256, FFN 768, 4 query heads / 1 KV head, QK-norm (affine), RoPE 10000, ctx 512, vocab 260, tied embeddings",
+    "padded_attention_pairs": 2351210574,
+    "padded_input_positions": 9410470,
+    "parameter_count": 3084800,
+    "peak_cuda_allocated_bytes": 177513472,
+    "peak_cuda_reserved_bytes": 211812352,
+    "recovery_required": false,
+    "status": "COMPLETE",
+    "supervised_tokens": 75776,
+    "unpadded_input_positions": 8914404,
+    "updates": "2368/2368",
+    "wall_seconds": 619.161479963
+  }
+}

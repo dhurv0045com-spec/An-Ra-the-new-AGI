@@ -249,3 +249,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Regenerated `notebooks/ELENDRIL_V716_HYPOTHESIS_KAGGLE_T4X2.ipynb` (canonical, default-off) and `notebooks/ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb` (owner `RUN_STUDY=True` launch) pinned to the report-fix commit `3ef9dec7d09a40a4b960bce0a7eece6f32abbce2`; zero stale `682c40e1` references remain in either.
 - Updated the `OWNER_KAGGLE_LAUNCH.md` freeze line to the new pin (historical `682c40e1` noted as the recovery fix verified on the real T4 run); the doc/notebook pin-drift contract now passes.
 - Contract suite 69 passed; future owner sessions must use pin `3ef9dec7`.
+
+### 2026-11-13 | OpenCode | File V16 owner-run results report
+- Filed `Experiment Result/V16/RESULTS.md` (10 sections: identity/custody, pipeline stages, training, final free-decoding cohort table, engineered comparators, interpretation with failure analysis, report-writer defect record, artifact hashes, limitations) and `Experiment Result/V16/METRICS.json` (curated headline metrics recomputed from the export's raw reports); added the V16 entry to `Experiment Result/README.md`.
+- Headline corrected numbers: final free-decoding base 60/112 (curve 42->52->60), confirmation 64/112, row-reversal aggregate exactly 0.5000 (paired consistency UNAVAILABLE, all 112 shared worlds ambiguous), alias 1/112, template 2/112, hops 0/16, invalid 142/1,120 within the 143 ceiling; grammar invalid 0 everywhere; comparators: public algorithm 112/112 incl. hops, no-query 89/112, recency 68/112.
+- Owner export ZIP stays outside Git per filing rules; the run's defective summary.json documented, not rewritten.

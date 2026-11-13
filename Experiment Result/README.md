@@ -10,6 +10,8 @@ This is a **results folder only**. It is not an instruction to Codex and does no
 
 - **[V7.15 — Six-job S8 scale results](V7.15/3981e34a2ffe4b4b9528b4b4d588883b/RESULTS.md)**. Per-seed comparisons with S3, replay verification, failures and the next diagnostic phase.
 
+- **[V16 — First owner T4×2 mechanism screening slice (H2B-NORM / seed 7)](V16/RESULTS.md)**. Real Kaggle run: custody PASS, both pipeline lanes PASS, job COMPLETE (2,368 updates, loss 5.684→0.757). Final free decoding base **60/112** (learning curve 42→52→60), row-reversal exactly **0.5000**, all hop cohorts **0/16**; trained policy far below the hand-written public-algorithm ceiling (112/112). Includes the analysis-summary report-writer defect found in the run (epoch-1 mislabeled as final) and its source fix; curated numbers in [METRICS.json](V16/METRICS.json).
+
 ## Filing rules for future research
 
 Create a new subfolder per campaign or run (for example `V7/` or `YYYY-MM-DD-run-name/`). Save actual observations and evidence before conclusions. State whether each panel was **passed, failed, not qualified, skipped, interrupted, or exploratory**. For every failure distinguish (a) observed metric, (b) tested falsifier, (c) plausible explanation, (d) unresolved alternatives, and (e) raw artifact/source locations. Include dataset, notebook and source hashes when available. Never call an unexecuted panel a failed experiment or claim a causal root cause without a discriminating test.
