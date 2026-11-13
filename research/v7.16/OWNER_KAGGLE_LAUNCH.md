@@ -64,3 +64,26 @@ training. Automatic access may fail for private, removed or unavailable notebook
 outputs and cannot be guaranteed. No backup training data is fabricated.
 The code recovery bug is repaired in source `682c40e1b525424d805e6fb44f0f29afee6c756c`. Download the updated
 owner notebook; earlier source `6614864f09066e5626d5c7407cc6d7a80e830144` is known broken and must not be reused.
+
+## 13 November 2026: Kaggle refuses runtime attachment in batch sessions
+
+The owner batch run with no attached input stopped at the input gate in ~10 s (zero GPU
+seconds, zero optimizer updates). KaggleHub attempted the recorded automatic attachment and
+Kaggle refused it:
+
+`BackendError ... "New Notebooks cannot be attached in non-interactive sessions, found no
+versions attached for Notebook [ankitrajm7c/elendril-v71-kaggle-t4x2]"` (error code 9).
+
+This is a platform rule, not a custody or code defect: a Save & Run All session cannot attach
+another notebook's output at run time. The automatic fetch remains a fallback that only works
+in an interactive editor session. The supported path is to attach the parent before running:
+
+1. Open `ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb` in the Kaggle editor.
+2. Right panel **Add Input > Notebook Output**, select the output of
+   `ankitrajm7c/elendril-v71-kaggle-t4x2` (the V7.1 CORE run
+   `20c80f66e76e4b589aed2053afbddffc`) whose output contains `ELENDRIL_V71_FULL.zip`.
+3. Keep **GPU T4x2** and Internet enabled, then **Save Version > Save & Run All**; the batch
+   run mounts the attached input under `/kaggle/input` and the byte+SHA gate verifies it.
+4. If the notebook output cannot be attached at all, download `ELENDRIL_V71_FULL.zip`
+   (1,958,029,910 bytes) from that run's Output tab, upload it as a Kaggle dataset, and attach
+   that dataset instead; the gates verify bytes and SHA-256 wherever the ZIP is mounted.

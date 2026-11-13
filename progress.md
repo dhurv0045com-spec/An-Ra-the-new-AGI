@@ -232,3 +232,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Verified the pinned tree (`682c40e1`) contains the `recover(request, deadline)` signature, shared dispatch and deadline guards; simulated the notebook's exact GitHub fetch-by-SHA against the real repository (clean checkout, all suite files present).
 - Verified custody constants (parent SHA-256 `1826c85b...`, 1,958,029,910 bytes) and that the kagglehub auto-fetch relative path matches the historical V7.1 core output layout exactly; kagglehub 1.0.3 confirms the `path=` parameter.
 - No new defect found; no code or notebook change in this round, so the notebook pin remains `682c40e1` and no re-pin was triggered.
+
+### 2026-11-13 | OpenCode | Batch-session auto-attach refusal recorded; remedy embedded in owner notebook
+- Owner batch run with no attached input stopped at the input gate in ~10 s with zero GPU seconds: Kaggle refuses runtime attachment of notebook outputs in non-interactive Save & Run All sessions (BackendError code 9); the notebook's fail-closed custody gate worked as designed.
+- Updated the owner-launch notebook builder so the intro and the auto-fetch NO-GO message state the platform rule and the remedy (attach `ankitrajm7c/elendril-v71-kaggle-t4x2` output via Add Input > Notebook Output in the interactive editor, then Save & Run All); regenerated the owner notebook pinned to `682c40e1` (canonical notebook byte-unchanged, suite code untouched, no re-pin).
+- Documented the incident and the attach/download fallback in `research/v7.16/OWNER_KAGGLE_LAUNCH.md`; contract tests 68 passed.
