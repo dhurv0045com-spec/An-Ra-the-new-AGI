@@ -5,3 +5,5 @@
 *.svg text eol=lf
 *.pt binary
 *.gz binary
+# Preserve the owner's original attachment bytes, including mixed line endings.
+research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md -text whitespace=cr-at-eol

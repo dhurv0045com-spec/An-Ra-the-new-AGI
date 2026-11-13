@@ -27,3 +27,13 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 
 - Created this dated register and added the future logging convention to root `AGENTS.md`.
 - Documentation-only change; checked formatting and entry lengths without rerunning model tests.
+
+### 2026-11-14 | Codex | Hitchhiker mechanism audit and experiment design
+- Reviewed the supplied proposal against V7.17 source 0c9cb284 and its committed owner report; documented the older hitchhiker source base.
+- Added research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md with A-H critiques, matched diagnostics, training contrasts, falsifiers and an implementation prompt.
+- Checked source references and document formatting; no code implementation, checkpoint inference or training ran. Proposed mechanisms and capability conclusions remain pending execution.
+
+### 2026-11-14 | Codex | Hitchhiker documentation publication
+- Preserved the user's proposal verbatim as Markdown and linked it with the experiment design from README.md and context.md.
+- Recorded branch/source ancestry, audit findings, evidence limits, and the implementation sequence; all new experiments remain pending.
+- Verified attachment-copy hashes and documentation formatting/links before committing for the requested branch push.
