@@ -85,7 +85,12 @@ def write_summary(output, *, campaign=None):
                     if evaluation['cause_status'] != 'CAUSE_UNRESOLVED':
                         raise ValueError('invalid cause status')
                     epoch = int(re.fullmatch(r'epoch-(\d+)\.json', path.name).group(1))
-                    if final_epoch is None or epoch > final_epoch:
+                    # ``final_epoch`` carries (epoch, data); compare against its
+                    # integer head. Comparing the raw tuple crashed every later
+                    # epoch file ('>' not supported between 'int' and 'tuple')
+                    # in the real T4 owner run and silently reverted the
+                    # reported final evaluation to epoch 1.
+                    if final_epoch is None or epoch > final_epoch[0]:
                         final_epoch = (epoch, data)
                     for cohort, metrics in evaluation['metrics'].items():
                         if metrics is None:

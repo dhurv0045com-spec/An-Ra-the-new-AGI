@@ -930,6 +930,47 @@ def test_promotion_gate_admits_only_the_preregistered_thresholds(tmp_path):
                        mechanism_output({7: 94, 19: 93, 41: 92}), evidence)
 
 
+def test_v16_report_tracks_final_epoch_across_multiple_epoch_files(tmp_path):
+    """Regression for the real T4 owner run: the final-epoch tracker compared
+    int > (epoch, data) tuple, so every epoch file after the first raised
+    TypeError, dropped its cohort rows, and left epoch-1 metrics published as
+    the arm's final aggregate."""
+    from tools.elendril_v716_report import write_summary
+
+    job_id = "H2B-NORM-s7"
+    directory = tmp_path / "analysis" / "jobs" / job_id
+    directory.mkdir(parents=True)
+
+    def epoch_report(epoch, correct, invalid=0):
+        return canonical({"grammar": False, "update": 592 * epoch,
+                          "checkpoint": f"checkpoint-{epoch}",
+                          "evaluation": {"cause_status": "CAUSE_UNRESOLVED",
+                                         "metrics": {"base": {"all": {
+                                             "correct": correct, "episodes": 112,
+                                             "invalid": invalid}}}}})
+
+    (directory / "epoch-1.json").write_bytes(epoch_report(1, 42))
+    (directory / "epoch-2.json").write_bytes(epoch_report(2, 52, invalid=2))
+    (directory / "epoch-4.json").write_bytes(epoch_report(4, 60, invalid=2))
+    grammar = canonical({"grammar": True, "update": 2368,
+                         "checkpoint": "checkpoint-4",
+                         "evaluation": {"cause_status": "CAUSE_UNRESOLVED",
+                                        "metrics": {"base": {"all": {
+                                            "correct": 61, "episodes": 112}}}}})
+    (directory / "grammar-final.json").write_bytes(grammar)
+
+    report = write_summary(tmp_path, campaign={"registered_job_ids": [job_id]})
+    assert report["errors"] == [], report["errors"]
+    free_epochs = sorted(row["epoch"] for row in report["rows"] if row["mode"] == "free")
+    assert free_epochs == [1, 2, 4]
+    aggregate = report["arm_aggregates"]["H2B-NORM"]["base"]
+    assert aggregate == {"correct": 60, "episodes": 112, "accuracy": 60 / 112}
+    by_epoch = {(row["epoch"], row["mode"]): row["correct"] for row in report["rows"]}
+    assert by_epoch[(1, "free")] == 42 and by_epoch[(2, "free")] == 52
+    assert by_epoch[(4, "free")] == 60
+    assert by_epoch[(None, "grammar")] == 61
+
+
 def test_v16_primary_report_uses_raw_not_grammar_assisted_scores(tmp_path):
     """Grammar-verified perfection cannot authorize a failed raw policy."""
     from tools.elendril_v716_report import write_summary
