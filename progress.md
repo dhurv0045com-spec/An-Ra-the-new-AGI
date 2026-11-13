@@ -226,3 +226,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Audited the owner-notebook auto-parent retrieval (fail-closed byte+SHA gates, GPU precheck), extracted-parent checkpoint validation, disabled-run false-success guard, CLI dispatch smoke tests and the real CPU H2B checkpoint restore/replay regression; no further launch-path defect found.
 - Fixed the stale launch doc: `OWNER_KAGGLE_LAUNCH.md` still froze source `6614864` (known broken) while the notebooks pin the recovery fix `682c40e1`; corrected the freeze line and added a contract test so doc/notebook pin drift fails CI.
 - Next owner run must use `ELENDRIL_V716_OWNER_LAUNCH_KAGGLE_T4X2.ipynb` pinned `682c40e1b525424d805e6fb44f0f29afee6c756c`; doc-only and test-only change, no suite code touched, so no notebook re-pin was required.
+
+### 2026-11-13 | OpenCode | Pre-launch re-verification of the owner Kaggle path
+- Full suite at `cbc3b79a`: 442 passed, 1 environmental skip, 14 subtests; all 68 V7.16 contract tests green including the new doc/notebook pin-drift regression.
+- Verified the pinned tree (`682c40e1`) contains the `recover(request, deadline)` signature, shared dispatch and deadline guards; simulated the notebook's exact GitHub fetch-by-SHA against the real repository (clean checkout, all suite files present).
+- Verified custody constants (parent SHA-256 `1826c85b...`, 1,958,029,910 bytes) and that the kagglehub auto-fetch relative path matches the historical V7.1 core output layout exactly; kagglehub 1.0.3 confirms the `path=` parameter.
+- No new defect found; no code or notebook change in this round, so the notebook pin remains `682c40e1` and no re-pin was triggered.
