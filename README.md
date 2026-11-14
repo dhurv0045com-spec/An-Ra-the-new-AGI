@@ -1,10 +1,19 @@
 # Hitchhiker — Elendril mechanism investigation
 
-Hitchhiker is an experimental branch for determining which mechanisms improve grounded lookup, variable binding, action selection, and multi-hop generalization. The repository-grounded design and Hitchhiker evidence-producing experiment harness (7-factor counterfactual suite, 4 health probes, Stage 0 decoder/logit audit, deterministic Stage 1–2 streams/trainer, statistical gates, and bounded CPU mechanical verification) are implemented; real S20 checkpoint inference and Stage 1–3 GPU training runs remain pending.
+Hitchhiker is an experimental branch for determining which mechanisms improve grounded lookup, variable binding, action selection, and multi-hop generalization. The repository-grounded design and full Hitchhiker experiment + campaign harness (7-factor counterfactual suite & structural holdouts, 4 health probes, Stage 0 260-way decoder audit & evidence sidecars, deterministic Stage 1–3 static/fresh/relabeled streams & trainer, episode-level fail-closed statistical gates, isolated 2-GPU worker & coordinator, dual bundle export/restore, and [Kaggle T4x2 notebook](notebooks/ELENDRIL_HITCHHIKER_KAGGLE_T4X2.ipynb)) are implemented and CPU-mechanically verified; real GPU qualification, S20-low-lr checkpoint mounting/inference, and Stage 1–3 GPU training runs remain pending.
 
 - [User's original architectural proposal](research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md), preserved verbatim from the supplied attachment.
 - [Conclusion and experiment design](research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md): code audit, refined mechanisms A–H, matched diagnostics, a 15-run initial screen, falsifiers, and implementation handoff.
-- [Branch context and next steps](context.md): source identities, evidence limits, and the next execution sequence.
+- [Branch context and next steps](context.md): source identities, evidence limits, CLI/campaign commands, and the next execution sequence.
+
+~~~text
+python -m pytest tests/test_elendril_hitchhiker.py -v
+python -m tools.elendril_hitchhiker_runner --mode verify-suite --worlds-per-hop 16
+python -m tools.elendril_hitchhiker_runner --mode cpu-mechanical-check --worlds-per-hop 2 --output artifacts/elendril/hitchhiker/mechanical_verification.json
+python -m tools.elendril_hitchhiker_campaign --phase stage1 --dry-run
+python -m tools.elendril_hitchhiker_campaign --phase stage0|stage1|stage2|stage3 --owner-enabled --minutes 540 --output <dir>
+python -m tools.build_elendril_hitchhiker_notebook --source <commit-sha>
+~~~
 
 **Conclusion:** isolate task interpretation, action legality, evidence binding, and composition before combining architectural changes. V7.17 demonstrates optimization sensitivity and transfer failures; it does not establish memorization as the sole cause or a capacity ceiling. Proposed improvements must survive changed facts, renamed entities, reordered evidence, and unsolvable cases.
 

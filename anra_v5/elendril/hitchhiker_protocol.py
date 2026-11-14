@@ -12,6 +12,7 @@ from typing import Any
 
 from v5_contracts.model_spec import ModelSpec
 from .codec import digest
+from .representation import UTF8
 from .v6_registry import MODEL_PROFILES
 
 
@@ -20,9 +21,39 @@ BRANCH_BASE_COMMIT = "2affffb806b7f73b00bc21aa90538019f37ce904"
 AUDITED_V717_COMMIT = "0c9cb284d2c8c949e17ac342959c6f2bf351bd30"
 V717_OPTIMIZATION_SOURCE = "724af4cb508173e0eb3f4397d5dcb4a42a66712f"
 V717_OPTIMIZATION_RUN_ID = "f443d3f4141b4163bbc130d46ebd7395"
+HISTORICAL_V717_PROTOCOL_SHA256 = "b3030032f5758a1eaf81b6677db9655b475fd18955feda7b28c627cb6eee0088"
 
 SEEDS = (7, 19, 41)
 REGISTERED_SCALES = ("S3", "S8", "S20")
+
+HISTORICAL_S20_LOWLR_MANIFESTS: dict[int, dict[str, Any]] = {
+    seed: {
+        "lineage": f"S20-low-lr-i{seed}-o{seed}",
+        "seed": seed,
+        "order_seed": seed,
+        "source_commit": V717_OPTIMIZATION_SOURCE,
+        "source_run_id": V717_OPTIMIZATION_RUN_ID,
+        "protocol_sha256": HISTORICAL_V717_PROTOCOL_SHA256,
+        "profile": "S20",
+        "model_spec_sha256": MODEL_PROFILES["S20"].sha256(),
+        "tokenizer_sha256": UTF8.identity,
+        "lr": 1e-4,
+        "epochs": 4,
+        "batch_size": 16,
+        "micro_batch_size": 2,
+        "method": "blocked",
+        "mechanism": "ce",
+        "expected_update": 2368,
+        "train_seed": 606,
+        "train_bytes": 2200000,
+        "checkpoint_sha256": ckpt_sha,
+    }
+    for seed, ckpt_sha in (
+        (7, "686c5f146c62d546bd3c7c536d9789b07cce83fc88becaa3ab3c7c3c799f465b"),
+        (19, "c367bc768f392b6cd6735ed177cba6e1c54452e928625645486d43b275df3db3"),
+        (41, "d98aec62db2c06f1c657c44c8390e9b303abf4d413fd9875afdbb75007c7bb7f"),
+    )
+}
 DECODER_CONDITIONS = ("raw", "availability-only", "grammar")
 STAGES = (
     "stage0_checkpoint_audit",
@@ -280,6 +311,100 @@ def validate_job(job: dict[str, Any], stage: str, *, winning_arm: str = "AB") ->
         raise ValueError(f"job outside preregistered Hitchhiker stage '{stage}'")
 
 
+def validate_stage_selection(
+    stage: str,
+    selection_receipt: dict[str, Any] | None,
+    *,
+    winning_arm: str | None = None,
+) -> dict[str, Any]:
+    """Enforce conditional admission gates before Stage 2 or Stage 3 execution."""
+    if stage not in STAGES:
+        raise ValueError(f"unknown Hitchhiker stage: {stage}")
+    if stage in ("stage0_checkpoint_audit", "stage1_s3_screen"):
+        jobs = stage_jobs(stage)
+        return {
+            "status": "ADMITTED",
+            "stage": stage,
+            "gate_required": False,
+            "jobs": len(jobs),
+        }
+    if not isinstance(selection_receipt, dict):
+        raise ValueError(f"stage '{stage}' requires an explicit selection_receipt")
+
+    if stage == "stage2_followups":
+        if selection_receipt.get("stage1_completed") is not True:
+            raise ValueError("stage2_followups requires Stage 1 completion (stage1_completed=True)")
+        raw_admitted = selection_receipt.get("admitted_followups")
+        if isinstance(raw_admitted, dict):
+            if not raw_admitted or any(not isinstance(v, str) or not v.strip() for v in raw_admitted.values()):
+                raise ValueError("stage2_followups dict admitted_followups requires non-empty rationales")
+            admitted_arms = list(raw_admitted.keys())
+        elif isinstance(raw_admitted, (list, tuple, set)):
+            admitted_arms = list(raw_admitted)
+        else:
+            raise ValueError("stage2_followups requires admitted_followups arms list")
+        if not admitted_arms:
+            raise ValueError("stage2_followups requires at least one admitted followup arm")
+        for arm in admitted_arms:
+            if arm not in STAGE2_ARMS:
+                raise ValueError(f"unknown Stage 2 followup arm: {arm!r}")
+        for rkey in ("rationale", "conditional_rationale"):
+            if rkey in selection_receipt and (
+                not isinstance(selection_receipt[rkey], str) or not selection_receipt[rkey].strip()
+            ):
+                raise ValueError(f"stage2_followups {rkey} must be a non-empty string")
+        if winning_arm is not None:
+            if winning_arm not in STAGE2_ARMS:
+                raise ValueError(f"unknown Stage 2 arm: {winning_arm!r}")
+            if winning_arm not in admitted_arms:
+                raise ValueError(f"requested Stage 2 arm {winning_arm!r} is not in admitted_followups")
+        all_stage2_jobs = stage_jobs("stage2_followups")
+        if len({j["job_id"] for j in all_stage2_jobs}) != len(all_stage2_jobs):
+            raise ValueError("duplicate job_id detected in stage2_followups")
+        for job in all_stage2_jobs:
+            if job["profile"] not in REGISTERED_SCALES:
+                raise ValueError(f"unregistered profile {job['profile']!r} in stage2_followups")
+        selected_arms = [winning_arm] if winning_arm is not None else admitted_arms
+        admitted_jobs = [j for j in all_stage2_jobs if j["arm"] in selected_arms]
+        return {
+            "status": "ADMITTED",
+            "stage": stage,
+            "gate_required": True,
+            "admitted_followups": admitted_arms,
+            "requested_arm": winning_arm,
+            "jobs": len(admitted_jobs),
+            "job_ids": [j["job_id"] for j in admitted_jobs],
+        }
+
+    if selection_receipt.get("screening_status") != "PASS_SCREENING":
+        raise ValueError("stage3_scale_confirmation requires screening_status == 'PASS_SCREENING'")
+    eval_split = selection_receipt.get("split", selection_receipt.get("evaluation_split"))
+    if eval_split != "validation":
+        raise ValueError("stage3_scale_confirmation screening gate must be evaluated on split='validation'")
+    locked_arm = selection_receipt.get("winning_arm")
+    if not locked_arm or locked_arm not in ALL_ARMS or locked_arm == "B0":
+        raise ValueError("stage3_scale_confirmation requires a non-baseline registered winning_arm")
+    if winning_arm is not None and winning_arm != locked_arm:
+        raise ValueError(f"requested winning_arm {winning_arm!r} disagrees with locked receipt {locked_arm!r}")
+    model_profile = selection_receipt.get("model_profile")
+    if model_profile not in ("S8", "S20"):
+        raise ValueError("stage3_scale_confirmation requires model_profile in ('S8', 'S20')")
+    resolve_scale_profile(model_profile)
+    jobs = stage_jobs("stage3_scale_confirmation", winning_arm=locked_arm)
+    if len({j["job_id"] for j in jobs}) != len(jobs):
+        raise ValueError("duplicate job_id detected in stage3_scale_confirmation")
+    return {
+        "status": "ADMITTED",
+        "stage": stage,
+        "gate_required": True,
+        "winning_arm": locked_arm,
+        "model_profile": model_profile,
+        "split": eval_split,
+        "jobs": len(jobs),
+        "job_ids": [j["job_id"] for j in jobs],
+    }
+
+
 def protocol() -> dict[str, Any]:
     """Return the canonical Hitchhiker scientific protocol manifest."""
     return {
@@ -288,6 +413,7 @@ def protocol() -> dict[str, Any]:
         "audited_v717_commit": AUDITED_V717_COMMIT,
         "v717_optimization_source": V717_OPTIMIZATION_SOURCE,
         "v717_optimization_run_id": V717_OPTIMIZATION_RUN_ID,
+        "historical_s20_lowlr_manifests": HISTORICAL_S20_LOWLR_MANIFESTS,
         "seeds": list(SEEDS),
         "scales": _scale_receipts(),
         "decoder_conditions": list(DECODER_CONDITIONS),
@@ -303,7 +429,7 @@ def protocol() -> dict[str, Any]:
             "External canonicalization, availability masks, and grammar decoding "
             "must remain separately attributed from learned representations."
         ),
-        "scientific_status": "EVIDENCE_PRODUCING_DESIGN_IMPLEMENTATION_PENDING_EXECUTION",
+        "scientific_status": "PROTOCOL_AND_DATA_REPAIRED_PENDING_EXECUTION",
     }
 
 

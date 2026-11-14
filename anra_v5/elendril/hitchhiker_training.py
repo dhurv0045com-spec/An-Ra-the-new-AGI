@@ -14,9 +14,15 @@ from v5_contracts.model_spec import ModelSpec
 from v5_training.optimizer import validate_parameter_ownership
 from .codec import digest
 from .foundation_training import Recipe
-from .hitchhiker_data import build_training_stream
+from .hitchhiker_data import build_training_stream, validate_stream_contract
 from .hitchhiker_diagnostics import TOKEN_Q, TOKEN_R
-from .hitchhiker_protocol import ALL_ARMS, PROTOCOL_SHA, resolve_scale_profile, validate_job
+from .hitchhiker_protocol import (
+    ALL_ARMS,
+    PROTOCOL_SHA,
+    resolve_scale_profile,
+    validate_job,
+    validate_stage_selection,
+)
 from .representation import UTF8
 from .training import batch_tensors, configure_device
 from .v6_data import V6Dataset
@@ -264,6 +270,66 @@ def aux_penalty_gradient_probe(trainer: HitchhikerTrainer) -> dict[str, Any]:
     }
 
 
+def resolve_exposure_schedule(
+    job: dict[str, Any],
+    *,
+    stream: dict[str, Any] | None = None,
+    base_data: V6Dataset | None = None,
+    batch_size: int | None = None,
+    updates_override: int | None = None,
+    is_cpu_canary: bool = False,
+) -> int:
+    """Resolve exact total optimizer updates without double-multiplying materialized streams."""
+    resolved_batch = job["batch_size"] if batch_size is None else batch_size
+    if type(resolved_batch) is not int or resolved_batch <= 0:
+        raise ValueError("resolved batch_size must be a positive integer")
+
+    if not is_cpu_canary:
+        if updates_override is not None:
+            raise ValueError("updates_override is forbidden in production training")
+        if base_data is None and stream is None:
+            raise ValueError("production training requires explicit base_data or stream")
+        if stream is not None:
+            use_static = stream.get("use_static_indexer")
+            if type(use_static) is not bool:
+                raise ValueError("stream must declare boolean use_static_indexer")
+            samples = stream.get("samples")
+            if samples is None or len(samples) <= 0:
+                raise ValueError("training stream must provide nonempty samples")
+            if not use_static:
+                total_updates = stream.get("total_updates")
+                if type(total_updates) is not int or total_updates <= 0:
+                    raise ValueError("materialized stream requires positive integer total_updates")
+                if len(samples) != total_updates * resolved_batch:
+                    raise ValueError(
+                        f"materialized stream length {len(samples)} disagrees with "
+                        f"total_updates * batch_size ({total_updates * resolved_batch})"
+                    )
+                return total_updates
+            expected = math.ceil(len(samples) / resolved_batch) * job["epochs"]
+            if "total_updates" in stream and stream["total_updates"] is not None:
+                if stream["total_updates"] != expected:
+                    raise ValueError(
+                        f"static stream total_updates {stream['total_updates']} disagrees with expected {expected}"
+                    )
+            return expected
+        if len(base_data.samples) <= 0:
+            raise ValueError("base_data must contain nonempty samples")
+        return math.ceil(len(base_data.samples) / resolved_batch) * job["epochs"]
+
+    if type(updates_override) is not int or not 1 <= updates_override <= 16:
+        raise ValueError("CPU mechanical check requires updates_override in 1..16")
+    if stream is not None and not stream.get("use_static_indexer", False):
+        samples = stream.get("samples")
+        if samples is None or len(samples) != updates_override * resolved_batch:
+            actual = 0 if samples is None else len(samples)
+            raise ValueError(
+                f"materialized CPU canary stream length {actual} disagrees with "
+                f"updates_override * batch_size ({updates_override * resolved_batch})"
+            )
+    return updates_override
+
+
 def create_hitchhiker_trainer(
     job: dict[str, Any],
     *,
@@ -282,6 +348,7 @@ def create_hitchhiker_trainer(
     updates_override: int | None = None,
     batch_override: int | None = None,
     winning_arm: str = "AB",
+    selection_receipt: dict[str, Any] | None = None,
 ) -> tuple[HitchhikerTrainer, dict[str, Any]]:
     """Construct a verified HitchhikerTrainer and stream/resource accounting metadata."""
     validate_job(job, job["stage"], winning_arm=winning_arm)
@@ -289,20 +356,23 @@ def create_hitchhiker_trainer(
         raise ValueError("production requires isolated CUDA; pass cpu_canary=True for tiny CPU checks")
     if device != "cpu" and (cpu_canary or spec_override is not None or updates_override is not None or batch_override is not None):
         raise ValueError("CPU canary overrides are forbidden on CUDA")
+    if job["stage"] in ("stage2_followups", "stage3_scale_confirmation") and device != "cpu":
+        validate_stage_selection(job["stage"], selection_receipt, winning_arm=winning_arm)
 
     spec = spec_override or resolve_scale_profile(job["profile"])
     batch_size = batch_override or job["batch_size"]
-    if device == "cpu":
-        if spec.parameter_receipt().total > 100_000:
-            raise ValueError("CPU mechanical check model exceeds 100,000 parameter bound")
-        if updates_override is None or not 1 <= updates_override <= 16:
-            raise ValueError("CPU mechanical check requires updates_override in 1..16")
-        total_updates = updates_override
-    else:
-        if base_data is None and stream is None:
-            raise ValueError("CUDA training requires explicit base_data or stream")
-        n_samples = len(stream["samples"]) if stream is not None else len(base_data.samples)
-        total_updates = updates_override or math.ceil(n_samples / batch_size) * job["epochs"]
+    is_cpu = device == "cpu"
+    if is_cpu and spec.parameter_receipt().total > 100_000:
+        raise ValueError("CPU mechanical check model exceeds 100,000 parameter bound")
+
+    total_updates = resolve_exposure_schedule(
+        job,
+        stream=stream,
+        base_data=base_data,
+        batch_size=batch_size,
+        updates_override=updates_override,
+        is_cpu_canary=is_cpu,
+    )
 
     if stream is None:
         stream = build_training_stream(
@@ -316,6 +386,14 @@ def create_hitchhiker_trainer(
             slot_assignment=slot_assignment,
             heldout_suites=heldout_suites,
         )
+    validate_stream_contract(
+        stream,
+        expected_arm=job["arm"],
+        total_updates=total_updates,
+        batch_size=batch_size,
+    )
+    if not is_cpu and stream.get("data_custody_verified") is not True:
+        raise ValueError("CUDA training requires stream with data_custody_verified=True")
 
     effective_batch = min(batch_size, len(stream["samples"]))
     configure_device(device)
@@ -330,7 +408,7 @@ def create_hitchhiker_trainer(
         schedule="cosine",
         precision="fp32",
     )
-    method = "uniform" if job["coverage"] else "blocked"
+    method = "blocked"
     deterministic_stream_counts = {
         "accepted_candidates": stream["stream_metrics"]["accepted_candidates"],
         "rejected_candidates": stream["stream_metrics"]["rejected_candidates"],

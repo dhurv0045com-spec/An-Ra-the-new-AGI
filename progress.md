@@ -221,3 +221,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Kept engineered controls (availability-only mask, grammar control, D-external canonicalizer) attributed separately from model weights; no second-wave mechanisms (E-H) were built or promoted.
 - Verified via pytest tests/test_elendril_hitchhiker.py (9 passed), tools.verify_elendril_evidence (pass), and tiny-model cpu-mechanical-check (artifacts/elendril/hitchhiker/mechanical_verification.json; aux probe PASS).
 - Full pytest: 410 passed, 1 skipped (3 notebook HEAD-ancestry checks require committing MERGE_HEAD); frozen S20 Stage 0 restoration and GPU Stage 1-3 runs remain pending.
+
+### 2026-11-14 | Antigravity | Hitchhiker prelaunch blockers and Kaggle campaign tooling
+- Repaired split-disjoint src-00..63 custody across structural holdouts and counterfactuals, static vs fresh/relabeled exposure schedules, fail-closed S20 admission and 12-cohort episode gates, and 260-way Stage 0 logit sidecar verification.
+- Added isolated 2-GPU worker/campaign coordinator (tools/elendril_hitchhiker_{worker,campaign,export}.py) with storage/forecast admission, SIGTERM/FULL-ZIP restore recovery, dual verified archive export, and source-pinned T4x2 notebook builder.
+- Verified via pytest tests/test_elendril_hitchhiker.py (12 passed), runner verify-suite/stage0-audit/cpu-mechanical-check, and tools.verify_elendril_evidence; no GPU training, live S20 weights, or capability promotion executed locally.
+- Pending: commit source-pinned notebook, Kaggle T4x2 physical GPU qualification, mounted S20 Stage 0 audit, and Stage 1-3 training/confirmation execution.

@@ -21,10 +21,11 @@ from .hitchhiker_data import (
     SYMBOLS,
     render_hitchhiker_public,
 )
+from .hitchhiker_protocol import HISTORICAL_S20_LOWLR_MANIFESTS, resolve_scale_profile
 from .representation import SpecialToken, UTF8, tokenizer_from_manifest
 from .training import _load
 from .v6_data import action_text, public_action
-from .v6_evaluation import parse_action
+from .v6_evaluation import cases_identity, parse_action
 
 
 ANSWER_TOKEN_IDS = tuple(UTF8.encode(s)[0] for s in SYMBOLS)
@@ -49,48 +50,21 @@ def _token_label(token_id: int) -> str:
     return f"byte:{b}"
 
 
-def admit_frozen_checkpoint(
-    checkpoint_root: Path | str | None,
-    lineage: str,
+def _load_verified_checkpoint_backend(
+    store: CheckpointStore,
+    checkpoint_sha256: str,
     *,
     expected_spec: ModelSpec | None = None,
     expected_update: int | None = None,
     device: str = "cpu",
-) -> dict[str, Any]:
-    """Verify and admit a frozen checkpoint or return CHECKPOINT_AUDIT_PENDING when absent."""
-    if checkpoint_root is None:
-        return {
-            "status": "CHECKPOINT_AUDIT_PENDING",
-            "reason": "PARENT_WEIGHTS_UNAVAILABLE",
-            "fabricate_permitted": False,
-            "checkpoint_root": None,
-            "lineage": lineage,
-        }
-    root_path = Path(checkpoint_root)
-    latest_path = root_path / lineage / "LATEST"
-    if not root_path.exists() or not latest_path.is_file():
-        return {
-            "status": "CHECKPOINT_AUDIT_PENDING",
-            "reason": "PARENT_WEIGHTS_UNAVAILABLE",
-            "fabricate_permitted": False,
-            "checkpoint_root": str(root_path),
-            "lineage": lineage,
-        }
-
-    store = CheckpointStore(root_path, lineage)
-    latest_sha = store.latest_sha256()
-    if latest_sha is None:
-        return {
-            "status": "CHECKPOINT_AUDIT_PENDING",
-            "reason": "PARENT_WEIGHTS_UNAVAILABLE",
-            "fabricate_permitted": False,
-            "checkpoint_root": str(root_path),
-            "lineage": lineage,
-        }
-
-    state, payloads = store.restore(latest_sha)
-    scheduler = json.loads(payloads["scheduler.json"])
-    metadata = scheduler.get("metadata")
+) -> tuple[Any, dict[str, Any], ModelSpec, dict[str, str], NeuralBackend]:
+    """Restore a checkpoint and validate spec, update, tokenizer, and finite tensors."""
+    state, payloads = store.restore(checkpoint_sha256)
+    try:
+        scheduler = json.loads(payloads["scheduler.json"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("checkpoint scheduler payload is missing or invalid JSON") from exc
+    metadata = scheduler.get("metadata") if isinstance(scheduler, dict) else None
     if not isinstance(metadata, dict) or "model" not in metadata or "tokenizer" not in metadata:
         raise ValueError("checkpoint metadata missing model or tokenizer receipt")
 
@@ -98,21 +72,25 @@ def admit_frozen_checkpoint(
     spec.assert_valid()
     if expected_spec is not None and spec.sha256() != expected_spec.sha256():
         raise ValueError("checkpoint model spec disagrees with expected specification")
+    if state.identities.model_spec_sha256 != spec.sha256():
+        raise ValueError("checkpoint state identity disagrees with model specification")
     if expected_update is not None and state.global_update != expected_update:
         raise ValueError("checkpoint update counter disagrees with expected update")
 
     tokenizer = tokenizer_from_manifest(metadata["tokenizer"])
     tokenizer.require_binding(UTF8.identity, spec.vocabulary_size)
+    if state.identities.tokenizer_sha256 != UTF8.identity:
+        raise ValueError("checkpoint state identity disagrees with UTF8 tokenizer")
 
     weights = _load(payloads["model.bin"])
     model = initialize(spec, seed=0)
-    expected_keys = set(model.state_dict())
-    if set(weights) != expected_keys:
+    expected_state = model.state_dict()
+    if set(weights) != set(expected_state):
         raise ValueError("checkpoint model parameter inventory mismatch")
 
     tensor_hashes: dict[str, str] = {}
     for name, tensor in weights.items():
-        expected_tensor = model.state_dict()[name]
+        expected_tensor = expected_state[name]
         if (
             not isinstance(tensor, torch.Tensor)
             or tensor.shape != expected_tensor.shape
@@ -132,11 +110,63 @@ def admit_frozen_checkpoint(
             UTF8.identity,
             spec.vocabulary_size,
             spec.context_length,
-            checkpoint_sha256=latest_sha,
+            checkpoint_sha256=checkpoint_sha256,
         ),
         pad_id=UTF8.pad_id,
         bos_id=UTF8.bos_id,
         eos_id=UTF8.eos_id,
+    )
+    return state, metadata, spec, tensor_hashes, backend
+
+
+def admit_frozen_checkpoint(
+    checkpoint_root: Path | str | None,
+    lineage: str,
+    *,
+    expected_spec: ModelSpec | None = None,
+    expected_update: int | None = None,
+    device: str = "cpu",
+) -> dict[str, Any]:
+    """Verify and admit a generic local checkpoint or return CHECKPOINT_AUDIT_PENDING when absent."""
+    if checkpoint_root is None:
+        return {
+            "status": "CHECKPOINT_AUDIT_PENDING",
+            "reason": "PARENT_WEIGHTS_UNAVAILABLE",
+            "fabricate_permitted": False,
+            "checkpoint_root": None,
+            "lineage": lineage,
+            "admission_scope": "generic_local",
+        }
+    root_path = Path(checkpoint_root)
+    latest_path = root_path / lineage / "LATEST"
+    if not root_path.exists() or not latest_path.is_file():
+        return {
+            "status": "CHECKPOINT_AUDIT_PENDING",
+            "reason": "PARENT_WEIGHTS_UNAVAILABLE",
+            "fabricate_permitted": False,
+            "checkpoint_root": str(root_path),
+            "lineage": lineage,
+            "admission_scope": "generic_local",
+        }
+
+    store = CheckpointStore(root_path, lineage)
+    latest_sha = store.latest_sha256()
+    if latest_sha is None:
+        return {
+            "status": "CHECKPOINT_AUDIT_PENDING",
+            "reason": "PARENT_WEIGHTS_UNAVAILABLE",
+            "fabricate_permitted": False,
+            "checkpoint_root": str(root_path),
+            "lineage": lineage,
+            "admission_scope": "generic_local",
+        }
+
+    state, metadata, spec, tensor_hashes, backend = _load_verified_checkpoint_backend(
+        store,
+        latest_sha,
+        expected_spec=expected_spec,
+        expected_update=expected_update,
+        device=device,
     )
     return {
         "status": "ADMITTED",
@@ -150,6 +180,198 @@ def admit_frozen_checkpoint(
         "tensor_sha256s": tensor_hashes,
         "metadata": metadata,
         "backend": backend,
+        "admission_scope": "generic_local",
+    }
+
+
+def _pending_historical_s20_receipt(manifest: dict[str, Any], seed: int) -> dict[str, Any]:
+    return {
+        "status": "CHECKPOINT_AUDIT_PENDING",
+        "reason": "PARENT_WEIGHTS_UNAVAILABLE",
+        "fabricate_permitted": False,
+        "seed": seed,
+        "lineage": manifest["lineage"],
+        "expected_checkpoint_sha256": manifest["checkpoint_sha256"],
+        "admission_scope": "historical_s20_low_lr",
+    }
+
+
+def _validate_historical_s20_metadata(
+    metadata: dict[str, Any],
+    state: Any,
+    manifest: dict[str, Any],
+    seed: int,
+    *,
+    expected_data_sha: str | None,
+) -> None:
+    """Validate V7.17 S20-low-lr state, recipe, and provenance invariants."""
+    if state.identities.source_commit != manifest["source_commit"]:
+        raise ValueError("historical S20 checkpoint source_commit mismatch")
+    if state.global_update != manifest["expected_update"]:
+        raise ValueError("historical S20 checkpoint update counter mismatch")
+    if state.complete is not True:
+        raise ValueError("historical S20 checkpoint is not complete")
+
+    recipe = metadata.get("recipe")
+    provenance = metadata.get("provenance")
+    if not isinstance(recipe, dict) or not isinstance(provenance, dict):
+        raise ValueError("historical S20 checkpoint missing recipe or provenance metadata")
+
+    v717_job = provenance.get("v717_job")
+    if v717_job is not None and not isinstance(v717_job, dict):
+        raise ValueError("historical S20 checkpoint v717_job metadata must be a mapping")
+
+    if recipe.get("lr") != manifest["lr"]:
+        raise ValueError("historical S20 checkpoint lr mismatch")
+    if recipe.get("batch_size") != manifest["batch_size"]:
+        raise ValueError("historical S20 checkpoint batch_size mismatch")
+    if recipe.get("micro_batch_size") != manifest["micro_batch_size"]:
+        raise ValueError("historical S20 checkpoint micro_batch_size mismatch")
+    if recipe.get("seed") != seed:
+        raise ValueError("historical S20 checkpoint seed mismatch")
+    if recipe.get("objective") != manifest["mechanism"]:
+        raise ValueError("historical S20 checkpoint objective mismatch")
+    if "total_updates" in recipe and recipe.get("total_updates") != manifest["expected_update"]:
+        raise ValueError("historical S20 checkpoint recipe total_updates mismatch")
+
+    epochs_values = [
+        val
+        for val in (
+            recipe.get("epochs"),
+            v717_job.get("epochs") if isinstance(v717_job, dict) else None,
+        )
+        if val is not None
+    ]
+    if not epochs_values or any(val != manifest["epochs"] for val in epochs_values):
+        raise ValueError("historical S20 checkpoint epochs mismatch")
+
+    order_seed_values = [
+        val
+        for val in (
+            recipe.get("order_seed"),
+            provenance.get("order_seed"),
+            v717_job.get("order_seed") if isinstance(v717_job, dict) else None,
+        )
+        if val is not None
+    ]
+    if not order_seed_values or any(val != seed for val in order_seed_values):
+        raise ValueError("historical S20 checkpoint order_seed mismatch")
+
+    sampling = recipe.get("sampling")
+    v7_method = provenance.get("v7_sampling_method")
+    job_method = v717_job.get("method") if isinstance(v717_job, dict) else None
+    if v7_method is not None and v7_method != manifest["method"]:
+        raise ValueError("historical S20 checkpoint v7_sampling_method mismatch")
+    if job_method is not None and job_method != manifest["method"]:
+        raise ValueError("historical S20 checkpoint job method mismatch")
+    has_blocked_method = v7_method == manifest["method"] or job_method == manifest["method"]
+    if sampling == manifest["method"]:
+        pass
+    elif sampling == "uniform" and has_blocked_method:
+        pass
+    else:
+        raise ValueError("historical S20 checkpoint sampling method must be blocked")
+
+    if isinstance(v717_job, dict):
+        expected_job_id = manifest.get("job_id", manifest["lineage"])
+        if v717_job.get("job_id") != expected_job_id or v717_job.get("profile") != manifest["profile"]:
+            raise ValueError("historical S20 checkpoint v717_job identity mismatch")
+        if v717_job.get("lr") != manifest["lr"] or v717_job.get("seed") != seed:
+            raise ValueError("historical S20 checkpoint v717_job lr/seed mismatch")
+        if v717_job.get("mechanism") != manifest["mechanism"]:
+            raise ValueError("historical S20 checkpoint v717_job mechanism mismatch")
+
+    proto_values = [
+        val
+        for val in (provenance.get("v717_protocol_sha256"), provenance.get("protocol_sha256"))
+        if val is not None
+    ]
+    if not proto_values or any(val != manifest["protocol_sha256"] for val in proto_values):
+        raise ValueError("historical S20 checkpoint protocol_sha256 mismatch")
+
+    if "split" in provenance and provenance.get("split") != "train":
+        raise ValueError("historical S20 checkpoint provenance split must be train")
+
+    train_seed = provenance.get("seed") if "seed" in provenance else provenance.get("train_seed")
+    if train_seed != manifest["train_seed"]:
+        raise ValueError("historical S20 checkpoint train seed mismatch")
+
+    train_bytes = provenance.get("target_bytes") if "target_bytes" in provenance else provenance.get("train_bytes")
+    if train_bytes != manifest["train_bytes"]:
+        raise ValueError("historical S20 checkpoint train bytes mismatch")
+
+    if expected_data_sha is not None:
+        actual_data_sha = provenance.get("v717_data_identity") or provenance.get("data_sha256")
+        if actual_data_sha is not None:
+            if actual_data_sha != expected_data_sha:
+                raise ValueError("historical S20 checkpoint data identity disagrees with expected_data_sha")
+        elif state.identities.data_manifest_sha256 != expected_data_sha:
+            raise ValueError("historical S20 checkpoint data manifest disagrees with expected_data_sha")
+
+
+def admit_historical_s20_checkpoint(
+    checkpoint_root: Path | str | None,
+    seed: int,
+    *,
+    expected_data_sha: str | None = None,
+    device: str = "cpu",
+) -> dict[str, Any]:
+    """Strictly verify and admit a historical V7.17 S20-low-lr checkpoint against its manifest."""
+    if type(seed) is not int or seed not in HISTORICAL_S20_LOWLR_MANIFESTS:
+        raise ValueError(f"invalid historical S20 low-lr seed: {seed!r}")
+    manifest = HISTORICAL_S20_LOWLR_MANIFESTS[seed]
+    if checkpoint_root is None:
+        return _pending_historical_s20_receipt(manifest, seed)
+
+    root_path = Path(checkpoint_root)
+    lineage = manifest["lineage"]
+    lineage_dir = root_path / lineage
+    latest_path = lineage_dir / "LATEST"
+    if not root_path.exists() or not latest_path.is_file():
+        return _pending_historical_s20_receipt(manifest, seed)
+
+    latest_sha = latest_path.read_text(encoding="ascii").strip()
+    if len(latest_sha) != 64 or any(c not in "0123456789abcdef" for c in latest_sha):
+        raise ValueError("LATEST pointer is corrupt")
+    if latest_sha != manifest["checkpoint_sha256"]:
+        raise ValueError("historical S20 checkpoint SHA disagrees with manifest")
+
+    expected_object_dir = lineage_dir / "objects" / manifest["checkpoint_sha256"]
+    if not expected_object_dir.is_dir():
+        return _pending_historical_s20_receipt(manifest, seed)
+
+    store = CheckpointStore(root_path, lineage)
+    expected_spec = resolve_scale_profile(manifest["profile"])
+    state, metadata, spec, tensor_hashes, backend = _load_verified_checkpoint_backend(
+        store,
+        latest_sha,
+        expected_spec=expected_spec,
+        expected_update=manifest["expected_update"],
+        device=device,
+    )
+    _validate_historical_s20_metadata(
+        metadata,
+        state,
+        manifest,
+        seed,
+        expected_data_sha=expected_data_sha,
+    )
+    return {
+        "status": "ADMITTED",
+        "fabricate_permitted": False,
+        "seed": seed,
+        "job_id": manifest.get("job_id", manifest["lineage"]),
+        "checkpoint_sha256": latest_sha,
+        "expected_checkpoint_sha256": manifest["checkpoint_sha256"],
+        "lineage": lineage,
+        "global_update": state.global_update,
+        "model_spec_sha256": spec.sha256(),
+        "tokenizer_sha256": UTF8.identity,
+        "parameters": spec.parameter_receipt().total,
+        "tensor_sha256s": tensor_hashes,
+        "metadata": metadata,
+        "backend": backend,
+        "admission_scope": "historical_s20_low_lr",
     }
 
 
@@ -586,6 +808,8 @@ def score_entity_equivariance(
         tv_distances.append(tv)
 
     return {
+        "model_identity": backend.binding.checkpoint_sha256 or backend.binding.identity,
+        "cases_sha256": cases_identity(paired_cases),
         "complete_pairs": complete,
         "argmax_equivariance_rate": argmax_equiv / complete if complete else None,
         "equivariant_and_both_correct_rate": both_correct_and_equiv / complete if complete else None,

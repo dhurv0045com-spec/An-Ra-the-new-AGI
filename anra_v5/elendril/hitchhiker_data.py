@@ -27,6 +27,7 @@ from .cognition import (
     verify,
 )
 from .foundation_training import TokenSample
+from .hitchhiker_protocol import ALL_ARMS, PROTOCOL_SHA
 from .representation import UTF8
 from .v6_data import (
     CHANNEL,
@@ -53,10 +54,28 @@ from .v7_training import ordered_indices
 HITCHHIKER_DATA_VERSION = "elendril-hitchhiker-worlds-v1"
 HITCHHIKER_STREAM_VERSION = "elendril-hitchhiker-stream-v1"
 
+# Canonical 14-stratum coverage schedule crossing completeness, hop depth, memory, and query availability.
+COVERAGE_PATTERNS: tuple[tuple[str, int, bool, bool], ...] = (
+    ("known", 0, False, False),
+    ("known", 0, True, False),
+    ("missing", 0, False, True),
+    ("missing", 0, False, False),  # unsolvable -> ABSTAIN
+    ("conflict", 0, False, True),
+    ("null", 0, False, True),
+    ("unavailable", 0, False, False),
+    ("route", 1, False, False),
+    ("route", 2, False, False),
+    ("route", 3, False, False),
+    ("memory", 1, True, False),
+    ("memory", 2, True, False),
+    ("memory", 3, True, False),
+    ("memory", 2, False, False),  # missing bridge with memory off -> ABSTAIN
+)
+
 
 @dataclass(frozen=True, slots=True)
 class HitchhikerSurface:
-    """Extended public surface supporting 1..4 hops, random order, and clause separation."""
+    """Extended public surface supporting 1..5 hops, random order, and clause separation."""
 
     template: int = 0
     aliases: str = ""
@@ -71,7 +90,7 @@ class HitchhikerSurface:
         if (
             self.template not in range(4)
             or self.aliases not in ("", "node-", "unit/")
-            or self.hops not in (0, 1, 2, 3, 4)
+            or self.hops not in (0, 1, 2, 3, 4, 5)
             or type(self.scratch) is not bool
             or self.order not in ("original", "reverse", "shuffle")
             or type(self.order_seed) is not int
@@ -152,9 +171,12 @@ def public_case_for(case: V6Case) -> PublicCase:
     return PublicCase(case.case_id, case.surface, True if case.memory is not None else None)
 
 
-def _canonical_graph_signature(state: CognitiveState) -> list[Any]:
-    """Compute a graph-structure signature invariant under A-P bijections and ticks."""
-    ticks = {tick: rank for rank, tick in enumerate(sorted({e.tick for e in state.events}))}
+def _canonical_graph_signature(state: CognitiveState, *, use_raw_ticks: bool = False) -> list[Any]:
+    """Compute a graph-structure signature invariant under A-P bijections and optionally ticks."""
+    if use_raw_ticks:
+        ticks = {e.tick: e.tick for e in state.events}
+    else:
+        ticks = {tick: rank for rank, tick in enumerate(sorted({e.tick for e in state.events}))}
     entities = sorted(
         {state.goal.subject}
         | {e.subject for e in state.events}
@@ -241,6 +263,19 @@ def family_split_key(state: CognitiveState, channels: tuple[str, ...], memory_av
     return digest([HITCHHIKER_DATA_VERSION, "family-key", _canonical_graph_signature(state), bool(channels), bool(memory_available)])
 
 
+def _exact_tick_family_key(state: CognitiveState, channels: tuple[str, ...], memory_available: bool) -> str:
+    """Canonical structural key using raw (subject_color, source, raw_tick, value_color)."""
+    return digest(
+        [
+            HITCHHIKER_DATA_VERSION,
+            "exact-tick-family-key",
+            _canonical_graph_signature(state, use_raw_ticks=True),
+            bool(channels),
+            bool(memory_available),
+        ]
+    )
+
+
 def entity_bijection(seed_material: Any) -> tuple[dict[str, str], dict[str, str]]:
     """Return a deterministic bijection pi: A-P -> A-P and its inverse."""
     rng = random.Random(int(digest([HITCHHIKER_DATA_VERSION, "bijection", seed_material]), 16))
@@ -299,15 +334,18 @@ def apply_case_permutation(case: V6Case, mapping: dict[str, str]) -> V6Case:
     )
 
 
-def _case_supervision(case: V6Case) -> tuple[tuple[V6Example, ...], tuple[str, ...], tuple[str, ...]]:
-    """Run public teacher supervision using render_hitchhiker_public."""
+def _case_supervision_keys(
+    case: V6Case,
+) -> tuple[tuple[V6Example, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Run public teacher supervision and return examples, state keys, family keys, and exact-tick family keys."""
     state = CognitiveState(case.goal).observe(case.environment.initial)
     channels = tuple(case.environment.channels)
     available = case.memory is not None
-    examples, state_keys, family_keys = [], [], []
+    examples, state_keys, family_keys, exact_tick_keys = [], [], [], []
     for decision in range(4):
         state_keys.append(_state_key(state, channels, available))
         family_keys.append(family_split_key(state, channels, available))
+        exact_tick_keys.append(_exact_tick_family_key(state, channels, available))
         op, arg = public_action(state, channels, case.surface, available)
         examples.append(
             V6Example(
@@ -332,58 +370,75 @@ def _case_supervision(case: V6Case) -> tuple[tuple[V6Example, ...], tuple[str, .
             break
     else:
         raise ValueError("teacher failed to terminate bounded Hitchhiker supervision")
-    return tuple(examples), tuple(state_keys), tuple(family_keys)
+    return tuple(examples), tuple(state_keys), tuple(family_keys), tuple(exact_tick_keys)
 
 
-def assert_all_stage_disjoint(*datasets_or_suites: Any) -> dict[str, Any]:
-    """Enforce zero world/prompt/state overlap and prevent relabeled family leaks into or out of train."""
+def _case_supervision(case: V6Case) -> tuple[tuple[V6Example, ...], tuple[str, ...], tuple[str, ...]]:
+    """Run public teacher supervision using render_hitchhiker_public."""
+    examples, state_keys, family_keys, _ = _case_supervision_keys(case)
+    return examples, state_keys, family_keys
+
+
+def assert_all_stage_disjoint(*datasets_or_suites: Any, structural_cohorts: Any = ()) -> dict[str, Any]:
+    """Enforce instance/prompt/state/exact-tick disjointness and train/structural family custody."""
     seen_worlds: set[str] = set()
     seen_prompts: set[str] = set()
     seen_states: set[str] = set()
+    seen_exact_tick_families: set[str] = set()
     split_families: dict[str, set[str]] = {}
     split_nontrivial_families: dict[str, set[str]] = {}
 
-    def extract_cases(obj: Any) -> tuple[str, tuple[V6Case, ...]]:
+    def extract_cases(obj: Any, *, default_split: str | None = None) -> tuple[str, tuple[V6Case, ...]]:
         if isinstance(obj, V6Dataset):
             return obj.split, tuple(obj.cases)
         if isinstance(obj, dict) and "cohorts" in obj:
-            split = obj.get("split", "validation")
+            split = obj.get("split", default_split or "validation")
             cases = tuple(c for cohort in obj["cohorts"].values() for c in cohort)
             return split, cases
         if isinstance(obj, dict):
-            cases = tuple(c for cohort in obj.values() for c in cohort)
-            return "suite", cases
+            split = obj.get("split", default_split or "suite")
+            cases = tuple(c for k, v in obj.items() if k != "split" and isinstance(v, (list, tuple)) for c in v)
+            return split, cases
         if isinstance(obj, (list, tuple)):
-            return "sequence", tuple(obj)
+            return default_split or "sequence", tuple(obj)
         raise TypeError("unsupported dataset or suite container")
 
     grouped: dict[str, list[V6Case]] = {}
     for item in datasets_or_suites:
         split, cases = extract_cases(item)
         grouped.setdefault(split, []).extend(cases)
+    if structural_cohorts:
+        s_split, s_cases = extract_cases(structural_cohorts, default_split="structural-holdout")
+        if s_cases:
+            grouped.setdefault(s_split, []).extend(s_cases)
 
     for split, cases in grouped.items():
-        w_set, p_set, s_set, f_set, nt_set = set(), set(), set(), set(), set()
+        w_set, p_set, s_set, etf_set, f_set, nt_set = set(), set(), set(), set(), set(), set()
         for case in cases:
-            examples, state_keys, fam_keys = _case_supervision(case)
+            examples, state_keys, fam_keys, exact_keys = _case_supervision_keys(case)
             w_set.add(case.world_id)
             p_set.update(e.prompt for e in examples)
             s_set.update(state_keys)
+            etf_set.update(exact_keys)
             f_set.update(fam_keys)
             if len(case.environment.initial) >= 3:
                 nt_set.update(fam_keys)
         if seen_worlds & w_set or seen_prompts & p_set or seen_states & s_set:
             raise ValueError("Hitchhiker split leakage in world_id, prompt, or state_key")
+        if seen_exact_tick_families & etf_set:
+            raise ValueError("Hitchhiker exact-tick family or cloned-instance leakage across splits")
         for other_split, other_fams in split_families.items():
             # Any relabeled leakage between train and held-out splits must fail, even on 1-edge graphs.
             if "train" in (split, other_split) and (f_set & other_fams):
                 raise ValueError("Hitchhiker entity-relabeled family leakage between train and evaluation split")
         for other_split, other_nt in split_nontrivial_families.items():
-            if nt_set & other_nt:
-                raise ValueError("Hitchhiker nontrivial canonical family leakage across splits")
+            # Structural holdout enforces full nontrivial canonical family disjointness against train/val/confirmation.
+            if "structural-holdout" in (split, other_split) and (nt_set & other_nt):
+                raise ValueError("Hitchhiker structural-holdout nontrivial canonical family leakage across splits")
         seen_worlds |= w_set
         seen_prompts |= p_set
         seen_states |= s_set
+        seen_exact_tick_families |= etf_set
         split_families[split] = f_set
         split_nontrivial_families[split] = nt_set
 
@@ -392,6 +447,18 @@ def assert_all_stage_disjoint(*datasets_or_suites: Any) -> dict[str, Any]:
         "splits": sorted(grouped),
         "worlds": len(seen_worlds),
         "states": len(seen_states),
+        "exact_tick_families": len(seen_exact_tick_families),
+        "split_claims": {
+            "train_vs_eval": "strict_full_canonical_family_disjoint",
+            "validation_vs_confirmation": (
+                "instance_prompt_state_exact_tick_disjoint_shared_elementary_chain_topology_allowed"
+            ),
+            "structural_holdout": (
+                "strict_nontrivial_canonical_family_disjoint"
+                if "structural-holdout" in grouped
+                else "not_provided"
+            ),
+        },
     }
 
 
@@ -450,15 +517,37 @@ def _sample_base_chains(
         if attempts > count * 5000:
             raise RuntimeError("exhausted attempts sampling split-disjoint base chains")
         nodes = rng.sample(SYMBOLS, hops + 4)
-        tick = rng.randrange(10, 700)
-        world = digest([HITCHHIKER_DATA_VERSION, "chain-world", seed, hops, split, nodes, tick])
+        if split == "validation":
+            tick = rng.randrange(10, 350)
+        elif split == "confirmation":
+            tick = rng.randrange(350, 700)
+        else:
+            tick = rng.randrange(10, 700)
+        world = digest([HITCHHIKER_DATA_VERSION, "chain-world", seed, hops, split, nodes, tick, attempts])
         scope, reuse = "world-" + world, "memory-" + world
+        src = f"src-{rng.randrange(64):02d}"
         goal = Goal(world, "route", nodes[0], scope, reuse, tuple(nodes[: hops + 1]))
-        events = tuple(ExperienceEvent(scope, nodes[i], "map", tick + i, nodes[i + 1]) for i in range(hops))
+        events = tuple(ExperienceEvent(scope, nodes[i], src, tick + i, nodes[i + 1]) for i in range(hops))
         state = CognitiveState(goal).observe(events)
         skey = _state_key(state, (), False)
         fkey = family_split_key(state, (), False)
         if _partition(skey) != split or skey in used_states or fkey in forbidden_families:
+            continue
+        # Ensure factor-answer-edge-swap has at least one untouched alternative target in the same split partition.
+        path_nodes = nodes[:hops]
+        unused_for_alt = [s for s in SYMBOLS if s not in path_nodes and s != nodes[hops]]
+        has_split_alt = any(
+            _partition(
+                _state_key(
+                    CognitiveState(goal).observe((*events[:-1], replace(events[-1], value=alt))),
+                    (),
+                    False,
+                )
+            )
+            == split
+            for alt in unused_for_alt
+        )
+        if not has_split_alt:
             continue
         used_states.add(skey)
         env = PublicEnvironment(events, {})
@@ -584,12 +673,20 @@ def build_counterfactual_suite(
                 )
             )
 
-            # Factor 5: Consistent A-P entity permutation
+            # Factor 5: Consistent A-P entity permutation (keep permuted state in same split partition)
             pair_perm = digest([base.world_id, "factor-entity-permutation"])
-            mapping, inverse = entity_bijection((seed, base.world_id, hops, idx))
             orig_p = _variant_case(base, "perm-original", base.environment, None, pair_id=pair_perm)
+            for p_attempt in range(2048):
+                mapping, inverse = entity_bijection((seed, base.world_id, hops, idx, p_attempt))
+                cand_perm = apply_case_permutation(orig_p, mapping)
+                perm_skey = _state_key(CognitiveState(cand_perm.goal).observe(cand_perm.environment.initial), (), False)
+                if _partition(perm_skey) == split and perm_skey not in used_states:
+                    break
+            else:
+                raise RuntimeError("exhausted split-disjoint permutation bijection search")
+            used_states.add(perm_skey)
             perm_p = replace(
-                apply_case_permutation(orig_p, mapping),
+                cand_perm,
                 pair_id=pair_perm,
                 panel="perm-relabeled",
             )
@@ -628,7 +725,21 @@ def build_counterfactual_suite(
             pair_edge = digest([base.world_id, "factor-answer-edge-swap"])
             path_nodes = [e.subject for e in base.environment.initial]
             unused_for_alt = [s for s in SYMBOLS if s not in path_nodes and s != base.truth.expected]
-            alt_target = unused_for_alt[(idx + hops) % len(unused_for_alt)]
+            split_alts = [
+                alt
+                for alt in unused_for_alt
+                if _partition(
+                    _state_key(
+                        CognitiveState(base.goal).observe(
+                            (*base.environment.initial[:-1], replace(base.environment.initial[-1], value=alt))
+                        ),
+                        (),
+                        False,
+                    )
+                )
+                == split
+            ]
+            alt_target = split_alts[(idx + hops) % len(split_alts)]
             swapped_events = (
                 *base.environment.initial[:-1],
                 replace(base.environment.initial[-1], value=alt_target),
@@ -651,16 +762,26 @@ def build_counterfactual_suite(
             # Factor 7b: Query-subject swap on the exact same visible two-chain graph
             pair_qswap = digest([base.world_id, "factor-answer-query-swap"])
             rng_q = random.Random(int(digest([base.world_id, "qswap", seed, idx]), 16))
-            sym_pool = rng_q.sample(SYMBOLS, 2 * (hops + 1))
-            chain_a = sym_pool[: hops + 1]
-            chain_b = sym_pool[hops + 1 :]
-            q_tick = 100 + idx
-            q_events = tuple(
-                [ExperienceEvent(base.goal.scope, chain_a[i], "map", q_tick + i, chain_a[i + 1]) for i in range(hops)]
-                + [ExperienceEvent(base.goal.scope, chain_b[i], "map", q_tick + 20 + i, chain_b[i + 1]) for i in range(hops)]
-            )
-            q_env = PublicEnvironment(q_events, {})
-            q_slots = tuple(sym_pool)
+            q_tick = (1000 + idx) if split == "validation" else (3000 + idx)
+            for _q_att in range(2048):
+                sym_pool = rng_q.sample(SYMBOLS, 2 * (hops + 1))
+                chain_a = sym_pool[: hops + 1]
+                chain_b = sym_pool[hops + 1 :]
+                q_src = f"src-{rng_q.randrange(64):02d}"
+                q_events = tuple(
+                    [ExperienceEvent(base.goal.scope, chain_a[i], q_src, q_tick + i, chain_a[i + 1]) for i in range(hops)]
+                    + [ExperienceEvent(base.goal.scope, chain_b[i], q_src, q_tick + 20 + i, chain_b[i + 1]) for i in range(hops)]
+                )
+                q_env = PublicEnvironment(q_events, {})
+                q_slots = tuple(sym_pool)
+                s_a = _state_key(CognitiveState(replace(base.goal, subject=chain_a[0], slots=q_slots)).observe(q_events), (), False)
+                s_b = _state_key(CognitiveState(replace(base.goal, subject=chain_b[0], slots=q_slots)).observe(q_events), (), False)
+                if _partition(s_a) == split and _partition(s_b) == split and s_a not in used_states and s_b not in used_states:
+                    used_states.add(s_a)
+                    used_states.add(s_b)
+                    break
+            else:
+                raise RuntimeError("exhausted split-disjoint query-swap generation")
             case_a = _variant_case(
                 base,
                 "qswap-subject-a",
@@ -781,6 +902,135 @@ def verify_counterfactual_suite(suite: dict[str, Any]) -> dict[str, Any]:
     return {"status": "PASS", "verified_cases": checked, "cohorts": len(cohorts)}
 
 
+def build_structural_holdout_suite(
+    *,
+    seed: int = 37073,
+    worlds_per_topology: int = 16,
+    split: str = "structural-holdout",
+) -> dict[str, Any]:
+    """Build structurally novel multi-hop/diamond/converging-fork/5-hop topologies disjoint from train/val/conf."""
+    if type(worlds_per_topology) is not int or worlds_per_topology < 1:
+        raise ValueError("worlds_per_topology must be a positive integer")
+    if not isinstance(split, str) or not split.strip():
+        raise ValueError("split must be a non-empty string")
+
+    rng = random.Random(int(digest([HITCHHIKER_DATA_VERSION, "structural-holdout", seed, split]), 16))
+    used_worlds: set[str] = set()
+    used_states: set[str] = set()
+    used_prompts: set[str] = set()
+
+    cohorts: dict[str, list[V6Case]] = {
+        "topology-diamond": [],
+        "topology-converging-fork": [],
+        "topology-5hop": [],
+        "topology-multihop-bridge": [],
+    }
+
+    def accept_case(case: V6Case) -> bool:
+        if case.world_id in used_worlds:
+            return False
+        exs, skeys, _ = _case_supervision(case)
+        if any(sk in used_states for sk in skeys):
+            return False
+        if any(e.prompt in used_prompts for e in exs):
+            return False
+        ok, _ = _public_teacher_solve(case)
+        if not ok:
+            raise ValueError(f"structural holdout case failed public teacher: {case.case_id}")
+        used_worlds.add(case.world_id)
+        used_states.update(skeys)
+        used_prompts.update(e.prompt for e in exs)
+        return True
+
+    for topo in cohorts:
+        built = 0
+        attempts = 0
+        while built < worlds_per_topology:
+            attempts += 1
+            if attempts > worlds_per_topology * 500:
+                raise RuntimeError(f"exhausted attempts building structural topology {topo}")
+            t0 = 5000 + built * 10 + (attempts % 7)
+            world = digest([HITCHHIKER_DATA_VERSION, "struct", topo, seed, split, built, attempts])
+            scope, reuse = "world-" + world, "memory-" + world
+
+            if topo == "topology-diamond":
+                n0, n1, n2, n3, n4, n5 = rng.sample(SYMBOLS, 6)
+                events = (
+                    ExperienceEvent(scope, n0, "map", t0, n1),
+                    ExperienceEvent(scope, n0, "map", t0 + 1, n2),
+                    ExperienceEvent(scope, n1, "map", t0 + 2, n3),
+                    ExperienceEvent(scope, n2, "map", t0 + 3, n4),
+                    ExperienceEvent(scope, n3, "map", t0 + 4, n5),
+                    ExperienceEvent(scope, n4, "map", t0 + 5, n5),
+                )
+                env = PublicEnvironment(events, {})
+                goal = Goal(world, "route", n0, scope, reuse, (n0, n1, n2, n3, n4, n5))
+                expected = n5
+                hops = 3
+            elif topo == "topology-converging-fork":
+                s1, s2, s3, n, m, t1, t2 = rng.sample(SYMBOLS, 7)
+                events = (
+                    ExperienceEvent(scope, s1, "map", t0, m),
+                    ExperienceEvent(scope, s2, "map", t0 + 1, m),
+                    ExperienceEvent(scope, s3, "map", t0 + 2, n),
+                    ExperienceEvent(scope, n, "map", t0 + 3, m),
+                    ExperienceEvent(scope, m, "map", t0 + 4, t1),
+                    ExperienceEvent(scope, t1, "map", t0 + 5, t2),
+                )
+                env = PublicEnvironment(events, {})
+                goal = Goal(world, "route", s1, scope, reuse, (s1, s2, s3, n, m, t1, t2))
+                expected = t2
+                hops = 3
+            elif topo == "topology-5hop":
+                nodes = rng.sample(SYMBOLS, 6)
+                events = tuple(
+                    ExperienceEvent(scope, nodes[i], "map", t0 + i, nodes[i + 1])
+                    for i in range(5)
+                )
+                env = PublicEnvironment(events, {})
+                goal = Goal(world, "route", nodes[0], scope, reuse, tuple(nodes))
+                expected = nodes[5]
+                hops = 5
+            else:
+                # topology-multihop-bridge: 4-hop path with converging feeders and channel bridge
+                n0, n1, n2, n3, n4, x, y = rng.sample(SYMBOLS, 7)
+                events = (
+                    ExperienceEvent(scope, n0, "map", t0, n1),
+                    ExperienceEvent(scope, n2, "map", t0 + 2, n3),
+                    ExperienceEvent(scope, n3, "map", t0 + 3, n4),
+                    ExperienceEvent(scope, x, "map", t0 + 4, n2),
+                    ExperienceEvent(scope, y, "map", t0 + 5, n3),
+                )
+                bridge = (ExperienceEvent(scope, n1, "map", t0 + 1, n2),)
+                env = PublicEnvironment(events, {CHANNEL: bridge})
+                goal = Goal(world, "route", n0, scope, reuse, (n0, n1, n2, n3, n4, x, y))
+                expected = n4
+                hops = 4
+
+            case = V6Case(
+                world,
+                world,
+                "route",
+                topo,
+                goal,
+                env,
+                Truth(world, expected, _admitted_ids(env, None)),
+                HitchhikerSurface(hops=hops),
+                panel=topo,
+            )
+            if accept_case(case):
+                cohorts[topo].append(case)
+                built += 1
+
+    return {
+        "schema": "elendril-hitchhiker-structural-holdout-v1",
+        "split": split,
+        "seed": seed,
+        "worlds_per_topology": worlds_per_topology,
+        "cohorts": {k: tuple(v) for k, v in cohorts.items()},
+    }
+
+
 def build_health_probes(
     *,
     seed: int = 27173,
@@ -797,14 +1047,17 @@ def build_health_probes(
 
     for idx in range(worlds_per_probe):
         # 1. Distractor / Trap-Hop probe: 3-hop valid + 3-hop disconnected distractor
-        syms = rng.sample(SYMBOLS, 8)
-        world_d = digest([HITCHHIKER_DATA_VERSION, "trap", seed, idx])
+        #    enriched with a shared-vertex incoming edge and a stale older edge on the queried path.
+        syms = rng.sample(SYMBOLS, 9)
+        world_d = digest([HITCHHIKER_DATA_VERSION, "trap", seed, split, idx])
         scope_d = "world-" + world_d
         t0 = 100 + idx
         events_d = (
             ExperienceEvent(scope_d, syms[0], "map", t0, syms[1]),
+            ExperienceEvent(scope_d, syms[1], "map", t0 - 5, syms[7]),  # stale older edge on queried path
             ExperienceEvent(scope_d, syms[1], "map", t0 + 1, syms[2]),
             ExperienceEvent(scope_d, syms[2], "map", t0 + 2, syms[3]),
+            ExperienceEvent(scope_d, syms[8], "map", t0 + 3, syms[1]),  # shared-vertex incoming edge into syms[1]
             ExperienceEvent(scope_d, syms[4], "map", t0, syms[5]),
             ExperienceEvent(scope_d, syms[5], "map", t0 + 1, syms[6]),
             ExperienceEvent(scope_d, syms[6], "map", t0 + 2, syms[7]),
@@ -825,12 +1078,13 @@ def build_health_probes(
             )
         )
 
-        # 2. Belief revision probe: same-source update + timestamp swap pair + cross-source conflict
+        # 2. Belief revision probe: same-source update + timestamp swap pair + cross-source disagreement variants
         s_syms = rng.sample(SYMBOLS, 5)
         subj, old_v, new_v, other_s, other_v = s_syms
-        world_r = digest([HITCHHIKER_DATA_VERSION, "revision", seed, idx])
+        world_r = digest([HITCHHIKER_DATA_VERSION, "revision", seed, split, idx])
         scope_r = "world-" + world_r
         pair_r = digest([world_r, "timestamp-swap"])
+        pair_cross = digest([world_r, "cross-source"])
         ev_r1 = (
             ExperienceEvent(scope_r, subj, "s0", 10 + idx, old_v),
             ExperienceEvent(scope_r, subj, "s0", 20 + idx, new_v),
@@ -841,6 +1095,14 @@ def build_health_probes(
             ExperienceEvent(scope_r, subj, "s0", 10 + idx, new_v),
             ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
         )
+        ev_cross = (
+            ExperienceEvent(scope_r, subj, "s0", 10 + idx, old_v),
+            ExperienceEvent(scope_r, subj, "s1", 30 + idx, new_v),
+            ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
+        )
+        resolve_event = ExperienceEvent(scope_r, subj, "s0", 40 + idx, new_v)
+        env_cross_unres = PublicEnvironment(ev_cross, {})
+        env_cross_res = PublicEnvironment(ev_cross, {CHANNEL: (resolve_event,)})
         goal_r = Goal(world_r, "revision", subj, scope_r, "memory-" + world_r, (subj, other_s))
         c_r1 = V6Case(
             digest([world_r, "r1"]),
@@ -866,12 +1128,36 @@ def build_health_probes(
             pair_id=pair_r,
             panel="belief-revision-swapped",
         )
-        belief_revision.extend((c_r1, c_r2))
+        c_cross_unres = V6Case(
+            digest([world_r, "cross-unres"]),
+            world_r,
+            "revision",
+            "belief-revision",
+            replace(goal_r, episode=digest([world_r, "cross-unres"])),
+            env_cross_unres,
+            Truth(digest([world_r, "cross-unres"]), None, _admitted_ids(env_cross_unres, None)),
+            HitchhikerSurface(hops=0),
+            pair_id=pair_cross,
+            panel="belief-revision-cross-source-unresolvable",
+        )
+        c_cross_res = V6Case(
+            digest([world_r, "cross-res"]),
+            world_r,
+            "revision",
+            "belief-revision",
+            replace(goal_r, episode=digest([world_r, "cross-res"])),
+            env_cross_res,
+            Truth(digest([world_r, "cross-res"]), new_v, _admitted_ids(env_cross_res, None)),
+            HitchhikerSurface(hops=0),
+            pair_id=pair_cross,
+            panel="belief-revision-cross-source-resolvable",
+        )
+        belief_revision.extend((c_r1, c_r2, c_cross_unres, c_cross_res))
 
         # 3. Missing-bridge quartet: A->B, C->D without B->C across (unsolvable, memory, query, complete)
         m_syms = rng.sample(SYMBOLS, 4)
         a, b, c, d = m_syms
-        world_m = digest([HITCHHIKER_DATA_VERSION, "missing-bridge", seed, idx])
+        world_m = digest([HITCHHIKER_DATA_VERSION, "missing-bridge", seed, split, idx])
         scope_m, reuse_m = "world-" + world_m, "memory-" + world_m
         edge_ab = ExperienceEvent(scope_m, a, "map", 100 + idx, b)
         edge_cd = ExperienceEvent(scope_m, c, "map", 102 + idx, d)
@@ -973,9 +1259,19 @@ def score_health_probes(
     mb_rows = probe_records.get("missing-bridge", [])
 
     rev_pairs: dict[str, list[dict[str, Any]]] = {}
+    cross_pairs: dict[str, list[dict[str, Any]]] = {}
     for r in rev_rows:
-        rev_pairs.setdefault(r["pair_id"], []).append(r)
+        if r.get("panel") in ("belief-revision-latest", "belief-revision-swapped"):
+            rev_pairs.setdefault(r["pair_id"], []).append(r)
+        elif r.get("panel") in (
+            "belief-revision-cross-source-unresolvable",
+            "belief-revision-cross-source-resolvable",
+        ):
+            cross_pairs.setdefault(r["pair_id"], []).append(r)
     both_rev = sum(1 for p in rev_pairs.values() if len(p) == 2 and all(x["outcome"]["correct"] for x in p))
+    both_cross = sum(1 for p in cross_pairs.values() if len(p) == 2 and all(x["outcome"]["correct"] for x in p))
+    cross_unres = [r for r in rev_rows if r.get("panel") == "belief-revision-cross-source-unresolvable"]
+    cross_res = [r for r in rev_rows if r.get("panel") == "belief-revision-cross-source-resolvable"]
 
     return {
         "distractor_trap": {
@@ -988,6 +1284,14 @@ def score_health_probes(
             "correct": sum(1 for r in rev_rows if r["outcome"]["correct"]),
             "both_correct_timestamp_pairs": both_rev,
             "total_timestamp_pairs": len(rev_pairs),
+            "both_correct_cross_source_pairs": both_cross,
+            "total_cross_source_pairs": len(cross_pairs),
+            "cross_source_unresolvable_accuracy": (
+                sum(1 for r in cross_unres if r["outcome"]["correct"]) / len(cross_unres) if cross_unres else None
+            ),
+            "cross_source_resolvable_accuracy": (
+                sum(1 for r in cross_res if r["outcome"]["correct"]) / len(cross_res) if cross_res else None
+            ),
         },
         "missing_bridge": score_missing_bridge_probe(mb_rows),
         "preservation": retention_panel(stage_records),
@@ -1077,24 +1381,8 @@ def _coverage_dataset(
     cursor = 0
 
     # Cross completeness and availability systematically with public teacher targets.
-    patterns = (
-        ("known", 0, False, False),
-        ("known", 0, True, False),
-        ("missing", 0, False, True),
-        ("missing", 0, False, False),  # unsolvable -> ABSTAIN
-        ("conflict", 0, False, True),
-        ("null", 0, False, True),
-        ("unavailable", 0, False, False),
-        ("route", 1, False, False),
-        ("route", 2, False, False),
-        ("route", 3, False, False),
-        ("memory", 1, True, False),
-        ("memory", 2, True, False),
-        ("memory", 3, True, False),
-        ("memory", 2, False, False),  # missing bridge with memory off -> ABSTAIN
-    )
     while len(samples) < target_examples:
-        kind_tag, hops, mem_on, qry_on = patterns[cursor % len(patterns)]
+        kind_tag, hops, mem_on, qry_on = COVERAGE_PATTERNS[cursor % len(COVERAGE_PATTERNS)]
         cursor += 1
         base_kind = "route" if kind_tag == "route" else ("memory" if kind_tag == "memory" else kind_tag)
         base_case, rej = _sample_fresh_case_of_kind(
@@ -1177,10 +1465,16 @@ def build_training_stream(
     t0 = time.perf_counter()
     if arm not in ("B0", "A", "B", "AB", "C", "AB+C", "C+penalty", "D-external", "S20-contrast"):
         raise ValueError(f"unsupported Hitchhiker training arm: {arm}")
+    if type(total_updates) is not int or total_updates < 1:
+        raise ValueError("total_updates must be a positive integer")
+    if type(batch_size) is not int or batch_size < 1:
+        raise ValueError("batch_size must be a positive integer")
     use_fresh = arm in ("A", "AB", "AB+C", "S20-contrast")
     use_relabel = arm in ("B", "AB", "AB+C", "S20-contrast")
     use_coverage = arm in ("C", "AB+C", "C+penalty")
     use_external_slots = arm == "D-external"
+    coverage_recipe = "14-stratum-coverage" if use_coverage else "base-task-distribution"
+    data_custody_verified = bool(heldout_suites)
 
     if base_data is None:
         base_data = make_dataset("train", target_bytes=40_000, seed=data_seed)
@@ -1190,7 +1484,16 @@ def build_training_stream(
     forbidden_worlds: set[str] = set()
     forbidden_prompts: set[str] = set()
     for suite in heldout_suites:
-        cases = suite.cases if hasattr(suite, "cases") else tuple(c for v in suite["cohorts"].values() for c in v)
+        if hasattr(suite, "cases"):
+            cases = suite.cases
+        elif isinstance(suite, dict) and "cohorts" in suite:
+            cases = tuple(c for v in suite["cohorts"].values() for c in v)
+        elif isinstance(suite, dict):
+            cases = tuple(c for k, v in suite.items() if k != "split" and isinstance(v, (list, tuple)) for c in v)
+        elif isinstance(suite, (list, tuple)):
+            cases = tuple(suite)
+        else:
+            raise TypeError("unsupported heldout suite container")
         for c in cases:
             forbidden_worlds.add(c.world_id)
             exs, _, fkeys = _case_supervision(c)
@@ -1216,11 +1519,21 @@ def build_training_stream(
         for idx in chosen_indices:
             b0_slots.append((epoch, idx))
 
+    contract_meta = {
+        "protocol_sha256": PROTOCOL_SHA,
+        "total_updates": total_updates,
+        "batch_size": batch_size,
+        "sampling_method": "blocked",
+        "data_custody_verified": data_custody_verified,
+        "coverage_recipe": coverage_recipe,
+    }
+
     if arm == "B0":
         # Static baseline keeps base_data.samples and exact V7 blocked ordering.
         elapsed = time.perf_counter() - t0
         return {
             "arm": arm,
+            **contract_meta,
             "generator_version": HITCHHIKER_STREAM_VERSION,
             "data_seed": data_seed,
             "order_seed": order_seed,
@@ -1232,6 +1545,11 @@ def build_training_stream(
             "stream_metrics": {
                 "accepted_candidates": len(base_samples),
                 "rejected_candidates": 0,
+                "pool_size": len(base_samples),
+                "target_pool_size": len(base_samples),
+                "requested_examples": total_updates * batch_size,
+                "total_updates": total_updates,
+                "batch_size": batch_size,
                 "generation_seconds": elapsed,
             },
         }
@@ -1253,6 +1571,7 @@ def build_training_stream(
         elapsed = time.perf_counter() - t0
         return {
             "arm": arm,
+            **contract_meta,
             "generator_version": HITCHHIKER_STREAM_VERSION,
             "data_seed": data_seed,
             "order_seed": order_seed,
@@ -1265,11 +1584,16 @@ def build_training_stream(
             "stream_metrics": {
                 "accepted_candidates": len(canon_samples),
                 "rejected_candidates": 0,
+                "pool_size": len(canon_samples),
+                "target_pool_size": len(base_samples),
+                "requested_examples": total_updates * batch_size,
+                "total_updates": total_updates,
+                "batch_size": batch_size,
                 "generation_seconds": elapsed,
             },
         }
 
-    # Build materialized update-indexed stream for A, B, AB, C, AB+C, C+penalty.
+    # Build static coverage pool for C / C+penalty matching B0's pool size and blocked epoch repetition.
     stream_samples: list[TokenSample] = []
     stream_examples: list[V6Example] = []
     accepted = 0
@@ -1279,7 +1603,7 @@ def build_training_stream(
     if use_coverage and not use_fresh:
         _, cov_exs, cov_samps, cov_stats = _coverage_dataset(
             seed=data_seed,
-            target_examples=max(len(base_samples), total_updates * batch_size),
+            target_examples=len(base_samples),
             forbidden_families=forbidden_families,
             forbidden_worlds=seen_worlds,
             forbidden_prompts=seen_prompts,
@@ -1289,6 +1613,7 @@ def build_training_stream(
         elapsed = time.perf_counter() - t0
         return {
             "arm": arm,
+            **contract_meta,
             "generator_version": HITCHHIKER_STREAM_VERSION,
             "data_seed": data_seed,
             "order_seed": order_seed,
@@ -1300,22 +1625,14 @@ def build_training_stream(
             "stream_metrics": {
                 "accepted_candidates": accepted,
                 "rejected_candidates": rejected,
+                "pool_size": len(cov_samps),
+                "target_pool_size": len(base_samples),
+                "requested_examples": total_updates * batch_size,
+                "total_updates": total_updates,
+                "batch_size": batch_size,
                 "generation_seconds": elapsed,
             },
         }
-
-    coverage_modes = (
-        ("known", False, False),
-        ("known", True, False),
-        ("missing", False, True),
-        ("missing", False, False),
-        ("conflict", False, True),
-        ("null", False, True),
-        ("unavailable", False, False),
-        ("route", False, False),
-        ("memory", True, False),
-        ("memory", False, False),
-    )
 
     for flat_idx in range(total_updates * batch_size):
         u, slot = divmod(flat_idx, batch_size)
@@ -1329,50 +1646,61 @@ def build_training_stream(
             mem_on = target_kind == "memory"
             qry_on = target_kind in ("known", "missing", "conflict", "null")
             if use_coverage:
-                target_kind, mem_on, qry_on = coverage_modes[flat_idx % len(coverage_modes)]
-                hops_ov = ((flat_idx % 3) + 1) if target_kind in ("route", "memory") else None
-            fresh_case, rej = _sample_fresh_case_of_kind(
-                generator_version=HITCHHIKER_STREAM_VERSION,
-                data_seed=data_seed,
-                update=u,
-                batch_slot=slot,
-                target_kind=target_kind,
-                forbidden_families=forbidden_families,
-                forbidden_worlds=seen_worlds,
-                forbidden_prompts=seen_prompts,
-                hops_override=hops_ov,
-            )
-            rejected += rej
-            if use_coverage:
-                env = fresh_case.environment if qry_on else PublicEnvironment(fresh_case.environment.initial, {})
-                mem = fresh_case.memory if mem_on else None
-                if target_kind == "known" and mem_on:
-                    unused = next(s for s in SYMBOLS if s not in fresh_case.goal.slots)
-                    mem = MemoryVersion((ExperienceEvent(fresh_case.goal.reusable_scope, unused, "audit", 1, unused),))
-                policy = ControlPolicy("fixed", surface=fresh_case.surface, memory_available=mem is not None)
-                trace = run_episode(fresh_case.goal, env, policy, memory=mem)
-                exp_val = trace.answer if trace.status == "answered" else None
-                fresh_case = replace(
-                    fresh_case,
-                    environment=env,
-                    memory=mem,
-                    truth=Truth(fresh_case.case_id, exp_val, _admitted_ids(env, mem)),
+                kind_tag, cov_hops, mem_on, qry_on = COVERAGE_PATTERNS[flat_idx % len(COVERAGE_PATTERNS)]
+                target_kind = "route" if kind_tag == "route" else ("memory" if kind_tag == "memory" else kind_tag)
+                hops_ov = cov_hops if target_kind in ("route", "memory") else None
+
+            chosen_case = None
+            exs = ()
+            for retry in range(128):
+                fresh_case, rej = _sample_fresh_case_of_kind(
+                    generator_version=HITCHHIKER_STREAM_VERSION,
+                    data_seed=data_seed,
+                    update=u,
+                    batch_slot=slot + retry * batch_size,
+                    target_kind=target_kind,
+                    forbidden_families=forbidden_families,
+                    forbidden_worlds=seen_worlds,
+                    forbidden_prompts=seen_prompts,
+                    hops_override=hops_ov,
                 )
-            seen_worlds.add(fresh_case.world_id)
-            chosen_case = fresh_case
+                rejected += rej
+                if use_coverage:
+                    env = fresh_case.environment if qry_on else PublicEnvironment(fresh_case.environment.initial, {})
+                    mem = fresh_case.memory if mem_on else None
+                    if target_kind == "known" and mem_on:
+                        unused = next(s for s in SYMBOLS if s not in fresh_case.goal.slots)
+                        mem = MemoryVersion((ExperienceEvent(fresh_case.goal.reusable_scope, unused, "audit", 1, unused),))
+                    policy = ControlPolicy("fixed", surface=fresh_case.surface, memory_available=mem is not None)
+                    trace = run_episode(fresh_case.goal, env, policy, memory=mem)
+                    exp_val = trace.answer if trace.status == "answered" else None
+                    fresh_case = replace(
+                        fresh_case,
+                        environment=env,
+                        memory=mem,
+                        truth=Truth(fresh_case.case_id, exp_val, _admitted_ids(env, mem)),
+                    )
+                cand_case = fresh_case
+                if use_relabel:
+                    mapping, _ = entity_bijection((relabel_seed, u, slot, retry, cand_case.case_id))
+                    cand_case = apply_case_permutation(cand_case, mapping)
+                cand_exs, _, cand_fams = _case_supervision(cand_case)
+                if (set(cand_fams) & forbidden_families) or any(e.prompt in forbidden_prompts for e in cand_exs):
+                    rejected += 1
+                    continue
+                seen_worlds.add(fresh_case.world_id)
+                chosen_case = cand_case
+                exs = cand_exs
+                break
+            if chosen_case is None:
+                raise RuntimeError("fresh stream could not sample a split-disjoint candidate after crossing/permutation")
         else:
             chosen_case = ref_case
+            if use_relabel:
+                mapping, _ = entity_bijection((relabel_seed, epoch, chosen_case.case_id))
+                chosen_case = apply_case_permutation(chosen_case, mapping)
+            exs, _, _ = _case_supervision(chosen_case)
 
-        if use_relabel:
-            seed_key = (
-                (relabel_seed, u, slot, chosen_case.case_id)
-                if use_fresh
-                else (relabel_seed, epoch, chosen_case.case_id)
-            )
-            mapping, _ = entity_bijection(seed_key)
-            chosen_case = apply_case_permutation(chosen_case, mapping)
-
-        exs, _, _ = _case_supervision(chosen_case)
         matching = [e for e in exs if e.stage == ref_ex.stage]
         chosen_ex = matching[0] if matching else exs[0]
         frame = UTF8.frame(chosen_ex.prompt, chosen_ex.target, max_length=MAX_SEQUENCE)
@@ -1392,6 +1720,7 @@ def build_training_stream(
     elapsed = time.perf_counter() - t0
     return {
         "arm": arm,
+        **contract_meta,
         "generator_version": HITCHHIKER_STREAM_VERSION,
         "data_seed": data_seed,
         "order_seed": order_seed,
@@ -1403,9 +1732,193 @@ def build_training_stream(
         "stream_metrics": {
             "accepted_candidates": accepted,
             "rejected_candidates": rejected,
+            "pool_size": len(stream_samples),
+            "requested_examples": total_updates * batch_size,
+            "total_updates": total_updates,
+            "batch_size": batch_size,
             "generation_seconds": elapsed,
         },
     }
+
+
+def validate_stream_contract(
+    stream: dict[str, Any],
+    *,
+    expected_arm: str,
+    total_updates: int,
+    batch_size: int,
+) -> dict[str, Any]:
+    """Validate stream contract keys, protocol binding, and static-vs-materialized sizing."""
+    if not isinstance(stream, dict):
+        raise ValueError("stream must be a dictionary")
+    required = (
+        "protocol_sha256",
+        "arm",
+        "total_updates",
+        "batch_size",
+        "sampling_method",
+        "data_custody_verified",
+        "use_static_indexer",
+        "samples",
+        "examples",
+    )
+    missing = [key for key in required if key not in stream]
+    if missing:
+        raise ValueError(f"stream missing required contract keys: {missing}")
+    if stream["protocol_sha256"] != PROTOCOL_SHA:
+        raise ValueError("stream protocol_sha256 does not match current PROTOCOL_SHA")
+    if stream["arm"] != expected_arm:
+        raise ValueError(f"stream arm {stream['arm']!r} != expected {expected_arm!r}")
+    if type(total_updates) is not int or total_updates < 1 or stream["total_updates"] != total_updates:
+        raise ValueError("stream total_updates contract mismatch")
+    if type(batch_size) is not int or batch_size < 1 or stream["batch_size"] != batch_size:
+        raise ValueError("stream batch_size contract mismatch")
+    if stream["sampling_method"] != "blocked":
+        raise ValueError(f"stream sampling_method must be 'blocked', got {stream['sampling_method']!r}")
+    if type(stream["data_custody_verified"]) is not bool:
+        raise ValueError("stream data_custody_verified must be bool")
+    if type(stream["use_static_indexer"]) is not bool:
+        raise ValueError("stream use_static_indexer must be bool")
+    samples = stream["samples"]
+    examples = stream["examples"]
+    if not samples or len(examples) != len(samples):
+        raise ValueError("stream requires non-empty aligned samples and examples")
+    if stream["use_static_indexer"]:
+        if len(samples) <= 0:
+            raise ValueError("static stream pool must be positive")
+    else:
+        expected_len = total_updates * batch_size
+        if len(samples) != expected_len:
+            raise ValueError(
+                f"non-static materialized stream length {len(samples)} != {expected_len}"
+            )
+    return {
+        "status": "PASS",
+        "arm": expected_arm,
+        "protocol_sha256": PROTOCOL_SHA,
+        "total_updates": total_updates,
+        "batch_size": batch_size,
+        "sampling_method": stream["sampling_method"],
+        "use_static_indexer": stream["use_static_indexer"],
+        "pool_size": len(samples),
+        "data_custody_verified": stream["data_custody_verified"],
+    }
+
+
+def _target_to_operation(target: str) -> str:
+    if target in SYMBOLS:
+        return "ANSWER"
+    if target == "Q":
+        return "QUERY"
+    if target == "!":
+        return "ABSTAIN"
+    if target == "R":
+        return "RETRIEVE"
+    if target.startswith("~"):
+        return "DELIBERATE"
+    raise ValueError(f"unsupported Hitchhiker target action: {target!r}")
+
+
+def arm_comparison_table(
+    streams_or_entries: dict[str, dict[str, Any]] | list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Compute per-arm stream statistics, target marginals, and deltas against B0."""
+    entries = (
+        list(streams_or_entries.values())
+        if isinstance(streams_or_entries, dict)
+        else list(streams_or_entries)
+    )
+    rows: list[dict[str, Any]] = []
+    for entry in entries:
+        arm = entry["arm"]
+        samples = entry["samples"]
+        examples = entry["examples"]
+        batch_size = int(entry["batch_size"])
+        updates = int(entry["total_updates"])
+        use_static = bool(entry["use_static_indexer"])
+        sampling_method = entry.get("sampling_method", "blocked")
+        order_seed = int(entry.get("order_seed", 7))
+
+        if use_static:
+            per_epoch = math.ceil(len(samples) / batch_size)
+            epoch_orders: dict[int, tuple[int, ...]] = {}
+            served_indices: list[int] = []
+            for u in range(updates):
+                epoch, batch_idx = divmod(u, per_epoch)
+                if epoch not in epoch_orders:
+                    epoch_orders[epoch] = ordered_indices(samples, order_seed, epoch, sampling_method)
+                start = batch_idx * batch_size
+                chosen = epoch_orders[epoch][start : start + batch_size]
+                while len(chosen) < batch_size:
+                    chosen = (*chosen, *epoch_orders[epoch][: batch_size - len(chosen)])
+                served_indices.extend(chosen)
+        else:
+            served_indices = list(range(updates * batch_size))
+
+        unique_worlds = len({samples[i].world_id for i in served_indices})
+        unique_samples = len({(samples[i].tokens, samples[i].eligible) for i in served_indices})
+        total_served = len(served_indices)
+        mean_repetitions = (total_served / unique_samples) if unique_samples else 0.0
+        supervised_tokens = sum(sum(1 for flag in samples[i].eligible if flag) for i in served_indices)
+        input_positions = sum(len(samples[i].tokens) for i in served_indices)
+
+        kind_counts = Counter(examples[i].kind for i in served_indices)
+        op_counts = Counter(_target_to_operation(examples[i].target) for i in served_indices)
+        ans_counts = Counter(examples[i].target for i in served_indices if examples[i].target in SYMBOLS)
+        stage_counts = Counter(examples[i].stage for i in served_indices)
+
+        data_mode = (
+            ALL_ARMS[arm]["data_mode"]
+            if arm in ALL_ARMS
+            else ("static" if use_static else "fresh")
+        )
+        coverage_recipe = entry.get(
+            "coverage_recipe",
+            "14-stratum-coverage" if arm in ("C", "AB+C", "C+penalty") else "base-task-distribution",
+        )
+        rows.append(
+            {
+                "arm": arm,
+                "data_mode": data_mode,
+                "use_static_indexer": use_static,
+                "sampling_method": sampling_method,
+                "coverage_recipe": coverage_recipe,
+                "unique_worlds": unique_worlds,
+                "unique_samples": unique_samples,
+                "total_examples_served": total_served,
+                "mean_repetitions": mean_repetitions,
+                "updates": updates,
+                "batch_size": batch_size,
+                "supervised_tokens": supervised_tokens,
+                "input_positions": input_positions,
+                "task_kind_marginals": dict(sorted(kind_counts.items())),
+                "operation_marginals": dict(sorted(op_counts.items())),
+                "answer_marginals": dict(sorted(ans_counts.items())),
+                "stage_marginals": dict(sorted(stage_counts.items())),
+                "deltas_vs_b0": None,
+            }
+        )
+
+    b0_row = next((r for r in rows if r["arm"] == "B0"), None)
+    if b0_row is not None:
+        for row in rows:
+            row["deltas_vs_b0"] = {
+                "unique_worlds": row["unique_worlds"] - b0_row["unique_worlds"],
+                "unique_samples": row["unique_samples"] - b0_row["unique_samples"],
+                "total_examples_served": row["total_examples_served"] - b0_row["total_examples_served"],
+                "mean_repetitions": row["mean_repetitions"] - b0_row["mean_repetitions"],
+                "supervised_tokens": row["supervised_tokens"] - b0_row["supervised_tokens"],
+                "input_positions": row["input_positions"] - b0_row["input_positions"],
+                "task_kind_marginals": {
+                    k: row["task_kind_marginals"].get(k, 0) - b0_row["task_kind_marginals"].get(k, 0)
+                    for k in sorted(set(row["task_kind_marginals"]) | set(b0_row["task_kind_marginals"]))
+                },
+                "operation_marginals": {
+                    k: row["operation_marginals"].get(k, 0) - b0_row["operation_marginals"].get(k, 0)
+                    for k in sorted(set(row["operation_marginals"]) | set(b0_row["operation_marginals"]))
+                },
+            }
+    return rows
 
 
 class ExternalSlotCanonicalizer:
