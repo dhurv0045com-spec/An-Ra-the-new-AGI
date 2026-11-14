@@ -831,9 +831,10 @@ def estimate_campaign_storage_bytes(phase_jobs: tuple[dict[str, object], ...], *
     total_ckpt_bytes = 0
     for job in phase_jobs:
         params = int(job["total_parameters"])
-        # FP32 weights (4B) + AdamW m/v (8B) = 12 B/param; up to 2 retained snapshots (LATEST + PREVIOUS) + staging
+        # FP32 weights (4B) + AdamW m/v (8B) = 12 B/param; active pruning keeps 1 final LATEST snapshot
+        # per completed job and at most 2 snapshots (LATEST + PREVIOUS) + staging on active GPU lanes.
         per_snapshot = params * 12
-        total_ckpt_bytes += 3 * per_snapshot
+        total_ckpt_bytes += 2 * per_snapshot
     episode_and_report = len(phase_jobs) * 64 * 1024 * 1024
     # Zip output alongside unpacked working directory
     subtotal = total_ckpt_bytes + episode_and_report
@@ -1524,8 +1525,13 @@ def run_campaign(
         return {"status": "NO_GO", "reason": reason}
 
     # 1. Storage Admission
+    output_dir.mkdir(parents=True, exist_ok=True)
     storage_est = estimate_campaign_storage_bytes(phase_jobs, gpu_mode=(not cpu_smoke))
-    disk_free = int(free_bytes_override) if free_bytes_override is not None else shutil.disk_usage(work_root).free
+    disk_free = (
+        int(free_bytes_override)
+        if free_bytes_override is not None
+        else min(shutil.disk_usage(work_root).free, shutil.disk_usage(output_dir).free)
+    )
     if disk_free < storage_est["total_required_bytes"]:
         reason = (
             f"RESOURCE_INFEASIBLE: storage admission failed: free={disk_free} < required={storage_est['total_required_bytes']} bytes"

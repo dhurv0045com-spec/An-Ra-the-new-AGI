@@ -52,6 +52,8 @@ def _safe_arcname(name: str) -> str:
 
 def _write_verified_zip(zip_path: Path, entries: dict[str, Path], *, meta: dict[str, object]) -> dict[str, object]:
     zip_path.parent.mkdir(parents=True, exist_ok=True)
+    for stale in zip_path.parent.glob(f".{zip_path.name}.*.tmp"):
+        stale.unlink(missing_ok=True)
     manifest_entries: list[dict[str, object]] = []
     sorted_items = sorted((_safe_arcname(arc), path) for arc, path in entries.items())
     for arc, src in sorted_items:

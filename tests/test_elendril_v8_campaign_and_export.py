@@ -1010,3 +1010,50 @@ def test_v8_evaluate_worlds_by_mode_batched_parity() -> None:
                         ss.executed_proposal.joint_log_probability, rel=1e-5, abs=1e-5
                     )
 
+
+def test_v8_checkpoint_pruning_and_temp_cleanup(tmp_path: Path) -> None:
+    from tools.build_elendril_v8_notebook import build_notebook_dict
+
+    can_dir = tmp_path / "can_prune"
+    src = "4" * 40
+    can_res = run_canary(arm="F", source_commit=src, work_dir=can_dir, device="cpu", cpu_canary=True)
+    assert can_res["passed"] is True
+    assert not (can_dir / "canary_ckpt").exists()
+
+    prof_dir = tmp_path / "prof_prune"
+    prof_res = run_profile(job_id="V8-F-D1-i7-o7", source_commit=src, work_dir=prof_dir, device="cpu", cpu_canary=True)
+    assert prof_res["resume_parity_at_4_verified"] is True
+    for sub in ("prof_cont", "prof_res", "prof_timing"):
+        assert not (prof_dir / sub).exists()
+
+    for job in (protocol_jobs("head-screen")[3], protocol_jobs("data-control")[3]):
+        jid = str(job["job_id"])
+        wdir = tmp_path / f"job_{jid}"
+        report = run_job_worker(
+            job_id=jid,
+            source_commit=src,
+            work_dir=wdir,
+            device="cpu",
+            cpu_canary=True,
+            updates_override=4,
+            save_every=1,
+            dev_worlds_per_cohort=1,
+        )
+        obj_dirs = [p for p in (wdir / "checkpoints" / jid / "objects").iterdir() if p.is_dir()]
+        assert len(obj_dirs) == 1
+        assert obj_dirs[0].name == report["checkpoint_sha256"]
+        assert validate_job_completion_artifacts(
+            job,
+            report,
+            wdir,
+            source_commit=src,
+            expected_updates=4,
+            expected_split_audit_sha256=str(report["split_audit_sha256"]),
+        ) == []
+
+    nb_doc = build_notebook_dict(source_commit="0" * 40)
+    all_src = "\n".join("".join(c.get("source", [])) for c in nb_doc["cells"])
+    assert 'WORK_ROOT = Path("/tmp/elendril_v8")' in all_src
+    assert 'OUTPUT_DIR = Path("/kaggle/working")' in all_src
+
+

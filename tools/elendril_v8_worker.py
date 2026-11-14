@@ -12,6 +12,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import tempfile
 import threading
@@ -65,6 +66,7 @@ from anra_v5.elendril.v8.training import (
     teacher_steps_to_byte_samples,
     teacher_steps_to_typed_samples,
 )
+from anra_v5.elendril.publication import writer_lock
 from anra_v5.elendril.v8.verifier import independent_expected_outcome, verify_episode_trace
 from v5_training.checkpoint import CheckpointStore
 
@@ -771,7 +773,9 @@ def run_canary(
         m = trainer.step()
         losses.append(float(m["loss"]))
     wall = time.perf_counter() - t0
-    trainer.save()
+    ckpt_sha = trainer.save()
+    canary_ckpt_dir = work_dir / "canary_ckpt"
+    CheckpointStore(canary_ckpt_dir, f"canary-{arm}").restore(ckpt_sha)
 
     diag = _run_probe(
         trainer.model,
@@ -817,6 +821,7 @@ def run_canary(
         "wall_seconds": wall,
         "passed": passed,
     }
+    shutil.rmtree(canary_ckpt_dir, ignore_errors=True)
     _atomic_write_json(work_dir / "CANARY_RESULT.json", result)
     return result
 
@@ -1139,6 +1144,8 @@ def run_profile(
         "total_training_samples": len(t_prof.samples),
         "estimated_full_updates": int(t_prof.recipe.total_updates),
     }
+    for prof_dir in (cont_root, res_root, time_root):
+        shutil.rmtree(prof_dir, ignore_errors=True)
     _atomic_write_json(work_dir / "WORKER_PROFILE.json", result)
     return result
 
@@ -1981,6 +1988,8 @@ def run_job_worker(
                 if u % save_every == 0 or u == total_updates or u in milestone_updates or stop_requested:
                     if u > trainer.published_update:
                         trainer.save()
+                        with writer_lock(trainer.store.lineage_root):
+                            trainer.store.prune(keep=set())
 
                 if u in milestone_updates and u < total_updates and not stop_requested:
                     _evaluate_and_record_milestone(
@@ -2009,6 +2018,8 @@ def run_job_worker(
         if interrupted:
             if trainer.state.global_update > trainer.published_update:
                 trainer.save()
+                with writer_lock(trainer.store.lineage_root):
+                    trainer.store.prune(keep=set())
             partial_payload = {
                 "schema": "elendril-v8-job-partial-v1",
                 "status": "INTERRUPTED_CHECKPOINTED",
@@ -2044,6 +2055,13 @@ def run_job_worker(
                 signal.signal(signal.SIGINT, prev_sigint)
 
     train_wall = time.perf_counter() - t0
+    if trainer.state.global_update >= total_updates and trainer.parent is not None:
+        trainer.store.restore(trainer.parent)
+        with writer_lock(trainer.store.lineage_root):
+            prev_ptr = trainer.store.lineage_root / "PREVIOUS"
+            if prev_ptr.exists():
+                prev_ptr.unlink()
+            trainer.store.prune(keep=set())
     final_eps = evaluate_worlds_by_mode(trainer.model, v8_spec, all_eval_worlds, model_identity=job_id)
     final_summary = summarize_suite_episodes(final_eps, all_eval_worlds)
     final_probe = _run_probe(

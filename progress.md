@@ -257,3 +257,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-14 | Gemini | Publish batched-eval V8 notebook pinned to 69899953
 - Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to `698999532e49f37b70a63def30321b29ed87b142` (`SHA256: 7268d6ac6c6cb3c5f29debd7059f6d3cc2b37c4120f788d511c0b0c1bd8a49e7`) and updated `Experiment Result/V8/`.
 - Ready for full CI verification, `git push`, and Kaggle 2xT4 `data-control` launch.
+
+### 2026-11-15 | Gemini | Prune intermediate V8 checkpoints and stage Kaggle work root in /tmp
+- Observed Kaggle 2xT4 run `69899953`: all 6 `data-control` jobs finished in `2589.3s`, then failed on `/kaggle/working` quota (`Errno 28`) during `ELENDRIL_V8_FULL.zip` export.
+- Added `CheckpointStore.prune(keep=set())` rotation during training, final `PREVIOUS` pruning on completion, canary/profile checkpoint cleanup, stale `.tmp` zip cleanup, and `/tmp/elendril_v8` notebook `WORK_ROOT`.
+- Passed all 30 focused V8 CPU tests locally (`30 passed in 133.01s`), covering checkpoint count `== 1` after completion for typed and `B0` jobs.
