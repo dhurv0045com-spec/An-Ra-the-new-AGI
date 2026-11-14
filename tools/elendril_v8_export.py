@@ -17,6 +17,17 @@ ANALYSIS_ZIP_NAME = "ELENDRIL_V8_ANALYSIS.zip"
 FULL_ZIP_NAME = "ELENDRIL_V8_FULL.zip"
 FINAL_STATUS_NAME = "FINAL_STATUS.json"
 ALLOWED_FINAL_STATUSES = ("NOT_RUN", "COMPLETE", "PARTIAL", "NO_GO", "INVALID_RESULTS")
+ANALYSIS_WORK_ROOT_FILES = (
+    "splits/SPLIT_AUDIT.json",
+    "DIAGNOSTICS.json",
+    "COST_VIEWS.json",
+    "PAIRWISE_COMPARISONS.json",
+    "SCENARIO_LEDGER.json",
+    "METRICS.json",
+    "RESULTS.md",
+)
+ANALYSIS_WORK_ROOT_DIRS = ("jobs", "steps", "milestones", "episodes")
+FULL_WORK_ROOT_DIRS = ("checkpoints", "logs", "profiles", "canaries")
 
 
 def _file_sha256(path: Path) -> tuple[str, int]:
@@ -146,6 +157,13 @@ def verify_v8_export(
         expected_source_commit=expected_source_commit,
         expected_final_status_bytes=status_bytes,
     )
+    a_files = {str(e["path"]): str(e["sha256"]) for e in a_info["manifest"]["files"]}
+    f_files = {str(e["path"]): str(e["sha256"]) for e in f_info["manifest"]["files"]}
+    missing_or_mismatched = [k for k, v in a_files.items() if f_files.get(k) != v]
+    if missing_or_mismatched:
+        raise ValueError(
+            f"{FULL_ZIP_NAME} missing or mismatched analysis members: {missing_or_mismatched}"
+        )
     return {
         "verified": True,
         "status": status_obj["status"],
@@ -155,6 +173,19 @@ def verify_v8_export(
     }
 
 
+def _collect_work_root_dirs(work_root: Path, rel_dirs: tuple[str, ...]) -> dict[str, Path]:
+    collected: dict[str, Path] = {}
+    for rel_dir in rel_dirs:
+        base = work_root / rel_dir
+        if not base.exists():
+            continue
+        for item in sorted(base.rglob("*")):
+            if item.is_file():
+                arc = _safe_arcname(item.relative_to(work_root).as_posix())
+                collected[arc] = item
+    return collected
+
+
 def export_v8_archives(
     work_root: Path,
     output_dir: Path,
@@ -162,8 +193,11 @@ def export_v8_archives(
     source_commit: str,
     phase: str,
     status_payload: dict[str, object],
-    analysis_files: dict[str, Path],
-    extra_full_dirs: tuple[str, ...] = ("checkpoints", "episodes", "logs"),
+    analysis_files: dict[str, Path] | None = None,
+    include_work_root_evidence: bool = True,
+    extra_analysis_files: tuple[str, ...] = ANALYSIS_WORK_ROOT_FILES,
+    extra_analysis_dirs: tuple[str, ...] = ANALYSIS_WORK_ROOT_DIRS,
+    extra_full_dirs: tuple[str, ...] = FULL_WORK_ROOT_DIRS,
 ) -> dict[str, object]:
     """Write FINAL_STATUS.json, ELENDRIL_V8_ANALYSIS.zip, and ELENDRIL_V8_FULL.zip and verify immediately."""
 
@@ -182,25 +216,27 @@ def export_v8_archives(
     tmp_status.write_bytes(status_bytes)
     os.replace(tmp_status, status_path)
 
-    analysis_entries: dict[str, Path] = {FINAL_STATUS_NAME: status_path}
-    for arc, p in analysis_files.items():
+    analysis_entries: dict[str, Path] = {}
+    if include_work_root_evidence and work_root.exists():
+        for rel_file in extra_analysis_files:
+            candidate = work_root / rel_file
+            if candidate.exists() and candidate.is_file():
+                analysis_entries[_safe_arcname(rel_file)] = candidate
+        analysis_entries.update(_collect_work_root_dirs(work_root, extra_analysis_dirs))
+
+    for arc, p in (analysis_files or {}).items():
         if not p.exists():
             raise ValueError(f"required analysis artifact missing: {p}")
         analysis_entries[_safe_arcname(arc)] = p
+    analysis_entries[FINAL_STATUS_NAME] = status_path
 
     meta = {"phase": phase, "source_commit": source_commit, "status": status_payload["status"]}
     analysis_zip = output_dir / ANALYSIS_ZIP_NAME
     _write_verified_zip(analysis_zip, analysis_entries, meta={**meta, "kind": "analysis"})
 
     full_entries = dict(analysis_entries)
-    for rel_dir in extra_full_dirs:
-        base = work_root / rel_dir
-        if not base.exists():
-            continue
-        for item in sorted(base.rglob("*")):
-            if item.is_file():
-                arc = _safe_arcname(item.relative_to(work_root).as_posix())
-                full_entries[arc] = item
+    if work_root.exists():
+        full_entries.update(_collect_work_root_dirs(work_root, extra_full_dirs))
 
     full_zip = output_dir / FULL_ZIP_NAME
     _write_verified_zip(full_zip, full_entries, meta={**meta, "kind": "full"})
@@ -302,13 +338,19 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+verify_archive_bundle = verify_single_zip
+
 __all__ = [
+    "ANALYSIS_WORK_ROOT_DIRS",
+    "ANALYSIS_WORK_ROOT_FILES",
     "ANALYSIS_ZIP_NAME",
     "FINAL_STATUS_NAME",
+    "FULL_WORK_ROOT_DIRS",
     "FULL_ZIP_NAME",
     "export_v8_archives",
     "extract_verified_analysis",
     "restore_checkpoint_archive",
+    "verify_archive_bundle",
     "verify_single_zip",
     "verify_v8_export",
 ]

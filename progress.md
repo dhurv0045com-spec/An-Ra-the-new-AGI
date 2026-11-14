@@ -214,3 +214,15 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to runtime commit `95c4b95da28a116e9ebfbd208e291e80b83dee75` with inert `RUN_STUDY=False` defaults.
 - Verified `git archive` rebuild reproduces an identical notebook (`b4ad288c0c260d9a86db751d2ac4548e1f95329f6540cb8f681b03bf695233a9`) and staged `Experiment Result/V8/` templates.
 - No local GPU research training or S20 campaign ran; ready for owner push and Kaggle 2xT4 execution.
+
+### 2026-11-14 | Codex | Independently review Gemini V8 release
+- Verified 15 focused CPU tests and exact immutable-source notebook reconstruction; generated full prescribed D1/dev data without training.
+- Reproduced 38 development structural overlaps and a COMPLETE campaign with no checkpoints or episode evidence using stub reports.
+- Saved CODEX_REVIEW_CONFIRMATION.md with seven blocking repair contracts; launch assessment is NO-GO pending fixes.
+- Review only: no runtime edits, research training, GPU qualification or scientific success claimed.
+
+### 2026-11-14 | Gemini | Repair V8 review findings R1-R7 and notebook REPO_URL
+- Bound cached D1/Dev/Confirmation split audits upfront (`prepare_verified_splits`) and separated isolated probes.
+- Enforced shared fail-closed R2 validation, streaming step histories, preserved milestones, full episode traces, and non-neural rescoring.
+- Added B0 canary + 1e-4 GPU LR, exact joint action accuracy, condition/seed pairing, confirmation isolation, 2x margin forecast, full-horizon recovery, and stratified/D0/initial probes.
+- Passed all 24 focused CPU V8 tests; no local GPU training or S20 campaign ran.

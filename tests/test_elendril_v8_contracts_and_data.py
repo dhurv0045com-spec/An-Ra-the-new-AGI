@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
+import time
 import pytest
 import torch
 import torch.nn.functional as F
@@ -11,6 +13,7 @@ from anra_v5.elendril.representation import UTF8, SpecialToken
 from anra_v5.elendril.v6_registry import MODEL_PROFILES
 from anra_v5.elendril.v8.contracts import (
     ACTION_19_LABELS,
+    EvaluationOutcome,
     PublicInput,
     build_v8_model_spec,
     choose_fcap_bottleneck,
@@ -22,6 +25,7 @@ from anra_v5.elendril.v8.data import (
     load_d0_dataset,
     make_positive_canary_cohort,
 )
+from anra_v5.elendril.v8.evaluation import EpisodeRecord, summarize_suite_episodes
 from anra_v5.elendril.v8.holdout import (
     audit_split_disjointness,
     build_confirmation_suite,
@@ -36,6 +40,7 @@ from anra_v5.elendril.v8.models import (
 from anra_v5.elendril.v8.policies import make_policy
 from anra_v5.elendril.v8.protocol import PHASES, PROTOCOL_SHA, jobs
 from anra_v5.elendril.v8.verifier import verify_semantic_fixtures
+from tools.elendril_v8_worker import prepare_verified_splits
 
 
 def _tiny_base():
@@ -202,3 +207,85 @@ def test_v8_policy_truth_firewall_and_modes() -> None:
             with pytest.raises(TypeError):
                 pol.propose({"text_utf8": "fake_world_dict"})
         assert len(ACTION_19_LABELS) == 19
+
+
+def test_v8_r1_full_quota_split_firewall_and_isolated_breakdown(tmp_path: Path) -> None:
+    split_root = tmp_path / "full_splits"
+    splits = prepare_verified_splits(split_root, cpu_smoke=False)
+    assert splits["cached"] is False
+    assert splits["audit"]["audit_passed"] is True
+    assert splits["audit"]["counts"]["d1_worlds"] == 3584
+    assert splits["audit"]["counts"]["d1_steps"] == 5888
+    assert splits["audit"]["counts"]["dev_records"] == 3840
+    assert len(splits["dev_cohorts"]) == 6
+    assert sum(len(splits["conf_cohorts"][c]) for c in ("R09", "R10", "E13", "E14", "E15", "A19")) == 7680
+    assert splits["audit"]["counts"]["conf_records"] == 7808
+    assert {"R09", "R10", "E13", "E14", "E15", "A19"}.issubset(splits["conf_cohorts"])
+    assert splits["audit"]["disjointness_audit"]["status"] == "PASS"
+    assert splits["audit"]["disjointness_audit"]["leaked_components"] == 0
+    assert splits["audit"]["disjointness_audit"]["leaked_structures"] == 0
+    assert (split_root / "splits" / "SPLIT_AUDIT.json").exists()
+
+    t0 = time.perf_counter()
+    reloaded = prepare_verified_splits(split_root, cpu_smoke=False)
+    reload_s = time.perf_counter() - t0
+    assert reloaded["cached"] is True
+    assert reloaded["split_audit_sha256"] == splits["split_audit_sha256"]
+    assert reload_s < 10.0
+
+    # Verify summarize_suite_episodes separates non-isolated from isolated probe accuracy
+    def _make_ep(wid: str, *, correct: bool, isolated: bool | None) -> EpisodeRecord:
+        return EpisodeRecord(
+            world_id=wid,
+            base_world_id=wid,
+            cohort="R09",
+            family="direct_one_hop",
+            form="canonical",
+            mode="raw",
+            model_identity="F",
+            steps=(),
+            outcome=EvaluationOutcome(
+                correct=correct,
+                terminal_status="TERMINAL_ANSWER",
+                charged_cost=0.0,
+            ),
+            first_observable_divergence=None,
+            query_count=0,
+            retrieve_count=0,
+            model_calls=1,
+            evaluated_positions=1,
+            teacher_action_matches=1 if correct else 0,
+            is_isolated_one_edge_probe=isolated,
+        )
+
+    eps = {
+        "raw": [
+            _make_ep("w-iso", correct=True, isolated=True),
+            _make_ep("w-non1", correct=True, isolated=False),
+            _make_ep("w-non2", correct=False, isolated=False),
+        ]
+    }
+    summary = summarize_suite_episodes(eps)
+    raw_sum = summary["raw"]
+    assert raw_sum["isolated_probe_count"] == 1
+    assert raw_sum["isolated_probe_exact_accuracy"] == pytest.approx(1.0)
+    assert raw_sum["non_isolated_count"] == 2
+    assert raw_sum["non_isolated_exact_accuracy"] == pytest.approx(0.5)
+    assert raw_sum["exact_episode_accuracy"] == pytest.approx(2.0 / 3.0)
+
+    # Also verify world_by_id fallback when is_isolated_one_edge_probe is None
+    worlds = [
+        {"world_id": "w-iso", "hops": 1, "initial_facts": [{"subject": "A"}], "hidden": {"query_payload": [], "memory_payload": []}},
+        {"world_id": "w-non1", "hops": 1, "initial_facts": [{"subject": "A"}, {"subject": "B"}], "hidden": {"query_payload": [], "memory_payload": []}},
+        {"world_id": "w-non2", "hops": 2, "initial_facts": [{"subject": "A"}], "hidden": {"query_payload": [], "memory_payload": []}},
+    ]
+    eps_none = {
+        "raw": [
+            _make_ep("w-iso", correct=True, isolated=None),
+            _make_ep("w-non1", correct=True, isolated=None),
+            _make_ep("w-non2", correct=False, isolated=None),
+        ]
+    }
+    summary_inferred = summarize_suite_episodes(eps_none, worlds)
+    assert summary_inferred["raw"]["isolated_probe_exact_accuracy"] == pytest.approx(1.0)
+    assert summary_inferred["raw"]["non_isolated_exact_accuracy"] == pytest.approx(0.5)

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 
-REPO_HTTP_URL = "https://github.com/AnkitkumarSoni/An-Ra-the-new-AGI"
+REPO_HTTP_URL = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
 DEFAULT_NOTEBOOK_PATH = Path("notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb")
 
 
@@ -164,7 +164,8 @@ def build_notebook_dict(*, source_commit: str, repo_url: str = REPO_HTTP_URL) ->
 def write_notebook(output_path: Path, *, source_commit: str, repo_url: str = REPO_HTTP_URL) -> Path:
     nb = build_notebook_dict(source_commit=source_commit, repo_url=repo_url)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(nb, indent=2) + "\n", encoding="utf-8")
+    with output_path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(nb, indent=2) + "\n")
     return output_path
 
 
