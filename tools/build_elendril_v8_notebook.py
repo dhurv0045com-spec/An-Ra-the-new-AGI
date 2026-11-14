@@ -184,6 +184,9 @@ def build_notebook_dict(*, source_commit: str, repo_url: str = REPO_HTTP_URL) ->
                 "    for fname in (\"FINAL_STATUS.json\", \"ELENDRIL_V8_ANALYSIS.zip\", \"ELENDRIL_V8_FULL.zip\"):",
                 "        if (OUTPUT_DIR / fname).exists():",
                 "            display(FileLink(str(OUTPUT_DIR / fname)))",
+                "    status = receipt.get(\"status\")",
+                "    if status not in (\"COMPLETE\", \"PARTIAL\"):",
+                "        raise RuntimeError(f\"ELENDRIL V8 campaign did not complete training/evaluation: status={status!r}, receipt={receipt}\")",
             ],
             "v8-verify-export",
         ),
@@ -240,6 +243,10 @@ def verify_notebook_file(notebook_path: Path, *, expected_source_commit: str | N
     import_pos = verify_src.find("from tools.elendril_v8_export import verify_v8_export")
     if guard_pos < 0 or import_pos < 0 or import_pos < guard_pos:
         raise ValueError("v8-verify-export must guard tools.elendril_v8_export import after 'if not RUN_STUDY:'")
+    filelink_pos = verify_src.find("FileLink")
+    status_guard_pos = verify_src.find('status not in ("COMPLETE", "PARTIAL")')
+    if filelink_pos < 0 or status_guard_pos < 0 or status_guard_pos < filelink_pos:
+        raise ValueError("v8-verify-export must check status not in ('COMPLETE', 'PARTIAL') after FileLink display")
 
     if len(meta_sha) != 40 or f'SOURCE_SHA = "{meta_sha}"' not in all_src:
         raise ValueError("notebook lacks valid pinned 40-hex SOURCE_SHA")

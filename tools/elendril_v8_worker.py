@@ -1091,8 +1091,19 @@ def run_profile(
     )
 
     # 3. Representative multi-cohort / multi-mode interactive episode evaluation timing
-    sample_worlds = _select_profile_eval_worlds(work_dir, max_per_cohort=2)
-    eval_modes = ("raw", "availability-mask")
+    eval_max_per_cohort = 1 if cpu_canary else 3
+    sample_worlds = _select_profile_eval_worlds(work_dir, max_per_cohort=eval_max_per_cohort)
+    eval_modes = ("raw", "availability-mask") if cpu_canary else tuple(POLICY_MODES)
+    if not cpu_canary and sample_worlds:
+        evaluate_worlds_by_mode(
+            t_prof.model,
+            t_prof.v8_spec,
+            sample_worlds[:2],
+            model_identity=f"prof-warmup-{resolved_job_id}",
+            modes=eval_modes,
+        )
+    if cuda_dev is not None and t_prof.device.type == "cuda":
+        torch.cuda.synchronize(cuda_dev)
     t_eval0 = time.perf_counter()
     sample_eps = evaluate_worlds_by_mode(
         t_prof.model,

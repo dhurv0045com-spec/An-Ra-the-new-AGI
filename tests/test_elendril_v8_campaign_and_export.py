@@ -788,7 +788,7 @@ def test_v8_codex_rereview_item1_profile_and_stage_b_device_binding(
     assert set_device_calls == [expected_dev]
     assert get_name_calls == [expected_dev]
     assert reset_peak_calls == [expected_dev, expected_dev]
-    assert sync_calls == [expected_dev, expected_dev]
+    assert sync_calls == [expected_dev, expected_dev, expected_dev]
     assert max_mem_calls == [expected_dev]
 
     profile_calls: list[tuple[str, str, int | None, str, bool]] = []
@@ -945,3 +945,68 @@ def test_v8_codex_rereview_item4_exact_world_mode_coverage(tmp_path: Path) -> No
         return rows + [foreign]
 
     _mutate_and_verify("add_foreign_world", _add_foreign_world)
+
+
+def test_v8_evaluate_worlds_by_mode_batched_parity() -> None:
+    from dataclasses import replace
+    import torch
+    from anra_v5.elendril.v6_registry import MODEL_PROFILES
+    from anra_v5.elendril.v8.contracts import POLICY_MODES, build_v8_model_spec
+    from anra_v5.elendril.v8.data import build_d1_dev_suite
+    from anra_v5.elendril.v8.evaluation import evaluate_worlds_by_mode, run_episode
+    from anra_v5.elendril.v8.models import build_v8_model
+    from anra_v5.elendril.v8.policies import make_policy
+
+    torch.set_num_threads(2)
+    base = replace(
+        MODEL_PROFILES["S20"],
+        width=32,
+        layers=1,
+        query_heads=2,
+        kv_heads=1,
+        head_dimension=16,
+        ffn_width=64,
+        context_length=512,
+    )
+    cohorts = build_d1_dev_suite(worlds_per_cohort=1)
+    worlds = [w for cs in ("R09", "R10", "E14", "E15") for w in cohorts[cs][:2]]
+
+    for arch in ("P", "B0"):
+        spec = build_v8_model_spec(arch, base_spec=base, pointer_dim=16 if arch == "P" else 0)
+        model = build_v8_model(spec, init_seed=11, torch_module=torch)
+        ident = f"parity-{arch}"
+        batched = evaluate_worlds_by_mode(
+            model,
+            spec,
+            worlds,
+            model_identity=ident,
+            modes=POLICY_MODES,
+            batch_size=3,
+            cand_batch_seqs=7,
+        )
+        for mode in POLICY_MODES:
+            pol = make_policy(model, spec, model_identity=ident, mode=mode)
+            seq = [run_episode(pol, w) for w in worlds]
+            got = batched[mode]
+            assert len(got) == len(seq)
+            for g, s in zip(got, seq):
+                assert g.world_id == s.world_id
+                assert g.outcome == s.outcome
+                assert g.first_observable_divergence == s.first_observable_divergence
+                assert g.query_count == s.query_count
+                assert g.retrieve_count == s.retrieve_count
+                assert g.teacher_action_matches == s.teacher_action_matches
+                assert len(g.steps) == len(s.steps)
+                for gs, ss in zip(g.steps, s.steps):
+                    assert (gs.raw_proposal.operation, gs.raw_proposal.argument) == (
+                        ss.raw_proposal.operation,
+                        ss.raw_proposal.argument,
+                    )
+                    assert (gs.executed_proposal.operation, gs.executed_proposal.argument) == (
+                        ss.executed_proposal.operation,
+                        ss.executed_proposal.argument,
+                    )
+                    assert gs.executed_proposal.joint_log_probability == pytest.approx(
+                        ss.executed_proposal.joint_log_probability, rel=1e-5, abs=1e-5
+                    )
+

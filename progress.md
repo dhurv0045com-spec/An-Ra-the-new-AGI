@@ -248,3 +248,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to `b87ff909d9e91bf60f17661fbbea49c76978f53e` with `RUN_STUDY=True`, `CUBLAS_WORKSPACE_CONFIG=:4096:8`, and `PHASE=data-control`.
 - Verified `git archive` rebuild reproduces identical LF notebook bytes (`49cc8ee00dc97c060c6c4c854837fd7a7f525b787726415b2c0a54d5095e5a35`) and updated `Experiment Result/V8/`.
 - Ready for full CI verification, `git push`, and Kaggle 2xT4 Commit / Save & Run All execution.
+
+### 2026-11-14 | Gemini | Implement GPU-batched episode rollout evaluation and notebook NO_GO guard
+- Observed Kaggle T4x2 run `b87ff909`: training measured `0.39s/upd` (~37m on 2xT4) while unbatched `batch=1` eval measured `0.252s/ep` (`32,012s` serial -> `NO_GO: RESOURCE_INFEASIBLE`).
+- Added lockstep batched evaluation (`propose_batch` + cross-mode shared step scoring) in `policies.py` and `evaluation.py`, warmup + 4-mode `run_profile` eval timing in `worker.py`, and `NO_GO`/`INVALID_RESULTS` cell failure in `build_elendril_v8_notebook.py`.
+- Verified exact parity between batched and sequential `run_episode` across all 4 `POLICY_MODES` for `P` and `B0`; all 29 focused V8 tests pass locally (CPU).

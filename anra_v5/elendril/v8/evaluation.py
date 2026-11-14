@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import asdict, dataclass
+from hashlib import sha256
 import math
 import random
 from typing import Any, Callable
@@ -17,7 +18,7 @@ from anra_v5.elendril.v6_evaluation import parse_action
 from .contracts import POLICY_MODES, SCREEN_MAX_SEQUENCE, SYMBOLS, EvaluationOutcome, PolicyProposal, PublicInput, V8ModelSpec
 from .data import render_public_v8
 from .models import OP_TO_INDEX, algebraic_null_from_joint, compute_typed_nll
-from .policies import make_policy
+from .policies import V8BytePolicy, V8TypedPolicy, make_policy
 from .teacher import PublicFact, TeacherStep, teacher_decide
 from .training import teacher_steps_to_typed_samples
 from .verifier import verify_episode_trace
@@ -55,78 +56,128 @@ class EpisodeRecord:
     is_isolated_one_edge_probe: bool | None = None
 
 
-def run_episode(
-    policy: Any,
-    world: dict[str, object],
-    *,
-    render_fn: Callable[..., str] = render_public_v8,
-    max_actions: int = 4,
-    extra_initial_facts: tuple[PublicFact, ...] = (),
-) -> EpisodeRecord:
-    """Execute one episode with strict actor/verifier truth separation."""
+class _EpisodeRolloutState:
+    """Mutable per-(world, mode) rollout state shared by single and batched episode runners."""
 
-    initial_facts = tuple(PublicFact(**row) for row in world["initial_facts"]) + tuple(extra_initial_facts)
-    ordered_facts = list(initial_facts)
-    seen_facts = set(initial_facts)
-    query_avail = bool(world["allowed_public_tools"]["query_available"])
-    mem_avail = bool(world["allowed_public_tools"]["memory_available"])
-    goal_subject = str(world["goal_subject"])
-    hops = int(world["hops"])
-    template_id = int(world["renderer_template"])
-    alias_prefix = str(world["alias_prefix"])
-    order_seed = int(world["row_order_seed"])
+    __slots__ = (
+        "world",
+        "mode",
+        "model_identity",
+        "ordered_facts",
+        "seen_facts",
+        "query_avail",
+        "mem_avail",
+        "goal_subject",
+        "hops",
+        "template_id",
+        "alias_prefix",
+        "order_seed",
+        "steps",
+        "executed_actions",
+        "first_div",
+        "queried",
+        "retrieved",
+        "query_count",
+        "retrieve_count",
+        "model_calls",
+        "evaluated_positions",
+        "teacher_matches",
+        "terminal_status",
+        "is_open",
+    )
 
-    steps: list[EpisodeStepRecord] = []
-    executed_actions: list[tuple[str, str | None]] = []
-    first_div: dict[str, object] | None = None
-    queried = False
-    retrieved = False
-    query_count = 0
-    retrieve_count = 0
-    model_calls = 0
-    evaluated_positions = 0
-    teacher_matches = 0
-    terminal_status = "BUDGET_EXHAUSTED"
+    def __init__(
+        self,
+        world: dict[str, object],
+        *,
+        mode: str,
+        model_identity: str,
+        extra_initial_facts: tuple[PublicFact, ...] = (),
+    ) -> None:
+        self.world = world
+        self.mode = mode
+        self.model_identity = model_identity
+        initial_facts = tuple(PublicFact(**row) for row in world["initial_facts"]) + tuple(extra_initial_facts)
+        self.ordered_facts: list[PublicFact] = list(initial_facts)
+        self.seen_facts: set[PublicFact] = set(initial_facts)
+        self.query_avail = bool(world["allowed_public_tools"]["query_available"])
+        self.mem_avail = bool(world["allowed_public_tools"]["memory_available"])
+        self.goal_subject = str(world["goal_subject"])
+        self.hops = int(world["hops"])
+        self.template_id = int(world["renderer_template"])
+        self.alias_prefix = str(world["alias_prefix"])
+        self.order_seed = int(world["row_order_seed"])
+        self.steps: list[EpisodeStepRecord] = []
+        self.executed_actions: list[tuple[str, str | None]] = []
+        self.first_div: dict[str, object] | None = None
+        self.queried = False
+        self.retrieved = False
+        self.query_count = 0
+        self.retrieve_count = 0
+        self.model_calls = 0
+        self.evaluated_positions = 0
+        self.teacher_matches = 0
+        self.terminal_status = "BUDGET_EXHAUSTED"
+        self.is_open = True
 
-    from hashlib import sha256
-
-    for decision in range(max_actions):
+    def observe(
+        self,
+        render_fn: Callable[..., str],
+        *,
+        decision: int,
+        max_actions: int,
+    ) -> tuple[str, PublicInput, str, str | None]:
         text = render_fn(
-            ordered_facts=tuple(ordered_facts),
-            goal_subject=goal_subject,
-            hops=hops,
-            query_available=query_avail,
-            memory_available=mem_avail,
-            template_id=template_id,
-            alias_prefix=alias_prefix,
-            order_seed=order_seed,
+            ordered_facts=tuple(self.ordered_facts),
+            goal_subject=self.goal_subject,
+            hops=self.hops,
+            query_available=self.query_avail,
+            memory_available=self.mem_avail,
+            template_id=self.template_id,
+            alias_prefix=self.alias_prefix,
+            order_seed=self.order_seed,
             decision=decision,
         )
         pub = PublicInput(
             text_utf8=text,
-            query_available=query_avail,
-            memory_available=mem_avail,
+            query_available=self.query_avail,
+            memory_available=self.mem_avail,
             action_budget=max_actions - decision,
         )
-        ideal_op, ideal_arg = teacher_decide(tuple(ordered_facts), goal_subject, hops, query_avail, mem_avail)
+        ideal_op, ideal_arg = teacher_decide(
+            tuple(self.ordered_facts),
+            self.goal_subject,
+            self.hops,
+            self.query_avail,
+            self.mem_avail,
+        )
+        return sha256(text.encode("utf-8")).hexdigest(), pub, ideal_op, ideal_arg
 
-        # Actor only receives PublicInput; never touches world truth or hidden state.
-        exec_prop, raw_prop = policy.propose(pub)
-        model_calls += max(exec_prop.model_calls, raw_prop.model_calls)
-        evaluated_positions += max(exec_prop.evaluated_positions, raw_prop.evaluated_positions)
+    def apply_step(
+        self,
+        *,
+        decision: int,
+        text_sha256: str,
+        ideal_op: str,
+        ideal_arg: str | None,
+        exec_prop: PolicyProposal,
+        raw_prop: PolicyProposal,
+    ) -> None:
+        self.model_calls += max(exec_prop.model_calls, raw_prop.model_calls)
+        self.evaluated_positions += max(exec_prop.evaluated_positions, raw_prop.evaluated_positions)
 
         div_raw = (exec_prop.operation, exec_prop.argument) != (raw_prop.operation, raw_prop.argument)
         div_teacher = (exec_prop.operation, exec_prop.argument) != (ideal_op, ideal_arg if ideal_op == "ANSWER" else None)
         if exec_prop.operation == "QUERY" and ideal_op == "QUERY":
             div_teacher = False
         if not div_teacher:
-            teacher_matches += 1
+            self.teacher_matches += 1
 
-        if first_div is None and (div_raw or div_teacher):
+        if self.first_div is None and (div_raw or div_teacher):
             reason = "mode_constraint" if div_raw else (
                 "wrong_operation" if exec_prop.operation != ideal_op else "wrong_argument"
             )
-            first_div = {
+            self.first_div = {
                 "decision": decision,
                 "reason": reason,
                 "raw_op": raw_prop.operation,
@@ -137,10 +188,10 @@ def run_episode(
                 "ideal_arg": ideal_arg,
             }
 
-        steps.append(
+        self.steps.append(
             EpisodeStepRecord(
                 decision=decision,
-                public_text_sha256=sha256(text.encode("utf-8")).hexdigest(),
+                public_text_sha256=text_sha256,
                 raw_proposal=raw_prop,
                 executed_proposal=exec_prop,
                 ideal_operation=ideal_op,
@@ -153,79 +204,117 @@ def run_episode(
         op = exec_prop.operation
         arg = exec_prop.argument
         if op == "INVALID":
-            executed_actions.append(("INVALID", None))
-            terminal_status = "INVALID_ACTION"
-            break
-        if op == "QUERY":
-            executed_actions.append(("QUERY", arg))
-            query_count += 1
-            if not query_avail:
-                terminal_status = "UNAVAILABLE_QUERY"
-                break
-            if not queried:
-                queried = True
-                for row in world["hidden"]["query_payload"]:
+            self.executed_actions.append(("INVALID", None))
+            self.terminal_status = "INVALID_ACTION"
+            self.is_open = False
+        elif op == "QUERY":
+            self.executed_actions.append(("QUERY", arg))
+            self.query_count += 1
+            if not self.query_avail:
+                self.terminal_status = "UNAVAILABLE_QUERY"
+                self.is_open = False
+            elif not self.queried:
+                self.queried = True
+                for row in self.world["hidden"]["query_payload"]:
                     f = PublicFact(**row)
-                    if f not in seen_facts:
-                        seen_facts.add(f)
-                        ordered_facts.append(f)
-            continue
-        if op == "RETRIEVE":
-            executed_actions.append(("RETRIEVE", None))
-            retrieve_count += 1
-            if not mem_avail:
-                terminal_status = "UNAVAILABLE_RETRIEVE"
-                break
-            if not retrieved:
-                retrieved = True
-                for row in world["hidden"]["memory_payload"]:
+                    if f not in self.seen_facts:
+                        self.seen_facts.add(f)
+                        self.ordered_facts.append(f)
+        elif op == "RETRIEVE":
+            self.executed_actions.append(("RETRIEVE", None))
+            self.retrieve_count += 1
+            if not self.mem_avail:
+                self.terminal_status = "UNAVAILABLE_RETRIEVE"
+                self.is_open = False
+            elif not self.retrieved:
+                self.retrieved = True
+                for row in self.world["hidden"]["memory_payload"]:
                     f = PublicFact(**row)
-                    if f not in seen_facts:
-                        seen_facts.add(f)
-                        ordered_facts.append(f)
-            continue
-        if op in ("ANSWER", "ABSTAIN"):
-            executed_actions.append((op, arg))
-            terminal_status = f"TERMINAL_{op}"
-            break
+                    if f not in self.seen_facts:
+                        self.seen_facts.add(f)
+                        self.ordered_facts.append(f)
+        elif op in ("ANSWER", "ABSTAIN"):
+            self.executed_actions.append((op, arg))
+            self.terminal_status = f"TERMINAL_{op}"
+            self.is_open = False
 
-    outcome = verify_episode_trace(world, executed_actions)
-    if terminal_status not in ("INVALID_ACTION", "UNAVAILABLE_QUERY", "UNAVAILABLE_RETRIEVE"):
-        terminal_status = outcome.terminal_status
-    final_outcome = EvaluationOutcome(
-        correct=outcome.correct and terminal_status not in ("INVALID_ACTION", "UNAVAILABLE_QUERY", "UNAVAILABLE_RETRIEVE"),
-        terminal_status=terminal_status,
-        charged_cost=outcome.charged_cost,
-        verifier_identity=outcome.verifier_identity,
-    )
-    total_edges = (
-        len(world["initial_facts"])
-        + len(world["hidden"]["query_payload"])
-        + len(world["hidden"]["memory_payload"])
-    )
-    is_iso = (
-        bool(world["is_isolated_one_edge_probe"])
-        if "is_isolated_one_edge_probe" in world
-        else (total_edges == 1 and hops <= 1)
-    )
-    return EpisodeRecord(
-        world_id=str(world["world_id"]),
-        base_world_id=str(world.get("parent_world_id") or world.get("base_world_id") or world["world_id"]),
-        cohort=str(world.get("scenario") or world.get("cohort") or "R09"),
-        family=str(world["family"]),
-        form=str(world.get("variant") or world.get("form") or "canonical"),
+    def finalize(self) -> EpisodeRecord:
+        world = self.world
+        outcome = verify_episode_trace(world, self.executed_actions)
+        terminal_status = self.terminal_status
+        if terminal_status not in ("INVALID_ACTION", "UNAVAILABLE_QUERY", "UNAVAILABLE_RETRIEVE"):
+            terminal_status = outcome.terminal_status
+        final_outcome = EvaluationOutcome(
+            correct=outcome.correct and terminal_status not in ("INVALID_ACTION", "UNAVAILABLE_QUERY", "UNAVAILABLE_RETRIEVE"),
+            terminal_status=terminal_status,
+            charged_cost=outcome.charged_cost,
+            verifier_identity=outcome.verifier_identity,
+        )
+        total_edges = (
+            len(world["initial_facts"])
+            + len(world["hidden"]["query_payload"])
+            + len(world["hidden"]["memory_payload"])
+        )
+        is_iso = (
+            bool(world["is_isolated_one_edge_probe"])
+            if "is_isolated_one_edge_probe" in world
+            else (total_edges == 1 and self.hops <= 1)
+        )
+        return EpisodeRecord(
+            world_id=str(world["world_id"]),
+            base_world_id=str(world.get("parent_world_id") or world.get("base_world_id") or world["world_id"]),
+            cohort=str(world.get("scenario") or world.get("cohort") or "R09"),
+            family=str(world["family"]),
+            form=str(world.get("variant") or world.get("form") or "canonical"),
+            mode=self.mode,
+            model_identity=self.model_identity,
+            steps=tuple(self.steps),
+            outcome=final_outcome,
+            first_observable_divergence=self.first_div,
+            query_count=self.query_count,
+            retrieve_count=self.retrieve_count,
+            model_calls=self.model_calls,
+            evaluated_positions=self.evaluated_positions,
+            teacher_action_matches=self.teacher_matches,
+            is_isolated_one_edge_probe=is_iso,
+        )
+
+
+def run_episode(
+    policy: Any,
+    world: dict[str, object],
+    *,
+    render_fn: Callable[..., str] = render_public_v8,
+    max_actions: int = 4,
+    extra_initial_facts: tuple[PublicFact, ...] = (),
+) -> EpisodeRecord:
+    """Execute one episode with strict actor/verifier truth separation."""
+
+    state = _EpisodeRolloutState(
+        world,
         mode=str(policy.mode),
         model_identity=str(policy.model_identity),
-        steps=tuple(steps),
-        outcome=final_outcome,
-        first_observable_divergence=first_div,
-        query_count=query_count,
-        retrieve_count=retrieve_count,
-        model_calls=model_calls,
-        evaluated_positions=evaluated_positions,
-        teacher_action_matches=teacher_matches,
-        is_isolated_one_edge_probe=is_iso,
+        extra_initial_facts=extra_initial_facts,
     )
+    for decision in range(max_actions):
+        if not state.is_open:
+            break
+        text_sha256, pub, ideal_op, ideal_arg = state.observe(
+            render_fn,
+            decision=decision,
+            max_actions=max_actions,
+        )
+        # Actor only receives PublicInput; never touches world truth or hidden state.
+        exec_prop, raw_prop = policy.propose(pub)
+        state.apply_step(
+            decision=decision,
+            text_sha256=text_sha256,
+            ideal_op=ideal_op,
+            ideal_arg=ideal_arg,
+            exec_prop=exec_prop,
+            raw_prop=raw_prop,
+        )
+    return state.finalize()
 
 
 def evaluate_worlds_by_mode(
@@ -237,19 +326,133 @@ def evaluate_worlds_by_mode(
     modes: tuple[str, ...] = POLICY_MODES,
     render_fn: Callable[..., str] = render_public_v8,
     copy_enabled_override: bool | None = None,
+    batch_size: int = 32,
+    cand_batch_seqs: int = 64,
 ) -> dict[str, list[EpisodeRecord]]:
-    """Evaluate a collection of worlds under all requested policy modes."""
+    """Evaluate a collection of worlds under all requested policy modes using batched inference."""
 
-    results: dict[str, list[EpisodeRecord]] = {}
     for mode in modes:
-        pol = make_policy(
-            model,
-            v8_spec,
-            model_identity=model_identity,
-            mode=mode,
-            copy_enabled_override=copy_enabled_override,
-        )
-        results[mode] = [run_episode(pol, w, render_fn=render_fn) for w in worlds]
+        if mode not in POLICY_MODES:
+            raise ValueError(f"unsupported policy mode: {mode!r}")
+    if type(batch_size) is not int or batch_size <= 0:
+        raise ValueError("batch_size must be a positive integer")
+    if type(cand_batch_seqs) is not int or cand_batch_seqs <= 0:
+        raise ValueError("cand_batch_seqs must be a positive integer")
+
+    if not modes:
+        return {}
+    if not worlds:
+        return {mode: [] for mode in modes}
+
+    max_actions = 4
+    is_b0 = v8_spec.architecture == "B0"
+    chunk_size = min(batch_size, 16) if is_b0 else batch_size
+    base_policy = make_policy(
+        model,
+        v8_spec,
+        model_identity=model_identity,
+        mode="raw",
+        copy_enabled_override=copy_enabled_override,
+    )
+    results: dict[str, list[EpisodeRecord]] = {mode: [] for mode in modes}
+
+    for chunk_start in range(0, len(worlds), chunk_size):
+        chunk_worlds = worlds[chunk_start : chunk_start + chunk_size]
+        world_obj_to_idx = {id(w): idx for idx, w in enumerate(chunk_worlds)}
+        states_by_mode: dict[str, list[_EpisodeRolloutState]] = {
+            mode: [_EpisodeRolloutState(w, mode=mode, model_identity=model_identity) for w in chunk_worlds]
+            for mode in modes
+        }
+
+        for decision in range(max_actions):
+            open_states: list[_EpisodeRolloutState] = []
+            for mode in modes:
+                for st in states_by_mode[mode]:
+                    if st.is_open:
+                        open_states.append(st)
+            if not open_states:
+                break
+
+            obs_cache: dict[tuple[int, tuple[PublicFact, ...]], tuple[str, PublicInput, str, str | None]] = {}
+            state_obs: list[tuple[_EpisodeRolloutState, str, PublicInput, str, str | None]] = []
+            unique_pubs: list[PublicInput] = []
+            pub_to_idx: dict[PublicInput, int] = {}
+            modes_per_pub: list[set[str]] = []
+
+            for st in open_states:
+                cache_key = (world_obj_to_idx[id(st.world)], tuple(st.ordered_facts))
+                cached = obs_cache.get(cache_key)
+                if cached is None:
+                    cached = st.observe(render_fn, decision=decision, max_actions=max_actions)
+                    obs_cache[cache_key] = cached
+                text_sha256, pub, ideal_op, ideal_arg = cached
+                state_obs.append((st, text_sha256, pub, ideal_op, ideal_arg))
+                p_idx = pub_to_idx.get(pub)
+                if p_idx is None:
+                    p_idx = len(unique_pubs)
+                    pub_to_idx[pub] = p_idx
+                    unique_pubs.append(pub)
+                    modes_per_pub.append({st.mode})
+                else:
+                    modes_per_pub[p_idx].add(st.mode)
+
+            proposals_by_pub_and_mode: dict[tuple[int, str], tuple[PolicyProposal, PolicyProposal]] = {}
+            if is_b0:
+                assert isinstance(base_policy, V8BytePolicy)
+                raw_only_pubs = [i for i, mset in enumerate(modes_per_pub) if mset == {"raw"}]
+                cand_pubs = [i for i, mset in enumerate(modes_per_pub) if mset != {"raw"}]
+                for sub_start in range(0, len(raw_only_pubs), chunk_size):
+                    sub_indices = raw_only_pubs[sub_start : sub_start + chunk_size]
+                    sub_pubs = [unique_pubs[i] for i in sub_indices]
+                    batch_props = base_policy.propose_batch(sub_pubs, max_cand_batch_seqs=cand_batch_seqs)
+                    for pub_idx, pair in zip(sub_indices, batch_props):
+                        proposals_by_pub_and_mode[(pub_idx, "raw")] = pair
+                for sub_start in range(0, len(cand_pubs), chunk_size):
+                    sub_indices = cand_pubs[sub_start : sub_start + chunk_size]
+                    sub_pubs = [unique_pubs[i] for i in sub_indices]
+                    sub_modes = tuple(sorted({m for i in sub_indices for m in modes_per_pub[i]}))
+                    scored_by_mode = base_policy.score_b0_all_modes_batch(
+                        sub_pubs,
+                        modes=sub_modes,
+                        max_cand_batch_seqs=cand_batch_seqs,
+                    )
+                    for m, pairs in scored_by_mode.items():
+                        for pub_idx, pair in zip(sub_indices, pairs):
+                            if m in modes_per_pub[pub_idx]:
+                                proposals_by_pub_and_mode[(pub_idx, m)] = pair
+            else:
+                assert isinstance(base_policy, V8TypedPolicy)
+                for sub_start in range(0, len(unique_pubs), chunk_size):
+                    sub_pubs = unique_pubs[sub_start : sub_start + chunk_size]
+                    probs_19_batch, prompt_lens = base_policy.extract_probs_batch(sub_pubs)
+                    for k, pub in enumerate(sub_pubs):
+                        pub_idx = sub_start + k
+                        probs_19 = probs_19_batch[k]
+                        p_len = prompt_lens[k]
+                        for m in modes_per_pub[pub_idx]:
+                            proposals_by_pub_and_mode[(pub_idx, m)] = base_policy.proposals_from_probs(
+                                probs_19,
+                                pub,
+                                evaluated_positions=p_len,
+                                mode=m,
+                            )
+
+            for st, text_sha256, pub, ideal_op, ideal_arg in state_obs:
+                pub_idx = pub_to_idx[pub]
+                exec_prop, raw_prop = proposals_by_pub_and_mode[(pub_idx, st.mode)]
+                st.apply_step(
+                    decision=decision,
+                    text_sha256=text_sha256,
+                    ideal_op=ideal_op,
+                    ideal_arg=ideal_arg,
+                    exec_prop=exec_prop,
+                    raw_prop=raw_prop,
+                )
+
+        for mode in modes:
+            for st in states_by_mode[mode]:
+                results[mode].append(st.finalize())
+
     return results
 
 
