@@ -227,3 +227,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added isolated 2-GPU worker/campaign coordinator (tools/elendril_hitchhiker_{worker,campaign,export}.py) with storage/forecast admission, SIGTERM/FULL-ZIP restore recovery, dual verified archive export, and source-pinned T4x2 notebook builder.
 - Verified via pytest tests/test_elendril_hitchhiker.py (12 passed), runner verify-suite/stage0-audit/cpu-mechanical-check, and tools.verify_elendril_evidence; no GPU training, live S20 weights, or capability promotion executed locally.
 - Pending: commit source-pinned notebook, Kaggle T4x2 physical GPU qualification, mounted S20 Stage 0 audit, and Stage 1-3 training/confirmation execution.
+
+### 2026-11-15 | Antigravity | Hitchhiker prelaunch R1-R10 fixes and Kaggle readiness
+- Resolved R1-R10 across data/diagnostics/eval/training/worker/campaign/export, including selective verified Stage 2/3 archive handoff (replacing full-archive unpack) and cross-phase winner propagation.
+- Hardened tools/build_elendril_hitchhiker_notebook.py for zero-input Stage 1 Run All on Kaggle T4x2 (sys.executable, PYTHONDONTWRITEBYTECODE=1, per-phase WORK_ROOT, 480m budget, FileLink surfacing on NO_GO/interrupt).
+- Verified via pytest -n 4 -q (426 passed, 1 skipped, 14 subtests passed; 22/22 Hitchhiker tests), verify-suite, cpu-mechanical-check, stage0-audit, and tools.verify_elendril_evidence on CPU only.
+- Pending execution: Kaggle T4x2 GPU qualification, mounted S20-low-lr Stage 0 audit, and Stage 1-3 training/confirmation runs.

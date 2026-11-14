@@ -14,7 +14,7 @@ from v5_contracts.model_spec import ModelSpec
 from v5_training.optimizer import validate_parameter_ownership
 from .codec import digest
 from .foundation_training import Recipe
-from .hitchhiker_data import build_training_stream, validate_stream_contract
+from .hitchhiker_data import build_training_stream, validate_stream_contract, verify_custody_receipt
 from .hitchhiker_diagnostics import TOKEN_Q, TOKEN_R
 from .hitchhiker_protocol import (
     ALL_ARMS,
@@ -374,6 +374,9 @@ def create_hitchhiker_trainer(
         is_cpu_canary=is_cpu,
     )
 
+    if not is_cpu and not heldout_suites:
+        raise ValueError("CUDA training requires non-empty heldout_suites for data custody verification")
+
     if stream is None:
         stream = build_training_stream(
             job["arm"],
@@ -392,8 +395,12 @@ def create_hitchhiker_trainer(
         total_updates=total_updates,
         batch_size=batch_size,
     )
-    if not is_cpu and stream.get("data_custody_verified") is not True:
-        raise ValueError("CUDA training requires stream with data_custody_verified=True")
+    custody_receipt = verify_custody_receipt(stream, heldout_suites=heldout_suites)
+    if not is_cpu and (
+        stream.get("data_custody_verified") is not True
+        or custody_receipt.get("passed") is not True
+    ):
+        raise ValueError("CUDA training requires stream with data_custody_verified=True and passed custody_receipt")
 
     effective_batch = min(batch_size, len(stream["samples"]))
     configure_device(device)

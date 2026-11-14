@@ -340,6 +340,10 @@ def admit_historical_s20_checkpoint(
     if not expected_object_dir.is_dir():
         return _pending_historical_s20_receipt(manifest, seed)
 
+    source_commit = manifest.get("source_commit")
+    if not isinstance(source_commit, str) or len(source_commit) != 40 or any(c not in "0123456789abcdef" for c in source_commit):
+        raise ValueError("historical S20 manifest source_commit must be a 40-char lowercase hex SHA")
+
     store = CheckpointStore(root_path, lineage)
     expected_spec = resolve_scale_profile(manifest["profile"])
     state, metadata, spec, tensor_hashes, backend = _load_verified_checkpoint_backend(
@@ -370,6 +374,8 @@ def admit_historical_s20_checkpoint(
         "parameters": spec.parameter_receipt().total,
         "tensor_sha256s": tensor_hashes,
         "metadata": metadata,
+        "manifest": {k: (list(v) if isinstance(v, tuple) else v) for k, v in manifest.items()},
+        "historical_training_source": source_commit,
         "backend": backend,
         "admission_scope": "historical_s20_low_lr",
     }

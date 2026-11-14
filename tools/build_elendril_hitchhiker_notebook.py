@@ -28,12 +28,12 @@ def build(source: str) -> dict:
         f"""# Elendril Hitchhiker -- Kaggle T4x2 Source-Pinned Experiment
 
 - Exact pinned commit: `{source}`
-- Phases supported:
-  - `stage0`: Historical `V7.17` `S20-low-lr` frozen checkpoint audit (`--stage0-checkpoint-root`, if mounted).
-  - `stage1`: 15-run `S3` dev screening (`B0, A, B, AB, C` x seeds `7, 19, 41`), locking dev `selection_receipt.json`.
-  - `stage2`: Conditional follow-ups (`AB+C`, `C+penalty`, `D-external`, `S20-contrast`).
-  - `stage3`: Locked-winner `S8`/`S20` scale & formation confirmation on independent `confirmation` + structural holdouts.
-- Output directory: `/kaggle/working/elendril_hitchhiker_run`
+- Phases & readiness:
+  - `stage0`: Historical `V7.17` `S20-low-lr` frozen checkpoint audit (**requires mounted `V7.17` `S20-low-lr` weights** via `STAGE0_CHECKPOINT_ROOT`).
+  - `stage1`: **Stage 1 ready after GPU preflight** -- 15-run `S3` dev screening (`B0, A, B, AB, C` x seeds `7, 19, 41`), locking dev `selection_receipt.json`.
+  - `stage2`: **Requires completed Stage 1 handoff archive & `selection_receipt.json`** (`HANDOFF_ARCHIVE`) -- conditional follow-ups (`AB+C`, `C+penalty`, `D-external`, `S20-contrast`).
+  - `stage3`: **Requires completed Stage 1 handoff archive & `selection_receipt.json`** (`HANDOFF_ARCHIVE`, with `WINNING_ARM` optional when `selection_receipt.json` supplies it) -- locked-winner `S8`/`S20` scale & formation confirmation on independent `confirmation` + structural holdouts.
+- Output directory: `/kaggle/working/elendril_hitchhiker_<PHASE>`
 - Verified deliverable bundles:
   - `exports/ELENDRIL_HITCHHIKER_ANALYSIS.zip`
   - `exports/ELENDRIL_HITCHHIKER_FULL.zip`
@@ -44,44 +44,42 @@ Archive integrity proves byte fidelity, not scientific capability. Only `gate.st
 
     setup = cell(
         "code",
-        f"""import json, os, shutil, subprocess, tarfile
+        f"""import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 OWNER_ENABLED = True
 PHASE = "stage1"  # 'stage0', 'stage1', 'stage2', or 'stage3'
-MINUTES_BUDGET = 540
+MINUTES_BUDGET = 480
 SOURCE_COMMIT = "{source}"
 REPO_URL = "{REPOSITORY_URL}"
 
-STAGE0_CHECKPOINT_ROOT = None  # e.g. Path("/kaggle/input/elendril-v717-s20-checkpoints/checkpoints")
-RESUME_ARCHIVE = None          # e.g. Path("/kaggle/input/elendril-hitchhiker-stage1/ELENDRIL_HITCHHIKER_FULL.zip")
-WINNING_ARM = None             # required when running PHASE='stage3' directly from a restored Stage 1 bundle
-ADMITTED_FOLLOWUPS = []        # optional subset for PHASE='stage2', e.g. ["AB+C", "C+penalty"]
+STAGE0_CHECKPOINT_ROOT = None  # required for stage0: mounted V7.17 S20-low-lr weights
+RESUME_ARCHIVE = None          # optional same-phase ELENDRIL_HITCHHIKER_FULL.zip for interrupted recovery
+HANDOFF_ARCHIVE = None         # required for stage2/stage3 from completed Stage 1 (or Stage 2) ELENDRIL_HITCHHIKER_FULL.zip
+WINNING_ARM = None             # optional for stage3 when selection_receipt.json supplies winning_arm
+ADMITTED_FOLLOWUPS = []        # optional narrowing subset for stage2, e.g. ["AB+C", "D-external"]
 
-WORK_ROOT = Path("/kaggle/working/elendril_hitchhiker_run")
+assert PHASE in {{"stage0", "stage1", "stage2", "stage3"}}, f"Unsupported PHASE: {{PHASE!r}}"
+WORK_ROOT = Path(f"/kaggle/working/elendril_hitchhiker_{{PHASE}}")
 CODE_ROOT = Path("/kaggle/working/anra_src")
 WORK_ROOT.mkdir(parents=True, exist_ok=True)
 if CODE_ROOT.exists():
     shutil.rmtree(CODE_ROOT)
-CODE_ROOT.mkdir(parents=True, exist_ok=True)
 
-tar_path = Path("/kaggle/working/pinned_repo.tar")
-subprocess.run(["git", "clone", "--no-checkout", REPO_URL, str(CODE_ROOT / ".git_mirror")], check=True)
-subprocess.run(["git", "-C", str(CODE_ROOT / ".git_mirror"), "fetch", "--all", "--tags"], check=True)
-resolved = subprocess.check_output(["git", "-C", str(CODE_ROOT / ".git_mirror"), "rev-parse", SOURCE_COMMIT], text=True).strip()
+subprocess.run(["git", "clone", "--no-checkout", REPO_URL, str(CODE_ROOT)], check=True)
+subprocess.run(["git", "-C", str(CODE_ROOT), "fetch", "--all", "--tags"], check=True)
+resolved = subprocess.check_output(["git", "-C", str(CODE_ROOT), "rev-parse", SOURCE_COMMIT], text=True).strip()
 assert resolved == SOURCE_COMMIT, f"commit mismatch: {{resolved}} != {{SOURCE_COMMIT}}"
-subprocess.run(["git", "-C", str(CODE_ROOT / ".git_mirror"), "archive", "--format=tar", f"--output={{tar_path}}", SOURCE_COMMIT], check=True)
-with tarfile.open(tar_path) as tf:
-    tf.extractall(CODE_ROOT)
+subprocess.run(["git", "-C", str(CODE_ROOT), "checkout", "--detach", SOURCE_COMMIT], check=True)
 os.chdir(CODE_ROOT)
-print("Verified clean source extract at commit", SOURCE_COMMIT)
+print("Verified clean source checkout at commit", SOURCE_COMMIT, "Python:", sys.executable)
 """,
     )
 
     run_cell = cell(
         "code",
         f"""cmd = [
-    "python", "-m", "tools.elendril_hitchhiker_campaign",
+    sys.executable, "-m", "tools.elendril_hitchhiker_campaign",
     "--output", str(WORK_ROOT),
     "--source", SOURCE_COMMIT,
     "--phase", PHASE,
@@ -93,21 +91,42 @@ if STAGE0_CHECKPOINT_ROOT is not None:
     cmd.extend(["--stage0-checkpoint-root", str(STAGE0_CHECKPOINT_ROOT)])
 if RESUME_ARCHIVE is not None:
     cmd.extend(["--resume-archive", str(RESUME_ARCHIVE)])
-if WINNING_ARM is not None:
+if HANDOFF_ARCHIVE is not None:
+    cmd.extend(["--handoff-archive", str(HANDOFF_ARCHIVE)])
+if WINNING_ARM:
     cmd.extend(["--winning-arm", str(WINNING_ARM)])
 if ADMITTED_FOLLOWUPS:
     cmd.extend(["--admitted-followups", *ADMITTED_FOLLOWUPS])
 
+env = {{**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}}
 print("Launching:", " ".join(cmd))
-subprocess.run(cmd, cwd=CODE_ROOT, check=True)
-final_status = json.loads((WORK_ROOT / "exports" / "FINAL_STATUS.json").read_text())
-print(json.dumps({{
-    "status": final_status["status"],
-    "claim_status": final_status.get("claim_status"),
-    "phase": final_status.get("phase"),
-    "replay": final_status.get("independent_replay", {{}}).get("status"),
-    "errors": final_status.get("errors"),
-}}, indent=2))
+proc = subprocess.run(cmd, cwd=CODE_ROOT, env=env)
+
+status_file = WORK_ROOT / "exports" / "FINAL_STATUS.json"
+if not status_file.exists():
+    status_file = WORK_ROOT / "analysis" / "campaign_status.json"
+if status_file.exists():
+    final_status = json.loads(status_file.read_text(encoding="utf-8"))
+    print(json.dumps({{
+        "returncode": proc.returncode,
+        "status": final_status.get("status"),
+        "claim_status": final_status.get("claim_status"),
+        "phase": final_status.get("phase"),
+        "replay": final_status.get("independent_replay", {{}}).get("status"),
+        "errors": final_status.get("errors"),
+    }}, indent=2))
+
+try:
+    from IPython.display import FileLink, display
+    for name in ("ELENDRIL_HITCHHIKER_ANALYSIS.zip", "ELENDRIL_HITCHHIKER_FULL.zip", "FINAL_STATUS.json"):
+        target = WORK_ROOT / "exports" / name
+        if target.exists():
+            display(FileLink(str(target)))
+except ImportError:
+    pass
+
+if proc.returncode != 0:
+    raise RuntimeError(f"Hitchhiker campaign exited with code {{proc.returncode}}; inspect printed status and exports above.")
 """,
     )
 

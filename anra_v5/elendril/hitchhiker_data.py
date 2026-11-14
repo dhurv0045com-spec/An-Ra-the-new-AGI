@@ -34,6 +34,7 @@ from .v6_data import (
     KINDS,
     MAX_SEQUENCE,
     SYMBOLS,
+    VERSION as V6_VERSION,
     Surface,
     V6Case,
     V6Dataset,
@@ -53,6 +54,7 @@ from .v7_training import ordered_indices
 
 HITCHHIKER_DATA_VERSION = "elendril-hitchhiker-worlds-v1"
 HITCHHIKER_STREAM_VERSION = "elendril-hitchhiker-stream-v1"
+HITCHHIKER_CUSTODY_SCHEMA = "elendril-hitchhiker-custody-receipt-v1"
 
 # Canonical 14-stratum coverage schedule crossing completeness, hop depth, memory, and query availability.
 COVERAGE_PATTERNS: tuple[tuple[str, int, bool, bool], ...] = (
@@ -501,12 +503,16 @@ def _variant_case(
     )
 
 
+def _exact_instance_key(subject: str, events: tuple[ExperienceEvent, ...]) -> str:
+    return digest([subject, [[e.subject, e.source, e.tick, e.value] for e in events]])
+
+
 def _sample_base_chains(
     seed: int,
     hops: int,
     count: int,
     split: str,
-    used_states: set[str],
+    used_exact_keys: set[str],
     forbidden_families: set[str],
 ) -> tuple[V6Case, ...]:
     rng = random.Random(int(digest([HITCHHIKER_DATA_VERSION, "chain", seed, hops, split]), 16))
@@ -525,13 +531,14 @@ def _sample_base_chains(
             tick = rng.randrange(10, 700)
         world = digest([HITCHHIKER_DATA_VERSION, "chain-world", seed, hops, split, nodes, tick, attempts])
         scope, reuse = "world-" + world, "memory-" + world
-        src = f"src-{rng.randrange(64):02d}"
+        src = "map"
         goal = Goal(world, "route", nodes[0], scope, reuse, tuple(nodes[: hops + 1]))
         events = tuple(ExperienceEvent(scope, nodes[i], src, tick + i, nodes[i + 1]) for i in range(hops))
         state = CognitiveState(goal).observe(events)
         skey = _state_key(state, (), False)
         fkey = family_split_key(state, (), False)
-        if _partition(skey) != split or skey in used_states or fkey in forbidden_families:
+        ekey = _exact_instance_key(goal.subject, events)
+        if _partition(skey) != split or ekey in used_exact_keys or fkey in forbidden_families:
             continue
         # Ensure factor-answer-edge-swap has at least one untouched alternative target in the same split partition.
         path_nodes = nodes[:hops]
@@ -549,7 +556,21 @@ def _sample_base_chains(
         )
         if not has_split_alt:
             continue
-        used_states.add(skey)
+        # Ensure factor-source-renaming has at least one renamed src-XX variant in the same split partition.
+        has_split_src = any(
+            _partition(
+                _state_key(
+                    CognitiveState(goal).observe(tuple(replace(e, source=f"src-{s:02d}") for e in events)),
+                    (),
+                    False,
+                )
+            )
+            == split
+            for s in range(64)
+        )
+        if not has_split_src:
+            continue
+        used_exact_keys.add(ekey)
         env = PublicEnvironment(events, {})
         cases.append(
             V6Case(
@@ -580,7 +601,7 @@ def build_counterfactual_suite(
     if type(worlds_per_hop) is not int or worlds_per_hop < 1:
         raise ValueError("worlds_per_hop must be a positive integer")
     forbidden = set(forbidden_families or ())
-    used_states: set[str] = set()
+    used_exact_keys: set[str] = set()
 
     cohorts: dict[str, list[V6Case]] = {
         "hop-1": [],
@@ -595,11 +616,12 @@ def build_counterfactual_suite(
         "factor-alias-clause": [],
         "factor-answer-edge-swap": [],
         "factor-answer-query-swap": [],
+        "factor-source-renaming": [],
     }
     perm_records: dict[str, dict[str, Any]] = {}
 
     for hops in (1, 2, 3, 4):
-        bases = _sample_base_chains(seed, hops, worlds_per_hop, split, used_states, forbidden)
+        bases = _sample_base_chains(seed, hops, worlds_per_hop, split, used_exact_keys, forbidden)
         cohorts[f"hop-{hops}"].extend(bases)
 
         for idx, base in enumerate(bases):
@@ -676,15 +698,17 @@ def build_counterfactual_suite(
             # Factor 5: Consistent A-P entity permutation (keep permuted state in same split partition)
             pair_perm = digest([base.world_id, "factor-entity-permutation"])
             orig_p = _variant_case(base, "perm-original", base.environment, None, pair_id=pair_perm)
+            orig_skey = _state_key(CognitiveState(orig_p.goal).observe(orig_p.environment.initial), (), False)
             for p_attempt in range(2048):
                 mapping, inverse = entity_bijection((seed, base.world_id, hops, idx, p_attempt))
                 cand_perm = apply_case_permutation(orig_p, mapping)
                 perm_skey = _state_key(CognitiveState(cand_perm.goal).observe(cand_perm.environment.initial), (), False)
-                if _partition(perm_skey) == split and perm_skey not in used_states:
+                perm_ekey = _exact_instance_key(cand_perm.goal.subject, cand_perm.environment.initial)
+                if _partition(perm_skey) == split and perm_skey != orig_skey and perm_ekey not in used_exact_keys:
                     break
             else:
                 raise RuntimeError("exhausted split-disjoint permutation bijection search")
-            used_states.add(perm_skey)
+            used_exact_keys.add(perm_ekey)
             perm_p = replace(
                 cand_perm,
                 pair_id=pair_perm,
@@ -767,7 +791,7 @@ def build_counterfactual_suite(
                 sym_pool = rng_q.sample(SYMBOLS, 2 * (hops + 1))
                 chain_a = sym_pool[: hops + 1]
                 chain_b = sym_pool[hops + 1 :]
-                q_src = f"src-{rng_q.randrange(64):02d}"
+                q_src = "map"
                 q_events = tuple(
                     [ExperienceEvent(base.goal.scope, chain_a[i], q_src, q_tick + i, chain_a[i + 1]) for i in range(hops)]
                     + [ExperienceEvent(base.goal.scope, chain_b[i], q_src, q_tick + 20 + i, chain_b[i + 1]) for i in range(hops)]
@@ -776,9 +800,16 @@ def build_counterfactual_suite(
                 q_slots = tuple(sym_pool)
                 s_a = _state_key(CognitiveState(replace(base.goal, subject=chain_a[0], slots=q_slots)).observe(q_events), (), False)
                 s_b = _state_key(CognitiveState(replace(base.goal, subject=chain_b[0], slots=q_slots)).observe(q_events), (), False)
-                if _partition(s_a) == split and _partition(s_b) == split and s_a not in used_states and s_b not in used_states:
-                    used_states.add(s_a)
-                    used_states.add(s_b)
+                ekey_a = _exact_instance_key(chain_a[0], q_events)
+                ekey_b = _exact_instance_key(chain_b[0], q_events)
+                if (
+                    _partition(s_a) == split
+                    and _partition(s_b) == split
+                    and ekey_a not in used_exact_keys
+                    and ekey_b not in used_exact_keys
+                ):
+                    used_exact_keys.add(ekey_a)
+                    used_exact_keys.add(ekey_b)
                     break
             else:
                 raise RuntimeError("exhausted split-disjoint query-swap generation")
@@ -803,6 +834,34 @@ def build_counterfactual_suite(
                 pair_id=pair_qswap,
             )
             cohorts["factor-answer-query-swap"].extend((case_a, case_b))
+
+            # Factor 8: Familiar training source ("map") vs renamed OOD source ("src-XX")
+            pair_src = digest([base.world_id, "factor-source-renaming"])
+            base_src_code = int(digest([base.world_id, hops, idx]), 16) % 64
+            renamed_events: tuple[ExperienceEvent, ...] | None = None
+            for src_offset in range(64):
+                cand_src = f"src-{(base_src_code + src_offset) % 64:02d}"
+                cand_events = tuple(replace(e, source=cand_src) for e in base.environment.initial)
+                cand_skey = _state_key(CognitiveState(base.goal).observe(cand_events), (), False)
+                cand_ekey = _exact_instance_key(base.goal.subject, cand_events)
+                if _partition(cand_skey) == split and cand_ekey not in used_exact_keys:
+                    used_exact_keys.add(cand_ekey)
+                    renamed_events = cand_events
+                    break
+            if renamed_events is None:
+                raise RuntimeError("exhausted split-disjoint source-renaming search")
+            cohorts["factor-source-renaming"].extend(
+                (
+                    _variant_case(base, "source-familiar", base.environment, None, pair_id=pair_src),
+                    _variant_case(
+                        base,
+                        "source-renamed",
+                        PublicEnvironment(renamed_events, {}),
+                        None,
+                        pair_id=pair_src,
+                    ),
+                )
+            )
 
     frozen = {name: tuple(items) for name, items in cohorts.items()}
     suite = {
@@ -898,6 +957,19 @@ def verify_counterfactual_suite(suite: dict[str, Any]) -> dict[str, Any]:
         a, b = pair
         if a.environment.initial != b.environment.initial or a.goal.subject == b.goal.subject or a.truth.expected == b.truth.expected:
             raise ValueError("factor-answer-query-swap violated identical-graph distinct-query contract")
+
+    if "factor-source-renaming" in cohorts:
+        for pair in grouped("factor-source-renaming").values():
+            if len(pair) != 2 or pair[0].truth.expected != pair[1].truth.expected:
+                raise ValueError("factor-source-renaming altered expected truth")
+            e0 = [(e.scope, e.subject, e.tick, e.value) for e in pair[0].environment.initial]
+            e1 = [(e.scope, e.subject, e.tick, e.value) for e in pair[1].environment.initial]
+            if e0 != e1:
+                raise ValueError("factor-source-renaming altered non-source event fields")
+            if not all(e.source == "map" for e in pair[0].environment.initial):
+                raise ValueError("factor-source-renaming familiar variant must use 'map' source")
+            if any(e.source == "map" for e in pair[1].environment.initial):
+                raise ValueError("factor-source-renaming renamed variant must use renamed source")
 
     return {"status": "PASS", "verified_cases": checked, "cohorts": len(cohorts)}
 
@@ -1044,28 +1116,34 @@ def build_health_probes(
     distractor_trap: list[V6Case] = []
     belief_revision: list[V6Case] = []
     missing_bridge: list[V6Case] = []
+    enforce_split = split in ("train", "validation", "confirmation")
+
+    def matches_split(group: tuple[V6Case, ...]) -> bool:
+        if not enforce_split:
+            return True
+        return all(_partition(sk) == split for item in group for sk in _case_supervision(item)[1])
 
     for idx in range(worlds_per_probe):
         # 1. Distractor / Trap-Hop probe: 3-hop valid + 3-hop disconnected distractor
         #    enriched with a shared-vertex incoming edge and a stale older edge on the queried path.
-        syms = rng.sample(SYMBOLS, 9)
-        world_d = digest([HITCHHIKER_DATA_VERSION, "trap", seed, split, idx])
-        scope_d = "world-" + world_d
-        t0 = 100 + idx
-        events_d = (
-            ExperienceEvent(scope_d, syms[0], "map", t0, syms[1]),
-            ExperienceEvent(scope_d, syms[1], "map", t0 - 5, syms[7]),  # stale older edge on queried path
-            ExperienceEvent(scope_d, syms[1], "map", t0 + 1, syms[2]),
-            ExperienceEvent(scope_d, syms[2], "map", t0 + 2, syms[3]),
-            ExperienceEvent(scope_d, syms[8], "map", t0 + 3, syms[1]),  # shared-vertex incoming edge into syms[1]
-            ExperienceEvent(scope_d, syms[4], "map", t0, syms[5]),
-            ExperienceEvent(scope_d, syms[5], "map", t0 + 1, syms[6]),
-            ExperienceEvent(scope_d, syms[6], "map", t0 + 2, syms[7]),
-        )
-        env_d = PublicEnvironment(events_d, {})
-        goal_d = Goal(world_d, "route", syms[0], scope_d, "memory-" + world_d, tuple(syms))
-        distractor_trap.append(
-            V6Case(
+        for attempt in range(512):
+            syms = rng.sample(SYMBOLS, 9)
+            world_d = digest([HITCHHIKER_DATA_VERSION, "trap", seed, split, idx, attempt])
+            scope_d = "world-" + world_d
+            t0 = 100 + idx
+            events_d = (
+                ExperienceEvent(scope_d, syms[0], "map", t0, syms[1]),
+                ExperienceEvent(scope_d, syms[1], "map", t0 - 5, syms[7]),  # stale older edge on queried path
+                ExperienceEvent(scope_d, syms[1], "map", t0 + 1, syms[2]),
+                ExperienceEvent(scope_d, syms[2], "map", t0 + 2, syms[3]),
+                ExperienceEvent(scope_d, syms[8], "map", t0 + 3, syms[1]),  # shared-vertex incoming edge into syms[1]
+                ExperienceEvent(scope_d, syms[4], "map", t0, syms[5]),
+                ExperienceEvent(scope_d, syms[5], "map", t0 + 1, syms[6]),
+                ExperienceEvent(scope_d, syms[6], "map", t0 + 2, syms[7]),
+            )
+            env_d = PublicEnvironment(events_d, {})
+            goal_d = Goal(world_d, "route", syms[0], scope_d, "memory-" + world_d, tuple(syms))
+            trap_case = V6Case(
                 world_d,
                 world_d,
                 "route",
@@ -1076,122 +1154,150 @@ def build_health_probes(
                 HitchhikerSurface(hops=3, order="shuffle", order_seed=seed + idx),
                 panel="distractor-trap",
             )
-        )
+            if matches_split((trap_case,)):
+                distractor_trap.append(trap_case)
+                break
+        else:
+            raise RuntimeError("exhausted split-disjoint distractor-trap probe sampling")
 
         # 2. Belief revision probe: same-source update + timestamp swap pair + cross-source disagreement variants
-        s_syms = rng.sample(SYMBOLS, 5)
-        subj, old_v, new_v, other_s, other_v = s_syms
-        world_r = digest([HITCHHIKER_DATA_VERSION, "revision", seed, split, idx])
-        scope_r = "world-" + world_r
-        pair_r = digest([world_r, "timestamp-swap"])
-        pair_cross = digest([world_r, "cross-source"])
-        ev_r1 = (
-            ExperienceEvent(scope_r, subj, "s0", 10 + idx, old_v),
-            ExperienceEvent(scope_r, subj, "s0", 20 + idx, new_v),
-            ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
-        )
-        ev_r2 = (
-            ExperienceEvent(scope_r, subj, "s0", 20 + idx, old_v),
-            ExperienceEvent(scope_r, subj, "s0", 10 + idx, new_v),
-            ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
-        )
-        ev_cross = (
-            ExperienceEvent(scope_r, subj, "s0", 10 + idx, old_v),
-            ExperienceEvent(scope_r, subj, "s1", 30 + idx, new_v),
-            ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
-        )
-        resolve_event = ExperienceEvent(scope_r, subj, "s0", 40 + idx, new_v)
-        env_cross_unres = PublicEnvironment(ev_cross, {})
-        env_cross_res = PublicEnvironment(ev_cross, {CHANNEL: (resolve_event,)})
-        goal_r = Goal(world_r, "revision", subj, scope_r, "memory-" + world_r, (subj, other_s))
-        c_r1 = V6Case(
-            digest([world_r, "r1"]),
-            world_r,
-            "revision",
-            "belief-revision",
-            replace(goal_r, episode=digest([world_r, "r1"])),
-            PublicEnvironment(ev_r1, {}),
-            Truth(digest([world_r, "r1"]), new_v, _admitted_ids(PublicEnvironment(ev_r1, {}), None)),
-            HitchhikerSurface(hops=0),
-            pair_id=pair_r,
-            panel="belief-revision-latest",
-        )
-        c_r2 = V6Case(
-            digest([world_r, "r2"]),
-            world_r,
-            "revision",
-            "belief-revision",
-            replace(goal_r, episode=digest([world_r, "r2"])),
-            PublicEnvironment(ev_r2, {}),
-            Truth(digest([world_r, "r2"]), old_v, _admitted_ids(PublicEnvironment(ev_r2, {}), None)),
-            HitchhikerSurface(hops=0),
-            pair_id=pair_r,
-            panel="belief-revision-swapped",
-        )
-        c_cross_unres = V6Case(
-            digest([world_r, "cross-unres"]),
-            world_r,
-            "revision",
-            "belief-revision",
-            replace(goal_r, episode=digest([world_r, "cross-unres"])),
-            env_cross_unres,
-            Truth(digest([world_r, "cross-unres"]), None, _admitted_ids(env_cross_unres, None)),
-            HitchhikerSurface(hops=0),
-            pair_id=pair_cross,
-            panel="belief-revision-cross-source-unresolvable",
-        )
-        c_cross_res = V6Case(
-            digest([world_r, "cross-res"]),
-            world_r,
-            "revision",
-            "belief-revision",
-            replace(goal_r, episode=digest([world_r, "cross-res"])),
-            env_cross_res,
-            Truth(digest([world_r, "cross-res"]), new_v, _admitted_ids(env_cross_res, None)),
-            HitchhikerSurface(hops=0),
-            pair_id=pair_cross,
-            panel="belief-revision-cross-source-resolvable",
-        )
-        belief_revision.extend((c_r1, c_r2, c_cross_unres, c_cross_res))
+        for attempt in range(2048):
+            s_syms = rng.sample(SYMBOLS, 5)
+            subj, old_v, new_v, other_s, other_v = s_syms
+            world_r = digest([HITCHHIKER_DATA_VERSION, "revision", seed, split, idx, attempt])
+            scope_r = "world-" + world_r
+            pair_r = digest([world_r, "timestamp-swap"])
+            ev_r1 = (
+                ExperienceEvent(scope_r, subj, "s0", 10 + idx, old_v),
+                ExperienceEvent(scope_r, subj, "s0", 20 + idx, new_v),
+                ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
+            )
+            ev_r2 = (
+                ExperienceEvent(scope_r, subj, "s0", 20 + idx, old_v),
+                ExperienceEvent(scope_r, subj, "s0", 10 + idx, new_v),
+                ExperienceEvent(scope_r, other_s, "s1", 25 + idx, other_v),
+            )
+            goal_r = Goal(world_r, "revision", subj, scope_r, "memory-" + world_r, (subj, other_s))
+            c_r1 = V6Case(
+                digest([world_r, "r1"]),
+                world_r,
+                "revision",
+                "belief-revision",
+                replace(goal_r, episode=digest([world_r, "r1"])),
+                PublicEnvironment(ev_r1, {}),
+                Truth(digest([world_r, "r1"]), new_v, _admitted_ids(PublicEnvironment(ev_r1, {}), None)),
+                HitchhikerSurface(hops=0),
+                pair_id=pair_r,
+                panel="belief-revision-latest",
+            )
+            c_r2 = V6Case(
+                digest([world_r, "r2"]),
+                world_r,
+                "revision",
+                "belief-revision",
+                replace(goal_r, episode=digest([world_r, "r2"])),
+                PublicEnvironment(ev_r2, {}),
+                Truth(digest([world_r, "r2"]), old_v, _admitted_ids(PublicEnvironment(ev_r2, {}), None)),
+                HitchhikerSurface(hops=0),
+                pair_id=pair_r,
+                panel="belief-revision-swapped",
+            )
+            if matches_split((c_r1, c_r2)):
+                belief_revision.extend((c_r1, c_r2))
+                break
+        else:
+            raise RuntimeError("exhausted split-disjoint belief-revision timestamp probe sampling")
+
+        for attempt in range(8192):
+            s_syms = rng.sample(SYMBOLS, 5)
+            subj, old_v, new_v, other_s, other_v = s_syms
+            world_rx = digest([HITCHHIKER_DATA_VERSION, "revision-cross", seed, split, idx, attempt])
+            scope_rx = "world-" + world_rx
+            pair_cross = digest([world_rx, "cross-source"])
+            ev_cross = (
+                ExperienceEvent(scope_rx, subj, "s0", 10 + idx, old_v),
+                ExperienceEvent(scope_rx, subj, "s1", 30 + idx, new_v),
+                ExperienceEvent(scope_rx, other_s, "s1", 25 + idx, other_v),
+            )
+            resolve_event = ExperienceEvent(scope_rx, subj, "s0", 40 + idx, new_v)
+            env_cross_unres = PublicEnvironment(ev_cross, {})
+            env_cross_res = PublicEnvironment(ev_cross, {CHANNEL: (resolve_event,)})
+            goal_rx = Goal(world_rx, "revision", subj, scope_rx, "memory-" + world_rx, (subj, other_s))
+            c_cross_unres = V6Case(
+                digest([world_rx, "cross-unres"]),
+                world_rx,
+                "revision",
+                "belief-revision",
+                replace(goal_rx, episode=digest([world_rx, "cross-unres"])),
+                env_cross_unres,
+                Truth(digest([world_rx, "cross-unres"]), None, _admitted_ids(env_cross_unres, None)),
+                HitchhikerSurface(hops=0),
+                pair_id=pair_cross,
+                panel="belief-revision-cross-source-unresolvable",
+            )
+            c_cross_res = V6Case(
+                digest([world_rx, "cross-res"]),
+                world_rx,
+                "revision",
+                "belief-revision",
+                replace(goal_rx, episode=digest([world_rx, "cross-res"])),
+                env_cross_res,
+                Truth(digest([world_rx, "cross-res"]), new_v, _admitted_ids(env_cross_res, None)),
+                HitchhikerSurface(hops=0),
+                pair_id=pair_cross,
+                panel="belief-revision-cross-source-resolvable",
+            )
+            if matches_split((c_cross_unres, c_cross_res)):
+                belief_revision.extend((c_cross_unres, c_cross_res))
+                break
+        else:
+            raise RuntimeError("exhausted split-disjoint belief-revision cross-source probe sampling")
 
         # 3. Missing-bridge quartet: A->B, C->D without B->C across (unsolvable, memory, query, complete)
-        m_syms = rng.sample(SYMBOLS, 4)
-        a, b, c, d = m_syms
-        world_m = digest([HITCHHIKER_DATA_VERSION, "missing-bridge", seed, split, idx])
-        scope_m, reuse_m = "world-" + world_m, "memory-" + world_m
-        edge_ab = ExperienceEvent(scope_m, a, "map", 100 + idx, b)
-        edge_cd = ExperienceEvent(scope_m, c, "map", 102 + idx, d)
-        bridge_init = ExperienceEvent(scope_m, b, "map", 101 + idx, c)
-        bridge_mem = ExperienceEvent(reuse_m, b, "map", 101 + idx, c)
-        goal_m = Goal(world_m, "route", a, scope_m, reuse_m, (a, b, c, d))
+        for attempt in range(16384):
+            m_syms = rng.sample(SYMBOLS, 4)
+            a, b, c, d = m_syms
+            world_m = digest([HITCHHIKER_DATA_VERSION, "missing-bridge", seed, split, idx, attempt])
+            scope_m, reuse_m = "world-" + world_m, "memory-" + world_m
+            edge_ab = ExperienceEvent(scope_m, a, "map", 100 + idx, b)
+            edge_cd = ExperienceEvent(scope_m, c, "map", 102 + idx, d)
+            bridge_init = ExperienceEvent(scope_m, b, "map", 101 + idx, c)
+            bridge_mem = ExperienceEvent(reuse_m, b, "map", 101 + idx, c)
+            goal_m = Goal(world_m, "route", a, scope_m, reuse_m, (a, b, c, d))
 
-        env_unsolv = PublicEnvironment((edge_ab, edge_cd), {})
-        env_query = PublicEnvironment((edge_ab, edge_cd), {CHANNEL: (bridge_init,)})
-        env_comp = PublicEnvironment((edge_ab, bridge_init, edge_cd), {})
-        mem = MemoryVersion((bridge_mem,))
+            env_unsolv = PublicEnvironment((edge_ab, edge_cd), {})
+            env_query = PublicEnvironment((edge_ab, edge_cd), {CHANNEL: (bridge_init,)})
+            env_comp = PublicEnvironment((edge_ab, bridge_init, edge_cd), {})
+            mem = MemoryVersion((bridge_mem,))
 
-        for tag, env_i, mem_i, exp_i in (
-            ("mb-unsolvable", env_unsolv, None, None),
-            ("mb-memory", env_unsolv, mem, d),
-            ("mb-query", env_query, None, d),
-            ("mb-complete", env_comp, None, d),
-        ):
-            cid = digest([world_m, tag])
-            missing_bridge.append(
-                V6Case(
-                    cid,
-                    world_m,
-                    "route",
-                    tag,
-                    replace(goal_m, episode=cid),
-                    env_i,
-                    Truth(cid, exp_i, _admitted_ids(env_i, mem_i)),
-                    HitchhikerSurface(hops=3),
-                    memory=mem_i,
-                    pair_id=world_m,
-                    panel=tag,
+            quartet = []
+            for tag, env_i, mem_i, exp_i in (
+                ("mb-unsolvable", env_unsolv, None, None),
+                ("mb-memory", env_unsolv, mem, d),
+                ("mb-query", env_query, None, d),
+                ("mb-complete", env_comp, None, d),
+            ):
+                cid = digest([world_m, tag])
+                quartet.append(
+                    V6Case(
+                        cid,
+                        world_m,
+                        "route",
+                        tag,
+                        replace(goal_m, episode=cid),
+                        env_i,
+                        Truth(cid, exp_i, _admitted_ids(env_i, mem_i)),
+                        HitchhikerSurface(hops=3),
+                        memory=mem_i,
+                        pair_id=world_m,
+                        panel=tag,
+                    )
                 )
-            )
+            if matches_split(tuple(quartet)):
+                missing_bridge.extend(quartet)
+                break
+        else:
+            raise RuntimeError("exhausted split-disjoint missing-bridge probe sampling")
 
     probes = {
         "distractor-trap": tuple(distractor_trap),
@@ -1308,6 +1414,7 @@ def _sample_fresh_case_of_kind(
     forbidden_families: set[str],
     forbidden_worlds: set[str],
     forbidden_prompts: set[str],
+    forbidden_states: set[str] | frozenset[str] = (),
     hops_override: int | None = None,
 ) -> tuple[V6Case, int]:
     """Deterministically generate one split-isolated fresh training world of target_kind."""
@@ -1353,7 +1460,7 @@ def _sample_fresh_case_of_kind(
         examples, state_keys, fam_keys = _case_supervision(case)
         prompts = {e.prompt for e in examples}
         if (
-            any(_partition(sk) != "train" for sk in state_keys)
+            any(_partition(sk) != "train" or sk in forbidden_states for sk in state_keys)
             or (set(fam_keys) & forbidden_families)
             or (prompts & forbidden_prompts)
         ):
@@ -1370,13 +1477,16 @@ def _coverage_dataset(
     forbidden_families: set[str],
     forbidden_worlds: set[str],
     forbidden_prompts: set[str],
-) -> tuple[tuple[V6Case, ...], tuple[V6Example, ...], tuple[TokenSample, ...], dict[str, int]]:
+    forbidden_states: set[str] | frozenset[str] = (),
+) -> tuple[tuple[V6Case, ...], tuple[V6Example, ...], tuple[TokenSample, ...], dict[str, Any]]:
     """Construct matched coverage dataset crossing 1/2/3-hop completeness, memory, and query availability."""
     cases: list[V6Case] = []
     examples: list[V6Example] = []
     samples: list[TokenSample] = []
     seen_worlds = set(forbidden_worlds)
     seen_prompts = set(forbidden_prompts)
+    state_keys_used: set[str] = set()
+    family_keys_used: set[str] = set()
     rejected = 0
     cursor = 0
 
@@ -1394,6 +1504,7 @@ def _coverage_dataset(
             forbidden_families=forbidden_families,
             forbidden_worlds=seen_worlds,
             forbidden_prompts=seen_prompts,
+            forbidden_states=forbidden_states,
             hops_override=hops if base_kind in ("route", "memory") else None,
         )
         rejected += rej
@@ -1425,11 +1536,17 @@ def _coverage_dataset(
             truth=Truth(cid, new_expected, _admitted_ids(env, mem)),
             panel=f"coverage-{kind_tag}",
         )
-        exs, _, fkeys = _case_supervision(cov_case)
-        if (set(fkeys) & forbidden_families) or any(e.prompt in seen_prompts for e in exs):
+        exs, skeys, fkeys = _case_supervision(cov_case)
+        if (
+            (set(skeys) & forbidden_states)
+            or (set(fkeys) & forbidden_families)
+            or any(e.prompt in seen_prompts for e in exs)
+        ):
             rejected += 1
             continue
         seen_worlds.add(cov_case.world_id)
+        state_keys_used.update(skeys)
+        family_keys_used.update(fkeys)
         for ex in exs:
             if len(samples) >= target_examples:
                 break
@@ -1446,7 +1563,213 @@ def _coverage_dataset(
                     cov_case.kind,
                 )
             )
-    return tuple(cases), tuple(examples), tuple(samples), {"accepted": len(samples), "rejected": rejected}
+    return (
+        tuple(cases),
+        tuple(examples),
+        tuple(samples),
+        {
+            "accepted": len(samples),
+            "rejected": rejected,
+            "state_keys": state_keys_used,
+            "family_keys": family_keys_used,
+        },
+    )
+
+
+def _extract_heldout_suite_info(suite: Any) -> tuple[str, tuple[V6Case, ...], bool]:
+    if isinstance(suite, V6Dataset) or hasattr(suite, "cases"):
+        split = str(getattr(suite, "split", "heldout"))
+        cases = tuple(suite.cases)
+        manifest = getattr(suite, "manifest", None)
+        is_orig_v6 = (
+            isinstance(suite, V6Dataset)
+            and isinstance(manifest, dict)
+            and (manifest.get("schema") == V6_VERSION or manifest.get("version") in ("v6-dataset", 6))
+        )
+        return split, cases, is_orig_v6
+    if isinstance(suite, dict) and "cohorts" in suite:
+        split = str(suite.get("split", "heldout"))
+        cases = tuple(c for v in suite["cohorts"].values() for c in v)
+        return split, cases, False
+    if isinstance(suite, dict):
+        split = str(suite.get("split", "heldout"))
+        cases = tuple(c for k, v in suite.items() if k != "split" and isinstance(v, (list, tuple)) for c in v)
+        return split, cases, False
+    if isinstance(suite, (list, tuple)):
+        return "heldout", tuple(suite), False
+    raise TypeError("unsupported heldout suite container")
+
+
+def extract_heldout_custody_targets(heldout_suites: tuple[Any, ...]) -> dict[str, Any]:
+    """Compute per-suite digests and forbidden world/state/prompt/family sets."""
+    heldout_digests: list[dict[str, Any]] = []
+    forbidden_worlds: set[str] = set()
+    forbidden_states: set[str] = set()
+    forbidden_prompts: set[str] = set()
+    forbidden_families: set[str] = set()
+    includes_original_v6 = False
+
+    for suite in heldout_suites:
+        split, cases, is_orig_v6 = _extract_heldout_suite_info(suite)
+        includes_original_v6 = includes_original_v6 or is_orig_v6
+        heldout_digests.append(
+            {
+                "split": split,
+                "count": len(cases),
+                "sha256": digest([split, [[c.case_id, c.world_id] for c in cases]]),
+            }
+        )
+        for c in cases:
+            forbidden_worlds.add(c.world_id)
+            exs, skeys, fkeys = _case_supervision(c)
+            forbidden_states.update(skeys)
+            forbidden_prompts.update(e.prompt for e in exs)
+            if not is_orig_v6:
+                forbidden_families.update(fkeys)
+
+    return {
+        "heldout_digests": heldout_digests,
+        "includes_original_v6": includes_original_v6,
+        "forbidden_worlds": forbidden_worlds,
+        "forbidden_states": forbidden_states,
+        "forbidden_prompts": forbidden_prompts,
+        "forbidden_families": forbidden_families,
+    }
+
+
+def compute_stream_fingerprint(samples: tuple[TokenSample, ...] | list[TokenSample]) -> str:
+    """Deterministic SHA256 over sample (world_id, tokens, eligible) tuples."""
+    return digest([[s.world_id, list(s.tokens), list(s.eligible)] for s in samples])
+
+
+def _build_custody_receipt(
+    *,
+    arm: str,
+    samples: tuple[TokenSample, ...] | list[TokenSample],
+    heldout_digests: list[dict[str, Any]],
+    includes_original_v6: bool,
+    overlap_counts: dict[str, int],
+    verified: bool,
+) -> dict[str, Any]:
+    payload = {
+        "schema": HITCHHIKER_CUSTODY_SCHEMA,
+        "status": "VERIFIED" if verified else "UNVERIFIED_NO_HELDOUT",
+        "passed": bool(verified),
+        "arm": arm,
+        "protocol_sha256": PROTOCOL_SHA,
+        "stream_fingerprint": compute_stream_fingerprint(samples),
+        "heldout_digests": heldout_digests,
+        "overlap_counts": dict(overlap_counts),
+        "includes_original_v6": bool(includes_original_v6),
+    }
+    return {**payload, "receipt_sha256": digest(payload)}
+
+
+def _assert_zero_custody_overlap(
+    *,
+    label: str,
+    worlds: set[str],
+    states: set[str],
+    prompts: set[str],
+    families: set[str],
+    targets: dict[str, Any],
+) -> dict[str, int]:
+    overlaps = {
+        "worlds": len(worlds & targets["forbidden_worlds"]),
+        "states": len(states & targets["forbidden_states"]),
+        "prompts": len(prompts & targets["forbidden_prompts"]),
+        "hitchhiker_families": len(families & targets["forbidden_families"]),
+    }
+    if any(v > 0 for v in overlaps.values()):
+        raise ValueError(f"{label} overlaps heldout suites: {overlaps}")
+    return overlaps
+
+
+def verify_custody_receipt(
+    stream: dict[str, Any],
+    *,
+    heldout_suites: tuple[Any, ...] = (),
+) -> dict[str, Any]:
+    """Cryptographically verify stream custody_receipt, fingerprint, and heldout disjointness."""
+    receipt = stream.get("custody_receipt")
+    if not isinstance(receipt, dict):
+        raise ValueError("stream missing custody_receipt dictionary")
+    req = (
+        "schema",
+        "status",
+        "passed",
+        "arm",
+        "protocol_sha256",
+        "stream_fingerprint",
+        "heldout_digests",
+        "overlap_counts",
+        "includes_original_v6",
+        "receipt_sha256",
+    )
+    missing = [k for k in req if k not in receipt]
+    if missing:
+        raise ValueError(f"custody_receipt missing required fields: {missing}")
+    if receipt["schema"] != HITCHHIKER_CUSTODY_SCHEMA:
+        raise ValueError(f"invalid custody_receipt schema: {receipt['schema']!r}")
+    if receipt["arm"] != stream.get("arm"):
+        raise ValueError("custody_receipt arm disagrees with stream arm")
+    if receipt["protocol_sha256"] != PROTOCOL_SHA:
+        raise ValueError("custody_receipt protocol_sha256 disagrees with PROTOCOL_SHA")
+    if type(receipt["passed"]) is not bool or type(receipt["includes_original_v6"]) is not bool:
+        raise ValueError("custody_receipt boolean fields must be bool")
+    if not isinstance(receipt["heldout_digests"], list):
+        raise ValueError("custody_receipt heldout_digests must be a list")
+
+    expected_overlaps = {"worlds": 0, "states": 0, "prompts": 0, "hitchhiker_families": 0}
+    if receipt["overlap_counts"] != expected_overlaps:
+        raise ValueError(f"custody_receipt reports non-zero overlap: {receipt['overlap_counts']}")
+
+    payload = {k: receipt[k] for k in req if k != "receipt_sha256"}
+    if receipt["receipt_sha256"] != digest(payload):
+        raise ValueError("custody_receipt receipt_sha256 verification failed")
+
+    samples = stream.get("samples", ())
+    examples = stream.get("examples", ())
+    if receipt["stream_fingerprint"] != compute_stream_fingerprint(samples):
+        raise ValueError("custody_receipt stream_fingerprint disagrees with stream samples")
+
+    verified_flag = stream.get("data_custody_verified")
+    if verified_flag is True:
+        if receipt["passed"] is not True or receipt["status"] != "VERIFIED" or not receipt["heldout_digests"]:
+            raise ValueError("data_custody_verified=True requires passed VERIFIED receipt with heldout_digests")
+    elif verified_flag is False:
+        if receipt["passed"] is not False or receipt["status"] != "UNVERIFIED_NO_HELDOUT":
+            raise ValueError("data_custody_verified=False disagrees with custody_receipt status")
+    else:
+        raise ValueError("stream data_custody_verified must be bool")
+
+    if heldout_suites:
+        if verified_flag is not True or receipt["passed"] is not True:
+            raise ValueError("heldout_suites require verified custody_receipt (passed=True)")
+        targets = extract_heldout_custody_targets(heldout_suites)
+        if receipt["heldout_digests"] != targets["heldout_digests"]:
+            raise ValueError("custody_receipt heldout_digests disagree with heldout_suites")
+        if receipt["includes_original_v6"] != targets["includes_original_v6"]:
+            raise ValueError("custody_receipt includes_original_v6 disagrees with heldout_suites")
+        stream_worlds = {s.world_id for s in samples}
+        stream_prompts = {e.prompt for e in examples}
+        stream_states: set[str] = set()
+        stream_families: set[str] = set()
+        for case in stream.get("cases") or ():
+            stream_worlds.add(case.world_id)
+            exs, skeys, fkeys = _case_supervision(case)
+            stream_prompts.update(e.prompt for e in exs)
+            stream_states.update(skeys)
+            stream_families.update(fkeys)
+        _assert_zero_custody_overlap(
+            label="stream",
+            worlds=stream_worlds,
+            states=stream_states,
+            prompts=stream_prompts,
+            families=stream_families,
+            targets=targets,
+        )
+    return receipt
 
 
 def build_training_stream(
@@ -1479,26 +1802,70 @@ def build_training_stream(
     if base_data is None:
         base_data = make_dataset("train", target_bytes=40_000, seed=data_seed)
 
-    # Collect heldout families/worlds/prompts to guarantee strict split separation.
-    forbidden_families: set[str] = set()
-    forbidden_worlds: set[str] = set()
-    forbidden_prompts: set[str] = set()
-    for suite in heldout_suites:
-        if hasattr(suite, "cases"):
-            cases = suite.cases
-        elif isinstance(suite, dict) and "cohorts" in suite:
-            cases = tuple(c for v in suite["cohorts"].values() for c in v)
-        elif isinstance(suite, dict):
-            cases = tuple(c for k, v in suite.items() if k != "split" and isinstance(v, (list, tuple)) for c in v)
-        elif isinstance(suite, (list, tuple)):
-            cases = tuple(suite)
+    # Collect heldout families/worlds/states/prompts to guarantee strict split separation.
+    if heldout_suites:
+        targets = extract_heldout_custody_targets(heldout_suites)
+    else:
+        targets = {
+            "heldout_digests": [],
+            "includes_original_v6": False,
+            "forbidden_worlds": set(),
+            "forbidden_states": set(),
+            "forbidden_prompts": set(),
+            "forbidden_families": set(),
+        }
+    forbidden_families: set[str] = targets["forbidden_families"]
+    forbidden_worlds: set[str] = targets["forbidden_worlds"]
+    forbidden_states: set[str] = targets["forbidden_states"]
+    forbidden_prompts: set[str] = targets["forbidden_prompts"]
+
+    base_worlds: set[str] = set()
+    base_states: set[str] = set()
+    base_prompts: set[str] = set()
+    base_families: set[str] = set()
+    if heldout_suites:
+        for case in base_data.cases:
+            base_worlds.add(case.world_id)
+            exs, skeys, fkeys = _case_supervision(case)
+            base_states.update(skeys)
+            base_prompts.update(e.prompt for e in exs)
+            base_families.update(fkeys)
+        _assert_zero_custody_overlap(
+            label="base_data",
+            worlds=base_worlds,
+            states=base_states,
+            prompts=base_prompts,
+            families=base_families,
+            targets=targets,
+        )
+
+    def make_custody_receipt(
+        samples: tuple[TokenSample, ...] | list[TokenSample],
+        *,
+        stream_worlds: set[str],
+        stream_states: set[str],
+        stream_prompts: set[str],
+        stream_families: set[str],
+    ) -> dict[str, Any]:
+        if heldout_suites:
+            overlaps = _assert_zero_custody_overlap(
+                label=f"arm {arm} stream",
+                worlds=stream_worlds,
+                states=stream_states,
+                prompts=stream_prompts,
+                families=stream_families,
+                targets=targets,
+            )
         else:
-            raise TypeError("unsupported heldout suite container")
-        for c in cases:
-            forbidden_worlds.add(c.world_id)
-            exs, _, fkeys = _case_supervision(c)
-            forbidden_families.update(fkeys)
-            forbidden_prompts.update(e.prompt for e in exs)
+            overlaps = {"worlds": 0, "states": 0, "prompts": 0, "hitchhiker_families": 0}
+        return _build_custody_receipt(
+            arm=arm,
+            samples=samples,
+            heldout_digests=targets["heldout_digests"],
+            includes_original_v6=targets["includes_original_v6"],
+            overlap_counts=overlaps,
+            verified=data_custody_verified,
+        )
 
     base_case_map = {c.case_id: c for c in base_data.cases}
     base_examples = base_data.examples
@@ -1530,10 +1897,18 @@ def build_training_stream(
 
     if arm == "B0":
         # Static baseline keeps base_data.samples and exact V7 blocked ordering.
+        custody_receipt = make_custody_receipt(
+            base_samples,
+            stream_worlds=base_worlds,
+            stream_states=base_states,
+            stream_prompts=base_prompts,
+            stream_families=base_families,
+        )
         elapsed = time.perf_counter() - t0
         return {
             "arm": arm,
             **contract_meta,
+            "custody_receipt": custody_receipt,
             "generator_version": HITCHHIKER_STREAM_VERSION,
             "data_seed": data_seed,
             "order_seed": order_seed,
@@ -1558,20 +1933,36 @@ def build_training_stream(
         canonicalizer = ExternalSlotCanonicalizer(assignment=slot_assignment, slot_seed=relabel_seed)
         canon_examples: list[V6Example] = []
         canon_samples: list[TokenSample] = []
+        dext_worlds: set[str] = set()
+        dext_states: set[str] = set()
+        dext_prompts: set[str] = set()
+        dext_families: set[str] = set()
         for case in base_data.cases:
             init_state = CognitiveState(case.goal).observe(case.environment.initial)
             mapping, _ = canonicalizer.build_mapping(init_state, case.surface)
             mapped_case = apply_case_permutation(case, mapping)
-            exs, _, _ = _case_supervision(mapped_case)
+            exs, skeys, fkeys = _case_supervision(mapped_case)
+            dext_worlds.add(mapped_case.world_id)
+            dext_states.update(skeys)
+            dext_families.update(fkeys)
             for ex in exs:
+                dext_prompts.add(ex.prompt)
                 frame = UTF8.frame(ex.prompt, ex.target, max_length=MAX_SEQUENCE)
                 tid = f"dext-{ex.task_id}"
                 canon_examples.append(replace(ex, task_id=tid))
                 canon_samples.append(TokenSample(tid, frame.ids, frame.loss_mask, case.world_id, case.kind))
+        custody_receipt = make_custody_receipt(
+            canon_samples,
+            stream_worlds=dext_worlds,
+            stream_states=dext_states,
+            stream_prompts=dext_prompts,
+            stream_families=dext_families,
+        )
         elapsed = time.perf_counter() - t0
         return {
             "arm": arm,
             **contract_meta,
+            "custody_receipt": custody_receipt,
             "generator_version": HITCHHIKER_STREAM_VERSION,
             "data_seed": data_seed,
             "order_seed": order_seed,
@@ -1601,19 +1992,28 @@ def build_training_stream(
     seen_worlds: set[str] = set(forbidden_worlds)
     seen_prompts: set[str] = set(forbidden_prompts)
     if use_coverage and not use_fresh:
-        _, cov_exs, cov_samps, cov_stats = _coverage_dataset(
+        cov_cases, cov_exs, cov_samps, cov_stats = _coverage_dataset(
             seed=data_seed,
             target_examples=len(base_samples),
             forbidden_families=forbidden_families,
             forbidden_worlds=seen_worlds,
             forbidden_prompts=seen_prompts,
+            forbidden_states=forbidden_states,
         )
         accepted += cov_stats["accepted"]
         rejected += cov_stats["rejected"]
+        custody_receipt = make_custody_receipt(
+            cov_samps,
+            stream_worlds={c.world_id for c in cov_cases},
+            stream_states=cov_stats["state_keys"],
+            stream_prompts={e.prompt for e in cov_exs},
+            stream_families=cov_stats["family_keys"],
+        )
         elapsed = time.perf_counter() - t0
         return {
             "arm": arm,
             **contract_meta,
+            "custody_receipt": custody_receipt,
             "generator_version": HITCHHIKER_STREAM_VERSION,
             "data_seed": data_seed,
             "order_seed": order_seed,
@@ -1634,6 +2034,37 @@ def build_training_stream(
             },
         }
 
+    # For AB+C, match C's exact per-update coverage stratum and teacher stage schedule.
+    c_case_map: dict[str, V6Case] = {}
+    c_exs: tuple[V6Example, ...] = ()
+    c_slots: list[int] = []
+    if use_coverage and use_fresh:
+        c_cases_pool, c_exs, c_samps, _ = _coverage_dataset(
+            seed=data_seed,
+            target_examples=len(base_samples),
+            forbidden_families=forbidden_families,
+            forbidden_worlds=set(forbidden_worlds),
+            forbidden_prompts=set(forbidden_prompts),
+            forbidden_states=forbidden_states,
+        )
+        c_case_map = {c.case_id: c for c in c_cases_pool}
+        c_per_epoch = math.ceil(len(c_samps) / batch_size)
+        c_epoch_orders: dict[int, tuple[int, ...]] = {}
+        for u in range(total_updates):
+            epoch, batch_idx = divmod(u, c_per_epoch)
+            if epoch not in c_epoch_orders:
+                c_epoch_orders[epoch] = ordered_indices(c_samps, order_seed, epoch, "blocked")
+            start = batch_idx * batch_size
+            chosen_c = c_epoch_orders[epoch][start : start + batch_size]
+            while len(chosen_c) < batch_size:
+                chosen_c = (*chosen_c, *c_epoch_orders[epoch][: batch_size - len(chosen_c)])
+            c_slots.extend(chosen_c)
+
+    stream_worlds: set[str] = set()
+    stream_states: set[str] = set()
+    stream_prompts: set[str] = set()
+    stream_families: set[str] = set()
+
     for flat_idx in range(total_updates * batch_size):
         u, slot = divmod(flat_idx, batch_size)
         epoch, base_idx = b0_slots[flat_idx]
@@ -1641,17 +2072,27 @@ def build_training_stream(
         ref_case = base_case_map[ref_ex.case_id]
 
         if use_fresh:
-            target_kind = ref_ex.kind
-            hops_ov = None
-            mem_on = target_kind == "memory"
-            qry_on = target_kind in ("known", "missing", "conflict", "null")
             if use_coverage:
-                kind_tag, cov_hops, mem_on, qry_on = COVERAGE_PATTERNS[flat_idx % len(COVERAGE_PATTERNS)]
-                target_kind = "route" if kind_tag == "route" else ("memory" if kind_tag == "memory" else kind_tag)
-                hops_ov = cov_hops if target_kind in ("route", "memory") else None
+                c_ex = c_exs[c_slots[flat_idx]]
+                c_case = c_case_map[c_ex.case_id]
+                target_kind = c_case.kind
+                hops_ov = c_case.surface.hops if target_kind in ("route", "memory") else None
+                mem_on = c_case.memory is not None
+                qry_on = bool(c_case.environment.channels)
+                target_stage = c_ex.stage
+                target_op: str | None = _target_to_operation(c_ex.target)
+            else:
+                target_kind = ref_ex.kind
+                hops_ov = None
+                mem_on = target_kind == "memory"
+                qry_on = target_kind in ("known", "missing", "conflict", "null")
+                target_stage = ref_ex.stage
+                target_op = None
 
             chosen_case = None
             exs = ()
+            chosen_skeys: tuple[str, ...] = ()
+            chosen_fams: tuple[str, ...] = ()
             for retry in range(128):
                 fresh_case, rej = _sample_fresh_case_of_kind(
                     generator_version=HITCHHIKER_STREAM_VERSION,
@@ -1662,6 +2103,7 @@ def build_training_stream(
                     forbidden_families=forbidden_families,
                     forbidden_worlds=seen_worlds,
                     forbidden_prompts=seen_prompts,
+                    forbidden_states=forbidden_states,
                     hops_override=hops_ov,
                 )
                 rejected += rej
@@ -1684,24 +2126,45 @@ def build_training_stream(
                 if use_relabel:
                     mapping, _ = entity_bijection((relabel_seed, u, slot, retry, cand_case.case_id))
                     cand_case = apply_case_permutation(cand_case, mapping)
-                cand_exs, _, cand_fams = _case_supervision(cand_case)
-                if (set(cand_fams) & forbidden_families) or any(e.prompt in forbidden_prompts for e in cand_exs):
+                cand_exs, cand_skeys, cand_fams = _case_supervision(cand_case)
+                if (
+                    (set(cand_skeys) & forbidden_states)
+                    or (set(cand_fams) & forbidden_families)
+                    or any(e.prompt in forbidden_prompts for e in cand_exs)
+                ):
                     rejected += 1
                     continue
+                if use_coverage:
+                    stage_matches = [
+                        e for e in cand_exs
+                        if e.stage == target_stage and (retry >= 96 or _target_to_operation(e.target) == target_op)
+                    ]
+                    if not stage_matches:
+                        rejected += 1
+                        continue
                 seen_worlds.add(fresh_case.world_id)
                 chosen_case = cand_case
                 exs = cand_exs
+                chosen_skeys = cand_skeys
+                chosen_fams = cand_fams
                 break
             if chosen_case is None:
                 raise RuntimeError("fresh stream could not sample a split-disjoint candidate after crossing/permutation")
         else:
+            target_stage = ref_ex.stage
+            target_op = None
             chosen_case = ref_case
             if use_relabel:
                 mapping, _ = entity_bijection((relabel_seed, epoch, chosen_case.case_id))
                 chosen_case = apply_case_permutation(chosen_case, mapping)
-            exs, _, _ = _case_supervision(chosen_case)
+            exs, chosen_skeys, chosen_fams = _case_supervision(chosen_case)
 
-        matching = [e for e in exs if e.stage == ref_ex.stage]
+        matching = [
+            e for e in exs
+            if e.stage == target_stage and (target_op is None or _target_to_operation(e.target) == target_op)
+        ]
+        if not matching:
+            matching = [e for e in exs if e.stage == target_stage]
         chosen_ex = matching[0] if matching else exs[0]
         frame = UTF8.frame(chosen_ex.prompt, chosen_ex.target, max_length=MAX_SEQUENCE)
         tid = f"hh-{arm}-u{u}-s{slot}-{chosen_ex.task_id}"
@@ -1715,12 +2178,24 @@ def build_training_stream(
                 chosen_case.kind,
             )
         )
+        stream_worlds.add(chosen_case.world_id)
+        stream_states.update(chosen_skeys)
+        stream_prompts.add(chosen_ex.prompt)
+        stream_families.update(chosen_fams)
         accepted += 1
 
+    custody_receipt = make_custody_receipt(
+        stream_samples,
+        stream_worlds=stream_worlds,
+        stream_states=stream_states,
+        stream_prompts=stream_prompts,
+        stream_families=stream_families,
+    )
     elapsed = time.perf_counter() - t0
     return {
         "arm": arm,
         **contract_meta,
+        "custody_receipt": custody_receipt,
         "generator_version": HITCHHIKER_STREAM_VERSION,
         "data_seed": data_seed,
         "order_seed": order_seed,
@@ -1748,7 +2223,7 @@ def validate_stream_contract(
     total_updates: int,
     batch_size: int,
 ) -> dict[str, Any]:
-    """Validate stream contract keys, protocol binding, and static-vs-materialized sizing."""
+    """Validate stream contract keys, protocol binding, custody receipt, and sizing."""
     if not isinstance(stream, dict):
         raise ValueError("stream must be a dictionary")
     required = (
@@ -1758,6 +2233,7 @@ def validate_stream_contract(
         "batch_size",
         "sampling_method",
         "data_custody_verified",
+        "custody_receipt",
         "use_static_indexer",
         "samples",
         "examples",
@@ -1792,6 +2268,7 @@ def validate_stream_contract(
             raise ValueError(
                 f"non-static materialized stream length {len(samples)} != {expected_len}"
             )
+    receipt = verify_custody_receipt(stream)
     return {
         "status": "PASS",
         "arm": expected_arm,
@@ -1802,6 +2279,7 @@ def validate_stream_contract(
         "use_static_indexer": stream["use_static_indexer"],
         "pool_size": len(samples),
         "data_custody_verified": stream["data_custody_verified"],
+        "custody_receipt_sha256": receipt["receipt_sha256"],
     }
 
 

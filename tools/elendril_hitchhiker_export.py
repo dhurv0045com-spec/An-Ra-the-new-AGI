@@ -1,10 +1,12 @@
 """Hitchhiker dual archive export, verified finalize, and fail-closed restore."""
 from __future__ import annotations
 
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 from uuid import uuid4
 import zipfile
 
@@ -19,6 +21,14 @@ from v5_training.checkpoint_lock import checkpoint_writer
 HITCHHIKER_ARCHIVE_NAMES = {
     "analysis": "ELENDRIL_HITCHHIKER_ANALYSIS.zip",
     "full": "ELENDRIL_HITCHHIKER_FULL.zip",
+}
+
+ALLOWED_HANDOFFS = frozenset({("stage1", "stage2"), ("stage1", "stage3"), ("stage2", "stage3")})
+_PHASE_TO_STAGE = {
+    "stage0": "stage0_checkpoint_audit",
+    "stage1": "stage1_s3_screen",
+    "stage2": "stage2_followups",
+    "stage3": "stage3_scale_confirmation",
 }
 
 
@@ -323,4 +333,223 @@ def restore_hitchhiker_archive(
         "restore_kind": "hitchhiker_resume",
         "requested_phase": phase,
         "archive_identity": expected_identity,
+    }
+
+
+def _copy_verified_file(src: Path, dst: Path) -> None:
+    if src.is_symlink() or not src.is_file():
+        raise ValueError(f"expected regular non-symlink handoff file: {src}")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    data = src.read_bytes()
+    v6._write_derived(dst, data)
+    if v6._file_sha(src) != v6._file_sha(dst):
+        raise ValueError(f"handoff file failed readback verification: {dst}")
+
+
+def handoff_hitchhiker_archive(
+    zip_path: Path | str,
+    destination: Path | str,
+    *,
+    source: str,
+    from_phase: str,
+    to_phase: str,
+    winning_arm: str | None = None,
+) -> dict:
+    """Verify completed prerequisite FULL archive and stage clean cross-phase handoff into destination."""
+    from anra_v5.elendril.hitchhiker_protocol import PROTOCOL_SHA, validate_stage_selection
+
+    v6._sha(source, 40)
+    if (from_phase, to_phase) not in ALLOWED_HANDOFFS:
+        raise ValueError(
+            f"disallowed cross-phase handoff {from_phase!r} -> {to_phase!r}; "
+            f"allowed: {sorted(ALLOWED_HANDOFFS)}"
+        )
+
+    requested = Path(zip_path)
+    if requested.is_symlink():
+        raise ValueError("linked archive input")
+    archive_path = requested.resolve(strict=True)
+    before = v6._file_sha(archive_path)
+    verified = v6.verify_zip(archive_path, max_bytes=MAX_EXTRACT_BYTES)
+    if verified["source"] != source or verified["protocol_sha256"] != PROTOCOL_SHA:
+        raise ValueError("archive source or protocol does not match requested handoff")
+    if verified.get("campaign_status") != "EXECUTED":
+        raise ValueError(f"handoff requires completed campaign_status == 'EXECUTED', got {verified.get('campaign_status')!r}")
+    if (verified.get("scientific_rescore") or {}).get("status") != "PASS":
+        raise ValueError("handoff requires archive independent_replay/rescore status == 'PASS'")
+
+    expected_identity = {
+        "schema": "elendril-hitchhiker-archive-identity-v1",
+        "source": source,
+        "protocol_sha256": PROTOCOL_SHA,
+        "phase": from_phase,
+    }
+    with zipfile.ZipFile(archive_path) as archive:
+        names = set(archive.namelist())
+        try:
+            id_entry = archive.getinfo("analysis/identity.json")
+        except KeyError as exc:
+            raise ValueError("handoff requires FULL archive with analysis/identity.json") from exc
+        if id_entry.file_size > 65536:
+            raise ValueError("archive identity is oversized")
+        actual_identity = json.loads(archive.read(id_entry))
+        if actual_identity != expected_identity:
+            raise ValueError(f"archive identity mismatch: expected {expected_identity}, got {actual_identity}")
+
+        # Verify prerequisite completion inside archive via FINAL_STATUS / delivery receipt / campaign marker.
+        completion_verified = False
+        if "exports/FINAL_STATUS.json" in names:
+            fs_doc = json.loads(archive.read("exports/FINAL_STATUS.json"))
+            if (
+                fs_doc.get("status") != "COMPLETE"
+                or fs_doc.get("completion_eligible") is not True
+                or (fs_doc.get("independent_replay") or {}).get("status") != "PASS"
+            ):
+                raise ValueError("archive FINAL_STATUS.json is not completion-eligible COMPLETE/PASS")
+            completion_verified = True
+
+        delivery_members = sorted(n for n in names if n.startswith("analysis/delivery-") and n.endswith(".json"))
+        if delivery_members:
+            matching_complete = False
+            for d_name in delivery_members:
+                d_doc = json.loads(archive.read(d_name))
+                if (
+                    d_doc.get("phase") == from_phase
+                    and d_doc.get("status") == "COMPLETE"
+                    and d_doc.get("completion_eligible") is True
+                    and (d_doc.get("independent_replay") or {}).get("status") == "PASS"
+                ):
+                    matching_complete = True
+            if not matching_complete:
+                raise ValueError("archive delivery receipt is not completion-eligible COMPLETE/PASS")
+            completion_verified = True
+
+        marker_members = sorted(n for n in names if n.startswith("analysis/campaign-") and n.endswith(".json"))
+        complete_markers = []
+        for m_name in marker_members:
+            m_doc = json.loads(archive.read(m_name))
+            m_camp = m_doc.get("campaign") or {}
+            if (
+                m_doc.get("phase") == from_phase
+                and m_doc.get("source") == source
+                and m_doc.get("protocol_sha256") == PROTOCOL_SHA
+                and m_doc.get("requested_complete") is True
+                and m_camp.get("status") == "EXECUTED"
+                and (m_camp.get("independent_replay") or {}).get("status") == "PASS"
+            ):
+                for jid in m_doc.get("required_jobs", []):
+                    if (
+                        f"analysis/jobs/{jid}/run_receipt.json" not in names
+                        or f"analysis/jobs/{jid}/final_eval.json" not in names
+                    ):
+                        raise ValueError(f"handoff archive missing required job receipts for {jid}")
+                complete_markers.append(m_doc)
+        if not complete_markers and not completion_verified:
+            raise ValueError(f"handoff archive lacks verified completion receipt for phase {from_phase!r}")
+        if not complete_markers:
+            raise ValueError(f"handoff archive lacks current-run completion marker for phase {from_phase!r}")
+
+        if "analysis/selection_receipt.json" not in names:
+            raise ValueError("handoff archive missing analysis/selection_receipt.json")
+        selection = json.loads(archive.read("analysis/selection_receipt.json"))
+        sel_validation = validate_stage_selection(
+            _PHASE_TO_STAGE[to_phase],
+            selection,
+            winning_arm=winning_arm,
+        )
+        if not any(n.startswith("prepared/") for n in names):
+            raise ValueError("handoff archive missing prepared/ dataset artifacts")
+
+    if v6._file_sha(archive_path) != before:
+        raise ValueError("archive changed during handoff admission")
+
+    dest_req = Path(destination)
+    if dest_req.is_symlink():
+        raise ValueError("linked handoff destination")
+    if dest_req.exists() and any(dest_req.iterdir()):
+        raise FileExistsError(f"handoff destination must be new or empty: {dest_req}")
+    dest_req.mkdir(parents=True, exist_ok=True)
+    dest_root = dest_req.resolve(strict=True)
+    archive_parent = archive_path.parent
+    if dest_root == archive_parent or dest_root.is_relative_to(archive_parent) or archive_parent.is_relative_to(dest_root):
+        raise ValueError("handoff destination must not overlap archive directory")
+
+    required_handoff = {"analysis/selection_receipt.json"}
+    optional_handoff = {"analysis/gate_receipt.json", "analysis/stage2_gate_receipt.json"}
+    with zipfile.ZipFile(archive_path) as archive:
+        manifest_raw = archive.read(v6.MANIFEST_NAME)
+        manifest_doc = json.loads(manifest_raw)
+        if sha256(manifest_raw).hexdigest() != verified["manifest_sha256"]:
+            raise ValueError("archive manifest digest changed during handoff")
+        expected_entries = {row["name"]: row for row in manifest_doc["files"]}
+        selected_names = [
+            name
+            for name in sorted(expected_entries)
+            if name.startswith("prepared/") or name in required_handoff or name in optional_handoff
+        ]
+        if not any(n.startswith("prepared/") for n in selected_names):
+            raise ValueError("extracted handoff archive missing prepared/ artifacts")
+        if "analysis/selection_receipt.json" not in selected_names:
+            raise ValueError("extracted handoff archive missing selection_receipt.json")
+        for name in selected_names:
+            v6._member_name(name)
+            info = archive.getinfo(name)
+            row = expected_entries[name]
+            target = dest_root.joinpath(*name.split("/"))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            cursor = target.parent
+            while cursor != dest_root.parent:
+                if cursor.is_symlink() or not cursor.resolve().is_relative_to(dest_root):
+                    raise ValueError("handoff destination parent linked or escaped")
+                cursor = cursor.parent
+            if target.is_symlink() or not target.resolve().is_relative_to(dest_root):
+                raise ValueError("handoff destination target linked or escaped")
+            count, fp = 0, sha256()
+            with archive.open(info) as src, target.open("xb") as dst:
+                for chunk in iter(lambda: src.read(v6.CHUNK), b""):
+                    count += len(chunk)
+                    if count > info.file_size:
+                        raise ValueError("archive member exceeded declared size")
+                    fp.update(chunk)
+                    dst.write(chunk)
+                dst.flush()
+                os.fsync(dst.fileno())
+            w_size, w_sha = v6._file_sha(target)
+            expected_size = row.get("byte_size", info.file_size)
+            if count != info.file_size or count != expected_size or w_size != count or fp.hexdigest() != row["sha256"] or w_sha != row["sha256"]:
+                raise ValueError(f"handoff member {name} failed integrity readback")
+    if v6._file_sha(archive_path) != before:
+        raise RuntimeError("archive changed after handoff extraction; output is not admitted")
+
+    effective_winning_arm = winning_arm if winning_arm is not None else selection.get("winning_arm")
+    handoff_receipt = {
+        "schema": "elendril-hitchhiker-handoff-v1",
+        "source": source,
+        "protocol_sha256": PROTOCOL_SHA,
+        "from_phase": from_phase,
+        "to_phase": to_phase,
+        "parent_zip_path": str(archive_path),
+        "parent_zip_sha256": before[1],
+        "parent_manifest_sha256": verified["manifest_sha256"],
+        "winning_arm": effective_winning_arm,
+        "selection_validation": sel_validation,
+    }
+    dest_analysis = dest_root / "analysis"
+    dest_analysis.mkdir(parents=True, exist_ok=True)
+    handoff_receipt_path = dest_analysis / "handoff_receipt.json"
+    v6._write_derived(handoff_receipt_path, v6.canonical(handoff_receipt))
+    return {
+        "status": "HANDOFF_VERIFIED",
+        "restore_kind": "hitchhiker_handoff",
+        "from_phase": from_phase,
+        "to_phase": to_phase,
+        "verified_root": str(dest_root),
+        "zip_path": str(archive_path),
+        "zip_sha256": before[1],
+        "manifest_sha256": verified["manifest_sha256"],
+        "source": source,
+        "protocol_sha256": PROTOCOL_SHA,
+        "winning_arm": effective_winning_arm,
+        "selection_validation": sel_validation,
+        "handoff_receipt_path": str(handoff_receipt_path),
     }

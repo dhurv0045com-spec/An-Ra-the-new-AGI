@@ -1,6 +1,6 @@
 # Hitchhiker context
 
-Updated: 2026-11-14. Branch: `hitchhiker`.
+Updated: 2026-11-15. Branch: `hitchhiker`.
 
 ## Purpose and requested workflow
 
@@ -47,9 +47,9 @@ The full design specifies proposed thresholds, compute matching, uncertainty, fa
 ## Current handoff state
 
 - Complete (code, campaign orchestration, tests): `anra_v5/elendril/hitchhiker_{protocol,data,diagnostics,training,evaluation}.py`, `tools/elendril_hitchhiker_{runner,worker,campaign,export}.py`, `tools/build_elendril_hitchhiker_notebook.py`, `notebooks/ELENDRIL_HITCHHIKER_KAGGLE_T4X2.ipynb`, and `tests/test_elendril_hitchhiker.py`.
-- Verified locally (CPU only): `pytest tests/test_elendril_hitchhiker.py -v` (`12 passed`, covering full split-custody, stream isolation, Stage 0 260-way package roundtrip, fail-closed gates, storage/budget `NO_GO`, canary interrupt/FULL-ZIP restore/resume E2E, and notebook checks), `verify-suite`, `cpu-mechanical-check` (`artifacts/elendril/hitchhiker/mechanical_verification.json`), `stage0-audit` (`CHECKPOINT_AUDIT_PENDING`), and `tools.verify_elendril_evidence`.
+- Verified locally (CPU only): `python -m pytest -n 4 -q` (`426 passed, 1 skipped, 14 subtests passed`, including all 22 tests in `tests/test_elendril_hitchhiker.py` covering R1–R10 fixes, split-custody, stream isolation, Stage 0 260-way package roundtrip, fail-closed gates, storage/budget `NO_GO`, canary interrupt/FULL-ZIP restore/resume E2E, selective verified handoff, and notebook setup/dry-run), `verify-suite`, `cpu-mechanical-check` (`artifacts/elendril/hitchhiker/mechanical_verification.json`), `stage0-audit` (`CHECKPOINT_AUDIT_PENDING`), and `tools.verify_elendril_evidence`.
 - Campaign execution workflow (`python -m tools.elendril_hitchhiker_campaign`):
-  - Preflight dry run: `--phase stage1 --dry-run`
-  - Kaggle T4x2 staged execution: `--phase stage0|stage1|stage2|stage3 --owner-enabled --minutes <budget> --output <dir>` (plus `--stage0-checkpoint-root` for mounted S20-low-lr weights, or `--selection-receipt` / `--winning-arm` / `--resume-archive` across sessions).
+  - Preflight dry run: `--phase stage1 --dry-run` (generates/validates data in `--output`, verifies clean source pin, prints runtime/storage forecast without requiring manual dataset inputs).
+  - Kaggle T4x2 staged execution (`notebooks/ELENDRIL_HITCHHIKER_KAGGLE_T4X2.ipynb`, default `PHASE="stage1"`, `MINUTES_BUDGET=480`, `WORK_ROOT=/kaggle/working/elendril_hitchhiker_<PHASE>`, zero manual inputs required for Stage 1): `--phase stage0|stage1|stage2|stage3 --owner-enabled --minutes <budget> --output <dir>` (plus `--stage0-checkpoint-root` for mounted `V7.17` `S20-low-lr` weights, `--handoff-archive` for Stage 2/3 verified `prepared/` + receipt handoff, `--winning-arm` / `--admitted-followups`, or `--resume-archive` for interrupted recovery).
 - Pending (not yet executed or promoted): GPU preflight profiling on physical T4x2 devices (`GPU_QUALIFIED`), live Stage 0 S20-low-lr checkpoint audit, Stage 1–3 training/confirmation execution, and all capability claims (second-wave mechanisms E–H remain deferred).
 - No V8/V8.1 specification was located in the searched research/docs trees. V8 compatibility in the design is a proposed interface contract, not a verified match to an unseen specification.

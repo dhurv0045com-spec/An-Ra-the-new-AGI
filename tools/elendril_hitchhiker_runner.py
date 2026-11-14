@@ -14,6 +14,7 @@ from hashlib import sha256
 import json
 import math
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 from typing import Any
@@ -212,6 +213,20 @@ def _evaluate_backend_decoders(
     }
 
 
+def _resolve_historical_source(admission_receipt: dict[str, Any]) -> str | None:
+    manifest = admission_receipt.get("manifest")
+    historical_source = admission_receipt.get("historical_training_source") or (
+        manifest.get("source_commit") if isinstance(manifest, dict) else None
+    )
+    if admission_receipt.get("status") == "ADMITTED":
+        if not isinstance(historical_source, str) or re.fullmatch(r"[0-9a-f]{40}", historical_source) is None:
+            raise ValueError("ADMITTED Stage 0 receipt requires 40-char hex historical_training_source")
+    elif historical_source is not None:
+        if not isinstance(historical_source, str) or re.fullmatch(r"[0-9a-f]{40}", historical_source) is None:
+            raise ValueError("historical_training_source must be a 40-char hex commit")
+    return historical_source
+
+
 def write_stage0_evidence_package(
     package_dir: Path,
     *,
@@ -225,6 +240,7 @@ def write_stage0_evidence_package(
     """Persist complete Stage 0 evidence (all cases, 260-way distributions, traces, prompts) with hashes."""
     if package_dir.is_symlink():
         raise ValueError(f"linked stage0 package directory: {package_dir}")
+    historical_source = _resolve_historical_source(admission_receipt)
     package_dir.mkdir(parents=True, exist_ok=True)
 
     full_inspections = diag["full_first_byte_inspections"]
@@ -233,7 +249,7 @@ def write_stage0_evidence_package(
         "protocol_sha256": PROTOCOL_SHA,
         "executing_source_commit": executing_source_commit,
         "audited_v717_ancestor": AUDITED_V717_COMMIT,
-        "historical_training_source": admission_receipt.get("manifest", {}).get("source_commit"),
+        "historical_training_source": historical_source,
         "historical_seed": historical_seed,
         "expected_case_count": suite_case_count + probe_case_count,
         "actual_case_count": len(full_inspections),
@@ -277,7 +293,7 @@ def write_stage0_evidence_package(
         "protocol_sha256": PROTOCOL_SHA,
         "executing_source_commit": executing_source_commit,
         "audited_v717_ancestor": AUDITED_V717_COMMIT,
-        "historical_training_source": admission_receipt.get("manifest", {}).get("source_commit"),
+        "historical_training_source": historical_source,
         "historical_seed": historical_seed,
         "admission_receipt": admission_receipt,
         "expected_case_count": suite_case_count + probe_case_count,
@@ -515,9 +531,13 @@ def run_stage0_audit(
         )
         manifest["executing_source_commit"] = exec_commit
         manifest["audited_v717_ancestor"] = AUDITED_V717_COMMIT
-        manifest["historical_training_source"] = HISTORICAL_S20_LOWLR_MANIFESTS[resolved_seed]["source_commit"]
+        manifest["historical_training_source"] = (
+            _resolve_historical_source(admission_receipt)
+            or HISTORICAL_S20_LOWLR_MANIFESTS[resolved_seed]["source_commit"]
+        )
         return manifest
 
+    historical_source = _resolve_historical_source(admission_receipt)
     configure_cpu()
     suite = build_counterfactual_suite(seed=17071, worlds_per_hop=worlds_per_hop, split="validation")
     probes = build_health_probes(seed=27173, worlds_per_probe=max(2, worlds_per_hop), split="validation")
@@ -558,7 +578,7 @@ def run_stage0_audit(
     )
     manifest["executing_source_commit"] = exec_commit
     manifest["audited_v717_ancestor"] = AUDITED_V717_COMMIT
-    manifest["historical_training_source"] = admission_receipt["manifest"]["source_commit"]
+    manifest["historical_training_source"] = historical_source
     manifest["stage0_diagnostics"] = {
         "decoders": clean_decoders,
         "first_byte_inspections": diag["first_byte_inspections"],

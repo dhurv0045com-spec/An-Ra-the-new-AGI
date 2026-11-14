@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 from typing import Any
+from uuid import uuid4
 
 import torch
 
@@ -39,8 +40,10 @@ from anra_v5.elendril.hitchhiker_diagnostics import (
     score_entity_equivariance,
 )
 from anra_v5.elendril.hitchhiker_evaluation import (
+    ORIGINAL_V6_KINDS,
     evaluate_counterfactual_suite,
     evaluate_health_probes,
+    evaluate_hitchhiker,
     evaluate_original_kinds,
 )
 from anra_v5.elendril.hitchhiker_protocol import (
@@ -64,6 +67,7 @@ from anra_v5.elendril.v6_data import Surface, V6Case, make_dataset, read_dataset
 from tools.elendril_action_cloud import compare_payloads
 from tools.elendril_hitchhiker_runner import (
     _evaluate_backend_decoders,
+    _resolve_historical_source,
     write_stage0_evidence_package,
     verify_and_rescore_stage0_package,
 )
@@ -228,15 +232,103 @@ def _build_canary_spec() -> tuple[Any, dict[str, Any]]:
     return tiny, resolve_scale_profile("S9", {"spec": tiny, "parameters": tiny.parameter_receipt().total, "model_sha256": tiny.sha256()})
 
 
+def _stratified_orig_sample(cases: tuple[Any, ...], per_kind: int = 2) -> tuple[tuple[Any, ...], bool]:
+    """Select up to `per_kind` cases per original V6 kind for realistic original-kind profiling."""
+    picked: list[Any] = []
+    seen_ids: set[str] = set()
+    by_kind: dict[str, list[Any]] = {k: [] for k in ORIGINAL_V6_KINDS}
+    for case in cases:
+        if case.kind in by_kind:
+            by_kind[case.kind].append(case)
+    all_kinds_present = all(bool(by_kind[k]) for k in ORIGINAL_V6_KINDS)
+    for kind in ORIGINAL_V6_KINDS:
+        for case in by_kind[kind][:per_kind]:
+            if case.case_id not in seen_ids:
+                picked.append(case)
+                seen_ids.add(case.case_id)
+    if not picked:
+        picked = list(cases[: min(8, len(cases))])
+    return tuple(picked), all_kinds_present
+
+
+def _stratified_equivariance_sample(cases: tuple[Any, ...], max_pairs: int = 2) -> tuple[Any, ...]:
+    """Select complete permutation pairs for score_entity_equivariance profiling."""
+    grouped: dict[str, list[Any]] = {}
+    for case in cases:
+        grouped.setdefault(case.pair_id, []).append(case)
+    sample: list[Any] = []
+    for pair in grouped.values():
+        if len(pair) == 2:
+            sample.extend(pair)
+            if len(sample) >= max_pairs * 2:
+                break
+    return tuple(sample)
+
+
+def _measure_stream_probe(
+    base_data: Any,
+    *,
+    heldout_suites: tuple[Any, ...],
+    batch_size: int,
+) -> dict[str, Any]:
+    """Measure build_training_stream fixed heldout overhead vs per-update generation cost."""
+    t2_0 = time.perf_counter()
+    build_training_stream(
+        "AB",
+        base_data=base_data,
+        total_updates=2,
+        batch_size=batch_size,
+        data_seed=606,
+        order_seed=7,
+        relabel_seed=1009,
+        heldout_suites=heldout_suites,
+    )
+    t2 = time.perf_counter() - t2_0
+
+    t4_0 = time.perf_counter()
+    build_training_stream(
+        "AB",
+        base_data=base_data,
+        total_updates=4,
+        batch_size=batch_size,
+        data_seed=606,
+        order_seed=7,
+        relabel_seed=1009,
+        heldout_suites=heldout_suites,
+    )
+    t4 = time.perf_counter() - t4_0
+
+    per_update_s = max(0.0, (t4 - t2) / 2.0)
+    base_overhead_s = max(0.0, t2 - 2.0 * per_update_s)
+    return {
+        "probe_2_updates_s": t2,
+        "probe_4_updates_s": t4,
+        "base_stream_overhead_s": base_overhead_s,
+        "ms_per_materialized_update": per_update_s * 1000.0,
+        "batch_size": batch_size,
+    }
+
+
 def mode_profile(args: argparse.Namespace) -> dict[str, Any]:
-    """Measure isolated GPU latency, peak memory, checkpoint IO, and fresh-process recover equivalence."""
+    """Measure isolated GPU latency, peak memory, checkpoint IO, stratified eval, and recover equivalence."""
     if not args.cpu_canary:
         _assert_cuda_isolated()
     else:
         configure_cpu()
     device = "cpu" if args.cpu_canary else "cuda:0"
+    device_name = "cpu" if args.cpu_canary else torch.cuda.get_device_name(0)
     base_data = read_dataset(args.prepared / "train_base.json")
     suite = load_suite_bundle(args.prepared / "validation_suite.json")
+    val_orig = read_dataset(args.prepared / "validation_orig.json") if (args.prepared / "validation_orig.json").is_file() else None
+    val_probes = load_suite_bundle(args.prepared / "validation_probes.json") if (args.prepared / "validation_probes.json").is_file() else None
+    struct_suite = load_suite_bundle(args.prepared / "structural_suite.json") if (args.prepared / "structural_suite.json").is_file() else None
+    conf_suite = load_suite_bundle(args.prepared / "confirmation_suite.json") if (args.prepared / "confirmation_suite.json").is_file() else None
+    heldout = tuple(x for x in (suite, conf_suite, struct_suite, val_probes, val_orig) if x is not None)
+    stream_probe = _measure_stream_probe(
+        base_data,
+        heldout_suites=heldout,
+        batch_size=4 if args.cpu_canary else 16,
+    )
     s3_job = [j for j in stage_jobs("stage1_s3_screen") if j["arm"] == "AB" and j["seed"] == 7][0]
 
     profiles_measured: dict[str, Any] = {}
@@ -256,7 +348,7 @@ def mode_profile(args: argparse.Namespace) -> dict[str, Any]:
                 source_commit=args.source,
                 root=ckpt_dir,
                 base_data=base_data,
-                heldout_suites=(suite,),
+                heldout_suites=heldout,
                 device=device,
                 cpu_canary=args.cpu_canary,
                 spec_override=spec_override,
@@ -270,30 +362,170 @@ def mode_profile(args: argparse.Namespace) -> dict[str, Any]:
             t0 = time.perf_counter()
             step_logs = []
             ckpt_write_s = 0.0
+            ckpt_saves = 0
             mid_sha = None
             for u in range(1, updates + 1):
                 res = trainer.step()
                 step_logs.append(res)
-                if label == "S3" and u in (4, 8):
+                if (label == "S3" and u in (4, 8)) or (label != "S3" and u == updates):
                     cw0 = time.perf_counter()
                     sha = trainer.save()
                     ckpt_write_s += time.perf_counter() - cw0
-                    if u == 4:
+                    ckpt_saves += 1
+                    if label == "S3" and u == 4:
                         mid_sha = sha
             wall = time.perf_counter() - t0
             peak_mb = (torch.cuda.max_memory_allocated() / (1024 * 1024)) if not args.cpu_canary else 0.0
 
-            eval_t0 = time.perf_counter()
-            sub_n = min(8, len(suite["cohorts"]["hop-1"]))
-            evaluate_counterfactual_suite(
-                {
-                    "split": "validation",
-                    "worlds_per_hop": sub_n,
-                    "cohorts": {"hop-1": suite["cohorts"]["hop-1"][:sub_n]},
-                },
-                RawHitchhikerPolicy(trainer.backend),
-            )
-            eval_s = time.perf_counter() - eval_t0
+            policy = RawHitchhikerPolicy(trainer.backend)
+            eval_sample_s = 0.0
+            projected_eval_s = 0.0
+
+            # 1. Stratified counterfactual suite sample across ALL cohorts.
+            cohort_sample_counts: dict[str, int] = {}
+            cohort_full_counts: dict[str, int] = {}
+            cohort_sample_ms: dict[str, float] = {}
+            cohort_ms_per_case: dict[str, float] = {}
+            cohort_projected_s: dict[str, float] = {}
+            for cname, cases in suite["cohorts"].items():
+                if not cases:
+                    continue
+                sample_n = min(4, len(cases))
+                c_t0 = time.perf_counter()
+                evaluate_counterfactual_suite(
+                    {
+                        "split": suite["split"],
+                        "worlds_per_hop": sample_n,
+                        "cohorts": {cname: cases[:sample_n]},
+                    },
+                    policy,
+                )
+                c_elapsed = time.perf_counter() - c_t0
+                eval_sample_s += c_elapsed
+                proj_c = (c_elapsed / sample_n) * len(cases)
+                projected_eval_s += proj_c
+                cohort_sample_counts[cname] = sample_n
+                cohort_full_counts[cname] = len(cases)
+                cohort_sample_ms[cname] = c_elapsed * 1000.0
+                cohort_ms_per_case[cname] = (c_elapsed / sample_n) * 1000.0
+                cohort_projected_s[cname] = proj_c
+
+            # 2. validation_orig stratified sample.
+            orig_component: dict[str, Any] = {
+                "sample_cases": 0,
+                "full_cases": len(val_orig.cases) if val_orig is not None else 0,
+                "sample_ms": 0.0,
+                "ms_per_case": 0.0,
+                "projected_s": 0.0,
+            }
+            if val_orig is not None and val_orig.cases:
+                orig_sample, all_kinds_present = _stratified_orig_sample(val_orig.cases)
+                o_t0 = time.perf_counter()
+                if all_kinds_present:
+                    evaluate_original_kinds(orig_sample, policy, split="validation")
+                else:
+                    evaluate_hitchhiker(orig_sample, policy, split="validation")
+                o_elapsed = time.perf_counter() - o_t0
+                eval_sample_s += o_elapsed
+                o_proj = (o_elapsed / len(orig_sample)) * len(val_orig.cases)
+                projected_eval_s += o_proj
+                orig_component = {
+                    "sample_cases": len(orig_sample),
+                    "full_cases": len(val_orig.cases),
+                    "sample_ms": o_elapsed * 1000.0,
+                    "ms_per_case": (o_elapsed / len(orig_sample)) * 1000.0,
+                    "projected_s": o_proj,
+                }
+
+            # 3. validation_probes stratified sample across all probe categories.
+            probes_component: dict[str, Any] = {
+                "sample_cases": 0,
+                "full_cases": sum(len(v) for v in val_probes.values()) if val_probes else 0,
+                "sample_ms": 0.0,
+                "ms_per_case": 0.0,
+                "projected_s": 0.0,
+            }
+            if val_probes:
+                sample_probes = {k: plist[: min(4, len(plist))] for k, plist in val_probes.items() if plist}
+                sample_probe_n = sum(len(v) for v in sample_probes.values())
+                full_probe_n = sum(len(v) for v in val_probes.values())
+                if sample_probe_n > 0:
+                    p_t0 = time.perf_counter()
+                    evaluate_health_probes(sample_probes, policy, split="validation")
+                    p_elapsed = time.perf_counter() - p_t0
+                    eval_sample_s += p_elapsed
+                    p_proj = (p_elapsed / sample_probe_n) * full_probe_n
+                    if scale_name == "S3":
+                        projected_eval_s += p_proj
+                    probes_component = {
+                        "sample_cases": sample_probe_n,
+                        "full_cases": full_probe_n,
+                        "sample_ms": p_elapsed * 1000.0,
+                        "ms_per_case": (p_elapsed / sample_probe_n) * 1000.0,
+                        "projected_s": p_proj,
+                    }
+
+            # 4. structural_suite stratified sample (measured for S8/S20).
+            struct_component: dict[str, Any] = {
+                "sample_cases": 0,
+                "full_cases": sum(len(v) for v in struct_suite["cohorts"].values()) if struct_suite else 0,
+                "sample_ms": 0.0,
+                "ms_per_case": 0.0,
+                "projected_s": 0.0,
+            }
+            if struct_suite and scale_name in ("S8", "S20"):
+                sample_struct_cohorts = {
+                    k: v[: min(4, len(v))] for k, v in struct_suite["cohorts"].items() if v
+                }
+                sample_struct_n = sum(len(v) for v in sample_struct_cohorts.values())
+                full_struct_n = sum(len(v) for v in struct_suite["cohorts"].values())
+                if sample_struct_n > 0:
+                    st_t0 = time.perf_counter()
+                    evaluate_counterfactual_suite(
+                        {
+                            "split": struct_suite["split"],
+                            "worlds_per_hop": 4,
+                            "cohorts": sample_struct_cohorts,
+                        },
+                        policy,
+                    )
+                    st_elapsed = time.perf_counter() - st_t0
+                    eval_sample_s += st_elapsed
+                    st_proj = (st_elapsed / sample_struct_n) * full_struct_n
+                    projected_eval_s += st_proj
+                    struct_component = {
+                        "sample_cases": sample_struct_n,
+                        "full_cases": full_struct_n,
+                        "sample_ms": st_elapsed * 1000.0,
+                        "ms_per_case": (st_elapsed / sample_struct_n) * 1000.0,
+                        "projected_s": st_proj,
+                    }
+
+            # 5. score_entity_equivariance sample.
+            perm_cases = suite["cohorts"].get("factor-entity-permutation", ())
+            eq_component: dict[str, Any] = {
+                "sample_cases": 0,
+                "full_cases": len(perm_cases),
+                "sample_ms": 0.0,
+                "ms_per_case": 0.0,
+                "projected_s": 0.0,
+            }
+            if perm_cases:
+                eq_sample = _stratified_equivariance_sample(perm_cases, max_pairs=2)
+                if eq_sample:
+                    eq_t0 = time.perf_counter()
+                    score_entity_equivariance(trainer.backend, eq_sample, suite["permutations"])
+                    eq_elapsed = time.perf_counter() - eq_t0
+                    eval_sample_s += eq_elapsed
+                    eq_proj = (eq_elapsed / len(eq_sample)) * len(perm_cases)
+                    projected_eval_s += eq_proj
+                    eq_component = {
+                        "sample_cases": len(eq_sample),
+                        "full_cases": len(perm_cases),
+                        "sample_ms": eq_elapsed * 1000.0,
+                        "ms_per_case": (eq_elapsed / len(eq_sample)) * 1000.0,
+                        "projected_s": eq_proj,
+                    }
 
             recovery_verified = False
             if label == "S3":
@@ -339,14 +571,40 @@ def mode_profile(args: argparse.Namespace) -> dict[str, Any]:
                 "peak_cuda_mb": peak_mb,
                 "checkpoint_bytes": ckpt_bytes,
                 "checkpoint_write_ms": ckpt_write_s * 1000.0,
-                "eval_sample_ms": eval_s * 1000.0,
+                "checkpoint_write_per_save_ms": (ckpt_write_s / max(1, ckpt_saves)) * 1000.0,
+                "eval_sample_ms": eval_sample_s * 1000.0,
+                "projected_full_eval_seconds": projected_eval_s,
+                "eval_components": {
+                    "suite": {
+                        "sample_cases": sum(cohort_sample_counts.values()),
+                        "full_cases": sum(cohort_full_counts.values()),
+                        "sample_ms": sum(cohort_sample_ms.values()),
+                        "projected_s": sum(cohort_projected_s.values()),
+                        "cohort_sample_counts": cohort_sample_counts,
+                        "cohort_full_counts": cohort_full_counts,
+                        "cohort_sample_ms": cohort_sample_ms,
+                        "cohort_ms_per_case": cohort_ms_per_case,
+                        "cohort_projected_s": cohort_projected_s,
+                    },
+                    "orig": orig_component,
+                    "probes": probes_component,
+                    "structural": struct_component,
+                    "equivariance": eq_component,
+                },
+                "stream_probe": stream_probe,
                 "recovery_verified": recovery_verified,
             }
             del trainer
             if not args.cpu_canary:
                 torch.cuda.empty_cache()
 
-    return {"status": "PASS", "profiles": profiles_measured}
+    return {
+        "status": "PASS",
+        "lane_index": args.lane_index,
+        "device_name": device_name,
+        "stream_probe": stream_probe,
+        "profiles": profiles_measured,
+    }
 
 
 def mode_stage0(args: argparse.Namespace) -> dict[str, Any]:
@@ -367,17 +625,23 @@ def mode_stage0(args: argparse.Namespace) -> dict[str, Any]:
     out_dir = args.output / "analysis" / "stage0" / f"seed_{seed}"
     out_dir.mkdir(parents=True, exist_ok=True)
     if admission["status"] != "ADMITTED":
+        pending_hist_src = (
+            _resolve_historical_source(admission_receipt)
+            or HISTORICAL_S20_LOWLR_MANIFESTS[seed]["source_commit"]
+        )
         summary = {
             "schema": "elendril-hitchhiker-stage0-seed-v1",
             "status": "CHECKPOINT_AUDIT_PENDING",
             "seed": seed,
             "executing_source_commit": args.source,
             "audited_v717_ancestor": AUDITED_V717_COMMIT,
+            "historical_training_source": pending_hist_src,
             "admission_receipt": admission_receipt,
         }
         _write_derived(out_dir / "stage0_summary.json", canonical(summary) + b"\n")
         return summary
 
+    historical_source = _resolve_historical_source(admission_receipt)
     suite = load_suite_bundle(args.prepared / "validation_suite.json")
     probes = load_suite_bundle(args.prepared / "validation_probes.json")
     orig_dev = read_dataset(args.prepared / "validation_orig.json")
@@ -413,7 +677,7 @@ def mode_stage0(args: argparse.Namespace) -> dict[str, Any]:
         "seed": seed,
         "executing_source_commit": args.source,
         "audited_v717_ancestor": AUDITED_V717_COMMIT,
-        "historical_training_source": HISTORICAL_S20_LOWLR_MANIFESTS[seed]["source_commit"],
+        "historical_training_source": historical_source,
         "admission_receipt": admission_receipt,
         "diagnostic_classification": diag["diagnostic_classification"],
         "entity_equivariance": diag["entity_equivariance"],
@@ -427,8 +691,45 @@ def mode_stage0(args: argparse.Namespace) -> dict[str, Any]:
     return summary
 
 
+def _parse_update_ledger(
+    ledger_path: Path,
+    resumed_from_update: int,
+) -> tuple[dict[int, dict[str, Any]], list[dict[str, Any]]]:
+    """Split persisted update_logs.jsonl into committed (earliest <= resumed_from_update) and uncommitted rows."""
+    committed_by_update: dict[int, dict[str, Any]] = {}
+    uncommitted_rows: list[dict[str, Any]] = []
+    if not ledger_path.is_file():
+        return committed_by_update, uncommitted_rows
+    for raw_line in ledger_path.read_text(encoding="utf-8").splitlines():
+        if not raw_line.strip():
+            continue
+        row = json.loads(raw_line)
+        upd = int(row["update"])
+        if 1 <= upd <= resumed_from_update:
+            if upd not in committed_by_update:
+                committed_by_update[upd] = row
+        elif upd > resumed_from_update:
+            uncommitted_rows.append(row)
+    return committed_by_update, uncommitted_rows
+
+
+def _append_update_ledger(ledger_path: Path, row: dict[str, Any]) -> None:
+    line = (json.dumps(row, sort_keys=True, ensure_ascii=True) + "\n").encode("utf-8")
+    with ledger_path.open("ab") as handle:
+        handle.write(line)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
 def mode_train(args: argparse.Namespace) -> dict[str, Any]:
     """Execute or resume a single registered Hitchhiker training job and emit complete eval receipts."""
+    deadline: float | None = None
+    if args.budget_remaining_seconds is not None:
+        deadline = time.monotonic() + max(0.0, float(args.budget_remaining_seconds))
+    if args.deadline_unix is not None:
+        unix_dl = time.monotonic() + (float(args.deadline_unix) - time.time())
+        deadline = unix_dl if deadline is None else min(deadline, unix_dl)
+
     if not args.cpu_canary:
         _assert_cuda_isolated()
     else:
@@ -436,12 +737,16 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
     device = "cpu" if args.cpu_canary else "cuda:0"
     job = json.loads(Path(args.job_file).read_text(encoding="utf-8"))
     job_id = job["job_id"]
-    winning_arm = args.winning_arm or ("AB" if job["stage"] != "stage3_scale_confirmation" else job["arm"])
-    validate_job(job, job["stage"], winning_arm=winning_arm)
 
     selection = None
     if args.selection_file and Path(args.selection_file).is_file():
         selection = json.loads(Path(args.selection_file).read_text(encoding="utf-8"))
+    winning_arm = (
+        args.winning_arm
+        or (selection.get("winning_arm") if isinstance(selection, dict) else None)
+        or ("AB" if job["stage"] != "stage3_scale_confirmation" else job["arm"])
+    )
+    validate_job(job, job["stage"], winning_arm=winning_arm)
     if not args.cpu_canary and job["stage"] in ("stage2_followups", "stage3_scale_confirmation"):
         validate_stage_selection(job["stage"], selection, winning_arm=winning_arm)
 
@@ -465,12 +770,11 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
     latest_file = ckpt_root / job_id / "LATEST"
     eval_file = job_dir / "final_eval.json"
     receipt_file = job_dir / "run_receipt.json"
+    ledger_path = job_dir / "update_logs.jsonl"
     resume = latest_file.is_file()
 
     # Build heldout suites ensuring train/eval disjoint custody on every arm.
-    heldout = (val_suite, conf_suite, struct_suite, val_probes)
-    if job["arm"] in ("B0", "C", "C+penalty"):
-        pass
+    heldout = (val_suite, conf_suite, struct_suite, val_probes, val_orig)
 
     # If a pre-built serialized stream exists, load it cleanly; otherwise create deterministically.
     stream = None
@@ -492,6 +796,7 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
 
     old_term = signal.signal(signal.SIGTERM, _on_signal)
     trainer = None
+    process_run_id = uuid4().hex[:16]
     try:
         trainer, active_stream = create_hitchhiker_trainer(
             job,
@@ -520,15 +825,21 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
                 existing.get("protocol_sha256") == PROTOCOL_SHA
                 and existing.get("checkpoint_sha256") == trainer.store.latest_sha256()
             ):
+                existing_receipt = json.loads(receipt_file.read_text(encoding="utf-8"))
                 return {
                     "status": "PASS",
                     "job_id": job_id,
                     "arm": job["arm"],
                     "stage": job["stage"],
                     "resumed_skipped": True,
+                    "updates_executed_this_process": 0,
                     "checkpoint_sha256": existing["checkpoint_sha256"],
-                    "run_receipt": json.loads(receipt_file.read_text(encoding="utf-8")),
+                    "run_receipt": existing_receipt,
                 }
+
+        resumed_from_update = trainer.state.global_update
+        committed_by_update, uncommitted_rows = _parse_update_ledger(ledger_path, resumed_from_update)
+        replayed_uncommitted_updates = len(uncommitted_rows)
 
         aux_probe = None
         if job["arm"] == "C+penalty":
@@ -538,14 +849,36 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
 
         save_interval = max(1, min(100, trainer.recipe.total_updates // 4)) if not args.cpu_canary else 1
         t0 = time.perf_counter()
-        logs = []
+        this_process_logs: list[dict[str, Any]] = []
+        observed_step_s = 0.0
+        observed_save_s = 0.0
         interrupted = False
         try:
-            for _ in range(trainer.state.global_update, trainer.recipe.total_updates):
+            for _ in range(resumed_from_update, trainer.recipe.total_updates):
+                estimated_step_plus_save_margin = max(
+                    observed_step_s, 0.05 if args.cpu_canary else 1.0
+                ) + max(observed_save_s, 0.05 if args.cpu_canary else 0.5)
+                if deadline is not None and (time.monotonic() + estimated_step_plus_save_margin) >= deadline:
+                    raise WorkerInterrupted("session deadline reached")
+                step_t0 = time.perf_counter()
                 step_log = trainer.step()
-                logs.append(step_log)
+                step_wall_seconds = time.perf_counter() - step_t0
+                observed_step_s = max(observed_step_s, step_wall_seconds)
+                ledger_row = {
+                    "process_run_id": process_run_id,
+                    "update": int(step_log["update"]),
+                    "loss": float(step_log["loss"]),
+                    "supervised_tokens": int(step_log["supervised_tokens"]),
+                    "input_positions": int(step_log["input_positions"]),
+                    "examples": int(step_log["examples"]),
+                    "step_wall_seconds": float(step_wall_seconds),
+                }
+                _append_update_ledger(ledger_path, ledger_row)
+                this_process_logs.append(ledger_row)
                 if step_log["update"] % save_interval == 0 or step_log["update"] == trainer.recipe.total_updates:
+                    save_t0 = time.perf_counter()
                     trainer.save()
+                    observed_save_s = max(observed_save_s, time.perf_counter() - save_t0)
                     if trainer.parent:
                         trainer.store.prune(keep={trainer.parent})
                 if args.cpu_canary and args.cpu_interrupt_after is not None and step_log["update"] == args.cpu_interrupt_after:
@@ -568,7 +901,24 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
         latest_sha = trainer.store.latest_sha256() or trainer.save()
         if trainer.parent:
             trainer.store.prune(keep={trainer.parent})
-        wall = time.perf_counter() - t0
+        this_process_wall = time.perf_counter() - t0
+
+        all_committed_by_update = dict(committed_by_update)
+        for row in this_process_logs:
+            upd = int(row["update"])
+            if 1 <= upd <= trainer.state.global_update and upd not in all_committed_by_update:
+                all_committed_by_update[upd] = row
+        committed_logs = [all_committed_by_update[u] for u in sorted(all_committed_by_update)]
+
+        updates_committed = int(trainer.state.global_update)
+        updates_executed_this_process = len(this_process_logs)
+        cumulative_supervised_tokens = sum(int(r["supervised_tokens"]) for r in committed_logs)
+        cumulative_input_positions = sum(int(r["input_positions"]) for r in committed_logs)
+        cumulative_examples_processed = sum(int(r["examples"]) for r in committed_logs)
+        cumulative_wall_seconds = sum(float(r["step_wall_seconds"]) for r in committed_logs)
+        this_process_supervised_tokens = sum(int(r["supervised_tokens"]) for r in this_process_logs)
+        this_process_input_positions = sum(int(r["input_positions"]) for r in this_process_logs)
+        this_process_examples_processed = sum(int(r["examples"]) for r in this_process_logs)
 
         policy = (
             ExternalSlotCanonicalizerPolicy(trainer.backend, assignment="first-mention")
@@ -605,14 +955,25 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
             "seed": job["seed"],
             "profile": job["profile"],
             "attribution_origin": job["attribution_origin"],
-            "updates_executed": len(logs),
-            "global_update": trainer.state.global_update,
+            "updates_committed": updates_committed,
+            "updates_executed": updates_committed,
+            "updates_executed_this_process": updates_executed_this_process,
+            "replayed_uncommitted_updates": replayed_uncommitted_updates,
+            "global_update": updates_committed,
             "target_updates": trainer.recipe.total_updates,
-            "wall_seconds": wall,
-            "supervised_tokens": sum(r["supervised_tokens"] for r in logs),
-            "input_positions": sum(r["input_positions"] for r in logs),
-            "examples_processed": sum(r["examples"] for r in logs),
-            "final_loss": logs[-1]["loss"] if logs else None,
+            "wall_seconds": cumulative_wall_seconds,
+            "cumulative_wall_seconds": cumulative_wall_seconds,
+            "this_process_wall_seconds": this_process_wall,
+            "supervised_tokens": cumulative_supervised_tokens,
+            "cumulative_supervised_tokens": cumulative_supervised_tokens,
+            "this_process_supervised_tokens": this_process_supervised_tokens,
+            "input_positions": cumulative_input_positions,
+            "cumulative_input_positions": cumulative_input_positions,
+            "this_process_input_positions": this_process_input_positions,
+            "examples_processed": cumulative_examples_processed,
+            "cumulative_examples_processed": cumulative_examples_processed,
+            "this_process_examples_processed": this_process_examples_processed,
+            "final_loss": committed_logs[-1]["loss"] if committed_logs else None,
             "checkpoint_sha256": latest_sha,
             "stream_metrics": active_stream["stream_metrics"],
             "aux_penalty_probe": aux_probe,
@@ -621,10 +982,12 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
             "schema": "elendril-hitchhiker-job-eval-v1",
             "protocol_sha256": PROTOCOL_SHA,
             "source_commit": args.source,
+            "prepared_data_sha256": base_data.identity,
             "job_id": job_id,
             "arm": job["arm"],
             "stage": job["stage"],
             "seed": job["seed"],
+            "profile": job["profile"],
             "checkpoint_sha256": latest_sha,
             "model_identity": primary_eval.get("model_identity"),
             "attribution_origin": primary_eval["attribution_origin"],
@@ -654,6 +1017,7 @@ def mode_train(args: argparse.Namespace) -> dict[str, Any]:
             "arm": job["arm"],
             "stage": job["stage"],
             "resumed_skipped": False,
+            "updates_executed_this_process": updates_executed_this_process,
             "checkpoint_sha256": latest_sha,
             "run_receipt": run_receipt,
         }
@@ -675,6 +1039,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--expected-data-sha", default=None)
     p.add_argument("--profile", default="S3")
+    p.add_argument("--lane-index", type=int, default=0)
     p.add_argument("--from-update", type=int, default=4)
     p.add_argument("--to-update", type=int, default=8)
     p.add_argument("--ref-sha", default=None)
@@ -683,6 +1048,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--cpu-canary", action="store_true")
     p.add_argument("--updates-override", type=int, default=None)
     p.add_argument("--cpu-interrupt-after", type=int, default=None)
+    p.add_argument("--deadline-unix", type=float, default=None)
+    p.add_argument("--budget-remaining-seconds", type=float, default=None)
     return p
 
 

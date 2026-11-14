@@ -369,6 +369,13 @@ def evaluate_counterfactual_suite(
             a_none = p.get("distractors-none", {}).get("accuracy")
             a_dist = p.get("distractors-matched3", {}).get("accuracy")
             item["accuracy_gap"] = (a_none - a_dist) if (a_none is not None and a_dist is not None) else None
+        if name == "factor-source-renaming":
+            p = m["by_panel"]
+            a_fam = p.get("source-familiar", {}).get("accuracy")
+            a_ren = p.get("source-renamed", {}).get("accuracy")
+            item["familiar_source_accuracy"] = a_fam
+            item["renamed_source_accuracy"] = a_ren
+            item["accuracy_gap"] = (a_fam - a_ren) if (a_fam is not None and a_ren is not None) else None
         if name in ("factor-answer-edge-swap", "factor-answer-query-swap"):
             item["both_correct_rate"] = m["pair_accuracy"]
         factor_summary[name] = item
@@ -902,9 +909,13 @@ def evaluate_formation_gate(
     if missing_cohorts:
         integrity_reasons.append(f"missing required formation cohorts: {missing_cohorts}")
 
+    cohorts_to_audit = list(REQUIRED_FORMATION_COHORTS)
+    if "factor-source-renaming" in records:
+        cohorts_to_audit.append("factor-source-renaming")
+
     recomputed: dict[str, dict[str, Any]] = {}
     all_identities: set[str] = set()
-    for name in REQUIRED_FORMATION_COHORTS:
+    for name in cohorts_to_audit:
         if name not in records:
             continue
         stats, ids, c_int, c_size = _recompute_cohort_from_episodes(
@@ -956,9 +967,10 @@ def evaluate_formation_gate(
     }
     stress_accs = {
         k: recomputed[k]["accuracy"]
-        for k in REQUIRED_FORMATION_COHORTS
+        for k in cohorts_to_audit
         if k.startswith("factor-") and k in recomputed
     }
+    expected_stress_count = sum(1 for k in cohorts_to_audit if k.startswith("factor-"))
     edge_pair_acc = recomputed.get("factor-answer-edge-swap", {}).get("pair_accuracy")
     qswap_pair_acc = recomputed.get("factor-answer-query-swap", {}).get("pair_accuracy")
     inv_rates = [m["invalid_rate"] for m in recomputed.values()]
@@ -982,7 +994,7 @@ def evaluate_formation_gate(
         thresholds_met = (
             len(hop_accs) == 4
             and all(a >= FORMATION_GATE["min_raw_accuracy_per_hop"] for a in hop_accs.values())
-            and len(stress_accs) == 8
+            and len(stress_accs) == expected_stress_count
             and all(a >= FORMATION_GATE["min_stress_subgroup_accuracy"] for a in stress_accs.values())
             and edge_pair_acc is not None
             and edge_pair_acc >= FORMATION_GATE["min_answer_changing_pair_accuracy"]
