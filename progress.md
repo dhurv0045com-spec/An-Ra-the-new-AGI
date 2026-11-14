@@ -243,3 +243,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Parallelized Stage A/B across `gpu_devices` subprocesses with explicit per-profile CUDA binding, multi-cohort eval timing, and session deadline before split prep.
 - Enforced full-corpus diagnostics (`5888`/`9472`), intermediate milestone episode traces, strict `confirmation_seed` + `.confirmation.jsonl`, and exact world/mode coverage.
 - Passed all 28 focused CPU V8 tests; no local GPU training ran.
+
+### 2026-11-14 | Gemini | Publish owner-armed Kaggle V8 notebook pinned to b87ff909
+- Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to `b87ff909d9e91bf60f17661fbbea49c76978f53e` with `RUN_STUDY=True`, `CUBLAS_WORKSPACE_CONFIG=:4096:8`, and `PHASE=data-control`.
+- Verified `git archive` rebuild reproduces identical LF notebook bytes (`49cc8ee00dc97c060c6c4c854837fd7a7f525b787726415b2c0a54d5095e5a35`) and updated `Experiment Result/V8/`.
+- Ready for full CI verification, `git push`, and Kaggle 2xT4 Commit / Save & Run All execution.
