@@ -87,3 +87,35 @@ The profile measures one job on one device. `campaign.py:389` copies its update 
 The architecture implementation is a useful starting point, and the focused CPU tests plus immutable notebook reconstruction pass. **I do not confirm campaign readiness.** Repair R1–R7 and republish from a new immutable runtime source before owner research execution. In particular, prevent cross-split leakage and false COMPLETE first. Add regression tests through the actual worker/orchestrator paths, not only isolated helpers. Then repeat the focused checks and request an evidence-based rereview. No scientific success or root cause has been established by this implementation review.
 
 This document is saved locally for handoff. It has not been sent to another agent or published by this review.
+
+---
+
+## Re-review after the repair commits — 2026-11-14
+
+**Reviewed HEAD:** `954c7bea8c6ddcb1906ecc5c0770da003c5fba3c`.
+**Repaired runtime:** `dd12e7e2ed040a84a0ba27ec566b1715ecc59b4f`.
+**Current decision: improvements verified; research launch remains NO-GO.** The findings above describe the older release. The status below supersedes them for this repaired source.
+
+### Verified improvements
+
+- **24 focused CPU tests passed in151.94 seconds**, with two-thread limits. These include full-quota split preparation, rejection of the old minimal-report false-COMPLETE case, artifact mutations, saved-episode replay, B0 canary wiring, seed/condition pairing and interruption/resume fixtures.
+- Full-quota split tests assert3,584 training worlds,5,888 states,3,840 development records and zero prohibited structural/component leaks. The worker now uses this verified preparation path.
+- Canary scoring now counts exact actions and supports B0; configured GPU LR is1e-4. These are engineering checks, not GPU acquisition evidence.
+- The notebook rebuilt byte-for-byte from the pinned repaired runtime, SHA256 `34171e57c29d19eea1bad601d2838341ff4717b4ebff597bae584aafa94394a0`. All code cells compile. Repository URL is corrected.
+- Step logs, final full episode traces, independent rescoring and stronger artifact validation are present. Do not describe the old bare-report completion bug as still reproduced on this revision.
+
+### Remaining corrections before confirmation
+
+1. **GPU profile device binding is wrong.** `tools/elendril_v8_campaign.py:1264` passes explicit `device="cuda:0"` for every condition. `tools/elendril_v8_worker.py:725` changes the current device using `device_index`, but passes that unchanged explicit device into every trainer. Selecting current GPU1 does not move tensors explicitly assigned to GPU0. Allocation and default-device memory/synchronization measurements can therefore refer to different GPUs. Resolve one actual device per profile and use it consistently for model/tensor placement, synchronization and memory statistics. Add a wiring regression asserting each trainer receives the selected indexed device; owner GPU receipts must then verify physical device identity.
+
+2. **The full-training and intermediate evidence requirements remain incomplete.** `worker.py:1458–1463` caps production diagnostics at192 states for both datasets. Stratification improves coverage but does not replace the required5,888/9,472-state measurements. Intermediate evaluations are still saved as summaries through `_save_milestone_file` (`worker.py:1340`); full trace serialization is performed only for final evaluation. Implement streaming full-training diagnostics plus intermediate episode persistence, or obtain an explicit prospective protocol amendment. Do not mark R3/R7 fully resolved merely because a stratified probe and final traces exist.
+
+3. **Confirmation custody and replay are not qualified.** `worker.py:277` uses default confirmation seed90901 when none is supplied, and `prepare_verified_splits` builds and saves confirmation worlds during ordinary development phases. Replication can consume that default. Genuine confirmation must require the owner/evaluator seed after candidate selection; a default seeded fixture must be labelled development-only and must not qualify confirmation. `run_job_worker` retains only `confirmation_summary`; the validator at `campaign.py:446` rescores confirmation traces only if a file happens to exist. Require and export full confirmation traces and independent replay, rather than accepting their absence.
+
+4. **Completion still needs exact evaluation coverage validation.** `campaign.py:365–388` checks sets of observed modes/cohorts, not the complete registered world×variant×mode inventory. A partial cohort containing each required name is not a complete evaluation. Derive exact expected record keys/counts from the cached splits, reject missing/duplicate/foreign records, and bind summary counts to independently rescored evidence. Intermediate milestone validation must likewise check its registered coverage and actual checkpoint binding. The existing minimal-report regression is necessary but does not establish this stronger property.
+
+5. **Publication is pending.** At review time both checked GitHub branch refs (`Elendril` and `codex/v8-mechanism-lab`) remain at `21f57160343a54053278360e056b3ba4347f7c03`; the local repair and notebook commits are ahead by two. Therefore the repaired notebook/runtime are not yet published to those refs. Complete the corrections, rerun affected checks, publish a new immutable runtime and rebuilt notebook, then verify remote reachability before owner launch.
+
+Additional operational limits remain: the session timer begins after split preparation, and profile evaluation timing samples only five raw one-hop records. Neither establishes a complete worst-case campaign resource envelope. No CI service result or real T4 qualification was independently established in this review.
+
+**Confirmation back:** the repair work is substantial and the24 CPU checks pass. I confirm those improvements, not full campaign readiness. Close the five items above before the owner spends GPU time. No runtime fixes or research training were performed by this rereview; this is an evidence-based review artifact for the implementing agent.

@@ -181,6 +181,8 @@ def _collect_work_root_dirs(work_root: Path, rel_dirs: tuple[str, ...]) -> dict[
             continue
         for item in sorted(base.rglob("*")):
             if item.is_file():
+                if item.name.startswith(".") and item.name.endswith(".tmp"):
+                    continue
                 arc = _safe_arcname(item.relative_to(work_root).as_posix())
                 collected[arc] = item
     return collected
@@ -222,7 +224,10 @@ def export_v8_archives(
             candidate = work_root / rel_file
             if candidate.exists() and candidate.is_file():
                 analysis_entries[_safe_arcname(rel_file)] = candidate
-        analysis_entries.update(_collect_work_root_dirs(work_root, extra_analysis_dirs))
+        dirs_to_collect = (
+            extra_analysis_dirs if "episodes" in extra_analysis_dirs else (*extra_analysis_dirs, "episodes")
+        )
+        analysis_entries.update(_collect_work_root_dirs(work_root, dirs_to_collect))
 
     for arc, p in (analysis_files or {}).items():
         if not p.exists():
@@ -246,6 +251,7 @@ def export_v8_archives(
         "final_status": str(status_path),
         "analysis_zip": str(analysis_zip),
         "full_zip": str(full_zip),
+        "episode_files": sorted(k for k in analysis_entries if k.startswith("episodes/")),
         **receipt,
     }
 

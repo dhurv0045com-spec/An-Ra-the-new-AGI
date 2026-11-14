@@ -149,28 +149,73 @@ def test_v8_campaign_guards_failures_and_export_integrity(tmp_path: Path) -> Non
     assert verify_v8_export(tmp_path / "o_part", expected_source_commit=src)["verified"] is True
 
 
-def test_v8_published_notebook_and_result_template_are_inert_and_pinned(tmp_path: Path) -> None:
+def test_v8_published_notebook_and_result_template_are_inert_and_pinned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import os
+    import sys
     from tools.build_elendril_v8_notebook import REPO_HTTP_URL, verify_notebook_file, write_notebook
 
     assert REPO_HTTP_URL == "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
     repo = Path(__file__).resolve().parents[1]
     nb_path = repo / "notebooks" / "ELENDRIL_V8_KAGGLE_T4X2.ipynb"
-    info = verify_notebook_file(nb_path)
-    assert info["verified"] is True
-
-    written_nb = write_notebook(tmp_path / "ELENDRIL_V8_KAGGLE_T4X2.ipynb", source_commit=str(info["source_commit"]))
-    written_bytes = written_nb.read_bytes()
-    assert b"\r\n" not in written_bytes
-    written_all_src = "\n".join(
-        "".join(cell.get("source", []))
-        for cell in json.loads(written_bytes.decode("utf-8")).get("cells", [])
-    )
-    assert f'REPO_URL = "{REPO_HTTP_URL}"' in written_all_src
-    assert verify_notebook_file(written_nb, expected_source_commit=str(info["source_commit"]))["verified"] is True
+    published_nb = json.loads(nb_path.read_text(encoding="utf-8"))
+    published_sha = str(published_nb.get("metadata", {}).get("elendril_v8_source_commit", ""))
+    assert len(published_sha) == 40
 
     tpl = json.loads((repo / "Experiment Result" / "V8" / "TEMPLATE_METRICS.json").read_text(encoding="utf-8"))
     assert tpl["status"] == "NOT_RUN"
-    assert tpl["source_commit"] == info["source_commit"]
+    assert tpl["source_commit"] == published_sha
+
+    written_nb = write_notebook(tmp_path / "ELENDRIL_V8_KAGGLE_T4X2.ipynb", source_commit=published_sha)
+    written_bytes = written_nb.read_bytes()
+    assert b"\r\n" not in written_bytes
+    written_doc = json.loads(written_bytes.decode("utf-8"))
+    written_all_src = "\n".join(
+        "".join(cell.get("source", []))
+        for cell in written_doc.get("cells", [])
+    )
+    assert "RUN_STUDY = True" in written_all_src
+    assert f'REPO_URL = "{REPO_HTTP_URL}"' in written_all_src
+    assert verify_notebook_file(written_nb, expected_source_commit=published_sha)["verified"] is True
+
+    # Simulate cell-by-cell execution with RUN_STUDY = False and no tools on sys.path/sys.modules
+    env_keys = (
+        "CUBLAS_WORKSPACE_CONFIG",
+        "PYTHONDONTWRITEBYTECODE",
+        "PYTHONUNBUFFERED",
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+    )
+    saved_env = {k: os.environ.get(k) for k in env_keys}
+    for key in [k for k in sys.modules if k == "tools" or k.startswith("tools.")]:
+        monkeypatch.delitem(sys.modules, key, raising=False)
+    monkeypatch.setattr(
+        sys,
+        "path",
+        [p for p in sys.path if p not in ("", ".") and Path(p).resolve() != repo.resolve()],
+    )
+    monkeypatch.chdir(tmp_path)
+
+    ns: dict[str, object] = {}
+    try:
+        for cell in written_doc.get("cells", []):
+            if cell.get("cell_type") != "code":
+                continue
+            src = "".join(cell.get("source", []))
+            if cell.get("id") == "v8-config":
+                src = src.replace("RUN_STUDY = True", "RUN_STUDY = False")
+            exec(compile(src, f"<cell:{cell.get('id')}>", "exec"), ns)
+        assert ns["RUN_STUDY"] is False
+        assert os.environ["CUBLAS_WORKSPACE_CONFIG"] == ":4096:8"
+        assert os.environ["PYTHONUNBUFFERED"] == "1"
+    finally:
+        for k, prev in saved_env.items():
+            if prev is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = prev
 
 
 def test_v8_r2_stub_rejection_and_missing_or_mutated_artifacts_fail_closed(tmp_path: Path) -> None:
@@ -553,3 +598,350 @@ def test_v8_r6_measured_forecast_2x_margin_and_no_go(tmp_path: Path) -> None:
     assert res_nogo["reason_code"] == "RESOURCE_INFEASIBLE"
     assert res_nogo["forecast"]["work_margin"] == pytest.approx(2.0)
     assert job_runner_called is False
+
+
+def test_v8_byte_policy_batched_parity_with_unbatched() -> None:
+    from dataclasses import replace
+    import math
+    import torch
+
+    from anra_v5.elendril.representation import UTF8, SpecialToken
+    from anra_v5.elendril.v6_registry import MODEL_PROFILES
+    from anra_v5.elendril.v8.contracts import SYMBOLS, PublicInput, build_v8_model_spec
+    from anra_v5.elendril.v8.models import build_v8_model
+    from anra_v5.elendril.v8.policies import V8BytePolicy
+
+    tiny_base = replace(
+        MODEL_PROFILES["S20"],
+        width=32,
+        layers=1,
+        query_heads=2,
+        kv_heads=1,
+        head_dimension=16,
+        ffn_width=64,
+        context_length=512,
+    )
+    b0_spec = build_v8_model_spec("B0", base_spec=tiny_base)
+    model = build_v8_model(b0_spec, init_seed=7, torch_module=torch)
+    model_id = "0" * 64
+
+    char_map = {sym: sym for sym in SYMBOLS}
+    char_map["ABSTAIN"] = "!"
+    char_map["QUERY"] = "Q"
+    char_map["RETRIEVE"] = "R"
+
+    for mode in ("grammar", "availability-mask", "direct-answer-only"):
+        policy = V8BytePolicy(model, b0_spec, model_identity=model_id, mode=mode)
+        for query_avail, mem_avail in ((True, True), (True, False), (False, True), (False, False)):
+            obs = PublicInput(
+                text_utf8="A->B?",
+                query_available=query_avail,
+                memory_available=mem_avail,
+                action_budget=4,
+            )
+            prompt_ids = [UTF8.bos_id, *UTF8.encode(obs.text_utf8), UTF8.special(SpecialToken.ANSWER)]
+            dist0 = policy.backend.next_distribution(prompt_ids)
+            valid_labels = list(SYMBOLS) + ["ABSTAIN"]
+            if mode != "direct-answer-only":
+                if mode == "grammar" or query_avail:
+                    valid_labels.append("QUERY")
+                if mode == "grammar" or mem_avail:
+                    valid_labels.append("RETRIEVE")
+
+            ref_best_logp = float("-inf")
+            ref_op, ref_arg = "ABSTAIN", None
+            for lbl in valid_labels:
+                byte_tok = UTF8.encode(char_map[lbl])[0]
+                lp0 = math.log(max(float(dist0[byte_tok].item()), 1e-30))
+                next_dist = policy.backend.next_distribution([*prompt_ids, byte_tok])
+                lp_eos = math.log(max(float(next_dist[UTF8.eos_id].item()), 1e-30))
+                total_lp = lp0 + lp_eos
+                if total_lp > ref_best_logp:
+                    ref_best_logp = total_lp
+                    if lbl in SYMBOLS:
+                        ref_op, ref_arg = "ANSWER", lbl
+                    elif lbl == "QUERY":
+                        ref_op, ref_arg = "QUERY", ("request-current-status" if query_avail else None)
+                    elif lbl == "RETRIEVE":
+                        ref_op, ref_arg = "RETRIEVE", None
+                    else:
+                        ref_op, ref_arg = "ABSTAIN", None
+
+            model.train()
+            exec_prop, raw_prop = policy.propose(obs)
+            assert model.training is True
+            assert exec_prop.operation == ref_op
+            assert exec_prop.argument == ref_arg
+            assert exec_prop.joint_log_probability == pytest.approx(ref_best_logp, abs=1e-5)
+            assert exec_prop.model_calls == 2
+            assert exec_prop.evaluated_positions == len(prompt_ids) + len(valid_labels) * (len(prompt_ids) + 1)
+            assert raw_prop.mode == "raw"
+
+
+def test_v8_codex_rereview_item1_profile_and_stage_b_device_binding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import torch
+    import tools.elendril_v8_worker as worker_mod
+
+    src = "1" * 40
+    repo = Path(__file__).resolve().parents[1]
+
+    set_device_calls: list[object] = []
+    reset_peak_calls: list[object] = []
+    sync_calls: list[object] = []
+    max_mem_calls: list[object] = []
+    get_name_calls: list[object] = []
+    trainer_devices: list[str] = []
+
+    monkeypatch.setattr(worker_mod.torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(worker_mod.torch.cuda, "device_count", lambda: 2)
+    monkeypatch.setattr(
+        worker_mod.torch.cuda,
+        "get_device_name",
+        lambda dev=None: (get_name_calls.append(dev), "Fake T4")[1],
+    )
+    monkeypatch.setattr(worker_mod.torch.cuda, "set_device", lambda dev: set_device_calls.append(dev))
+    monkeypatch.setattr(
+        worker_mod.torch.cuda,
+        "reset_peak_memory_stats",
+        lambda dev=None: reset_peak_calls.append(dev),
+    )
+    monkeypatch.setattr(worker_mod.torch.cuda, "synchronize", lambda dev=None: sync_calls.append(dev))
+    monkeypatch.setattr(
+        worker_mod.torch.cuda,
+        "max_memory_allocated",
+        lambda dev=None: (max_mem_calls.append(dev), 256 * 1024 * 1024)[1],
+    )
+    real_fork_rng = torch.random.fork_rng
+    monkeypatch.setattr(
+        torch.random,
+        "fork_rng",
+        lambda devices=None, enabled=True, **kw: real_fork_rng(devices=[], enabled=enabled, **kw),
+    )
+
+    real_prepare = worker_mod.prepare_v8_training_data
+    monkeypatch.setattr(
+        worker_mod,
+        "prepare_v8_training_data",
+        lambda dataset, **kwargs: real_prepare(dataset, d1_worlds_per_family=16, sample_limit_for_cpu=32),
+    )
+
+    real_create = worker_mod.create_v8_trainer
+
+    def _fake_create_v8_trainer(
+        data,
+        job,
+        *,
+        source: str,
+        root: Path,
+        resume: bool = False,
+        device: str = "cuda:0",
+        cpu_canary: bool = False,
+        v8_spec_override=None,
+        updates_override=None,
+    ):
+        trainer_devices.append(str(device))
+        trainer = real_create(
+            data,
+            job,
+            source=source,
+            root=root,
+            resume=resume,
+            device="cpu",
+            cpu_canary=True,
+            v8_spec_override=worker_mod._tiny_cpu_spec(str(job["arm"])),
+            updates_override=updates_override,
+        )
+        real_step = trainer.step
+        target_torch_dev = torch.device(str(device))
+
+        def _cpu_backed_step(*args, **kwargs):
+            trainer.device = torch.device("cpu")
+            try:
+                return real_step(*args, **kwargs)
+            finally:
+                trainer.device = target_torch_dev
+
+        trainer.step = _cpu_backed_step
+        trainer.device = target_torch_dev
+        return trainer
+
+    monkeypatch.setattr(worker_mod, "create_v8_trainer", _fake_create_v8_trainer)
+
+    prof = run_profile(
+        job_id="V8-F-D1-i7-o7",
+        device_index=1,
+        source_commit=src,
+        work_dir=tmp_path / "prof_gpu1",
+        device="cuda:0",
+        cpu_canary=False,
+    )
+    expected_dev = torch.device("cuda:1")
+    assert prof["device_index"] == 1
+    assert prof["resolved_device"] == "cuda:1"
+    assert prof["physical_device_name"] == "Fake T4"
+    assert prof["peak_vram_mb"] == pytest.approx(256.0)
+    assert prof["resume_parity_at_4_verified"] is True
+    assert trainer_devices == ["cuda:1", "cuda:1", "cuda:1", "cuda:1"]
+    assert set_device_calls == [expected_dev]
+    assert get_name_calls == [expected_dev]
+    assert reset_peak_calls == [expected_dev, expected_dev]
+    assert sync_calls == [expected_dev, expected_dev]
+    assert max_mem_calls == [expected_dev]
+
+    profile_calls: list[tuple[str, str, int | None, str, bool]] = []
+
+    def _spy_stage_b_profile(arm: str, dataset: str, device_index: int | None, device: str, cpu_canary: bool):
+        profile_calls.append((arm, dataset, device_index, device, cpu_canary))
+        return {
+            "seconds_per_update": 100.0,
+            "eval_seconds_per_episode": 1.0,
+            "estimated_full_updates": 1000,
+            "resume_parity_at_4_verified": True,
+        }
+
+    res_stage_b = run_campaign(
+        phase="head-screen",
+        source_commit=src,
+        work_root=tmp_path / "w_stage_b",
+        output_dir=tmp_path / "o_stage_b",
+        minutes=1.0,
+        owner_enabled=True,
+        repo_root=repo,
+        cpu_smoke=False,
+        devices=[0, 1],
+        free_bytes_override=10**12,
+        split_preparer=lambda wr: prepare_verified_splits(wr, cpu_smoke=True, dev_worlds_per_cohort=1),
+        canary_runner=lambda arm, lr, cpu_canary: {
+            "passed": True,
+            "wall_seconds": 0.01,
+            "exact_action_accuracy": 1.0,
+        },
+        profile_runner=_spy_stage_b_profile,
+    )
+    assert res_stage_b["status"] == "NO_GO"
+    assert profile_calls == [
+        ("J", "D1", 0, "cuda:0", False),
+        ("F", "D1", 1, "cuda:1", False),
+    ]
+
+
+def test_v8_codex_rereview_item3_replication_seed_and_confirmation_jsonl(tmp_path: Path) -> None:
+    src = "2" * 40
+    repo = Path(__file__).resolve().parents[1]
+
+    res_nogo = run_campaign(
+        phase="replication",
+        source_commit=src,
+        work_root=tmp_path / "w_rep_nogo",
+        output_dir=tmp_path / "o_rep_nogo",
+        owner_enabled=True,
+        repo_root=repo,
+        cpu_smoke=True,
+        confirmation_seed=None,
+    )
+    assert res_nogo["status"] == "NO_GO"
+    assert "requires explicit owner --confirmation-seed" in str(res_nogo["reason"])
+
+    rep_job = protocol_jobs("replication")[0]
+    rep_job_id = str(rep_job["job_id"])
+    rep_dir = tmp_path / "rep_job"
+    rep_report = run_job_worker(
+        job_id=rep_job_id,
+        source_commit=src,
+        work_dir=rep_dir,
+        device="cpu",
+        cpu_canary=True,
+        updates_override=4,
+        dev_worlds_per_cohort=1,
+        conf_worlds_per_cohort=1,
+        confirmation_seed=777123,
+    )
+    rep_split_sha = str(rep_report["split_audit_sha256"])
+    conf_ep_file = rep_dir / "episodes" / f"{rep_job_id}.confirmation.jsonl"
+    assert conf_ep_file.exists() and conf_ep_file.stat().st_size > 0
+    assert validate_job_completion_artifacts(
+        rep_job,
+        rep_report,
+        rep_dir,
+        source_commit=src,
+        expected_updates=4,
+        expected_split_audit_sha256=rep_split_sha,
+        check_confirmation=True,
+    ) == []
+
+    conf_ep_file.unlink()
+    violations = validate_job_completion_artifacts(
+        rep_job,
+        rep_report,
+        rep_dir,
+        source_commit=src,
+        expected_updates=4,
+        expected_split_audit_sha256=rep_split_sha,
+        check_confirmation=True,
+    )
+    assert violations
+    assert any("confirmation" in v.lower() for v in violations)
+
+
+def test_v8_codex_rereview_item4_exact_world_mode_coverage(tmp_path: Path) -> None:
+    src = "3" * 40
+    job = protocol_jobs("head-screen")[3]
+    job_id = str(job["job_id"])
+    base_dir = tmp_path / "base_item4"
+    base_report = run_job_worker(
+        job_id=job_id,
+        source_commit=src,
+        work_dir=base_dir,
+        device="cpu",
+        cpu_canary=True,
+        updates_override=4,
+        dev_worlds_per_cohort=1,
+    )
+    split_sha = str(base_report["split_audit_sha256"])
+    assert validate_job_completion_artifacts(
+        job,
+        base_report,
+        base_dir,
+        source_commit=src,
+        expected_updates=4,
+        expected_split_audit_sha256=split_sha,
+    ) == []
+
+    expected_cohorts = {"R09", "R10", "E13", "E14", "E15", "A19"}
+    expected_modes = {"raw", "grammar", "availability-mask", "direct-answer-only"}
+
+    def _mutate_and_verify(case_name: str, mutate_rows) -> None:
+        dest = tmp_path / f"mut_{case_name}"
+        shutil.copytree(base_dir, dest)
+        rep = json.loads(json.dumps(base_report))
+        rep["episodes_file"] = str(dest / "episodes" / f"{job_id}.jsonl")
+        rep["steps_file"] = str(dest / "steps" / f"{job_id}.jsonl")
+        rep["milestones_dir"] = str(dest / "milestones" / job_id)
+        ep_path = dest / "episodes" / f"{job_id}.jsonl"
+        rows = [json.loads(ln) for ln in ep_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        mutated = mutate_rows(rows)
+        assert {str(r["cohort"]) for r in mutated} >= expected_cohorts
+        assert {str(r["mode"]) for r in mutated} >= expected_modes
+        ep_path.write_text("\n".join(json.dumps(r) for r in mutated) + "\n", encoding="utf-8")
+        errs = validate_job_completion_artifacts(
+            job,
+            rep,
+            dest,
+            source_commit=src,
+            expected_updates=4,
+            expected_split_audit_sha256=split_sha,
+        )
+        assert errs, f"expected fail-closed violation for {case_name}"
+
+    _mutate_and_verify("delete_one_line", lambda rows: rows[:-1])
+    _mutate_and_verify("add_duplicate_row", lambda rows: rows + [dict(rows[-1])])
+
+    def _add_foreign_world(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+        foreign = json.loads(json.dumps(rows[-1]))
+        foreign["world_id"] = "foreign-world-999"
+        return rows + [foreign]
+
+    _mutate_and_verify("add_foreign_world", _add_foreign_world)

@@ -250,8 +250,7 @@ class V8BytePolicy:
             return raw_proposal, raw_proposal
 
         # Single-step distribution over valid grammar actions at first token
-        dist0 = self.backend.next_distribution(prompt_ids)
-        dist1 = None  # Only compute EOS check over valid 1-byte actions
+        dist0_cpu = self.backend.next_distribution(prompt_ids).cpu()
         valid_labels = list(SYMBOLS) + ["ABSTAIN"]
         if self.mode != "direct-answer-only":
             if self.mode == "grammar" or obs.query_available:
@@ -259,25 +258,35 @@ class V8BytePolicy:
             if self.mode == "grammar" or obs.memory_available:
                 valid_labels.append("RETRIEVE")
 
-        best_idx = 0
-        best_logp = float("-inf")
-        best_op, best_arg = "ABSTAIN", None
         char_map = {sym: sym for sym in SYMBOLS}
         char_map["ABSTAIN"] = "!"
         char_map["QUERY"] = "Q"
         char_map["RETRIEVE"] = "R"
+        candidate_tokens = [UTF8.encode(char_map[lbl])[0] for lbl in valid_labels]
+        batch_rows = [[*prompt_ids, byte_tok] for byte_tok in candidate_tokens]
+
+        modes = [(module, module.training) for module in self.model.modules()]
+        self.model.eval()
+        try:
+            with torch.inference_mode():
+                batch_tokens = torch.tensor(batch_rows, device=self.backend.device, dtype=torch.int64)
+                logits = self.backend.logits(batch_tokens, torch.zeros_like(batch_tokens))
+                log_probs = torch.log_softmax(logits[:, -1, :], dim=-1)
+                lp_eos_cpu = log_probs[:, UTF8.eos_id].cpu()
+        finally:
+            for module, was_training in modes:
+                module.training = was_training
+
+        best_logp = float("-inf")
+        best_op, best_arg = "ABSTAIN", None
+        min_logp = math.log(1e-30)
         for i, lbl in enumerate(valid_labels):
-            byte_tok = UTF8.encode(char_map[lbl])[0]
-            lp0 = math.log(max(float(dist0[byte_tok].item()), 1e-30))
-            if dist1 is None:
-                # Approximate 1-token+EOS score by probing EOS after the chosen byte
-                pass
-            next_dist = self.backend.next_distribution([*prompt_ids, byte_tok])
-            lp_eos = math.log(max(float(next_dist[UTF8.eos_id].item()), 1e-30))
+            byte_tok = candidate_tokens[i]
+            lp0 = math.log(max(float(dist0_cpu[byte_tok].item()), 1e-30))
+            lp_eos = max(float(lp_eos_cpu[i].item()), min_logp)
             total_lp = lp0 + lp_eos
             if total_lp > best_logp:
                 best_logp = total_lp
-                best_idx = i
                 if lbl in SYMBOLS:
                     best_op, best_arg = "ANSWER", lbl
                 elif lbl == "QUERY":
@@ -292,7 +301,7 @@ class V8BytePolicy:
             argument=best_arg,
             joint_log_probability=best_logp,
             raw_output=raw_str,
-            model_calls=1 + len(valid_labels),
+            model_calls=2,
             evaluated_positions=len(prompt_ids) + len(valid_labels) * (len(prompt_ids) + 1),
             mode=self.mode,
             model_identity=self.model_identity,

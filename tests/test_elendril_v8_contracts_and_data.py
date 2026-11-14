@@ -214,13 +214,16 @@ def test_v8_r1_full_quota_split_firewall_and_isolated_breakdown(tmp_path: Path) 
     splits = prepare_verified_splits(split_root, cpu_smoke=False)
     assert splits["cached"] is False
     assert splits["audit"]["audit_passed"] is True
+    assert splits["audit"]["confirmation_built"] is False
+    assert splits["audit"]["confirmation_seed"] is None
+    assert splits["conf_cohorts"] == {}
+    assert splits["conf_identity"] is None
+    assert not (split_root / "splits" / "conf_cohorts.json").exists()
     assert splits["audit"]["counts"]["d1_worlds"] == 3584
     assert splits["audit"]["counts"]["d1_steps"] == 5888
     assert splits["audit"]["counts"]["dev_records"] == 3840
+    assert splits["audit"]["counts"]["conf_records"] == 0
     assert len(splits["dev_cohorts"]) == 6
-    assert sum(len(splits["conf_cohorts"][c]) for c in ("R09", "R10", "E13", "E14", "E15", "A19")) == 7680
-    assert splits["audit"]["counts"]["conf_records"] == 7808
-    assert {"R09", "R10", "E13", "E14", "E15", "A19"}.issubset(splits["conf_cohorts"])
     assert splits["audit"]["disjointness_audit"]["status"] == "PASS"
     assert splits["audit"]["disjointness_audit"]["leaked_components"] == 0
     assert splits["audit"]["disjointness_audit"]["leaked_structures"] == 0
@@ -231,7 +234,25 @@ def test_v8_r1_full_quota_split_firewall_and_isolated_breakdown(tmp_path: Path) 
     reload_s = time.perf_counter() - t0
     assert reloaded["cached"] is True
     assert reloaded["split_audit_sha256"] == splits["split_audit_sha256"]
+    assert reloaded["audit"]["confirmation_built"] is False
+    assert reloaded["conf_cohorts"] == {}
     assert reload_s < 10.0
+
+    with_conf = prepare_verified_splits(split_root, cpu_smoke=False, confirmation_seed=777123)
+    assert with_conf["audit"]["confirmation_built"] is True
+    assert with_conf["audit"]["confirmation_seed"] == 777123
+    assert with_conf["audit"]["audit_passed"] is True
+    assert with_conf["audit"]["counts"]["d1_worlds"] == 3584
+    assert with_conf["audit"]["counts"]["d1_steps"] == 5888
+    assert with_conf["audit"]["counts"]["dev_records"] == 3840
+    assert len(with_conf["conf_cohorts"]["R09"]) > 0
+    assert sum(len(with_conf["conf_cohorts"][c]) for c in ("R09", "R10", "E13", "E14", "E15", "A19")) == 7680
+    assert with_conf["audit"]["counts"]["conf_records"] == 7808
+    assert {"R09", "R10", "E13", "E14", "E15", "A19"}.issubset(with_conf["conf_cohorts"])
+    assert with_conf["audit"]["disjointness_audit"]["status"] == "PASS"
+    assert with_conf["audit"]["disjointness_audit"]["leaked_components"] == 0
+    assert with_conf["audit"]["disjointness_audit"]["leaked_structures"] == 0
+    assert (split_root / "splits" / "conf_cohorts.json").exists()
 
     # Verify summarize_suite_episodes separates non-isolated from isolated probe accuracy
     def _make_ep(wid: str, *, correct: bool, isolated: bool | None) -> EpisodeRecord:

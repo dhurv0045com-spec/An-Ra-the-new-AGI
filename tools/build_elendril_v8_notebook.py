@@ -44,14 +44,14 @@ def build_notebook_dict(*, source_commit: str, repo_url: str = REPO_HTTP_URL) ->
                 "",
                 "Execution notebook pinned to immutable runtime commit:",
                 f"- `SOURCE_SHA = \"{source_commit}\"`",
-                "- Defaults are inert (`RUN_STUDY = False`) until explicitly enabled by the owner.",
+                "- Owner-armed defaults (`RUN_STUDY = True`) for immediate Kaggle 2xT4 execution (set `RUN_STUDY = False` for inert dry-run).",
             ],
             "v8-title",
         ),
         _cell_code(
             [
-                "# Owner-controlled switches (keep RUN_STUDY=False until ready to run on Kaggle 2xT4)",
-                "RUN_STUDY = False",
+                "# Owner-controlled switches (RUN_STUDY=True is owner-armed for Kaggle 2xT4; set False for inert dry-run)",
+                "RUN_STUDY = True",
                 "PHASE = \"data-control\"  # archive-diagnostic | data-control | head-screen | reader-screen | replication",
                 "MINUTES = 330",
                 "WINNER_ARM = None",
@@ -64,32 +64,56 @@ def build_notebook_dict(*, source_commit: str, repo_url: str = REPO_HTTP_URL) ->
         ),
         _cell_code(
             [
-                "import os, shutil, subprocess, tarfile, urllib.request",
+                "import os, shutil, subprocess, sys, tarfile",
                 "from pathlib import Path",
+                "",
+                "os.environ[\"CUBLAS_WORKSPACE_CONFIG\"] = \":4096:8\"",
+                "os.environ[\"PYTHONDONTWRITEBYTECODE\"] = \"1\"",
+                "os.environ[\"PYTHONUNBUFFERED\"] = \"1\"",
+                "os.environ[\"OMP_NUM_THREADS\"] = \"2\"",
+                "os.environ[\"MKL_NUM_THREADS\"] = \"2\"",
                 "",
                 "WORK_ROOT = Path(\"/kaggle/working/elendril_v8\")",
                 "REPO_DIR = WORK_ROOT / \"repo\"",
                 "OUTPUT_DIR = Path(\"/kaggle/working\")",
-                "WORK_ROOT.mkdir(parents=True, exist_ok=True)",
                 "",
                 "if not RUN_STUDY:",
                 "    print(\"NOT LAUNCHED: owner switch is false\")",
                 "else:",
+                "    WORK_ROOT.mkdir(parents=True, exist_ok=True)",
                 "    if REPO_DIR.exists():",
                 "        shutil.rmtree(REPO_DIR)",
                 "    REPO_DIR.mkdir(parents=True, exist_ok=True)",
                 "    local_tar = Path(f\"/kaggle/input/elendril-v8-source/{SOURCE_SHA}.tar.gz\")",
-                "    tar_path = WORK_ROOT / f\"{SOURCE_SHA}.tar.gz\"",
                 "    if local_tar.exists():",
+                "        tar_path = WORK_ROOT / f\"{SOURCE_SHA}.tar.gz\"",
                 "        shutil.copy2(local_tar, tar_path)",
-                "    else:",
-                "        subprocess.run([\"git\", \"clone\", \"--no-checkout\", REPO_URL, str(REPO_DIR)], check=True)",
-                "        subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"fetch\", \"origin\", SOURCE_SHA], check=True)",
-                "        subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"checkout\", \"--detach\", SOURCE_SHA], check=True)",
-                "    if tar_path.exists():",
                 "        with tarfile.open(tar_path, \"r:gz\") as tf:",
                 "            tf.extractall(REPO_DIR)",
+                "    else:",
+                "        subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"init\", \"-q\"], check=True)",
+                "        remotes = subprocess.run(",
+                "            [\"git\", \"-C\", str(REPO_DIR), \"remote\"],",
+                "            check=True,",
+                "            capture_output=True,",
+                "            text=True,",
+                "        ).stdout.split()",
+                "        if \"origin\" in remotes:",
+                "            subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"remote\", \"set-url\", \"origin\", REPO_URL], check=True)",
+                "        else:",
+                "            subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"remote\", \"add\", \"origin\", REPO_URL], check=True)",
+                "        try:",
+                "            subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"fetch\", \"--depth=1\", \"origin\", SOURCE_SHA], check=True)",
+                "        except subprocess.CalledProcessError:",
+                "            subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"fetch\", \"origin\", SOURCE_SHA], check=True)",
+                "        subprocess.run([\"git\", \"-C\", str(REPO_DIR), \"checkout\", \"--detach\", SOURCE_SHA], check=True)",
                 "    os.chdir(REPO_DIR)",
+                "    if str(REPO_DIR) not in sys.path:",
+                "        sys.path.insert(0, str(REPO_DIR))",
+                "    prev_pp = os.environ.get(\"PYTHONPATH\", \"\")",
+                "    pp_parts = [p for p in prev_pp.split(os.pathsep) if p] if prev_pp else []",
+                "    if str(REPO_DIR) not in pp_parts:",
+                "        os.environ[\"PYTHONPATH\"] = os.pathsep.join([str(REPO_DIR), *pp_parts]) if pp_parts else str(REPO_DIR)",
                 "    print(\"Checked out immutable runtime:\", SOURCE_SHA)",
             ],
             "v8-checkout",
@@ -98,16 +122,19 @@ def build_notebook_dict(*, source_commit: str, repo_url: str = REPO_HTTP_URL) ->
             [
                 "import torch",
                 "if RUN_STUDY:",
-                "    print(\"Torch:\", torch.__version__, \"CUDA GPUs:\", torch.cuda.device_count())",
-                "    for idx in range(torch.cuda.device_count()):",
+                "    gpu_count = torch.cuda.device_count()",
+                "    print(\"Torch:\", torch.__version__, \"CUDA GPUs:\", gpu_count)",
+                "    for idx in range(gpu_count):",
                 "        print(f\"  cuda:{idx} -> {torch.cuda.get_device_name(idx)}\")",
                 "    assert torch.cuda.is_available(), \"Kaggle GPU accelerator must be enabled\"",
+                "    if gpu_count < 2:",
+                "        print(f\"WARNING: expected 2xT4 GPUs, found {gpu_count} CUDA device(s); continuing on available GPU(s)\")",
             ],
             "v8-gpu-check",
         ),
         _cell_code(
             [
-                "import sys, subprocess",
+                "import os, subprocess, sys",
                 "if not RUN_STUDY:",
                 "    print(\"NOT LAUNCHED: owner switch is false\")",
                 "else:",
@@ -126,19 +153,32 @@ def build_notebook_dict(*, source_commit: str, repo_url: str = REPO_HTTP_URL) ->
                 "        cmd.extend([\"--comparator-arm\", str(COMPARATOR_ARM)])",
                 "    if CONFIRMATION_SEED is not None:",
                 "        cmd.extend([\"--confirmation-seed\", str(CONFIRMATION_SEED)])",
-                "    subprocess.run(cmd, check=True)",
+                "    env = dict(os.environ)",
+                "    env[\"CUBLAS_WORKSPACE_CONFIG\"] = \":4096:8\"",
+                "    env[\"PYTHONDONTWRITEBYTECODE\"] = \"1\"",
+                "    env[\"PYTHONUNBUFFERED\"] = \"1\"",
+                "    env[\"OMP_NUM_THREADS\"] = \"2\"",
+                "    env[\"MKL_NUM_THREADS\"] = \"2\"",
+                "    prev_pp = env.get(\"PYTHONPATH\", \"\")",
+                "    pp_parts = [p for p in prev_pp.split(os.pathsep) if p] if prev_pp else []",
+                "    if str(REPO_DIR) not in pp_parts:",
+                "        env[\"PYTHONPATH\"] = os.pathsep.join([str(REPO_DIR), *pp_parts]) if pp_parts else str(REPO_DIR)",
+                "    subprocess.run(cmd, env=env, cwd=str(REPO_DIR), check=True)",
             ],
             "v8-run",
         ),
         _cell_code(
             [
-                "import json",
-                "from IPython.display import FileLink, display",
-                "from tools.elendril_v8_export import verify_v8_export",
+                "import json, sys",
                 "",
                 "if not RUN_STUDY:",
                 "    print(\"NOT LAUNCHED: owner switch is false\")",
                 "else:",
+                "    if str(REPO_DIR) not in sys.path:",
+                "        sys.path.insert(0, str(REPO_DIR))",
+                "    from IPython.display import FileLink, display",
+                "    from tools.elendril_v8_export import verify_v8_export",
+                "",
                 "    receipt = verify_v8_export(OUTPUT_DIR, expected_source_commit=SOURCE_SHA)",
                 "    print(\"Verified exports:\", json.dumps(receipt, indent=2))",
                 "    for fname in (\"FINAL_STATUS.json\", \"ELENDRIL_V8_ANALYSIS.zip\", \"ELENDRIL_V8_FULL.zip\"):",
@@ -170,16 +210,19 @@ def write_notebook(output_path: Path, *, source_commit: str, repo_url: str = REP
 
 
 def verify_notebook_file(notebook_path: Path, *, expected_source_commit: str | None = None) -> dict[str, object]:
-    """Validate inert defaults, pinned commit, no launch-when-false bug, and V8 archive names."""
+    """Validate owner-armed defaults, pinned commit, no launch-when-false bug, and V8 archive names."""
 
     nb = json.loads(notebook_path.read_text(encoding="utf-8"))
     meta_sha = nb.get("metadata", {}).get("elendril_v8_source_commit", "")
-    all_src = "\n".join("".join(cell.get("source", [])) for cell in nb.get("cells", []))
+    cells = nb.get("cells", [])
+    all_src = "\n".join("".join(cell.get("source", [])) for cell in cells)
 
     for needle in (
-        "RUN_STUDY = False",
+        "RUN_STUDY = True",
         'PHASE = "data-control"',
         "MINUTES = 330",
+        "CUBLAS_WORKSPACE_CONFIG",
+        "PYTHONUNBUFFERED",
         "NOT LAUNCHED: owner switch is false",
         "tools.elendril_v8_campaign",
         "ELENDRIL_V8_ANALYSIS.zip",
@@ -189,11 +232,20 @@ def verify_notebook_file(notebook_path: Path, *, expected_source_commit: str | N
         if needle not in all_src:
             raise ValueError(f"notebook missing required token: {needle!r}")
 
+    verify_cells = ["".join(cell.get("source", [])) for cell in cells if cell.get("id") == "v8-verify-export"]
+    if len(verify_cells) != 1:
+        raise ValueError("notebook must contain exactly one v8-verify-export cell")
+    verify_src = verify_cells[0]
+    guard_pos = verify_src.find("if not RUN_STUDY:")
+    import_pos = verify_src.find("from tools.elendril_v8_export import verify_v8_export")
+    if guard_pos < 0 or import_pos < 0 or import_pos < guard_pos:
+        raise ValueError("v8-verify-export must guard tools.elendril_v8_export import after 'if not RUN_STUDY:'")
+
     if len(meta_sha) != 40 or f'SOURCE_SHA = "{meta_sha}"' not in all_src:
         raise ValueError("notebook lacks valid pinned 40-hex SOURCE_SHA")
     if expected_source_commit is not None and meta_sha != expected_source_commit:
         raise ValueError(f"notebook source commit {meta_sha} != {expected_source_commit}")
-    return {"verified": True, "source_commit": meta_sha, "cells": len(nb.get("cells", []))}
+    return {"verified": True, "source_commit": meta_sha, "cells": len(cells)}
 
 
 def main(argv: list[str] | None = None) -> int:

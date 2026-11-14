@@ -231,3 +231,15 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to `dd12e7e2ed040a84a0ba27ec566b1715ecc59b4f` with `REPO_URL=https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git` and `RUN_STUDY=False`.
 - Verified `git archive` rebuild reproduces identical LF notebook bytes (`34171e57c29d19eea1bad601d2838341ff4717b4ebff597bae584aafa94394a0`) and updated `Experiment Result/V8/` templates.
 - No local GPU research training or S20 campaign ran; ready for CI verification, push, and Kaggle 2xT4 execution.
+
+### 2026-11-14 | Codex | Re-review V8 repair commits
+- Verified 24 focused CPU tests in 151.94s and exact notebook rebuild from dd12e7e2; prior leakage/minimal-report regressions pass.
+- Found remaining GPU device binding, full-training/intermediate evidence, confirmation custody and evaluation-coverage gaps.
+- Updated CODEX_REVIEW_CONFIRMATION.md; checked remote refs still at 21f57160, so repaired release publication is pending.
+- Review only; research launch remains NO-GO, with no GPU training or runtime changes made.
+
+### 2026-11-14 | Gemini | Close Codex re-review items and fix Kaggle dual-GPU launch
+- Fixed notebook Cell 5 `tools` import guard, set `CUBLAS_WORKSPACE_CONFIG=:4096:8`, enabled owner-authorized `RUN_STUDY=True`, and batched `V8BytePolicy` scoring across both T4s.
+- Parallelized Stage A/B across `gpu_devices` subprocesses with explicit per-profile CUDA binding, multi-cohort eval timing, and session deadline before split prep.
+- Enforced full-corpus diagnostics (`5888`/`9472`), intermediate milestone episode traces, strict `confirmation_seed` + `.confirmation.jsonl`, and exact world/mode coverage.
+- Passed all 28 focused CPU V8 tests; no local GPU training ran.

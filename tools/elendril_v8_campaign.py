@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter, defaultdict
 from collections.abc import Callable, Sequence
 import inspect
 import json
@@ -14,6 +15,8 @@ import subprocess
 import sys
 import time
 from typing import Any
+
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 
 import torch
 
@@ -129,6 +132,76 @@ def _expected_families_for_dataset(dataset: str) -> set[str]:
     raise ValueError(f"unregistered dataset: {dataset!r}")
 
 
+def _load_registered_cohort_worlds(
+    cohorts_path: Path,
+    *,
+    job_id: str,
+    label: str,
+    violations: list[str],
+) -> tuple[dict[str, list[dict[str, Any]]] | None, set[str] | None]:
+    """Load and validate registered Dev/Confirmation cohort worlds from splits/*.json."""
+
+    if not cohorts_path.exists() or not cohorts_path.is_file() or cohorts_path.stat().st_size == 0:
+        violations.append(f"{job_id}: missing splits/{cohorts_path.name} for {label} validation")
+        return None, None
+    try:
+        parsed = json.loads(cohorts_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        violations.append(f"{job_id}: unreadable splits/{cohorts_path.name} ({exc})")
+        return None, None
+    if not isinstance(parsed, dict) or not set(EXPECTED_COHORTS).issubset(set(parsed)):
+        violations.append(f"{job_id}: splits/{cohorts_path.name} missing required cohorts")
+        return None, None
+
+    world_ids: set[str] = set()
+    for cohort_name, worlds in parsed.items():
+        if not isinstance(worlds, list):
+            violations.append(f"{job_id}: splits/{cohorts_path.name} cohort {cohort_name!r} is not a list")
+            return None, None
+        for w in worlds:
+            if not isinstance(w, dict) or w.get("world_id") is None:
+                violations.append(f"{job_id}: splits/{cohorts_path.name} contains invalid world entry")
+                return None, None
+            world_ids.add(str(w["world_id"]))
+
+    if not world_ids:
+        violations.append(f"{job_id}: splits/{cohorts_path.name} has 0 worlds")
+        return None, None
+    return parsed, world_ids
+
+
+def _validate_rescore_summary_fields(
+    *,
+    job_id: str,
+    prefix: str,
+    rep_rescore: object,
+    actual_rescore: dict[str, Any],
+    violations: list[str],
+) -> None:
+    if not isinstance(rep_rescore, dict) or rep_rescore.get("verified") is not True:
+        violations.append(f"{job_id}: missing or unverified {prefix} in report")
+        return
+    if rep_rescore.get("episode_count") != actual_rescore.get("episode_count"):
+        violations.append(
+            f"{job_id}: {prefix} episode_count mismatch {rep_rescore.get('episode_count')!r} != {actual_rescore.get('episode_count')!r}"
+        )
+    if (
+        rep_rescore.get("exact_accuracy") is None
+        or abs(float(rep_rescore["exact_accuracy"]) - float(actual_rescore["exact_accuracy"])) > 1e-6
+    ):
+        violations.append(f"{job_id}: {prefix} exact_accuracy mismatch")
+    if rep_rescore.get("by_mode") != actual_rescore.get("by_mode"):
+        violations.append(f"{job_id}: {prefix} by_mode mismatch")
+    if rep_rescore.get("by_cohort") != actual_rescore.get("by_cohort"):
+        violations.append(f"{job_id}: {prefix} by_cohort mismatch")
+    if (
+        isinstance(actual_rescore.get("by_milestone"), dict)
+        and isinstance(rep_rescore.get("by_milestone"), dict)
+        and rep_rescore["by_milestone"] != actual_rescore["by_milestone"]
+    ):
+        violations.append(f"{job_id}: {prefix} by_milestone mismatch")
+
+
 def validate_job_completion_artifacts(
     job_spec: dict[str, object],
     report: dict[str, object],
@@ -138,6 +211,7 @@ def validate_job_completion_artifacts(
     expected_updates: int,
     expected_split_audit_sha256: str | None = None,
     check_confirmation: bool = False,
+    cpu_smoke: bool | None = None,
 ) -> list[str]:
     """Fail-closed shared validator for worker and test-runner job completion evidence."""
 
@@ -267,6 +341,12 @@ def validate_job_completion_artifacts(
         except Exception as exc:
             violations.append(f"{job_id}: failed reading steps JSONL ({exc})")
 
+    is_cpu_smoke = (
+        bool(cpu_smoke)
+        if cpu_smoke is not None
+        else (bool(audit_obj.get("cpu_smoke")) if isinstance(audit_obj, dict) and "cpu_smoke" in audit_obj else False)
+    )
+
     # Families & milestones validation
     try:
         expected_families = _expected_families_for_dataset(dataset)
@@ -281,6 +361,7 @@ def validate_job_completion_artifacts(
         rep_milestones = {}
 
     milestones_dir = work_dir / "milestones" / job_id
+    loaded_milestones: dict[str, dict[str, Any]] = {}
     for m_name, exp_u in expected_milestones.items():
         m_file = milestones_dir / f"{m_name}.json"
         if not m_file.exists() or not m_file.is_file():
@@ -294,6 +375,7 @@ def validate_job_completion_artifacts(
         if not isinstance(m_disk, dict):
             violations.append(f"{job_id}: milestone {m_name} is not a JSON object")
             continue
+        loaded_milestones[m_name] = m_disk
         if m_disk.get("milestone_name", m_name) != m_name:
             violations.append(f"{job_id}: milestone {m_name} name mismatch {m_disk.get('milestone_name')!r}")
         if not _is_strict_int(m_disk.get("global_update")) or m_disk["global_update"] != exp_u:
@@ -342,7 +424,7 @@ def validate_job_completion_artifacts(
             if rep_m.get("checkpoint_generation") != m_disk.get("checkpoint_generation"):
                 violations.append(f"{job_id}: report milestone {m_name} checkpoint_generation != disk")
 
-    # final_probe family coverage
+    # final_probe family coverage + full corpus denominator on non-smoke runs
     final_probe = report.get("final_probe")
     if not isinstance(final_probe, dict):
         violations.append(f"{job_id}: missing final_probe")
@@ -350,8 +432,31 @@ def validate_job_completion_artifacts(
         fp_fams = set(final_probe.get("families_covered") or ())
         if expected_families and not expected_families.issubset(fp_fams):
             violations.append(f"{job_id}: final_probe missing families {sorted(expected_families - fp_fams)}")
+        if not is_cpu_smoke and dataset in REGISTERED_DATASET_SAMPLES:
+            expected_probe_steps = REGISTERED_DATASET_SAMPLES[dataset]
+            fp_total_steps = final_probe.get("total_steps")
+            if not _is_strict_int(fp_total_steps) or fp_total_steps != expected_probe_steps:
+                violations.append(
+                    f"{job_id}: final_probe total_steps {fp_total_steps!r} != {expected_probe_steps}"
+                )
 
-    # Episodes JSONL + independent rescore validation
+    # Load registered Dev worlds for exact world x mode x milestone validation
+    dev_cohorts, expected_dev_world_ids = _load_registered_cohort_worlds(
+        work_dir / "splits" / "dev_cohorts.json",
+        job_id=job_id,
+        label="dev",
+        violations=violations,
+    )
+    expected_sub_world_ids: set[str] | None = None
+    if dev_cohorts is not None:
+        sub_cap = 5 * int(EVALUATION_ALLOCATION["intermediate_milestone_base_worlds"])
+        expected_sub_world_ids = {
+            str(w["world_id"])
+            for rows in dev_cohorts.values()
+            for w in rows[:sub_cap]
+        }
+
+    # Episodes JSONL + milestone coverage + independent rescore validation
     ep_path = work_dir / "episodes" / f"{job_id}.jsonl"
     if report.get("episodes_file") is not None:
         try:
@@ -362,54 +467,201 @@ def validate_job_completion_artifacts(
     if not ep_path.exists() or not ep_path.is_file() or ep_path.stat().st_size == 0:
         violations.append(f"{job_id}: missing or empty episodes file {ep_path}")
     else:
-        modes_seen: set[str] = set()
-        cohorts_seen: set[str] = set()
+        observed_pairs_by_milestone: dict[str, set[tuple[str, str]]] = defaultdict(set)
+        duplicates_by_milestone: Counter[str] = Counter()
+        foreign_worlds_by_milestone: dict[str, set[str]] = defaultdict(set)
+        milestone_totals: dict[str, dict[str, int]] = defaultdict(lambda: {"n": 0, "correct": 0})
+        milestone_mode_stats: dict[str, dict[str, dict[str, int]]] = defaultdict(
+            lambda: defaultdict(lambda: {"n": 0, "correct": 0})
+        )
         empty_steps_rows = 0
+        saw_explicit_milestone = False
+        saw_missing_milestone = False
+        invalid_milestone_rows = 0
+        parse_ok = True
+
         try:
             for line in ep_path.read_text(encoding="utf-8").splitlines():
                 if not line.strip():
                     continue
                 row = json.loads(line)
-                modes_seen.add(str(row.get("mode", "")))
-                cohorts_seen.add(str(row.get("cohort", "")))
+                if not isinstance(row, dict):
+                    violations.append(f"{job_id}: non-object row in episodes JSONL")
+                    parse_ok = False
+                    break
+                if "milestone" in row:
+                    saw_explicit_milestone = True
+                    raw_m = row["milestone"]
+                    if not isinstance(raw_m, str) or not raw_m.strip():
+                        invalid_milestone_rows += 1
+                        continue
+                    m_label = raw_m
+                else:
+                    saw_missing_milestone = True
+                    m_label = "epoch-4"
+
+                wid = str(row.get("world_id", ""))
+                mode = str(row.get("mode", ""))
                 steps_list = row.get("steps")
                 if not isinstance(steps_list, list) or len(steps_list) == 0:
                     empty_steps_rows += 1
+                if expected_dev_world_ids is not None and wid not in expected_dev_world_ids:
+                    foreign_worlds_by_milestone[m_label].add(wid)
+
+                pair = (wid, mode)
+                if pair in observed_pairs_by_milestone[m_label]:
+                    duplicates_by_milestone[m_label] += 1
+                observed_pairs_by_milestone[m_label].add(pair)
+
+                is_ok = bool(row.get("exact_match", row.get("correct", False)))
+                milestone_totals[m_label]["n"] += 1
+                milestone_totals[m_label]["correct"] += int(is_ok)
+                milestone_mode_stats[m_label][mode]["n"] += 1
+                milestone_mode_stats[m_label][mode]["correct"] += int(is_ok)
         except Exception as exc:
             violations.append(f"{job_id}: failed parsing episodes JSONL ({exc})")
+            parse_ok = False
+
+        if invalid_milestone_rows > 0:
+            violations.append(f"{job_id}: {invalid_milestone_rows} episode rows have invalid milestone tag")
+        if saw_explicit_milestone and saw_missing_milestone:
+            violations.append(f"{job_id}: mixed rows with and without 'milestone' key in {ep_path.name}")
         if empty_steps_rows > 0:
             violations.append(f"{job_id}: {empty_steps_rows} episode rows have empty or missing steps")
-        missing_modes = sorted(set(EXPECTED_MODES) - modes_seen)
-        if missing_modes:
-            violations.append(f"{job_id}: episodes missing modes {missing_modes}")
-        missing_cohorts = sorted(set(EXPECTED_COHORTS) - cohorts_seen)
-        if missing_cohorts:
-            violations.append(f"{job_id}: episodes missing cohorts {missing_cohorts}")
+
+        if parse_ok:
+            extra_milestones = sorted(set(milestone_totals) - set(expected_milestones))
+            if extra_milestones:
+                violations.append(f"{job_id}: unexpected milestones in episodes JSONL: {extra_milestones}")
+
+            for m_name in expected_milestones:
+                dup_m = duplicates_by_milestone.get(m_name, 0)
+                if dup_m > 0:
+                    violations.append(f"{job_id}: {dup_m} duplicate (world_id, mode) rows at milestone {m_name}")
+                foreign_m = foreign_worlds_by_milestone.get(m_name)
+                if foreign_m:
+                    violations.append(
+                        f"{job_id}: {len(foreign_m)} foreign world_id(s) at milestone {m_name}: {sorted(foreign_m)[:3]}"
+                    )
+
+                if expected_dev_world_ids is not None:
+                    if m_name == "epoch-4":
+                        exp_pairs = {(wid, mode) for wid in expected_dev_world_ids for mode in EXPECTED_MODES}
+                    elif m_name == "initial":
+                        exp_pairs = {(wid, "raw") for wid in expected_dev_world_ids}
+                    else:
+                        sub_ids = expected_sub_world_ids if expected_sub_world_ids is not None else expected_dev_world_ids
+                        exp_pairs = {(wid, "raw") for wid in sub_ids}
+
+                    obs_pairs = observed_pairs_by_milestone.get(m_name, set())
+                    missing_pairs = exp_pairs - obs_pairs
+                    extra_pairs = obs_pairs - exp_pairs
+                    if missing_pairs:
+                        violations.append(
+                            f"{job_id}: milestone {m_name} missing {len(missing_pairs)} (world_id, mode) pair(s), sample={sorted(missing_pairs)[:3]}"
+                        )
+                    if extra_pairs:
+                        violations.append(
+                            f"{job_id}: milestone {m_name} has {len(extra_pairs)} unexpected (world_id, mode) pair(s)"
+                        )
+                    if milestone_totals.get(m_name, {}).get("n", 0) != len(exp_pairs):
+                        violations.append(
+                            f"{job_id}: milestone {m_name} row count {milestone_totals.get(m_name, {}).get('n', 0)} != {len(exp_pairs)}"
+                        )
 
         rescore = rescore_saved_episode_jsonl(ep_path)
         if rescore.get("verified") is not True:
             violations.append(f"{job_id}: rescore_saved_episode_jsonl failed: {rescore.get('errors', [])[:3]}")
         else:
-            rep_rescore = report.get("rescore_summary")
-            if not isinstance(rep_rescore, dict) or rep_rescore.get("verified") is not True:
-                violations.append(f"{job_id}: missing or unverified rescore_summary in report")
-            else:
-                if rep_rescore.get("episode_count") != rescore.get("episode_count"):
-                    violations.append(
-                        f"{job_id}: rescore episode_count mismatch {rep_rescore.get('episode_count')!r} != {rescore.get('episode_count')!r}"
-                    )
-                if (
-                    rep_rescore.get("exact_accuracy") is None
-                    or abs(float(rep_rescore["exact_accuracy"]) - float(rescore["exact_accuracy"])) > 1e-9
-                ):
-                    violations.append(f"{job_id}: rescore exact_accuracy mismatch")
-                if rep_rescore.get("by_mode") != rescore.get("by_mode"):
-                    violations.append(f"{job_id}: rescore by_mode mismatch")
-                if rep_rescore.get("by_cohort") != rescore.get("by_cohort"):
-                    violations.append(f"{job_id}: rescore by_cohort mismatch")
+            _validate_rescore_summary_fields(
+                job_id=job_id,
+                prefix="rescore_summary",
+                rep_rescore=report.get("rescore_summary"),
+                actual_rescore=rescore,
+                violations=violations,
+            )
 
-    # Confirmation evidence validation for replication
+            if isinstance(rescore.get("by_milestone"), dict):
+                for m_name in expected_milestones:
+                    if m_name not in rescore["by_milestone"]:
+                        violations.append(f"{job_id}: rescore by_milestone missing {m_name!r}")
+                    else:
+                        bm = rescore["by_milestone"][m_name]
+                        if isinstance(bm, dict):
+                            bm_count = bm.get("episode_count", bm.get("n"))
+                            m_tot = milestone_totals.get(m_name, {"n": 0, "correct": 0})
+                            if _is_strict_int(bm_count) and m_tot["n"] and bm_count != m_tot["n"]:
+                                violations.append(
+                                    f"{job_id}: rescore by_milestone[{m_name!r}] count {bm_count} != {m_tot['n']}"
+                                )
+                            if bm.get("exact_accuracy") is not None and m_tot["n"] > 0:
+                                exp_m_acc = m_tot["correct"] / m_tot["n"]
+                                if abs(float(bm["exact_accuracy"]) - exp_m_acc) > 1e-6:
+                                    violations.append(
+                                        f"{job_id}: rescore by_milestone[{m_name!r}] exact_accuracy mismatch"
+                                    )
+                            raw_st = milestone_mode_stats.get(m_name, {}).get("raw", {"n": 0, "correct": 0})
+                            if bm.get("raw_exact_accuracy") is not None and raw_st["n"] > 0:
+                                exp_raw_acc = raw_st["correct"] / raw_st["n"]
+                                if abs(float(bm["raw_exact_accuracy"]) - exp_raw_acc) > 1e-6:
+                                    violations.append(
+                                        f"{job_id}: rescore by_milestone[{m_name!r}] raw_exact_accuracy mismatch"
+                                    )
+
+            for m_name, m_disk in loaded_milestones.items():
+                suite_sum = m_disk.get("suite_summary")
+                raw_st = milestone_mode_stats.get(m_name, {}).get("raw", {"n": 0, "correct": 0})
+                if isinstance(suite_sum, dict) and raw_st["n"] > 0:
+                    if suite_sum.get("episodes") != raw_st["n"]:
+                        violations.append(
+                            f"{job_id}: milestone {m_name} suite_summary episodes {suite_sum.get('episodes')!r} != {raw_st['n']}"
+                        )
+                    if suite_sum.get("exact_episode_accuracy") is not None:
+                        rescored_m_raw_acc = raw_st["correct"] / raw_st["n"]
+                        if abs(float(suite_sum["exact_episode_accuracy"]) - rescored_m_raw_acc) > 1e-6:
+                            violations.append(
+                                f"{job_id}: milestone {m_name} suite_summary exact_episode_accuracy {suite_sum['exact_episode_accuracy']!r} != rescored {rescored_m_raw_acc!r}"
+                            )
+
+            if isinstance(report.get("summary"), dict) and report["summary"].get("exact_accuracy") is not None:
+                if abs(float(report["summary"]["exact_accuracy"]) - float(rescore["exact_accuracy"])) > 1e-6:
+                    violations.append(f"{job_id}: report['summary']['exact_accuracy'] != rescored exact_accuracy")
+
+            e4_raw_st = milestone_mode_stats.get("epoch-4", {}).get("raw", {"n": 0, "correct": 0})
+            if e4_raw_st["n"] > 0:
+                e4_raw_acc = e4_raw_st["correct"] / e4_raw_st["n"]
+                if report.get("raw_overall_accuracy") is not None:
+                    if abs(float(report["raw_overall_accuracy"]) - e4_raw_acc) > 1e-6:
+                        violations.append(
+                            f"{job_id}: raw_overall_accuracy {report['raw_overall_accuracy']!r} != rescored {e4_raw_acc!r}"
+                        )
+                rep_sbm = report.get("summary_by_mode")
+                if isinstance(rep_sbm, dict):
+                    for mode in EXPECTED_MODES:
+                        ms = rep_sbm.get(mode)
+                        m_st = milestone_mode_stats.get("epoch-4", {}).get(mode, {"n": 0, "correct": 0})
+                        if not isinstance(ms, dict):
+                            violations.append(f"{job_id}: summary_by_mode missing {mode!r}")
+                        elif m_st["n"] > 0:
+                            if ms.get("episodes") != m_st["n"]:
+                                violations.append(
+                                    f"{job_id}: summary_by_mode[{mode!r}] episodes {ms.get('episodes')!r} != {m_st['n']}"
+                                )
+                            m_acc = m_st["correct"] / m_st["n"]
+                            if ms.get("exact_episode_accuracy") is None or abs(float(ms["exact_episode_accuracy"]) - m_acc) > 1e-6:
+                                violations.append(
+                                    f"{job_id}: summary_by_mode[{mode!r}] exact_episode_accuracy mismatch"
+                                )
+
+    # Confirmation evidence validation for replication (always strict & required)
     if check_confirmation:
+        _, expected_conf_world_ids = _load_registered_cohort_worlds(
+            work_dir / "splits" / "conf_cohorts.json",
+            job_id=job_id,
+            label="confirmation",
+            violations=violations,
+        )
+
         conf_sum = report.get("confirmation_summary")
         if not isinstance(conf_sum, dict):
             violations.append(f"{job_id}: missing confirmation_summary")
@@ -428,33 +680,139 @@ def validate_job_completion_artifacts(
                 or conf_lcf.get("irrelevant_cf_stability") is None
             ):
                 violations.append(f"{job_id}: confirmation_summary missing linked_counterfactuals")
+            if expected_conf_world_ids is not None and conf_sum.get("episodes") != len(expected_conf_world_ids):
+                violations.append(
+                    f"{job_id}: confirmation episodes {conf_sum.get('episodes')!r} != {len(expected_conf_world_ids)}"
+                )
 
-            conf_cohorts_path = work_dir / "splits" / "conf_cohorts.json"
-            if not conf_cohorts_path.exists() or conf_cohorts_path.stat().st_size == 0:
-                violations.append(f"{job_id}: missing splits/conf_cohorts.json for confirmation validation")
-            else:
-                try:
-                    conf_raw = json.loads(conf_cohorts_path.read_text(encoding="utf-8"))
-                    expected_conf_n = sum(len(v) for v in conf_raw.values())
-                    if conf_sum.get("episodes") != expected_conf_n:
-                        violations.append(
-                            f"{job_id}: confirmation episodes {conf_sum.get('episodes')!r} != {expected_conf_n}"
-                        )
-                except Exception as exc:
-                    violations.append(f"{job_id}: unreadable splits/conf_cohorts.json ({exc})")
-
-            conf_ep_candidate = report.get("confirmation_episodes_file")
-            conf_ep_path = (
-                Path(str(conf_ep_candidate))
-                if conf_ep_candidate is not None
-                else (work_dir / "episodes" / f"{job_id}_confirmation.jsonl")
-            )
-            if conf_ep_candidate is not None or conf_ep_path.exists():
-                conf_rescore = rescore_saved_episode_jsonl(conf_ep_path)
-                if conf_rescore.get("verified") is not True:
+        conf_ep_path = work_dir / "episodes" / f"{job_id}.confirmation.jsonl"
+        if report.get("confirmation_episodes_file") is not None:
+            try:
+                if Path(str(report["confirmation_episodes_file"])).resolve() != conf_ep_path.resolve():
                     violations.append(
-                        f"{job_id}: confirmation episode rescore failed: {conf_rescore.get('errors', [])[:3]}"
+                        f"{job_id}: confirmation_episodes_file {report['confirmation_episodes_file']!r} != {conf_ep_path}"
                     )
+            except Exception:
+                violations.append(
+                    f"{job_id}: invalid confirmation_episodes_file path {report['confirmation_episodes_file']!r}"
+                )
+
+        if not conf_ep_path.exists() or not conf_ep_path.is_file() or conf_ep_path.stat().st_size == 0:
+            violations.append(f"{job_id}: missing or empty confirmation episodes file {conf_ep_path}")
+        else:
+            conf_observed_pairs: set[tuple[str, str]] = set()
+            conf_duplicates = 0
+            conf_foreign_worlds: set[str] = set()
+            conf_empty_steps = 0
+            conf_raw_cohort_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"n": 0, "correct": 0})
+            conf_parse_ok = True
+            try:
+                for line in conf_ep_path.read_text(encoding="utf-8").splitlines():
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    if not isinstance(row, dict):
+                        violations.append(f"{job_id}: non-object row in confirmation episodes JSONL")
+                        conf_parse_ok = False
+                        break
+                    wid = str(row.get("world_id", ""))
+                    mode = str(row.get("mode", ""))
+                    cohort = str(row.get("cohort", ""))
+                    steps_list = row.get("steps")
+                    if not isinstance(steps_list, list) or len(steps_list) == 0:
+                        conf_empty_steps += 1
+                    if expected_conf_world_ids is not None and wid not in expected_conf_world_ids:
+                        conf_foreign_worlds.add(wid)
+                    pair = (wid, mode)
+                    if pair in conf_observed_pairs:
+                        conf_duplicates += 1
+                    conf_observed_pairs.add(pair)
+                    if mode == "raw":
+                        is_ok = bool(row.get("exact_match", row.get("correct", False)))
+                        conf_raw_cohort_stats[cohort]["n"] += 1
+                        conf_raw_cohort_stats[cohort]["correct"] += int(is_ok)
+            except Exception as exc:
+                violations.append(f"{job_id}: failed parsing confirmation episodes JSONL ({exc})")
+                conf_parse_ok = False
+
+            if conf_empty_steps > 0:
+                violations.append(f"{job_id}: {conf_empty_steps} confirmation episode rows have empty or missing steps")
+            if conf_duplicates > 0:
+                violations.append(f"{job_id}: {conf_duplicates} duplicate (world_id, mode) rows in confirmation episodes")
+            if conf_foreign_worlds:
+                violations.append(
+                    f"{job_id}: {len(conf_foreign_worlds)} foreign world_id(s) in confirmation episodes: {sorted(conf_foreign_worlds)[:3]}"
+                )
+            if conf_parse_ok and expected_conf_world_ids is not None:
+                expected_conf_pairs = {(wid, mode) for wid in expected_conf_world_ids for mode in EXPECTED_MODES}
+                missing_conf = expected_conf_pairs - conf_observed_pairs
+                extra_conf = conf_observed_pairs - expected_conf_pairs
+                if missing_conf:
+                    violations.append(
+                        f"{job_id}: confirmation episodes missing {len(missing_conf)} (world_id, mode) pair(s), sample={sorted(missing_conf)[:3]}"
+                    )
+                if extra_conf:
+                    violations.append(
+                        f"{job_id}: confirmation episodes has {len(extra_conf)} unexpected (world_id, mode) pair(s)"
+                    )
+
+            conf_rescore = rescore_saved_episode_jsonl(conf_ep_path)
+            if conf_rescore.get("verified") is not True:
+                violations.append(
+                    f"{job_id}: confirmation episode rescore failed: {conf_rescore.get('errors', [])[:3]}"
+                )
+            else:
+                if expected_conf_world_ids is not None:
+                    exp_conf_rows = len(expected_conf_world_ids) * len(EXPECTED_MODES)
+                    if conf_rescore.get("episode_count") != exp_conf_rows:
+                        violations.append(
+                            f"{job_id}: confirmation rescore episode_count {conf_rescore.get('episode_count')!r} != {exp_conf_rows}"
+                        )
+                if isinstance(report.get("confirmation_rescore_summary"), dict):
+                    _validate_rescore_summary_fields(
+                        job_id=job_id,
+                        prefix="confirmation_rescore_summary",
+                        rep_rescore=report.get("confirmation_rescore_summary"),
+                        actual_rescore=conf_rescore,
+                        violations=violations,
+                    )
+                if isinstance(conf_sum, dict):
+                    conf_raw_acc = conf_rescore.get("raw_exact_accuracy")
+                    if conf_raw_acc is None and isinstance(conf_rescore.get("by_mode"), dict):
+                        conf_raw_acc = (conf_rescore["by_mode"].get("raw") or {}).get("exact_accuracy")
+                    if (
+                        conf_raw_acc is None
+                        or conf_sum.get("exact_episode_accuracy") is None
+                        or abs(float(conf_sum["exact_episode_accuracy"]) - float(conf_raw_acc)) > 1e-6
+                    ):
+                        violations.append(f"{job_id}: confirmation_summary exact_episode_accuracy mismatch with rescore")
+                    if (
+                        conf_sum.get("non_isolated_exact_accuracy") is not None
+                        and conf_rescore.get("raw_non_isolated_exact_accuracy") is not None
+                        and abs(
+                            float(conf_sum["non_isolated_exact_accuracy"])
+                            - float(conf_rescore["raw_non_isolated_exact_accuracy"])
+                        )
+                        > 1e-6
+                    ):
+                        violations.append(f"{job_id}: confirmation_summary non_isolated_exact_accuracy mismatch with rescore")
+                    conf_cohorts_map = conf_sum.get("by_cohort")
+                    if isinstance(conf_cohorts_map, dict):
+                        for cohort in EXPECTED_COHORTS:
+                            c_rep = conf_cohorts_map.get(cohort)
+                            c_st = conf_raw_cohort_stats.get(cohort, {"n": 0, "correct": 0})
+                            if not isinstance(c_rep, dict):
+                                violations.append(f"{job_id}: confirmation_summary missing cohort {cohort!r}")
+                            elif c_st["n"] > 0:
+                                if c_rep.get("n") != c_st["n"]:
+                                    violations.append(
+                                        f"{job_id}: confirmation_summary cohort {cohort} n {c_rep.get('n')!r} != {c_st['n']}"
+                                    )
+                                exp_c_acc = c_st["correct"] / c_st["n"]
+                                if c_rep.get("exact_accuracy") is None or abs(float(c_rep["exact_accuracy"]) - exp_c_acc) > 1e-6:
+                                    violations.append(
+                                        f"{job_id}: confirmation_summary cohort {cohort} exact_accuracy mismatch"
+                                    )
 
     return violations
 
@@ -630,6 +988,16 @@ def _run_worker_subprocess(
     if extra_args:
         cmd.extend(extra_args)
     env = dict(os.environ)
+    env["CUBLAS_WORKSPACE_CONFIG"] = os.environ.get("CUBLAS_WORKSPACE_CONFIG") or ":4096:8"
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONUNBUFFERED"] = "1"
+    env["OMP_NUM_THREADS"] = "2"
+    env["MKL_NUM_THREADS"] = "2"
+    env["TORCH_NUM_THREADS"] = "2"
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    if cwd is not None:
+        existing_pp = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = f"{cwd}{os.pathsep}{existing_pp}" if existing_pp else str(cwd)
     if device != "cpu":
         env["CUDA_VISIBLE_DEVICES"] = str(gpu_lane)
     log_dir = work_dir / "logs"
@@ -647,6 +1015,89 @@ def _run_worker_subprocess(
     return proc
 
 
+def _close_proc_log(proc: subprocess.Popen) -> None:
+    fh = getattr(proc, "_v8_log_fh", None)
+    if fh is not None:
+        fh.close()
+
+
+def _run_parallel_gpu_workers(
+    tasks: Sequence[dict[str, Any]],
+    *,
+    gpu_devices: Sequence[int],
+    source_commit: str,
+    repo_root: Path,
+) -> tuple[dict[str, dict[str, object]], str | None]:
+    """Run independent GPU worker subprocesses concurrently across gpu_devices (one per GPU lane)."""
+
+    lanes = [int(d) for d in gpu_devices] or [0]
+    pending = list(tasks)
+    active: dict[int, tuple[dict[str, Any], subprocess.Popen]] = {}
+    results: dict[str, dict[str, object]] = {}
+    failed_reason: str | None = None
+
+    try:
+        while pending or active:
+            for lane_idx, gpu_id in enumerate(lanes):
+                if lane_idx in active or not pending or failed_reason is not None:
+                    continue
+                task = pending.pop(0)
+                proc = _run_worker_subprocess(
+                    str(task["mode"]),
+                    job_id=task.get("job_id"),
+                    arm=task.get("arm"),
+                    source_commit=source_commit,
+                    work_dir=Path(task["work_dir"]),
+                    gpu_lane=gpu_id,
+                    device="cuda:0",
+                    cwd=repo_root,
+                    extra_args=list(task["build_extra_args"](gpu_id)),
+                )
+                active[lane_idx] = (task, proc)
+
+            finished = [lane_idx for lane_idx, (_, proc) in active.items() if proc.poll() is not None]
+            for lane_idx in finished:
+                task, proc = active.pop(lane_idx)
+                _close_proc_log(proc)
+                key = str(task["key"])
+                json_path = Path(task["json_path"])
+                if proc.returncode != 0:
+                    failed_reason = f"{task['label']} subprocess failed for {key} (exit={proc.returncode})"
+                    pending.clear()
+                    break
+                if not json_path.exists():
+                    failed_reason = f"{task['label']} subprocess missing JSON output for {key}: {json_path}"
+                    pending.clear()
+                    break
+                res = json.loads(json_path.read_text(encoding="utf-8"))
+                results[key] = dict(res)
+                err = task["validate_fn"](key, res)
+                if err is not None:
+                    failed_reason = err
+                    pending.clear()
+                    break
+
+            if failed_reason is not None and active:
+                for _, (_, proc) in list(active.items()):
+                    if proc.poll() is None:
+                        proc.terminate()
+                for lane_idx, (_, proc) in list(active.items()):
+                    proc.wait(timeout=30)
+                    _close_proc_log(proc)
+                    del active[lane_idx]
+                break
+            if active:
+                time.sleep(0.05)
+    finally:
+        for _, proc in active.values():
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=30)
+            _close_proc_log(proc)
+
+    return results, failed_reason
+
+
 def _verify_job_result(
     job: dict[str, object],
     work_dir: Path,
@@ -655,6 +1106,7 @@ def _verify_job_result(
     expected_updates: int,
     expected_split_audit_sha256: str | None,
     check_confirmation: bool,
+    cpu_smoke: bool | None = None,
 ) -> dict[str, object]:
     job_id = str(job["job_id"])
     job_json_path = work_dir / "jobs" / f"{job_id}.json"
@@ -669,6 +1121,7 @@ def _verify_job_result(
         expected_updates=expected_updates,
         expected_split_audit_sha256=expected_split_audit_sha256,
         check_confirmation=check_confirmation,
+        cpu_smoke=cpu_smoke,
     )
     if violations:
         raise ValueError("; ".join(violations))
@@ -687,7 +1140,7 @@ def _load_episodes_for_pairwise(ep_file: Path) -> list[EpisodeRecord]:
         if not line.strip():
             continue
         row = json.loads(line)
-        if row.get("mode") != "raw":
+        if row.get("mode") != "raw" or row.get("milestone", "epoch-4") != "epoch-4":
             continue
         out.append(
             EpisodeRecord(
@@ -1032,6 +1485,8 @@ def run_campaign(
     eff_dev_wpc = int(dev_worlds_per_cohort) if dev_worlds_per_cohort is not None else (2 if cpu_smoke else 128)
     eff_conf_wpc = int(conf_worlds_per_cohort) if conf_worlds_per_cohort is not None else (2 if cpu_smoke else 256)
     phase_budget_seconds = float(minutes) * 60.0
+    t_campaign_start = time.monotonic()
+    deadline = t_campaign_start + phase_budget_seconds
 
     state_log: dict[str, object] = {
         "phase": phase,
@@ -1040,6 +1495,33 @@ def run_campaign(
         "jobs": [j["job_id"] for j in phase_jobs],
     }
     _save_state_machine(work_root, state_log)
+
+    if confirmation_seed is not None and not _is_strict_int(confirmation_seed):
+        raise ValueError(f"confirmation_seed must be an integer, got {confirmation_seed!r}")
+
+    if phase == "replication" and confirmation_seed is None:
+        reason = "Stage 0 replication requires explicit owner --confirmation-seed"
+        state_log["state"] = "NO_GO"
+        state_log["reason"] = reason
+        _save_state_machine(work_root, state_log)
+        _write_sidecars_and_export(
+            work_root=work_root,
+            output_dir=output_dir,
+            repo_root=repo,
+            phase=phase,
+            status="NO_GO",
+            source_commit=source_commit,
+            run_records=[],
+            paired_comparisons=[],
+            condition_pairings=[],
+            confirmation_pairing=None,
+            advancement=None,
+            executed_scenarios=set(),
+            diagnostics_payload={"schema": "elendril-v8-diagnostics-v1", "phase": phase, "status": "NO_GO", "reason": reason},
+            notes=[reason],
+            status_extra={"reason": reason},
+        )
+        return {"status": "NO_GO", "reason": reason}
 
     # 1. Storage Admission
     storage_est = estimate_campaign_storage_bytes(phase_jobs, gpu_mode=(not cpu_smoke))
@@ -1144,43 +1626,80 @@ def run_campaign(
     state_log["split_audit_sha256"] = split_audit_sha256
     _save_state_machine(work_root, state_log)
 
-    t_campaign_start = time.monotonic()
-    deadline = t_campaign_start + phase_budget_seconds
+    if devices is not None:
+        gpu_devices = [int(d) for d in devices] or [0]
+    elif not cpu_smoke and torch.cuda.is_available():
+        gpu_devices = list(range(max(1, torch.cuda.device_count())))
+    else:
+        gpu_devices = [0]
 
     # 3. R4 — Stage A Positive Canary over ALL active arms (including B0)
     active_arms = sorted({str(j["arm"]) for j in phase_jobs})
     canary_results: dict[str, dict[str, object]] = {}
     canary_lr = None if cpu_smoke else float(OPTIMIZER_DEFAULTS["peak_lr"])
     canary_failed_reason: str | None = None
-    for arm in active_arms:
-        if canary_runner is not None:
-            c_res = _call_with_accepted_kwargs(
-                canary_runner,
-                kwargs={
-                    "arm": arm,
-                    "source_commit": source_commit,
-                    "work_dir": work_root / "canaries" / arm,
-                    "device": "cpu" if cpu_smoke else "cuda:0",
-                    "cpu_canary": cpu_smoke,
-                    "lr": canary_lr,
-                },
-            )
-        else:
-            c_res = run_canary(
-                arm=arm,
-                source_commit=source_commit,
-                work_dir=work_root / "canaries" / arm,
-                device="cpu" if cpu_smoke else "cuda:0",
-                cpu_canary=cpu_smoke,
-                lr=canary_lr,
-            )
-        canary_results[arm] = dict(c_res)
+
+    def _validate_canary_result(arm_key: str, c_res: dict[str, object]) -> str | None:
         passed_flag = bool(c_res.get("passed"))
         exact_acc = c_res.get("exact_action_accuracy")
         acc_ok = True if cpu_smoke else (exact_acc is not None and float(exact_acc) >= 0.95)
         if not passed_flag or not acc_ok:
-            canary_failed_reason = f"Stage A canary check failed for arm {arm}: {c_res}"
-            break
+            return f"Stage A canary check failed for arm {arm_key}: {c_res}"
+        return None
+
+    if canary_runner is not None or cpu_smoke:
+        for arm in active_arms:
+            if canary_runner is not None:
+                c_res = _call_with_accepted_kwargs(
+                    canary_runner,
+                    kwargs={
+                        "arm": arm,
+                        "source_commit": source_commit,
+                        "work_dir": work_root / "canaries" / arm,
+                        "device": "cpu" if cpu_smoke else "cuda:0",
+                        "cpu_canary": cpu_smoke,
+                        "lr": canary_lr,
+                    },
+                )
+            else:
+                c_res = run_canary(
+                    arm=arm,
+                    source_commit=source_commit,
+                    work_dir=work_root / "canaries" / arm,
+                    device="cpu" if cpu_smoke else "cuda:0",
+                    cpu_canary=cpu_smoke,
+                    lr=canary_lr,
+                )
+            canary_results[arm] = dict(c_res)
+            canary_failed_reason = _validate_canary_result(arm, canary_results[arm])
+            if canary_failed_reason is not None:
+                break
+    else:
+        canary_tasks = [
+            {
+                "key": arm,
+                "mode": "canary",
+                "arm": arm,
+                "work_dir": work_root / "canaries" / arm,
+                "json_path": work_root / "canaries" / arm / "canary_result.json",
+                "label": "Stage A canary",
+                "build_extra_args": (
+                    lambda _gpu_id, jp=work_root / "canaries" / arm / "canary_result.json": [
+                        "--json-out",
+                        str(jp),
+                        *(["--lr", str(canary_lr)] if canary_lr is not None else []),
+                    ]
+                ),
+                "validate_fn": _validate_canary_result,
+            }
+            for arm in active_arms
+        ]
+        canary_results, canary_failed_reason = _run_parallel_gpu_workers(
+            canary_tasks,
+            gpu_devices=gpu_devices,
+            source_commit=source_commit,
+            repo_root=repo,
+        )
 
     if canary_failed_reason is not None:
         state_log["state"] = "NO_GO"
@@ -1224,55 +1743,90 @@ def run_campaign(
             seen_conds.add(key)
             unique_conditions.append((key[0], key[1], j))
 
-    if devices is not None:
-        gpu_devices = [int(d) for d in devices] or [0]
-    elif not cpu_smoke and torch.cuda.is_available():
-        gpu_devices = list(range(max(1, torch.cuda.device_count())))
-    else:
-        gpu_devices = [0]
-
     profile_results: dict[str, dict[str, object]] = {}
     t_prof0 = time.perf_counter()
     profile_failed_reason: str | None = None
-    for idx, (arm, dataset, rep_job) in enumerate(unique_conditions):
-        cond_key = f"{arm}-{dataset}"
-        dev_idx = None if cpu_smoke else gpu_devices[idx % len(gpu_devices)]
-        if profile_runner is not None:
-            p_res = _call_with_accepted_kwargs(
-                profile_runner,
-                positional=(rep_job,),
-                kwargs={
-                    "arm": arm,
-                    "dataset": dataset,
-                    "device_index": dev_idx,
-                    "job": rep_job,
-                    "job_id": str(rep_job["job_id"]),
-                    "source_commit": source_commit,
-                    "work_dir": work_root / "profiles" / cond_key,
-                    "device": "cpu" if cpu_smoke else "cuda:0",
-                    "cpu_canary": cpu_smoke,
-                },
-            )
-        else:
-            p_res = run_profile(
-                job_id=str(rep_job["job_id"]),
-                arm=arm,
-                dataset=dataset,
-                device_index=dev_idx,
-                source_commit=source_commit,
-                work_dir=work_root / "profiles" / cond_key,
-                device="cpu" if cpu_smoke else "cuda:0",
-                cpu_canary=cpu_smoke,
-            )
-        profile_results[cond_key] = dict(p_res)
+
+    def _validate_profile_result(cond_key: str, p_res: dict[str, object]) -> str | None:
         rec_parity = p_res.get("recovery_parity")
         if isinstance(rec_parity, dict):
             parity_ok = bool(rec_parity.get("all_match")) and bool(p_res.get("resume_parity_at_4_verified", True))
         else:
             parity_ok = bool(p_res.get("resume_parity_at_4_verified"))
         if not parity_ok:
-            profile_failed_reason = f"Stage B profile failed recovery parity for {cond_key}: {p_res}"
-            break
+            return f"Stage B profile failed recovery parity for {cond_key}: {p_res}"
+        return None
+
+    if profile_runner is not None or cpu_smoke:
+        for idx, (arm, dataset, rep_job) in enumerate(unique_conditions):
+            cond_key = f"{arm}-{dataset}"
+            dev_idx = None if cpu_smoke else gpu_devices[idx % len(gpu_devices)]
+            resolved_device = (
+                "cpu"
+                if cpu_smoke
+                else (f"cuda:{dev_idx}" if len(gpu_devices) > 1 or dev_idx else "cuda:0")
+            )
+            if profile_runner is not None:
+                p_res = _call_with_accepted_kwargs(
+                    profile_runner,
+                    positional=(rep_job,),
+                    kwargs={
+                        "arm": arm,
+                        "dataset": dataset,
+                        "device_index": dev_idx,
+                        "job": rep_job,
+                        "job_id": str(rep_job["job_id"]),
+                        "source_commit": source_commit,
+                        "work_dir": work_root / "profiles" / cond_key,
+                        "device": resolved_device,
+                        "cpu_canary": cpu_smoke,
+                    },
+                )
+            else:
+                p_res = run_profile(
+                    job_id=str(rep_job["job_id"]),
+                    arm=arm,
+                    dataset=dataset,
+                    device_index=dev_idx,
+                    source_commit=source_commit,
+                    work_dir=work_root / "profiles" / cond_key,
+                    device=resolved_device,
+                    cpu_canary=cpu_smoke,
+                )
+            profile_results[cond_key] = dict(p_res)
+            profile_failed_reason = _validate_profile_result(cond_key, profile_results[cond_key])
+            if profile_failed_reason is not None:
+                break
+    else:
+        profile_tasks = [
+            {
+                "key": f"{arm}-{dataset}",
+                "mode": "profile",
+                "job_id": str(rep_job["job_id"]),
+                "arm": arm,
+                "work_dir": work_root / "profiles" / f"{arm}-{dataset}",
+                "json_path": work_root / "profiles" / f"{arm}-{dataset}" / "profile_result.json",
+                "label": "Stage B profile",
+                "build_extra_args": (
+                    lambda gpu_id, ds=dataset, jp=work_root / "profiles" / f"{arm}-{dataset}" / "profile_result.json": [
+                        "--dataset",
+                        ds,
+                        "--device-index",
+                        str(gpu_id),
+                        "--json-out",
+                        str(jp),
+                    ]
+                ),
+                "validate_fn": _validate_profile_result,
+            }
+            for arm, dataset, rep_job in unique_conditions
+        ]
+        profile_results, profile_failed_reason = _run_parallel_gpu_workers(
+            profile_tasks,
+            gpu_devices=gpu_devices,
+            source_commit=source_commit,
+            repo_root=repo,
+        )
     profile_wall = time.perf_counter() - t_prof0
 
     if profile_failed_reason is not None:
@@ -1422,6 +1976,7 @@ def run_campaign(
                     expected_updates=exp_u,
                     expected_split_audit_sha256=split_audit_sha256,
                     check_confirmation=check_confirmation,
+                    cpu_smoke=cpu_smoke,
                 )
                 completed_records.append(rec)
             except Exception as exc:
@@ -1463,6 +2018,7 @@ def run_campaign(
                                     expected_updates=exp_u,
                                     expected_split_audit_sha256=split_audit_sha256,
                                     check_confirmation=check_confirmation,
+                                    cpu_smoke=cpu_smoke,
                                 )
                             )
                         except Exception as exc:
@@ -1507,6 +2063,7 @@ def run_campaign(
                         expected_updates=exp_u,
                         expected_split_audit_sha256=split_audit_sha256,
                         check_confirmation=check_confirmation,
+                        cpu_smoke=cpu_smoke,
                     )
                     completed_records.append(rec)
                 except Exception as exc:

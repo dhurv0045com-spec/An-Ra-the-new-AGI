@@ -18,6 +18,8 @@ import threading
 import time
 from typing import Any
 
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+
 import torch
 
 from anra_v5.elendril.codec import canonical, digest
@@ -53,7 +55,7 @@ from anra_v5.elendril.v8.holdout import (
 )
 from anra_v5.elendril.v8.models import compute_typed_nll
 from anra_v5.elendril.v8.policies import make_policy
-from anra_v5.elendril.v8.protocol import OPTIMIZER_DEFAULTS, PHASES, jobs as protocol_jobs
+from anra_v5.elendril.v8.protocol import EVALUATION_ALLOCATION, OPTIMIZER_DEFAULTS, PHASES, jobs as protocol_jobs
 from anra_v5.elendril.v8.teacher import PublicFact, TeacherStep
 from anra_v5.elendril.v8.training import (
     V8TrainingData,
@@ -65,8 +67,6 @@ from anra_v5.elendril.v8.training import (
 )
 from anra_v5.elendril.v8.verifier import independent_expected_outcome, verify_episode_trace
 from v5_training.checkpoint import CheckpointStore
-
-_DEFAULT_CONFIRMATION_SEED = 90901
 
 
 def _find_job(job_id: str) -> dict[str, object]:
@@ -182,136 +182,72 @@ def _deserialize_step(row: dict[str, Any]) -> TeacherStep:
     )
 
 
-def prepare_verified_splits(
-    work_root: Path | str,
+def _finalize_split_bundle(
     *,
-    cpu_smoke: bool = False,
-    dev_worlds_per_cohort: int | None = None,
-    conf_worlds_per_cohort: int | None = None,
-    confirmation_seed: int | None = None,
+    splits_dir: Path,
+    audit_path: Path,
+    d1_worlds_path: Path,
+    d1_steps_path: Path,
+    d1_hashes_path: Path,
+    dev_path: Path,
+    conf_path: Path,
+    cpu_smoke: bool,
+    d1_quota: int,
+    dev_wpc: int,
+    conf_wpc: int,
+    conf_seed: int | None,
+    d1_dataset: V8Dataset,
+    dev_cohorts: dict[str, tuple[dict[str, object], ...]],
 ) -> dict[str, Any]:
-    """Build or load cached, structurally disjoint D1/Dev/Confirmation splits under <work_root>/splits."""
+    """Audit D1 + Dev (+ optional Confirmation) disjointness, persist files, and write SPLIT_AUDIT.json."""
 
-    splits_dir = Path(work_root) / "splits"
-    splits_dir.mkdir(parents=True, exist_ok=True)
-    audit_path = splits_dir / "SPLIT_AUDIT.json"
-    d1_worlds_path = splits_dir / "d1_worlds.json"
-    d1_steps_path = splits_dir / "d1_steps.json"
-    d1_hashes_path = splits_dir / "d1_structural_hashes.json"
-    dev_path = splits_dir / "dev_cohorts.json"
-    conf_path = splits_dir / "conf_cohorts.json"
-    data_files = {
-        "d1_worlds.json": d1_worlds_path,
-        "d1_steps.json": d1_steps_path,
-        "d1_structural_hashes.json": d1_hashes_path,
-        "dev_cohorts.json": dev_path,
-        "conf_cohorts.json": conf_path,
-    }
-
-    d1_quota = 16 if cpu_smoke else 512
-    dev_wpc = int(dev_worlds_per_cohort) if dev_worlds_per_cohort is not None else (2 if cpu_smoke else 128)
-    conf_wpc = int(conf_worlds_per_cohort) if conf_worlds_per_cohort is not None else (2 if cpu_smoke else 256)
-
-    # Attempt verified cache load before regenerating
-    if audit_path.exists() and all(p.exists() for p in data_files.values()):
-        try:
-            cached_audit = json.loads(audit_path.read_text(encoding="utf-8"))
-            if cached_audit.get("schema") == "elendril-v8-split-audit-v1" and cached_audit.get("audit_passed") is True:
-                cfg_matches = (
-                    bool(cached_audit.get("cpu_smoke")) == bool(cpu_smoke)
-                    and int(cached_audit.get("d1_quota_per_family", -1)) == d1_quota
-                    and int(cached_audit.get("dev_worlds_per_cohort", -1)) == dev_wpc
-                    and int(cached_audit.get("conf_worlds_per_cohort", -1)) == conf_wpc
-                    and (
-                        confirmation_seed is None
-                        or int(cached_audit.get("confirmation_seed", -1)) == int(confirmation_seed)
-                    )
-                )
-                expected_sha = cached_audit.get("split_audit_sha256")
-                body_for_hash = {k: v for k, v in cached_audit.items() if k != "split_audit_sha256"}
-                file_hashes = cached_audit.get("file_hashes", {})
-                hashes_ok = (
-                    isinstance(expected_sha, str)
-                    and digest(body_for_hash) == expected_sha
-                    and isinstance(file_hashes, dict)
-                    and set(file_hashes) == set(data_files)
-                    and all(_file_sha256(p) == file_hashes[name] for name, p in data_files.items())
-                )
-                if cfg_matches and hashes_ok:
-                    d1_worlds_list = json.loads(d1_worlds_path.read_text(encoding="utf-8"))
-                    d1_steps_list = [_deserialize_step(r) for r in json.loads(d1_steps_path.read_text(encoding="utf-8"))]
-                    d1_hashes_list = json.loads(d1_hashes_path.read_text(encoding="utf-8"))
-                    dev_raw = json.loads(dev_path.read_text(encoding="utf-8"))
-                    conf_raw = json.loads(conf_path.read_text(encoding="utf-8"))
-                    if digest(sorted(d1_hashes_list)) == cached_audit.get("d1_structural_hashes_sha256"):
-                        dev_cohorts = {k: tuple(v) for k, v in dev_raw.items()}
-                        conf_cohorts = {k: tuple(v) for k, v in conf_raw.items()}
-                        d1_dataset = V8Dataset(
-                            split="train",
-                            identity=str(cached_audit["d1_identity"]),
-                            worlds=tuple(d1_worlds_list),
-                            steps=tuple(d1_steps_list),
-                            audit=dict(cached_audit["d1_audit"]),
-                            shortcuts=dict(cached_audit["d1_shortcuts"]),
-                            crosstabs=dict(cached_audit["d1_crosstabs"]),
-                            structural_hashes=frozenset(d1_hashes_list),
-                        )
-                        return {
-                            "splits_dir": str(splits_dir),
-                            "cached": True,
-                            "audit": cached_audit,
-                            "split_audit_sha256": str(expected_sha),
-                            "d1_identity": d1_dataset.identity,
-                            "d1_structural_hashes_sha256": str(cached_audit["d1_structural_hashes_sha256"]),
-                            "dev_identity": str(cached_audit["dev_identity"]),
-                            "conf_identity": str(cached_audit["conf_identity"]),
-                            "d1_dataset": d1_dataset,
-                            "d1_structural_hashes": d1_dataset.structural_hashes,
-                            "dev_cohorts": dev_cohorts,
-                            "conf_cohorts": conf_cohorts,
-                        }
-        except Exception:
-            # Fall through to deterministic clean regeneration if cache is corrupt/incomplete
-            pass
-
-    conf_seed = int(confirmation_seed) if confirmation_seed is not None else _DEFAULT_CONFIRMATION_SEED
-    d1_dataset = build_d1_training_dataset(quota_per_family=d1_quota)
-    d1_exclusions = set(d1_dataset.structural_hashes)
-
-    dev_cohorts = build_d1_dev_suite(
-        worlds_per_cohort=dev_wpc,
-        excluded_structure_hashes=d1_exclusions,
-    )
     dev_worlds = [w for rows in dev_cohorts.values() for w in rows]
+    d1_exclusions = set(d1_dataset.structural_hashes)
     dev_and_d1_exclusions = d1_exclusions | {
         _world_structure_hash(w) for w in dev_worlds if not _is_isolated_probe(w)
     }
 
-    conf_cohorts = build_confirmation_suite(
-        confirmation_seed=conf_seed,
-        worlds_per_cohort=conf_wpc,
-        excluded_structure_hashes=dev_and_d1_exclusions,
-    )
-    conf_worlds = [w for rows in conf_cohorts.values() for w in rows]
+    data_files: dict[str, Path] = {
+        "d1_worlds.json": d1_worlds_path,
+        "d1_steps.json": d1_steps_path,
+        "d1_structural_hashes.json": d1_hashes_path,
+        "dev_cohorts.json": dev_path,
+    }
+    if conf_seed is not None:
+        conf_cohorts = build_confirmation_suite(
+            confirmation_seed=conf_seed,
+            worlds_per_cohort=conf_wpc,
+            excluded_structure_hashes=dev_and_d1_exclusions,
+        )
+        conf_worlds = [w for rows in conf_cohorts.values() for w in rows]
+        disjoint_audit = audit_split_disjointness(
+            list(d1_dataset.worlds) + dev_worlds + conf_worlds,
+            min_distinct_classes_per_split=(2 if cpu_smoke else 32),
+        )
+        conf_identity: str | None = digest(
+            {k: [w["content_hash"] for w in v] for k, v in sorted(conf_cohorts.items())}
+        )
+        _atomic_write_json(conf_path, {k: list(v) for k, v in conf_cohorts.items()}, compact=True)
+        data_files["conf_cohorts.json"] = conf_path
+        confirmation_built = True
+    else:
+        conf_cohorts = {}
+        conf_worlds = []
+        disjoint_audit = audit_split_disjointness(
+            list(d1_dataset.worlds) + dev_worlds,
+            min_distinct_classes_per_split=(2 if cpu_smoke else 32),
+        )
+        conf_identity = None
+        if conf_path.exists():
+            conf_path.unlink()
+        confirmation_built = False
 
-    # Mandatory full-corpus split disjointness audit across D1 + Dev + Confirmation
-    disjoint_audit = audit_split_disjointness(
-        list(d1_dataset.worlds) + dev_worlds + conf_worlds,
-        min_distinct_classes_per_split=(2 if cpu_smoke else 32),
-    )
     if disjoint_audit.get("status") != "PASS":
         raise ValueError(f"split disjointness audit failed: {disjoint_audit}")
 
     d1_hashes_sorted = sorted(d1_dataset.structural_hashes)
     d1_hashes_sha = digest(d1_hashes_sorted)
     dev_identity = digest({k: [w["content_hash"] for w in v] for k, v in sorted(dev_cohorts.items())})
-    conf_identity = digest({k: [w["content_hash"] for w in v] for k, v in sorted(conf_cohorts.items())})
-
-    _atomic_write_json(d1_worlds_path, list(d1_dataset.worlds), compact=True)
-    _atomic_write_json(d1_steps_path, [_serialize_step(s) for s in d1_dataset.steps], compact=True)
-    _atomic_write_json(d1_hashes_path, d1_hashes_sorted, compact=True)
-    _atomic_write_json(dev_path, {k: list(v) for k, v in dev_cohorts.items()}, compact=True)
-    _atomic_write_json(conf_path, {k: list(v) for k, v in conf_cohorts.items()}, compact=True)
 
     file_hashes = {name: _file_sha256(p) for name, p in data_files.items()}
     counts = {
@@ -325,7 +261,8 @@ def prepare_verified_splits(
         "cpu_smoke": bool(cpu_smoke),
         "d1_quota_per_family": d1_quota,
         "dev_worlds_per_cohort": dev_wpc,
-        "conf_worlds_per_cohort": conf_wpc,
+        "conf_worlds_per_cohort": conf_wpc if confirmation_built else 0,
+        "confirmation_built": confirmation_built,
         "confirmation_seed": conf_seed,
         "d1_identity": d1_dataset.identity,
         "d1_structural_hashes_sha256": d1_hashes_sha,
@@ -357,6 +294,174 @@ def prepare_verified_splits(
         "dev_cohorts": dev_cohorts,
         "conf_cohorts": conf_cohorts,
     }
+
+
+def prepare_verified_splits(
+    work_root: Path | str,
+    *,
+    cpu_smoke: bool = False,
+    dev_worlds_per_cohort: int | None = None,
+    conf_worlds_per_cohort: int | None = None,
+    confirmation_seed: int | None = None,
+) -> dict[str, Any]:
+    """Build or load cached, structurally disjoint D1/Dev/(optional Confirmation) splits under <work_root>/splits."""
+
+    conf_seed: int | None = None
+    if confirmation_seed is not None:
+        if isinstance(confirmation_seed, bool):
+            raise ValueError("confirmation_seed must be uint32, not bool")
+        conf_seed = int(confirmation_seed)
+        if not 0 <= conf_seed < 2**32:
+            raise ValueError("confirmation_seed must be uint32")
+
+    splits_dir = Path(work_root) / "splits"
+    splits_dir.mkdir(parents=True, exist_ok=True)
+    audit_path = splits_dir / "SPLIT_AUDIT.json"
+    d1_worlds_path = splits_dir / "d1_worlds.json"
+    d1_steps_path = splits_dir / "d1_steps.json"
+    d1_hashes_path = splits_dir / "d1_structural_hashes.json"
+    dev_path = splits_dir / "dev_cohorts.json"
+    conf_path = splits_dir / "conf_cohorts.json"
+    base_files = {
+        "d1_worlds.json": d1_worlds_path,
+        "d1_steps.json": d1_steps_path,
+        "d1_structural_hashes.json": d1_hashes_path,
+        "dev_cohorts.json": dev_path,
+    }
+
+    d1_quota = 16 if cpu_smoke else 512
+    dev_wpc = int(dev_worlds_per_cohort) if dev_worlds_per_cohort is not None else (2 if cpu_smoke else 128)
+    conf_wpc = int(conf_worlds_per_cohort) if conf_worlds_per_cohort is not None else (2 if cpu_smoke else 256)
+
+    # Attempt verified cache load before regenerating
+    if audit_path.exists() and all(p.exists() for p in base_files.values()):
+        try:
+            cached_audit = json.loads(audit_path.read_text(encoding="utf-8"))
+            if cached_audit.get("schema") == "elendril-v8-split-audit-v1" and cached_audit.get("audit_passed") is True:
+                base_cfg_matches = (
+                    bool(cached_audit.get("cpu_smoke")) == bool(cpu_smoke)
+                    and int(cached_audit.get("d1_quota_per_family", -1)) == d1_quota
+                    and int(cached_audit.get("dev_worlds_per_cohort", -1)) == dev_wpc
+                )
+                cached_conf_built = bool(cached_audit.get("confirmation_built", False))
+                expected_files = dict(base_files)
+                if cached_conf_built:
+                    expected_files["conf_cohorts.json"] = conf_path
+
+                expected_sha = cached_audit.get("split_audit_sha256")
+                body_for_hash = {k: v for k, v in cached_audit.items() if k != "split_audit_sha256"}
+                file_hashes = cached_audit.get("file_hashes", {})
+                hashes_ok = (
+                    isinstance(expected_sha, str)
+                    and digest(body_for_hash) == expected_sha
+                    and isinstance(file_hashes, dict)
+                    and set(file_hashes) == set(expected_files)
+                    and all(p.exists() and _file_sha256(p) == file_hashes[name] for name, p in expected_files.items())
+                )
+                if base_cfg_matches and hashes_ok:
+                    d1_worlds_list = json.loads(d1_worlds_path.read_text(encoding="utf-8"))
+                    d1_steps_list = [_deserialize_step(r) for r in json.loads(d1_steps_path.read_text(encoding="utf-8"))]
+                    d1_hashes_list = json.loads(d1_hashes_path.read_text(encoding="utf-8"))
+                    dev_raw = json.loads(dev_path.read_text(encoding="utf-8"))
+                    if digest(sorted(d1_hashes_list)) == cached_audit.get("d1_structural_hashes_sha256"):
+                        dev_cohorts = {k: tuple(v) for k, v in dev_raw.items()}
+                        d1_dataset = V8Dataset(
+                            split="train",
+                            identity=str(cached_audit["d1_identity"]),
+                            worlds=tuple(d1_worlds_list),
+                            steps=tuple(d1_steps_list),
+                            audit=dict(cached_audit["d1_audit"]),
+                            shortcuts=dict(cached_audit["d1_shortcuts"]),
+                            crosstabs=dict(cached_audit["d1_crosstabs"]),
+                            structural_hashes=frozenset(d1_hashes_list),
+                        )
+                        if conf_seed is None and not cached_conf_built:
+                            return {
+                                "splits_dir": str(splits_dir),
+                                "cached": True,
+                                "audit": cached_audit,
+                                "split_audit_sha256": str(expected_sha),
+                                "d1_identity": d1_dataset.identity,
+                                "d1_structural_hashes_sha256": str(cached_audit["d1_structural_hashes_sha256"]),
+                                "dev_identity": str(cached_audit["dev_identity"]),
+                                "conf_identity": None,
+                                "d1_dataset": d1_dataset,
+                                "d1_structural_hashes": d1_dataset.structural_hashes,
+                                "dev_cohorts": dev_cohorts,
+                                "conf_cohorts": {},
+                            }
+                        if (
+                            conf_seed is not None
+                            and cached_conf_built
+                            and cached_audit.get("confirmation_seed") == conf_seed
+                            and int(cached_audit.get("conf_worlds_per_cohort", -1)) == conf_wpc
+                        ):
+                            conf_raw = json.loads(conf_path.read_text(encoding="utf-8"))
+                            conf_cohorts = {k: tuple(v) for k, v in conf_raw.items()}
+                            return {
+                                "splits_dir": str(splits_dir),
+                                "cached": True,
+                                "audit": cached_audit,
+                                "split_audit_sha256": str(expected_sha),
+                                "d1_identity": d1_dataset.identity,
+                                "d1_structural_hashes_sha256": str(cached_audit["d1_structural_hashes_sha256"]),
+                                "dev_identity": str(cached_audit["dev_identity"]),
+                                "conf_identity": str(cached_audit["conf_identity"]),
+                                "d1_dataset": d1_dataset,
+                                "d1_structural_hashes": d1_dataset.structural_hashes,
+                                "dev_cohorts": dev_cohorts,
+                                "conf_cohorts": conf_cohorts,
+                            }
+                        # Reuse persisted D1 + Dev splits and rebuild/extend confirmation cleanly
+                        return _finalize_split_bundle(
+                            splits_dir=splits_dir,
+                            audit_path=audit_path,
+                            d1_worlds_path=d1_worlds_path,
+                            d1_steps_path=d1_steps_path,
+                            d1_hashes_path=d1_hashes_path,
+                            dev_path=dev_path,
+                            conf_path=conf_path,
+                            cpu_smoke=cpu_smoke,
+                            d1_quota=d1_quota,
+                            dev_wpc=dev_wpc,
+                            conf_wpc=conf_wpc,
+                            conf_seed=conf_seed,
+                            d1_dataset=d1_dataset,
+                            dev_cohorts=dev_cohorts,
+                        )
+        except Exception:
+            # Fall through to deterministic clean regeneration if cache is corrupt/incomplete
+            pass
+
+    d1_dataset = build_d1_training_dataset(quota_per_family=d1_quota)
+    d1_exclusions = set(d1_dataset.structural_hashes)
+
+    dev_cohorts = build_d1_dev_suite(
+        worlds_per_cohort=dev_wpc,
+        excluded_structure_hashes=d1_exclusions,
+    )
+    d1_hashes_sorted = sorted(d1_dataset.structural_hashes)
+    _atomic_write_json(d1_worlds_path, list(d1_dataset.worlds), compact=True)
+    _atomic_write_json(d1_steps_path, [_serialize_step(s) for s in d1_dataset.steps], compact=True)
+    _atomic_write_json(d1_hashes_path, d1_hashes_sorted, compact=True)
+    _atomic_write_json(dev_path, {k: list(v) for k, v in dev_cohorts.items()}, compact=True)
+
+    return _finalize_split_bundle(
+        splits_dir=splits_dir,
+        audit_path=audit_path,
+        d1_worlds_path=d1_worlds_path,
+        d1_steps_path=d1_steps_path,
+        d1_hashes_path=d1_hashes_path,
+        dev_path=dev_path,
+        conf_path=conf_path,
+        cpu_smoke=cpu_smoke,
+        d1_quota=d1_quota,
+        dev_wpc=dev_wpc,
+        conf_wpc=conf_wpc,
+        conf_seed=conf_seed,
+        d1_dataset=d1_dataset,
+        dev_cohorts=dev_cohorts,
+    )
 
 
 def _select_stratified_probe_steps(
@@ -530,15 +635,34 @@ def _run_probe(
     probe_steps: tuple[TeacherStep, ...] | list[TeacherStep],
     *,
     dataset_name: str,
+    max_probe_steps: int | None = None,
+    batch_size: int = 32,
+    device: str | torch.device | None = None,
+    probe_scope: str = "full_training_corpus",
 ) -> dict[str, Any]:
-    diag = dict(diagnostic_probe(model, v8_spec, probe_steps, max_probe_steps=len(probe_steps)))
-    families_covered = sorted({str(st.family) for st in probe_steps})
+    eval_steps = (
+        _select_stratified_probe_steps(probe_steps, max_steps=max_probe_steps)
+        if max_probe_steps is not None
+        else tuple(probe_steps)
+    )
+    diag = dict(
+        diagnostic_probe(
+            model,
+            v8_spec,
+            eval_steps,
+            max_probe_steps=max_probe_steps,
+            batch_size=batch_size,
+            device=device,
+            probe_scope=probe_scope,
+        )
+    )
+    families_covered = sorted({str(st.family) for st in eval_steps})
     if (
         "exact_action_accuracy" not in diag
         or diag["exact_action_accuracy"] is None
         or "non_answer_op_accuracy" not in diag
     ):
-        exact_stats = _compute_exact_probe_breakdown(model, v8_spec, probe_steps)
+        exact_stats = _compute_exact_probe_breakdown(model, v8_spec, eval_steps)
         for k, v in exact_stats.items():
             if k not in diag or diag[k] is None:
                 diag[k] = v
@@ -555,12 +679,11 @@ def _run_probe(
     existing_scope = diag.get("probe_scope")
     scope_dict: dict[str, Any] = {
         "dataset": dataset_name,
-        "count": len(probe_steps),
+        "count": int(diag.get("probe_steps", len(eval_steps))),
         "families_covered": families_covered,
+        "strategy": probe_scope,
     }
-    if isinstance(existing_scope, str):
-        scope_dict["strategy"] = existing_scope
-    elif isinstance(existing_scope, dict):
+    if isinstance(existing_scope, dict):
         scope_dict = {**existing_scope, **scope_dict}
     diag["probe_scope"] = scope_dict
     return diag
@@ -577,6 +700,7 @@ def run_canary(
 ) -> dict[str, object]:
     """Run the positive-control canary check (action/episode accuracy & loss drop gates) for B0 or typed arms."""
 
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     d1_src = build_d1_training_dataset(quota_per_family=16 if cpu_canary else 64)
     canary = make_positive_canary_cohort(d1_src, worlds_target=32)
     v8_spec = _tiny_cpu_spec(arm) if cpu_canary else build_v8_model_spec(arm)
@@ -599,6 +723,8 @@ def run_canary(
         "canary_identity": canary.identity,
     }
     configure_device(device)
+    if torch.device(device).type == "cuda":
+        torch.set_num_threads(min(2, max(1, torch.get_num_threads())))
     if arm == "B0":
         byte_samples = teacher_steps_to_byte_samples(steps, max_length=v8_spec.max_sequence_length)
         trainer = IndependentOrderTrainer(
@@ -630,7 +756,14 @@ def run_canary(
             cpu_canary=cpu_canary,
         )
 
-    initial_diag = _run_probe(trainer.model, v8_spec, steps, dataset_name="D1-canary")
+    initial_diag = _run_probe(
+        trainer.model,
+        v8_spec,
+        steps,
+        dataset_name="D1-canary",
+        device=device,
+        probe_scope="canary",
+    )
     initial_probe_nll = float(initial_diag["teacher_loss"])
     losses: list[float] = []
     t0 = time.perf_counter()
@@ -640,7 +773,14 @@ def run_canary(
     wall = time.perf_counter() - t0
     trainer.save()
 
-    diag = _run_probe(trainer.model, v8_spec, steps, dataset_name="D1-canary")
+    diag = _run_probe(
+        trainer.model,
+        v8_spec,
+        steps,
+        dataset_name="D1-canary",
+        device=device,
+        probe_scope="canary",
+    )
     final_probe_nll = float(diag["teacher_loss"])
     eps = evaluate_worlds_by_mode(
         trainer.model, v8_spec, canary.worlds[:32], model_identity=f"canary-{arm}", modes=("raw",)
@@ -704,6 +844,66 @@ def _compare_optimizer_states(sd_a: dict[str, Any], sd_b: dict[str, Any]) -> boo
     return True
 
 
+def _select_profile_eval_worlds(work_dir: Path, *, max_per_cohort: int = 2) -> list[dict[str, object]]:
+    """Load cached dev_cohorts if present or build a small fast 6-cohort suite covering QUERY/RETRIEVE forms."""
+
+    primary_cohorts = tuple(EVALUATION_ALLOCATION["primary_final_cohorts"])
+    cohorts: dict[str, tuple[dict[str, object], ...]] | None = None
+    for candidate in (
+        work_dir / "splits" / "dev_cohorts.json",
+        work_dir.parent.parent / "splits" / "dev_cohorts.json",
+    ):
+        if candidate.exists() and candidate.is_file():
+            try:
+                raw = json.loads(candidate.read_text(encoding="utf-8"))
+                if isinstance(raw, dict) and all(c in raw and raw[c] for c in primary_cohorts):
+                    cohorts = {str(k): tuple(v) for k, v in raw.items()}
+                    break
+            except Exception:
+                continue
+
+    if cohorts is None:
+        cohorts = build_d1_dev_suite(worlds_per_cohort=4)
+
+    selected: list[dict[str, object]] = []
+    for cohort_name in primary_cohorts:
+        pool = list(cohorts.get(cohort_name, ()))
+        if not pool:
+            continue
+        # Prioritize multi-step tool-available (memory/query) forms, then distinct variant/availability diversity
+        prioritized = sorted(
+            pool,
+            key=lambda w: (
+                not bool(w.get("allowed_public_tools", {}).get("memory_available")),
+                not bool(w.get("allowed_public_tools", {}).get("query_available")),
+                str(w.get("variant", "")) != "canonical",
+            ),
+        )
+        chosen: list[dict[str, object]] = [prioritized[0]]
+        first_tools = (
+            bool(prioritized[0].get("allowed_public_tools", {}).get("query_available")),
+            bool(prioritized[0].get("allowed_public_tools", {}).get("memory_available")),
+        )
+        first_var = str(prioritized[0].get("variant", ""))
+        for cand in prioritized[1:]:
+            if len(chosen) >= max_per_cohort:
+                break
+            c_tools = (
+                bool(cand.get("allowed_public_tools", {}).get("query_available")),
+                bool(cand.get("allowed_public_tools", {}).get("memory_available")),
+            )
+            c_var = str(cand.get("variant", ""))
+            if c_tools != first_tools or c_var != first_var:
+                chosen.append(cand)
+        for cand in prioritized[1:]:
+            if len(chosen) >= max_per_cohort:
+                break
+            if cand not in chosen:
+                chosen.append(cand)
+        selected.extend(chosen)
+    return selected
+
+
 def run_profile(
     *,
     job_id: str | None = None,
@@ -717,12 +917,29 @@ def run_profile(
 ) -> dict[str, object]:
     """Measure full-horizon save@2->resume@4 state parity, update speed, and interactive eval timing."""
 
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     job = _resolve_profile_job(job_id=job_id, arm=arm, dataset=dataset)
     resolved_job_id = str(job["job_id"])
     resolved_arm = str(job["arm"])
     resolved_dataset = str(job["dataset"])
-    if device_index is not None and torch.cuda.is_available() and not cpu_canary and device != "cpu":
-        torch.cuda.set_device(int(device_index))
+
+    if device == "cpu" or cpu_canary:
+        target_device = "cpu"
+    elif device_index is not None and torch.cuda.is_available():
+        if torch.cuda.device_count() == 1:
+            target_device = "cuda:0"
+        else:
+            target_device = f"cuda:{int(device_index)}"
+    else:
+        target_device = str(device)
+
+    cuda_dev: torch.device | None = None
+    if target_device.startswith("cuda") and torch.cuda.is_available():
+        cuda_dev = torch.device(target_device)
+        torch.cuda.set_device(cuda_dev)
+        torch.cuda.reset_peak_memory_stats(cuda_dev)
+        torch.set_num_threads(min(2, max(1, torch.get_num_threads())))
+    physical_device_name = torch.cuda.get_device_name(cuda_dev) if cuda_dev is not None else "cpu"
 
     v8_spec = _tiny_cpu_spec(resolved_arm) if cpu_canary else None
     data = prepare_v8_training_data(
@@ -741,7 +958,7 @@ def run_profile(
         job,
         source=source_commit,
         root=cont_root,
-        device=device,
+        device=target_device,
         cpu_canary=cpu_canary,
         v8_spec_override=v8_spec,
         updates_override=None,
@@ -754,7 +971,7 @@ def run_profile(
         job,
         source=source_commit,
         root=res_root,
-        device=device,
+        device=target_device,
         cpu_canary=cpu_canary,
         v8_spec_override=v8_spec,
         updates_override=None,
@@ -773,7 +990,7 @@ def run_profile(
         source=source_commit,
         root=res_root,
         resume=True,
-        device=device,
+        device=target_device,
         cpu_canary=cpu_canary,
         v8_spec_override=v8_spec,
         updates_override=None,
@@ -846,14 +1063,14 @@ def run_profile(
 
     # 2. Timing profile over prof_updates steps (using full registered horizon)
     time_root = work_dir / "prof_timing"
-    if not cpu_canary and torch.cuda.is_available():
-        torch.cuda.reset_peak_memory_stats()
+    if cuda_dev is not None:
+        torch.cuda.reset_peak_memory_stats(cuda_dev)
     t_prof = create_v8_trainer(
         data,
         job,
         source=source_commit,
         root=time_root,
-        device=device,
+        device=target_device,
         cpu_canary=cpu_canary,
         v8_spec_override=v8_spec,
         updates_override=None,
@@ -863,31 +1080,31 @@ def run_profile(
     t0 = time.perf_counter()
     for _ in range(max(1, actual_prof_updates - 1)):
         t_prof.step()
-    if torch.cuda.is_available() and t_prof.device.type == "cuda":
-        torch.cuda.synchronize()
+    if cuda_dev is not None and t_prof.device.type == "cuda":
+        torch.cuda.synchronize(cuda_dev)
     elapsed = max(time.perf_counter() - t0, 1e-6)
     measured_steps = max(1, actual_prof_updates - 1)
     peak_mb = (
-        float(torch.cuda.max_memory_allocated() / (1024.0 * 1024.0))
-        if (torch.cuda.is_available() and t_prof.device.type == "cuda")
+        float(torch.cuda.max_memory_allocated(cuda_dev) / (1024.0 * 1024.0))
+        if (cuda_dev is not None and t_prof.device.type == "cuda")
         else 0.0
     )
 
-    # 3. Interactive episode evaluation timing on a real dev world sample
-    sample_suite = build_d1_dev_suite(worlds_per_cohort=1)
-    sample_worlds = list(sample_suite["R09"][:5])
+    # 3. Representative multi-cohort / multi-mode interactive episode evaluation timing
+    sample_worlds = _select_profile_eval_worlds(work_dir, max_per_cohort=2)
+    eval_modes = ("raw", "availability-mask")
     t_eval0 = time.perf_counter()
     sample_eps = evaluate_worlds_by_mode(
         t_prof.model,
         t_prof.v8_spec,
         sample_worlds,
         model_identity=f"prof-{resolved_job_id}",
-        modes=("raw",),
+        modes=eval_modes,
     )
-    if torch.cuda.is_available() and t_prof.device.type == "cuda":
-        torch.cuda.synchronize()
+    if cuda_dev is not None and t_prof.device.type == "cuda":
+        torch.cuda.synchronize(cuda_dev)
     eval_elapsed = max(time.perf_counter() - t_eval0, 1e-6)
-    measured_eval_episodes = max(1, len(sample_eps["raw"]))
+    measured_eval_episodes = max(1, sum(len(eps) for eps in sample_eps.values()))
     eval_seconds_per_episode = eval_elapsed / measured_eval_episodes
 
     result = {
@@ -896,11 +1113,15 @@ def run_profile(
         "arm": resolved_arm,
         "dataset": resolved_dataset,
         "device_index": device_index,
+        "resolved_device": target_device,
+        "physical_device_name": physical_device_name,
         "source_commit": source_commit,
         "measured_updates": measured_steps,
         "seconds_per_update": elapsed / measured_steps,
         "measured_eval_episodes": measured_eval_episodes,
         "eval_seconds_per_episode": eval_seconds_per_episode,
+        "profile_eval_cohorts": sorted({str(w.get("scenario") or w.get("cohort") or "") for w in sample_worlds}),
+        "profile_eval_modes": list(eval_modes),
         "peak_vram_mb": peak_mb,
         "recovery_parity": recovery_parity,
         "resume_parity_at_4_verified": recovery_parity["all_match"],
@@ -1000,6 +1221,8 @@ def _serialize_episode_record(
     ep: EpisodeRecord,
     world: dict[str, object],
     render_fn=render_public_v8,
+    milestone_global_update: int | None = None,
+    checkpoint_sha256: str | None = None,
 ) -> dict[str, Any]:
     steps_payload, first_div_step = _reconstruct_episode_steps(ep, world, render_fn=render_fn)
     predicted_answer: str | None = None
@@ -1008,6 +1231,8 @@ def _serialize_episode_record(
     return {
         "job_id": job_id,
         "milestone": milestone,
+        "milestone_global_update": milestone_global_update,
+        "checkpoint_sha256": checkpoint_sha256,
         "split": str(world.get("split", "validation")),
         "cohort": ep.cohort,
         "world_id": ep.world_id,
@@ -1043,7 +1268,11 @@ def _parse_tools_from_public_text(text: str) -> tuple[bool, bool] | None:
     return None
 
 
-def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any]:
+def rescore_saved_episode_jsonl(
+    episode_jsonl_path: Path | str,
+    *,
+    milestone_filter: str | None = None,
+) -> dict[str, Any]:
     """Pure non-neural independent validator for saved episodes/<job_id>.jsonl traces."""
 
     path = Path(episode_jsonl_path)
@@ -1056,6 +1285,7 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
             "non_isolated_exact_accuracy": None,
             "by_cohort": {},
             "by_mode": {},
+            "by_milestone": {},
             "first_divergence_histogram": {},
         }
 
@@ -1077,6 +1307,9 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
     mode_stats: dict[str, dict[str, int]] = defaultdict(
         lambda: {"n": 0, "correct": 0, "non_iso_n": 0, "non_iso_correct": 0}
     )
+    milestone_stats: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"n": 0, "correct": 0, "non_iso_n": 0, "non_iso_correct": 0}
+    )
     div_hist: Counter[str] = Counter()
 
     with path.open("r", encoding="utf-8") as fh:
@@ -1084,12 +1317,16 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
             line = raw_line.strip()
             if not line:
                 continue
-            episode_count += 1
             try:
                 row = json.loads(line)
             except Exception as exc:
                 errors.append(f"line {line_no}: invalid JSON ({exc})")
                 continue
+
+            milestone = str(row.get("milestone", "unknown"))
+            if milestone_filter is not None and milestone != milestone_filter:
+                continue
+            episode_count += 1
 
             wid = str(row.get("world_id", f"line-{line_no}"))
             mode = str(row.get("mode", "unknown"))
@@ -1105,10 +1342,12 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
                     div_hist["none"] += 1
                     cohort_stats[cohort]["n"] += 1
                     mode_stats[mode]["n"] += 1
+                    milestone_stats[milestone]["n"] += 1
                     if not is_isolated:
                         non_iso_total += 1
                         cohort_stats[cohort]["non_iso_n"] += 1
                         mode_stats[mode]["non_iso_n"] += 1
+                        milestone_stats[milestone]["non_iso_n"] += 1
                     else:
                         iso_total += 1
                     if mode == "raw":
@@ -1237,9 +1476,11 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
                 total_correct += 1
             cohort_stats[cohort]["n"] += 1
             mode_stats[mode]["n"] += 1
+            milestone_stats[milestone]["n"] += 1
             if is_ok:
                 cohort_stats[cohort]["correct"] += 1
                 mode_stats[mode]["correct"] += 1
+                milestone_stats[milestone]["correct"] += 1
 
             if is_isolated:
                 iso_total += 1
@@ -1249,10 +1490,12 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
                 non_iso_total += 1
                 cohort_stats[cohort]["non_iso_n"] += 1
                 mode_stats[mode]["non_iso_n"] += 1
+                milestone_stats[milestone]["non_iso_n"] += 1
                 if is_ok:
                     non_iso_correct += 1
                     cohort_stats[cohort]["non_iso_correct"] += 1
                     mode_stats[mode]["non_iso_correct"] += 1
+                    milestone_stats[milestone]["non_iso_correct"] += 1
 
             if mode == "raw":
                 raw_total += 1
@@ -1294,8 +1537,82 @@ def rescore_saved_episode_jsonl(episode_jsonl_path: Path | str) -> dict[str, Any
         ),
         "by_cohort": _fmt_bucket(cohort_stats),
         "by_mode": _fmt_bucket(mode_stats),
+        "by_milestone": _fmt_bucket(milestone_stats),
         "first_divergence_histogram": dict(sorted(div_hist.items())),
     }
+
+
+def _reconcile_episodes_jsonl_on_resume(ep_path: Path, resume_u: int) -> set[str]:
+    """Retain only episode rows whose milestone_global_update <= resume_u; return retained milestone names."""
+
+    if not ep_path.exists():
+        return set()
+    kept_lines: list[str] = []
+    retained_milestones: set[str] = set()
+    with ep_path.open("r", encoding="utf-8") as fh:
+        for raw_line in fh:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+                u_raw = row.get("milestone_global_update")
+                if u_raw is None or isinstance(u_raw, bool):
+                    continue
+                u = int(u_raw)
+                m_name = str(row.get("milestone") or "")
+            except Exception:
+                continue
+            if 0 <= u <= resume_u and m_name:
+                kept_lines.append(canonical(row).decode("utf-8") + "\n")
+                retained_milestones.add(m_name)
+    _atomic_write_text(ep_path, "".join(kept_lines))
+    return retained_milestones
+
+
+def _write_milestone_episodes(
+    ep_path: Path,
+    *,
+    job_id: str,
+    milestone_name: str,
+    milestone_global_update: int,
+    checkpoint_sha256: str | None,
+    episodes_by_mode: dict[str, list[EpisodeRecord]],
+    world_by_id: dict[str, dict[str, object]],
+    render_fn=render_public_v8,
+) -> int:
+    """Atomically write/replace full episode traces for one milestone without duplicating rows."""
+
+    kept_lines: list[str] = []
+    if ep_path.exists():
+        with ep_path.open("r", encoding="utf-8") as fh:
+            for raw_line in fh:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if str(row.get("milestone") or "") != milestone_name:
+                    kept_lines.append(line + "\n")
+
+    new_lines: list[str] = []
+    for _mode, eps in episodes_by_mode.items():
+        for ep in eps:
+            world = world_by_id[ep.world_id]
+            row = _serialize_episode_record(
+                job_id=job_id,
+                milestone=milestone_name,
+                ep=ep,
+                world=world,
+                render_fn=render_fn,
+                milestone_global_update=milestone_global_update,
+                checkpoint_sha256=checkpoint_sha256,
+            )
+            new_lines.append(canonical(row).decode("utf-8") + "\n")
+    _atomic_write_text(ep_path, "".join(kept_lines + new_lines))
+    return len(new_lines)
 
 
 def _reconcile_steps_jsonl_on_resume(steps_path: Path, resume_u: int) -> float | None:
@@ -1396,6 +1713,66 @@ def _build_training_data_from_splits(
     raise ValueError(f"unsupported V8 dataset: {dataset_name!r}")
 
 
+def _evaluate_and_record_milestone(
+    *,
+    trainer: Any,
+    v8_spec: V8ModelSpec,
+    job_id: str,
+    dataset_name: str,
+    milestone_name: str,
+    global_update: int,
+    eval_worlds: list[dict[str, object]],
+    world_by_id: dict[str, dict[str, object]],
+    probe_steps: tuple[TeacherStep, ...] | list[TeacherStep],
+    probe_max_steps: int | None,
+    probe_scope_label: str,
+    ep_file: Path,
+    milestones_dir: Path,
+    milestones: dict[str, Any],
+    retained_ep_milestones: set[str],
+    loss: float | None = None,
+) -> None:
+    if milestone_name in milestones and milestone_name in retained_ep_milestones:
+        return
+    m_eps = evaluate_worlds_by_mode(
+        trainer.model, v8_spec, eval_worlds, model_identity=job_id, modes=("raw",)
+    )
+    if milestone_name not in retained_ep_milestones:
+        _write_milestone_episodes(
+            ep_file,
+            job_id=job_id,
+            milestone_name=milestone_name,
+            milestone_global_update=global_update,
+            checkpoint_sha256=trainer.parent,
+            episodes_by_mode=m_eps,
+            world_by_id=world_by_id,
+            render_fn=render_public_v8,
+        )
+        retained_ep_milestones.add(milestone_name)
+    if milestone_name not in milestones:
+        m_summary = summarize_suite_episodes(m_eps, eval_worlds)["raw"]
+        m_probe = _run_probe(
+            trainer.model,
+            v8_spec,
+            probe_steps,
+            dataset_name=dataset_name,
+            max_probe_steps=probe_max_steps,
+            batch_size=32,
+            device=trainer.device,
+            probe_scope=probe_scope_label,
+        )
+        milestones[milestone_name] = _save_milestone_file(
+            milestones_dir,
+            milestone_name=milestone_name,
+            global_update=global_update,
+            checkpoint_generation=int(trainer.state.generation),
+            checkpoint_sha256=trainer.parent,
+            probe=m_probe,
+            suite_summary=m_summary,
+            loss=loss,
+        )
+
+
 def run_job_worker(
     *,
     job_id: str,
@@ -1413,10 +1790,15 @@ def run_job_worker(
 ) -> dict[str, object]:
     """Train or recover one registered V8 job and run milestone + final evaluations."""
 
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     use_cpu_smoke = bool(cpu_canary or cpu_smoke)
     job = _find_job(job_id)
     arm = str(job["arm"])
     dataset_name = str(job["dataset"])
+    is_confirmation_run = (str(job["phase"]) == "replication" or confirmation_seed is not None)
+    if is_confirmation_run and confirmation_seed is None:
+        raise ValueError("replication phase requires an explicit confirmation_seed")
+
     v8_spec = _tiny_cpu_spec(arm) if use_cpu_smoke else build_v8_model_spec(arm)
 
     splits = prepare_verified_splits(
@@ -1426,6 +1808,11 @@ def run_job_worker(
         conf_worlds_per_cohort=conf_worlds_per_cohort,
         confirmation_seed=confirmation_seed,
     )
+    if is_confirmation_run:
+        conf_cohorts_check = splits.get("conf_cohorts")
+        if not isinstance(conf_cohorts_check, dict) or not any(conf_cohorts_check.values()):
+            raise ValueError("confirmation run requires non-empty split_bundle['conf_cohorts']")
+
     sample_limit = 32 if (use_cpu_smoke or device == "cpu") else None
     data = _build_training_data_from_splits(dataset_name, splits, sample_limit_for_cpu=sample_limit)
 
@@ -1441,58 +1828,75 @@ def run_job_worker(
         v8_spec_override=v8_spec if use_cpu_smoke else None,
         updates_override=updates_override,
     )
+    if torch.device(device).type == "cuda":
+        torch.set_num_threads(min(2, max(1, torch.get_num_threads())))
     total_updates = trainer.recipe.total_updates
     steps_per_epoch = max(1, math.ceil(len(trainer.samples) / trainer.recipe.batch_size))
 
     eval_cohorts: dict[str, tuple[dict[str, object], ...]] = splits["dev_cohorts"]
     all_eval_worlds = [w for rows in eval_cohorts.values() for w in rows]
     world_by_id = {str(w["world_id"]): w for w in all_eval_worlds}
-    sub_worlds = [
+    inter_base = int(EVALUATION_ALLOCATION["intermediate_milestone_base_worlds"])
+    inter_worlds = [
         w
         for rows in eval_cohorts.values()
-        for w in rows[: (5 * 2 if use_cpu_smoke else 5 * 32)]
+        for w in rows[: (5 * inter_base)]
     ]
 
     if dataset_name == "D0":
         all_probe_source = _d0_teacher_steps()
-        probe_cap = 28 if use_cpu_smoke else 192
     else:
         d1_dataset: V8Dataset = splits["d1_dataset"]
         all_probe_source = d1_dataset.steps
-        probe_cap = 28 if use_cpu_smoke else (len(all_probe_source) if len(all_probe_source) <= 512 else 192)
-    probe_steps = _select_stratified_probe_steps(all_probe_source, max_steps=probe_cap)
+    if use_cpu_smoke:
+        probe_steps = _select_stratified_probe_steps(all_probe_source, max_steps=28)
+        probe_max_steps: int | None = 28
+        probe_scope_label = "stratified_cpu_smoke"
+    else:
+        probe_steps = all_probe_source
+        probe_max_steps = None
+        probe_scope_label = "full_training_corpus"
 
     steps_dir = work_dir / "steps"
     steps_dir.mkdir(parents=True, exist_ok=True)
     steps_path = steps_dir / f"{job_id}.jsonl"
     milestones_dir = work_dir / "milestones" / job_id
     milestones_dir.mkdir(parents=True, exist_ok=True)
+    ep_dir = work_dir / "episodes"
+    ep_dir.mkdir(parents=True, exist_ok=True)
+    ep_file = ep_dir / f"{job_id}.jsonl"
 
     resume_u = int(trainer.state.global_update)
     if resume:
         last_loss = _reconcile_steps_jsonl_on_resume(steps_path, resume_u)
         milestones = _load_persisted_milestones(milestones_dir, resume_u)
+        retained_ep_milestones = _reconcile_episodes_jsonl_on_resume(ep_file, resume_u)
     else:
         _atomic_write_text(steps_path, "")
+        _atomic_write_text(ep_file, "")
         last_loss = None
         milestones = {}
+        retained_ep_milestones = set()
 
     t0 = time.perf_counter()
-    if trainer.state.global_update == 0 and "initial" not in milestones:
-        init_worlds = sub_worlds if use_cpu_smoke else all_eval_worlds
-        init_eps = evaluate_worlds_by_mode(
-            trainer.model, v8_spec, init_worlds, model_identity=job_id, modes=("raw",)
-        )
-        init_summary = summarize_suite_episodes(init_eps, init_worlds)
-        init_probe = _run_probe(trainer.model, v8_spec, probe_steps, dataset_name=dataset_name)
-        milestones["initial"] = _save_milestone_file(
-            milestones_dir,
+    if trainer.state.global_update == 0:
+        _evaluate_and_record_milestone(
+            trainer=trainer,
+            v8_spec=v8_spec,
+            job_id=job_id,
+            dataset_name=dataset_name,
             milestone_name="initial",
             global_update=0,
-            checkpoint_generation=int(trainer.state.generation),
-            checkpoint_sha256=trainer.parent,
-            probe=init_probe,
-            suite_summary=init_summary["raw"],
+            eval_worlds=all_eval_worlds,
+            world_by_id=world_by_id,
+            probe_steps=probe_steps,
+            probe_max_steps=probe_max_steps,
+            probe_scope_label=probe_scope_label,
+            ep_file=ep_file,
+            milestones_dir=milestones_dir,
+            milestones=milestones,
+            retained_ep_milestones=retained_ep_milestones,
+            loss=None,
         )
 
     epoch_len = max(total_updates // 4, 1)
@@ -1501,6 +1905,26 @@ def run_job_worker(
         2 * epoch_len: "epoch-2",
         total_updates: "epoch-4",
     }
+
+    if resume and resume_u in milestone_updates and resume_u < total_updates:
+        _evaluate_and_record_milestone(
+            trainer=trainer,
+            v8_spec=v8_spec,
+            job_id=job_id,
+            dataset_name=dataset_name,
+            milestone_name=milestone_updates[resume_u],
+            global_update=resume_u,
+            eval_worlds=inter_worlds,
+            world_by_id=world_by_id,
+            probe_steps=probe_steps,
+            probe_max_steps=probe_max_steps,
+            probe_scope_label=probe_scope_label,
+            ep_file=ep_file,
+            milestones_dir=milestones_dir,
+            milestones=milestones,
+            retained_ep_milestones=retained_ep_milestones,
+            loss=last_loss,
+        )
 
     stop_requested = False
     signal_received: list[int] = []
@@ -1548,20 +1972,22 @@ def run_job_worker(
                         trainer.save()
 
                 if u in milestone_updates and u < total_updates and not stop_requested:
-                    m_name = milestone_updates[u]
-                    m_eps = evaluate_worlds_by_mode(
-                        trainer.model, v8_spec, sub_worlds, model_identity=job_id, modes=("raw",)
-                    )
-                    m_summary = summarize_suite_episodes(m_eps, sub_worlds)["raw"]
-                    m_probe = _run_probe(trainer.model, v8_spec, probe_steps, dataset_name=dataset_name)
-                    milestones[m_name] = _save_milestone_file(
-                        milestones_dir,
-                        milestone_name=m_name,
+                    _evaluate_and_record_milestone(
+                        trainer=trainer,
+                        v8_spec=v8_spec,
+                        job_id=job_id,
+                        dataset_name=dataset_name,
+                        milestone_name=milestone_updates[u],
                         global_update=u,
-                        checkpoint_generation=int(trainer.state.generation),
-                        checkpoint_sha256=trainer.parent,
-                        probe=m_probe,
-                        suite_summary=m_summary,
+                        eval_worlds=inter_worlds,
+                        world_by_id=world_by_id,
+                        probe_steps=probe_steps,
+                        probe_max_steps=probe_max_steps,
+                        probe_scope_label=probe_scope_label,
+                        ep_file=ep_file,
+                        milestones_dir=milestones_dir,
+                        milestones=milestones,
+                        retained_ep_milestones=retained_ep_milestones,
                         loss=last_loss,
                     )
 
@@ -1592,6 +2018,7 @@ def run_job_worker(
                 "dev_identity": splits["dev_identity"],
                 "conf_identity": splits["conf_identity"],
                 "steps_file": str(steps_path),
+                "episodes_file": str(ep_file),
                 "milestones_dir": str(milestones_dir),
                 "milestones": milestones,
                 "wall_seconds": time.perf_counter() - t0,
@@ -1608,7 +2035,16 @@ def run_job_worker(
     train_wall = time.perf_counter() - t0
     final_eps = evaluate_worlds_by_mode(trainer.model, v8_spec, all_eval_worlds, model_identity=job_id)
     final_summary = summarize_suite_episodes(final_eps, all_eval_worlds)
-    final_probe = _run_probe(trainer.model, v8_spec, probe_steps, dataset_name=dataset_name)
+    final_probe = _run_probe(
+        trainer.model,
+        v8_spec,
+        probe_steps,
+        dataset_name=dataset_name,
+        max_probe_steps=probe_max_steps,
+        batch_size=32,
+        device=trainer.device,
+        probe_scope=probe_scope_label,
+    )
 
     if "epoch-4" not in milestones:
         milestones["epoch-4"] = _save_milestone_file(
@@ -1623,7 +2059,11 @@ def run_job_worker(
         )
 
     pointer_interv = (
-        run_pointer_interventions(trainer.model, v8_spec, probe_steps[:64])
+        run_pointer_interventions(
+            trainer.model,
+            v8_spec,
+            _select_stratified_probe_steps(probe_steps, max_steps=64),
+        )
         if arm == "P"
         else None
     )
@@ -1635,23 +2075,19 @@ def run_job_worker(
         model_identity=job_id,
     )
 
-    ep_dir = work_dir / "episodes"
-    ep_dir.mkdir(parents=True, exist_ok=True)
-    ep_file = ep_dir / f"{job_id}.jsonl"
-    final_milestone_label = "epoch-4" if trainer.state.global_update >= total_updates else f"update-{trainer.state.global_update}"
-    ep_lines: list[str] = []
-    for mode, eps in final_eps.items():
-        for ep in eps:
-            world = world_by_id[ep.world_id]
-            row = _serialize_episode_record(
-                job_id=job_id,
-                milestone=final_milestone_label,
-                ep=ep,
-                world=world,
-                render_fn=render_public_v8,
-            )
-            ep_lines.append(canonical(row).decode("utf-8") + "\n")
-    _atomic_write_text(ep_file, "".join(ep_lines))
+    final_milestone_label = (
+        "epoch-4" if trainer.state.global_update >= total_updates else f"update-{trainer.state.global_update}"
+    )
+    _write_milestone_episodes(
+        ep_file,
+        job_id=job_id,
+        milestone_name=final_milestone_label,
+        milestone_global_update=int(trainer.state.global_update),
+        checkpoint_sha256=trainer.parent,
+        episodes_by_mode=final_eps,
+        world_by_id=world_by_id,
+        render_fn=render_public_v8,
+    )
 
     rescore_summary = rescore_saved_episode_jsonl(ep_file)
     if not rescore_summary["verified"]:
@@ -1660,7 +2096,8 @@ def run_job_worker(
     raw_sum = final_summary["raw"]
     non_iso_acc = raw_sum.get("non_isolated_exact_accuracy")
     if non_iso_acc is None:
-        non_iso_acc = rescore_summary.get("raw_non_isolated_exact_accuracy")
+        final_rescore = rescore_saved_episode_jsonl(ep_file, milestone_filter=final_milestone_label)
+        non_iso_acc = final_rescore.get("raw_non_isolated_exact_accuracy")
 
     result: dict[str, object] = {
         "schema": "elendril-v8-job-result-v1",
@@ -1700,18 +2137,58 @@ def run_job_worker(
         "rescore_summary": rescore_summary,
     }
 
-    if confirmation_seed is not None or str(job["phase"]) == "replication":
+    if is_confirmation_run:
         conf_cohorts: dict[str, tuple[dict[str, object], ...]] = splits["conf_cohorts"]
         conf_worlds = [w for rows in conf_cohorts.values() for w in rows]
+        conf_world_by_id = {str(w["world_id"]): w for w in conf_worlds}
         conf_eps = evaluate_worlds_by_mode(
             trainer.model,
             v8_spec,
             conf_worlds,
             model_identity=job_id,
-            modes=("raw",),
+            modes=POLICY_MODES,
             render_fn=render_confirmation_public,
         )
-        result["confirmation_summary"] = summarize_suite_episodes(conf_eps, conf_worlds)["raw"]
+        conf_ep_file = ep_dir / f"{job_id}.confirmation.jsonl"
+        _atomic_write_text(conf_ep_file, "")
+        _write_milestone_episodes(
+            conf_ep_file,
+            job_id=job_id,
+            milestone_name="confirmation",
+            milestone_global_update=int(trainer.state.global_update),
+            checkpoint_sha256=trainer.parent,
+            episodes_by_mode=conf_eps,
+            world_by_id=conf_world_by_id,
+            render_fn=render_confirmation_public,
+        )
+        conf_rescore = rescore_saved_episode_jsonl(conf_ep_file)
+        if conf_rescore.get("verified") is not True:
+            raise ValueError(
+                f"confirmation episode rescore failed for {job_id}: {conf_rescore.get('errors', [])[:5]}"
+            )
+
+        conf_summary_by_mode = summarize_suite_episodes(conf_eps, conf_worlds)
+        conf_raw_sum = dict(conf_summary_by_mode["raw"])
+        conf_raw_rescore = conf_rescore["by_mode"].get("raw", {})
+        if conf_raw_rescore.get("n") != conf_raw_sum["episodes"] or (
+            conf_raw_rescore.get("exact_accuracy") is None
+            or abs(float(conf_raw_rescore["exact_accuracy"]) - float(conf_raw_sum["exact_episode_accuracy"])) > 1e-9
+        ):
+            raise ValueError(f"confirmation rescore mismatch for {job_id}")
+
+        result["confirmation_summary"] = {
+            **conf_raw_sum,
+            "rescore_verified": True,
+            "rescore_episode_count": int(conf_rescore["episode_count"]),
+            "raw_rescore_exact_accuracy": conf_raw_rescore.get("exact_accuracy"),
+            "by_mode": conf_summary_by_mode,
+            "rescore_by_mode": conf_rescore["by_mode"],
+            "confirmation_episodes_file": str(conf_ep_file),
+        }
+        result["confirmation_summary_by_mode"] = conf_summary_by_mode
+        result["confirmation_episodes_file"] = str(conf_ep_file)
+        result["confirmation_rescore_summary"] = conf_rescore
+        result["confirmation_seed"] = int(confirmation_seed)
 
     out_dir = work_dir / "jobs"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1722,6 +2199,7 @@ def run_job_worker(
 
 
 def main(argv: list[str] | None = None) -> int:
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     parser = argparse.ArgumentParser(description="ELENDRIL V8 isolated GPU/CPU worker")
     parser.add_argument("mode", choices=("canary", "profile", "train", "recover", "frozen"))
     parser.add_argument("--job-id", default=None)
@@ -1732,6 +2210,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--work-dir", type=Path, required=True)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--cpu-canary", action="store_true")
+    parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--updates-override", type=int, default=None)
     parser.add_argument("--dev-worlds", type=int, default=None)
     parser.add_argument("--confirmation-seed", type=int, default=None)
@@ -1745,6 +2225,7 @@ def main(argv: list[str] | None = None) -> int:
             work_dir=args.work_dir,
             device=args.device,
             cpu_canary=args.cpu_canary,
+            lr=args.lr,
         )
     elif args.mode == "profile":
         if not args.job_id and args.dataset is None:
@@ -1788,6 +2269,8 @@ def main(argv: list[str] | None = None) -> int:
             dev_worlds_per_cohort=args.dev_worlds,
             confirmation_seed=args.confirmation_seed,
         )
+    if args.json_out is not None:
+        _atomic_write_json(args.json_out, res)
     print(json.dumps({"status": res.get("status", "OK"), "mode": args.mode}, indent=2))
     return 0
 
