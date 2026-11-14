@@ -226,3 +226,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Enforced shared fail-closed R2 validation, streaming step histories, preserved milestones, full episode traces, and non-neural rescoring.
 - Added B0 canary + 1e-4 GPU LR, exact joint action accuracy, condition/seed pairing, confirmation isolation, 2x margin forecast, full-horizon recovery, and stratified/D0/initial probes.
 - Passed all 24 focused CPU V8 tests; no local GPU training or S20 campaign ran.
+
+### 2026-11-14 | Gemini | Republish V8 Kaggle notebook pinned to repaired runtime
+- Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to `dd12e7e2ed040a84a0ba27ec566b1715ecc59b4f` with `REPO_URL=https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git` and `RUN_STUDY=False`.
+- Verified `git archive` rebuild reproduces identical LF notebook bytes (`34171e57c29d19eea1bad601d2838341ff4717b4ebff597bae584aafa94394a0`) and updated `Experiment Result/V8/` templates.
+- No local GPU research training or S20 campaign ran; ready for CI verification, push, and Kaggle 2xT4 execution.
