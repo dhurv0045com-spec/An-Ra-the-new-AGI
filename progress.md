@@ -253,3 +253,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Observed Kaggle T4x2 run `b87ff909`: training measured `0.39s/upd` (~37m on 2xT4) while unbatched `batch=1` eval measured `0.252s/ep` (`32,012s` serial -> `NO_GO: RESOURCE_INFEASIBLE`).
 - Added lockstep batched evaluation (`propose_batch` + cross-mode shared step scoring) in `policies.py` and `evaluation.py`, warmup + 4-mode `run_profile` eval timing in `worker.py`, and `NO_GO`/`INVALID_RESULTS` cell failure in `build_elendril_v8_notebook.py`.
 - Verified exact parity between batched and sequential `run_episode` across all 4 `POLICY_MODES` for `P` and `B0`; all 29 focused V8 tests pass locally (CPU).
+
+### 2026-11-14 | Gemini | Publish batched-eval V8 notebook pinned to 69899953
+- Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to `698999532e49f37b70a63def30321b29ed87b142` (`SHA256: 7268d6ac6c6cb3c5f29debd7059f6d3cc2b37c4120f788d511c0b0c1bd8a49e7`) and updated `Experiment Result/V8/`.
+- Ready for full CI verification, `git push`, and Kaggle 2xT4 `data-control` launch.
