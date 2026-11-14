@@ -262,3 +262,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Observed Kaggle 2xT4 run `69899953`: all 6 `data-control` jobs finished in `2589.3s`, then failed on `/kaggle/working` quota (`Errno 28`) during `ELENDRIL_V8_FULL.zip` export.
 - Added `CheckpointStore.prune(keep=set())` rotation during training, final `PREVIOUS` pruning on completion, canary/profile checkpoint cleanup, stale `.tmp` zip cleanup, and `/tmp/elendril_v8` notebook `WORK_ROOT`.
 - Passed all 30 focused V8 CPU tests locally (`30 passed in 133.01s`), covering checkpoint count `== 1` after completion for typed and `B0` jobs.
+
+### 2026-11-15 | Gemini | Publish pruned-checkpoint V8 notebook pinned to cf043942
+- Regenerated `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` (`SHA256: 28881952463f018f53d98eb3a5035c8e7e8b56450ecfa93e78e84bbf64b4c33e`) pinned to `cf043942511f0b14c343445e0c3fe7570bd7c63b` with `/tmp/elendril_v8` work root.
+- Verified `git archive` byte-identical rebuild from `cf043942` and updated `Experiment Result/V8/` pre-run templates.
