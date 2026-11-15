@@ -214,3 +214,26 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Pinned `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` to runtime commit `95c4b95da28a116e9ebfbd208e291e80b83dee75` with inert `RUN_STUDY=False` defaults.
 - Verified `git archive` rebuild reproduces an identical notebook (`b4ad288c0c260d9a86db751d2ac4548e1f95329f6540cb8f681b03bf695233a9`) and staged `Experiment Result/V8/` templates.
 - No local GPU research training or S20 campaign ran; ready for owner push and Kaggle 2xT4 execution.
+
+### 2026-11-16 | Antigravity | Build and validate Planthir universal research observatory
+- Fixed `anra_v5/elendril/v8/evaluation.py` consumed-tool bug (`enforce_tool_consumption=True`, raising oracle accuracy 6/12 to 12/12).
+- Built `anra_v5/planthir/` modular infrastructure: contracts, V8 adapter, instrument/6-fault suite, 4-stage funnel, causal counterfactuals, epistemic firewall, 3-tier capsules, checkpoint intelligence, and V6-V8 atlas.
+- Ran bounded CPU study (`EXP-PLANTHIR-001/002/003`, 17.7k-26.8k params, 6/6 faults caught, 52 historical runs indexed); Kaggle S20 GPU scaling unrun.
+- Authored `research/planthir/ARCHITECTURE_AND_PHILOSOPHY.md`, curated `Experiment Result/Planthir/` reports, and Planthir unit/integration tests.
+
+### 2026-11-16 | Antigravity | Add compact result.zip and full checkpoint bundle export/restore
+- Added `export_result_bundle`, `verify_result_bundle`, and `verify_single_planthir_zip` in `anra_v5/planthir/evidence.py` (`result.zip` <=20 MB + `checkpoint_full.zip`).
+- Added `CheckpointCatalog.load_from_result_zip` (`full_embedded` and `compact_fp16`) and `restore_full_checkpoint_zip`, plus `planthir verify-bundle` CLI.
+- Updated `EXP-PLANTHIR-002` validation study, `.gitignore`, docs, and `test_result_zip_and_full_checkpoint_bundle_export_verify_and_load` (`8 passed`).
+- Verified 28/28 Planthir+Elendril pytests and `tools.verify_elendril_evidence` on CPU; S20 GPU campaign remains pending on Kaggle.
+
+### 2026-11-16 | Antigravity | Upgrade Planthir to Level-5 5-Gate Cartridge engine and validate on RTX 4050 GPU
+- Added `anra_v5/planthir/cartridge.py` (`CartridgeRunner`, 5 Launch Gates, `audit_experimental_design`, `AI_HANDOFF_BRIEF.json`, `estimate_token_fuel_savings`).
+- Added `run_surgical_mechanism_ablation`, `run_compute_depth_scaling_intervention` (`causal.py`), and `analyze_checkpoint_trajectory` (`observatory.py`).
+- Executed `EXP-PLANTHIR-004` live on `NVIDIA GeForce RTX 4050 Laptop GPU` (4 arms, 60 updates/arm, 75.56 MB VRAM, 5/5 gates, 1.000 live-vs-zip parity).
+- Verified `EXP-PLANTHIR-001/002/003` refresh, 29/29 Planthir+Elendril pytests, and `tools.verify_elendril_evidence`; S20 Kaggle campaign pending.
+
+### 2026-11-16 | Antigravity | Author Planthir agent.md and purpose.md specifications
+- Created root `purpose.md` and `research/planthir/purpose.md` detailing Level-5 architecture, math formulas, 5 Launch Gates, and 9 adversarial audit blind spots.
+- Created root `agent.md` and `research/planthir/agent.md` documenting cross-branch imports, <60-line cartridge/protocol templates, and the 4-step workflow.
+- Kept `AGENTS.md` untouched and verified clean documentation/repo status alongside the established Level-5 baseline (no code or training changes made).

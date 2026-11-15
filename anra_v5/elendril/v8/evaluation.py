@@ -60,6 +60,7 @@ def run_episode(
     render_fn: Callable[..., str] = render_public_v8,
     max_actions: int = 4,
     extra_initial_facts: tuple[PublicFact, ...] = (),
+    enforce_tool_consumption: bool = True,
 ) -> EpisodeRecord:
     """Execute one episode with strict actor/verifier truth separation."""
 
@@ -167,6 +168,8 @@ def run_episode(
                     if f not in seen_facts:
                         seen_facts.add(f)
                         ordered_facts.append(f)
+            if enforce_tool_consumption:
+                query_avail = False
             continue
         if op == "RETRIEVE":
             executed_actions.append(("RETRIEVE", None))
@@ -181,6 +184,8 @@ def run_episode(
                     if f not in seen_facts:
                         seen_facts.add(f)
                         ordered_facts.append(f)
+            if enforce_tool_consumption:
+                mem_avail = False
             continue
         if op in ("ANSWER", "ABSTAIN"):
             executed_actions.append((op, arg))

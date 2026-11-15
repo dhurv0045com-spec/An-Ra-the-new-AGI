@@ -15,12 +15,13 @@ test = ["pytest>=8,<10", "nbformat>=5.10,<6"]
 
 [project.scripts]
 elendril = "anra_v5.elendril.__main__:main"
+planthir = "anra_v5.planthir.__main__:main"
 
 [tool.setuptools]
 py-modules = ["v5_checkpointing"]
 
 [tool.setuptools.packages.find]
-include = ["elendril", "anra_v5", "anra_v5.elendril*", "v5_contracts", "v5_data", "v5_evaluation", "v5_model", "v5_objectives", "v5_training"]
+include = ["elendril", "anra_v5", "anra_v5.elendril*", "anra_v5.planthir*", "v5_contracts", "v5_data", "v5_evaluation", "v5_model", "v5_objectives", "v5_training"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
