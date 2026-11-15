@@ -233,3 +233,12 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Hardened tools/build_elendril_hitchhiker_notebook.py for zero-input Stage 1 Run All on Kaggle T4x2 (sys.executable, PYTHONDONTWRITEBYTECODE=1, per-phase WORK_ROOT, 480m budget, FileLink surfacing on NO_GO/interrupt).
 - Verified via pytest -n 4 -q (426 passed, 1 skipped, 14 subtests passed; 22/22 Hitchhiker tests), verify-suite, cpu-mechanical-check, stage0-audit, and tools.verify_elendril_evidence on CPU only.
 - Pending execution: Kaggle T4x2 GPU qualification, mounted S20-low-lr Stage 0 audit, and Stage 1-3 training/confirmation runs.
+
+## 2026-11-15 — Codex: Hitchhiker Stage 1 results
+Curated the owner analysis; independently replayed 324,720 recorded episode evaluations and reproduced screening gates.
+Documented all failed screens, the C seed 7 row-order shortcut, archive size, and checkpoint/export limitations.
+
+### 2026-11-15 | Codex | Self-contained Hitchhiker results handoff
+- Expanded the results handoff and repository entry points for another AI to understand the setup, findings, limits and next discriminating tests.
+- Added reproducible C seed 7 row-order shortcut analysis; checked all 768 observations against the saved evidence without repeating the full replay.
+- Prepared compact curated results and reusable analyzer for the requested hitchhiker publication; original ZIP and checkpoints remain outside Git.

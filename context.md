@@ -1,12 +1,14 @@
 # Hitchhiker context
 
+**Latest owner results (2026-11-15):** [Stage 1 S3 results](Experiment%20Result/Hitchhiker/hh-stage1-4bfe3a806e3b/RESULTS.md) completed all 15 jobs; no intervention passed the screen. C seed 7’s apparent four-hop success follows a last-fact positional shortcut on the tested row-order cohort. Stage 0 and follow-up/scale training remain unexecuted; checkpoint restore and final dual-export completion are not certified from the analysis-only ZIP. Earlier future-tense planning below is historical and superseded where it conflicts with these results.
+
 Updated: 2026-11-15. Branch: `hitchhiker`.
 
 ## Purpose and requested workflow
 
 The user proposed mechanisms A–H for compact cognitive generalization and asked for a technical, evidence-producing experiment design before implementation. The first deliverable is complete: [conclusion and experiment design](research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md). The [original supplied proposal](research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md) is preserved byte-for-byte, with its hypotheses and reported numbers unchanged.
 
-The documentation deliverable established the reviewed design ([conclusion and experiment design](research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md)) alongside the [original supplied proposal](research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md). The full Hitchhiker harness and Kaggle T4x2 campaign tooling — 7-factor counterfactual suite + structural holdouts, 4 health probes, Stage 0 raw/availability/grammar 260-way logit diagnostics & evidence sidecar packaging, deterministic static vs fresh/relabeled Stage 1–3 streams & trainer, episode-level fail-closed statistical gates, isolated 2-GPU worker/coordinator, dual verified bundle export/restore, and source-pinned notebook generator — are implemented and CPU-mechanically verified locally. Real GPU qualification, mounted S20-low-lr checkpoint Stage 0 execution, and Stage 1–3 training runs remain pending Kaggle execution.
+The documentation deliverable established the reviewed design ([conclusion and experiment design](research/hitchhiker/CONCLUSION_AND_EXPERIMENT_DESIGN.md)) alongside the [original supplied proposal](research/hitchhiker/USER_ARCHITECTURAL_PROPOSAL.md). The full Hitchhiker harness and Kaggle T4x2 campaign tooling — 7-factor counterfactual suite + structural holdouts, 4 health probes, Stage 0 raw/availability/grammar 260-way logit diagnostics & evidence sidecar packaging, deterministic static vs fresh/relabeled Stage 1–3 streams & trainer, episode-level fail-closed statistical gates, isolated 2-GPU worker/coordinator, dual verified bundle export/restore, and source-pinned notebook generator — are implemented and CPU-mechanically verified locally. Stage 1 S3 ran on the owner GPUs; Stage 0 and Stage 2–3 executions remain pending, and final dual-export completion is not certified.
 
 ## Source identities
 
