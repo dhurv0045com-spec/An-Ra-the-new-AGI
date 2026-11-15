@@ -1,0 +1,3049 @@
+{
+  "archive_sha256": "f5d28b8759d0252e9c5e487e97cf1a817765def5a0c1523f7e2caeec097e7ef5",
+  "audit_status": "PASS_RECORDED_EVIDENCE",
+  "canaries": {
+    "B0": {
+      "arm": "B0",
+      "cpu_canary": false,
+      "exact_action_accuracy": 1.0,
+      "families_covered": [
+        "conflict_query",
+        "direct_one_hop",
+        "memory_retrieval",
+        "missing_query",
+        "null_unavailable",
+        "temporal_source",
+        "two_hop"
+      ],
+      "final_loss": 0.00521476131002858,
+      "initial_loss": 5.564410227649617,
+      "loss_ratio": 0.0009371633464614762,
+      "lr": 0.0001,
+      "non_answer_op_accuracy": 1.0,
+      "op_accuracy": 1.0,
+      "passed": true,
+      "probe": {
+        "answer_step_count": 28,
+        "answer_steps": 28,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.00521476131002858,
+        "exact_action_accuracy": 1.0,
+        "exact_action_count": 53,
+        "families_covered": [
+          "conflict_query",
+          "direct_one_hop",
+          "memory_retrieval",
+          "missing_query",
+          "null_unavailable",
+          "temporal_source",
+          "two_hop"
+        ],
+        "first_action_byte_accuracy": 1.0,
+        "first_action_byte_nll": 0.008573072180503382,
+        "grad_l2_norm": 0.2430677271447642,
+        "mean_total_nll": 0.01042952262005716,
+        "non_answer_op_accuracy": 1.0,
+        "non_answer_step_count": 25,
+        "op_accuracy": 1.0,
+        "probe_scope": {
+          "count": 53,
+          "dataset": "D1-canary",
+          "families_covered": [
+            "conflict_query",
+            "direct_one_hop",
+            "memory_retrieval",
+            "missing_query",
+            "null_unavailable",
+            "temporal_source",
+            "two_hop"
+          ],
+          "strategy": "canary"
+        },
+        "probe_steps": 53,
+        "teacher_loss": 0.00521476131002858,
+        "total_steps": 53,
+        "val_accuracy_given_op_correct": 1.0,
+        "val_accuracy_on_answer_steps": 1.0
+      },
+      "probe_scope": {
+        "count": 53,
+        "dataset": "D1-canary",
+        "families_covered": [
+          "conflict_query",
+          "direct_one_hop",
+          "memory_retrieval",
+          "missing_query",
+          "null_unavailable",
+          "temporal_source",
+          "two_hop"
+        ],
+        "strategy": "canary"
+      },
+      "raw_action_accuracy": 1.0,
+      "raw_episode_accuracy": 0.9375,
+      "schema": "elendril-v8-canary-v1",
+      "teacher_loss": 0.00521476131002858,
+      "updates": 120,
+      "val_accuracy_given_op_correct": 1.0,
+      "val_accuracy_on_answer_steps": 1.0,
+      "wall_seconds": 38.748397447
+    }
+  },
+  "cause": "UNRESOLVED",
+  "dataset_means": {
+    "D0": {
+      "one_hop_accuracy": 0.10312500000000001,
+      "raw_accuracy": 0.1592013888888889,
+      "reported_job_wall_seconds_sum": 4859.082287907,
+      "teacher_state_accuracy": 0.8393862612612613,
+      "update_count_sum": 7104
+    },
+    "D1": {
+      "one_hop_accuracy": 0.06874999999999999,
+      "raw_accuracy": 0.08585069444444444,
+      "reported_job_wall_seconds_sum": 3400.8540995680005,
+      "teacher_state_accuracy": 0.7668704710144928,
+      "update_count_sum": 4416
+    }
+  },
+  "environment_contract_violations_all_modes_and_milestones": {
+    "affected_episode_records": 30905,
+    "repeated_consumed_tool_calls": 64008,
+    "stale_availability_steps": 75275,
+    "teacher_target_changed_by_stale_availability": 24062
+  },
+  "forecast_not_measured_session_cost": {
+    "canary_seconds": 38.748397447,
+    "feasible": true,
+    "lanes": 2.0,
+    "margined_parallel_work_seconds": 14666.870371286968,
+    "parallel_work_seconds": 7333.435185643484,
+    "phase_budget_seconds": 19800.0,
+    "profile_seconds": 47.49138099100003,
+    "safety_reserve_seconds": 600.0,
+    "scheduled_parallel_work_seconds": 7333.435185643484,
+    "seconds_per_update": 0.39035363273684187,
+    "total_eval_seconds_serial": 9722.304408959953,
+    "total_forecast_seconds": 15353.110149724967,
+    "total_train_seconds_serial": 4479.511004604631,
+    "work_margin": 2.0
+  },
+  "independently_replayed_episodes": 126720,
+  "limitations": [
+    "Analysis-only custody: no FULL archive or neural checkpoint tensors verified.",
+    "Recorded-action replay does not regenerate probabilities or prove neural checkpoint recovery.",
+    "D0 and D1 change corpus, sampler, rendering and exposure; this is a recipe comparison.",
+    "All six models are B0/S20; J, F, P, F-cap, retention and transfer were not run.",
+    "Milestone training diagnostics are recorded aggregates, not independently regenerated inference."
+  ],
+  "manifest_sha256": "c1cdf7abc6716d273293ea4de3ba119508a2c85fe14a064d5c2947f26dc7d69a",
+  "paired_seed_effects": [
+    {
+      "d1_minus_d0": -0.0875,
+      "n": 3840,
+      "outcomes": {
+        "both": 138,
+        "d0_only": 490,
+        "d1_only": 154,
+        "neither": 3058
+      },
+      "seed": 7
+    },
+    {
+      "d1_minus_d0": -0.055989583333333336,
+      "n": 3840,
+      "outcomes": {
+        "both": 165,
+        "d0_only": 467,
+        "d1_only": 252,
+        "neither": 2956
+      },
+      "seed": 19
+    },
+    {
+      "d1_minus_d0": -0.0765625,
+      "n": 3840,
+      "outcomes": {
+        "both": 80,
+        "d0_only": 494,
+        "d1_only": 200,
+        "neither": 3066
+      },
+      "seed": 41
+    }
+  ],
+  "phase": "data-control",
+  "profiles": {
+    "B0-D0": {
+      "arm": "B0",
+      "dataset": "D0",
+      "device_index": 0,
+      "estimated_full_updates": 2368,
+      "eval_seconds_per_episode": 0.05756969551388854,
+      "job_id": "V8-B0-D0-i7-o7",
+      "measured_eval_episodes": 72,
+      "measured_updates": 19,
+      "peak_vram_mb": 1461.2666015625,
+      "physical_device_name": "Tesla T4",
+      "profile_eval_cohorts": [
+        "A19",
+        "E13",
+        "E14",
+        "E15",
+        "R09",
+        "R10"
+      ],
+      "profile_eval_modes": [
+        "raw",
+        "grammar",
+        "availability-mask",
+        "direct-answer-only"
+      ],
+      "recovery_parity": {
+        "all_match": true,
+        "cursor_match": true,
+        "full_horizon_total_updates": 2368,
+        "optimizer_match": true,
+        "rng_match": true,
+        "scheduler_match": true,
+        "training_state_match": true,
+        "weights_match": true
+      },
+      "resolved_device": "cuda:0",
+      "resume_parity_at_4_verified": true,
+      "schema": "elendril-v8-profile-v1",
+      "seconds_per_update": 0.3879095386315791,
+      "source_commit": "cf043942511f0b14c343445e0c3fe7570bd7c63b",
+      "total_training_samples": 9472
+    },
+    "B0-D1": {
+      "arm": "B0",
+      "dataset": "D1",
+      "device_index": 1,
+      "estimated_full_updates": 1472,
+      "eval_seconds_per_episode": 0.09587576548611072,
+      "job_id": "V8-B0-D1-i7-o7",
+      "measured_eval_episodes": 72,
+      "measured_updates": 19,
+      "peak_vram_mb": 1571.734375,
+      "physical_device_name": "Tesla T4",
+      "profile_eval_cohorts": [
+        "A19",
+        "E13",
+        "E14",
+        "E15",
+        "R09",
+        "R10"
+      ],
+      "profile_eval_modes": [
+        "raw",
+        "grammar",
+        "availability-mask",
+        "direct-answer-only"
+      ],
+      "recovery_parity": {
+        "all_match": true,
+        "cursor_match": true,
+        "full_horizon_total_updates": 1472,
+        "optimizer_match": true,
+        "rng_match": true,
+        "scheduler_match": true,
+        "training_state_match": true,
+        "weights_match": true
+      },
+      "resolved_device": "cuda:0",
+      "resume_parity_at_4_verified": true,
+      "schema": "elendril-v8-profile-v1",
+      "seconds_per_update": 0.39035363273684187,
+      "source_commit": "cf043942511f0b14c343445e0c3fe7570bd7c63b",
+      "total_training_samples": 5888
+    }
+  },
+  "regenerated_split_check": {
+    "distinct_development_records": 3840,
+    "prohibited_structural_overlaps": 0,
+    "training_identity": "0afe108c3a311d66f1304e73fd11b2951c604616a4f3bdb740de346684779bc0",
+    "training_worlds": 3584
+  },
+  "reported_status": "COMPLETE",
+  "runs": [
+    {
+      "after_query_observational": {
+        "next_action_matches_contract_teacher": 93,
+        "observed_query_transitions": 480,
+        "transitions_in_eventually_correct_episodes": 94
+      },
+      "answer_histogram": {
+        "A": 206,
+        "B": 81,
+        "C": 73,
+        "D": 178,
+        "E": 131,
+        "F": 134,
+        "G": 129,
+        "H": 229,
+        "I": 112,
+        "J": 105,
+        "K": 69,
+        "L": 86,
+        "M": 87,
+        "N": 139,
+        "O": 112,
+        "P": 84
+      },
+      "checkpoint_sha256": "37e61f3cc98d284766a0be8f5afa16fedc190c615158864d553ff208f5c4f6da",
+      "completed_updates": 2368,
+      "dataset": "D0",
+      "final_probe_recorded": {
+        "answer_step_count": 4872,
+        "answer_steps": 4872,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.16924925268048774,
+        "exact_action_accuracy": 0.8872466216216216,
+        "exact_action_count": 8404,
+        "families_covered": [
+          "conflict",
+          "known",
+          "memory",
+          "missing",
+          "null",
+          "route",
+          "unavailable"
+        ],
+        "first_action_byte_accuracy": 0.8872466216216216,
+        "first_action_byte_nll": 0.33849285565663434,
+        "grad_l2_norm": 16.919110154556073,
+        "mean_total_nll": 0.3384985053609755,
+        "non_answer_op_accuracy": 0.9926086956521739,
+        "non_answer_step_count": 4600,
+        "op_accuracy": 0.9476351351351351,
+        "probe_scope": {
+          "count": 9472,
+          "dataset": "D0",
+          "families_covered": [
+            "conflict",
+            "known",
+            "memory",
+            "missing",
+            "null",
+            "route",
+            "unavailable"
+          ],
+          "strategy": "full_training_corpus"
+        },
+        "probe_steps": 9472,
+        "teacher_loss": 0.16924925268048774,
+        "total_steps": 9472,
+        "val_accuracy_given_op_correct": 0.8702947845804989,
+        "val_accuracy_on_answer_steps": 0.7877668308702791
+      },
+      "first_actions": {
+        "ABSTAIN": 884,
+        "ANSWER": 1603,
+        "INVALID": 2,
+        "QUERY": 393,
+        "RETRIEVE": 958
+      },
+      "first_decision_by_cohort": {
+        "A19": {
+          "ABSTAIN->ABSTAIN": 174,
+          "ABSTAIN->ANSWER": 47,
+          "ABSTAIN->INVALID": 2,
+          "ABSTAIN->QUERY": 28,
+          "ABSTAIN->RETRIEVE": 5,
+          "ANSWER->ABSTAIN": 34,
+          "ANSWER->ANSWER": 29,
+          "ANSWER->QUERY": 22,
+          "ANSWER->RETRIEVE": 43,
+          "QUERY->ABSTAIN": 8,
+          "QUERY->ANSWER": 33,
+          "QUERY->QUERY": 20,
+          "QUERY->RETRIEVE": 67,
+          "RETRIEVE->ABSTAIN": 5,
+          "RETRIEVE->ANSWER": 43,
+          "RETRIEVE->QUERY": 10,
+          "RETRIEVE->RETRIEVE": 70,
+          "n": 640,
+          "teacher_action_match": 268,
+          "wrong_answer_value": 25
+        },
+        "E13": {
+          "ANSWER->ABSTAIN": 113,
+          "ANSWER->ANSWER": 335,
+          "ANSWER->QUERY": 64,
+          "ANSWER->RETRIEVE": 128,
+          "n": 640,
+          "teacher_action_match": 69,
+          "wrong_answer_value": 266
+        },
+        "E14": {
+          "QUERY->ABSTAIN": 15,
+          "QUERY->ANSWER": 74,
+          "QUERY->QUERY": 29,
+          "QUERY->RETRIEVE": 192,
+          "RETRIEVE->ABSTAIN": 11,
+          "RETRIEVE->ANSWER": 97,
+          "RETRIEVE->QUERY": 32,
+          "RETRIEVE->RETRIEVE": 190,
+          "n": 640,
+          "teacher_action_match": 219
+        },
+        "E15": {
+          "QUERY->ABSTAIN": 47,
+          "QUERY->ANSWER": 182,
+          "QUERY->QUERY": 33,
+          "QUERY->RETRIEVE": 58,
+          "RETRIEVE->ABSTAIN": 53,
+          "RETRIEVE->ANSWER": 176,
+          "RETRIEVE->QUERY": 63,
+          "RETRIEVE->RETRIEVE": 28,
+          "n": 640,
+          "teacher_action_match": 61
+        },
+        "R09": {
+          "ANSWER->ABSTAIN": 271,
+          "ANSWER->ANSWER": 278,
+          "ANSWER->QUERY": 91,
+          "n": 640,
+          "teacher_action_match": 72,
+          "wrong_answer_value": 206
+        },
+        "R10": {
+          "ANSWER->ABSTAIN": 153,
+          "ANSWER->ANSWER": 309,
+          "ANSWER->QUERY": 1,
+          "ANSWER->RETRIEVE": 177,
+          "n": 640,
+          "teacher_action_match": 53,
+          "wrong_answer_value": 256
+        }
+      },
+      "first_divergence": {
+        "0": 3098,
+        "1": 347,
+        "2": 1,
+        "None": 394
+      },
+      "init_seed": 19,
+      "job_id": "V8-B0-D0-i19-o19",
+      "milestones": {
+        "epoch-1": {
+          "raw_development": {
+            "accuracy": 0.09479166666666666,
+            "correct": 91,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.09479166666666666,
+            "correct": 91,
+            "n": 960
+          },
+          "teacher_loss": 1.5421602212496706,
+          "teacher_state_accuracy": 0.5202702702702703,
+          "teacher_states": 9472,
+          "update": 592
+        },
+        "epoch-2": {
+          "raw_development": {
+            "accuracy": 0.11770833333333333,
+            "correct": 113,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.11770833333333333,
+            "correct": 113,
+            "n": 960
+          },
+          "teacher_loss": 0.3783468141447048,
+          "teacher_state_accuracy": 0.7667863175675675,
+          "teacher_states": 9472,
+          "update": 1184
+        },
+        "epoch-4": {
+          "raw_development": {
+            "accuracy": 0.16458333333333333,
+            "correct": 632,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.15520833333333334,
+            "correct": 149,
+            "n": 960
+          },
+          "teacher_loss": 0.16924925268048774,
+          "teacher_state_accuracy": 0.8872466216216216,
+          "teacher_states": 9472,
+          "update": 2368
+        },
+        "initial": {
+          "raw_development": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 960
+          },
+          "teacher_loss": 5.562263888281745,
+          "teacher_state_accuracy": 0.0,
+          "teacher_states": 9472,
+          "update": 0
+        }
+      },
+      "modes": {
+        "availability-mask": {
+          "accuracy": 0.19973958333333333,
+          "correct": 767,
+          "n": 3840
+        },
+        "direct-answer-only": {
+          "accuracy": 0.184375,
+          "correct": 708,
+          "n": 3840
+        },
+        "grammar": {
+          "accuracy": 0.16458333333333333,
+          "correct": 632,
+          "n": 3840
+        },
+        "raw": {
+          "accuracy": 0.16458333333333333,
+          "correct": 632,
+          "n": 3840
+        }
+      },
+      "order_seed": 19,
+      "paired_counterfactual_counts": {
+        "base_worlds": 768,
+        "irrelevant_same_final_action_and_outcome": 437,
+        "relevant_both_correct": 14
+      },
+      "raw_by_cohort": {
+        "A19": {
+          "accuracy": 0.3859375,
+          "correct": 247,
+          "n": 640
+        },
+        "E13": {
+          "accuracy": 0.121875,
+          "correct": 78,
+          "n": 640
+        },
+        "E14": {
+          "accuracy": 0.1484375,
+          "correct": 95,
+          "n": 640
+        },
+        "E15": {
+          "accuracy": 0.125,
+          "correct": 80,
+          "n": 640
+        },
+        "R09": {
+          "accuracy": 0.11875,
+          "correct": 76,
+          "n": 640
+        },
+        "R10": {
+          "accuracy": 0.0875,
+          "correct": 56,
+          "n": 640
+        }
+      },
+      "raw_by_form": {
+        "canonical": {
+          "accuracy": 0.16276041666666666,
+          "correct": 125,
+          "n": 768
+        },
+        "fresh_alias": {
+          "accuracy": 0.20572916666666666,
+          "correct": 158,
+          "n": 768
+        },
+        "irrelevant_cf": {
+          "accuracy": 0.19270833333333334,
+          "correct": 148,
+          "n": 768
+        },
+        "relevant_cf": {
+          "accuracy": 0.10546875,
+          "correct": 81,
+          "n": 768
+        },
+        "row_shuffle": {
+          "accuracy": 0.15625,
+          "correct": 120,
+          "n": 768
+        }
+      },
+      "raw_final_environment_contract_violations": {
+        "affected_episode_records": 774,
+        "repeated_consumed_tool_calls": 346,
+        "stale_availability_steps": 1113,
+        "teacher_target_changed_by_stale_availability": 336
+      },
+      "recorded_irrelevant_cf_stability": 0.5690104166666666,
+      "recorded_relevant_cf_both_correct": 0.018229166666666668,
+      "step_history": {
+        "first_utc": "2026-11-14T22:19:27.088871+00:00",
+        "last_utc": "2026-11-14T22:44:59.895055+00:00",
+        "loss_first": 5.662659227848053,
+        "loss_last": 0.26531470059853746,
+        "records": 2368
+      },
+      "step_operation_confusions": {
+        "ABSTAIN->ABSTAIN": 174,
+        "ABSTAIN->ANSWER": 49,
+        "ABSTAIN->INVALID": 2,
+        "ABSTAIN->QUERY": 28,
+        "ABSTAIN->RETRIEVE": 5,
+        "ANSWER->ABSTAIN": 687,
+        "ANSWER->ANSWER": 1217,
+        "ANSWER->QUERY": 370,
+        "ANSWER->RETRIEVE": 527,
+        "QUERY->ABSTAIN": 76,
+        "QUERY->ANSWER": 296,
+        "QUERY->QUERY": 101,
+        "QUERY->RETRIEVE": 318,
+        "RETRIEVE->ABSTAIN": 238,
+        "RETRIEVE->ANSWER": 393,
+        "RETRIEVE->QUERY": 184,
+        "RETRIEVE->RETRIEVE": 288
+      },
+      "trace_examples": [
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "canonical",
+          "observations": [
+            {
+              "action": [
+                "RETRIEVE",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db"
+        },
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "row_shuffle",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db-shuf"
+        }
+      ],
+      "wall_seconds": 1676.4500175909998
+    },
+    {
+      "after_query_observational": {
+        "next_action_matches_contract_teacher": 28,
+        "observed_query_transitions": 410,
+        "transitions_in_eventually_correct_episodes": 23
+      },
+      "answer_histogram": {
+        "A": 332,
+        "B": 89,
+        "C": 226,
+        "D": 157,
+        "E": 108,
+        "F": 114,
+        "G": 171,
+        "H": 151,
+        "I": 153,
+        "J": 157,
+        "K": 163,
+        "L": 165,
+        "M": 103,
+        "N": 128,
+        "O": 229,
+        "P": 172
+      },
+      "checkpoint_sha256": "e3f1c9bb0ddb183acf7e37771e1e4d02823255552a04242045aef03a0f87f02a",
+      "completed_updates": 2368,
+      "dataset": "D0",
+      "final_probe_recorded": {
+        "answer_step_count": 4872,
+        "answer_steps": 4872,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.18393961287330132,
+        "exact_action_accuracy": 0.8816511824324325,
+        "exact_action_count": 8351,
+        "families_covered": [
+          "conflict",
+          "known",
+          "memory",
+          "missing",
+          "null",
+          "route",
+          "unavailable"
+        ],
+        "first_action_byte_accuracy": 0.8816511824324325,
+        "first_action_byte_nll": 0.36787871564531327,
+        "grad_l2_norm": 8.738090435889928,
+        "mean_total_nll": 0.36787922574660264,
+        "non_answer_op_accuracy": 0.9776086956521739,
+        "non_answer_step_count": 4600,
+        "op_accuracy": 0.9592483108108109,
+        "probe_scope": {
+          "count": 9472,
+          "dataset": "D0",
+          "families_covered": [
+            "conflict",
+            "known",
+            "memory",
+            "missing",
+            "null",
+            "route",
+            "unavailable"
+          ],
+          "strategy": "full_training_corpus"
+        },
+        "probe_steps": 9472,
+        "teacher_loss": 0.18393961287330132,
+        "total_steps": 9472,
+        "val_accuracy_given_op_correct": 0.8398343865765963,
+        "val_accuracy_on_answer_steps": 0.7910509031198686
+      },
+      "first_actions": {
+        "ABSTAIN": 886,
+        "ANSWER": 2376,
+        "QUERY": 385,
+        "RETRIEVE": 193
+      },
+      "first_decision_by_cohort": {
+        "A19": {
+          "ABSTAIN->ABSTAIN": 132,
+          "ABSTAIN->ANSWER": 109,
+          "ABSTAIN->QUERY": 9,
+          "ABSTAIN->RETRIEVE": 6,
+          "ANSWER->ABSTAIN": 40,
+          "ANSWER->ANSWER": 67,
+          "ANSWER->QUERY": 21,
+          "QUERY->ABSTAIN": 6,
+          "QUERY->ANSWER": 105,
+          "QUERY->QUERY": 17,
+          "RETRIEVE->ABSTAIN": 8,
+          "RETRIEVE->ANSWER": 106,
+          "RETRIEVE->QUERY": 14,
+          "n": 640,
+          "teacher_action_match": 158,
+          "wrong_answer_value": 58
+        },
+        "E13": {
+          "ANSWER->ABSTAIN": 156,
+          "ANSWER->ANSWER": 424,
+          "ANSWER->QUERY": 53,
+          "ANSWER->RETRIEVE": 7,
+          "n": 640,
+          "teacher_action_match": 67,
+          "wrong_answer_value": 357
+        },
+        "E14": {
+          "QUERY->ABSTAIN": 14,
+          "QUERY->ANSWER": 244,
+          "QUERY->QUERY": 46,
+          "QUERY->RETRIEVE": 6,
+          "RETRIEVE->ABSTAIN": 21,
+          "RETRIEVE->ANSWER": 270,
+          "RETRIEVE->QUERY": 35,
+          "RETRIEVE->RETRIEVE": 4,
+          "n": 640,
+          "teacher_action_match": 50
+        },
+        "E15": {
+          "QUERY->ABSTAIN": 62,
+          "QUERY->ANSWER": 237,
+          "QUERY->QUERY": 19,
+          "QUERY->RETRIEVE": 2,
+          "RETRIEVE->ABSTAIN": 76,
+          "RETRIEVE->ANSWER": 226,
+          "RETRIEVE->QUERY": 11,
+          "RETRIEVE->RETRIEVE": 7,
+          "n": 640,
+          "teacher_action_match": 26
+        },
+        "R09": {
+          "ANSWER->ABSTAIN": 269,
+          "ANSWER->ANSWER": 209,
+          "ANSWER->QUERY": 160,
+          "ANSWER->RETRIEVE": 2,
+          "n": 640,
+          "teacher_action_match": 44,
+          "wrong_answer_value": 165
+        },
+        "R10": {
+          "ANSWER->ABSTAIN": 102,
+          "ANSWER->ANSWER": 379,
+          "ANSWER->RETRIEVE": 159,
+          "n": 640,
+          "teacher_action_match": 60,
+          "wrong_answer_value": 319
+        }
+      },
+      "first_divergence": {
+        "0": 3435,
+        "1": 81,
+        "2": 1,
+        "None": 323
+      },
+      "init_seed": 41,
+      "job_id": "V8-B0-D0-i41-o41",
+      "milestones": {
+        "epoch-1": {
+          "raw_development": {
+            "accuracy": 0.10729166666666666,
+            "correct": 103,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.10729166666666666,
+            "correct": 103,
+            "n": 960
+          },
+          "teacher_loss": 1.407177153471354,
+          "teacher_state_accuracy": 0.530299831081081,
+          "teacher_states": 9472,
+          "update": 592
+        },
+        "epoch-2": {
+          "raw_development": {
+            "accuracy": 0.14479166666666668,
+            "correct": 139,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.14479166666666668,
+            "correct": 139,
+            "n": 960
+          },
+          "teacher_loss": 0.3900478974085402,
+          "teacher_state_accuracy": 0.7596072635135135,
+          "teacher_states": 9472,
+          "update": 1184
+        },
+        "epoch-4": {
+          "raw_development": {
+            "accuracy": 0.14947916666666666,
+            "correct": 574,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.13020833333333334,
+            "correct": 125,
+            "n": 960
+          },
+          "teacher_loss": 0.18393961287330132,
+          "teacher_state_accuracy": 0.8816511824324325,
+          "teacher_states": 9472,
+          "update": 2368
+        },
+        "initial": {
+          "raw_development": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 960
+          },
+          "teacher_loss": 5.4671243461402685,
+          "teacher_state_accuracy": 0.0,
+          "teacher_states": 9472,
+          "update": 0
+        }
+      },
+      "modes": {
+        "availability-mask": {
+          "accuracy": 0.15963541666666667,
+          "correct": 613,
+          "n": 3840
+        },
+        "direct-answer-only": {
+          "accuracy": 0.16510416666666666,
+          "correct": 634,
+          "n": 3840
+        },
+        "grammar": {
+          "accuracy": 0.14947916666666666,
+          "correct": 574,
+          "n": 3840
+        },
+        "raw": {
+          "accuracy": 0.14947916666666666,
+          "correct": 574,
+          "n": 3840
+        }
+      },
+      "order_seed": 41,
+      "paired_counterfactual_counts": {
+        "base_worlds": 768,
+        "irrelevant_same_final_action_and_outcome": 349,
+        "relevant_both_correct": 6
+      },
+      "raw_by_cohort": {
+        "A19": {
+          "accuracy": 0.246875,
+          "correct": 158,
+          "n": 640
+        },
+        "E13": {
+          "accuracy": 0.1078125,
+          "correct": 69,
+          "n": 640
+        },
+        "E14": {
+          "accuracy": 0.2203125,
+          "correct": 141,
+          "n": 640
+        },
+        "E15": {
+          "accuracy": 0.140625,
+          "correct": 90,
+          "n": 640
+        },
+        "R09": {
+          "accuracy": 0.078125,
+          "correct": 50,
+          "n": 640
+        },
+        "R10": {
+          "accuracy": 0.103125,
+          "correct": 66,
+          "n": 640
+        }
+      },
+      "raw_by_form": {
+        "canonical": {
+          "accuracy": 0.14713541666666666,
+          "correct": 113,
+          "n": 768
+        },
+        "fresh_alias": {
+          "accuracy": 0.16796875,
+          "correct": 129,
+          "n": 768
+        },
+        "irrelevant_cf": {
+          "accuracy": 0.17057291666666666,
+          "correct": 131,
+          "n": 768
+        },
+        "relevant_cf": {
+          "accuracy": 0.10026041666666667,
+          "correct": 77,
+          "n": 768
+        },
+        "row_shuffle": {
+          "accuracy": 0.16145833333333334,
+          "correct": 124,
+          "n": 768
+        }
+      },
+      "raw_final_environment_contract_violations": {
+        "affected_episode_records": 368,
+        "repeated_consumed_tool_calls": 215,
+        "stale_availability_steps": 530,
+        "teacher_target_changed_by_stale_availability": 29
+      },
+      "recorded_irrelevant_cf_stability": 0.4544270833333333,
+      "recorded_relevant_cf_both_correct": 0.0078125,
+      "step_history": {
+        "first_utc": "2026-11-14T22:56:57.249326+00:00",
+        "last_utc": "2026-11-14T23:22:03.443884+00:00",
+        "loss_first": 5.5740984082221985,
+        "loss_last": 0.11422485538059846,
+        "records": 2368
+      },
+      "step_operation_confusions": {
+        "ABSTAIN->ABSTAIN": 133,
+        "ABSTAIN->ANSWER": 109,
+        "ABSTAIN->QUERY": 9,
+        "ABSTAIN->RETRIEVE": 6,
+        "ANSWER->ABSTAIN": 621,
+        "ANSWER->ANSWER": 1285,
+        "ANSWER->QUERY": 450,
+        "ANSWER->RETRIEVE": 175,
+        "QUERY->ABSTAIN": 83,
+        "QUERY->ANSWER": 602,
+        "QUERY->QUERY": 83,
+        "QUERY->RETRIEVE": 8,
+        "RETRIEVE->ABSTAIN": 107,
+        "RETRIEVE->ANSWER": 622,
+        "RETRIEVE->QUERY": 66,
+        "RETRIEVE->RETRIEVE": 11
+      },
+      "trace_examples": [
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "canonical",
+          "observations": [
+            {
+              "action": [
+                "ANSWER",
+                "H"
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db"
+        },
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "row_shuffle",
+          "observations": [
+            {
+              "action": [
+                "ANSWER",
+                "J"
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db-shuf"
+        }
+      ],
+      "wall_seconds": 1577.8169045140003
+    },
+    {
+      "after_query_observational": {
+        "next_action_matches_contract_teacher": 82,
+        "observed_query_transitions": 1109,
+        "transitions_in_eventually_correct_episodes": 71
+      },
+      "answer_histogram": {
+        "A": 77,
+        "B": 213,
+        "C": 81,
+        "D": 140,
+        "E": 83,
+        "F": 297,
+        "G": 98,
+        "H": 100,
+        "I": 200,
+        "J": 154,
+        "K": 161,
+        "L": 248,
+        "M": 73,
+        "N": 193,
+        "O": 169,
+        "P": 187
+      },
+      "checkpoint_sha256": "101785527a2405bc61515d7c095d6eed4b694c426b0a24cd28c608cca36d8bd5",
+      "completed_updates": 2368,
+      "dataset": "D0",
+      "final_probe_recorded": {
+        "answer_step_count": 4872,
+        "answer_steps": 4872,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.4006709787189155,
+        "exact_action_accuracy": 0.7492609797297297,
+        "exact_action_count": 7097,
+        "families_covered": [
+          "conflict",
+          "known",
+          "memory",
+          "missing",
+          "null",
+          "route",
+          "unavailable"
+        ],
+        "first_action_byte_accuracy": 0.7492609797297297,
+        "first_action_byte_nll": 0.8013417320980738,
+        "grad_l2_norm": 16.423765115679526,
+        "mean_total_nll": 0.801341957437831,
+        "non_answer_op_accuracy": 0.9971739130434782,
+        "non_answer_step_count": 4600,
+        "op_accuracy": 0.9308488175675675,
+        "probe_scope": {
+          "count": 9472,
+          "dataset": "D0",
+          "families_covered": [
+            "conflict",
+            "known",
+            "memory",
+            "missing",
+            "null",
+            "route",
+            "unavailable"
+          ],
+          "strategy": "full_training_corpus"
+        },
+        "probe_steps": 9472,
+        "teacher_loss": 0.4006709787189155,
+        "total_steps": 9472,
+        "val_accuracy_given_op_correct": 0.5933806146572104,
+        "val_accuracy_on_answer_steps": 0.5151888341543513
+      },
+      "first_actions": {
+        "ABSTAIN": 862,
+        "ANSWER": 1767,
+        "QUERY": 910,
+        "RETRIEVE": 301
+      },
+      "first_decision_by_cohort": {
+        "A19": {
+          "ABSTAIN->ABSTAIN": 158,
+          "ABSTAIN->ANSWER": 94,
+          "ABSTAIN->QUERY": 4,
+          "ANSWER->ABSTAIN": 41,
+          "ANSWER->ANSWER": 41,
+          "ANSWER->QUERY": 46,
+          "QUERY->ABSTAIN": 35,
+          "QUERY->ANSWER": 48,
+          "QUERY->QUERY": 41,
+          "QUERY->RETRIEVE": 4,
+          "RETRIEVE->ABSTAIN": 33,
+          "RETRIEVE->ANSWER": 45,
+          "RETRIEVE->QUERY": 50,
+          "n": 640,
+          "teacher_action_match": 201,
+          "wrong_answer_value": 39
+        },
+        "E13": {
+          "ANSWER->ABSTAIN": 81,
+          "ANSWER->ANSWER": 358,
+          "ANSWER->QUERY": 172,
+          "ANSWER->RETRIEVE": 29,
+          "n": 640,
+          "teacher_action_match": 59,
+          "wrong_answer_value": 299
+        },
+        "E14": {
+          "QUERY->ABSTAIN": 82,
+          "QUERY->ANSWER": 101,
+          "QUERY->QUERY": 120,
+          "QUERY->RETRIEVE": 7,
+          "RETRIEVE->ABSTAIN": 61,
+          "RETRIEVE->ANSWER": 147,
+          "RETRIEVE->QUERY": 122,
+          "n": 640,
+          "teacher_action_match": 120
+        },
+        "E15": {
+          "QUERY->ABSTAIN": 25,
+          "QUERY->ANSWER": 205,
+          "QUERY->QUERY": 90,
+          "RETRIEVE->ABSTAIN": 16,
+          "RETRIEVE->ANSWER": 198,
+          "RETRIEVE->QUERY": 106,
+          "n": 640,
+          "teacher_action_match": 90
+        },
+        "R09": {
+          "ANSWER->ABSTAIN": 270,
+          "ANSWER->ANSWER": 212,
+          "ANSWER->QUERY": 158,
+          "n": 640,
+          "teacher_action_match": 61,
+          "wrong_answer_value": 151
+        },
+        "R10": {
+          "ANSWER->ABSTAIN": 60,
+          "ANSWER->ANSWER": 318,
+          "ANSWER->QUERY": 1,
+          "ANSWER->RETRIEVE": 261,
+          "n": 640,
+          "teacher_action_match": 51,
+          "wrong_answer_value": 267
+        }
+      },
+      "first_divergence": {
+        "0": 3258,
+        "1": 220,
+        "2": 2,
+        "None": 360
+      },
+      "init_seed": 7,
+      "job_id": "V8-B0-D0-i7-o7",
+      "milestones": {
+        "epoch-1": {
+          "raw_development": {
+            "accuracy": 0.1125,
+            "correct": 108,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.1125,
+            "correct": 108,
+            "n": 960
+          },
+          "teacher_loss": 1.3815235294200279,
+          "teacher_state_accuracy": 0.4609375,
+          "teacher_states": 9472,
+          "update": 592
+        },
+        "epoch-2": {
+          "raw_development": {
+            "accuracy": 0.140625,
+            "correct": 135,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.140625,
+            "correct": 135,
+            "n": 960
+          },
+          "teacher_loss": 0.4693167454286202,
+          "teacher_state_accuracy": 0.7250844594594594,
+          "teacher_states": 9472,
+          "update": 1184
+        },
+        "epoch-4": {
+          "raw_development": {
+            "accuracy": 0.16354166666666667,
+            "correct": 628,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.15104166666666666,
+            "correct": 145,
+            "n": 960
+          },
+          "teacher_loss": 0.4006709787189155,
+          "teacher_state_accuracy": 0.7492609797297297,
+          "teacher_states": 9472,
+          "update": 2368
+        },
+        "initial": {
+          "raw_development": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 960
+          },
+          "teacher_loss": 5.536904024111258,
+          "teacher_state_accuracy": 0.0,
+          "teacher_states": 9472,
+          "update": 0
+        }
+      },
+      "modes": {
+        "availability-mask": {
+          "accuracy": 0.17682291666666666,
+          "correct": 679,
+          "n": 3840
+        },
+        "direct-answer-only": {
+          "accuracy": 0.17916666666666667,
+          "correct": 688,
+          "n": 3840
+        },
+        "grammar": {
+          "accuracy": 0.16354166666666667,
+          "correct": 628,
+          "n": 3840
+        },
+        "raw": {
+          "accuracy": 0.16354166666666667,
+          "correct": 628,
+          "n": 3840
+        }
+      },
+      "order_seed": 7,
+      "paired_counterfactual_counts": {
+        "base_worlds": 768,
+        "irrelevant_same_final_action_and_outcome": 399,
+        "relevant_both_correct": 2
+      },
+      "raw_by_cohort": {
+        "A19": {
+          "accuracy": 0.3625,
+          "correct": 232,
+          "n": 640
+        },
+        "E13": {
+          "accuracy": 0.1015625,
+          "correct": 65,
+          "n": 640
+        },
+        "E14": {
+          "accuracy": 0.1453125,
+          "correct": 93,
+          "n": 640
+        },
+        "E15": {
+          "accuracy": 0.134375,
+          "correct": 86,
+          "n": 640
+        },
+        "R09": {
+          "accuracy": 0.1125,
+          "correct": 72,
+          "n": 640
+        },
+        "R10": {
+          "accuracy": 0.125,
+          "correct": 80,
+          "n": 640
+        }
+      },
+      "raw_by_form": {
+        "canonical": {
+          "accuracy": 0.19140625,
+          "correct": 147,
+          "n": 768
+        },
+        "fresh_alias": {
+          "accuracy": 0.234375,
+          "correct": 180,
+          "n": 768
+        },
+        "irrelevant_cf": {
+          "accuracy": 0.21614583333333334,
+          "correct": 166,
+          "n": 768
+        },
+        "relevant_cf": {
+          "accuracy": 0.024739583333333332,
+          "correct": 19,
+          "n": 768
+        },
+        "row_shuffle": {
+          "accuracy": 0.15104166666666666,
+          "correct": 116,
+          "n": 768
+        }
+      },
+      "raw_final_environment_contract_violations": {
+        "affected_episode_records": 909,
+        "repeated_consumed_tool_calls": 533,
+        "stale_availability_steps": 1285,
+        "teacher_target_changed_by_stale_availability": 53
+      },
+      "recorded_irrelevant_cf_stability": 0.51953125,
+      "recorded_relevant_cf_both_correct": 0.0026041666666666665,
+      "step_history": {
+        "first_utc": "2026-11-14T22:18:21.179028+00:00",
+        "last_utc": "2026-11-14T22:43:47.586945+00:00",
+        "loss_first": 5.420421361923218,
+        "loss_last": 0.6148525063035777,
+        "records": 2368
+      },
+      "step_operation_confusions": {
+        "ABSTAIN->ABSTAIN": 158,
+        "ABSTAIN->ANSWER": 94,
+        "ABSTAIN->QUERY": 4,
+        "ANSWER->ABSTAIN": 493,
+        "ANSWER->ANSWER": 1560,
+        "ANSWER->QUERY": 862,
+        "ANSWER->RETRIEVE": 290,
+        "QUERY->ABSTAIN": 142,
+        "QUERY->ANSWER": 390,
+        "QUERY->QUERY": 268,
+        "QUERY->RETRIEVE": 11,
+        "RETRIEVE->ABSTAIN": 111,
+        "RETRIEVE->ANSWER": 430,
+        "RETRIEVE->QUERY": 312
+      },
+      "trace_examples": [
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "canonical",
+          "observations": [
+            {
+              "action": [
+                "ANSWER",
+                "L"
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db"
+        },
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "row_shuffle",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db-shuf"
+        }
+      ],
+      "wall_seconds": 1604.815365802
+    },
+    {
+      "after_query_observational": {
+        "next_action_matches_contract_teacher": 16,
+        "observed_query_transitions": 3005,
+        "transitions_in_eventually_correct_episodes": 8
+      },
+      "answer_histogram": {
+        "A": 10,
+        "B": 106,
+        "C": 101,
+        "D": 121,
+        "E": 48,
+        "F": 78,
+        "G": 136,
+        "H": 53,
+        "I": 45,
+        "J": 112,
+        "K": 17,
+        "L": 97,
+        "M": 78,
+        "N": 66,
+        "O": 58,
+        "P": 84
+      },
+      "checkpoint_sha256": "eec2381d702bb569e03c862b8996cde98aba8c4a449141824362bd008a949e70",
+      "completed_updates": 1472,
+      "dataset": "D1",
+      "final_probe_recorded": {
+        "answer_step_count": 3072,
+        "answer_steps": 3072,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.2528095468416881,
+        "exact_action_accuracy": 0.8316915760869565,
+        "exact_action_count": 4897,
+        "families_covered": [
+          "conflict_query",
+          "direct_one_hop",
+          "memory_retrieval",
+          "missing_query",
+          "null_unavailable",
+          "temporal_source",
+          "two_hop"
+        ],
+        "first_action_byte_accuracy": 0.8316915760869565,
+        "first_action_byte_nll": 0.5056131538867901,
+        "grad_l2_norm": 0.5403216391074056,
+        "mean_total_nll": 0.5056190936833762,
+        "non_answer_op_accuracy": 0.9776278409090909,
+        "non_answer_step_count": 2816,
+        "op_accuracy": 0.9563519021739131,
+        "probe_scope": {
+          "count": 5888,
+          "dataset": "D1",
+          "families_covered": [
+            "conflict_query",
+            "direct_one_hop",
+            "memory_retrieval",
+            "missing_query",
+            "null_unavailable",
+            "temporal_source",
+            "two_hop"
+          ],
+          "strategy": "full_training_corpus"
+        },
+        "probe_steps": 5888,
+        "teacher_loss": 0.2528095468416881,
+        "total_steps": 5888,
+        "val_accuracy_given_op_correct": 0.7449617790132036,
+        "val_accuracy_on_answer_steps": 0.6979166666666666
+      },
+      "first_actions": {
+        "ABSTAIN": 675,
+        "ANSWER": 1022,
+        "QUERY": 1054,
+        "RETRIEVE": 1089
+      },
+      "first_decision_by_cohort": {
+        "A19": {
+          "ABSTAIN->ABSTAIN": 178,
+          "ABSTAIN->ANSWER": 65,
+          "ABSTAIN->RETRIEVE": 13,
+          "ANSWER->ABSTAIN": 51,
+          "ANSWER->ANSWER": 21,
+          "ANSWER->QUERY": 27,
+          "ANSWER->RETRIEVE": 29,
+          "QUERY->ABSTAIN": 23,
+          "QUERY->ANSWER": 3,
+          "QUERY->QUERY": 102,
+          "RETRIEVE->ABSTAIN": 3,
+          "RETRIEVE->ANSWER": 3,
+          "RETRIEVE->QUERY": 6,
+          "RETRIEVE->RETRIEVE": 116,
+          "n": 640,
+          "teacher_action_match": 396,
+          "wrong_answer_value": 21
+        },
+        "E13": {
+          "ANSWER->ABSTAIN": 109,
+          "ANSWER->ANSWER": 216,
+          "ANSWER->QUERY": 159,
+          "ANSWER->RETRIEVE": 156,
+          "n": 640,
+          "teacher_action_match": 37,
+          "wrong_answer_value": 179
+        },
+        "E14": {
+          "QUERY->ABSTAIN": 52,
+          "QUERY->ANSWER": 9,
+          "QUERY->QUERY": 249,
+          "RETRIEVE->ABSTAIN": 7,
+          "RETRIEVE->ANSWER": 9,
+          "RETRIEVE->QUERY": 16,
+          "RETRIEVE->RETRIEVE": 298,
+          "n": 640,
+          "teacher_action_match": 547
+        },
+        "E15": {
+          "QUERY->ABSTAIN": 14,
+          "QUERY->ANSWER": 14,
+          "QUERY->QUERY": 292,
+          "RETRIEVE->ABSTAIN": 5,
+          "RETRIEVE->ANSWER": 37,
+          "RETRIEVE->QUERY": 48,
+          "RETRIEVE->RETRIEVE": 230,
+          "n": 640,
+          "teacher_action_match": 522
+        },
+        "R09": {
+          "ANSWER->ABSTAIN": 204,
+          "ANSWER->ANSWER": 146,
+          "ANSWER->QUERY": 154,
+          "ANSWER->RETRIEVE": 136,
+          "n": 640,
+          "teacher_action_match": 38,
+          "wrong_answer_value": 108
+        },
+        "R10": {
+          "ANSWER->ABSTAIN": 29,
+          "ANSWER->ANSWER": 499,
+          "ANSWER->QUERY": 1,
+          "ANSWER->RETRIEVE": 111,
+          "n": 640,
+          "teacher_action_match": 86,
+          "wrong_answer_value": 413
+        }
+      },
+      "first_divergence": {
+        "0": 2214,
+        "1": 661,
+        "2": 19,
+        "3": 36,
+        "None": 910
+      },
+      "init_seed": 19,
+      "job_id": "V8-B0-D1-i19-o19",
+      "milestones": {
+        "epoch-1": {
+          "raw_development": {
+            "accuracy": 0.09895833333333333,
+            "correct": 95,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.09895833333333333,
+            "correct": 95,
+            "n": 960
+          },
+          "teacher_loss": 0.7070930882397554,
+          "teacher_state_accuracy": 0.537703804347826,
+          "teacher_states": 5888,
+          "update": 368
+        },
+        "epoch-2": {
+          "raw_development": {
+            "accuracy": 0.11458333333333333,
+            "correct": 110,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.11458333333333333,
+            "correct": 110,
+            "n": 960
+          },
+          "teacher_loss": 0.4340175416816593,
+          "teacher_state_accuracy": 0.6963315217391305,
+          "teacher_states": 5888,
+          "update": 736
+        },
+        "epoch-4": {
+          "raw_development": {
+            "accuracy": 0.10859375,
+            "correct": 417,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.10625,
+            "correct": 102,
+            "n": 960
+          },
+          "teacher_loss": 0.2528095468416881,
+          "teacher_state_accuracy": 0.8316915760869565,
+          "teacher_states": 5888,
+          "update": 1472
+        },
+        "initial": {
+          "raw_development": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 960
+          },
+          "teacher_loss": 5.616432360980822,
+          "teacher_state_accuracy": 0.0,
+          "teacher_states": 5888,
+          "update": 0
+        }
+      },
+      "modes": {
+        "availability-mask": {
+          "accuracy": 0.10859375,
+          "correct": 417,
+          "n": 3840
+        },
+        "direct-answer-only": {
+          "accuracy": 0.14296875,
+          "correct": 549,
+          "n": 3840
+        },
+        "grammar": {
+          "accuracy": 0.10859375,
+          "correct": 417,
+          "n": 3840
+        },
+        "raw": {
+          "accuracy": 0.10859375,
+          "correct": 417,
+          "n": 3840
+        }
+      },
+      "order_seed": 19,
+      "paired_counterfactual_counts": {
+        "base_worlds": 768,
+        "irrelevant_same_final_action_and_outcome": 475,
+        "relevant_both_correct": 1
+      },
+      "raw_by_cohort": {
+        "A19": {
+          "accuracy": 0.3453125,
+          "correct": 221,
+          "n": 640
+        },
+        "E13": {
+          "accuracy": 0.0734375,
+          "correct": 47,
+          "n": 640
+        },
+        "E14": {
+          "accuracy": 0.0046875,
+          "correct": 3,
+          "n": 640
+        },
+        "E15": {
+          "accuracy": 0.0171875,
+          "correct": 11,
+          "n": 640
+        },
+        "R09": {
+          "accuracy": 0.0671875,
+          "correct": 43,
+          "n": 640
+        },
+        "R10": {
+          "accuracy": 0.14375,
+          "correct": 92,
+          "n": 640
+        }
+      },
+      "raw_by_form": {
+        "canonical": {
+          "accuracy": 0.13932291666666666,
+          "correct": 107,
+          "n": 768
+        },
+        "fresh_alias": {
+          "accuracy": 0.15104166666666666,
+          "correct": 116,
+          "n": 768
+        },
+        "irrelevant_cf": {
+          "accuracy": 0.11328125,
+          "correct": 87,
+          "n": 768
+        },
+        "relevant_cf": {
+          "accuracy": 0.010416666666666666,
+          "correct": 8,
+          "n": 768
+        },
+        "row_shuffle": {
+          "accuracy": 0.12890625,
+          "correct": 99,
+          "n": 768
+        }
+      },
+      "raw_final_environment_contract_violations": {
+        "affected_episode_records": 2141,
+        "repeated_consumed_tool_calls": 5036,
+        "stale_availability_steps": 5684,
+        "teacher_target_changed_by_stale_availability": 2000
+      },
+      "recorded_irrelevant_cf_stability": 0.6184895833333334,
+      "recorded_relevant_cf_both_correct": 0.0013020833333333333,
+      "step_history": {
+        "first_utc": "2026-11-14T23:35:45.217160+00:00",
+        "last_utc": "2026-11-14T23:52:59.692750+00:00",
+        "loss_first": 5.577231228351593,
+        "loss_last": 0.23441464377538068,
+        "records": 1472
+      },
+      "step_operation_confusions": {
+        "ABSTAIN->ABSTAIN": 189,
+        "ABSTAIN->ANSWER": 66,
+        "ABSTAIN->RETRIEVE": 18,
+        "ANSWER->ABSTAIN": 578,
+        "ANSWER->ANSWER": 1054,
+        "ANSWER->QUERY": 2820,
+        "ANSWER->RETRIEVE": 1253,
+        "QUERY->ABSTAIN": 93,
+        "QUERY->ANSWER": 27,
+        "QUERY->QUERY": 936,
+        "RETRIEVE->ABSTAIN": 60,
+        "RETRIEVE->ANSWER": 63,
+        "RETRIEVE->QUERY": 201,
+        "RETRIEVE->RETRIEVE": 2166
+      },
+      "trace_examples": [
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "canonical",
+          "observations": [
+            {
+              "action": [
+                "ABSTAIN",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db"
+        },
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "row_shuffle",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "ABSTAIN",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db-shuf"
+        }
+      ],
+      "wall_seconds": 1223.1257290060003
+    },
+    {
+      "after_query_observational": {
+        "next_action_matches_contract_teacher": 38,
+        "observed_query_transitions": 3134,
+        "transitions_in_eventually_correct_episodes": 15
+      },
+      "answer_histogram": {
+        "A": 201,
+        "B": 64,
+        "C": 60,
+        "D": 30,
+        "E": 13,
+        "F": 31,
+        "G": 197,
+        "H": 18,
+        "I": 65,
+        "J": 101,
+        "K": 46,
+        "L": 102,
+        "M": 53,
+        "N": 17,
+        "O": 128,
+        "P": 178
+      },
+      "checkpoint_sha256": "dec53b6ceb49abbef8cab198b0a8774b5f2f50cb8b41e81af32ed9390c6d8102",
+      "completed_updates": 1472,
+      "dataset": "D1",
+      "final_probe_recorded": {
+        "answer_step_count": 3072,
+        "answer_steps": 3072,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.3548864269193829,
+        "exact_action_accuracy": 0.7576426630434783,
+        "exact_action_count": 4461,
+        "families_covered": [
+          "conflict_query",
+          "direct_one_hop",
+          "memory_retrieval",
+          "missing_query",
+          "null_unavailable",
+          "temporal_source",
+          "two_hop"
+        ],
+        "first_action_byte_accuracy": 0.7576426630434783,
+        "first_action_byte_nll": 0.7097688081650196,
+        "grad_l2_norm": 24.90662100080468,
+        "mean_total_nll": 0.7097728538387658,
+        "non_answer_op_accuracy": 0.9790482954545454,
+        "non_answer_step_count": 2816,
+        "op_accuracy": 0.9441236413043478,
+        "probe_scope": {
+          "count": 5888,
+          "dataset": "D1",
+          "families_covered": [
+            "conflict_query",
+            "direct_one_hop",
+            "memory_retrieval",
+            "missing_query",
+            "null_unavailable",
+            "temporal_source",
+            "two_hop"
+          ],
+          "strategy": "full_training_corpus"
+        },
+        "probe_steps": 5888,
+        "teacher_loss": 0.3548864269193829,
+        "total_steps": 5888,
+        "val_accuracy_given_op_correct": 0.6081370449678801,
+        "val_accuracy_on_answer_steps": 0.5546875
+      },
+      "first_actions": {
+        "ABSTAIN": 390,
+        "ANSWER": 1040,
+        "INVALID": 11,
+        "QUERY": 1190,
+        "RETRIEVE": 1209
+      },
+      "first_decision_by_cohort": {
+        "A19": {
+          "ABSTAIN->ABSTAIN": 107,
+          "ABSTAIN->ANSWER": 138,
+          "ABSTAIN->INVALID": 1,
+          "ABSTAIN->RETRIEVE": 10,
+          "ANSWER->ABSTAIN": 38,
+          "ANSWER->ANSWER": 42,
+          "ANSWER->QUERY": 33,
+          "ANSWER->RETRIEVE": 15,
+          "QUERY->ABSTAIN": 2,
+          "QUERY->ANSWER": 12,
+          "QUERY->QUERY": 114,
+          "RETRIEVE->ANSWER": 3,
+          "RETRIEVE->QUERY": 17,
+          "RETRIEVE->RETRIEVE": 108,
+          "n": 640,
+          "teacher_action_match": 339,
+          "wrong_answer_value": 32
+        },
+        "E13": {
+          "ANSWER->ABSTAIN": 44,
+          "ANSWER->ANSWER": 314,
+          "ANSWER->INVALID": 4,
+          "ANSWER->QUERY": 150,
+          "ANSWER->RETRIEVE": 128,
+          "n": 640,
+          "teacher_action_match": 48,
+          "wrong_answer_value": 266
+        },
+        "E14": {
+          "QUERY->ANSWER": 25,
+          "QUERY->QUERY": 285,
+          "RETRIEVE->ABSTAIN": 1,
+          "RETRIEVE->ANSWER": 28,
+          "RETRIEVE->INVALID": 3,
+          "RETRIEVE->QUERY": 53,
+          "RETRIEVE->RETRIEVE": 245,
+          "n": 640,
+          "teacher_action_match": 530
+        },
+        "E15": {
+          "QUERY->ABSTAIN": 2,
+          "QUERY->ANSWER": 30,
+          "QUERY->QUERY": 288,
+          "RETRIEVE->ABSTAIN": 1,
+          "RETRIEVE->ANSWER": 39,
+          "RETRIEVE->QUERY": 21,
+          "RETRIEVE->RETRIEVE": 259,
+          "n": 640,
+          "teacher_action_match": 547
+        },
+        "R09": {
+          "ANSWER->ABSTAIN": 149,
+          "ANSWER->ANSWER": 171,
+          "ANSWER->QUERY": 155,
+          "ANSWER->RETRIEVE": 165,
+          "n": 640,
+          "teacher_action_match": 43,
+          "wrong_answer_value": 128
+        },
+        "R10": {
+          "ANSWER->ABSTAIN": 46,
+          "ANSWER->ANSWER": 238,
+          "ANSWER->INVALID": 3,
+          "ANSWER->QUERY": 74,
+          "ANSWER->RETRIEVE": 279,
+          "n": 640,
+          "teacher_action_match": 28,
+          "wrong_answer_value": 210
+        }
+      },
+      "first_divergence": {
+        "0": 2305,
+        "1": 588,
+        "2": 19,
+        "3": 12,
+        "None": 916
+      },
+      "init_seed": 41,
+      "job_id": "V8-B0-D1-i41-o41",
+      "milestones": {
+        "epoch-1": {
+          "raw_development": {
+            "accuracy": 0.06770833333333333,
+            "correct": 65,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.06770833333333333,
+            "correct": 65,
+            "n": 960
+          },
+          "teacher_loss": 0.718767244854699,
+          "teacher_state_accuracy": 0.5205502717391305,
+          "teacher_states": 5888,
+          "update": 368
+        },
+        "epoch-2": {
+          "raw_development": {
+            "accuracy": 0.057291666666666664,
+            "correct": 55,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.057291666666666664,
+            "correct": 55,
+            "n": 960
+          },
+          "teacher_loss": 0.5729519242177838,
+          "teacher_state_accuracy": 0.5983355978260869,
+          "teacher_states": 5888,
+          "update": 736
+        },
+        "epoch-4": {
+          "raw_development": {
+            "accuracy": 0.07291666666666667,
+            "correct": 280,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.07395833333333333,
+            "correct": 71,
+            "n": 960
+          },
+          "teacher_loss": 0.3548864269193829,
+          "teacher_state_accuracy": 0.7576426630434783,
+          "teacher_states": 5888,
+          "update": 1472
+        },
+        "initial": {
+          "raw_development": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 960
+          },
+          "teacher_loss": 5.567833926366723,
+          "teacher_state_accuracy": 0.0,
+          "teacher_states": 5888,
+          "update": 0
+        }
+      },
+      "modes": {
+        "availability-mask": {
+          "accuracy": 0.07473958333333333,
+          "correct": 287,
+          "n": 3840
+        },
+        "direct-answer-only": {
+          "accuracy": 0.11822916666666666,
+          "correct": 454,
+          "n": 3840
+        },
+        "grammar": {
+          "accuracy": 0.07317708333333334,
+          "correct": 281,
+          "n": 3840
+        },
+        "raw": {
+          "accuracy": 0.07291666666666667,
+          "correct": 280,
+          "n": 3840
+        }
+      },
+      "order_seed": 41,
+      "paired_counterfactual_counts": {
+        "base_worlds": 768,
+        "irrelevant_same_final_action_and_outcome": 516,
+        "relevant_both_correct": 2
+      },
+      "raw_by_cohort": {
+        "A19": {
+          "accuracy": 0.19375,
+          "correct": 124,
+          "n": 640
+        },
+        "E13": {
+          "accuracy": 0.0765625,
+          "correct": 49,
+          "n": 640
+        },
+        "E14": {
+          "accuracy": 0.0109375,
+          "correct": 7,
+          "n": 640
+        },
+        "E15": {
+          "accuracy": 0.025,
+          "correct": 16,
+          "n": 640
+        },
+        "R09": {
+          "accuracy": 0.075,
+          "correct": 48,
+          "n": 640
+        },
+        "R10": {
+          "accuracy": 0.05625,
+          "correct": 36,
+          "n": 640
+        }
+      },
+      "raw_by_form": {
+        "canonical": {
+          "accuracy": 0.059895833333333336,
+          "correct": 46,
+          "n": 768
+        },
+        "fresh_alias": {
+          "accuracy": 0.10026041666666667,
+          "correct": 77,
+          "n": 768
+        },
+        "irrelevant_cf": {
+          "accuracy": 0.0703125,
+          "correct": 54,
+          "n": 768
+        },
+        "relevant_cf": {
+          "accuracy": 0.06380208333333333,
+          "correct": 49,
+          "n": 768
+        },
+        "row_shuffle": {
+          "accuracy": 0.0703125,
+          "correct": 54,
+          "n": 768
+        }
+      },
+      "raw_final_environment_contract_violations": {
+        "affected_episode_records": 2328,
+        "repeated_consumed_tool_calls": 5932,
+        "stale_availability_steps": 6423,
+        "teacher_target_changed_by_stale_availability": 2150
+      },
+      "recorded_irrelevant_cf_stability": 0.671875,
+      "recorded_relevant_cf_both_correct": 0.0026041666666666665,
+      "step_history": {
+        "first_utc": "2026-11-14T23:35:21.910578+00:00",
+        "last_utc": "2026-11-14T23:52:34.618876+00:00",
+        "loss_first": 5.489581048488617,
+        "loss_last": 0.406816870206967,
+        "records": 1472
+      },
+      "step_operation_confusions": {
+        "ABSTAIN->ABSTAIN": 112,
+        "ABSTAIN->ANSWER": 143,
+        "ABSTAIN->INVALID": 1,
+        "ABSTAIN->RETRIEVE": 10,
+        "ANSWER->ABSTAIN": 323,
+        "ANSWER->ANSWER": 1012,
+        "ANSWER->INVALID": 9,
+        "ANSWER->QUERY": 2930,
+        "ANSWER->RETRIEVE": 2017,
+        "QUERY->ABSTAIN": 5,
+        "QUERY->ANSWER": 70,
+        "QUERY->QUERY": 1021,
+        "RETRIEVE->ABSTAIN": 5,
+        "RETRIEVE->ANSWER": 79,
+        "RETRIEVE->INVALID": 3,
+        "RETRIEVE->QUERY": 136,
+        "RETRIEVE->RETRIEVE": 2387
+      },
+      "trace_examples": [
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "canonical",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db"
+        },
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "row_shuffle",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db-shuf"
+        }
+      ],
+      "wall_seconds": 1097.3897297080002
+    },
+    {
+      "after_query_observational": {
+        "next_action_matches_contract_teacher": 4,
+        "observed_query_transitions": 3045,
+        "transitions_in_eventually_correct_episodes": 2
+      },
+      "answer_histogram": {
+        "A": 66,
+        "B": 26,
+        "C": 25,
+        "D": 162,
+        "E": 8,
+        "F": 103,
+        "G": 91,
+        "H": 61,
+        "I": 116,
+        "J": 75,
+        "K": 28,
+        "L": 117,
+        "M": 26,
+        "N": 70,
+        "O": 94,
+        "P": 36
+      },
+      "checkpoint_sha256": "3817d69f6a77e7bc969b6cd883c36caa50a2fdb6a1c67ed3599655864ceb8bbc",
+      "completed_updates": 1472,
+      "dataset": "D1",
+      "final_probe_recorded": {
+        "answer_step_count": 3072,
+        "answer_steps": 3072,
+        "architecture": "B0",
+        "byte_nll_per_token": 0.40267050977917795,
+        "exact_action_accuracy": 0.7112771739130435,
+        "exact_action_count": 4188,
+        "families_covered": [
+          "conflict_query",
+          "direct_one_hop",
+          "memory_retrieval",
+          "missing_query",
+          "null_unavailable",
+          "temporal_source",
+          "two_hop"
+        ],
+        "first_action_byte_accuracy": 0.7112771739130435,
+        "first_action_byte_nll": 0.8053400199162198,
+        "grad_l2_norm": 9.65059463604196,
+        "mean_total_nll": 0.8053410195583559,
+        "non_answer_op_accuracy": 0.9797585227272727,
+        "non_answer_step_count": 2816,
+        "op_accuracy": 0.934952445652174,
+        "probe_scope": {
+          "count": 5888,
+          "dataset": "D1",
+          "families_covered": [
+            "conflict_query",
+            "direct_one_hop",
+            "memory_retrieval",
+            "missing_query",
+            "null_unavailable",
+            "temporal_source",
+            "two_hop"
+          ],
+          "strategy": "full_training_corpus"
+        },
+        "probe_steps": 5888,
+        "teacher_loss": 0.40267050977917795,
+        "total_steps": 5888,
+        "val_accuracy_given_op_correct": 0.5203932993445011,
+        "val_accuracy_on_answer_steps": 0.4651692708333333
+      },
+      "first_actions": {
+        "ABSTAIN": 506,
+        "ANSWER": 927,
+        "QUERY": 1058,
+        "RETRIEVE": 1349
+      },
+      "first_decision_by_cohort": {
+        "A19": {
+          "ABSTAIN->ABSTAIN": 155,
+          "ABSTAIN->ANSWER": 99,
+          "ABSTAIN->RETRIEVE": 2,
+          "ANSWER->ABSTAIN": 18,
+          "ANSWER->ANSWER": 48,
+          "ANSWER->QUERY": 29,
+          "ANSWER->RETRIEVE": 33,
+          "QUERY->ABSTAIN": 6,
+          "QUERY->ANSWER": 10,
+          "QUERY->QUERY": 109,
+          "QUERY->RETRIEVE": 3,
+          "RETRIEVE->ANSWER": 5,
+          "RETRIEVE->QUERY": 1,
+          "RETRIEVE->RETRIEVE": 122,
+          "n": 640,
+          "teacher_action_match": 388,
+          "wrong_answer_value": 46
+        },
+        "E13": {
+          "ANSWER->ABSTAIN": 110,
+          "ANSWER->ANSWER": 244,
+          "ANSWER->QUERY": 151,
+          "ANSWER->RETRIEVE": 135,
+          "n": 640,
+          "teacher_action_match": 30,
+          "wrong_answer_value": 214
+        },
+        "E14": {
+          "QUERY->ABSTAIN": 7,
+          "QUERY->ANSWER": 7,
+          "QUERY->QUERY": 288,
+          "QUERY->RETRIEVE": 8,
+          "RETRIEVE->ABSTAIN": 1,
+          "RETRIEVE->ANSWER": 10,
+          "RETRIEVE->RETRIEVE": 319,
+          "n": 640,
+          "teacher_action_match": 607
+        },
+        "E15": {
+          "QUERY->ABSTAIN": 29,
+          "QUERY->ANSWER": 4,
+          "QUERY->QUERY": 287,
+          "RETRIEVE->ABSTAIN": 23,
+          "RETRIEVE->ANSWER": 27,
+          "RETRIEVE->QUERY": 23,
+          "RETRIEVE->RETRIEVE": 247,
+          "n": 640,
+          "teacher_action_match": 534
+        },
+        "R09": {
+          "ANSWER->ABSTAIN": 105,
+          "ANSWER->ANSWER": 236,
+          "ANSWER->QUERY": 150,
+          "ANSWER->RETRIEVE": 149,
+          "n": 640,
+          "teacher_action_match": 41,
+          "wrong_answer_value": 195
+        },
+        "R10": {
+          "ANSWER->ABSTAIN": 52,
+          "ANSWER->ANSWER": 237,
+          "ANSWER->QUERY": 20,
+          "ANSWER->RETRIEVE": 331,
+          "n": 640,
+          "teacher_action_match": 27,
+          "wrong_answer_value": 210
+        }
+      },
+      "first_divergence": {
+        "0": 2213,
+        "1": 621,
+        "2": 2,
+        "3": 2,
+        "None": 1002
+      },
+      "init_seed": 7,
+      "job_id": "V8-B0-D1-i7-o7",
+      "milestones": {
+        "epoch-1": {
+          "raw_development": {
+            "accuracy": 0.07291666666666667,
+            "correct": 70,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.07291666666666667,
+            "correct": 70,
+            "n": 960
+          },
+          "teacher_loss": 0.721091182011625,
+          "teacher_state_accuracy": 0.5253057065217391,
+          "teacher_states": 5888,
+          "update": 368
+        },
+        "epoch-2": {
+          "raw_development": {
+            "accuracy": 0.06145833333333333,
+            "correct": 59,
+            "n": 960
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.06145833333333333,
+            "correct": 59,
+            "n": 960
+          },
+          "teacher_loss": 0.5588182310912879,
+          "teacher_state_accuracy": 0.5985054347826086,
+          "teacher_states": 5888,
+          "update": 736
+        },
+        "epoch-4": {
+          "raw_development": {
+            "accuracy": 0.07604166666666666,
+            "correct": 292,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.07395833333333333,
+            "correct": 71,
+            "n": 960
+          },
+          "teacher_loss": 0.40267050977917795,
+          "teacher_state_accuracy": 0.7112771739130435,
+          "teacher_states": 5888,
+          "update": 1472
+        },
+        "initial": {
+          "raw_development": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 3840
+          },
+          "same_960_record_subset": {
+            "accuracy": 0.0,
+            "correct": 0,
+            "n": 960
+          },
+          "teacher_loss": 5.529648635698401,
+          "teacher_state_accuracy": 0.0,
+          "teacher_states": 5888,
+          "update": 0
+        }
+      },
+      "modes": {
+        "availability-mask": {
+          "accuracy": 0.07838541666666667,
+          "correct": 301,
+          "n": 3840
+        },
+        "direct-answer-only": {
+          "accuracy": 0.1125,
+          "correct": 432,
+          "n": 3840
+        },
+        "grammar": {
+          "accuracy": 0.07604166666666666,
+          "correct": 292,
+          "n": 3840
+        },
+        "raw": {
+          "accuracy": 0.07604166666666666,
+          "correct": 292,
+          "n": 3840
+        }
+      },
+      "order_seed": 7,
+      "paired_counterfactual_counts": {
+        "base_worlds": 768,
+        "irrelevant_same_final_action_and_outcome": 617,
+        "relevant_both_correct": 2
+      },
+      "raw_by_cohort": {
+        "A19": {
+          "accuracy": 0.259375,
+          "correct": 166,
+          "n": 640
+        },
+        "E13": {
+          "accuracy": 0.0484375,
+          "correct": 31,
+          "n": 640
+        },
+        "E14": {
+          "accuracy": 0.003125,
+          "correct": 2,
+          "n": 640
+        },
+        "E15": {
+          "accuracy": 0.0046875,
+          "correct": 3,
+          "n": 640
+        },
+        "R09": {
+          "accuracy": 0.0640625,
+          "correct": 41,
+          "n": 640
+        },
+        "R10": {
+          "accuracy": 0.0765625,
+          "correct": 49,
+          "n": 640
+        }
+      },
+      "raw_by_form": {
+        "canonical": {
+          "accuracy": 0.08854166666666667,
+          "correct": 68,
+          "n": 768
+        },
+        "fresh_alias": {
+          "accuracy": 0.10546875,
+          "correct": 81,
+          "n": 768
+        },
+        "irrelevant_cf": {
+          "accuracy": 0.0859375,
+          "correct": 66,
+          "n": 768
+        },
+        "relevant_cf": {
+          "accuracy": 0.022135416666666668,
+          "correct": 17,
+          "n": 768
+        },
+        "row_shuffle": {
+          "accuracy": 0.078125,
+          "correct": 60,
+          "n": 768
+        }
+      },
+      "raw_final_environment_contract_violations": {
+        "affected_episode_records": 2285,
+        "repeated_consumed_tool_calls": 6075,
+        "stale_availability_steps": 6377,
+        "teacher_target_changed_by_stale_availability": 2299
+      },
+      "recorded_irrelevant_cf_stability": 0.8033854166666666,
+      "recorded_relevant_cf_both_correct": 0.0026041666666666665,
+      "step_history": {
+        "first_utc": "2026-11-14T22:57:55.708506+00:00",
+        "last_utc": "2026-11-14T23:14:50.290822+00:00",
+        "loss_first": 5.570756316184998,
+        "loss_last": 0.3769430850079516,
+        "records": 1472
+      },
+      "step_operation_confusions": {
+        "ABSTAIN->ABSTAIN": 156,
+        "ABSTAIN->ANSWER": 100,
+        "ABSTAIN->RETRIEVE": 2,
+        "ANSWER->ABSTAIN": 336,
+        "ANSWER->ANSWER": 913,
+        "ANSWER->QUERY": 3007,
+        "ANSWER->RETRIEVE": 1867,
+        "QUERY->ABSTAIN": 45,
+        "QUERY->ANSWER": 26,
+        "QUERY->QUERY": 985,
+        "QUERY->RETRIEVE": 12,
+        "RETRIEVE->ABSTAIN": 25,
+        "RETRIEVE->ANSWER": 65,
+        "RETRIEVE->QUERY": 43,
+        "RETRIEVE->RETRIEVE": 2635
+      },
+      "trace_examples": [
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "canonical",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db"
+        },
+        {
+          "cohort": "E14",
+          "expected": "G",
+          "form": "row_shuffle",
+          "observations": [
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "QUERY",
+                null
+              ],
+              "ideal": [
+                "QUERY",
+                null
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            },
+            {
+              "action": [
+                "QUERY",
+                null
+              ],
+              "contract_ideal": [
+                "ANSWER",
+                "G"
+              ],
+              "ideal": [
+                "ANSWER",
+                "G"
+              ]
+            }
+          ],
+          "world_id": "1d86604b37a5b2fc94a31373a86e98cf0c4132fd1664820231c1dd342f5e38db-shuf"
+        }
+      ],
+      "wall_seconds": 1080.338640854
+    }
+  ],
+  "scientific_instrument_status": "DEFECT_CONFIRMED_REEVALUATION_REQUIRED",
+  "source_commit": "cf043942511f0b14c343445e0c3fe7570bd7c63b",
+  "split_audit": {
+    "audit_passed": true,
+    "conf_identity": null,
+    "conf_records": 0,
+    "conf_worlds_per_cohort": 0,
+    "confirmation_built": false,
+    "confirmation_seed": null,
+    "counts": {
+      "conf_records": 0,
+      "d1_steps": 5888,
+      "d1_worlds": 3584,
+      "dev_records": 3840
+    },
+    "cpu_smoke": false,
+    "d1_audit": {
+      "split": {
+        "distinct_structural_classes_by_split": {
+          "train": 2446
+        },
+        "exact_canonicalized": 3584,
+        "isolated_one_edge_probes": 108,
+        "leaked_components": 0,
+        "leaked_structures": 0,
+        "status": "PASS",
+        "total_worlds": 3584
+      },
+      "teacher": {
+        "answer_max_min_ratio": 1.0,
+        "answer_symbol_distribution": {
+          "A": 192,
+          "B": 192,
+          "C": 192,
+          "D": 192,
+          "E": 192,
+          "F": 192,
+          "G": 192,
+          "H": 192,
+          "I": 192,
+          "J": 192,
+          "K": 192,
+          "L": 192,
+          "M": 192,
+          "N": 192,
+          "O": 192,
+          "P": 192
+        },
+        "contradictory_targets": 0,
+        "duplicate_same_target": 1,
+        "target_distribution": {
+          "!": 512,
+          "A": 192,
+          "B": 192,
+          "C": 192,
+          "D": 192,
+          "E": 192,
+          "F": 192,
+          "G": 192,
+          "H": 192,
+          "I": 192,
+          "J": 192,
+          "K": 192,
+          "L": 192,
+          "M": 192,
+          "N": 192,
+          "O": 192,
+          "P": 192,
+          "Q": 1152,
+          "R": 1152
+        },
+        "total_steps": 5888,
+        "total_utf8_bytes": 1398072,
+        "unique_prompts": 5887
+      }
+    },
+    "d1_crosstabs": {
+      "conflict_query|QUERY|Q1M0|b128": 38,
+      "conflict_query|QUERY|Q1M0|b192": 140,
+      "conflict_query|QUERY|Q1M0|b256": 37,
+      "conflict_query|QUERY|Q1M0|b320": 41,
+      "conflict_query|RETRIEVE|Q1M1|b128": 45,
+      "conflict_query|RETRIEVE|Q1M1|b192": 133,
+      "conflict_query|RETRIEVE|Q1M1|b256": 36,
+      "conflict_query|RETRIEVE|Q1M1|b320": 42,
+      "direct_one_hop|ANSWER|Q0M0|b128": 101,
+      "direct_one_hop|ANSWER|Q0M0|b192": 27,
+      "direct_one_hop|ANSWER|Q0M1|b128": 95,
+      "direct_one_hop|ANSWER|Q0M1|b192": 33,
+      "direct_one_hop|ANSWER|Q1M0|b192": 72,
+      "direct_one_hop|ANSWER|Q1M0|b256": 56,
+      "direct_one_hop|ANSWER|Q1M1|b192": 73,
+      "direct_one_hop|ANSWER|Q1M1|b256": 55,
+      "memory_retrieval|RETRIEVE|Q0M1|b192": 171,
+      "memory_retrieval|RETRIEVE|Q0M1|b256": 85,
+      "memory_retrieval|RETRIEVE|Q1M1|b128": 82,
+      "memory_retrieval|RETRIEVE|Q1M1|b192": 174,
+      "missing_query|QUERY|Q1M0|b128": 85,
+      "missing_query|QUERY|Q1M0|b192": 141,
+      "missing_query|QUERY|Q1M0|b256": 30,
+      "missing_query|RETRIEVE|Q1M1|b128": 78,
+      "missing_query|RETRIEVE|Q1M1|b192": 148,
+      "missing_query|RETRIEVE|Q1M1|b256": 30,
+      "null_unavailable|ABSTAIN|Q0M0|b128": 81,
+      "null_unavailable|ABSTAIN|Q0M0|b192": 47,
+      "null_unavailable|ABSTAIN|Q0M1|b128": 42,
+      "null_unavailable|ABSTAIN|Q0M1|b192": 22,
+      "null_unavailable|ABSTAIN|Q1M0|b192": 23,
+      "null_unavailable|ABSTAIN|Q1M0|b256": 41,
+      "null_unavailable|ABSTAIN|Q1M1|b192": 22,
+      "null_unavailable|ABSTAIN|Q1M1|b256": 42,
+      "null_unavailable|QUERY|Q1M0|b192": 42,
+      "null_unavailable|QUERY|Q1M0|b256": 22,
+      "null_unavailable|RETRIEVE|Q0M1|b128": 44,
+      "null_unavailable|RETRIEVE|Q0M1|b192": 20,
+      "null_unavailable|RETRIEVE|Q1M1|b192": 45,
+      "null_unavailable|RETRIEVE|Q1M1|b256": 19,
+      "temporal_source|ANSWER|Q0M0|b128": 45,
+      "temporal_source|ANSWER|Q0M0|b192": 83,
+      "temporal_source|ANSWER|Q0M1|b128": 50,
+      "temporal_source|ANSWER|Q0M1|b192": 78,
+      "temporal_source|ANSWER|Q1M0|b192": 44,
+      "temporal_source|ANSWER|Q1M0|b256": 36,
+      "temporal_source|ANSWER|Q1M0|b320": 48,
+      "temporal_source|ANSWER|Q1M1|b192": 35,
+      "temporal_source|ANSWER|Q1M1|b256": 47,
+      "temporal_source|ANSWER|Q1M1|b320": 46,
+      "two_hop|ANSWER|Q0M0|b192": 46,
+      "two_hop|ANSWER|Q0M0|b256": 82,
+      "two_hop|ANSWER|Q0M1|b192": 46,
+      "two_hop|ANSWER|Q0M1|b256": 82,
+      "two_hop|ANSWER|Q1M0|b128": 40,
+      "two_hop|ANSWER|Q1M0|b192": 42,
+      "two_hop|ANSWER|Q1M0|b256": 46,
+      "two_hop|ANSWER|Q1M1|b128": 48,
+      "two_hop|ANSWER|Q1M1|b192": 37,
+      "two_hop|ANSWER|Q1M1|b256": 43
+    },
+    "d1_identity": "0afe108c3a311d66f1304e73fd11b2951c604616a4f3bdb740de346684779bc0",
+    "d1_quota_per_family": 512,
+    "d1_shortcuts": {
+      "answerable_worlds": 3072,
+      "heuristics": {
+        "constant_A": 0.0625,
+        "first_row_value": 0.2643229166666667,
+        "highest_tick_value": 0.3212890625,
+        "last_row_value": 0.2649739583333333,
+        "lex_max_value": 0.2516276041666667,
+        "lex_min_value": 0.2620442708333333
+      }
+    },
+    "d1_steps": 5888,
+    "d1_structural_hashes_sha256": "15952357c61a21e19f03035751fa44d63bb77ff68c5bb3aefe1a026b2adff46b",
+    "d1_worlds": 3584,
+    "dev_identity": "dd930bd5dfb4fe4fb27d2b8dcafa4b2730c2c8e11d1ed8c4468f4f53c519e63b",
+    "dev_records": 3840,
+    "dev_worlds_per_cohort": 128,
+    "disjointness_audit": {
+      "distinct_structural_classes_by_split": {
+        "train": 2446,
+        "validation": 2087
+      },
+      "exact_canonicalized": 7424,
+      "isolated_one_edge_probes": 108,
+      "leaked_components": 0,
+      "leaked_structures": 0,
+      "status": "PASS",
+      "total_worlds": 7424
+    },
+    "file_hashes": {
+      "d1_steps.json": "08246581083e8c5a7744658f128999dbcfc7c6a0d666927a06c4298553b6c339",
+      "d1_structural_hashes.json": "6930b5f95d733f6429237d83fe034b44db18b32f271cb7020f6e0fc1d375d26a",
+      "d1_worlds.json": "20ed9573a8aa75227f3a4359bfb34b7d23b9d139b3e41ea1d0ceb4819759155d",
+      "dev_cohorts.json": "02e49e2ffea3e2b4f34c055d3999d4bf9cfbe7ef9a474b9cd6835d38d84a9e74"
+    },
+    "schema": "elendril-v8-split-audit-v1",
+    "split_audit_sha256": "b4bd561f892ec5ad92c75e4c1f12e7c6e58a21e37c8f3cb5695d25646a84d318"
+  },
+  "verified_archive_files": 51
+}

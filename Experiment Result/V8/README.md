@@ -1,9 +1,7 @@
-# ELENDRIL V8 Experiment Results (Pending Owner Kaggle Execution)
+# ELENDRIL V8 Experiment Results
 
-This directory stores curated V8 campaign artifacts imported via `python -m tools.elendril_v8_export extract-verified` after owner-enabled Kaggle 2xT4 runs complete.
+This directory stores focused reports and essential curated JSON. Raw ZIPs, episode dumps and checkpoints stay outside Git.
 
-- No GPU research runs were executed locally before owner handoff.
-- Expected curated files per completed campaign archive (`ELENDRIL_V8_ANALYSIS.zip`):
-  - `<campaign_digest>/FINAL_STATUS.json`
-  - `<campaign_digest>/RESULTS.md`
-  - `<campaign_digest>/METRICS.json`
+- [First owner data-control result](data-control-f5d28b8759d0/RESULTS.md), audited2026-11-15: six jobs completed;126,720 recorded episodes replayed; D1 scores below D0, with a confirmed consumed-tool availability defect affecting interpretation.
+- [Curated metrics and provenance](data-control-f5d28b8759d0/METRICS.json). Next decisive step: repair the evaluator and reevaluate frozen checkpoints before new training.
+- `TEMPLATE_METRICS.json` remains a historical pre-run template, not measured evidence. No research training was performed locally during this audit.

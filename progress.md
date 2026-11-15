@@ -266,3 +266,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-15 | Gemini | Publish pruned-checkpoint V8 notebook pinned to cf043942
 - Regenerated `notebooks/ELENDRIL_V8_KAGGLE_T4X2.ipynb` (`SHA256: 28881952463f018f53d98eb3a5035c8e7e8b56450ecfa93e78e84bbf64b4c33e`) pinned to `cf043942511f0b14c343445e0c3fe7570bd7c63b` with `/tmp/elendril_v8` work root.
 - Verified `git archive` byte-identical rebuild from `cf043942` and updated `Experiment Result/V8/` pre-run templates.
+
+### 2026-11-15 | Codex | Audit owner V8 data-control results
+- Verified archive hashes, regenerated D1/split checks and replayed 126,720 episodes across six jobs and 24 milestones.
+- Confirmed stale consumed-tool availability in runtime traces; retained original scores, competing hypotheses and unresolved overall cause.
+- Saved focused RESULTS.md/METRICS.json, a reproducible offline analyzer and five passing analysis tests; raw ZIP stays outside Git.
+- Recommended repaired-evaluator frozen-checkpoint comparison first; no local research training or neural inference performed.
