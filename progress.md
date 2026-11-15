@@ -272,3 +272,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Confirmed stale consumed-tool availability in runtime traces; retained original scores, competing hypotheses and unresolved overall cause.
 - Saved focused RESULTS.md/METRICS.json, a reproducible offline analyzer and five passing analysis tests; raw ZIP stays outside Git.
 - Recommended repaired-evaluator frozen-checkpoint comparison first; no local research training or neural inference performed.
+
+### 2026-11-16 | Codex | Prepare V8-X1 executable Gemini research handoff
+- Inspected V8 source/results and downloaded Hitchhiker checkpoint identities; kept the S3 and S20 lineages distinct.
+- Wrote a standalone S20 architecture/D2 plan and 42-job design registry, with harder tasks, explicit controls and non-anticipating supervision.
+- Integrated Terra design review; checked job arithmetic, document structure and artifact identity.
+- Design only: no runtime repair, new model implementation, notebook qualification or research training performed.
