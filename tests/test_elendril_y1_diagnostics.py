@@ -12,6 +12,7 @@ from anra_v5.elendril.training import configure_cpu
 from anra_v5.elendril.y1_data import build_d2_probe_dataset, build_development_suite
 from anra_v5.elendril.y1_diagnostics import (
     extract_and_restore_historical_s3,
+    reproduce_historical_hh_counts,
     run_d0_d1_model_audit,
     run_d2_probe_and_patching,
     verify_and_inspect_hh_full_archive,
@@ -92,3 +93,7 @@ def test_y1_real_hitchhiker_archive_verification_and_checkpoint_restore(tmp_path
     assert restored["global_update"] == 2368
     assert restored["parameters"] == 3084800
     assert restored["checkpoint_sha256"] == "4465f6b4c420a2d5bd90a55b893cd0110c94a6e663800ed62262d2b08dd01cd4"
+
+    hrep = reproduce_historical_hh_counts(HH_ZIP, "HH-stage1_s3_screen-S3-C-s7", restored["backend"], max_cases_per_cohort=8)
+    assert hrep["status"] == "EXACT_MATCH"
+    assert hrep["mismatch_blocker"] is False

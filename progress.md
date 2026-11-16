@@ -248,3 +248,9 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Implemented verified 15-checkpoint Hitchhiker S3 D0/D1 intake (S20 marked NOT_AVAILABLE), 11,840-case balanced splits with S3 512-token bound, Group-CE trainer, 2-GPU seed-balanced coordinator, 3-bundle export (SUMMARY <5 MiB), and external FINAL_STATUS.json.
 - Verified on CPU: tests/test_elendril_y1_*.py (11 passed, including real ELENDRIL_HITCHHIKER_FULL.zip verification/S3-C-s7 restore and canary E2E/replay) plus checkpoint/export/cloud tests (89 passed, 1 skipped).
 - Pending GPU execution: Kaggle T4x2 D0/D1 diagnosis of the 15 historical S3 checkpoints, core T0/T1/T2 factorial screening and confirmation, and conditional T3 follow-up.
+
+### 2026-11-16 | Antigravity | AN-RA V8-Y1 Kaggle auto-unpacked intake and D0 reproduction check
+- Added live D0 reproduction of historical Hitchhiker per-hop (hop-1..4) and original-task counts in y1_diagnostics.py/elendril_y1_worker.py, recording mismatch_blockers in d0_d1_summary.json.
+- Added support for both raw .zip archives and Kaggle auto-unpacked dataset directories across HH intake, Y1 handoff/restore, and notebook auto-discovery; separated raw vs base-only supplemental eval timing in forecast.
+- Verified on CPU: reproduced published S3-C-s7 counts (hop 1..4: 62/0/16/256; orig: 69) from ELENDRIL_HITCHHIKER_FULL.zip and passed tests/test_elendril_y1_{diagnostics,export}.py (3 passed).
+- Pending GPU execution: Kaggle T4x2 diagnose, core, and conditional followup sessions.

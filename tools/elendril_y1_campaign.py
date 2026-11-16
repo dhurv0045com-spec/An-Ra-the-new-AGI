@@ -184,7 +184,8 @@ def _forecast_jobs(
     for j in jobs:
         p = profs[j["profile"]]
         train_s = float(j["updates"]) * float(p["sec_per_update"])
-        eval_s = float(eval_cases_per_job) * float(p["sec_per_eval_case"])
+        supp_s = 1024.0 * float(p.get("sec_per_supp_base_case", 0.0)) if eval_cases_per_job > 1024 else 0.0
+        eval_s = float(eval_cases_per_job) * float(p["sec_per_eval_case"]) + supp_s
         ckpt_s = math.ceil(float(j["updates"]) / 64.0) * float(p.get("sec_per_ckpt_save", 0.2))
         job_s = (train_s + eval_s + ckpt_s) * 1.30  # +30% conservative safety margin
         lane_idx = min(range(len(lanes)), key=lambda i: lanes[i])
@@ -243,8 +244,8 @@ def _profile_lanes(
     for scale in ("S3", "S20"):
         entries = [d["profiles"][scale] for d in lane_docs]
         merged[scale] = {
-            k: max(float(e[k]) for e in entries)
-            for k in ("sec_per_update", "sec_per_ckpt_save", "sec_per_eval_case", "peak_cuda_mb")
+            k: max(float(e.get(k, 0.0)) for e in entries)
+            for k in ("sec_per_update", "sec_per_ckpt_save", "sec_per_eval_case", "sec_per_supp_base_case", "peak_cuda_mb")
         }
         merged[scale]["recovery_verified"] = all(bool(e.get("recovery_verified")) for e in entries)
 
@@ -321,8 +322,8 @@ def _replay_phase_evidence(output: Path, phase: str) -> dict[str, Any]:
 
 
 def _run_diagnose_phase(args: argparse.Namespace, output: Path, *, source: str, protocol_sha: str, gpus: tuple[Any, ...]) -> dict[str, Any]:
-    if args.checkpoint_archive is None or not Path(args.checkpoint_archive).is_file():
-        raise ValueError("diagnose phase requires a valid --checkpoint-archive (ELENDRIL_HITCHHIKER_FULL.zip)")
+    if args.checkpoint_archive is None or not (Path(args.checkpoint_archive).is_file() or Path(args.checkpoint_archive).is_dir()):
+        raise ValueError("diagnose phase requires a valid --checkpoint-archive (ELENDRIL_HITCHHIKER_FULL.zip or unpacked dataset directory)")
     arch_info = verify_and_inspect_hh_full_archive(args.checkpoint_archive)
     all_lineages = arch_info["verified_lineages"]
     if args.cpu_canary:
@@ -358,12 +359,17 @@ def _run_diagnose_phase(args: argparse.Namespace, output: Path, *, source: str, 
     agg = {
         "schema": "anra-v8-y1-d0d1-aggregate-v1",
         "archive": arch_info,
+        "mismatch_blockers": [],
         "models": {},
     }
     for lin in all_lineages:
         jdir = output / "analysis" / "jobs" / lin
+        rr = json.loads((jdir / "run_receipt.json").read_text(encoding="utf-8"))
         ms = json.loads((jdir / "metrics_summary.json").read_text(encoding="utf-8"))
         d1 = json.loads((jdir / "d1_summary.json").read_text(encoding="utf-8"))
+        hrep = rr.get("historical_reproduction", {})
+        if hrep.get("mismatch_blocker"):
+            agg["mismatch_blockers"].append(lin)
         agg["models"][lin] = {
             "primary_endpoint": ms["primary_endpoint"],
             "valid_action_rate": ms["guardrails"]["valid_action_rate"],
@@ -371,6 +377,7 @@ def _run_diagnose_phase(args: argparse.Namespace, output: Path, *, source: str, 
             "known_base_rank1_within_ap_rate": d1["known_base_rank1_within_ap_rate"],
             "known_base_constrained_ap_eos_rate": d1["known_base_constrained_ap_eos_rate"],
             "descriptive_rescue": d1["descriptive_rescue_constrained_minus_raw"],
+            "historical_reproduction": hrep,
             "representative_failed_case_ids": ms["representative_failed_case_ids"][:16],
         }
     _write_derived(output / "analysis" / "d0_d1_summary.json", canonical(agg) + b"\n")

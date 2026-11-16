@@ -13,6 +13,7 @@ from typing import Any
 REPOSITORY_URL = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
 DEFAULT_NOTEBOOK = Path(__file__).resolve().parents[1] / "notebooks" / "ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb"
 EXPECTED_HH_ARCHIVE_SHA256 = "43a0c074cdcc3e12d8d00e0509663a2d47702586414317818ca0876579e487e2"
+EXPECTED_HH_MANIFEST_SHA256 = "33f88e2e6473c245a7a1d6636db84ddd7ce316cd1fda7fc3eeb337d5618ad68d"
 
 
 def _cell(kind: str, source: str) -> dict[str, Any]:
@@ -70,6 +71,7 @@ SELECTION_RECEIPT = None   # Optional explicit path to selection_receipt.json fo
 SOURCE_COMMIT = "{source}"
 REPO_URL = "{REPOSITORY_URL}"
 EXPECTED_HH_SHA = "{EXPECTED_HH_ARCHIVE_SHA256}"
+EXPECTED_HH_MANIFEST_SHA = "{EXPECTED_HH_MANIFEST_SHA256}"
 
 def _file_sha256(path: Path) -> str:
     h = sha256()
@@ -86,6 +88,28 @@ def _discover_mounted_hh_zip() -> Path | None:
         for cand in sorted(root.rglob("ELENDRIL_HITCHHIKER_FULL.zip")):
             if cand.is_file() and _file_sha256(cand) == EXPECTED_HH_SHA:
                 return cand
+        for mpath in sorted(root.rglob("BUNDLE_MANIFEST.json")):
+            if mpath.is_file() and _file_sha256(mpath) == EXPECTED_HH_MANIFEST_SHA:
+                return mpath.parent
+    return None
+
+def _discover_mounted_y1_handoff(for_phase: str) -> Path | None:
+    root = Path("/kaggle/input")
+    if not root.exists():
+        return None
+    target_zip = "ELENDRIL_V8_Y1_EVIDENCE.zip" if for_phase == "core" else "ELENDRIL_V8_Y1_FULL.zip"
+    for cand in sorted(root.rglob(target_zip)):
+        if cand.is_file():
+            return cand
+    expected_from = "diagnose" if for_phase == "core" else "core"
+    for ipath in sorted(root.rglob("identity.json")):
+        if ipath.parent.name == "analysis" and (ipath.parent.parent / "BUNDLE_MANIFEST.json").is_file():
+            try:
+                ident = json.loads(ipath.read_text(encoding="utf-8"))
+                if ident.get("phase") == expected_from:
+                    return ipath.parent.parent
+            except Exception:
+                pass
     return None
 
 assert PHASE in {{"auto", "diagnose", "core", "followup", "finalize"}}, f"Unsupported PHASE: {{PHASE!r}}"
@@ -98,7 +122,8 @@ if EFFECTIVE_PHASE == "auto":
         if found is None:
             raise FileNotFoundError(
                 "PHASE='auto' defaults to 'diagnose' and requires mounted ELENDRIL_HITCHHIKER_FULL.zip "
-                f"(sha256={{EXPECTED_HH_SHA}}) under /kaggle/input/. Mount the archive or set PHASE='core' explicitly."
+                f"(sha256={{EXPECTED_HH_SHA}}) or its auto-unpacked Kaggle Dataset under /kaggle/input/. "
+                "Mount the archive or set PHASE='core' explicitly."
             )
         CHECKPOINT_ARCHIVE = str(found)
         EFFECTIVE_PHASE = "diagnose"
@@ -109,6 +134,10 @@ elif EFFECTIVE_PHASE == "diagnose" and CHECKPOINT_ARCHIVE is None and RESUME_ARC
             "PHASE='diagnose' requires CHECKPOINT_ARCHIVE pointing to verified ELENDRIL_HITCHHIKER_FULL.zip."
         )
     CHECKPOINT_ARCHIVE = str(found)
+elif EFFECTIVE_PHASE in ("core", "followup") and HANDOFF_ARCHIVE is None and RESUME_ARCHIVE is None:
+    found_h = _discover_mounted_y1_handoff(EFFECTIVE_PHASE)
+    if found_h is not None:
+        HANDOFF_ARCHIVE = str(found_h)
 
 WORK_ROOT = Path(f"/kaggle/working/elendril_y1_{{EFFECTIVE_PHASE}}")
 CODE_ROOT = Path("/kaggle/working/anra_y1_src")

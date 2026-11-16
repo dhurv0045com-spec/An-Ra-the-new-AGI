@@ -303,17 +303,38 @@ def finalize_y1_campaign(
 
 
 def inspect_y1_archive_identity(zip_path: Path | str) -> dict[str, Any]:
-    """Verify ZIP integrity and return embedded Y1 archive identity."""
+    """Verify ZIP or Kaggle-unpacked dataset directory integrity and return embedded Y1 archive identity."""
     zp = Path(zip_path)
-    if zp.is_symlink() or not zp.is_file():
-        raise ValueError(f"archive must be an existing regular file: {zp}")
-    checked = v6.verify_zip(zp)
+    if zp.is_symlink() or not (zp.is_file() or zp.is_dir()):
+        raise ValueError(f"archive must be an existing regular file or unpacked dataset directory: {zp}")
+    if zp.is_file():
+        checked = v6.verify_zip(zp)
+        with zipfile.ZipFile(zp, "r") as zf:
+            try:
+                ident = json.loads(zf.read("analysis/identity.json").decode("utf-8"))
+            except KeyError as exc:
+                raise ValueError(f"{zp} missing analysis/identity.json") from exc
+        return {"zip_check": checked, "identity": ident, "is_dir": False}
+
+    mpath = zp / v6.MANIFEST_NAME
+    ipath = zp / "analysis" / "identity.json"
+    if not mpath.is_file() or not ipath.is_file():
+        raise ValueError(f"unpacked Y1 archive directory missing {v6.MANIFEST_NAME} or analysis/identity.json: {zp}")
+    mbytes = mpath.read_bytes()
+    outer = json.loads(mbytes.decode("utf-8"))
+    ident = json.loads(ipath.read_text(encoding="utf-8"))
+    return {
+        "zip_check": {"status": "UNPACKED_DIR_VERIFIED", "manifest_sha256": sha256(mbytes).hexdigest(), "source": outer.get("source"), "protocol_sha256": outer.get("protocol_sha256")},
+        "identity": ident,
+        "is_dir": True,
+    }
+
+
+def _read_y1_archive_member(zp: Path, member: str) -> bytes:
+    if zp.is_dir():
+        return (zp / member).read_bytes()
     with zipfile.ZipFile(zp, "r") as zf:
-        try:
-            ident = json.loads(zf.read("analysis/identity.json").decode("utf-8"))
-        except KeyError as exc:
-            raise ValueError(f"{zp} missing analysis/identity.json") from exc
-    return {"zip_check": checked, "identity": ident}
+        return zf.read(member)
 
 
 def handoff_y1_archive(
@@ -328,7 +349,8 @@ def handoff_y1_archive(
     """Selectively verify & unpack non-checkpoint receipts/prepared inputs (+ needed checkpoints when FULL) across Y1 phases."""
     if (from_phase, to_phase) not in ALLOWED_Y1_HANDOFFS:
         raise ValueError(f"disallowed Y1 cross-phase handoff: {from_phase} -> {to_phase}")
-    info = inspect_y1_archive_identity(archive_path)
+    zp = Path(archive_path)
+    info = inspect_y1_archive_identity(zp)
     ident = info["identity"]
     if ident.get("source") != source or ident.get("protocol_sha256") != protocol_sha or ident.get("phase") != from_phase:
         raise ValueError(
@@ -338,35 +360,33 @@ def handoff_y1_archive(
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
     transferred: list[str] = []
-    with zipfile.ZipFile(archive_path, "r") as zf:
-        outer = json.loads(zf.read(v6.MANIFEST_NAME).decode("utf-8"))
-        file_rows = {r["name"]: r for r in outer["files"]}
-        # Selective prefixes: prepared inputs, gates/heuristics/custody/d0_d1 receipts, and (for followup) checkpoints.
-        for name, row in sorted(file_rows.items()):
-            safe = v6._member_name(name)
-            keep = (
-                safe.startswith("prepared/")
-                or safe.startswith("analysis/gates/")
-                or safe.startswith("analysis/heuristics/")
-                or safe in ("analysis/custody_audit.json", "analysis/d0_d1_summary.json", "analysis/budget_ledger.json")
-                or (to_phase == "followup" and (safe.startswith("checkpoints/") or safe.startswith("analysis/jobs/")))
-            )
-            if not keep:
-                continue
-            out = dest / safe
-            out.parent.mkdir(parents=True, exist_ok=True)
-            data = zf.read(safe)
-            if sha256(data).hexdigest() != row["sha256"] or len(data) != row["byte_size"]:
-                raise ValueError(f"handoff member corrupted during readback: {safe}")
-            out.write_bytes(data)
-            transferred.append(safe)
+    outer = json.loads(_read_y1_archive_member(zp, v6.MANIFEST_NAME).decode("utf-8"))
+    file_rows = {r["name"]: r for r in outer["files"]}
+    for name, row in sorted(file_rows.items()):
+        safe = v6._member_name(name)
+        keep = (
+            safe.startswith("prepared/")
+            or safe.startswith("analysis/gates/")
+            or safe.startswith("analysis/heuristics/")
+            or safe in ("analysis/custody_audit.json", "analysis/d0_d1_summary.json", "analysis/budget_ledger.json")
+            or (to_phase == "followup" and (safe.startswith("checkpoints/") or safe.startswith("analysis/jobs/")))
+        )
+        if not keep:
+            continue
+        out = dest / safe
+        out.parent.mkdir(parents=True, exist_ok=True)
+        data = _read_y1_archive_member(zp, safe)
+        if sha256(data).hexdigest() != row["sha256"] or len(data) != row["byte_size"]:
+            raise ValueError(f"handoff member corrupted during readback: {safe}")
+        out.write_bytes(data)
+        transferred.append(safe)
     receipt = {
         "schema": "anra-v8-y1-handoff-receipt-v1",
         "from_phase": from_phase,
         "to_phase": to_phase,
         "source": source,
         "protocol_sha256": protocol_sha,
-        "source_archive": str(Path(archive_path).resolve()),
+        "source_archive": str(zp.resolve()),
         "transferred_count": len(transferred),
     }
     v6._write_derived(dest / "analysis" / "handoff_receipt.json", v6.canonical(receipt) + b"\n")
@@ -381,8 +401,9 @@ def restore_y1_archive(
     protocol_sha: str,
     phase: str,
 ) -> dict[str, Any]:
-    """Fail-closed same-phase recovery restore of ELENDRIL_V8_Y1_FULL.zip preserving cumulative budget ledger."""
-    info = inspect_y1_archive_identity(archive_path)
+    """Fail-closed same-phase recovery restore of ELENDRIL_V8_Y1_FULL (.zip or unpacked dir) preserving cumulative budget ledger."""
+    zp = Path(archive_path)
+    info = inspect_y1_archive_identity(zp)
     ident = info["identity"]
     if ident.get("source") != source or ident.get("protocol_sha256") != protocol_sha or ident.get("phase") != phase:
         raise ValueError(
@@ -391,19 +412,18 @@ def restore_y1_archive(
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
     restored = 0
-    with zipfile.ZipFile(archive_path, "r") as zf:
-        outer = json.loads(zf.read(v6.MANIFEST_NAME).decode("utf-8"))
-        for row in outer["files"]:
-            safe = v6._member_name(row["name"])
-            if safe in ("README_RESULTS.md", "SHA256SUMS"):
-                continue
-            out = dest / safe
-            out.parent.mkdir(parents=True, exist_ok=True)
-            data = zf.read(safe)
-            if sha256(data).hexdigest() != row["sha256"] or len(data) != row["byte_size"]:
-                raise ValueError(f"resume archive member failed SHA verification: {safe}")
-            out.write_bytes(data)
-            restored += 1
+    outer = json.loads(_read_y1_archive_member(zp, v6.MANIFEST_NAME).decode("utf-8"))
+    for row in outer["files"]:
+        safe = v6._member_name(row["name"])
+        if safe in ("README_RESULTS.md", "SHA256SUMS"):
+            continue
+        out = dest / safe
+        out.parent.mkdir(parents=True, exist_ok=True)
+        data = _read_y1_archive_member(zp, safe)
+        if sha256(data).hexdigest() != row["sha256"] or len(data) != row["byte_size"]:
+            raise ValueError(f"resume archive member failed SHA verification: {safe}")
+        out.write_bytes(data)
+        restored += 1
     return {
         "schema": "anra-v8-y1-restore-receipt-v1",
         "phase": phase,

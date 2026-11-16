@@ -84,41 +84,86 @@ class AnswerOnlyConstrainedEOSPolicy(RawHitchhikerPolicy):
         return OperationCandidate(op, arg, math.prod(probs), used, len(raw), tuple(raw))
 
 
+EXPECTED_HH_MANIFEST_SHA256 = "33f88e2e6473c245a7a1d6636db84ddd7ce316cd1fda7fc3eeb337d5618ad68d"
+
+
+def _read_hh_member(archive_or_dir: Path, member: str) -> bytes:
+    if archive_or_dir.is_dir():
+        return (archive_or_dir / member).read_bytes()
+    with zipfile.ZipFile(archive_or_dir, "r") as zf:
+        return zf.read(member)
+
+
 def verify_and_inspect_hh_full_archive(zip_path: Path | str) -> dict[str, Any]:
-    """Verify Hitchhiker FULL archive hash, manifest, source, protocol, and LATEST 2368 pointers."""
+    """Verify Hitchhiker FULL archive (.zip or Kaggle-unpacked directory) manifest, source, protocol, and LATEST 2368 pointers."""
     zp = Path(zip_path)
-    if zp.is_symlink() or not zp.is_file():
-        raise ValueError(f"historical checkpoint archive must be a regular file: {zp}")
-    _, archive_sha = v6._file_sha(zp)
-    if archive_sha != HISTORICAL_HH_FULL_ARCHIVE_SHA256:
-        raise ValueError(
-            f"archive SHA256 mismatch: got {archive_sha}, expected {HISTORICAL_HH_FULL_ARCHIVE_SHA256}"
-        )
-    checked = v6.verify_zip(zp)
-    if checked["source"] != HISTORICAL_HH_WEIGHTS_SOURCE or checked["protocol_sha256"] != HISTORICAL_HH_PROTOCOL_SHA256:
-        raise ValueError("archive source or protocol identity mismatch")
+    if zp.is_symlink() or not (zp.is_file() or zp.is_dir()):
+        raise ValueError(f"historical checkpoint archive must be a regular file or unpacked dataset directory: {zp}")
 
-    req_members: list[str] = []
-    with zipfile.ZipFile(zp, "r") as zf:
-        ident = json.loads(zf.read("analysis/identity.json").decode("utf-8"))
+    if zp.is_file():
+        _, archive_sha = v6._file_sha(zp)
+        if archive_sha != HISTORICAL_HH_FULL_ARCHIVE_SHA256:
+            raise ValueError(
+                f"archive SHA256 mismatch: got {archive_sha}, expected {HISTORICAL_HH_FULL_ARCHIVE_SHA256}"
+            )
+        checked = v6.verify_zip(zp)
+        if checked["source"] != HISTORICAL_HH_WEIGHTS_SOURCE or checked["protocol_sha256"] != HISTORICAL_HH_PROTOCOL_SHA256:
+            raise ValueError("archive source or protocol identity mismatch")
+
+        req_members: list[str] = []
+        with zipfile.ZipFile(zp, "r") as zf:
+            ident = json.loads(zf.read("analysis/identity.json").decode("utf-8"))
+            if ident.get("source") != HISTORICAL_HH_WEIGHTS_SOURCE or ident.get("protocol_sha256") != HISTORICAL_HH_PROTOCOL_SHA256:
+                raise ValueError("archive analysis/identity.json mismatch")
+            markers = [n for n in zf.namelist() if n.startswith("analysis/campaign-") and n.endswith(".json")]
+            if len(markers) != 1 or HISTORICAL_HH_RUN_ID not in markers[0]:
+                raise ValueError(f"unexpected campaign markers in archive: {markers}")
+
+            for lineage, expected in sorted(HISTORICAL_HH_S3_MANIFESTS.items()):
+                latest_member = f"checkpoints/{lineage}/LATEST"
+                latest_sha = zf.read(latest_member).decode("ascii").strip()
+                if latest_sha != expected["checkpoint_manifest_sha256"]:
+                    raise ValueError(f"{lineage} LATEST pointer {latest_sha} != expected {expected['checkpoint_manifest_sha256']}")
+                cp_prefix = f"checkpoints/{lineage}/objects/{latest_sha}"
+                req_members.append(f"{cp_prefix}/manifest.json")
+                req_members.extend(f"{cp_prefix}/{part}" for part in sorted(REQUIRED_COMPONENTS))
+            verify_checkpoint_members(zf, req_members)
+        mode_tag = "ZIP_VERIFIED"
+    else:
+        mpath = zp / v6.MANIFEST_NAME
+        if not mpath.is_file():
+            raise ValueError(f"unpacked archive directory missing {v6.MANIFEST_NAME}: {zp}")
+        mbytes = mpath.read_bytes()
+        msha = sha256(mbytes).hexdigest()
+        if msha != EXPECTED_HH_MANIFEST_SHA256:
+            raise ValueError(f"unpacked BUNDLE_MANIFEST.json SHA256 mismatch: {msha} != {EXPECTED_HH_MANIFEST_SHA256}")
+        outer = json.loads(mbytes.decode("utf-8"))
+        if outer.get("source") != HISTORICAL_HH_WEIGHTS_SOURCE or outer.get("protocol_sha256") != HISTORICAL_HH_PROTOCOL_SHA256:
+            raise ValueError("unpacked bundle source or protocol mismatch")
+        file_rows = {r["name"]: r for r in outer["files"]}
+        ident = json.loads((zp / "analysis" / "identity.json").read_text(encoding="utf-8"))
         if ident.get("source") != HISTORICAL_HH_WEIGHTS_SOURCE or ident.get("protocol_sha256") != HISTORICAL_HH_PROTOCOL_SHA256:
-            raise ValueError("archive analysis/identity.json mismatch")
-        markers = [n for n in zf.namelist() if n.startswith("analysis/campaign-") and n.endswith(".json")]
-        if len(markers) != 1 or HISTORICAL_HH_RUN_ID not in markers[0]:
-            raise ValueError(f"unexpected campaign markers in archive: {markers}")
-
+            raise ValueError("unpacked analysis/identity.json mismatch")
         for lineage, expected in sorted(HISTORICAL_HH_S3_MANIFESTS.items()):
-            latest_member = f"checkpoints/{lineage}/LATEST"
-            latest_sha = zf.read(latest_member).decode("ascii").strip()
+            latest_sha = (zp / "checkpoints" / lineage / "LATEST").read_text(encoding="ascii").strip()
             if latest_sha != expected["checkpoint_manifest_sha256"]:
                 raise ValueError(f"{lineage} LATEST pointer {latest_sha} != expected {expected['checkpoint_manifest_sha256']}")
             cp_prefix = f"checkpoints/{lineage}/objects/{latest_sha}"
-            req_members.append(f"{cp_prefix}/manifest.json")
-            req_members.extend(f"{cp_prefix}/{part}" for part in sorted(REQUIRED_COMPONENTS))
-        verify_checkpoint_members(zf, req_members)
+            cp_manifest_bytes = (zp / cp_prefix / "manifest.json").read_bytes()
+            if sha256(cp_manifest_bytes).hexdigest() != latest_sha:
+                raise ValueError(f"{lineage} checkpoint manifest.json hash mismatch")
+            for part in ("manifest.json", *sorted(REQUIRED_COMPONENTS)):
+                rel = f"{cp_prefix}/{part}"
+                row = file_rows[rel]
+                sz, d = v6._file_sha(zp / rel)
+                if sz != row["byte_size"] or d != row["sha256"]:
+                    raise ValueError(f"unpacked checkpoint component mismatch: {rel}")
+        archive_sha = msha
+        mode_tag = "UNPACKED_DATASET_VERIFIED"
 
     return {
         "status": "VERIFIED",
+        "intake_mode": mode_tag,
         "archive_path": str(zp),
         "archive_sha256": archive_sha,
         "historical_s20_status": HISTORICAL_S20_RESTORATION_STATUS,
@@ -138,6 +183,7 @@ def extract_and_restore_historical_s3(
         raise ValueError(f"unknown historical HH S3 lineage: {lineage!r}")
     expected = HISTORICAL_HH_S3_MANIFESTS[lineage]
     manifest_sha = expected["checkpoint_manifest_sha256"]
+    zp = Path(zip_path)
     dest = Path(extract_dir)
     dest.mkdir(parents=True, exist_ok=True)
     cp_root = dest / "checkpoints"
@@ -145,18 +191,17 @@ def extract_and_restore_historical_s3(
     prefix = f"checkpoints/{lineage}/objects/{manifest_sha}/"
     target_obj_dir = cp_root / lineage / "objects" / manifest_sha
     if not (target_obj_dir / "manifest.json").is_file():
-        with zipfile.ZipFile(Path(zip_path), "r") as zf:
-            outer = json.loads(zf.read(v6.MANIFEST_NAME))
-            file_rows = {r["name"]: r for r in outer["files"]}
-            needed = [f"checkpoints/{lineage}/LATEST", *(prefix + c for c in ("manifest.json", *sorted(REQUIRED_COMPONENTS)))]
-            for member in needed:
-                out_path = dest / member
-                out_path.parent.mkdir(parents=True, exist_ok=True)
-                raw = zf.read(member)
-                row = file_rows[member]
-                if sha256(raw).hexdigest() != row["sha256"] or len(raw) != row["byte_size"]:
-                    raise ValueError(f"extracted member hash mismatch: {member}")
-                out_path.write_bytes(raw)
+        outer = json.loads(_read_hh_member(zp, v6.MANIFEST_NAME).decode("utf-8"))
+        file_rows = {r["name"]: r for r in outer["files"]}
+        needed = [f"checkpoints/{lineage}/LATEST", *(prefix + c for c in ("manifest.json", *sorted(REQUIRED_COMPONENTS)))]
+        for member in needed:
+            out_path = dest / member
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            raw = _read_hh_member(zp, member)
+            row = file_rows[member]
+            if sha256(raw).hexdigest() != row["sha256"] or len(raw) != row["byte_size"]:
+                raise ValueError(f"extracted member hash mismatch: {member}")
+            out_path.write_bytes(raw)
 
     store = CheckpointStore(cp_root, lineage)
     if store.latest_sha256() != manifest_sha:
@@ -187,6 +232,57 @@ def extract_and_restore_historical_s3(
         "source_commit": HISTORICAL_HH_WEIGHTS_SOURCE,
         "tensor_sha256s": tensor_hashes,
         "backend": backend,
+    }
+
+
+def reproduce_historical_hh_counts(
+    zip_path: Path | str,
+    lineage: str,
+    backend: NeuralBackend,
+    *,
+    max_cases_per_cohort: int | None = None,
+) -> dict[str, Any]:
+    """Reproduce published Hitchhiker per-hop (hop-1..4) and original-task counts in the historical runtime."""
+    from .hitchhiker_evaluation import evaluate_hitchhiker
+    from .v6_data import dataset_from_record
+    from tools.elendril_hitchhiker_worker import hitchhiker_case_from_record
+
+    zp = Path(zip_path)
+    vsuite = json.loads(_read_hh_member(zp, "prepared/validation_suite.json").decode("utf-8"))
+    vorig = dataset_from_record(json.loads(_read_hh_member(zp, "prepared/validation_orig.json").decode("utf-8")))
+    fe = json.loads(_read_hh_member(zp, f"analysis/jobs/{lineage}/final_eval.json").decode("utf-8"))
+
+    pol = RawHitchhikerPolicy(backend)
+    reproduced_hops: dict[str, int] = {}
+    published_hops: dict[str, int] = {}
+    for h in ("hop-1", "hop-2", "hop-3", "hop-4"):
+        raw_rows = vsuite["cohorts"][h]
+        rec_eps = fe["suite_eval"]["records"][h]["episodes"]
+        if max_cases_per_cohort is not None:
+            raw_rows = raw_rows[:max_cases_per_cohort]
+            rec_eps = rec_eps[:max_cases_per_cohort]
+        cases = tuple(hitchhiker_case_from_record(r) for r in raw_rows)
+        rep = evaluate_hitchhiker(cases, pol)
+        reproduced_hops[h] = int(rep["metrics"]["correct"])
+        published_hops[h] = sum(int(e["outcome"]["correct"]) for e in rec_eps)
+
+    orig_cases = vorig.cases[:max_cases_per_cohort] if max_cases_per_cohort is not None else vorig.cases
+    orig_eps = fe["original_eval"]["record"]["episodes"][:max_cases_per_cohort] if max_cases_per_cohort is not None else fe["original_eval"]["record"]["episodes"]
+    orig_rep = evaluate_hitchhiker(orig_cases, pol)
+    reproduced_orig = int(orig_rep["metrics"]["correct"])
+    published_orig = sum(int(e["outcome"]["correct"]) for e in orig_eps)
+
+    exact = (reproduced_hops == published_hops) and (reproduced_orig == published_orig)
+    return {
+        "schema": "anra-v8-y1-d0-historical-reproduction-v1",
+        "lineage": lineage,
+        "status": "EXACT_MATCH" if exact else "MISMATCH_BLOCKER",
+        "mismatch_blocker": not exact,
+        "reproduced_hops": reproduced_hops,
+        "published_hops": published_hops,
+        "reproduced_original": reproduced_orig,
+        "published_original": published_orig,
+        "max_cases_per_cohort": max_cases_per_cohort,
     }
 
 

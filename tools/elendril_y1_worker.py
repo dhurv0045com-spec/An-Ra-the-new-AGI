@@ -19,7 +19,7 @@ import torch
 
 from anra_v5.elendril.codec import canonical, digest
 from anra_v5.elendril.representation import UTF8
-from anra_v5.elendril.training import configure_cpu
+from anra_v5.elendril.training import configure_cpu, configure_device
 from anra_v5.elendril.y1_data import (
     build_arm_training_stream,
     build_t0_dataset,
@@ -28,6 +28,7 @@ from anra_v5.elendril.y1_data import (
 from anra_v5.elendril.y1_diagnostics import (
     extract_and_restore_historical_s3,
     load_verified_y1_checkpoint_backend,
+    reproduce_historical_hh_counts,
     run_d0_d1_model_audit,
     run_d2_probe_and_patching,
 )
@@ -204,7 +205,14 @@ def mode_profile(args: argparse.Namespace) -> int:
                 ) if not args.cpu_canary else (None, None, None, sha)
                 recovery_verified = True
 
-            # Profile 32-case full evaluation path (raw + supplemental base D1).
+            # Profile 32-case raw evaluation vs supplemental base D1 separately so forecast does not overmultiply base-only masks.
+            from anra_v5.elendril.hitchhiker_diagnostics import RawHitchhikerPolicy
+            t_raw0 = time.perf_counter()
+            _ = evaluate_y1_cases(probe_eval_cases, RawHitchhikerPolicy(trainer.backend), job_id=job["job_id"], checkpoint_sha256=sha)
+            if device == "cuda:0":
+                torch.cuda.synchronize()
+            raw_eval_dt = time.perf_counter() - t_raw0
+
             t_ev0 = time.perf_counter()
             audit = run_d0_d1_model_audit(
                 trainer.backend,
@@ -216,6 +224,8 @@ def mode_profile(args: argparse.Namespace) -> int:
             if device == "cuda:0":
                 torch.cuda.synchronize()
             eval_dt = time.perf_counter() - t_ev0
+            n_base_prof = max(1, sum(1 for c in probe_eval_cases if c.panel == "main-base"))
+            supp_only_dt = max(0.0, eval_dt - raw_eval_dt)
             peak_mb = torch.cuda.max_memory_allocated(0) / (1024 * 1024) if device == "cuda:0" else 0.0
             profiles_out[scale_name] = {
                 "warmup_updates": 8,
@@ -223,7 +233,8 @@ def mode_profile(args: argparse.Namespace) -> int:
                 "sec_per_update": train_dt / 32.0,
                 "sec_per_ckpt_save": ckpt_dt,
                 "eval_cases_profiled": len(probe_eval_cases),
-                "sec_per_eval_case": eval_dt / len(probe_eval_cases),
+                "sec_per_eval_case": raw_eval_dt / len(probe_eval_cases),
+                "sec_per_supp_base_case": supp_only_dt / n_base_prof,
                 "peak_cuda_mb": peak_mb,
                 "recovery_verified": recovery_verified,
             }
@@ -252,8 +263,7 @@ def mode_profile(args: argparse.Namespace) -> int:
 def mode_diagnose_historical(args: argparse.Namespace) -> int:
     """Restore assigned historical Hitchhiker S3 checkpoints and execute D0/D1 (and optional D2)."""
     device = "cpu" if args.cpu_canary else "cuda:0"
-    if device == "cpu":
-        configure_cpu()
+    configure_cpu() if device == "cpu" else configure_device(device)
 
     suite = load_y1_suite(json.loads((args.output / "prepared" / "development_suite.json").read_bytes()))
     if args.cpu_canary:
@@ -278,6 +288,12 @@ def mode_diagnose_historical(args: argparse.Namespace) -> int:
     for lin in lineages:
         restored = extract_and_restore_historical_s3(args.checkpoint_archive, lin, extract_root, device=device)
         backend = restored["backend"]
+        hist_repro = reproduce_historical_hh_counts(
+            args.checkpoint_archive,
+            lin,
+            backend,
+            max_cases_per_cohort=4 if args.cpu_canary else None,
+        )
         npz_path = args.output / "evidence" / "logits" / f"{lin}.npz"
         audit = run_d0_d1_model_audit(
             backend,
@@ -300,6 +316,7 @@ def mode_diagnose_historical(args: argparse.Namespace) -> int:
             "checkpoint_sha256": restored["checkpoint_sha256"],
             "global_update": restored["global_update"],
             "parameters": restored["parameters"],
+            "historical_reproduction": hist_repro,
             "logits_sidecar": audit["logits_sidecar"],
             "d2_status": d2_res["status"],
         }
@@ -504,8 +521,7 @@ def mode_train_job(args: argparse.Namespace) -> int:
 def mode_eval_checkpoint(args: argparse.Namespace) -> int:
     """Evaluate a verified existing Y1 checkpoint (used for locked T2 confirmation & T3 S3-vs-S20)."""
     device = "cpu" if args.cpu_canary else "cuda:0"
-    if device == "cpu":
-        configure_cpu()
+    configure_cpu() if device == "cpu" else configure_device(device)
     suite_file = args.output / "prepared" / f"{args.split}_suite.json"
     suite = load_y1_suite(json.loads(suite_file.read_bytes()))
     if args.cpu_canary:
