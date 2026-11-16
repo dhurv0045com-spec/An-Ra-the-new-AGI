@@ -258,3 +258,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Tightened `cartridge.py`, `design.py`, and `agent_tools.py` seams (`policy_mode`, objective companion weights, model hyperparameter contrasts, V8 `P`/`U`/`F-cap` specs, `hypotheses`/`falsifiers`, `source_commit: HEAD`, and `sample_limit_for_cpu: null`).
 - Added read-only `python -m anra_v5.planthir doctor` (`green_signal: true`) and rewrote root `agent.md` + synced `research/planthir/agent.md` with cross-branch copy commands, full CLI tables, and copy-paste `anra-planthir-spec-v1` templates.
 - Verified after edits: `doctor` (`GREEN_SIGNAL`), `calibrate` (`6/6`), `tools.verify_elendril_evidence` (`237` manifests), `40 passed in 119.11s` across CLI/design/backend/runner/tree/curation suites; GPU/empirical productivity runs remain pending.
+
+### 2026-11-17 | Antigravity | Add palantiri alias, one-sentence prompt protocol in agent.md, and push branch aliases
+- Added `anra_v5/palantiri/__init__.py` and `__main__.py` re-exporting `anra_v5.planthir`, and registered `palantiri` script + package discovery in `pyproject.toml`.
+- Updated `agent.md` and `research/planthir/agent.md` with Section 0 (exact one-sentence voice-prompt protocol) and cross-branch `origin/palantiri` install instructions.
+- Verified `python -m anra_v5.palantiri doctor`, `calibrate`, tree/curation/CLI suites, and `tools.verify_elendril_evidence`; pushed both `origin/planthir` and `origin/palantiri`.

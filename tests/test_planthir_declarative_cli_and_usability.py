@@ -289,3 +289,28 @@ def test_doctor_head_commit_v8_heads_hypotheses_and_x1_slot_contrast(tmp_path: P
     assert x1_obj_val["valid"] is True, x1_obj_val
 
 
+def test_palantiri_alias_package_and_cli_parity() -> None:
+    import anra_v5.palantiri as pal
+    import anra_v5.planthir as pla
+
+    assert list(pal.__all__) == list(pla.__all__)
+    assert pal.CartridgeRunner is pla.CartridgeRunner
+    assert pal.planthir_doctor is pla.planthir_doctor
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    proc = subprocess.run(
+        [sys.executable, "-m", "anra_v5.palantiri", "doctor"],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    parsed = json.loads(proc.stdout)
+    assert parsed["schema"] == "anra-planthir-doctor-v1"
+    assert parsed["green_signal"] is True and parsed["status"] == "GREEN_SIGNAL"
+
+
+

@@ -1,71 +1,110 @@
-# Planthir (`anra_v5.planthir`) — Agent Operating & Installation Guide
+# Palantiri (`anra_v5.palantiri` / `anra_v5.planthir`) — Agent Operating & Installation Guide
 
-> **Purpose:** Copy-paste manual for any AI agent installing, verifying, or running controlled experiments with **Planthir** across any AN-RA branch. Follow root [AGENTS.md](AGENTS.md) at all times. Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity measurements.
+> **Canonical Manual:** Copy-paste guide for any AI agent installing, verifying, or running controlled experiments with **Palantiri** (aliases: `anra_v5.palantiri`, `anra_v5.planthir`, branches `palantiri` and `planthir`). Follow root [AGENTS.md](AGENTS.md) at all times. Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity studies.
+
+---
+
+## 0. One-Sentence User Prompt Protocol (Read First)
+
+When the user gives the standard one-sentence experiment command in any branch:
+
+> **"Use the technology palantiri from the branch. Change the branch name into something different from this branch. Make this experiment with the help of the technology palantiri."**
+
+Execute these exact steps immediately without asking redundant questions:
+
+1. **Create a new branch so you never mutate the current branch directly:**
+   ```bash
+   git checkout -b exp/<short-experiment-name>
+   ```
+2. **Pull Palantiri only if `anra_v5/palantiri` is not already present in the current branch:**
+   - **Bash / Linux / Colab / Kaggle:**
+     ```bash
+     git fetch origin palantiri
+     git checkout origin/palantiri -- anra_v5/palantiri anra_v5/planthir anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
+     ```
+   - **Windows PowerShell:**
+     ```powershell
+     git fetch origin palantiri
+     git checkout origin/palantiri -- anra_v5/palantiri anra_v5/planthir anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
+     ```
+3. **Run preflight self-checks (`GREEN_SIGNAL` + `6/6` fault calibration):**
+   ```bash
+   python -m anra_v5.palantiri doctor
+   python -m anra_v5.palantiri calibrate
+   ```
+4. **Author & validate only the experiment delta in a data-only JSON spec (`anra-planthir-spec-v1`):**
+   ```bash
+   python -m anra_v5.palantiri init --backend x1_rd2 --out spec.json   # or --backend v8
+   # Edit ONLY the contrast / architecture / recipe delta in spec.json
+   python -m anra_v5.palantiri validate --spec spec.json --canary
+   python -m anra_v5.palantiri run --spec spec.json --work-root runs/exp1 --canary
+   ```
+5. **For GPU production runs (`--device cuda:0 --no-canary`):** commit tracked changes first (`git status --porcelain --untracked-files=no` must be clean), set `"source_commit": "HEAD"`, `"device": "cuda:0"`, `"cpu_canary": false`, `"sample_limit_for_cpu": null`, then run, verify custody, and replay:
+   ```bash
+   python -m anra_v5.palantiri verify-bundle --bundle-dir runs/exp1/result_bundle
+   python -m anra_v5.palantiri replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json
+   ```
 
 ---
 
 ## 1. Quick Install & Cross-Branch Setup
 
-Planthir is a Python package at `anra_v5/planthir/` (with CLI entry point `python -m anra_v5.planthir` and console script `planthir` in `pyproject.toml`). Because `anra_v5/planthir/` binds directly into AN-RA's `anra_v5/elendril/` and `v5_*` runtime modules (including the `enforce_tool_consumption=True` evaluator fix), choose **Method A** for new experiments or **Method B** to copy Planthir cleanly into an existing branch.
+Palantiri lives at `anra_v5/palantiri/` and `anra_v5/planthir/` (CLI scripts `palantiri` and `planthir` in `pyproject.toml`). Both `python -m anra_v5.palantiri` and `python -m anra_v5.planthir` execute the identical engine, binding into AN-RA's `anra_v5/elendril/` (including the `enforce_tool_consumption=True` evaluator fix) and `v5_*` runtime modules.
 
-### Method A — Branch Directly from `planthir` (Recommended)
+### Method A — Branch Directly from `palantiri` (or `Elendril` / `hitchhiker`)
 
 ```bash
-git fetch origin planthir
-git checkout -b exp/my-new-experiment origin/planthir
+git fetch origin palantiri
+git checkout -b exp/my-new-experiment origin/palantiri
 pip install -e . --no-build-isolation --no-deps   # optional if using PYTHONPATH=.
-python -m anra_v5.planthir doctor
+python -m anra_v5.palantiri doctor
 ```
 
-### Method B — Copy Planthir into Another Existing Branch
-
-Run from your target branch to pull Planthir, its shared runtime dependencies, docs, and tests cleanly:
+### Method B — Copy Palantiri into Any Older / Custom Branch
 
 - **Bash / Linux / Colab / Kaggle:**
   ```bash
-  git fetch origin planthir
-  git checkout origin/planthir -- \
-    anra_v5/planthir \
+  git fetch origin palantiri
+  git checkout origin/palantiri -- \
+    anra_v5/palantiri anra_v5/planthir \
     anra_v5/elendril \
     v5_contracts v5_evaluation v5_model v5_training \
-    pyproject.toml agent.md research/planthir \
-    tests/test_planthir_*.py
+    pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json \
+    agent.md research/planthir tests/test_planthir_*.py
   pip install -e . --no-build-isolation --no-deps
-  python -m anra_v5.planthir doctor
+  python -m anra_v5.palantiri doctor
   ```
 
 - **Windows PowerShell:**
   ```powershell
-  git fetch origin planthir
-  git checkout origin/planthir -- `
-    anra_v5/planthir `
+  git fetch origin palantiri
+  git checkout origin/palantiri -- `
+    anra_v5/palantiri anra_v5/planthir `
     anra_v5/elendril `
     v5_contracts v5_evaluation v5_model v5_training `
-    pyproject.toml agent.md research/planthir `
-    tests/test_planthir_*.py
+    pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json `
+    agent.md research/planthir tests/test_planthir_*.py
   $env:PYTHONPATH = "."
-  python -m anra_v5.planthir doctor
+  python -m anra_v5.palantiri doctor
   ```
 
-> **Green Signal Gate:** Stop immediately if `python -m anra_v5.planthir doctor` exits `1` or reports `"green_signal": false`. On Windows/CPU setups without editable install, prefix Python commands with `PYTHONPATH=.` (Bash) or `$env:PYTHONPATH="."` (PowerShell).
+> **Green Signal Gate:** Stop immediately if `python -m anra_v5.palantiri doctor` exits `1` or reports `"green_signal": false`. On Windows/CPU setups without editable install, prefix Python commands with `PYTHONPATH=.` (Bash) or `$env:PYTHONPATH="."` (PowerShell).
 
 ---
 
-## 2. The 6-Step Agent-First Declarative CLI Workflow
+## 2. The 6-Step Declarative CLI Reference
 
 Every CLI subcommand emits strict JSON to `stdout` (`0` = verified/valid, `1` = validation/custody/replay/runtime error). **Do not hand-write training loops, evaluators, paired statistics, or ZIP packers.** Express only your **experimental delta** in a data-only `anra-planthir-spec-v1` JSON file.
 
-| Step | Exact CLI Command | What It Verifies / Produces |
+| Step | Exact CLI Command (`anra_v5.palantiri` / `anra_v5.planthir`) | What It Verifies / Produces |
 | :--- | :--- | :--- |
-| **1. Preflight & Schema** | `python -m anra_v5.planthir doctor`<br>`python -m anra_v5.planthir schema`<br>`python -m anra_v5.planthir agent-info` | Read-only check of bindings, V8 tool-consumption firewall, starter templates, git clean status, RSS/disk probes, and allowed spec keys/backends. |
-| **2. Fault Calibration** | `python -m anra_v5.planthir calibrate` | Runs the 6-fault synthetic observatory benchmark (`all_detected: true`, `6/6` detected, `healthy_v8_kernel_passed: true`). |
-| **3. Generate & Edit Spec** | `python -m anra_v5.planthir init --backend x1_rd2 --out spec.json`<br>*(or `--backend v8`)* | Writes a runnable data-only `anra-planthir-spec-v1` starter spec. Unknown keys, `eval`, dotted Python import paths, and shell fragments are rejected. |
-| **4. Fail-Closed Validate** | `python -m anra_v5.planthir validate --spec spec.json --canary`<br>`python -m anra_v5.planthir explain-error --code <CODE>` | Verifies closed schema, parameter budgets, Gate 2 Confounder Firewall, typed factors/contrasts, and pairwise disjoint splits **before** training. |
-| **5. Run / Inspect / Resume** | `python -m anra_v5.planthir run --spec spec.json --work-root runs/exp1 --canary`<br>`python -m anra_v5.planthir inspect-run --work-root runs/exp1`<br>`python -m anra_v5.planthir resume --spec spec.json --work-root runs/exp1 --canary` | Trains under 5 Launch Gates + `ResourceMonitor` (`RESOURCE_RECEIPT.json`), saves SHA-256 `CheckpointStore` states, atomically publishes `generations/<gen_id>/` + `CURRENT.json`, and exports `result.zip` (`<= 20 MiB`) + `checkpoint_full.zip`. |
-| **6. Custody, Replay & Handoff** | `python -m anra_v5.planthir verify-bundle --bundle-dir runs/exp1/result_bundle`<br>`python -m anra_v5.planthir replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json` | Verifies `.sha256` sidecars + `CURRENT.json` + archive manifests, extracts checkpoints into an isolated temp store to independently replay predictions, and emits `~6 KB` `AI_HANDOFF_BRIEF.json`. |
+| **1. Preflight & Schema** | `python -m anra_v5.palantiri doctor`<br>`python -m anra_v5.palantiri schema`<br>`python -m anra_v5.palantiri agent-info` | Read-only check of bindings, V8 tool-consumption firewall, starter templates, git clean status, RSS/disk probes, and allowed spec keys/backends. |
+| **2. Fault Calibration** | `python -m anra_v5.palantiri calibrate` | Runs the 6-fault synthetic observatory benchmark (`all_detected: true`, `6/6` detected, `healthy_v8_kernel_passed: true`). |
+| **3. Generate & Edit Spec** | `python -m anra_v5.palantiri init --backend x1_rd2 --out spec.json`<br>*(or `--backend v8`)* | Writes a runnable data-only `anra-planthir-spec-v1` starter spec. Unknown keys, `eval`, dotted Python import paths, and shell fragments are rejected. |
+| **4. Fail-Closed Validate** | `python -m anra_v5.palantiri validate --spec spec.json --canary`<br>`python -m anra_v5.palantiri explain-error --code <CODE>` | Verifies closed schema, parameter budgets, Gate 2 Confounder Firewall, typed factors/contrasts, and pairwise disjoint splits **before** training. |
+| **5. Run / Inspect / Resume** | `python -m anra_v5.palantiri run --spec spec.json --work-root runs/exp1 --canary`<br>`python -m anra_v5.palantiri inspect-run --work-root runs/exp1`<br>`python -m anra_v5.palantiri resume --spec spec.json --work-root runs/exp1 --canary` | Trains under 5 Launch Gates + `ResourceMonitor` (`RESOURCE_RECEIPT.json`), saves SHA-256 `CheckpointStore` states, atomically publishes `generations/<gen_id>/` + `CURRENT.json`, and exports `result.zip` (`<= 20 MiB`) + `checkpoint_full.zip`. |
+| **6. Custody, Replay & Handoff** | `python -m anra_v5.palantiri verify-bundle --bundle-dir runs/exp1/result_bundle`<br>`python -m anra_v5.palantiri replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json` | Verifies `.sha256` sidecars + `CURRENT.json` + archive manifests, extracts checkpoints into an isolated temp store to independently replay predictions, and emits `~6 KB` `AI_HANDOFF_BRIEF.json`. |
 
-> **CUDA Production Rule:** When setting `"device": "cuda"` (with `--no-canary`), **commit all tracked changes first** (`git status --porcelain --untracked-files=no` must be empty) and set `"source_commit": "HEAD"` (or the exact 40-char `git rev-parse HEAD` SHA). `CartridgeRunner` refuses CUDA runs on dirty or mismatched working trees.
->
 > **Deprecated CLI Commands:** `run-validation-study` and `run-gpu-validation` intentionally exit `1` on the CLI with migration JSON. Always use `init` -> `validate` -> `run` / `resume`.
 
 ---
@@ -212,13 +251,13 @@ Supports architectures `"B0"`, `"J"`, `"F"`, `"P"`, `"F-cap"`, `"U"` and objecti
 
 ## 4. Advanced Building Blocks (Python APIs)
 
-All symbols below are exported directly from `anra_v5.planthir`:
+All symbols below are exported identically from both `anra_v5.palantiri` and `anra_v5.planthir`:
 
 1. **Multi-Seed Worker Scheduling (`IndependentWorkerScheduler`):**
    Launch isolated subprocess workers (distinct `work_root`, OS lockfile `.planthir_worker.lock`, disjoint CUDA devices, partial-failure containment, `COORDINATOR_RECEIPT.json`):
    ```python
    from pathlib import Path
-   from anra_v5.planthir import IndependentWorkerScheduler, WorkerJobSpec
+   from anra_v5.palantiri import IndependentWorkerScheduler, WorkerJobSpec
 
    receipt = IndependentWorkerScheduler(coordinator_root=Path("runs/coord"), max_parallel=2).run([
        WorkerJobSpec("seed7", Path("runs/seed7"), spec_path="spec_s7.json", device="cuda:0", canary=False),
@@ -244,7 +283,7 @@ All symbols below are exported directly from `anra_v5.planthir`:
 - **Progress register:** Append a concise `<= 5`-line dated entry to root [progress.md](progress.md) after every meaningful change, upgrade, or execution.
 - **Honest qualification claims:** Always distinguish implemented controls, CPU canary checks, live CUDA runs (`cuda_measured: true`), and empirical human/agent productivity trials (`anra_v5.planthir.productivity` reports `STUDY_OBSERVATIONS_PENDING` until logged counterbalanced runs are supplied).
 - **Pre-handoff verification commands:**
-  - `python -m anra_v5.planthir doctor`
-  - `python -m anra_v5.planthir calibrate`
+  - `python -m anra_v5.palantiri doctor`
+  - `python -m anra_v5.palantiri calibrate`
   - `python -m pytest tests/test_planthir_*.py -q` (Bash) or `python -m pytest (Get-ChildItem tests/test_planthir_*.py) -q` (PowerShell)
   - `python -m tools.verify_elendril_evidence`
