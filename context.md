@@ -1,10 +1,10 @@
 # AN-RA V8-Y1 & Hitchhiker context
 
-**Latest prospective protocol (2026-11-16, branch `codex/v8-y1`):** [V8-Y1 Registry](research/v8-y1/REGISTRY.json) (`3809785b27aa4feca1c0abfc8c81e9ed6dd69e48ff3c4bc0093481a647322cac`), [Checkpoint Intake](research/v8-y1/CHECKPOINT_INTAKE.json), `anra_v5/elendril/y1_{protocol,data,diagnostics,training,evaluation}.py`, `tools/elendril_y1_{campaign,worker,export}.py`, `tools/analyze_elendril_y1_results.py`, and [ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb](notebooks/ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb) (`PHASE = "auto"` -> `"all"` single-session `diagnose -> core -> followup` with milestone exports and 2-generation checkpoint pruning) are implemented on baseline `64ed23a433ebb1ce2f620e0db8dcc24f4d8c23be` (with historical Hitchhiker Stage 1 S3 weights from `6859904a02c8083c4a0ab320c9c4a511899f73e4`; historical S20 low-lr weights marked `NOT_AVAILABLE`).
+**Latest prospective protocol (2026-11-16, branch `hitchhiker`):** [V8-Y1 Registry](research/v8-y1/REGISTRY.json) (`3809785b27aa4feca1c0abfc8c81e9ed6dd69e48ff3c4bc0093481a647322cac`), [Checkpoint Intake](research/v8-y1/CHECKPOINT_INTAKE.json), `anra_v5/elendril/y1_{protocol,data,diagnostics,training,evaluation}.py`, `tools/elendril_y1_{campaign,worker,export}.py`, `tools/analyze_elendril_y1_results.py`, and [ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb](notebooks/ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb) (`PHASE = "auto"` -> `"all"` single-session `diagnose -> core -> followup` with milestone exports and 2-generation checkpoint pruning) are implemented on baseline `64ed23a433ebb1ce2f620e0db8dcc24f4d8c23be` (with historical Hitchhiker Stage 1 S3 weights from `6859904a02c8083c4a0ab320c9c4a511899f73e4`; historical S20 low-lr weights marked `NOT_AVAILABLE`).
 
 **Prior owner results (2026-11-15):** [Stage 1 S3 results](Experiment%20Result/Hitchhiker/hh-stage1-4bfe3a806e3b/RESULTS.md) completed all 15 jobs; no intervention passed the screen. C seed 7’s apparent four-hop success follows a last-fact positional shortcut on the tested row-order cohort. Stage 0 and follow-up/scale training remain unexecuted; checkpoint restore and final dual-export completion are not certified from the analysis-only ZIP. Earlier future-tense planning below is historical and superseded where it conflicts with these results.
 
-Updated: 2026-11-16. Branch: `codex/v8-y1`.
+Updated: 2026-11-16. Branch: `hitchhiker`.
 
 ## Purpose and requested workflow
 
