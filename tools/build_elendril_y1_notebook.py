@@ -35,15 +35,13 @@ def build_y1_notebook(source: str) -> dict[str, Any]:
         f"""# AN-RA V8-Y1 -- Kaggle T4x2 Source-Pinned Experiment
 
 - **Exact pinned commit**: `{source}`
-- **Default phase policy (`PHASE = "auto"`)**:
-  - Automatically checks `/kaggle/input/**` for the mounted verified historical archive `ELENDRIL_HITCHHIKER_FULL.zip` (`sha256: {EXPECTED_HH_ARCHIVE_SHA256[:16]}...`) and runs `diagnose` (`D0`/`D1` across all 15 Hitchhiker S3 checkpoints, 90m ceiling).
-  - Fails clearly if `PHASE` is `"auto"` or `"diagnose"` and no verified historical ZIP is mounted (never silently switches to a training run).
-  - Subsequent sessions:
-    - Set `PHASE = "core"` and pass `HANDOFF_ARCHIVE = "/kaggle/input/.../ELENDRIL_V8_Y1_EVIDENCE.zip"` (or leave `HANDOFF_ARCHIVE = None` if reusing prepared inputs cleanly; 360m cumulative ceiling across resumes).
-    - Set `PHASE = "followup"` and pass `HANDOFF_ARCHIVE = "/kaggle/input/.../ELENDRIL_V8_Y1_FULL.zip"` (+ `SELECTION_RECEIPT` if stored separately; 240m cumulative ceiling).
-    - For interrupted recovery within any phase, set `RESUME_ARCHIVE = "/kaggle/input/.../ELENDRIL_V8_Y1_FULL.zip"`.
-- **Output directory**: `/kaggle/working/elendril_y1_<PHASE>`
-- **Exports emitted**:
+- **Default single-run policy (`PHASE = "auto"` -> `"all"`)**:
+  - Simply attach `ELENDRIL_HITCHHIKER_FULL.zip` (`sha256: {EXPECTED_HH_ARCHIVE_SHA256[:16]}...`) in `/kaggle/input/**` and click **Run All**.
+  - Automatically discovers the mounted archive (whether `.zip` or Kaggle auto-unpacked Dataset folder) and executes **all 3 sessions (`diagnose` -> `core` -> `followup`) end-to-end in one uninterrupted run** (`EFFECTIVE_PHASE = "all"`, 660m default budget with intermediate milestone exports after each stage).
+  - Fails clearly if `PHASE` is `"auto"`, `"all"`, or `"diagnose"` and no verified historical archive is mounted.
+  - Optional manual single-stage overrides remain supported (`PHASE = "diagnose"`, `"core"`, `"followup"`, `"finalize"`).
+- **Output directory**: `/kaggle/working/elendril_y1_<EFFECTIVE_PHASE>`
+- **Exports emitted (updated after each completed stage)**:
   - `exports/ELENDRIL_V8_Y1_SUMMARY.zip` (< 5 MiB)
   - `exports/ELENDRIL_V8_Y1_EVIDENCE.zip` (deduplicated prompts + all traces + compressed `.npz` FP32 logits)
   - `exports/ELENDRIL_V8_Y1_FULL.zip` (verified resumable checkpoints when applicable)
@@ -59,14 +57,14 @@ import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 OWNER_ENABLED = True
-PHASE = "auto"  # 'auto' (defaults to 'diagnose' when HH ZIP mounted), 'diagnose', 'core', 'followup', 'finalize'
-MINUTES_BUDGET = None  # None uses frozen phase ceiling: diagnose=90, core=360, followup=240
+PHASE = "auto"  # 'auto' (runs all 3 stages: diagnose -> core -> followup automatically), 'all', 'diagnose', 'core', 'followup', 'finalize'
+MINUTES_BUDGET = None  # None uses default ceiling: all=660 (11h), diagnose=90, core=360, followup=240
 ENABLE_D2 = False      # Optional separately budgeted layer-probe + patching follow-up in diagnose
 
-CHECKPOINT_ARCHIVE = None  # Optional explicit path to mounted ELENDRIL_HITCHHIKER_FULL.zip
-HANDOFF_ARCHIVE = None     # Required for followup (core FULL ZIP); optional compact handoff for core
-RESUME_ARCHIVE = None      # Optional same-phase ELENDRIL_V8_Y1_FULL.zip for interrupted recovery
-SELECTION_RECEIPT = None   # Optional explicit path to selection_receipt.json for followup
+CHECKPOINT_ARCHIVE = None  # Auto-discovered from /kaggle/input/** when None
+HANDOFF_ARCHIVE = None     # Optional explicit handoff archive for standalone core/followup
+RESUME_ARCHIVE = None      # Optional ELENDRIL_V8_Y1_FULL.zip for interrupted recovery
+SELECTION_RECEIPT = None   # Optional explicit path to selection_receipt.json for standalone followup
 
 SOURCE_COMMIT = "{source}"
 REPO_URL = "{REPOSITORY_URL}"
@@ -106,32 +104,20 @@ def _discover_mounted_y1_handoff(for_phase: str) -> Path | None:
         if ipath.parent.name == "analysis" and (ipath.parent.parent / "BUNDLE_MANIFEST.json").is_file():
             try:
                 ident = json.loads(ipath.read_text(encoding="utf-8"))
-                if ident.get("phase") == expected_from:
+                if ident.get("phase") in (expected_from, "all"):
                     return ipath.parent.parent
             except Exception:
                 pass
     return None
 
-assert PHASE in {{"auto", "diagnose", "core", "followup", "finalize"}}, f"Unsupported PHASE: {{PHASE!r}}"
-EFFECTIVE_PHASE = PHASE
-if EFFECTIVE_PHASE == "auto":
-    if CHECKPOINT_ARCHIVE is not None:
-        EFFECTIVE_PHASE = "diagnose"
-    else:
-        found = _discover_mounted_hh_zip()
-        if found is None:
-            raise FileNotFoundError(
-                "PHASE='auto' defaults to 'diagnose' and requires mounted ELENDRIL_HITCHHIKER_FULL.zip "
-                f"(sha256={{EXPECTED_HH_SHA}}) or its auto-unpacked Kaggle Dataset under /kaggle/input/. "
-                "Mount the archive or set PHASE='core' explicitly."
-            )
-        CHECKPOINT_ARCHIVE = str(found)
-        EFFECTIVE_PHASE = "diagnose"
-elif EFFECTIVE_PHASE == "diagnose" and CHECKPOINT_ARCHIVE is None and RESUME_ARCHIVE is None:
+assert PHASE in {{"auto", "all", "diagnose", "core", "followup", "finalize"}}, f"Unsupported PHASE: {{PHASE!r}}"
+EFFECTIVE_PHASE = "all" if PHASE == "auto" else PHASE
+if EFFECTIVE_PHASE in ("all", "diagnose") and CHECKPOINT_ARCHIVE is None and RESUME_ARCHIVE is None:
     found = _discover_mounted_hh_zip()
     if found is None:
         raise FileNotFoundError(
-            "PHASE='diagnose' requires CHECKPOINT_ARCHIVE pointing to verified ELENDRIL_HITCHHIKER_FULL.zip."
+            f"PHASE={{PHASE!r}} requires mounted ELENDRIL_HITCHHIKER_FULL.zip "
+            f"(sha256={{EXPECTED_HH_SHA}}) or its auto-unpacked Kaggle Dataset under /kaggle/input/."
         )
     CHECKPOINT_ARCHIVE = str(found)
 elif EFFECTIVE_PHASE in ("core", "followup") and HANDOFF_ARCHIVE is None and RESUME_ARCHIVE is None:

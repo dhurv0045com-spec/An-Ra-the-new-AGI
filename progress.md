@@ -254,3 +254,9 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Added support for both raw .zip archives and Kaggle auto-unpacked dataset directories across HH intake, Y1 handoff/restore, and notebook auto-discovery; separated raw vs base-only supplemental eval timing in forecast.
 - Verified on CPU: reproduced published S3-C-s7 counts (hop 1..4: 62/0/16/256; orig: 69) from ELENDRIL_HITCHHIKER_FULL.zip and passed tests/test_elendril_y1_{diagnostics,export}.py (3 passed).
 - Pending GPU execution: Kaggle T4x2 diagnose, core, and conditional followup sessions.
+
+### 2026-11-16 | Antigravity | AN-RA V8-Y1 unified single-session Run All (`all`) and disk pruning
+- Added `--phase all` (`PHASE = "auto"` -> `"all"` in ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb) to automatically chain `diagnose` -> `core` -> `followup` in one uninterrupted Kaggle T4x2 execution with milestone exports after each stage.
+- Added 2-generation checkpoint rotation (`trainer.store.prune`) and immediate `.tmp_hh_restore` cleanup in `tools/elendril_y1_worker.py` to prevent `/kaggle/working` disk exhaustion across multi-stage runs.
+- Verified on CPU via `tests/test_elendril_y1_campaign.py` (`--phase all` end-to-end execution, milestone/final 3-bundle export verification, and 2-generation checkpoint pruning).
+- Pending GPU execution: single-click Kaggle T4x2 Run All with `ELENDRIL_HITCHHIKER_FULL.zip` attached.

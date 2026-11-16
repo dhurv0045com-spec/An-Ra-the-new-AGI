@@ -113,3 +113,37 @@ def test_y1_notebook_compiles_and_fails_cleanly_when_auto_archive_missing() -> N
     )
     assert proc.returncode != 0
     assert "ELENDRIL_HITCHHIKER_FULL.zip" in proc.stderr
+
+
+def test_y1_all_phase_single_session_and_checkpoint_pruning(tmp_path: Path) -> None:
+    hh_zip = Path("C:/Users/ankit/Downloads/ELENDRIL_HITCHHIKER_FULL.zip")
+    if not hh_zip.is_file():
+        pytest.skip("ELENDRIL_HITCHHIKER_FULL.zip not present on local machine")
+    src = "64ed23a433ebb1ce2f620e0db8dcc24f4d8c23be"
+    out = tmp_path / "all_e2e"
+    res = run_campaign(
+        _fake_args(
+            out,
+            phase="all",
+            source=src,
+            checkpoint_archive=hh_zip,
+            cpu_canary=True,
+            canary_updates=3,
+        )
+    )
+    assert res["status"] == "COMPLETE"
+    assert res["delivery_status"] == "PASS"
+    assert not (out / ".tmp_hh_restore").exists()
+    assert (out / "analysis" / "d0_d1_summary.json").is_file()
+    assert (out / "analysis" / "gates" / "t1_gate.json").is_file()
+    assert (out / "analysis" / "gates" / "selection_receipt.json").is_file()
+    assert (out / "analysis" / "followup_forecast_receipt.json").is_file()
+    assert (out / "exports" / "ELENDRIL_V8_Y1_SUMMARY.zip").is_file()
+    assert (out / "exports" / "ELENDRIL_V8_Y1_EVIDENCE.zip").is_file()
+    assert (out / "exports" / "ELENDRIL_V8_Y1_FULL.zip").is_file()
+    assert (out / "exports" / "FINAL_STATUS.json").is_file()
+
+    # Verify checkpoint pruning kept at most 2 generations (LATEST + PREVIOUS) per job despite 3 canary updates
+    for job_cp in (out / "checkpoints").iterdir():
+        objs = list((job_cp / "objects").iterdir())
+        assert 1 <= len(objs) <= 2

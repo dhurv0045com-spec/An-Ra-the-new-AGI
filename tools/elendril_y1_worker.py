@@ -9,6 +9,7 @@ import json
 import math
 import os
 from pathlib import Path
+import shutil
 import signal
 import sys
 import tempfile
@@ -285,43 +286,53 @@ def mode_diagnose_historical(args: argparse.Namespace) -> int:
 
     lineages = args.lineages or sorted(HISTORICAL_HH_S3_MANIFESTS)
     extract_root = args.output / ".tmp_hh_restore"
-    for lin in lineages:
-        restored = extract_and_restore_historical_s3(args.checkpoint_archive, lin, extract_root, device=device)
-        backend = restored["backend"]
-        hist_repro = reproduce_historical_hh_counts(
-            args.checkpoint_archive,
-            lin,
-            backend,
-            max_cases_per_cohort=4 if args.cpu_canary else None,
-        )
-        npz_path = args.output / "evidence" / "logits" / f"{lin}.npz"
-        audit = run_d0_d1_model_audit(
-            backend,
-            suite,
-            job_id=lin,
-            checkpoint_sha256=restored["checkpoint_sha256"],
-            logits_npz_path=npz_path,
-            run_supplemental_base=True,
-        )
-        d2_res = run_d2_probe_and_patching(backend, probe_data, enabled=bool(args.enable_d2 and probe_data is not None))
-        run_receipt = {
-            "schema": "anra-v8-y1-run-receipt-v1",
-            "job_id": lin,
-            "phase": "diagnose",
-            "arm": restored["arm"],
-            "seed": restored["seed"],
-            "profile": "S3",
-            "source_commit": args.source,
-            "parent_source_commit": restored["source_commit"],
-            "checkpoint_sha256": restored["checkpoint_sha256"],
-            "global_update": restored["global_update"],
-            "parameters": restored["parameters"],
-            "historical_reproduction": hist_repro,
-            "logits_sidecar": audit["logits_sidecar"],
-            "d2_status": d2_res["status"],
-        }
-        _write_job_artifacts(args.output, job_id=lin, run_receipt=run_receipt, audit_res=audit, d2_res=d2_res)
-        print(f"[diagnose] {lin}: raw_primary={audit['raw_summary']['primary_endpoint']} ap_mass={audit['d1_summary']['mean_p_answer_mass']:.4f}", flush=True)
+    try:
+        for lin in lineages:
+            jdir = args.output / "analysis" / "jobs" / lin
+            npz_path = args.output / "evidence" / "logits" / f"{lin}.npz"
+            if (jdir / "run_receipt.json").is_file() and npz_path.is_file():
+                print(f"[diagnose] {lin}: already completed, skipping", flush=True)
+                continue
+            try:
+                restored = extract_and_restore_historical_s3(args.checkpoint_archive, lin, extract_root, device=device)
+                backend = restored["backend"]
+                hist_repro = reproduce_historical_hh_counts(
+                    args.checkpoint_archive,
+                    lin,
+                    backend,
+                    max_cases_per_cohort=4 if args.cpu_canary else None,
+                )
+                audit = run_d0_d1_model_audit(
+                    backend,
+                    suite,
+                    job_id=lin,
+                    checkpoint_sha256=restored["checkpoint_sha256"],
+                    logits_npz_path=npz_path,
+                    run_supplemental_base=True,
+                )
+                d2_res = run_d2_probe_and_patching(backend, probe_data, enabled=bool(args.enable_d2 and probe_data is not None))
+                run_receipt = {
+                    "schema": "anra-v8-y1-run-receipt-v1",
+                    "job_id": lin,
+                    "phase": "diagnose",
+                    "arm": restored["arm"],
+                    "seed": restored["seed"],
+                    "profile": "S3",
+                    "source_commit": args.source,
+                    "parent_source_commit": restored["source_commit"],
+                    "checkpoint_sha256": restored["checkpoint_sha256"],
+                    "global_update": restored["global_update"],
+                    "parameters": restored["parameters"],
+                    "historical_reproduction": hist_repro,
+                    "logits_sidecar": audit["logits_sidecar"],
+                    "d2_status": d2_res["status"],
+                }
+                _write_job_artifacts(args.output, job_id=lin, run_receipt=run_receipt, audit_res=audit, d2_res=d2_res)
+                print(f"[diagnose] {lin}: raw_primary={audit['raw_summary']['primary_endpoint']} ap_mass={audit['d1_summary']['mean_p_answer_mass']:.4f}", flush=True)
+            finally:
+                shutil.rmtree(extract_root / lin, ignore_errors=True)
+    finally:
+        shutil.rmtree(extract_root, ignore_errors=True)
     return 0
 
 
@@ -429,6 +440,7 @@ def mode_train_job(args: argparse.Namespace) -> int:
         if sig_flag[0] or (args.deadline_epoch > 0 and time.time() >= args.deadline_epoch):
             if trainer.state.global_update > trainer.published_update:
                 trainer.save()
+                trainer.store.prune(keep={trainer.parent} if trainer.parent else set())
             print(f"[worker] {jid} interrupted cleanly at update {trainer.state.global_update}", flush=True)
             return 2
 
@@ -448,15 +460,18 @@ def mode_train_job(args: argparse.Namespace) -> int:
             or u_now in milestones
             or (u_now % TRAIN_HYPERPARAMS["checkpoint_interval_updates"] == 0)
             or (since_save >= TRAIN_HYPERPARAMS["checkpoint_interval_seconds"])
+            or args.cpu_canary
         )
         if need_save and u_now > trainer.published_update:
             trainer.save()
+            trainer.store.prune(keep={trainer.parent} if trainer.parent else set())
             last_save_wall = time.perf_counter()
 
     # Completed training; verify final checkpoint pointer & run evaluation.
     latest_sha = store.latest_sha256()
     if latest_sha is None:
         latest_sha = trainer.save()
+    trainer.store.prune(keep={trainer.parent} if trainer.parent else set())
 
     if job["stage"] == "t0_learnability":
         assert t0_cases is not None
@@ -522,7 +537,8 @@ def mode_eval_checkpoint(args: argparse.Namespace) -> int:
     """Evaluate a verified existing Y1 checkpoint (used for locked T2 confirmation & T3 S3-vs-S20)."""
     device = "cpu" if args.cpu_canary else "cuda:0"
     configure_cpu() if device == "cpu" else configure_device(device)
-    suite_file = args.output / "prepared" / f"{args.split}_suite.json"
+    suite_name = "followup" if args.split in ("followup", "capacity_followup") else args.split
+    suite_file = args.output / "prepared" / f"{suite_name}_suite.json"
     suite = load_y1_suite(json.loads(suite_file.read_bytes()))
     if args.cpu_canary:
         suite = _canary_eval_slice(suite)

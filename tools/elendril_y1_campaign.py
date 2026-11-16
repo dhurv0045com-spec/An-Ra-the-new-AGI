@@ -56,6 +56,15 @@ from tools.elendril_y1_export import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CLI_PHASES = (*PHASES, "all")
+CLI_PHASE_CEILING_MINUTES = {
+    **PHASE_CEILING_MINUTES,
+    "all": int(PHASE_CEILING_MINUTES["diagnose"] + PHASE_CEILING_MINUTES["core"] + PHASE_CEILING_MINUTES["followup"]),
+}
+DEFAULT_PHASE_MINUTES = {
+    **PHASE_CEILING_MINUTES,
+    "all": 660,  # 11.0 hours default on Kaggle (leaves 60m safety buffer below Kaggle 12h session ceiling)
+}
 PROD_STORAGE_BYTES = {
     "prepare": 1 << 30,
     "canary": 512 << 20,
@@ -63,6 +72,7 @@ PROD_STORAGE_BYTES = {
     "core": 16 << 30,
     "followup": 16 << 30,
     "finalize": 2 << 30,
+    "all": 16 << 30,
 }
 
 
@@ -483,7 +493,7 @@ def _run_eval_jobs_parallel(
 def _run_core_phase(args: argparse.Namespace, output: Path, *, source: str, protocol_sha: str, gpus: tuple[Any, ...], prof_receipt: dict[str, Any], deadline_epoch: float) -> dict[str, Any]:
     all_jobs = build_core_jobs(include_t0=True)
     t0_job = all_jobs[0]
-    t1_jobs = all_jobs[1:]
+    t1_jobs = [j for j in all_jobs[1:] if not args.cpu_canary or j["seed"] == 7]
 
     # 1. T0 positive learnability gate (seed 7; allow seed 19 single fallback)
     _, int_t0 = _run_jobs_parallel([t0_job], output=output, source=source, protocol_sha=protocol_sha, gpus=gpus, cpu_canary=args.cpu_canary, canary_updates=args.canary_updates, deadline_epoch=deadline_epoch)
@@ -597,12 +607,147 @@ def _run_followup_phase(args: argparse.Namespace, output: Path, *, source: str, 
     if branch == "capacity_s20":
         comp_arm = sel.get("capacity_comparison_arm", "F11")
         s3_specs = [
-            (f"Y1-t3_s3ref-S3-{arm}-s{j['seed']}", f"Y1-t1_factorial-S3-{arm}-s{j['seed']}", "S3", "capacity_followup")
+            (f"Y1-t3_s3ref-S3-{arm}-s{j['seed']}", f"Y1-t1_factorial-S3-{arm}-s{j['seed']}", "S3", "followup")
             for j in jobs
             for arm in (j["arm"],)
         ]
         _run_eval_jobs_parallel(s3_specs, output=output, source=source, protocol_sha=protocol_sha, gpus=gpus, cpu_canary=args.cpu_canary)
     return {"status": "COMPLETE", "scientific_status": f"T3_{branch.upper()}_EXECUTED", "claim_status": "EXECUTED" if not args.cpu_canary else "IMPLEMENTED"}
+
+
+def _run_all_phases(
+    args: argparse.Namespace,
+    output: Path,
+    *,
+    source: str,
+    protocol_sha: str,
+    is_prod: bool,
+    gpus: tuple[Any, ...],
+    ledger: dict[str, Any],
+    deadline_epoch: float,
+    run_id: str,
+) -> dict[str, Any]:
+    """Execute Session 1 (diagnose) -> Session 2 (core) -> Session 3 (followup) automatically in one run."""
+    stages_executed: list[str] = []
+
+    # 1. Diagnose historical Hitchhiker S3 checkpoints (D0/D1, optional D2)
+    if not (output / "analysis" / "d0_d1_summary.json").is_file():
+        t0_diag = time.time()
+        diag_outcome = _run_diagnose_phase(args, output, source=source, protocol_sha=protocol_sha, gpus=gpus)
+        _update_budget_ledger(output, ledger, phase="diagnose", session_elapsed_s=time.time() - t0_diag)
+        ms_doc = {
+            "schema": "anra-v8-y1-campaign-v1",
+            "run_id": run_id,
+            "phase": "all",
+            "source": source,
+            "protocol_sha256": protocol_sha,
+            "production_protocol": is_prod,
+            "stages_executed": ["diagnose"],
+            **diag_outcome,
+        }
+        _write_summary_markdown(output, ms_doc)
+        finalize_y1_campaign(
+            output,
+            source=source,
+            protocol_sha=protocol_sha,
+            campaign=ms_doc,
+            replay_payload=_replay_phase_evidence(output, "diagnose"),
+            include_full=False,
+        )
+    else:
+        diag_outcome = {"status": "COMPLETE", "scientific_status": "D0_D1_EXECUTED", "claim_status": "OBSERVED"}
+    stages_executed.append("diagnose")
+
+    # 2. Core phase (T0 positive learnability gate -> 12 S3 T1 factorial jobs -> T2 confirmation -> selection receipt)
+    t0_core = time.time()
+    prof = _profile_lanes(output, source=source, protocol_sha=protocol_sha, gpus=gpus, cpu_canary=args.cpu_canary)
+    spent_core = float(ledger.get("cumulative_seconds_by_phase", {}).get("core", 0.0))
+    core_rem_s = max(60.0, PHASE_CEILING_MINUTES["core"] * 60.0 - spent_core)
+    core_deadline = min(deadline_epoch, time.time() + core_rem_s)
+    core_outcome = _run_core_phase(
+        args,
+        output,
+        source=source,
+        protocol_sha=protocol_sha,
+        gpus=gpus,
+        prof_receipt=prof,
+        deadline_epoch=core_deadline,
+    )
+    _update_budget_ledger(output, ledger, phase="core", session_elapsed_s=time.time() - t0_core)
+    stages_executed.append("core")
+
+    if core_outcome["status"] != "COMPLETE" or core_outcome["scientific_status"] == "T0_FAILED_NO_GO":
+        return {
+            **core_outcome,
+            "stages_executed": stages_executed,
+            "diagnose_outcome": diag_outcome,
+            "core_outcome": core_outcome,
+        }
+
+    # Milestone export immediately after core so S3 checkpoints and T1/T2 gates are already durable on disk
+    ms_core_doc = {
+        "schema": "anra-v8-y1-campaign-v1",
+        "run_id": run_id,
+        "phase": "all",
+        "source": source,
+        "protocol_sha256": protocol_sha,
+        "production_protocol": is_prod,
+        "stages_executed": list(stages_executed),
+        "diagnose_outcome": diag_outcome,
+        "core_outcome": core_outcome,
+        **core_outcome,
+    }
+    _write_summary_markdown(output, ms_core_doc)
+    finalize_y1_campaign(
+        output,
+        source=source,
+        protocol_sha=protocol_sha,
+        campaign=ms_core_doc,
+        replay_payload=_replay_phase_evidence(output, "core"),
+        include_full=True,
+    )
+
+    # 3. Follow-up phase (T3 targeted_group_ce or capacity_s20 selected by core selection_receipt.json)
+    sel = json.loads((output / "analysis" / "gates" / "selection_receipt.json").read_text(encoding="utf-8"))
+    fol_jobs = build_followup_jobs(sel["recommended_followup_branch"], comparison_arm=sel.get("capacity_comparison_arm"))
+    if args.cpu_canary:
+        fol_jobs = fol_jobs[:2]
+    spent_fol = float(ledger.get("cumulative_seconds_by_phase", {}).get("followup", 0.0))
+    fol_rem_s = min(max(0.0, deadline_epoch - time.time()), max(60.0, PHASE_CEILING_MINUTES["followup"] * 60.0 - spent_fol))
+    fol_forecast = _forecast_jobs(
+        fol_jobs,
+        prof,
+        workers=1 if args.cpu_canary else len(gpus),
+        eval_cases_per_job=11920 if not args.cpu_canary else 64,
+        remaining_budget_s=fol_rem_s,
+    )
+    _write_derived(output / "analysis" / "followup_forecast_receipt.json", canonical(fol_forecast) + b"\n")
+
+    t0_fol = time.time()
+    fol_deadline = min(deadline_epoch, time.time() + fol_rem_s)
+    fol_outcome = _run_followup_phase(
+        args,
+        output,
+        source=source,
+        protocol_sha=protocol_sha,
+        gpus=gpus,
+        deadline_epoch=fol_deadline,
+    )
+    _update_budget_ledger(output, ledger, phase="followup", session_elapsed_s=time.time() - t0_fol)
+    stages_executed.append("followup")
+    return {
+        "status": fol_outcome["status"],
+        "scientific_status": (
+            f"{core_outcome['scientific_status']}__{fol_outcome['scientific_status']}"
+            if fol_outcome["status"] == "COMPLETE"
+            else "PARTIAL"
+        ),
+        "claim_status": fol_outcome["claim_status"],
+        "stages_executed": stages_executed,
+        "diagnose_outcome": diag_outcome,
+        "core_outcome": core_outcome,
+        "followup_outcome": fol_outcome,
+    }
 
 
 def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
@@ -615,8 +760,8 @@ def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
     # Enforce mutually exclusive / required phase flags before touching CUDA.
     if args.resume_archive is not None and args.handoff_archive is not None:
         raise ValueError("pass either --resume-archive or --handoff-archive, not both")
-    if phase == "diagnose" and args.checkpoint_archive is None and args.resume_archive is None:
-        raise ValueError("diagnose requires --checkpoint-archive ELENDRIL_HITCHHIKER_FULL.zip")
+    if phase in ("diagnose", "all") and args.checkpoint_archive is None and args.resume_archive is None and not (output / "analysis" / "d0_d1_summary.json").is_file():
+        raise ValueError(f"{phase} requires --checkpoint-archive ELENDRIL_HITCHHIKER_FULL.zip")
     if phase == "followup" and args.handoff_archive is None and args.resume_archive is None and not (output / "analysis" / "gates" / "selection_receipt.json").is_file():
         raise ValueError("followup requires --handoff-archive (core FULL ZIP) or pre-staged selection_receipt.json")
 
@@ -635,9 +780,9 @@ def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
         from_phase = "diagnose" if phase == "core" else "core"
         handoff_y1_archive(args.handoff_archive, output, source=source, protocol_sha=proto_sha, from_phase=from_phase, to_phase=phase)
 
-    ceiling_min = float(args.minutes or PHASE_CEILING_MINUTES[phase])
-    if ceiling_min > PHASE_CEILING_MINUTES[phase]:
-        raise ValueError(f"requested minutes {ceiling_min} exceeds frozen ceiling {PHASE_CEILING_MINUTES[phase]} for {phase}")
+    ceiling_min = float(args.minutes if args.minutes is not None else DEFAULT_PHASE_MINUTES[phase])
+    if ceiling_min > CLI_PHASE_CEILING_MINUTES[phase]:
+        raise ValueError(f"requested minutes {ceiling_min} exceeds frozen ceiling {CLI_PHASE_CEILING_MINUTES[phase]} for {phase}")
 
     custody = _prepare_suites(output, compute_heuristics=(phase != "canary" or not args.dry_run))
     if args.dry_run or phase == "prepare":
@@ -680,6 +825,8 @@ def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
             outcome = _run_core_phase(args, output, source=source, protocol_sha=proto_sha, gpus=(), prof_receipt=prof, deadline_epoch=deadline_epoch)
         elif phase == "followup":
             outcome = _run_followup_phase(args, output, source=source, protocol_sha=proto_sha, gpus=(), deadline_epoch=deadline_epoch)
+        elif phase == "all":
+            outcome = _run_all_phases(args, output, source=source, protocol_sha=proto_sha, is_prod=is_prod, gpus=(), ledger=ledger, deadline_epoch=deadline_epoch, run_id=run_id)
         else:
             outcome = {"status": "COMPLETE", "scientific_status": "FINALIZED", "claim_status": "IMPLEMENTED"}
     elif phase == "diagnose":
@@ -693,6 +840,10 @@ def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
         if not args.owner_enabled:
             raise ValueError("GPU training requires --owner-enabled")
         outcome = _run_followup_phase(args, output, source=source, protocol_sha=proto_sha, gpus=gpus, deadline_epoch=deadline_epoch)
+    elif phase == "all":
+        if not args.owner_enabled:
+            raise ValueError("GPU training requires --owner-enabled")
+        outcome = _run_all_phases(args, output, source=source, protocol_sha=proto_sha, is_prod=is_prod, gpus=gpus, ledger=ledger, deadline_epoch=deadline_epoch, run_id=run_id)
     elif phase == "finalize":
         outcome = {"status": "COMPLETE", "scientific_status": "FINALIZED", "claim_status": "EXECUTED"}
     else:
@@ -710,7 +861,7 @@ def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
     }
     _write_summary_markdown(output, campaign_doc)
     replay = _replay_phase_evidence(output, phase)
-    include_full = phase in ("core", "followup", "canary")
+    include_full = phase in ("core", "followup", "canary", "all")
     final_status = finalize_y1_campaign(
         output,
         source=source,
@@ -731,7 +882,7 @@ def run_campaign(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--phase", required=True, choices=PHASES)
+    parser.add_argument("--phase", required=True, choices=CLI_PHASES)
     parser.add_argument("--source", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--minutes", type=float, default=None)

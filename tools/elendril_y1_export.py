@@ -31,6 +31,11 @@ ALLOWED_Y1_HANDOFFS = frozenset({
     ("core", "followup"),
     ("core", "finalize"),
     ("followup", "finalize"),
+    ("diagnose", "all"),
+    ("core", "all"),
+    ("all", "core"),
+    ("all", "followup"),
+    ("all", "finalize"),
 })
 
 
@@ -405,7 +410,8 @@ def restore_y1_archive(
     zp = Path(archive_path)
     info = inspect_y1_archive_identity(zp)
     ident = info["identity"]
-    if ident.get("source") != source or ident.get("protocol_sha256") != protocol_sha or ident.get("phase") != phase:
+    allowed_phases = {"all", "diagnose", "core", "followup"} if phase == "all" else {phase}
+    if ident.get("source") != source or ident.get("protocol_sha256") != protocol_sha or ident.get("phase") not in allowed_phases:
         raise ValueError(
             f"resume archive mismatch: expected ({source}, {protocol_sha}, {phase}), got {ident}"
         )
