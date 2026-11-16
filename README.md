@@ -1,6 +1,15 @@
-# Hitchhiker — Elendril mechanism investigation
+# AN-RA V8-Y1 & Hitchhiker — Elendril mechanism investigation
 
-**Latest owner results (2026-11-15):** [Stage 1 S3 results](Experiment%20Result/Hitchhiker/hh-stage1-4bfe3a806e3b/RESULTS.md) completed all 15 jobs; no intervention passed the screen. C seed 7’s apparent four-hop success follows a last-fact positional shortcut on the tested row-order cohort. Stage 0 and follow-up/scale training remain unexecuted; checkpoint restore and final dual-export completion are not certified from the analysis-only ZIP. Earlier future-tense planning below is historical and superseded where it conflicts with these results.
+**Current prospective protocol (2026-11-16, branch `codex/v8-y1`):** [AN-RA V8-Y1 registry](research/v8-y1/REGISTRY.json) (`protocol_sha256: 3809785b27aa4feca1c0abfc8c81e9ed6dd69e48ff3c4bc0093481a647322cac`) and [Kaggle T4x2 Y1 notebook](notebooks/ELENDRIL_V8_Y1_KAGGLE_T4X2.ipynb) are implemented and CPU-verified; GPU execution (`diagnose` across 15 restored Hitchhiker S3 checkpoints, `core` T0/T1/T2, and conditional `followup` T3) remains pending owner GPU runs. Historical `V7.17` S20-low-lr weights remain `NOT_AVAILABLE` and never block S3 work.
+
+**Prior owner results (2026-11-15):** [Hitchhiker Stage 1 S3 results](Experiment%20Result/Hitchhiker/hh-stage1-4bfe3a806e3b/RESULTS.md) completed all 15 jobs; no intervention passed the screen. C seed 7’s apparent four-hop success follows a last-fact positional shortcut on the tested row-order cohort.
+
+~~~text
+python -m tools.elendril_y1_campaign --phase prepare --source <sha> --output artifacts/elendril/y1 --dry-run
+python -m pytest -q tests/test_elendril_y1_data.py tests/test_elendril_y1_diagnostics.py tests/test_elendril_y1_training.py tests/test_elendril_y1_campaign.py tests/test_elendril_y1_export.py
+python -m tools.elendril_y1_campaign --phase canary --source <sha> --output artifacts/elendril/y1-canary --cpu-canary
+python -m tools.build_elendril_y1_notebook --source <sha>
+~~~
 
 Hitchhiker is an experimental branch for determining which mechanisms improve grounded lookup, variable binding, action selection, and multi-hop generalization. The repository-grounded design and full Hitchhiker experiment + campaign harness (7-factor counterfactual suite & structural holdouts, 4 health probes, Stage 0 260-way decoder audit & evidence sidecars, deterministic Stage 1–3 static/fresh/relabeled streams & trainer, episode-level fail-closed statistical gates, isolated 2-GPU worker & coordinator, dual bundle export/restore + verified selective Stage 2/3 handoff, and source-pinned [Kaggle T4x2 notebook](notebooks/ELENDRIL_HITCHHIKER_KAGGLE_T4X2.ipynb) ready for zero-input `Run All` Stage 1 execution) are implemented and CPU-mechanically verified; Stage 1 S3 has now run; S20 checkpoint mounting/inference and Stage 2–3 training remain pending.
 

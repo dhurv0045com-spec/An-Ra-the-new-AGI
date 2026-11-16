@@ -242,3 +242,9 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Expanded the results handoff and repository entry points for another AI to understand the setup, findings, limits and next discriminating tests.
 - Added reproducible C seed 7 row-order shortcut analysis; checked all 768 observations against the saved evidence without repeating the full replay.
 - Prepared compact curated results and reusable analyzer for the requested hitchhiker publication; original ZIP and checkpoints remain outside Git.
+
+### 2026-11-16 | Antigravity | AN-RA V8-Y1 implementation, tests, and Kaggle notebook
+- Implemented y1_{protocol,data,diagnostics,training,evaluation}.py, research/v8-y1/{REGISTRY,CHECKPOINT_INTAKE}.json, elendril_y1_{campaign,worker,export}.py, analyze_elendril_y1_results.py, and build_elendril_y1_notebook.py on 64ed23a4.
+- Implemented verified 15-checkpoint Hitchhiker S3 D0/D1 intake (S20 marked NOT_AVAILABLE), 11,840-case balanced splits with S3 512-token bound, Group-CE trainer, 2-GPU seed-balanced coordinator, 3-bundle export (SUMMARY <5 MiB), and external FINAL_STATUS.json.
+- Verified on CPU: tests/test_elendril_y1_*.py (11 passed, including real ELENDRIL_HITCHHIKER_FULL.zip verification/S3-C-s7 restore and canary E2E/replay) plus checkpoint/export/cloud tests (89 passed, 1 skipped).
+- Pending GPU execution: Kaggle T4x2 D0/D1 diagnosis of the 15 historical S3 checkpoints, core T0/T1/T2 factorial screening and confirmation, and conditional T3 follow-up.
