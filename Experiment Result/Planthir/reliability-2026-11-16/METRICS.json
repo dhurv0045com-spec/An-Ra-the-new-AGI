@@ -1,0 +1,69 @@
+{
+  "baseline_commit": "de4bce0ce7516a9e7d190a86de749ce64263e745",
+  "date": "2026-11-16",
+  "environment": {
+    "execution_device": "cpu",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "python": "3.11.15",
+    "torch": "2.14.0+cpu"
+  },
+  "implementation_commit": "764583debe71be8f43b683ec9e85d6199437b8e5",
+  "local_log_hashes": {
+    "planthir-final-validation.log": {
+      "custody": "local review worktree; not committed",
+      "sha256": "3f1f2edcf633356463e172e6f8cfb6d2eef8b2aa8f2befbac696e6aa92633245"
+    },
+    "planthir-focused-validation.log": {
+      "custody": "local review worktree; not committed",
+      "sha256": "9af020bf63a1e3bd881b7b49fde4f16e1d96695e66630928f240b961dd5e8cf4"
+    },
+    "planthir-runner-final.log": {
+      "custody": "local review worktree; not committed",
+      "sha256": "f73273c2af513539a07d4989bb367581c5f1ddd68a4c1e6ed7246cbe1b996100"
+    }
+  },
+  "proofs": {
+    "exception_interruption_resume_final_checkpoint_sha": "IDENTICAL_TO_UNINTERRUPTED_TINY_CPU_CONTROL",
+    "failed_export_or_final_verification": "NO_COMPLETE_RUN_RECEIPT",
+    "full_restore_model_lifetime_between_arms": "PASS_WEAK_REFERENCE_REGRESSION",
+    "unmarked_milestone_recovery": "PASS"
+  },
+  "qualification": {
+    "arbitrary_backend_support": "UNSUPPORTED",
+    "causal_root_cause": "NOT_ESTABLISHED",
+    "gpu_owner_qualification": "NOT_RUN",
+    "productivity_savings_percent": null,
+    "real_process_kill_and_power_loss": "NOT_QUALIFIED",
+    "v8_tiny_cpu_mechanics": "PASS"
+  },
+  "reviewer": "Codex with Terra subagents",
+  "schema": "planthir-reliability-review-v1",
+  "validation": {
+    "agent_tools_and_execution": {
+      "passed": 10,
+      "wall_seconds": 2.23
+    },
+    "fault_calibration": {
+      "detected": 6,
+      "healthy_kernel_passed": true,
+      "total": 6
+    },
+    "final_runner": {
+      "passed": 14,
+      "wall_seconds": 32.55
+    },
+    "fixture_audit": "PASS",
+    "focused_integration": {
+      "passed": 71,
+      "wall_seconds": 115.3
+    },
+    "full_suite": {
+      "passed": 472,
+      "skipped": 1,
+      "subtests_passed": 14,
+      "wall_seconds": 315.54
+    },
+    "historical_evidence_verification": "PASS",
+    "remote_ci": "PENDING_AT_RECORD_CREATION"
+  }
+}

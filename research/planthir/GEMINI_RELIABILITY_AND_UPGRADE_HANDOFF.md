@@ -71,6 +71,27 @@ At each step inspect the current worktree, preserve user changes, make the small
 
 ## Execution map: where to make the changes
 
+### Make Planthir a tool that other agents can use reliably
+
+The owner explicitly wants other agents to spend their effort designing the experiment, not rediscovering infrastructure. The review adds read-only `agent-info` and `inspect-run` CLI entry points. Begin with `python -m anra_v5.planthir agent-info` to discover the actual supported interface. These entry points do not constitute a declarative campaign launcher.
+
+Build the next interface around a versioned **data-only experiment specification**, not executable Python supplied by another agent. It should declare the backend, dataset/splits, model, objective, control/treatments, seed pairs, resource budget and required artifacts. Reuse the existing cartridge after validation; do not create a second trainer/export pipeline. Reject unknown fields and unsupported versions. No `eval`, arbitrary dotted-module imports, or shell fragments in experiment JSON.
+
+Add the following composable commands in small commits:
+
+1. `schema`: emit the supported specification schema, examples and capability versions from the same definitions used by validation.
+2. `init`: create a minimal matched control/treatment specification for an explicitly selected supported backend. Refuse overwriting existing files by default. Leave expensive launch disabled; never silently invent the scientific hypothesis or compute budget.
+3. `validate --spec`: run identity, factor, split and resource admission without constructing a trainer or updating weights. Emit structured errors with `code`, `field`, `message` and a concrete suggested correction. Distinguish a valid specification from GPU-qualified readiness.
+4. `run --spec` and `resume --work-root`: require explicit execution intent and reuse the same immutable identity and journal. Resume must not quietly adopt changed configuration. Offer a bounded canary mode whose altered size/budget is labelled as a separate run, never as the registered experiment.
+5. `inspect-run` and `verify-bundle`: retain read-only operation; distinguish recorded status, hash integrity, restore parity, independent replay and scientific conclusion. Each needs its own evidence rather than a single optimistic green label.
+6. `explain-error --code`: provide actionable recovery instructions without suggesting deletion of checkpoints, disabling assertions or resetting identity.
+
+Use JSON on stdout for machine consumption, progress on stderr, documented stable exit codes and bounded output. Return paths/hashes to detailed artifacts rather than embedding huge traces in every response. The final brief should answer: what ran, what failed, what is safe to resume, what evidence is missing, and the next supported command. Add example-driven contract tests so docs, schemas and command output cannot drift unnoticed.
+
+Retire or migrate historical validation launchers explicitly. In this review the historical GPU launcher still has an old hardcoded source identity and savings formatting that predates removal of the fabricated percentage; it must not serve as the current owner launch path. Preserve the historical function for provenance, fail early at unsupported CLI launch, then replace it only after its dataset split, source pin, recipe and receipts have been qualified. Audit the older CPU study entry point similarly before calling it a current qualification harness.
+
+Acceptance is an **agent usability trial**, not a short template line count: give a fresh agent only the current guide and CLI discovery command. Ask it to create one valid experiment, diagnose an intentionally invalid contrast, resume an interrupted fixture, and locate/verify both archives without editing infrastructure. Record interventions needed, errors, time/tokens and correctness. A supported operation should have one obvious path. If the agent must read thousands of implementation lines to use the ordinary path, improve the interface and repeat the bounded trial. This trial is separate from the six-task productivity study below/above and does not establish a 60–80% savings claim by itself.
+
 Use the existing files below as the starting point. Proposed new file names are suggestions; preserve the public interface unless a versioned migration justifies a change.
 
 | Work package | Current implementation to inspect | Deliverable and regression boundary |

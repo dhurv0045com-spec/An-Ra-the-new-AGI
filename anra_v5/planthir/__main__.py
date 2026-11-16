@@ -27,6 +27,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser("agent-info", help="Describe the supported agent interface as JSON.")
+    p_inspect = sub.add_parser("inspect-run", help="Inspect run metadata without modifying it.")
+    p_inspect.add_argument("--work-root", required=True)
+
     sub.add_parser(
         "calibrate",
         help="Run the 6-fault controlled instrument calibration suite on CPU.",
@@ -86,6 +90,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.command in ("agent-info", "inspect-run"):
+        from .agent_tools import InspectionError, agent_info, inspect_run
+        try:
+            report = agent_info() if args.command == "agent-info" else inspect_run(args.work_root)
+        except InspectionError as exc:
+            print(json.dumps({"schema": "anra-planthir-inspection-error-v1", "error": {"file": exc.file, "detail": exc.detail}}, sort_keys=True))
+            return 1
+        print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
+        return 0
     if args.command == "calibrate":
         report = run_fault_injection_suite()
         print(json.dumps(report, indent=2, sort_keys=True, allow_nan=False))
@@ -115,33 +128,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(digest_view, indent=2, sort_keys=True, allow_nan=False))
         return 0
     if args.command == "run-gpu-validation":
-        summary = run_exp_004_live_gpu_cartridge_validation(
-            Path(args.output_dir),
-            device=args.device,
-            total_updates=int(args.updates),
-        )
-        digest_view = {
-            "experiment_id": summary["experiment_id"],
-            "device": summary["device"],
-            "device_name": summary["device_name"],
-            "elapsed_seconds": summary["elapsed_seconds"],
-            "peak_vram_mb": summary["peak_vram_mb"],
-            "all_5_gates_passed": summary["gates"]["all_5_gates_passed"],
-            "result_zip_bytes": summary["bundle_receipt"]["result_zip_bytes"],
-            "checkpoint_full_zip_bytes": summary["bundle_receipt"]["checkpoint_full_zip_bytes"],
-            "token_fuel_reduction_pct": summary["token_fuel_report"]["estimated_token_reduction_pct"],
-            "arms": {
-                k: {
-                    "loss_init": v["loss_init"],
-                    "loss_final": v["loss_final"],
-                    "overall_accuracy": v["process_funnel"]["overall_accuracy"],
-                    "ablation_delta": v["causal_diagnostics"]["surgical_ablation"]["accuracy_delta"],
-                }
-                for k, v in summary["arms"].items()
-            },
-        }
-        print(json.dumps(digest_view, indent=2, sort_keys=True, allow_nan=False))
-        return 0
+        print(json.dumps({"schema": "anra-planthir-cli-error-v1", "error": "legacy_launcher_not_qualified", "detail": "This legacy workflow requires migration. Use agent-info for the current Python runner interface."}, sort_keys=True))
+        return 1
     if args.command == "verify-bundle":
         if args.dir is not None:
             report = verify_result_bundle(

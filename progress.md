@@ -243,3 +243,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Corrected confounder checks, probe separation, calibration/isotropy, unsupported causal claims and fabricated productivity estimates; repaired B0 recipe use and model lifetimes.
 - Validation: 472 passed, 1 skipped, 14 subtests; final runner subset 14 passed; all six injected faults detected; historical evidence verification passed.
 - Added a Gemini execution handoff and enabled planthir CI; owner GPU qualification and general-backend support remain pending.
+
+### 2026-11-16 | Codex | Add agent-facing discovery and run inspection
+- Added machine-readable agent-info and read-only inspect-run with structured errors; stopped the obsolete GPU CLI before execution.
+- Expanded the Gemini handoff with schema/validate/run/resume design, file-level acceptance criteria and a fresh-agent usability trial.
+- Verified 10 agent-interface/execution tests; preserved curated review results and historical records; target GPU qualification remains pending.
