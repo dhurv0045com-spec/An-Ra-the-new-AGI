@@ -1193,6 +1193,7 @@ def _reconstruct_episode_steps(
         op = st.executed_proposal.operation
         tool_responses: list[dict[str, object]] = []
         if op == "QUERY" and query_avail:
+            query_avail = False
             tool_responses = [dict(r) for r in world["hidden"]["query_payload"]]
             if not queried:
                 queried = True
@@ -1202,6 +1203,7 @@ def _reconstruct_episode_steps(
                         seen_facts.add(f)
                         ordered_facts.append(f)
         elif op == "RETRIEVE" and mem_avail:
+            mem_avail = False
             tool_responses = [dict(r) for r in world["hidden"]["memory_payload"]]
             if not retrieved:
                 retrieved = True
@@ -1450,10 +1452,12 @@ def rescore_saved_episode_jsonl(
                 if exec_op == "QUERY":
                     if not q_avail_sim:
                         break
+                    q_avail_sim = False
                     continue
                 if exec_op == "RETRIEVE":
                     if not m_avail_sim:
                         break
+                    m_avail_sim = False
                     continue
                 if exec_op in ("ANSWER", "ABSTAIN"):
                     break

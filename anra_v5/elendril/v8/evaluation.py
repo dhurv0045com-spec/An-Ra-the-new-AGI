@@ -84,6 +84,8 @@ class _EpisodeRolloutState:
         "teacher_matches",
         "terminal_status",
         "is_open",
+        "enforce_tool_consumption",
+        "action_budget",
     )
 
     def __init__(
@@ -93,10 +95,14 @@ class _EpisodeRolloutState:
         mode: str,
         model_identity: str,
         extra_initial_facts: tuple[PublicFact, ...] = (),
+        enforce_tool_consumption: bool = True,
+        action_budget: int = 4,
     ) -> None:
         self.world = world
         self.mode = mode
         self.model_identity = model_identity
+        self.enforce_tool_consumption = bool(enforce_tool_consumption)
+        self.action_budget = int(action_budget)
         initial_facts = tuple(PublicFact(**row) for row in world["initial_facts"]) + tuple(extra_initial_facts)
         self.ordered_facts: list[PublicFact] = list(initial_facts)
         self.seen_facts: set[PublicFact] = set(initial_facts)
@@ -213,34 +219,44 @@ class _EpisodeRolloutState:
             if not self.query_avail:
                 self.terminal_status = "UNAVAILABLE_QUERY"
                 self.is_open = False
-            elif not self.queried:
-                self.queried = True
-                for row in self.world["hidden"]["query_payload"]:
-                    f = PublicFact(**row)
-                    if f not in self.seen_facts:
-                        self.seen_facts.add(f)
-                        self.ordered_facts.append(f)
+            else:
+                if not self.queried:
+                    self.queried = True
+                    for row in self.world["hidden"]["query_payload"]:
+                        f = PublicFact(**row)
+                        if f not in self.seen_facts:
+                            self.seen_facts.add(f)
+                            self.ordered_facts.append(f)
+                if self.enforce_tool_consumption:
+                    self.query_avail = False
         elif op == "RETRIEVE":
             self.executed_actions.append(("RETRIEVE", None))
             self.retrieve_count += 1
             if not self.mem_avail:
                 self.terminal_status = "UNAVAILABLE_RETRIEVE"
                 self.is_open = False
-            elif not self.retrieved:
-                self.retrieved = True
-                for row in self.world["hidden"]["memory_payload"]:
-                    f = PublicFact(**row)
-                    if f not in self.seen_facts:
-                        self.seen_facts.add(f)
-                        self.ordered_facts.append(f)
+            else:
+                if not self.retrieved:
+                    self.retrieved = True
+                    for row in self.world["hidden"]["memory_payload"]:
+                        f = PublicFact(**row)
+                        if f not in self.seen_facts:
+                            self.seen_facts.add(f)
+                            self.ordered_facts.append(f)
+                if self.enforce_tool_consumption:
+                    self.mem_avail = False
         elif op in ("ANSWER", "ABSTAIN"):
             self.executed_actions.append((op, arg))
             self.terminal_status = f"TERMINAL_{op}"
             self.is_open = False
+        else:
+            self.executed_actions.append(("INVALID", None))
+            self.terminal_status = "INVALID_ACTION"
+            self.is_open = False
 
     def finalize(self) -> EpisodeRecord:
         world = self.world
-        outcome = verify_episode_trace(world, self.executed_actions)
+        outcome = verify_episode_trace(world, self.executed_actions, action_budget=self.action_budget)
         terminal_status = self.terminal_status
         if terminal_status not in ("INVALID_ACTION", "UNAVAILABLE_QUERY", "UNAVAILABLE_RETRIEVE"):
             terminal_status = outcome.terminal_status
@@ -287,14 +303,20 @@ def run_episode(
     render_fn: Callable[..., str] = render_public_v8,
     max_actions: int = 4,
     extra_initial_facts: tuple[PublicFact, ...] = (),
+    enforce_tool_consumption: bool = True,
 ) -> EpisodeRecord:
     """Execute one episode with strict actor/verifier truth separation."""
+
+    if type(max_actions) is not int or max_actions < 1:
+        raise ValueError("max_actions must be a positive integer")
 
     state = _EpisodeRolloutState(
         world,
         mode=str(policy.mode),
         model_identity=str(policy.model_identity),
         extra_initial_facts=extra_initial_facts,
+        enforce_tool_consumption=enforce_tool_consumption,
+        action_budget=max_actions,
     )
     for decision in range(max_actions):
         if not state.is_open:
@@ -373,14 +395,14 @@ def evaluate_worlds_by_mode(
             if not open_states:
                 break
 
-            obs_cache: dict[tuple[int, tuple[PublicFact, ...]], tuple[str, PublicInput, str, str | None]] = {}
+            obs_cache: dict[tuple[int, tuple[PublicFact, ...], bool, bool], tuple[str, PublicInput, str, str | None]] = {}
             state_obs: list[tuple[_EpisodeRolloutState, str, PublicInput, str, str | None]] = []
             unique_pubs: list[PublicInput] = []
             pub_to_idx: dict[PublicInput, int] = {}
             modes_per_pub: list[set[str]] = []
 
             for st in open_states:
-                cache_key = (world_obj_to_idx[id(st.world)], tuple(st.ordered_facts))
+                cache_key = (world_obj_to_idx[id(st.world)], tuple(st.ordered_facts), st.query_avail, st.mem_avail)
                 cached = obs_cache.get(cache_key)
                 if cached is None:
                     cached = st.observe(render_fn, decision=decision, max_actions=max_actions)

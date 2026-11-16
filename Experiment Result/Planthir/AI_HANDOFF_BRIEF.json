@@ -1,0 +1,183 @@
+{
+  "all_5_gates_passed": true,
+  "arms": [
+    {
+      "ablation_delta": 0.0,
+      "architecture": "J",
+      "arm": "J",
+      "checkpoint_sha256": "b747c197e596b0ff4c58d1a62287881f8823a427a8d117cc2d1a730f0072764c",
+      "compute_depth_gain": 0.0,
+      "confirmed_causes": [
+        "C-FUNNEL-DROP",
+        "C-POST-TOOL-DISCIPLINE",
+        "C-INCONTEXT-BOTTLENECK",
+        "C-H-J-LEARN"
+      ],
+      "loss_final": 2.517021417617798,
+      "loss_init": 2.8725132942199707,
+      "oracle_delta": 0.0,
+      "ornamental_bypass": false,
+      "overall_acc": 0.0,
+      "params": 92115,
+      "probe_final": 0.190476194024086,
+      "stage1_info": 0.5416666666666666,
+      "stage3_1hop": 0.0,
+      "stage4_mhop": 0.0,
+      "suspected_mechanisms": [
+        "S-SINGLE-HOP-GROUNDING-DEFICIT",
+        "S-READOUT-HEAD-BOTTLENECK",
+        "S-TRAJECTORY-PROBE-LEADS-HEAD"
+      ]
+    },
+    {
+      "ablation_delta": 0.0,
+      "architecture": "F",
+      "arm": "F",
+      "checkpoint_sha256": "1f9eda8f1a3c7efd6be8088ada8a05ca1104e50a463d91437d24dae8ab94b9de",
+      "compute_depth_gain": 0.0,
+      "confirmed_causes": [
+        "C-FUNNEL-DROP",
+        "C-POST-TOOL-DISCIPLINE",
+        "C-INCONTEXT-BOTTLENECK",
+        "C-H-F-LEARN"
+      ],
+      "loss_final": 2.500656247138977,
+      "loss_init": 2.933148741722107,
+      "oracle_delta": 0.0,
+      "ornamental_bypass": false,
+      "overall_acc": 0.0,
+      "params": 92180,
+      "probe_final": 0.095238097012043,
+      "stage1_info": 0.5416666666666666,
+      "stage3_1hop": 0.0,
+      "stage4_mhop": 0.0,
+      "suspected_mechanisms": [
+        "S-SINGLE-HOP-GROUNDING-DEFICIT",
+        "S-REPRESENTATION-COLLAPSE-RISK"
+      ]
+    },
+    {
+      "ablation_delta": 0.0,
+      "architecture": "P",
+      "arm": "P",
+      "checkpoint_sha256": "6e0a23646eede60313f115ee3a10f41fbefe0640abf7f09c474f07827464c71b",
+      "compute_depth_gain": 0.0,
+      "confirmed_causes": [
+        "C-FUNNEL-DROP",
+        "C-POST-TOOL-DISCIPLINE",
+        "C-INCONTEXT-BOTTLENECK",
+        "C-H-P-LEARN"
+      ],
+      "loss_final": 1.860366940498352,
+      "loss_init": 2.8596006631851196,
+      "oracle_delta": 0.0,
+      "ornamental_bypass": false,
+      "overall_acc": 0.0,
+      "params": 94293,
+      "probe_final": 0.0476190485060215,
+      "stage1_info": 0.5,
+      "stage3_1hop": 0.0,
+      "stage4_mhop": 0.0,
+      "suspected_mechanisms": [
+        "S-SINGLE-HOP-GROUNDING-DEFICIT"
+      ]
+    },
+    {
+      "ablation_delta": 0.0,
+      "architecture": "U",
+      "arm": "U",
+      "checkpoint_sha256": "bc7fd77d766d04b04a3353b8a41229fc36f32311ad98a039fc1b07579ec9839b",
+      "compute_depth_gain": 0.0,
+      "confirmed_causes": [
+        "C-FUNNEL-DROP",
+        "C-POST-TOOL-DISCIPLINE",
+        "C-INCONTEXT-BOTTLENECK",
+        "C-H-U-LEARN"
+      ],
+      "loss_final": 2.5091155767440796,
+      "loss_init": 2.932369589805603,
+      "oracle_delta": 0.0,
+      "ornamental_bypass": true,
+      "overall_acc": 0.0,
+      "params": 121300,
+      "probe_final": 0.095238097012043,
+      "stage1_info": 0.5416666666666666,
+      "stage3_1hop": 0.0,
+      "stage4_mhop": 0.0,
+      "suspected_mechanisms": [
+        "S-SINGLE-HOP-GROUNDING-DEFICIT",
+        "S-ORNAMENTAL-MECHANISM-BYPASS",
+        "S-TRAJECTORY-PROBE-LEADS-HEAD"
+      ]
+    }
+  ],
+  "bundle_summary": {
+    "checkpoint_full_zip_bytes": 12624167,
+    "result_zip_bytes": 4255655,
+    "whole_checkpoint_embedded": true
+  },
+  "campaign_id": "EXP-PLANTHIR-004",
+  "device": "cuda:0",
+  "gate_statuses": {
+    "gate1_instrument_integrity": true,
+    "gate2_confounder_firewall": true,
+    "gate3_gradient_and_mechanism_health": true,
+    "gate4_trajectory_and_causal_attribution": true,
+    "gate5_bundle_and_live_parity_self_audit": true
+  },
+  "schema": "anra-planthir-ai-handoff-brief-v1",
+  "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+  "token_fuel_report": {
+    "arms_evaluated": 4,
+    "baseline_from_scratch_tokens_est": 1000000,
+    "cartridge_workflow_tokens_est": 180000,
+    "context_handoff_compression_ratio": 8.66,
+    "estimated_token_reduction_pct": 82.0,
+    "handoff_brief_bytes": 5978,
+    "handoff_brief_tokens_est": 1494,
+    "milestones_tracked": 12,
+    "raw_diagnostic_json_bytes": 48283,
+    "schema": "anra-planthir-token-fuel-report-v1"
+  },
+  "top_recommended_next_experiments": [
+    {
+      "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+      "arm": "J",
+      "cost_tier": "DUAL_T4_HOURS",
+      "discriminates_between": [
+        "capacity_limit",
+        "optimization_schedule"
+      ],
+      "expected_info_gain_per_gpu_hour": 15.0,
+      "rank": 1,
+      "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+      "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+    },
+    {
+      "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+      "arm": "F",
+      "cost_tier": "DUAL_T4_HOURS",
+      "discriminates_between": [
+        "capacity_limit",
+        "optimization_schedule"
+      ],
+      "expected_info_gain_per_gpu_hour": 15.0,
+      "rank": 1,
+      "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+      "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+    },
+    {
+      "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+      "arm": "P",
+      "cost_tier": "DUAL_T4_HOURS",
+      "discriminates_between": [
+        "capacity_limit",
+        "optimization_schedule"
+      ],
+      "expected_info_gain_per_gpu_hour": 15.0,
+      "rank": 1,
+      "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+      "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+    }
+  ]
+}

@@ -278,3 +278,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Wrote a standalone S20 architecture/D2 plan and 42-job design registry, with harder tasks, explicit controls and non-anticipating supervision.
 - Integrated Terra design review; checked job arithmetic, document structure and artifact identity.
 - Design only: no runtime repair, new model implementation, notebook qualification or research training performed.
+
+### 2026-11-17 | Antigravity | Integrate Palantiri/Planthir research infrastructure onto Elendril
+- Copied `anra_v5/palantiri`, `anra_v5/planthir`, `pyproject.toml`, `agent.md`, `purpose.md`, `research/planthir/`, `Experiment Result/Planthir/`, `tools/audit_tree.py`, `docs/TREE_INVENTORY.json`, and `tests/test_planthir_*.py` from `planthir` (`692c9406`), preserving V8-X1 specs, `ELENDRIL_V8_KAGGLE_T4X2.ipynb`, and `Experiment Result/V8/`.
+- Enforced single-use `QUERY`/`RETRIEVE` tool consumption (`enforce_tool_consumption=True`, `action_budget=max_actions`, `obs_cache` availability keying) in `anra_v5/elendril/v8/evaluation.py` and `tools/elendril_v8_worker.py`.
+- Verified on CPU: `65 passed` across Elendril V8, tree/curation, and Planthir/Palantiri test suites (`59` + `6`), `palantiri calibrate` (`6/6`), `tools.verify_elendril_evidence` (exit `0`), and `palantiri doctor`; GPU execution pending.

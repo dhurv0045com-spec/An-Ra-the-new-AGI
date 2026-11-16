@@ -1,0 +1,373 @@
+{
+  "count": 6,
+  "entries": {
+    "EXP-PLANTHIR-002-B0": {
+      "registration": {
+        "architecture_family": "B0",
+        "budget": {
+          "batch_size": 8,
+          "device": "cpu",
+          "max_params": 100000,
+          "updates": 6
+        },
+        "contrasts": [
+          {
+            "contrast_id": "C-B0-VS-J",
+            "control_arm": "J",
+            "expected_mechanism_signature": "stage3/4 accuracy, pointer gate openness, recurrent delta, or probe separability",
+            "factor_name": "architecture",
+            "held_constant": [
+              "base_spec_tiny",
+              "D1_slice",
+              "seed_7",
+              "updates_6"
+            ],
+            "treatment_arm": "B0"
+          }
+        ],
+        "dataset_identity": "7ae17832643dd94d6437a0db15e9dce673d2742598ff6f138dfd7247ef92c832",
+        "dependencies": [],
+        "experiment_id": "EXP-PLANTHIR-002-B0",
+        "hypotheses": [
+          {
+            "expected_signatures": [],
+            "falsifiers": [
+              {
+                "comparator": ">=",
+                "description": "Positive query recall on missing/conflict probes under bounded CPU warmup",
+                "falsifier_id": "F-B0-STAGE1",
+                "metric_name": "stage1_tool_recall_when_needed",
+                "threshold": 0.0
+              },
+              {
+                "comparator": ">=",
+                "description": "Linear probe accuracy matches or exceeds uncalibrated head accuracy",
+                "falsifier_id": "F-B0-NO-OP-VS-PROBE",
+                "metric_name": "probe_final_symbol_accuracy",
+                "threshold": 0.0
+              }
+            ],
+            "hypothesis_id": "H-B0-DIAGNOSTIC",
+            "mechanism_target": "tool_seeking_grounding_composition_and_representation",
+            "statement": "Evaluate bounded B0 diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "parameter_count": 17680,
+        "program": "V8-Planthir-CPU-Validation",
+        "schema": "anra-planthir-registration-v1",
+        "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+      },
+      "registration_sha256": "6eb3f436fd302c7ba0f0912577971f8dc402fe597bd85b1b11ff717ef5d28188",
+      "result_ref": "b597684f8a5a29f113ae9f0d3738cf2a37412ae28f62fc613d1d7653dc063dfa",
+      "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+    },
+    "EXP-PLANTHIR-002-F": {
+      "registration": {
+        "architecture_family": "F",
+        "budget": {
+          "batch_size": 8,
+          "device": "cpu",
+          "max_params": 100000,
+          "updates": 6
+        },
+        "contrasts": [
+          {
+            "contrast_id": "C-F-VS-J",
+            "control_arm": "J",
+            "expected_mechanism_signature": "stage3/4 accuracy, pointer gate openness, recurrent delta, or probe separability",
+            "factor_name": "architecture",
+            "held_constant": [
+              "base_spec_tiny",
+              "D1_slice",
+              "seed_7",
+              "updates_6"
+            ],
+            "treatment_arm": "F"
+          }
+        ],
+        "dataset_identity": "7ae17832643dd94d6437a0db15e9dce673d2742598ff6f138dfd7247ef92c832",
+        "dependencies": [],
+        "experiment_id": "EXP-PLANTHIR-002-F",
+        "hypotheses": [
+          {
+            "expected_signatures": [],
+            "falsifiers": [
+              {
+                "comparator": ">=",
+                "description": "Positive query recall on missing/conflict probes under bounded CPU warmup",
+                "falsifier_id": "F-F-STAGE1",
+                "metric_name": "stage1_tool_recall_when_needed",
+                "threshold": 0.0
+              },
+              {
+                "comparator": ">=",
+                "description": "Linear probe accuracy matches or exceeds uncalibrated head accuracy",
+                "falsifier_id": "F-F-NO-OP-VS-PROBE",
+                "metric_name": "probe_final_symbol_accuracy",
+                "threshold": 0.0
+              }
+            ],
+            "hypothesis_id": "H-F-DIAGNOSTIC",
+            "mechanism_target": "tool_seeking_grounding_composition_and_representation",
+            "statement": "Evaluate bounded F diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "parameter_count": 18340,
+        "program": "V8-Planthir-CPU-Validation",
+        "schema": "anra-planthir-registration-v1",
+        "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+      },
+      "registration_sha256": "9455bb3ef621bb8d0647e22f38c94cadca4c9d35a4b3b2d77f8c1c0da42f05d6",
+      "result_ref": "c0fe57adbeab72d16139135fcfcfdcc0dc89fef92a9c5e2224ed5e57e275168b",
+      "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+    },
+    "EXP-PLANTHIR-002-F-cap": {
+      "registration": {
+        "architecture_family": "F-cap",
+        "budget": {
+          "batch_size": 8,
+          "device": "cpu",
+          "max_params": 100000,
+          "updates": 6
+        },
+        "contrasts": [
+          {
+            "contrast_id": "C-F-cap-VS-J",
+            "control_arm": "J",
+            "expected_mechanism_signature": "stage3/4 accuracy, pointer gate openness, recurrent delta, or probe separability",
+            "factor_name": "architecture",
+            "held_constant": [
+              "base_spec_tiny",
+              "D1_slice",
+              "seed_7",
+              "updates_6"
+            ],
+            "treatment_arm": "F-cap"
+          }
+        ],
+        "dataset_identity": "7ae17832643dd94d6437a0db15e9dce673d2742598ff6f138dfd7247ef92c832",
+        "dependencies": [],
+        "experiment_id": "EXP-PLANTHIR-002-F-cap",
+        "hypotheses": [
+          {
+            "expected_signatures": [],
+            "falsifiers": [
+              {
+                "comparator": ">=",
+                "description": "Positive query recall on missing/conflict probes under bounded CPU warmup",
+                "falsifier_id": "F-F-cap-STAGE1",
+                "metric_name": "stage1_tool_recall_when_needed",
+                "threshold": 0.0
+              },
+              {
+                "comparator": ">=",
+                "description": "Linear probe accuracy matches or exceeds uncalibrated head accuracy",
+                "falsifier_id": "F-F-cap-NO-OP-VS-PROBE",
+                "metric_name": "probe_final_symbol_accuracy",
+                "threshold": 0.0
+              }
+            ],
+            "hypothesis_id": "H-F-cap-DIAGNOSTIC",
+            "mechanism_target": "tool_seeking_grounding_composition_and_representation",
+            "statement": "Evaluate bounded F-cap diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "parameter_count": 19412,
+        "program": "V8-Planthir-CPU-Validation",
+        "schema": "anra-planthir-registration-v1",
+        "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+      },
+      "registration_sha256": "38a28273189c3100f5dbea65b31ecfd6bff9554cc3b012272d20ab8317ef611c",
+      "result_ref": "62395ab0602cc71ea81256918d1a863f24467afac8ce7d919be1ae52e7264687",
+      "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+    },
+    "EXP-PLANTHIR-002-J": {
+      "registration": {
+        "architecture_family": "J",
+        "budget": {
+          "batch_size": 8,
+          "device": "cpu",
+          "max_params": 100000,
+          "updates": 6
+        },
+        "contrasts": [
+          {
+            "contrast_id": "C-J-VS-J",
+            "control_arm": "J",
+            "expected_mechanism_signature": "stage3/4 accuracy, pointer gate openness, recurrent delta, or probe separability",
+            "factor_name": "architecture",
+            "held_constant": [
+              "base_spec_tiny",
+              "D1_slice",
+              "seed_7",
+              "updates_6"
+            ],
+            "treatment_arm": "J"
+          }
+        ],
+        "dataset_identity": "7ae17832643dd94d6437a0db15e9dce673d2742598ff6f138dfd7247ef92c832",
+        "dependencies": [],
+        "experiment_id": "EXP-PLANTHIR-002-J",
+        "hypotheses": [
+          {
+            "expected_signatures": [],
+            "falsifiers": [
+              {
+                "comparator": ">=",
+                "description": "Positive query recall on missing/conflict probes under bounded CPU warmup",
+                "falsifier_id": "F-J-STAGE1",
+                "metric_name": "stage1_tool_recall_when_needed",
+                "threshold": 0.0
+              },
+              {
+                "comparator": ">=",
+                "description": "Linear probe accuracy matches or exceeds uncalibrated head accuracy",
+                "falsifier_id": "F-J-NO-OP-VS-PROBE",
+                "metric_name": "probe_final_symbol_accuracy",
+                "threshold": 0.0
+              }
+            ],
+            "hypothesis_id": "H-J-DIAGNOSTIC",
+            "mechanism_target": "tool_seeking_grounding_composition_and_representation",
+            "statement": "Evaluate bounded J diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "parameter_count": 18307,
+        "program": "V8-Planthir-CPU-Validation",
+        "schema": "anra-planthir-registration-v1",
+        "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+      },
+      "registration_sha256": "df2280a2c42e236f33fa91357ebd341f85504558875b4896e2471ed117e99c1f",
+      "result_ref": "d1e642a177cfc88e825009477962e7072eb6f800289cad961af36ffa13a1c100",
+      "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+    },
+    "EXP-PLANTHIR-002-P": {
+      "registration": {
+        "architecture_family": "P",
+        "budget": {
+          "batch_size": 8,
+          "device": "cpu",
+          "max_params": 100000,
+          "updates": 6
+        },
+        "contrasts": [
+          {
+            "contrast_id": "C-P-VS-J",
+            "control_arm": "J",
+            "expected_mechanism_signature": "stage3/4 accuracy, pointer gate openness, recurrent delta, or probe separability",
+            "factor_name": "architecture",
+            "held_constant": [
+              "base_spec_tiny",
+              "D1_slice",
+              "seed_7",
+              "updates_6"
+            ],
+            "treatment_arm": "P"
+          }
+        ],
+        "dataset_identity": "7ae17832643dd94d6437a0db15e9dce673d2742598ff6f138dfd7247ef92c832",
+        "dependencies": [],
+        "experiment_id": "EXP-PLANTHIR-002-P",
+        "hypotheses": [
+          {
+            "expected_signatures": [],
+            "falsifiers": [
+              {
+                "comparator": ">=",
+                "description": "Positive query recall on missing/conflict probes under bounded CPU warmup",
+                "falsifier_id": "F-P-STAGE1",
+                "metric_name": "stage1_tool_recall_when_needed",
+                "threshold": 0.0
+              },
+              {
+                "comparator": ">=",
+                "description": "Linear probe accuracy matches or exceeds uncalibrated head accuracy",
+                "falsifier_id": "F-P-NO-OP-VS-PROBE",
+                "metric_name": "probe_final_symbol_accuracy",
+                "threshold": 0.0
+              }
+            ],
+            "hypothesis_id": "H-P-DIAGNOSTIC",
+            "mechanism_target": "tool_seeking_grounding_composition_and_representation",
+            "statement": "Evaluate bounded P diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "parameter_count": 19397,
+        "program": "V8-Planthir-CPU-Validation",
+        "schema": "anra-planthir-registration-v1",
+        "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+      },
+      "registration_sha256": "44ceea2b7a59939561320c97eaf938620c8b169c06bb35b43e1eda6e777b0b9c",
+      "result_ref": "24f663fc4cc28eb03934c15950d97fbfdf8164bf6926278797292fe2f082b117",
+      "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+    },
+    "EXP-PLANTHIR-002-U": {
+      "registration": {
+        "architecture_family": "U",
+        "budget": {
+          "batch_size": 8,
+          "device": "cpu",
+          "max_params": 100000,
+          "updates": 6
+        },
+        "contrasts": [
+          {
+            "contrast_id": "C-U-VS-J",
+            "control_arm": "J",
+            "expected_mechanism_signature": "stage3/4 accuracy, pointer gate openness, recurrent delta, or probe separability",
+            "factor_name": "architecture",
+            "held_constant": [
+              "base_spec_tiny",
+              "D1_slice",
+              "seed_7",
+              "updates_6"
+            ],
+            "treatment_arm": "U"
+          }
+        ],
+        "dataset_identity": "7ae17832643dd94d6437a0db15e9dce673d2742598ff6f138dfd7247ef92c832",
+        "dependencies": [],
+        "experiment_id": "EXP-PLANTHIR-002-U",
+        "hypotheses": [
+          {
+            "expected_signatures": [],
+            "falsifiers": [
+              {
+                "comparator": ">=",
+                "description": "Positive query recall on missing/conflict probes under bounded CPU warmup",
+                "falsifier_id": "F-U-STAGE1",
+                "metric_name": "stage1_tool_recall_when_needed",
+                "threshold": 0.0
+              },
+              {
+                "comparator": ">=",
+                "description": "Linear probe accuracy matches or exceeds uncalibrated head accuracy",
+                "falsifier_id": "F-U-NO-OP-VS-PROBE",
+                "metric_name": "probe_final_symbol_accuracy",
+                "threshold": 0.0
+              }
+            ],
+            "hypothesis_id": "H-U-DIAGNOSTIC",
+            "mechanism_target": "tool_seeking_grounding_composition_and_representation",
+            "statement": "Evaluate bounded U diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "parameter_count": 26756,
+        "program": "V8-Planthir-CPU-Validation",
+        "schema": "anra-planthir-registration-v1",
+        "source_commit": "21f57160343a54053278360e056b3ba4347f7c03",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+      },
+      "registration_sha256": "4231c62588238f5ec4720063a9746094381f7ee7ffbc90d079445341e9d92614",
+      "result_ref": "6a5631e87d1ae772e0be81337d6aee8651ba7c106c716d566c05befebd605119",
+      "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED"
+    }
+  },
+  "registry_sha256": "28c049692215e3988cdb868b7359a09d06bce0d5c112aab1178d3820db532fd6",
+  "schema": "anra-planthir-registry-v1"
+}
