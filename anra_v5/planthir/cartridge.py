@@ -135,7 +135,7 @@ def audit_experimental_design(
     c_backend = get_backend(control.backend_id)
     c_factor_cfg = c_backend.canonical_factor_config(control)
     model_factors = set(c_factor_cfg.keys()) - {"architecture", "schema", "total_parameters", "base_spec"}
-    configurable = set(asdict(control.recipe)) | model_factors | {"architecture", "dataset_identity", "order_seed", "model_size"}
+    configurable = set(asdict(control.recipe)) | model_factors | {"architecture", "dataset_identity", "order_seed", "model_size", "policy_mode"}
     for arm in treatments:
         codes = []
         if arm.backend_id != control.backend_id:
@@ -149,10 +149,11 @@ def audit_experimental_design(
         checks = {}
         c_recipe, t_recipe = asdict(control.recipe), asdict(arm.recipe)
         names = {"seed": "SEED", "total_updates": "UPDATE_BUDGET", "batch_size": "BATCH_SIZE", "lr": "LR", "schedule": "SCHEDULE"}
+        objective_companion_keys = {"eq_weight", "cf_weight", "cf_margin", "action_weight"}
         for key in sorted(set(c_recipe) | set(t_recipe)):
             equal = c_recipe.get(key) == t_recipe.get(key)
             checks[key] = equal
-            if not equal and varied != key:
+            if not equal and varied != key and not (varied == "objective" and key in objective_companion_keys):
                 codes.append(names.get(key, key.upper()) + "_MISMATCH")
         for key, label in (("dataset_identity", "DATASET"), ("order_seed", "ORDER_SEED"), ("policy_mode", "POLICY_MODE")):
             equal = getattr(control, key) == getattr(arm, key)
@@ -166,18 +167,21 @@ def audit_experimental_design(
         ts = t_backend.canonical_model_spec(t_spec)
         cm = c_factor_cfg
         tm = t_backend.canonical_factor_config(arm)
+        derived_cfg_keys = {"total_parameters", "added_parameters", "base_spec_sha256"}
         if varied in model_factors:
-            if any(cm.get(k) != tm.get(k) for k in set(cm) | set(tm) if k != varied):
+            if any(cm.get(k) != tm.get(k) for k in (set(cm) | set(tm)) - derived_cfg_keys if k != varied):
                 codes.append("MODEL_SPEC_MISMATCH")
         elif cs != ts and varied not in {"architecture", "model_size"}:
             codes.append("MODEL_SPEC_MISMATCH")
-        if varied == "model_size" and any(cm.get(k) != tm.get(k) for k in set(cm) | set(tm) if k != "base_spec"):
+        if varied == "model_size" and any(cm.get(k) != tm.get(k) for k in (set(cm) | set(tm)) - derived_cfg_keys if k != "base_spec"):
             codes.append("MODEL_SPEC_MISMATCH")
         for fixed in ("max_sequence_length", "vocabulary_size", "vocab_size"):
             if fixed in cm and fixed in tm and cm[fixed] != tm[fixed] and varied != fixed:
                 label = "VOCABULARY_SIZE" if fixed == "vocab_size" else fixed.upper()
                 codes.append(label + "_MISMATCH")
         if "base_spec" in cs and "base_spec" in ts and cs["base_spec"] != ts["base_spec"] and varied != "model_size":
+            codes.append("BACKBONE_MISMATCH")
+        elif any(k in cs and k in ts and cs[k] != ts[k] and varied not in ("model_size", "architecture", k) for k in ("hidden_dim", "num_layers", "num_heads")):
             codes.append("BACKBONE_MISMATCH")
         if control.trainer_factory is not arm.trainer_factory:
             codes.append("TRAINER_IMPLEMENTATION_MISMATCH")

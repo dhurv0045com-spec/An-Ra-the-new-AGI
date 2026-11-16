@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import MISSING, asdict, fields, replace
+import inspect
 import json
 import math
 from pathlib import Path
 import re
 import subprocess
+import sys
 from typing import Any, Mapping
+
+import torch
 
 from anra_v5.elendril.foundation_training import Recipe
 from anra_v5.elendril.v6_registry import MODEL_PROFILES
@@ -39,7 +43,7 @@ from .design import (
     validate_cohort_and_split_transitivity,
 )
 from .evidence import DEFAULT_RESULT_ZIP_MAX_BYTES
-from .resources import ResourceQuota
+from .resources import ResourceQuota, measure_free_disk_bytes, measure_process_memory_bytes
 
 SPEC_SCHEMA_VERSION = "anra-planthir-spec-v1"
 LEGACY_GPU_ERROR = "legacy_launcher_not_qualified"
@@ -80,7 +84,22 @@ _ARM_KEYS = {
     "policy_mode",
     "order_seed",
     "contrasts",
+    "hypotheses",
     "custom_factors",
+}
+_HYPOTHESIS_KEYS = {
+    "hypothesis_id",
+    "statement",
+    "mechanism_target",
+    "falsifiers",
+    "expected_signatures",
+}
+_FALSIFIER_KEYS = {
+    "falsifier_id",
+    "description",
+    "metric_name",
+    "comparator",
+    "threshold",
 }
 _MODEL_KEYS = {
     "width",
@@ -95,6 +114,10 @@ _MODEL_KEYS = {
     "context_length",
     "max_sequence_length",
     "pointer_dim",
+    "copy_enabled",
+    "recurrent_steps",
+    "recurrent_dim",
+    "bottleneck_width",
     "num_slots",
     "slot_dim",
     "slot_edge_hidden",
@@ -234,6 +257,60 @@ def _check_closed_keys(mapping: Any, allowed: set[str], path: str, errors: list[
     return True
 
 
+def _parse_falsifier(f_raw: Any, path: str, errors: list[dict[str, Any]]) -> FalsifierSpec | None:
+    if not _check_closed_keys(f_raw, _FALSIFIER_KEYS, path, errors):
+        return None
+    try:
+        comp = str(f_raw["comparator"])
+        if comp not in (">=", ">", "<=", "<"):
+            raise ValueError(f"unsupported comparator: {comp!r}")
+        return FalsifierSpec(
+            falsifier_id=str(f_raw["falsifier_id"]),
+            description=str(f_raw["description"]),
+            metric_name=str(f_raw["metric_name"]),
+            comparator=comp,
+            threshold=float(f_raw["threshold"]),
+        )
+    except Exception as exc:
+        errors.append({"code": "INVALID_FALSIFIER", "field": path, "detail": str(exc)})
+        return None
+
+
+def _parse_hypotheses(raw_list: Any, base_path: str, errors: list[dict[str, Any]]) -> tuple[HypothesisSpec, ...]:
+    if raw_list is None:
+        return ()
+    if not isinstance(raw_list, list):
+        errors.append({"code": "INVALID_HYPOTHESES", "field": base_path, "detail": "hypotheses must be a list"})
+        return ()
+    out: list[HypothesisSpec] = []
+    for idx, h_raw in enumerate(raw_list):
+        h_path = f"{base_path}[{idx}]"
+        if not _check_closed_keys(h_raw, _HYPOTHESIS_KEYS, h_path, errors):
+            continue
+        raw_f = h_raw.get("falsifiers", [])
+        if not isinstance(raw_f, list):
+            errors.append({"code": "INVALID_FALSIFIERS", "field": f"{h_path}.falsifiers", "detail": "must be a list"})
+            continue
+        f_objs: list[FalsifierSpec] = []
+        for f_idx, f_item in enumerate(raw_f):
+            parsed = _parse_falsifier(f_item, f"{h_path}.falsifiers[{f_idx}]", errors)
+            if parsed is not None:
+                f_objs.append(parsed)
+        try:
+            out.append(
+                HypothesisSpec(
+                    hypothesis_id=str(h_raw["hypothesis_id"]),
+                    statement=str(h_raw["statement"]),
+                    mechanism_target=str(h_raw["mechanism_target"]),
+                    falsifiers=tuple(f_objs),
+                    expected_signatures=tuple(str(x) for x in h_raw.get("expected_signatures", [])),
+                )
+            )
+        except Exception as exc:
+            errors.append({"code": "INVALID_HYPOTHESIS", "field": h_path, "detail": str(exc)})
+    return tuple(out)
+
+
 def _build_arm_components(
     arm_doc: Mapping[str, Any],
     *,
@@ -281,6 +358,8 @@ def _build_arm_components(
         except Exception as exc:
             errors.append({"code": "INVALID_CONTRAST", "field": f"{arm_path}.contrasts[{idx}]", "detail": str(exc)})
 
+    hypotheses_tuple = _parse_hypotheses(arm_doc.get("hypotheses"), f"{arm_path}.hypotheses", errors)
+
     custom_factors = arm_doc.get("custom_factors")
     if custom_factors is not None and not isinstance(custom_factors, Mapping):
         errors.append({"code": "INVALID_CUSTOM_FACTORS", "field": f"{arm_path}.custom_factors", "detail": "must be an object"})
@@ -299,6 +378,7 @@ def _build_arm_components(
             hdim = int(m_doc.get("head_dimension", max(1, width // max(qheads, 1))))
             ffn = int(m_doc.get("ffn_width", width * 2))
             ctx = int(m_doc.get("context_length", m_doc.get("max_sequence_length", 512)))
+            max_seq = min(ctx, int(m_doc.get("max_sequence_length", ctx)))
             base = replace(
                 MODEL_PROFILES["S20"],
                 width=width,
@@ -309,7 +389,15 @@ def _build_arm_components(
                 ffn_width=ffn,
                 context_length=ctx,
             )
-            v8_spec = build_v8_model_spec(arch, base_spec=base)
+            v8_spec = build_v8_model_spec(
+                arch,
+                base_spec=base,
+                pointer_dim=int(m_doc.get("pointer_dim", 16)),
+                copy_enabled=bool(m_doc.get("copy_enabled", True)),
+                recurrent_steps=int(m_doc.get("recurrent_steps", 3)),
+                recurrent_dim=int(m_doc.get("recurrent_dim", 64)),
+                max_sequence_length=max_seq,
+            )
             recipe = Recipe(
                 seed=int(r_doc.get("seed", 7)),
                 total_updates=int(r_doc.get("total_updates", 2)),
@@ -334,6 +422,7 @@ def _build_arm_components(
                 milestone_updates=milestones,
                 policy_mode=policy_mode,
                 order_seed=order_seed,
+                hypotheses=hypotheses_tuple,
                 contrasts=tuple(contrasts_list),
                 backend_id="v8",
                 model_spec=v8_spec,
@@ -381,6 +470,7 @@ def _build_arm_components(
                 milestone_updates=milestones,
                 policy_mode=policy_mode,
                 order_seed=order_seed,
+                hypotheses=hypotheses_tuple,
                 contrasts=tuple(contrasts_list),
                 backend_id="x1_rd2",
                 model_spec=x1_spec,
@@ -425,11 +515,14 @@ def planthir_spec_schema() -> dict[str, Any]:
             "model": sorted(_MODEL_KEYS),
             "recipe": sorted(_RECIPE_KEYS),
             "contrast": sorted(_CONTRAST_KEYS),
+            "hypothesis": sorted(_HYPOTHESIS_KEYS),
+            "falsifier": sorted(_FALSIFIER_KEYS),
             "typed_factor": sorted(_TYPED_FACTOR_KEYS),
             "typed_contrast": sorted(_TYPED_CONTRAST_KEYS),
             "execution": sorted(_EXECUTION_KEYS),
         },
         "cli_subcommands": [
+            "doctor",
             "schema",
             "init",
             "validate",
@@ -496,6 +589,22 @@ def init_spec_template(
                             "expected_mechanism_signature": "learning-rate-sensitivity",
                         }
                     ],
+                    "hypotheses": [
+                        {
+                            "hypothesis_id": "H_V8_LR",
+                            "statement": "Doubling lr from 1e-4 to 2e-4 avoids gradient collapse and preserves non-negative Stage 1 recall.",
+                            "mechanism_target": "learning-rate-sensitivity",
+                            "falsifiers": [
+                                {
+                                    "falsifier_id": "F_V8_LR_STAGE1",
+                                    "description": "Stage 1 info-seeking recall stays non-negative",
+                                    "metric_name": "stage1_info_seeking",
+                                    "comparator": ">=",
+                                    "threshold": 0.0,
+                                }
+                            ],
+                        }
+                    ],
                 }
             ],
             "factors": [{"factor_name": "lr", "factor_type": "lr", "control_value": 1e-4, "levels": [1e-4, 2e-4]}],
@@ -558,6 +667,22 @@ def init_spec_template(
                             "expected_mechanism_signature": "x1_relational_slot_readout",
                         }
                     ],
+                    "hypotheses": [
+                        {
+                            "hypothesis_id": "H_X1_SLOTS",
+                            "statement": "Relational slot readout in X1-R actively participates in pointer predictions.",
+                            "mechanism_target": "x1_relational_slot_readout",
+                            "falsifiers": [
+                                {
+                                    "falsifier_id": "F_X1_ABLT",
+                                    "description": "Ablating r_to_ptr changes logits cleanly or produces finite output",
+                                    "metric_name": "overall_accuracy",
+                                    "comparator": ">=",
+                                    "threshold": 0.0,
+                                }
+                            ],
+                        }
+                    ],
                 }
             ],
             "factors": [{"factor_name": "architecture", "factor_type": "architecture", "control_value": "X1-P", "levels": ["X1-P", "X1-R"]}],
@@ -613,6 +738,17 @@ def _validate_and_compile(
         if not isinstance(v, str) or not v.strip():
             errors.append({"code": "MISSING_FIELD", "field": fn, "detail": f"{fn} must be a non-empty string"})
 
+    raw_commit = str(doc.get("source_commit", "")).strip()
+    resolved_commit = _repo_head_commit() if raw_commit == "HEAD" else raw_commit
+    if raw_commit and not re.fullmatch(r"[0-9a-f]{40}", resolved_commit):
+        errors.append(
+            {
+                "code": "INVALID_SOURCE_COMMIT",
+                "field": "source_commit",
+                "detail": f"source_commit must be 'HEAD' or a 40-char lowercase hex git SHA, got {raw_commit!r}",
+            }
+        )
+
     if errors:
         return {"schema": "anra-planthir-spec-validation-v1", "valid": False, "status": "INVALID_SPEC", "backend_id": backend_id, "errors": errors}, None, {}
 
@@ -632,7 +768,8 @@ def _validate_and_compile(
     probe_count = int(ds_doc.get("probe_world_count", 4))
     d1_quota = int(ds_doc.get("d1_worlds_per_family", 16))
     num_groups = int(ds_doc.get("num_groups", 4))
-    cpu_limit = int(ds_doc.get("sample_limit_for_cpu", 8))
+    raw_cpu_limit = ds_doc.get("sample_limit_for_cpu", 8 if cpu_canary else None)
+    cpu_limit = None if raw_cpu_limit is None else int(raw_cpu_limit)
 
     if backend_id == "v8":
         train_data = prepare_v8_training_data(
@@ -666,6 +803,32 @@ def _validate_and_compile(
         )
         if arm_obj is not None:
             trt_arms.append(arm_obj)
+
+    root_hyps = _parse_hypotheses(doc.get("hypotheses"), "hypotheses", errors)
+    root_falsifiers_raw = doc.get("falsifiers")
+    if root_falsifiers_raw is not None:
+        if not isinstance(root_falsifiers_raw, list):
+            errors.append({"code": "INVALID_FALSIFIERS", "field": "falsifiers", "detail": "falsifiers must be a list"})
+        else:
+            rf_list: list[FalsifierSpec] = []
+            for rf_idx, rf_item in enumerate(root_falsifiers_raw):
+                parsed = _parse_falsifier(rf_item, f"falsifiers[{rf_idx}]", errors)
+                if parsed is not None:
+                    rf_list.append(parsed)
+            if rf_list and not root_hyps:
+                root_hyps = (
+                    HypothesisSpec(
+                        hypothesis_id="H_SPEC_ROOT",
+                        statement=f"Root falsifiers for {doc['campaign_id']}",
+                        mechanism_target="declared_intervention",
+                        falsifiers=tuple(rf_list),
+                    ),
+                )
+    if root_hyps:
+        trt_arms = [
+            replace(a, hypotheses=a.hypotheses if a.hypotheses else root_hyps)
+            for a in trt_arms
+        ]
 
     if ctrl_arm is None or errors:
         return {"schema": "anra-planthir-spec-validation-v1", "valid": False, "status": "INVALID_SPEC", "backend_id": backend_id, "errors": errors}, None, {}
@@ -808,7 +971,7 @@ def _validate_and_compile(
         cartridge = ExperimentCartridge(
             campaign_id=str(doc["campaign_id"]),
             program=str(doc["program"]),
-            source_commit=str(doc["source_commit"]),
+            source_commit=resolved_commit,
             kernel=kernel,
             control_arm=ctrl_arm,
             treatment_arms=tuple(trt_arms),
@@ -908,6 +1071,14 @@ _ERROR_CATALOG: dict[str, dict[str, Any]] = {
         "meaning": "Exported `result.zip` or `checkpoint_full.zip` bytes no longer match its `.sha256` custody sidecar.",
         "remediation": ["Treat the bundle directory as corrupted/tampered and re-export or restore from an uncorrupted generation under `generations/`."],
     },
+    "INVALID_SOURCE_COMMIT": {
+        "meaning": "Spec `source_commit` is neither 'HEAD' nor a 40-character lowercase hex Git SHA.",
+        "remediation": ["Set `source_commit` to `HEAD` or exact output of `git rev-parse HEAD`."],
+    },
+    "DIRTY_OR_MISMATCHED_CUDA_SOURCE_COMMIT": {
+        "meaning": "Running with `device='cuda'` requires a clean git tracked working tree matching `source_commit`.",
+        "remediation": ["Commit tracked edits (`git commit ...`), set `source_commit` to `HEAD`, and retry CUDA run."],
+    },
 }
 
 
@@ -932,6 +1103,128 @@ def explain_error_code(code: str) -> dict[str, Any]:
     }
 
 
+def planthir_doctor() -> dict[str, Any]:
+    """Run fast, read-only concrete binding & installation integrity self-check returning `green_signal`."""
+
+    from anra_v5.elendril.v8.evaluation import run_episode as v8_run_episode
+
+    checks: dict[str, Any] = {}
+    all_ok = True
+
+    # 1. Registered backends & contract binding
+    try:
+        backends = list_backends()
+        be_details = {}
+        for bid in ("v8", "x1_rd2"):
+            be = get_backend(bid)
+            caps = be.capabilities()
+            be_details[bid] = {
+                "backend_version": be.backend_version,
+                "contract_version": be.contract_version,
+                "architectures": list(caps.supported_architectures),
+                "objectives": list(caps.supported_objectives),
+            }
+        b_ok = set(backends) >= {"v8", "x1_rd2"}
+        checks["backends_and_contracts"] = {"passed": b_ok, "registered": backends, "details": be_details}
+        if not b_ok:
+            all_ok = False
+    except Exception as exc:
+        all_ok = False
+        checks["backends_and_contracts"] = {"passed": False, "error": str(exc)}
+
+    # 2. V8 consumed-tool firewall default verification
+    try:
+        k = V8EnvironmentKernel()
+        sig = inspect.signature(v8_run_episode)
+        eval_default = sig.parameters["enforce_tool_consumption"].default
+        fw_ok = bool(k.enforce_tool_consumption is True and eval_default is True)
+        checks["v8_tool_consumption_firewall"] = {
+            "passed": fw_ok,
+            "kernel_enforce_tool_consumption": bool(k.enforce_tool_consumption),
+            "v8_evaluator_default": bool(eval_default),
+        }
+        if not fw_ok:
+            all_ok = False
+    except Exception as exc:
+        all_ok = False
+        checks["v8_tool_consumption_firewall"] = {"passed": False, "error": str(exc)}
+
+    # 3. Declarative starter templates compile & validate cleanly
+    tpl_status: dict[str, Any] = {}
+    tpl_ok = True
+    for bid in ("v8", "x1_rd2"):
+        try:
+            doc = init_spec_template(backend_id=bid, canary=True)
+            val = validate_spec_document(doc, canary_override=True)
+            tpl_status[bid] = {"valid": bool(val["valid"]), "errors": val["errors"]}
+            if not val["valid"]:
+                tpl_ok = False
+        except Exception as exc:
+            tpl_ok = False
+            tpl_status[bid] = {"valid": False, "error": str(exc)}
+    checks["declarative_templates"] = {"passed": tpl_ok, "backends": tpl_status}
+    if not tpl_ok:
+        all_ok = False
+
+    # 4. Git provenance & CUDA tracked-tree readiness
+    repo = Path(__file__).resolve().parents[2]
+    try:
+        head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+        branch = subprocess.check_output(["git", "branch", "--show-current"], cwd=repo, text=True).strip()
+        dirty = subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"], cwd=repo, text=True
+        ).strip()
+        tracked_clean = len(dirty) == 0
+        git_info = {
+            "passed": bool(re.fullmatch(r"[0-9a-f]{40}", head)),
+            "head_commit": head,
+            "branch": branch or "(detached)",
+            "tracked_clean": tracked_clean,
+            "cuda_production_ready": bool(tracked_clean and torch.cuda.is_available()),
+        }
+    except Exception as exc:
+        git_info = {
+            "passed": True,
+            "git_available": False,
+            "detail": str(exc),
+            "tracked_clean": None,
+            "cuda_production_ready": False,
+        }
+    checks["git_provenance"] = git_info
+    if not git_info["passed"]:
+        all_ok = False
+
+    # 5. Runtime, memory instrumentation & disk headroom
+    cur_rss, peak_rss, rss_src = measure_process_memory_bytes()
+    free_bytes = measure_free_disk_bytes(Path.cwd())
+    py_ok = sys.version_info >= (3, 11)
+    rss_ok = rss_src != "unavailable" and peak_rss > 0
+    disk_ok = free_bytes > 100 * 1024 * 1024
+    rt_ok = bool(py_ok and rss_ok and disk_ok)
+    if not rt_ok:
+        all_ok = False
+    checks["runtime_and_resources"] = {
+        "passed": rt_ok,
+        "python": sys.version.split()[0],
+        "torch": str(torch.__version__),
+        "cuda_available": bool(torch.cuda.is_available()),
+        "cuda_device_count": int(torch.cuda.device_count()) if torch.cuda.is_available() else 0,
+        "rss_source": rss_src,
+        "peak_rss_bytes": peak_rss,
+        "current_rss_bytes": cur_rss,
+        "free_disk_bytes": free_bytes,
+    }
+
+    return {
+        "schema": "anra-planthir-doctor-v1",
+        "green_signal": all_ok,
+        "status": "GREEN_SIGNAL" if all_ok else "CHECK_FAILED",
+        "mutates_files": False,
+        "checks": checks,
+        "next_recommended_command": "python -m anra_v5.planthir calibrate" if all_ok else "inspect failed check above",
+    }
+
+
 def agent_info() -> dict[str, Any]:
     """Return read-only machine-readable contract derived from dataclass definitions and registered backends."""
 
@@ -953,6 +1246,7 @@ def agent_info() -> dict[str, Any]:
         "declarative_spec": planthir_spec_schema(),
         "cli": {
             "agent-info": {"mutates_files": False, "trains": False},
+            "doctor": {"mutates_files": False, "trains": False},
             "schema": {"mutates_files": False, "trains": False},
             "init": {"mutates_files": "only with --out", "trains": False},
             "validate": {"mutates_files": False, "trains": False},
@@ -1016,6 +1310,7 @@ __all__ = [
     "explain_error_code",
     "init_spec_template",
     "inspect_run",
+    "planthir_doctor",
     "planthir_spec_schema",
     "validate_spec_document",
 ]

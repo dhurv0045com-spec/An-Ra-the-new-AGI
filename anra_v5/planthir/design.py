@@ -122,6 +122,12 @@ def _extract_arm_factors(arm: Any, *, canonical_fn: Callable[[Any], Mapping[str,
         "backend_id": str(getattr(arm, "backend_id", "v8")),
         "policy_mode": str(getattr(arm, "policy_mode", "raw")),
     }
+    for rk in ("eq_weight", "cf_weight", "cf_margin", "action_weight"):
+        if hasattr(recipe, rk):
+            factors[rk] = float(getattr(recipe, rk))
+    for mk, mv in arch_cfg.items():
+        if mk not in ("architecture", "schema", "total_parameters", "added_parameters", "base_spec", "base_spec_sha256", "output_mapping", "policy_interface"):
+            factors.setdefault(str(mk), mv)
     extra_factors = getattr(arm, "custom_factors", None)
     if isinstance(extra_factors, Mapping):
         for k, v in extra_factors.items():
@@ -129,15 +135,55 @@ def _extract_arm_factors(arm: Any, *, canonical_fn: Callable[[Any], Mapping[str,
     return factors
 
 
-def _factor_diffs(ctrl: Mapping[str, Any], trt: Mapping[str, Any]) -> list[str]:
+_ARCH_HEAD_KEYS = {
+    "pointer_dim",
+    "copy_enabled",
+    "recurrent_dim",
+    "recurrent_steps",
+    "bottleneck_width",
+    "num_slots",
+    "slot_dim",
+    "slot_edge_hidden",
+    "agg_iterations",
+    "msg_iterations",
+    "cap_hidden_dim",
+    "output_mapping",
+    "policy_interface",
+}
+_OBJ_COMPANION_KEYS = {"eq_weight", "cf_weight", "cf_margin", "action_weight"}
+
+
+def _factor_diffs(
+    ctrl: Mapping[str, Any],
+    trt: Mapping[str, Any],
+    *,
+    declared_factor: str | None = None,
+) -> list[str]:
     changed: list[str] = []
+    arch_changed = ctrl.get("architecture") != trt.get("architecture")
+    obj_changed = ctrl.get("objective") != trt.get("objective")
     keys = sorted(set(ctrl) | set(trt))
     for k in keys:
         if k == "model_config":
-            # Attribute model_config diffs under architecture unless already identical
-            if ctrl.get("model_config") != trt.get("model_config"):
-                if "architecture" not in changed:
-                    changed.append("architecture")
+            c_cfg = ctrl.get("model_config") or {}
+            t_cfg = trt.get("model_config") or {}
+            if c_cfg != t_cfg:
+                for mk in sorted(set(c_cfg) | set(t_cfg)):
+                    if mk in ("total_parameters", "added_parameters", "base_spec_sha256", "schema"):
+                        continue
+                    if c_cfg.get(mk) == t_cfg.get(mk):
+                        continue
+                    if mk == "architecture" or (arch_changed and mk in _ARCH_HEAD_KEYS):
+                        if "architecture" not in changed:
+                            changed.append("architecture")
+                    elif mk == "base_spec":
+                        changed.append("model_size")
+                    else:
+                        changed.append(str(mk))
+            continue
+        if k in _ARCH_HEAD_KEYS and arch_changed and declared_factor == "architecture":
+            continue
+        if k in _OBJ_COMPANION_KEYS and obj_changed and declared_factor == "objective":
             continue
         if k in ("init_seed", "order_seed", "seed_group"):
             continue
@@ -233,7 +279,7 @@ def audit_typed_experimental_design(
         if con.expected_treatment_value is not None and tf.get(con.factor_name) != con.expected_treatment_value:
             codes.append("TREATMENT_VALUE_MISMATCH")
 
-        diffs = _factor_diffs(cf, tf)
+        diffs = _factor_diffs(cf, tf, declared_factor=con.factor_name)
         undeclared = [d for d in diffs if d != con.factor_name]
         if undeclared:
             codes.append("UNDECLARED_CONFOUNDED_FACTOR")

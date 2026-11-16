@@ -17,6 +17,7 @@ from .agent_tools import (
     explain_error_code,
     init_spec_template,
     inspect_run,
+    planthir_doctor,
     planthir_spec_schema,
     validate_spec_document,
 )
@@ -109,6 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("agent-info", help="Print read-only contract derived from dataclasses and registered backends.")
+    sub.add_parser("doctor", help="Run fast read-only binding & installation integrity self-check (`green_signal`).")
     sub.add_parser("schema", help="Print strict anra-planthir-spec-v1 data-only JSON schema.")
 
     p_init = sub.add_parser("init", help="Generate a valid canary anra-planthir-spec-v1 JSON template.")
@@ -171,6 +173,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "agent-info":
         _emit(agent_info())
         return 0
+
+    if args.command == "doctor":
+        rep = planthir_doctor()
+        _emit(rep)
+        return 0 if rep["green_signal"] else 1
 
     if args.command == "schema":
         _emit(planthir_spec_schema())

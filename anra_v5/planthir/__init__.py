@@ -21,6 +21,7 @@ from .agent_tools import (
     explain_error_code,
     init_spec_template,
     inspect_run,
+    planthir_doctor,
     planthir_spec_schema,
     validate_spec_document,
 )
@@ -238,6 +239,7 @@ __all__ = [
     "inspect_run",
     "list_backends",
     "package_three_tier_evidence",
+    "planthir_doctor",
     "planthir_spec_schema",
     "prepare_x1_rd2_training_data",
     "probe_from_capsule",

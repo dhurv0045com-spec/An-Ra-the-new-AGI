@@ -192,6 +192,7 @@ def test_cli_docs_align_with_live_declarative_schema() -> None:
     agent_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
     schema_cmds = set(planthir_spec_schema()["cli_subcommands"])
     for required_cmd in (
+        "doctor",
         "schema",
         "init",
         "validate",
@@ -205,4 +206,86 @@ def test_cli_docs_align_with_live_declarative_schema() -> None:
         assert required_cmd in schema_cmds
         assert required_cmd in agent_doc
     assert "verify-bundle --dir" not in agent_doc
+
+
+def test_doctor_head_commit_v8_heads_hypotheses_and_x1_slot_contrast(tmp_path: Path, capsys) -> None:
+    from anra_v5.planthir.agent_tools import (
+        build_cartridge_from_spec,
+        init_spec_template,
+        validate_spec_document,
+    )
+
+    code, doc_rep = _cli(["doctor"], capsys)
+    assert code == 0 and doc_rep["schema"] == "anra-planthir-doctor-v1"
+    assert doc_rep["green_signal"] is True and doc_rep["status"] == "GREEN_SIGNAL"
+    assert doc_rep["checks"]["v8_tool_consumption_firewall"]["passed"] is True
+    assert doc_rep["checks"]["declarative_templates"]["passed"] is True
+
+    # V8 template with "source_commit": "HEAD", U/P architectures, and per-arm hypotheses/falsifiers
+    v8_doc = init_spec_template(backend_id="v8", canary=True)
+    v8_doc["source_commit"] = "HEAD"
+    v8_doc["execution"]["parameter_tolerance_ratio"] = 2.0
+    v8_doc["control_arm"]["architecture"] = "P"
+    v8_doc["control_arm"]["model"]["pointer_dim"] = 8
+    v8_doc["control_arm"]["model"]["copy_enabled"] = True
+    v8_doc["treatment_arms"][0]["architecture"] = "U"
+    v8_doc["treatment_arms"][0]["model"]["recurrent_dim"] = 16
+    v8_doc["treatment_arms"][0]["model"]["recurrent_steps"] = 2
+    v8_doc["treatment_arms"][0]["recipe"]["lr"] = v8_doc["control_arm"]["recipe"]["lr"]
+    v8_doc["treatment_arms"][0]["contrasts"][0]["factor_name"] = "architecture"
+    v8_doc["factors"][0] = {"factor_name": "architecture", "factor_type": "architecture", "control_value": "P", "levels": ["P", "U"]}
+    v8_doc["typed_contrasts"][0]["factor_name"] = "architecture"
+    v8_doc["typed_contrasts"][0]["expected_treatment_value"] = "U"
+
+    v8_val = validate_spec_document(v8_doc, canary_override=True)
+    assert v8_val["valid"] is True, v8_val
+    v8_cart, _ = build_cartridge_from_spec(v8_doc, canary_override=True)
+    assert len(v8_cart.source_commit) == 40
+    assert v8_cart.control_arm.v8_spec.pointer_dim == 8
+    assert v8_cart.treatment_arms[0].v8_spec.recurrent_steps == 2
+    assert len(v8_cart.treatment_arms[0].hypotheses) == 1
+    assert len(v8_cart.treatment_arms[0].hypotheses[0].falsifiers) == 1
+
+    # X1-R slot count & objective single-factor contrasts should pass without false MODEL_SPEC_MISMATCH
+    x1_doc = init_spec_template(backend_id="x1_rd2", canary=True)
+    x1_doc["source_commit"] = "HEAD"
+    x1_doc["control_arm"]["architecture"] = "X1-R"
+    x1_doc["control_arm"]["model"].update({"num_slots": 2, "slot_dim": 8, "slot_edge_hidden": 8})
+    x1_doc["treatment_arms"][0]["model"]["num_slots"] = 3
+    x1_doc["treatment_arms"][0]["contrasts"][0]["factor_name"] = "num_slots"
+    x1_doc["factors"][0] = {"factor_name": "num_slots", "factor_type": "custom", "control_value": 2, "levels": [2, 3]}
+    x1_doc["typed_contrasts"][0]["factor_name"] = "num_slots"
+    x1_doc["typed_contrasts"][0]["expected_treatment_value"] = 3
+    x1_val = validate_spec_document(x1_doc, canary_override=True)
+    assert x1_val["valid"] is True, x1_val
+
+    # X1 objective contrast with companion eq_weight / cf_weight difference
+    x1_obj = init_spec_template(backend_id="x1_rd2", canary=True)
+    x1_obj["treatment_arms"][0] = {
+        **x1_obj["control_arm"],
+        "arm_id": "X1P_CE",
+        "contrasts": [
+            {
+                "contrast_id": "C_OBJ",
+                "factor_name": "objective",
+                "control_arm": "X1P",
+                "treatment_arm": "X1P_CE",
+                "held_constant": ["architecture", "lr", "precision", "order_seed"],
+                "expected_mechanism_signature": "grouped_loss_effect",
+            }
+        ],
+    }
+    x1_obj["treatment_arms"][0]["recipe"] = {**x1_obj["control_arm"]["recipe"], "objective": "ce", "eq_weight": 0.0}
+    x1_obj["factors"][0] = {"factor_name": "objective", "factor_type": "objective", "control_value": "pair_eq", "levels": ["pair_eq", "ce"]}
+    x1_obj["typed_contrasts"][0] = {
+        "contrast_id": "C_OBJ",
+        "factor_name": "objective",
+        "control_arm_id": "X1P",
+        "treatment_arm_id": "X1P_CE",
+        "target_mechanism": "grouped_loss_effect",
+        "expected_treatment_value": "ce",
+    }
+    x1_obj_val = validate_spec_document(x1_obj, canary_override=True)
+    assert x1_obj_val["valid"] is True, x1_obj_val
+
 
