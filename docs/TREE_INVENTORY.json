@@ -4,8 +4,8 @@
   "counts": {
     "KEEP": 126,
     "REFERENCE-BY-SHA": 371,
-    "REIMPLEMENT": 9,
-    "REMOVE-FROM-ELENDRIL": 355
+    "REIMPLEMENT": 10,
+    "REMOVE-FROM-ELENDRIL": 354
   },
   "files": {
     ".gitattributes": {
@@ -121,11 +121,11 @@
       "reason": "replace legacy entry points or extract active regressions"
     },
     "agent.md": {
-      "action": "REMOVE-FROM-ELENDRIL",
+      "action": "REIMPLEMENT",
       "git_object": "40d832e7274571e9e9310f8e5c812e61753415d1",
       "mode": "100644",
       "object_type": "blob",
-      "reason": "outside active dependency closure, retrievable from archive"
+      "reason": "new Planthir operator instructions; original content remains at the recorded archive blob"
     },
     "anra_v5/__init__.py": {
       "action": "REIMPLEMENT",

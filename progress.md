@@ -260,3 +260,7 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Added 2-generation checkpoint rotation (`trainer.store.prune`) and immediate `.tmp_hh_restore` cleanup in `tools/elendril_y1_worker.py` to prevent `/kaggle/working` disk exhaustion across multi-stage runs.
 - Verified on CPU via `tests/test_elendril_y1_campaign.py` (`--phase all` end-to-end execution, milestone/final 3-bundle export verification, and 2-generation checkpoint pruning).
 - Pending GPU execution: single-click Kaggle T4x2 Run All with `ELENDRIL_HITCHHIKER_FULL.zip` attached.
+
+### 2026-11-17 | Antigravity | Integrate Palantiri/Planthir research infrastructure onto hitchhiker
+- Copied `anra_v5/palantiri`, `anra_v5/planthir`, `anra_v5/elendril/v8`, `pyproject.toml`, `agent.md`, `purpose.md`, `research/planthir/`, `Experiment Result/Planthir/`, `tools/audit_tree.py`, `docs/TREE_INVENTORY.json`, and `tests/test_planthir_*.py` from `planthir` (`692c9406`), preserving all Hitchhiker/Y1 modules, notebooks, and progress history.
+- Verified on CPU inside `hitchhiker`: `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`), `calibrate` (`6/6`), `tools.verify_elendril_evidence`, and tree/curation/Y1/Planthir tests.

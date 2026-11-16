@@ -1,0 +1,2381 @@
+{
+  "arms": {
+    "B0": {
+      "causal_diagnostics": {
+        "compute_depth_scaling": {
+          "accuracy_by_steps": {},
+          "extrapolation_gain_above_trained": 0.0,
+          "intervention": "compute_depth_scaling",
+          "recurrence_gain_over_zero": 0.0,
+          "supports_variable_depth": false,
+          "trained_steps": 0
+        },
+        "invariance_counterfactuals": {
+          "baseline_accuracy": 0.0,
+          "decoder_modes": {
+            "availability-mask": 0.1,
+            "raw": 0.0
+          },
+          "distractor_injection": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "intervention": "invariance_counterfactuals",
+          "row_order_reversal": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "symbol_permutation": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "equivariance_rate": 1.0
+          },
+          "worlds": 10
+        },
+        "linear_probe": {
+          "eval_worlds": 16,
+          "head_minus_probe_gap": 0.0714285746216774,
+          "intervention": "representation_linear_probe",
+          "model_head_final_accuracy_on_visible": 0.0,
+          "multihop_head_final_accuracy": 0.0,
+          "multihop_probe_final_accuracy": 0.0,
+          "multihop_probe_hop1_accuracy": 0.0,
+          "probe_final_symbol_accuracy": 0.0714285746216774,
+          "probe_hop1_symbol_accuracy": 0.0714285746216774,
+          "probe_operation_accuracy": 0.4375,
+          "train_worlds": 16
+        },
+        "oracle_intervention": {
+          "delta_oracle": 0.0,
+          "delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "intervention": "oracle_information_injection",
+          "normal_accuracy": 0.0,
+          "oracle_injected_accuracy": 0.0,
+          "tool_delta_oracle": 0.0,
+          "tool_delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "tool_normal_accuracy": 0.0,
+          "tool_oracle_accuracy": 0.0,
+          "tool_worlds": 14,
+          "worlds": 16
+        },
+        "subgoal_decomposition": {
+          "composition_gap": 0.0,
+          "composition_gap_95ci": [
+            0.0,
+            0.0
+          ],
+          "full_chain_accuracy": 0.0,
+          "hop1_accuracy": 0.0,
+          "hop2_given_bridge_accuracy": 0.0,
+          "intervention": "subgoal_hop_decomposition",
+          "joint_individual_hops_solvable": 0.0,
+          "worlds_decomposed": 8
+        },
+        "surgical_ablation": {
+          "ablated_accuracy": 0.0,
+          "ablation_supported": false,
+          "accuracy_delta": 0.0,
+          "action_agreement_rate": 1.0,
+          "baseline_accuracy": 0.0,
+          "intervention": "surgical_mechanism_ablation",
+          "mechanism_type": "none_baseline_control",
+          "ornamental_mechanism_bypass": false,
+          "worlds": 16
+        }
+      },
+      "checkpoint_bytes": 238825,
+      "checkpoint_sha256": "b597684f8a5a29f113ae9f0d3738cf2a37412ae28f62fc613d1d7653dc063dfa",
+      "experiment_id": "EXP-PLANTHIR-002-B0",
+      "interpretation": {
+        "confirmed_causes": [
+          {
+            "category": "confirmed",
+            "claim_id": "C-FUNNEL-DROP",
+            "confidence_rule": "process_funnel_stage_separation>=0.25",
+            "evidence_basis": {
+              "stage1": 0.5,
+              "stage2": null,
+              "stage3": 0.0,
+              "stage4": 0.0
+            },
+            "statement": "Observable decoupling between initial tool selection (Stage 1=0.500) and end-to-end multi-hop execution (Stage 4=0.000)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-INCONTEXT-BOTTLENECK",
+            "confidence_rule": "oracle_ceiling_failure<0.50",
+            "evidence_basis": {
+              "delta_oracle": 0.0,
+              "delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "intervention": "oracle_information_injection",
+              "normal_accuracy": 0.0,
+              "oracle_injected_accuracy": 0.0,
+              "tool_delta_oracle": 0.0,
+              "tool_delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "tool_normal_accuracy": 0.0,
+              "tool_oracle_accuracy": 0.0,
+              "tool_worlds": 14,
+              "worlds": 16
+            },
+            "statement": "Even with oracle tool information pre-merged in context (accuracy=0.000), the model fails to resolve answers; failure is not solely due to tool acquisition."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-H-B0-DIAGNOSTIC",
+            "confidence_rule": "all_preregistered_falsifiers_passed",
+            "evidence_basis": {
+              "falsifier_results": [
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-B0-STAGE1",
+                  "observed": 0.0,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                },
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-B0-NO-OP-VS-PROBE",
+                  "observed": 0.0714285746216774,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                }
+              ]
+            },
+            "statement": "Hypothesis 'H-B0-DIAGNOSTIC' survived preregistered falsifiers: Evaluate bounded B0 diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "digest_sha256": "12ed23ee265a6bb1c1de1765f9660cb984d0deb6156bc6a8150083539770fb74",
+        "experiment_id": "EXP-PLANTHIR-002-B0",
+        "falsified_hypotheses": [],
+        "instrument_defects": [],
+        "instrument_passed": true,
+        "metadata": {
+          "counts": {
+            "confirmed": 3,
+            "falsified": 0,
+            "suspected": 1,
+            "unresolved": 1
+          }
+        },
+        "recommended_next_experiments": [
+          {
+            "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+            "cost_tier": "DUAL_T4_HOURS",
+            "discriminates_between": [
+              "capacity_limit",
+              "optimization_schedule"
+            ],
+            "expected_info_gain_per_gpu_hour": 15.0,
+            "rank": 1,
+            "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+            "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+          }
+        ],
+        "schema": "anra-planthir-interpretation-v1",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED",
+        "suspected_mechanisms": [
+          {
+            "category": "suspected",
+            "claim_id": "S-SINGLE-HOP-GROUNDING-DEFICIT",
+            "confidence_rule": "subgoal_grounding_floor<0.40",
+            "evidence_basis": {
+              "composition_gap": 0.0,
+              "composition_gap_95ci": [
+                0.0,
+                0.0
+              ],
+              "full_chain_accuracy": 0.0,
+              "hop1_accuracy": 0.0,
+              "hop2_given_bridge_accuracy": 0.0,
+              "intervention": "subgoal_hop_decomposition",
+              "joint_individual_hops_solvable": 0.0,
+              "worlds_decomposed": 8
+            },
+            "statement": "Individual single-hop subgoals themselves succeed at only 0.000; grounding failure precedes multi-hop chaining."
+          }
+        ],
+        "unresolved_questions": [
+          {
+            "category": "unresolved",
+            "claim_id": "U-SCALE-AND-HORIZON",
+            "confidence_rule": "epistemic_scope_guard",
+            "evidence_basis": {
+              "note": "single_regime_observability_bound"
+            },
+            "statement": "Diagnostic probes on a single checkpoint or tiny scale do not resolve whether larger parameter scale, longer horizon, or alternative optimization dynamics overcome the bottleneck."
+          }
+        ]
+      },
+      "loss_final": 5.415719032287598,
+      "loss_init": 5.481778085231781,
+      "offline_tier2_capsule_probe": {
+        "effective_rank": 9.32911347660711,
+        "experiment_id": "EXP-PLANTHIR-002-B0",
+        "hidden_dim": 32,
+        "probes": {
+          "y_final": 0.1428571492433548,
+          "y_hop1": 0.0,
+          "y_op": 0.2857142984867096
+        },
+        "samples": 16,
+        "schema": "anra-planthir-capsule-probe-v1"
+      },
+      "parameter_count": 17680,
+      "process_funnel": {
+        "calibration": {
+          "aurc": 1.0,
+          "brier_score": 5.127192307470789e-05,
+          "ece": 0.007160440465668216
+        },
+        "counts": {
+          "multi_hop_answerable": 4,
+          "native_1hop_answerable": 10,
+          "needed_tool": 8,
+          "subgoal_hop1_probes": 4,
+          "unsolvable": 2,
+          "valid_tool_callers": 0
+        },
+        "divergence_taxonomy": {
+          "FAILED_ABSTAIN_ON_UNSOLVABLE": 0,
+          "HOP1_VALUE_ERROR": 0,
+          "MISSED_REQUIRED_TOOL": 8,
+          "MODE_MASK_OVERRIDE": 0,
+          "MULTI_HOP_CHAIN_ERROR": 8,
+          "NONE": 0,
+          "PREMATURE_ABSTAIN": 0,
+          "REPEATED_CONSUMED_TOOL": 0,
+          "UNNECESSARY_TOOL_CALL": 0
+        },
+        "episodes": 16,
+        "funnel": {
+          "stage1_info_seeking": 0.5,
+          "stage1_tool_recall_when_needed": 0.0,
+          "stage1_unnecessary_tool_rate": 0.0,
+          "stage2_tool_discipline": null,
+          "stage3_single_hop_grounding": 0.0,
+          "stage3_subgoal_hop1_grounding": 0.0,
+          "stage4_epistemic_abstention": 0.0,
+          "stage4_multi_hop_composition": 0.0
+        },
+        "kernel_id": "elendril-v8-kernel-v1",
+        "overall_accuracy": 0.0,
+        "policy_id": "V8-B0-D1-i7-o7:b597684f8a5a:B0:raw",
+        "schema": "anra-planthir-process-funnel-v1",
+        "telemetry_means": {
+          "evaluated_positions": 253.0,
+          "model_calls": 1.0
+        }
+      },
+      "telemetry_final": {
+        "lr": 1.602885682970026e-05,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.2667109815646026,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 3.5351909594312884e-07,
+            "weight_l2": 12.092903007128015
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.9635856240358094,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 8.472144585611234e-06,
+            "weight_l2": 1.8230538743471003
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.019165933490947654,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 3.4221392088861493e-07,
+            "weight_l2": 0.8977075016008728
+          }
+        },
+        "representation": {
+          "effective_rank": 5.1965168147019165,
+          "hidden_dim": 32,
+          "isotropy": 0.0024151206016540527,
+          "mean_offdiag_cosine": 0.997584879398346
+        },
+        "step": 6
+      },
+      "telemetry_init": {
+        "lr": 0.0001,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.0,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 12.092659251115958
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8235618830002978
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.897749264034011
+          }
+        },
+        "representation": {
+          "effective_rank": 5.207615980268073,
+          "hidden_dim": 32,
+          "isotropy": 0.0024425387382507324,
+          "mean_offdiag_cosine": 0.9975574612617493
+        },
+        "step": 0
+      },
+      "tier2_capsule_bytes": 13017,
+      "tier3_binding_status": "BOUND_VERIFIED"
+    },
+    "F": {
+      "causal_diagnostics": {
+        "compute_depth_scaling": {
+          "accuracy_by_steps": {},
+          "extrapolation_gain_above_trained": 0.0,
+          "intervention": "compute_depth_scaling",
+          "recurrence_gain_over_zero": 0.0,
+          "supports_variable_depth": false,
+          "trained_steps": 0
+        },
+        "invariance_counterfactuals": {
+          "baseline_accuracy": 0.0,
+          "decoder_modes": {
+            "availability-mask": 0.1,
+            "raw": 0.0
+          },
+          "distractor_injection": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "intervention": "invariance_counterfactuals",
+          "row_order_reversal": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "symbol_permutation": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "equivariance_rate": 1.0
+          },
+          "worlds": 10
+        },
+        "linear_probe": {
+          "eval_worlds": 16,
+          "head_minus_probe_gap": 0.1428571492433548,
+          "intervention": "representation_linear_probe",
+          "model_head_final_accuracy_on_visible": 0.0,
+          "multihop_head_final_accuracy": 0.0,
+          "multihop_probe_final_accuracy": 0.0,
+          "multihop_probe_hop1_accuracy": 0.0,
+          "probe_final_symbol_accuracy": 0.1428571492433548,
+          "probe_hop1_symbol_accuracy": 0.1428571492433548,
+          "probe_operation_accuracy": 0.4375,
+          "train_worlds": 16
+        },
+        "oracle_intervention": {
+          "delta_oracle": 0.0,
+          "delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "intervention": "oracle_information_injection",
+          "normal_accuracy": 0.0,
+          "oracle_injected_accuracy": 0.0,
+          "tool_delta_oracle": 0.0,
+          "tool_delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "tool_normal_accuracy": 0.0,
+          "tool_oracle_accuracy": 0.0,
+          "tool_worlds": 14,
+          "worlds": 16
+        },
+        "subgoal_decomposition": {
+          "composition_gap": 0.0,
+          "composition_gap_95ci": [
+            0.0,
+            0.0
+          ],
+          "full_chain_accuracy": 0.0,
+          "hop1_accuracy": 0.0,
+          "hop2_given_bridge_accuracy": 0.0,
+          "intervention": "subgoal_hop_decomposition",
+          "joint_individual_hops_solvable": 0.0,
+          "worlds_decomposed": 8
+        },
+        "surgical_ablation": {
+          "ablated_accuracy": 0.0,
+          "ablation_supported": false,
+          "accuracy_delta": 0.0,
+          "action_agreement_rate": 1.0,
+          "baseline_accuracy": 0.0,
+          "intervention": "surgical_mechanism_ablation",
+          "mechanism_type": "none_baseline_control",
+          "ornamental_mechanism_bypass": false,
+          "worlds": 16
+        }
+      },
+      "checkpoint_bytes": 251253,
+      "checkpoint_sha256": "c0fe57adbeab72d16139135fcfcfdcc0dc89fef92a9c5e2224ed5e57e275168b",
+      "experiment_id": "EXP-PLANTHIR-002-F",
+      "interpretation": {
+        "confirmed_causes": [
+          {
+            "category": "confirmed",
+            "claim_id": "C-FUNNEL-DROP",
+            "confidence_rule": "process_funnel_stage_separation>=0.25",
+            "evidence_basis": {
+              "stage1": 0.5,
+              "stage2": 0.0,
+              "stage3": 0.0,
+              "stage4": 0.0
+            },
+            "statement": "Observable decoupling between initial tool selection (Stage 1=0.500) and end-to-end multi-hop execution (Stage 4=0.000)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-POST-TOOL-DISCIPLINE",
+            "confidence_rule": "direct_rollout_action_count",
+            "evidence_basis": {
+              "stage2_tool_discipline": 0.0
+            },
+            "statement": "Post-tool state transition breakdown: Stage 2 discipline is 0.000 (repeated consumed tool or invalid post-tool step)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-INCONTEXT-BOTTLENECK",
+            "confidence_rule": "oracle_ceiling_failure<0.50",
+            "evidence_basis": {
+              "delta_oracle": 0.0,
+              "delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "intervention": "oracle_information_injection",
+              "normal_accuracy": 0.0,
+              "oracle_injected_accuracy": 0.0,
+              "tool_delta_oracle": 0.0,
+              "tool_delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "tool_normal_accuracy": 0.0,
+              "tool_oracle_accuracy": 0.0,
+              "tool_worlds": 14,
+              "worlds": 16
+            },
+            "statement": "Even with oracle tool information pre-merged in context (accuracy=0.000), the model fails to resolve answers; failure is not solely due to tool acquisition."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-H-F-DIAGNOSTIC",
+            "confidence_rule": "all_preregistered_falsifiers_passed",
+            "evidence_basis": {
+              "falsifier_results": [
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-F-STAGE1",
+                  "observed": 1.0,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                },
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-F-NO-OP-VS-PROBE",
+                  "observed": 0.1428571492433548,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                }
+              ]
+            },
+            "statement": "Hypothesis 'H-F-DIAGNOSTIC' survived preregistered falsifiers: Evaluate bounded F diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "digest_sha256": "d49a2dbfa9f9b8cd6b02bc96276cda8bbd6de0fdae01242e471ccb06926caa3d",
+        "experiment_id": "EXP-PLANTHIR-002-F",
+        "falsified_hypotheses": [],
+        "instrument_defects": [],
+        "instrument_passed": true,
+        "metadata": {
+          "counts": {
+            "confirmed": 4,
+            "falsified": 0,
+            "suspected": 1,
+            "unresolved": 1
+          }
+        },
+        "recommended_next_experiments": [
+          {
+            "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+            "cost_tier": "DUAL_T4_HOURS",
+            "discriminates_between": [
+              "capacity_limit",
+              "optimization_schedule"
+            ],
+            "expected_info_gain_per_gpu_hour": 15.0,
+            "rank": 1,
+            "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+            "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+          }
+        ],
+        "schema": "anra-planthir-interpretation-v1",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED",
+        "suspected_mechanisms": [
+          {
+            "category": "suspected",
+            "claim_id": "S-SINGLE-HOP-GROUNDING-DEFICIT",
+            "confidence_rule": "subgoal_grounding_floor<0.40",
+            "evidence_basis": {
+              "composition_gap": 0.0,
+              "composition_gap_95ci": [
+                0.0,
+                0.0
+              ],
+              "full_chain_accuracy": 0.0,
+              "hop1_accuracy": 0.0,
+              "hop2_given_bridge_accuracy": 0.0,
+              "intervention": "subgoal_hop_decomposition",
+              "joint_individual_hops_solvable": 0.0,
+              "worlds_decomposed": 8
+            },
+            "statement": "Individual single-hop subgoals themselves succeed at only 0.000; grounding failure precedes multi-hop chaining."
+          }
+        ],
+        "unresolved_questions": [
+          {
+            "category": "unresolved",
+            "claim_id": "U-SCALE-AND-HORIZON",
+            "confidence_rule": "epistemic_scope_guard",
+            "evidence_basis": {
+              "note": "single_regime_observability_bound"
+            },
+            "statement": "Diagnostic probes on a single checkpoint or tiny scale do not resolve whether larger parameter scale, longer horizon, or alternative optimization dynamics overcome the bottleneck."
+          }
+        ]
+      },
+      "loss_final": 3.951579213142395,
+      "loss_init": 4.037527561187744,
+      "offline_tier2_capsule_probe": {
+        "effective_rank": 9.234268227357894,
+        "experiment_id": "EXP-PLANTHIR-002-F",
+        "hidden_dim": 32,
+        "probes": {
+          "y_final": 0.1428571492433548,
+          "y_hop1": 0.0,
+          "y_op": 0.2857142984867096
+        },
+        "samples": 16,
+        "schema": "anra-planthir-capsule-probe-v1"
+      },
+      "parameter_count": 18340,
+      "process_funnel": {
+        "calibration": {
+          "aurc": 1.0,
+          "brier_score": 0.057796909103736055,
+          "ece": 0.24040923081338406
+        },
+        "counts": {
+          "multi_hop_answerable": 4,
+          "native_1hop_answerable": 10,
+          "needed_tool": 8,
+          "subgoal_hop1_probes": 4,
+          "unsolvable": 2,
+          "valid_tool_callers": 11
+        },
+        "divergence_taxonomy": {
+          "FAILED_ABSTAIN_ON_UNSOLVABLE": 0,
+          "HOP1_VALUE_ERROR": 0,
+          "MISSED_REQUIRED_TOOL": 0,
+          "MODE_MASK_OVERRIDE": 0,
+          "MULTI_HOP_CHAIN_ERROR": 0,
+          "NONE": 0,
+          "PREMATURE_ABSTAIN": 0,
+          "REPEATED_CONSUMED_TOOL": 11,
+          "UNNECESSARY_TOOL_CALL": 5
+        },
+        "episodes": 16,
+        "funnel": {
+          "stage1_info_seeking": 0.5,
+          "stage1_tool_recall_when_needed": 1.0,
+          "stage1_unnecessary_tool_rate": 1.0,
+          "stage2_tool_discipline": 0.0,
+          "stage3_single_hop_grounding": 0.0,
+          "stage3_subgoal_hop1_grounding": 0.0,
+          "stage4_epistemic_abstention": 0.0,
+          "stage4_multi_hop_composition": 0.0
+        },
+        "kernel_id": "elendril-v8-kernel-v1",
+        "overall_accuracy": 0.0,
+        "policy_id": "planthir-F-s7:c0fe57adbeab:F:raw",
+        "schema": "anra-planthir-process-funnel-v1",
+        "telemetry_means": {
+          "evaluated_positions": 260.46875,
+          "model_calls": 1.0
+        }
+      },
+      "telemetry_final": {
+        "lr": 1.602885682970026e-05,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.16095312658538585,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 2.1333105270960516e-07,
+            "weight_l2": 12.093385325584217
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.6623888579295912,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 5.822385378474641e-06,
+            "weight_l2": 1.823537172340803
+          },
+          "head": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.7313604474333966,
+            "param_count": 660.0,
+            "update_to_weight_ratio": 2.4221884331919173e-05,
+            "weight_l2": 0.48397852711100764
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.021133551614417285,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 3.773053147862437e-07,
+            "weight_l2": 0.8978051987486233
+          }
+        },
+        "representation": {
+          "effective_rank": 5.089170710310826,
+          "hidden_dim": 32,
+          "isotropy": 0.0025925040245056152,
+          "mean_offdiag_cosine": 0.9974074959754944
+        },
+        "step": 6
+      },
+      "telemetry_init": {
+        "lr": 0.0001,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.0,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 12.092659251115958
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8235618830002978
+          },
+          "head": {
+            "dormant_fraction": 0.030303030303030304,
+            "grad_l2": 0.0,
+            "param_count": 660.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.48375733278813554
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.897749264034011
+          }
+        },
+        "representation": {
+          "effective_rank": 5.207615980268073,
+          "hidden_dim": 32,
+          "isotropy": 0.0024425387382507324,
+          "mean_offdiag_cosine": 0.9975574612617493
+        },
+        "step": 0
+      },
+      "tier2_capsule_bytes": 14151,
+      "tier3_binding_status": "BOUND_VERIFIED"
+    },
+    "F-cap": {
+      "causal_diagnostics": {
+        "compute_depth_scaling": {
+          "accuracy_by_steps": {},
+          "extrapolation_gain_above_trained": 0.0,
+          "intervention": "compute_depth_scaling",
+          "recurrence_gain_over_zero": 0.0,
+          "supports_variable_depth": false,
+          "trained_steps": 0
+        },
+        "invariance_counterfactuals": {
+          "baseline_accuracy": 0.0,
+          "decoder_modes": {
+            "availability-mask": 0.1,
+            "raw": 0.0
+          },
+          "distractor_injection": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "intervention": "invariance_counterfactuals",
+          "row_order_reversal": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "symbol_permutation": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "equivariance_rate": 1.0
+          },
+          "worlds": 10
+        },
+        "linear_probe": {
+          "eval_worlds": 16,
+          "head_minus_probe_gap": 0.1428571492433548,
+          "intervention": "representation_linear_probe",
+          "model_head_final_accuracy_on_visible": 0.0,
+          "multihop_head_final_accuracy": 0.0,
+          "multihop_probe_final_accuracy": 0.0,
+          "multihop_probe_hop1_accuracy": 0.0,
+          "probe_final_symbol_accuracy": 0.1428571492433548,
+          "probe_hop1_symbol_accuracy": 0.1428571492433548,
+          "probe_operation_accuracy": 0.4375,
+          "train_worlds": 16
+        },
+        "oracle_intervention": {
+          "delta_oracle": 0.0,
+          "delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "intervention": "oracle_information_injection",
+          "normal_accuracy": 0.0,
+          "oracle_injected_accuracy": 0.0,
+          "tool_delta_oracle": 0.0,
+          "tool_delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "tool_normal_accuracy": 0.0,
+          "tool_oracle_accuracy": 0.0,
+          "tool_worlds": 14,
+          "worlds": 16
+        },
+        "subgoal_decomposition": {
+          "composition_gap": 0.0,
+          "composition_gap_95ci": [
+            0.0,
+            0.0
+          ],
+          "full_chain_accuracy": 0.0,
+          "hop1_accuracy": 0.0,
+          "hop2_given_bridge_accuracy": 0.0,
+          "intervention": "subgoal_hop_decomposition",
+          "joint_individual_hops_solvable": 0.0,
+          "worlds_decomposed": 8
+        },
+        "surgical_ablation": {
+          "ablated_accuracy": 0.0,
+          "ablation_supported": true,
+          "accuracy_delta": 0.0,
+          "action_agreement_rate": 1.0,
+          "baseline_accuracy": 0.0,
+          "intervention": "surgical_mechanism_ablation",
+          "mechanism_type": "value_residual_bottleneck",
+          "ornamental_mechanism_bypass": true,
+          "worlds": 16
+        }
+      },
+      "checkpoint_bytes": 268595,
+      "checkpoint_sha256": "62395ab0602cc71ea81256918d1a863f24467afac8ce7d919be1ae52e7264687",
+      "experiment_id": "EXP-PLANTHIR-002-F-cap",
+      "interpretation": {
+        "confirmed_causes": [
+          {
+            "category": "confirmed",
+            "claim_id": "C-FUNNEL-DROP",
+            "confidence_rule": "process_funnel_stage_separation>=0.25",
+            "evidence_basis": {
+              "stage1": 0.5,
+              "stage2": 0.0,
+              "stage3": 0.0,
+              "stage4": 0.0
+            },
+            "statement": "Observable decoupling between initial tool selection (Stage 1=0.500) and end-to-end multi-hop execution (Stage 4=0.000)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-POST-TOOL-DISCIPLINE",
+            "confidence_rule": "direct_rollout_action_count",
+            "evidence_basis": {
+              "stage2_tool_discipline": 0.0
+            },
+            "statement": "Post-tool state transition breakdown: Stage 2 discipline is 0.000 (repeated consumed tool or invalid post-tool step)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-INCONTEXT-BOTTLENECK",
+            "confidence_rule": "oracle_ceiling_failure<0.50",
+            "evidence_basis": {
+              "delta_oracle": 0.0,
+              "delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "intervention": "oracle_information_injection",
+              "normal_accuracy": 0.0,
+              "oracle_injected_accuracy": 0.0,
+              "tool_delta_oracle": 0.0,
+              "tool_delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "tool_normal_accuracy": 0.0,
+              "tool_oracle_accuracy": 0.0,
+              "tool_worlds": 14,
+              "worlds": 16
+            },
+            "statement": "Even with oracle tool information pre-merged in context (accuracy=0.000), the model fails to resolve answers; failure is not solely due to tool acquisition."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-H-F-cap-DIAGNOSTIC",
+            "confidence_rule": "all_preregistered_falsifiers_passed",
+            "evidence_basis": {
+              "falsifier_results": [
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-F-cap-STAGE1",
+                  "observed": 1.0,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                },
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-F-cap-NO-OP-VS-PROBE",
+                  "observed": 0.1428571492433548,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                }
+              ]
+            },
+            "statement": "Hypothesis 'H-F-cap-DIAGNOSTIC' survived preregistered falsifiers: Evaluate bounded F-cap diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "digest_sha256": "a55e7487e5ed73c657fd878e2bf917cdb515a337de776aeb75fa9a7959ef1ba1",
+        "experiment_id": "EXP-PLANTHIR-002-F-cap",
+        "falsified_hypotheses": [],
+        "instrument_defects": [],
+        "instrument_passed": true,
+        "metadata": {
+          "counts": {
+            "confirmed": 4,
+            "falsified": 0,
+            "suspected": 2,
+            "unresolved": 1
+          }
+        },
+        "recommended_next_experiments": [
+          {
+            "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+            "cost_tier": "DUAL_T4_HOURS",
+            "discriminates_between": [
+              "capacity_limit",
+              "optimization_schedule"
+            ],
+            "expected_info_gain_per_gpu_hour": 15.0,
+            "rank": 1,
+            "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+            "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+          }
+        ],
+        "schema": "anra-planthir-interpretation-v1",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED",
+        "suspected_mechanisms": [
+          {
+            "category": "suspected",
+            "claim_id": "S-SINGLE-HOP-GROUNDING-DEFICIT",
+            "confidence_rule": "subgoal_grounding_floor<0.40",
+            "evidence_basis": {
+              "composition_gap": 0.0,
+              "composition_gap_95ci": [
+                0.0,
+                0.0
+              ],
+              "full_chain_accuracy": 0.0,
+              "hop1_accuracy": 0.0,
+              "hop2_given_bridge_accuracy": 0.0,
+              "intervention": "subgoal_hop_decomposition",
+              "joint_individual_hops_solvable": 0.0,
+              "worlds_decomposed": 8
+            },
+            "statement": "Individual single-hop subgoals themselves succeed at only 0.000; grounding failure precedes multi-hop chaining."
+          },
+          {
+            "category": "suspected",
+            "claim_id": "S-ORNAMENTAL-MECHANISM-BYPASS",
+            "confidence_rule": "surgical_ablation_agreement>=0.98_and_delta==0",
+            "evidence_basis": {
+              "ablated_accuracy": 0.0,
+              "ablation_supported": true,
+              "accuracy_delta": 0.0,
+              "action_agreement_rate": 1.0,
+              "baseline_accuracy": 0.0,
+              "intervention": "surgical_mechanism_ablation",
+              "mechanism_type": "value_residual_bottleneck",
+              "ornamental_mechanism_bypass": true,
+              "worlds": 16
+            },
+            "statement": "Surgical clamping of value_residual_bottleneck produced zero accuracy delta and 1.000 action agreement; the specialized mechanism is currently bypassed by optimization."
+          }
+        ],
+        "unresolved_questions": [
+          {
+            "category": "unresolved",
+            "claim_id": "U-SCALE-AND-HORIZON",
+            "confidence_rule": "epistemic_scope_guard",
+            "evidence_basis": {
+              "note": "single_regime_observability_bound"
+            },
+            "statement": "Diagnostic probes on a single checkpoint or tiny scale do not resolve whether larger parameter scale, longer horizon, or alternative optimization dynamics overcome the bottleneck."
+          }
+        ]
+      },
+      "loss_final": 3.9515178203582764,
+      "loss_init": 4.037710189819336,
+      "offline_tier2_capsule_probe": {
+        "effective_rank": 9.235164330626183,
+        "experiment_id": "EXP-PLANTHIR-002-F-cap",
+        "hidden_dim": 32,
+        "probes": {
+          "y_final": 0.1428571492433548,
+          "y_hop1": 0.0,
+          "y_op": 0.2857142984867096
+        },
+        "samples": 16,
+        "schema": "anra-planthir-capsule-probe-v1"
+      },
+      "parameter_count": 19412,
+      "process_funnel": {
+        "calibration": {
+          "aurc": 1.0,
+          "brier_score": 0.057797038570490136,
+          "ece": 0.24040949996560812
+        },
+        "counts": {
+          "multi_hop_answerable": 4,
+          "native_1hop_answerable": 10,
+          "needed_tool": 8,
+          "subgoal_hop1_probes": 4,
+          "unsolvable": 2,
+          "valid_tool_callers": 11
+        },
+        "divergence_taxonomy": {
+          "FAILED_ABSTAIN_ON_UNSOLVABLE": 0,
+          "HOP1_VALUE_ERROR": 0,
+          "MISSED_REQUIRED_TOOL": 0,
+          "MODE_MASK_OVERRIDE": 0,
+          "MULTI_HOP_CHAIN_ERROR": 0,
+          "NONE": 0,
+          "PREMATURE_ABSTAIN": 0,
+          "REPEATED_CONSUMED_TOOL": 11,
+          "UNNECESSARY_TOOL_CALL": 5
+        },
+        "episodes": 16,
+        "funnel": {
+          "stage1_info_seeking": 0.5,
+          "stage1_tool_recall_when_needed": 1.0,
+          "stage1_unnecessary_tool_rate": 1.0,
+          "stage2_tool_discipline": 0.0,
+          "stage3_single_hop_grounding": 0.0,
+          "stage3_subgoal_hop1_grounding": 0.0,
+          "stage4_epistemic_abstention": 0.0,
+          "stage4_multi_hop_composition": 0.0
+        },
+        "kernel_id": "elendril-v8-kernel-v1",
+        "overall_accuracy": 0.0,
+        "policy_id": "planthir-F-cap-s7:62395ab0602c:F-cap:raw",
+        "schema": "anra-planthir-process-funnel-v1",
+        "telemetry_means": {
+          "evaluated_positions": 260.46875,
+          "model_calls": 1.0
+        }
+      },
+      "telemetry_final": {
+        "lr": 1.602885682970026e-05,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.1609384560695333,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 2.1331160276038564e-07,
+            "weight_l2": 12.093385626234795
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.6624777115365464,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 5.823168278788135e-06,
+            "weight_l2": 1.823536583987686
+          },
+          "head": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.731283455217853,
+            "param_count": 1732.0,
+            "update_to_weight_ratio": 1.4889709218439372e-05,
+            "weight_l2": 0.7872308071066589
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.021126656533600074,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 3.7718215851013177e-07,
+            "weight_l2": 0.8978053315271824
+          }
+        },
+        "representation": {
+          "effective_rank": 5.089026323369998,
+          "hidden_dim": 32,
+          "isotropy": 0.002594172954559326,
+          "mean_offdiag_cosine": 0.9974058270454407
+        },
+        "step": 6
+      },
+      "telemetry_init": {
+        "lr": 0.0001,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.0,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 12.092659251115958
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8235618830002978
+          },
+          "head": {
+            "dormant_fraction": 0.03926096997690531,
+            "grad_l2": 0.0,
+            "param_count": 1732.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.7873595718032589
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.897749264034011
+          }
+        },
+        "representation": {
+          "effective_rank": 5.207615980268073,
+          "hidden_dim": 32,
+          "isotropy": 0.0024425387382507324,
+          "mean_offdiag_cosine": 0.9975574612617493
+        },
+        "step": 0
+      },
+      "tier2_capsule_bytes": 14147,
+      "tier3_binding_status": "BOUND_VERIFIED"
+    },
+    "J": {
+      "causal_diagnostics": {
+        "compute_depth_scaling": {
+          "accuracy_by_steps": {},
+          "extrapolation_gain_above_trained": 0.0,
+          "intervention": "compute_depth_scaling",
+          "recurrence_gain_over_zero": 0.0,
+          "supports_variable_depth": false,
+          "trained_steps": 0
+        },
+        "invariance_counterfactuals": {
+          "baseline_accuracy": 0.1,
+          "decoder_modes": {
+            "availability-mask": 0.1,
+            "raw": 0.1
+          },
+          "distractor_injection": {
+            "accuracy": 0.1,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 0.8
+          },
+          "intervention": "invariance_counterfactuals",
+          "row_order_reversal": {
+            "accuracy": 0.1,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "symbol_permutation": {
+            "accuracy": 0.1,
+            "accuracy_delta": 0.0,
+            "equivariance_rate": 0.0
+          },
+          "worlds": 10
+        },
+        "linear_probe": {
+          "eval_worlds": 16,
+          "head_minus_probe_gap": 3.1931059740752943e-09,
+          "intervention": "representation_linear_probe",
+          "model_head_final_accuracy_on_visible": 0.07142857142857142,
+          "multihop_head_final_accuracy": 0.0,
+          "multihop_probe_final_accuracy": 0.0,
+          "multihop_probe_hop1_accuracy": 0.0,
+          "probe_final_symbol_accuracy": 0.0714285746216774,
+          "probe_hop1_symbol_accuracy": 0.0714285746216774,
+          "probe_operation_accuracy": 0.4375,
+          "train_worlds": 16
+        },
+        "oracle_intervention": {
+          "delta_oracle": 0.0,
+          "delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "intervention": "oracle_information_injection",
+          "normal_accuracy": 0.0625,
+          "oracle_injected_accuracy": 0.0625,
+          "tool_delta_oracle": 0.0,
+          "tool_delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "tool_normal_accuracy": 0.07142857142857142,
+          "tool_oracle_accuracy": 0.07142857142857142,
+          "tool_worlds": 14,
+          "worlds": 16
+        },
+        "subgoal_decomposition": {
+          "composition_gap": -0.125,
+          "composition_gap_95ci": [
+            -0.375,
+            0.0
+          ],
+          "full_chain_accuracy": 0.125,
+          "hop1_accuracy": 0.0,
+          "hop2_given_bridge_accuracy": 0.125,
+          "intervention": "subgoal_hop_decomposition",
+          "joint_individual_hops_solvable": 0.0,
+          "worlds_decomposed": 8
+        },
+        "surgical_ablation": {
+          "ablated_accuracy": 0.0625,
+          "ablation_supported": false,
+          "accuracy_delta": 0.0,
+          "action_agreement_rate": 1.0,
+          "baseline_accuracy": 0.0625,
+          "intervention": "surgical_mechanism_ablation",
+          "mechanism_type": "none_baseline_control",
+          "ornamental_mechanism_bypass": false,
+          "worlds": 16
+        }
+      },
+      "checkpoint_bytes": 248610,
+      "checkpoint_sha256": "d1e642a177cfc88e825009477962e7072eb6f800289cad961af36ffa13a1c100",
+      "experiment_id": "EXP-PLANTHIR-002-J",
+      "interpretation": {
+        "confirmed_causes": [
+          {
+            "category": "confirmed",
+            "claim_id": "C-FUNNEL-DROP",
+            "confidence_rule": "process_funnel_stage_separation>=0.25",
+            "evidence_basis": {
+              "stage1": 0.5,
+              "stage2": null,
+              "stage3": 0.1,
+              "stage4": 0.0
+            },
+            "statement": "Observable decoupling between initial tool selection (Stage 1=0.500) and end-to-end multi-hop execution (Stage 4=0.000)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-INCONTEXT-BOTTLENECK",
+            "confidence_rule": "oracle_ceiling_failure<0.50",
+            "evidence_basis": {
+              "delta_oracle": 0.0,
+              "delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "intervention": "oracle_information_injection",
+              "normal_accuracy": 0.0625,
+              "oracle_injected_accuracy": 0.0625,
+              "tool_delta_oracle": 0.0,
+              "tool_delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "tool_normal_accuracy": 0.07142857142857142,
+              "tool_oracle_accuracy": 0.07142857142857142,
+              "tool_worlds": 14,
+              "worlds": 16
+            },
+            "statement": "Even with oracle tool information pre-merged in context (accuracy=0.071), the model fails to resolve answers; failure is not solely due to tool acquisition."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-H-J-DIAGNOSTIC",
+            "confidence_rule": "all_preregistered_falsifiers_passed",
+            "evidence_basis": {
+              "falsifier_results": [
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-J-STAGE1",
+                  "observed": 0.0,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                },
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-J-NO-OP-VS-PROBE",
+                  "observed": 0.0714285746216774,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                }
+              ]
+            },
+            "statement": "Hypothesis 'H-J-DIAGNOSTIC' survived preregistered falsifiers: Evaluate bounded J diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "digest_sha256": "329e60827c9192dad6cbfdb5fe8f92d04d757efefcebb523a6690381cd5cb0ac",
+        "experiment_id": "EXP-PLANTHIR-002-J",
+        "falsified_hypotheses": [],
+        "instrument_defects": [],
+        "instrument_passed": true,
+        "metadata": {
+          "counts": {
+            "confirmed": 3,
+            "falsified": 0,
+            "suspected": 2,
+            "unresolved": 1
+          }
+        },
+        "recommended_next_experiments": [
+          {
+            "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+            "cost_tier": "DUAL_T4_HOURS",
+            "discriminates_between": [
+              "capacity_limit",
+              "optimization_schedule"
+            ],
+            "expected_info_gain_per_gpu_hour": 15.0,
+            "rank": 1,
+            "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+            "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+          }
+        ],
+        "schema": "anra-planthir-interpretation-v1",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED",
+        "suspected_mechanisms": [
+          {
+            "category": "suspected",
+            "claim_id": "S-SINGLE-HOP-GROUNDING-DEFICIT",
+            "confidence_rule": "subgoal_grounding_floor<0.40",
+            "evidence_basis": {
+              "composition_gap": -0.125,
+              "composition_gap_95ci": [
+                -0.375,
+                0.0
+              ],
+              "full_chain_accuracy": 0.125,
+              "hop1_accuracy": 0.0,
+              "hop2_given_bridge_accuracy": 0.125,
+              "intervention": "subgoal_hop_decomposition",
+              "joint_individual_hops_solvable": 0.0,
+              "worlds_decomposed": 8
+            },
+            "statement": "Individual single-hop subgoals themselves succeed at only 0.000; grounding failure precedes multi-hop chaining."
+          },
+          {
+            "category": "suspected",
+            "claim_id": "S-SYMBOL-EQUIVARIANCE-DEFICIT",
+            "confidence_rule": "counterfactual_equivariance_threshold",
+            "evidence_basis": {
+              "accuracy": 0.1,
+              "accuracy_delta": 0.0,
+              "equivariance_rate": 0.0
+            },
+            "statement": "Low symbol-permutation equivariance (0.000 < 0.70) suggests token-identity bias rather than structural binding."
+          }
+        ],
+        "unresolved_questions": [
+          {
+            "category": "unresolved",
+            "claim_id": "U-SCALE-AND-HORIZON",
+            "confidence_rule": "epistemic_scope_guard",
+            "evidence_basis": {
+              "note": "single_regime_observability_bound"
+            },
+            "statement": "Diagnostic probes on a single checkpoint or tiny scale do not resolve whether larger parameter scale, longer horizon, or alternative optimization dynamics overcome the bottleneck."
+          }
+        ]
+      },
+      "loss_final": 2.9478251934051514,
+      "loss_init": 2.978486180305481,
+      "offline_tier2_capsule_probe": {
+        "effective_rank": 9.249590999338482,
+        "experiment_id": "EXP-PLANTHIR-002-J",
+        "hidden_dim": 32,
+        "probes": {
+          "y_final": 0.1428571492433548,
+          "y_hop1": 0.0,
+          "y_op": 0.2857142984867096
+        },
+        "samples": 16,
+        "schema": "anra-planthir-capsule-probe-v1"
+      },
+      "parameter_count": 18307,
+      "process_funnel": {
+        "calibration": {
+          "aurc": 0.9418294379231879,
+          "brier_score": 0.05861468274970019,
+          "ece": 0.0007123204413801432
+        },
+        "counts": {
+          "multi_hop_answerable": 4,
+          "native_1hop_answerable": 10,
+          "needed_tool": 8,
+          "subgoal_hop1_probes": 4,
+          "unsolvable": 2,
+          "valid_tool_callers": 0
+        },
+        "divergence_taxonomy": {
+          "FAILED_ABSTAIN_ON_UNSOLVABLE": 1,
+          "HOP1_VALUE_ERROR": 5,
+          "MISSED_REQUIRED_TOOL": 8,
+          "MODE_MASK_OVERRIDE": 0,
+          "MULTI_HOP_CHAIN_ERROR": 2,
+          "NONE": 0,
+          "PREMATURE_ABSTAIN": 0,
+          "REPEATED_CONSUMED_TOOL": 0,
+          "UNNECESSARY_TOOL_CALL": 0
+        },
+        "episodes": 16,
+        "funnel": {
+          "stage1_info_seeking": 0.5,
+          "stage1_tool_recall_when_needed": 0.0,
+          "stage1_unnecessary_tool_rate": 0.0,
+          "stage2_tool_discipline": null,
+          "stage3_single_hop_grounding": 0.1,
+          "stage3_subgoal_hop1_grounding": 0.0,
+          "stage4_epistemic_abstention": 0.0,
+          "stage4_multi_hop_composition": 0.0
+        },
+        "kernel_id": "elendril-v8-kernel-v1",
+        "overall_accuracy": 0.0625,
+        "policy_id": "planthir-J-s7:d1e642a177cf:J:raw",
+        "schema": "anra-planthir-process-funnel-v1",
+        "telemetry_means": {
+          "evaluated_positions": 253.0,
+          "model_calls": 1.0
+        }
+      },
+      "telemetry_final": {
+        "lr": 1.602885682970026e-05,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.17315930008006258,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 2.2952597694443282e-07,
+            "weight_l2": 12.092511996523925
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.6372934334007068,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 5.601854713764404e-06,
+            "weight_l2": 1.8235184103201396
+          },
+          "head": {
+            "dormant_fraction": 0.001594896331738437,
+            "grad_l2": 0.7506112200895909,
+            "param_count": 627.0,
+            "update_to_weight_ratio": 2.305165979519796e-05,
+            "weight_l2": 0.5219337734668907
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.021335278172172376,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 3.8095524319490683e-07,
+            "weight_l2": 0.8976910683143267
+          }
+        },
+        "representation": {
+          "effective_rank": 5.1254103317329935,
+          "hidden_dim": 32,
+          "isotropy": 0.002488434314727783,
+          "mean_offdiag_cosine": 0.9975115656852722
+        },
+        "step": 6
+      },
+      "telemetry_init": {
+        "lr": 0.0001,
+        "mechanism_telemetry": {},
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.0,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 12.092659251115958
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8235618830002978
+          },
+          "head": {
+            "dormant_fraction": 0.030303030303030304,
+            "grad_l2": 0.0,
+            "param_count": 627.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.5221863782814712
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.897749264034011
+          }
+        },
+        "representation": {
+          "effective_rank": 5.207615980268073,
+          "hidden_dim": 32,
+          "isotropy": 0.0024425387382507324,
+          "mean_offdiag_cosine": 0.9975574612617493
+        },
+        "step": 0
+      },
+      "tier2_capsule_bytes": 13429,
+      "tier3_binding_status": "BOUND_VERIFIED"
+    },
+    "P": {
+      "causal_diagnostics": {
+        "compute_depth_scaling": {
+          "accuracy_by_steps": {},
+          "extrapolation_gain_above_trained": 0.0,
+          "intervention": "compute_depth_scaling",
+          "recurrence_gain_over_zero": 0.0,
+          "supports_variable_depth": false,
+          "trained_steps": 0
+        },
+        "invariance_counterfactuals": {
+          "baseline_accuracy": 0.0,
+          "decoder_modes": {
+            "availability-mask": 0.1,
+            "raw": 0.0
+          },
+          "distractor_injection": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "intervention": "invariance_counterfactuals",
+          "row_order_reversal": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "symbol_permutation": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "equivariance_rate": 1.0
+          },
+          "worlds": 10
+        },
+        "linear_probe": {
+          "eval_worlds": 16,
+          "head_minus_probe_gap": 0.1428571492433548,
+          "intervention": "representation_linear_probe",
+          "model_head_final_accuracy_on_visible": 0.0,
+          "multihop_head_final_accuracy": 0.0,
+          "multihop_probe_final_accuracy": 0.0,
+          "multihop_probe_hop1_accuracy": 0.0,
+          "probe_final_symbol_accuracy": 0.1428571492433548,
+          "probe_hop1_symbol_accuracy": 0.1428571492433548,
+          "probe_operation_accuracy": 0.4375,
+          "train_worlds": 16
+        },
+        "oracle_intervention": {
+          "delta_oracle": 0.0,
+          "delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "intervention": "oracle_information_injection",
+          "normal_accuracy": 0.0,
+          "oracle_injected_accuracy": 0.0,
+          "tool_delta_oracle": 0.0,
+          "tool_delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "tool_normal_accuracy": 0.0,
+          "tool_oracle_accuracy": 0.0,
+          "tool_worlds": 14,
+          "worlds": 16
+        },
+        "subgoal_decomposition": {
+          "composition_gap": 0.0,
+          "composition_gap_95ci": [
+            0.0,
+            0.0
+          ],
+          "full_chain_accuracy": 0.0,
+          "hop1_accuracy": 0.0,
+          "hop2_given_bridge_accuracy": 0.0,
+          "intervention": "subgoal_hop_decomposition",
+          "joint_individual_hops_solvable": 0.0,
+          "worlds_decomposed": 8
+        },
+        "surgical_ablation": {
+          "ablated_accuracy": 0.0,
+          "ablation_supported": true,
+          "accuracy_delta": 0.0,
+          "action_agreement_rate": 1.0,
+          "baseline_accuracy": 0.0,
+          "intervention": "surgical_mechanism_ablation",
+          "mechanism_type": "pointer_copy_gate",
+          "ornamental_mechanism_bypass": true,
+          "worlds": 16
+        }
+      },
+      "checkpoint_bytes": 268388,
+      "checkpoint_sha256": "24f663fc4cc28eb03934c15950d97fbfdf8164bf6926278797292fe2f082b117",
+      "experiment_id": "EXP-PLANTHIR-002-P",
+      "interpretation": {
+        "confirmed_causes": [
+          {
+            "category": "confirmed",
+            "claim_id": "C-FUNNEL-DROP",
+            "confidence_rule": "process_funnel_stage_separation>=0.25",
+            "evidence_basis": {
+              "stage1": 0.5,
+              "stage2": 0.0,
+              "stage3": 0.0,
+              "stage4": 0.0
+            },
+            "statement": "Observable decoupling between initial tool selection (Stage 1=0.500) and end-to-end multi-hop execution (Stage 4=0.000)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-POST-TOOL-DISCIPLINE",
+            "confidence_rule": "direct_rollout_action_count",
+            "evidence_basis": {
+              "stage2_tool_discipline": 0.0
+            },
+            "statement": "Post-tool state transition breakdown: Stage 2 discipline is 0.000 (repeated consumed tool or invalid post-tool step)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-INCONTEXT-BOTTLENECK",
+            "confidence_rule": "oracle_ceiling_failure<0.50",
+            "evidence_basis": {
+              "delta_oracle": 0.0,
+              "delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "intervention": "oracle_information_injection",
+              "normal_accuracy": 0.0,
+              "oracle_injected_accuracy": 0.0,
+              "tool_delta_oracle": 0.0,
+              "tool_delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "tool_normal_accuracy": 0.0,
+              "tool_oracle_accuracy": 0.0,
+              "tool_worlds": 14,
+              "worlds": 16
+            },
+            "statement": "Even with oracle tool information pre-merged in context (accuracy=0.000), the model fails to resolve answers; failure is not solely due to tool acquisition."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-H-P-DIAGNOSTIC",
+            "confidence_rule": "all_preregistered_falsifiers_passed",
+            "evidence_basis": {
+              "falsifier_results": [
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-P-STAGE1",
+                  "observed": 1.0,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                },
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-P-NO-OP-VS-PROBE",
+                  "observed": 0.1428571492433548,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                }
+              ]
+            },
+            "statement": "Hypothesis 'H-P-DIAGNOSTIC' survived preregistered falsifiers: Evaluate bounded P diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "digest_sha256": "f61c69b5d46a3c646086936580482a94d16e5dac83702b9dea5cbe79a29715f0",
+        "experiment_id": "EXP-PLANTHIR-002-P",
+        "falsified_hypotheses": [],
+        "instrument_defects": [],
+        "instrument_passed": true,
+        "metadata": {
+          "counts": {
+            "confirmed": 4,
+            "falsified": 0,
+            "suspected": 3,
+            "unresolved": 1
+          }
+        },
+        "recommended_next_experiments": [
+          {
+            "action_id": "INTERVENE_POINTER_GATE_AND_COPY",
+            "cost_tier": "CPU_SECONDS",
+            "discriminates_between": [
+              "gate_bias_inertia",
+              "attention_key_failure"
+            ],
+            "expected_info_gain_per_gpu_hour": 90.0,
+            "rank": 1,
+            "rationale": "Gate openness is low; testing frozen interventions immediately distinguishes closed-gate optimization inertia from attention misalignment.",
+            "title": "Run frozen pointer no-copy vs cyclic-permutation vs forced-gate sweep"
+          }
+        ],
+        "schema": "anra-planthir-interpretation-v1",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED",
+        "suspected_mechanisms": [
+          {
+            "category": "suspected",
+            "claim_id": "S-SINGLE-HOP-GROUNDING-DEFICIT",
+            "confidence_rule": "subgoal_grounding_floor<0.40",
+            "evidence_basis": {
+              "composition_gap": 0.0,
+              "composition_gap_95ci": [
+                0.0,
+                0.0
+              ],
+              "full_chain_accuracy": 0.0,
+              "hop1_accuracy": 0.0,
+              "hop2_given_bridge_accuracy": 0.0,
+              "intervention": "subgoal_hop_decomposition",
+              "joint_individual_hops_solvable": 0.0,
+              "worlds_decomposed": 8
+            },
+            "statement": "Individual single-hop subgoals themselves succeed at only 0.000; grounding failure precedes multi-hop chaining."
+          },
+          {
+            "category": "suspected",
+            "claim_id": "S-POINTER-GATE-CLOSED",
+            "confidence_rule": "pointer_gate_mean<0.15",
+            "evidence_basis": {
+              "pointer_attention_entropy_mean": 2.9047999382019043,
+              "pointer_gate_max": 0.13972538709640503,
+              "pointer_gate_mean": 0.1390916407108307,
+              "pointer_gate_min": 0.13823679089546204
+            },
+            "statement": "Pointer copy gate remains largely closed (mean=0.139 < 0.15), suppressing copy-path contribution."
+          },
+          {
+            "category": "suspected",
+            "claim_id": "S-ORNAMENTAL-MECHANISM-BYPASS",
+            "confidence_rule": "surgical_ablation_agreement>=0.98_and_delta==0",
+            "evidence_basis": {
+              "ablated_accuracy": 0.0,
+              "ablation_supported": true,
+              "accuracy_delta": 0.0,
+              "action_agreement_rate": 1.0,
+              "baseline_accuracy": 0.0,
+              "intervention": "surgical_mechanism_ablation",
+              "mechanism_type": "pointer_copy_gate",
+              "ornamental_mechanism_bypass": true,
+              "worlds": 16
+            },
+            "statement": "Surgical clamping of pointer_copy_gate produced zero accuracy delta and 1.000 action agreement; the specialized mechanism is currently bypassed by optimization."
+          }
+        ],
+        "unresolved_questions": [
+          {
+            "category": "unresolved",
+            "claim_id": "U-SCALE-AND-HORIZON",
+            "confidence_rule": "epistemic_scope_guard",
+            "evidence_basis": {
+              "note": "single_regime_observability_bound"
+            },
+            "statement": "Diagnostic probes on a single checkpoint or tiny scale do not resolve whether larger parameter scale, longer horizon, or alternative optimization dynamics overcome the bottleneck."
+          }
+        ]
+      },
+      "loss_final": 3.8392014503479004,
+      "loss_init": 3.907754421234131,
+      "offline_tier2_capsule_probe": {
+        "effective_rank": 9.261209059153726,
+        "experiment_id": "EXP-PLANTHIR-002-P",
+        "hidden_dim": 32,
+        "probes": {
+          "y_final": 0.1428571492433548,
+          "y_hop1": 0.0,
+          "y_op": 0.2857142984867096
+        },
+        "samples": 16,
+        "schema": "anra-planthir-capsule-probe-v1"
+      },
+      "parameter_count": 19397,
+      "process_funnel": {
+        "calibration": {
+          "aurc": 1.0,
+          "brier_score": 0.05777932522590276,
+          "ece": 0.24037263914942741
+        },
+        "counts": {
+          "multi_hop_answerable": 4,
+          "native_1hop_answerable": 10,
+          "needed_tool": 8,
+          "subgoal_hop1_probes": 4,
+          "unsolvable": 2,
+          "valid_tool_callers": 11
+        },
+        "divergence_taxonomy": {
+          "FAILED_ABSTAIN_ON_UNSOLVABLE": 0,
+          "HOP1_VALUE_ERROR": 0,
+          "MISSED_REQUIRED_TOOL": 0,
+          "MODE_MASK_OVERRIDE": 0,
+          "MULTI_HOP_CHAIN_ERROR": 0,
+          "NONE": 0,
+          "PREMATURE_ABSTAIN": 0,
+          "REPEATED_CONSUMED_TOOL": 11,
+          "UNNECESSARY_TOOL_CALL": 5
+        },
+        "episodes": 16,
+        "funnel": {
+          "stage1_info_seeking": 0.5,
+          "stage1_tool_recall_when_needed": 1.0,
+          "stage1_unnecessary_tool_rate": 1.0,
+          "stage2_tool_discipline": 0.0,
+          "stage3_single_hop_grounding": 0.0,
+          "stage3_subgoal_hop1_grounding": 0.0,
+          "stage4_epistemic_abstention": 0.0,
+          "stage4_multi_hop_composition": 0.0
+        },
+        "kernel_id": "elendril-v8-kernel-v1",
+        "overall_accuracy": 0.0,
+        "policy_id": "planthir-P-s7:24f663fc4cc2:P:raw",
+        "schema": "anra-planthir-process-funnel-v1",
+        "telemetry_means": {
+          "evaluated_positions": 260.46875,
+          "has_pointer_candidates": 1.0,
+          "model_calls": 1.0,
+          "pointer_attention_entropy": 2.9284225329756737,
+          "pointer_gate": 0.1390187735669315
+        }
+      },
+      "telemetry_final": {
+        "lr": 1.602885682970026e-05,
+        "mechanism_telemetry": {
+          "pointer_attention_entropy_mean": 2.9047999382019043,
+          "pointer_gate_max": 0.13972538709640503,
+          "pointer_gate_mean": 0.1390916407108307,
+          "pointer_gate_min": 0.13823679089546204
+        },
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.1589365771191835,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 2.106585998815929e-07,
+            "weight_l2": 12.093366428325009
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.6638883698987683,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 5.835692421507523e-06,
+            "weight_l2": 1.8234976868882817
+          },
+          "head": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.7263283635099632,
+            "param_count": 660.0,
+            "update_to_weight_ratio": 2.4055568805993235e-05,
+            "weight_l2": 0.48397165096969685
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.08023905656291172,
+            "param_count": 3105.0,
+            "update_to_weight_ratio": 5.627162704782519e-07,
+            "weight_l2": 2.285592966245749
+          }
+        },
+        "representation": {
+          "effective_rank": 5.106816080133151,
+          "hidden_dim": 32,
+          "isotropy": 0.0025458335876464844,
+          "mean_offdiag_cosine": 0.9974541664123535
+        },
+        "step": 6
+      },
+      "telemetry_init": {
+        "lr": 0.0001,
+        "mechanism_telemetry": {
+          "pointer_attention_entropy_mean": 2.9047861099243164,
+          "pointer_gate_max": 0.1377723515033722,
+          "pointer_gate_mean": 0.13717570900917053,
+          "pointer_gate_min": 0.13627828657627106
+        },
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.0,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 12.092659251115958
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8235618830002978
+          },
+          "head": {
+            "dormant_fraction": 0.030303030303030304,
+            "grad_l2": 0.0,
+            "param_count": 660.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.48375733278813554
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 3105.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 2.2860634959066686
+          }
+        },
+        "representation": {
+          "effective_rank": 5.207615980268073,
+          "hidden_dim": 32,
+          "isotropy": 0.0024425387382507324,
+          "mean_offdiag_cosine": 0.9975574612617493
+        },
+        "step": 0
+      },
+      "tier2_capsule_bytes": 14778,
+      "tier3_binding_status": "BOUND_VERIFIED"
+    },
+    "U": {
+      "causal_diagnostics": {
+        "compute_depth_scaling": {
+          "accuracy_by_steps": {
+            "0": 0.0,
+            "1": 0.0,
+            "2": 0.0,
+            "4": 0.0
+          },
+          "extrapolation_gain_above_trained": 0.0,
+          "intervention": "compute_depth_scaling",
+          "recurrence_gain_over_zero": 0.0,
+          "supports_variable_depth": true,
+          "trained_steps": 2
+        },
+        "invariance_counterfactuals": {
+          "baseline_accuracy": 0.0,
+          "decoder_modes": {
+            "availability-mask": 0.1,
+            "raw": 0.0
+          },
+          "distractor_injection": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "intervention": "invariance_counterfactuals",
+          "row_order_reversal": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "prediction_invariance_rate": 1.0
+          },
+          "symbol_permutation": {
+            "accuracy": 0.0,
+            "accuracy_delta": 0.0,
+            "equivariance_rate": 1.0
+          },
+          "worlds": 10
+        },
+        "linear_probe": {
+          "eval_worlds": 16,
+          "head_minus_probe_gap": 0.1428571492433548,
+          "intervention": "representation_linear_probe",
+          "model_head_final_accuracy_on_visible": 0.0,
+          "multihop_head_final_accuracy": 0.0,
+          "multihop_probe_final_accuracy": 0.0,
+          "multihop_probe_hop1_accuracy": 0.0,
+          "probe_final_symbol_accuracy": 0.1428571492433548,
+          "probe_hop1_symbol_accuracy": 0.1428571492433548,
+          "probe_operation_accuracy": 0.4375,
+          "train_worlds": 16
+        },
+        "oracle_intervention": {
+          "delta_oracle": 0.0,
+          "delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "intervention": "oracle_information_injection",
+          "normal_accuracy": 0.0,
+          "oracle_injected_accuracy": 0.0,
+          "tool_delta_oracle": 0.0,
+          "tool_delta_oracle_95ci": [
+            0.0,
+            0.0
+          ],
+          "tool_normal_accuracy": 0.0,
+          "tool_oracle_accuracy": 0.0,
+          "tool_worlds": 14,
+          "worlds": 16
+        },
+        "subgoal_decomposition": {
+          "composition_gap": 0.0,
+          "composition_gap_95ci": [
+            0.0,
+            0.0
+          ],
+          "full_chain_accuracy": 0.0,
+          "hop1_accuracy": 0.0,
+          "hop2_given_bridge_accuracy": 0.0,
+          "intervention": "subgoal_hop_decomposition",
+          "joint_individual_hops_solvable": 0.0,
+          "worlds_decomposed": 8
+        },
+        "surgical_ablation": {
+          "ablated_accuracy": 0.0,
+          "ablation_supported": true,
+          "accuracy_delta": 0.0,
+          "action_agreement_rate": 1.0,
+          "baseline_accuracy": 0.0,
+          "intervention": "surgical_mechanism_ablation",
+          "mechanism_type": "recurrent_refinement",
+          "ornamental_mechanism_bypass": true,
+          "worlds": 16
+        }
+      },
+      "checkpoint_bytes": 362307,
+      "checkpoint_sha256": "6a5631e87d1ae772e0be81337d6aee8651ba7c106c716d566c05befebd605119",
+      "experiment_id": "EXP-PLANTHIR-002-U",
+      "interpretation": {
+        "confirmed_causes": [
+          {
+            "category": "confirmed",
+            "claim_id": "C-FUNNEL-DROP",
+            "confidence_rule": "process_funnel_stage_separation>=0.25",
+            "evidence_basis": {
+              "stage1": 0.5,
+              "stage2": 0.0,
+              "stage3": 0.0,
+              "stage4": 0.0
+            },
+            "statement": "Observable decoupling between initial tool selection (Stage 1=0.500) and end-to-end multi-hop execution (Stage 4=0.000)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-POST-TOOL-DISCIPLINE",
+            "confidence_rule": "direct_rollout_action_count",
+            "evidence_basis": {
+              "stage2_tool_discipline": 0.0
+            },
+            "statement": "Post-tool state transition breakdown: Stage 2 discipline is 0.000 (repeated consumed tool or invalid post-tool step)."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-INCONTEXT-BOTTLENECK",
+            "confidence_rule": "oracle_ceiling_failure<0.50",
+            "evidence_basis": {
+              "delta_oracle": 0.0,
+              "delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "intervention": "oracle_information_injection",
+              "normal_accuracy": 0.0,
+              "oracle_injected_accuracy": 0.0,
+              "tool_delta_oracle": 0.0,
+              "tool_delta_oracle_95ci": [
+                0.0,
+                0.0
+              ],
+              "tool_normal_accuracy": 0.0,
+              "tool_oracle_accuracy": 0.0,
+              "tool_worlds": 14,
+              "worlds": 16
+            },
+            "statement": "Even with oracle tool information pre-merged in context (accuracy=0.000), the model fails to resolve answers; failure is not solely due to tool acquisition."
+          },
+          {
+            "category": "confirmed",
+            "claim_id": "C-H-U-DIAGNOSTIC",
+            "confidence_rule": "all_preregistered_falsifiers_passed",
+            "evidence_basis": {
+              "falsifier_results": [
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-U-STAGE1",
+                  "observed": 1.0,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                },
+                {
+                  "comparator": ">=",
+                  "falsifier_id": "F-U-NO-OP-VS-PROBE",
+                  "observed": 0.1428571492433548,
+                  "status": "NOT_FALSIFIED",
+                  "threshold": 0.0
+                }
+              ]
+            },
+            "statement": "Hypothesis 'H-U-DIAGNOSTIC' survived preregistered falsifiers: Evaluate bounded U diagnostic signatures across funnel stages, causal interventions, and linear probes."
+          }
+        ],
+        "digest_sha256": "f97ff14b2a80764cf7196463d02a02c6fc821a334ca0716e5d86bdfdd3fe223c",
+        "experiment_id": "EXP-PLANTHIR-002-U",
+        "falsified_hypotheses": [],
+        "instrument_defects": [],
+        "instrument_passed": true,
+        "metadata": {
+          "counts": {
+            "confirmed": 4,
+            "falsified": 0,
+            "suspected": 2,
+            "unresolved": 1
+          }
+        },
+        "recommended_next_experiments": [
+          {
+            "action_id": "EXPAND_SEED_AND_SCALE_CONTRAST",
+            "cost_tier": "DUAL_T4_HOURS",
+            "discriminates_between": [
+              "capacity_limit",
+              "optimization_schedule"
+            ],
+            "expected_info_gain_per_gpu_hour": 15.0,
+            "rank": 1,
+            "rationale": "Current diagnostics found no single defect or dominant bottleneck; multi-seed scaling resolves capacity vs optimization hypotheses.",
+            "title": "Run matched-seed causal contrast across scales (S3 vs S20) using registered Protocol"
+          }
+        ],
+        "schema": "anra-planthir-interpretation-v1",
+        "status": "INTERPRETED_WITH_INSTRUMENT_VERIFIED",
+        "suspected_mechanisms": [
+          {
+            "category": "suspected",
+            "claim_id": "S-SINGLE-HOP-GROUNDING-DEFICIT",
+            "confidence_rule": "subgoal_grounding_floor<0.40",
+            "evidence_basis": {
+              "composition_gap": 0.0,
+              "composition_gap_95ci": [
+                0.0,
+                0.0
+              ],
+              "full_chain_accuracy": 0.0,
+              "hop1_accuracy": 0.0,
+              "hop2_given_bridge_accuracy": 0.0,
+              "intervention": "subgoal_hop_decomposition",
+              "joint_individual_hops_solvable": 0.0,
+              "worlds_decomposed": 8
+            },
+            "statement": "Individual single-hop subgoals themselves succeed at only 0.000; grounding failure precedes multi-hop chaining."
+          },
+          {
+            "category": "suspected",
+            "claim_id": "S-ORNAMENTAL-MECHANISM-BYPASS",
+            "confidence_rule": "surgical_ablation_agreement>=0.98_and_delta==0",
+            "evidence_basis": {
+              "ablated_accuracy": 0.0,
+              "ablation_supported": true,
+              "accuracy_delta": 0.0,
+              "action_agreement_rate": 1.0,
+              "baseline_accuracy": 0.0,
+              "intervention": "surgical_mechanism_ablation",
+              "mechanism_type": "recurrent_refinement",
+              "ornamental_mechanism_bypass": true,
+              "worlds": 16
+            },
+            "statement": "Surgical clamping of recurrent_refinement produced zero accuracy delta and 1.000 action agreement; the specialized mechanism is currently bypassed by optimization."
+          }
+        ],
+        "unresolved_questions": [
+          {
+            "category": "unresolved",
+            "claim_id": "U-SCALE-AND-HORIZON",
+            "confidence_rule": "epistemic_scope_guard",
+            "evidence_basis": {
+              "note": "single_regime_observability_bound"
+            },
+            "statement": "Diagnostic probes on a single checkpoint or tiny scale do not resolve whether larger parameter scale, longer horizon, or alternative optimization dynamics overcome the bottleneck."
+          }
+        ]
+      },
+      "loss_final": 4.103863477706909,
+      "loss_init": 4.128442049026489,
+      "offline_tier2_capsule_probe": {
+        "effective_rank": 9.25986225006708,
+        "experiment_id": "EXP-PLANTHIR-002-U",
+        "hidden_dim": 32,
+        "probes": {
+          "y_final": 0.1428571492433548,
+          "y_hop1": 0.0,
+          "y_op": 0.2857142984867096
+        },
+        "samples": 16,
+        "schema": "anra-planthir-capsule-probe-v1"
+      },
+      "parameter_count": 26756,
+      "process_funnel": {
+        "calibration": {
+          "aurc": 1.0,
+          "brier_score": 0.061757558116352154,
+          "ece": 0.2485106447711587
+        },
+        "counts": {
+          "multi_hop_answerable": 4,
+          "native_1hop_answerable": 10,
+          "needed_tool": 8,
+          "subgoal_hop1_probes": 4,
+          "unsolvable": 2,
+          "valid_tool_callers": 11
+        },
+        "divergence_taxonomy": {
+          "FAILED_ABSTAIN_ON_UNSOLVABLE": 0,
+          "HOP1_VALUE_ERROR": 0,
+          "MISSED_REQUIRED_TOOL": 0,
+          "MODE_MASK_OVERRIDE": 0,
+          "MULTI_HOP_CHAIN_ERROR": 0,
+          "NONE": 0,
+          "PREMATURE_ABSTAIN": 0,
+          "REPEATED_CONSUMED_TOOL": 11,
+          "UNNECESSARY_TOOL_CALL": 5
+        },
+        "episodes": 16,
+        "funnel": {
+          "stage1_info_seeking": 0.5,
+          "stage1_tool_recall_when_needed": 1.0,
+          "stage1_unnecessary_tool_rate": 1.0,
+          "stage2_tool_discipline": 0.0,
+          "stage3_single_hop_grounding": 0.0,
+          "stage3_subgoal_hop1_grounding": 0.0,
+          "stage4_epistemic_abstention": 0.0,
+          "stage4_multi_hop_composition": 0.0
+        },
+        "kernel_id": "elendril-v8-kernel-v1",
+        "overall_accuracy": 0.0,
+        "policy_id": "planthir-U-s7:6a5631e87d1a:U:raw",
+        "schema": "anra-planthir-process-funnel-v1",
+        "telemetry_means": {
+          "evaluated_positions": 260.46875,
+          "model_calls": 1.0,
+          "recurrent_final_delta": 1.3980613946914673,
+          "recurrent_mean_delta": 2.0843505896627903
+        }
+      },
+      "telemetry_final": {
+        "lr": 1.602885682970026e-05,
+        "mechanism_telemetry": {
+          "recurrent_final_delta": 1.398325577378273,
+          "recurrent_mean_delta": 2.0831933990120888
+        },
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.14332101783390247,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 1.8996291047423605e-07,
+            "weight_l2": 12.093266363478415
+          },
+          "embedding": {
+            "dormant_fraction": 0.0001201923076923077,
+            "grad_l2": 0.5814908482330801,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 5.111444415648991e-06,
+            "weight_l2": 1.8234833045573824
+          },
+          "head": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.7937993399893004,
+            "param_count": 660.0,
+            "update_to_weight_ratio": 2.6290458582012916e-05,
+            "weight_l2": 0.4839663002646975
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.019289340270467352,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 3.443611051960441e-07,
+            "weight_l2": 0.897854225896603
+          },
+          "recurrent": {
+            "dormant_fraction": 0.0002376425855513308,
+            "grad_l2": 0.1041011122709621,
+            "param_count": 8416.0,
+            "update_to_weight_ratio": 9.206650909450889e-07,
+            "weight_l2": 1.812409138583626
+          }
+        },
+        "representation": {
+          "effective_rank": 5.109551451833497,
+          "hidden_dim": 32,
+          "isotropy": 0.002550184726715088,
+          "mean_offdiag_cosine": 0.9974498152732849
+        },
+        "step": 6
+      },
+      "telemetry_init": {
+        "lr": 0.0001,
+        "mechanism_telemetry": {
+          "recurrent_final_delta": 1.3982320129871368,
+          "recurrent_mean_delta": 2.0859087109565735
+        },
+        "parameter_groups": {
+          "backbone": {
+            "dormant_fraction": 0.00013676148796498905,
+            "grad_l2": 0.0,
+            "param_count": 7312.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 12.092659251115958
+          },
+          "embedding": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 8320.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8235618830002978
+          },
+          "head": {
+            "dormant_fraction": 0.030303030303030304,
+            "grad_l2": 0.0,
+            "param_count": 660.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.48375733278813554
+          },
+          "pointer_or_memory": {
+            "dormant_fraction": 0.0,
+            "grad_l2": 0.0,
+            "param_count": 2048.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 0.897749264034011
+          },
+          "recurrent": {
+            "dormant_fraction": 0.026972433460076047,
+            "grad_l2": 0.0,
+            "param_count": 8416.0,
+            "update_to_weight_ratio": 0.0,
+            "weight_l2": 1.8124981214250497
+          }
+        },
+        "representation": {
+          "effective_rank": 5.207615980268073,
+          "hidden_dim": 32,
+          "isotropy": 0.0024425387382507324,
+          "mean_offdiag_cosine": 0.9975574612617493
+        },
+        "step": 0
+      },
+      "tier2_capsule_bytes": 14930,
+      "tier3_binding_status": "BOUND_VERIFIED"
+    }
+  },
+  "checkpoint_diff_J_vs_F": {
+    "changed_factors": {
+      "architecture": [
+        "J",
+        "F"
+      ],
+      "curriculum_phase": [
+        "v8-J",
+        "v8-F"
+      ],
+      "model_spec_sha256": [
+        "c1abd43c9117bdf9a8d3d6514f6834383ef64f79f551f00d15b6a8bda1f3492f",
+        "ef564e61ef9ccccf0897210918765ebbf8f298034a9e264846f8493837938693"
+      ],
+      "parameter_count": [
+        18307,
+        18340
+      ]
+    },
+    "checkpoint_a": "d1e642a177cfc88e825009477962e7072eb6f800289cad961af36ffa13a1c100",
+    "checkpoint_b": "c0fe57adbeab72d16139135fcfcfdcc0dc89fef92a9c5e2224ed5e57e275168b",
+    "held_constant": {
+      "cumulative_tokens": 10630,
+      "data_manifest_sha256": "1d534e5647820e32d3e02bb3f7dfd2ae244ba1f5a58cbff027bb4c37c666baab",
+      "global_update": 6,
+      "program_family": "V8-typed",
+      "source_commit": "21f57160343a54053278360e056b3ba4347f7c03"
+    },
+    "single_architecture_contrast": true
+  },
+  "elapsed_seconds": 12.46,
+  "eval_worlds": 16,
+  "experiment_id": "EXP-PLANTHIR-002",
+  "hardware_scope": "CPU tiny bounded canary (<=100k params, 6 updates/arm; mechanism/pipeline validation ONLY, not capability scaling)",
+  "multihop_eval_worlds": 8,
+  "protocol_sha256": "ab0898e1bcb990cfc526863d66dcd7b08972694f11f539e443bb0bcefa5c88c6",
+  "result_bundle_receipt": {
+    "checkpoint_count": 6,
+    "checkpoint_full_zip_bytes": 1295931,
+    "experiment_count": 6,
+    "full_manifest_sha256": "b1b6c2c9e550cee4563e2a2d222d4a870193174fa4e80eb1ae427bd0387f7030",
+    "restored_probe_experiment_id": "EXP-PLANTHIR-002-F",
+    "restored_probe_source_archive": "result.zip (full_embedded)",
+    "result_manifest_sha256": "87f9bd621d4c8300b6e0fe840ba9dbc4c3ee32b897e5d478933bff86179c088d",
+    "result_zip_bytes": 1293821,
+    "verified": true,
+    "verified_lineages": 6,
+    "whole_checkpoint_embedded": true
+  },
+  "schema": "anra-planthir-exp-002-v1",
+  "timestamp_utc": "2026-11-15T22:29:37.275217+00:00"
+}

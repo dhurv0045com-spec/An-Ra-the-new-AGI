@@ -36,3 +36,8 @@ foundry_data/
 !/Experiment Result/V7.1/**/*.json
 /Experiment Result/V7.1/**/FINAL_STATUS.json
 /Experiment Result/V7.1/**/raw/
+
+# Planthir curated reports stay in Git; binary bundles/capsules/checkpoints do not.
+/Experiment Result/Planthir/**/*.zip
+/Experiment Result/Planthir/**/*.npz
+/Experiment Result/Planthir/**/*.bin

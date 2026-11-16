@@ -1,0 +1,80 @@
+{
+  "elapsed_seconds": 2.834,
+  "experiment_id": "EXP-PLANTHIR-001",
+  "fault_injection_suite": {
+    "all_detected": true,
+    "cases": [
+      {
+        "defect_count": 52,
+        "detected": true,
+        "fault_id": "v8_consumed_tool_availability_bug",
+        "faulty_v8_eval_passed": 4,
+        "healthy_v8_eval_passed": 8,
+        "localized_check": "tool_consumption_monotonicity + v8_evaluator_parity",
+        "status": "INSTRUMENT_DEFECT_DETECTED"
+      },
+      {
+        "defect_count": 21,
+        "detected": true,
+        "fault_id": "truth_firewall_leak",
+        "localized_check": "actor_truth_firewall",
+        "status": "INSTRUMENT_DEFECT_DETECTED"
+      },
+      {
+        "defect_count": 9,
+        "detected": true,
+        "fault_id": "train_eval_prompt_drift",
+        "localized_check": "train_rollout_tri_parity",
+        "status": "INSTRUMENT_DEFECT_DETECTED"
+      },
+      {
+        "defects": [
+          "missing_active_gradient:val_head.weight"
+        ],
+        "detected": true,
+        "fault_id": "disconnected_policy_head_grad",
+        "localized_check": "missing_active_gradient:val_head.weight",
+        "status": "INSTRUMENT_DEFECT_DETECTED"
+      },
+      {
+        "defects": [
+          "epoch_shadowing:expected_final_epoch_10_got_1",
+          "accuracy_shadowing:expected_0.90_got_0.25"
+        ],
+        "detected": true,
+        "fault_id": "v16_epoch_aggregation_shadowing",
+        "localized_check": "validate_metric_aggregator",
+        "status": "INSTRUMENT_DEFECT_DETECTED"
+      },
+      {
+        "detected": true,
+        "error": "checkpoint component is corrupt: rng.bin",
+        "fault_id": "checkpoint_rng_corruption",
+        "localized_check": "checkpoint_store_restore",
+        "status": "INSTRUMENT_DEFECT_DETECTED"
+      }
+    ],
+    "detected_faults": 6,
+    "healthy_v8_kernel_passed": true,
+    "schema": "anra-planthir-fault-injection-v1",
+    "total_faults": 6
+  },
+  "hardware": {
+    "bound": "tiny-deterministic-calibration",
+    "device": "cpu"
+  },
+  "schema": "anra-planthir-exp-001-v1",
+  "timestamp_utc": "2026-11-15T22:29:24.812283+00:00",
+  "v8_consumed_tool_before_after": {
+    "buggy_enforce_tool_consumption_false": {
+      "correct": 6,
+      "oracle_accuracy": 0.5,
+      "stuck_repeating_consumed_tool_episodes": 6
+    },
+    "fixed_enforce_tool_consumption_true": {
+      "correct": 12,
+      "oracle_accuracy": 1.0
+    },
+    "tool_worlds_tested": 12
+  }
+}

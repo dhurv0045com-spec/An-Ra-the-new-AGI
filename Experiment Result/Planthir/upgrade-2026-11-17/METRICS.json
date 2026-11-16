@@ -1,0 +1,41 @@
+{
+  "schema": "anra-planthir-upgrade-metrics-v1",
+  "date": "2026-11-17",
+  "base_commit": "00b2128b34755d332414ffae8eb78dd3f430e04f",
+  "verification": {
+    "full_pytest": {
+      "passed": 506,
+      "skipped": 1,
+      "subtests_passed": 14,
+      "duration_seconds": 903.90,
+      "exit_code": 0
+    },
+    "calibrate": {
+      "detected_faults": 6,
+      "total_faults": 6,
+      "all_detected": true,
+      "healthy_v8_kernel_passed": true
+    },
+    "verify_elendril_evidence": {
+      "exit_code": 0,
+      "checkpoint_manifests_indexed": 237,
+      "archive": "930ca3bb723e0b5b191700eec3d5f450875a6e25"
+    },
+    "elendril_audit_exit_code": 0,
+    "agent_info_exit_code": 0,
+    "schema_exit_code": 0
+  },
+  "priorities_implemented": {
+    "priority_1_backend_and_x1_rd2": true,
+    "priority_2_subprocess_crash_and_atomic_generation": true,
+    "priority_3_resource_controls_and_scheduler": true,
+    "priority_4_typed_design_cohorts_and_nonanticipating_teacher": true,
+    "priority_5_streaming_raw_custody_and_replay": true,
+    "priority_6_declarative_cli_and_study_protocol": true
+  },
+  "pending_owner_gates": {
+    "gpu_multi_seed_qualification": "PENDING_OWNER_RUN",
+    "six_task_productivity_study": "STUDY_OBSERVATIONS_PENDING",
+    "claimed_productivity_efficiency_percent": null
+  }
+}

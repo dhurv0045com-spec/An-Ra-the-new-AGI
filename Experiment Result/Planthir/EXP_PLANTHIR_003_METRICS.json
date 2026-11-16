@@ -1,0 +1,212 @@
+{
+  "atlas": {
+    "generations": [
+      {
+        "generation": "V6",
+        "key_finding": "Only 2/15 primary diagnostic panels passed; calibration, retention, alias OOD, and 3-hop panels failed.",
+        "primary_panel_counts": {
+          "FAIL": 10,
+          "NOT_QUALIFIED": 3,
+          "PASS": 2
+        },
+        "runs_counted": 14,
+        "status": "Elendril V6",
+        "supplemental_runs": 4
+      },
+      {
+        "cause_status": "CAUSE UNRESOLVED",
+        "generation": "V7",
+        "key_finding": "High query recall co-occurred with incomplete end-to-end confirmation solving; cause unresolved.",
+        "max_confirmation_accuracy": 0.8392857142857143,
+        "mean_confirmation_accuracy": 0.6646825396825397,
+        "mean_query_recall": 1.0,
+        "profile": "S3 (~2.3M)",
+        "runs_counted": 9
+      },
+      {
+        "cause_status": "UNRESOLVED",
+        "generation": "V7.1",
+        "key_finding": "Expanded S3 mechanistic suite across uniform, blocked, and blocked-intermediate arms; surface alias brittleness and cause remained unresolved.",
+        "mean_alias_grammar_accuracy": 0.20734126984126985,
+        "mean_confirmation_grammar_accuracy": 0.7420634920634922,
+        "mean_confirmation_query_recall": 0.9791666666666666,
+        "mean_confirmation_raw_accuracy": 0.7400793650793651,
+        "mean_hop_grammar_accuracy": {
+          "hop-1": 0.0763888888888889,
+          "hop-2": 0.006944444444444444,
+          "hop-3": 0.034722222222222224,
+          "hop-4": 0.2152777777777778
+        },
+        "profile": "S3",
+        "runs_counted": 9
+      },
+      {
+        "generation": "V7.15",
+        "key_finding": "At S8, blocked order outperformed uniform across all 3 seeds (right_only 32/15/52 vs left_only 2/2/2), while alias robustness lagged badly.",
+        "paired_uniform_vs_blocked": {
+          "19": {
+            "both": 70,
+            "left_only": 2,
+            "neither": 25,
+            "right_only": 15
+          },
+          "41": {
+            "both": 42,
+            "left_only": 2,
+            "neither": 16,
+            "right_only": 52
+          },
+          "7": {
+            "both": 47,
+            "left_only": 2,
+            "neither": 31,
+            "right_only": 32
+          }
+        },
+        "profile": "S8 (~7.97M)",
+        "runs_counted": 6,
+        "summary": {
+          "mean_alias_grammar_accuracy": 0.25,
+          "mean_confirmation_grammar_accuracy": 0.630952380952381,
+          "mean_confirmation_grammar_by_method": {
+            "blocked": 0.7678571428571429,
+            "uniform": 0.49404761904761907
+          },
+          "mean_confirmation_query_recall": 1.0,
+          "mean_confirmation_raw_accuracy": 0.6294642857142857,
+          "mean_hop_grammar_accuracy": {
+            "hop-1": 0.020833333333333332,
+            "hop-2": 0.020833333333333332,
+            "hop-3": 0.0625,
+            "hop-4": 0.09375
+          },
+          "model_count": 6,
+          "parameter_count": 7970944
+        }
+      },
+      {
+        "generation": "V7.16",
+        "key_finding": "At S20 (~26M), seed 7 flipped toward uniform (left_only=29 vs right_only=11) whereas seeds 19/41 favored blocked (31/30 vs 4/1); initial aggregator suffered epoch-shadowing bug.",
+        "paired_uniform_vs_blocked": {
+          "19": {
+            "both": 48,
+            "left_only": 4,
+            "neither": 29,
+            "right_only": 31
+          },
+          "41": {
+            "both": 48,
+            "left_only": 1,
+            "neither": 33,
+            "right_only": 30
+          },
+          "7": {
+            "both": 43,
+            "left_only": 29,
+            "neither": 29,
+            "right_only": 11
+          }
+        },
+        "profile": "S20",
+        "runs_counted": 6,
+        "summary": {
+          "mean_alias_grammar_accuracy": 0.18303571428571427,
+          "mean_confirmation_grammar_accuracy": 0.5729166666666666,
+          "mean_confirmation_grammar_by_method": {
+            "blocked": 0.6309523809523809,
+            "uniform": 0.5148809523809524
+          },
+          "mean_confirmation_query_recall": 0.9947916666666666,
+          "mean_confirmation_raw_accuracy": 0.5714285714285715,
+          "mean_hop_grammar_accuracy": {
+            "hop-1": 0.020833333333333332,
+            "hop-2": 0.0,
+            "hop-3": 0.052083333333333336,
+            "hop-4": 0.15625
+          },
+          "model_count": 6,
+          "parameter_count": 19871616
+        }
+      },
+      {
+        "cause_status": "UNRESOLVED",
+        "generation": "V7.17",
+        "interpretation": {
+          "confirmation_scope": "Public development set used for reporting; not independent sealed evidence.",
+          "regression": "Low LR reduces raw alias-cohort correct count from 55 to 40 /336.",
+          "supported": "Lower LR improves fit and standard raw episode outcomes in all three matched seeds; order effects depend on initialization.",
+          "unresolved": "No demonstrated internal mechanism for continued one-hop/three-hop or novel-format failures."
+        },
+        "key_finding": "Init/order crossing showed order effects depend on init; low-LR improved raw standard episodes yet reduced alias correctness (55 -> 40/336); internal mechanism left unresolved.",
+        "profile": "S20 init-vs-order-vs-low-lr",
+        "runs_counted": 8,
+        "summary": {
+          "mean_alias_grammar_accuracy": 0.14732142857142855,
+          "mean_confirmation_grammar_accuracy": 0.6685267857142857,
+          "mean_confirmation_grammar_by_method": {
+            "blocked": 0.6685267857142857
+          },
+          "mean_confirmation_query_recall": 0.9765625,
+          "mean_confirmation_raw_accuracy": 0.6674107142857143,
+          "mean_hop_grammar_accuracy": {
+            "hop-1": 0.0234375,
+            "hop-2": 0.015625,
+            "hop-3": 0.03125,
+            "hop-4": 0.1328125
+          },
+          "model_count": 8,
+          "parameter_count": null
+        }
+      },
+      {
+        "designed_arms": [
+          "B0 (byte)",
+          "J (joint)",
+          "F (factorized)",
+          "P (pointer)",
+          "F-cap (bottleneck)",
+          "U (recurrent)"
+        ],
+        "generation": "V8",
+        "key_finding": "Pre-run protocol fixed evaluator consumed-tool leak via Planthir audit (enforce_tool_consumption=True); dual-T4 study awaiting Kaggle execution.",
+        "runs_counted": 0,
+        "status": "NOT_RUN"
+      }
+    ],
+    "generations_indexed": 7,
+    "historical_instrument_defects": [
+      {
+        "description": "Comparison `ep > final_epoch` compared int against tuple `(int, dict)`, silently caught by `except TypeError: pass` and keeping epoch 1 as final.",
+        "id": "HIST-DEFECT-V716-SHADOW",
+        "location": "tools/elendril_v716_report.py",
+        "planthir_control": "instrument.validate_metric_aggregator + run_fault_injection_suite fault #5",
+        "program": "V7.16"
+      },
+      {
+        "description": "run_episode set queried/retrieved booleans without clearing query_avail/mem_avail, leaving consumed tools marked available across subsequent prompt renders.",
+        "id": "HIST-DEFECT-V8-UNCONSUMED-TOOL",
+        "location": "anra_v5/elendril/v8/evaluation.py",
+        "planthir_control": "enforce_tool_consumption=True + instrument.validate_environment_kernel + fault #1",
+        "program": "V8"
+      },
+      {
+        "description": "Logged outcome accuracy and query recall without internal representation geometry, Stage 1-4 causal process funnels, or counterfactual linear probes.",
+        "id": "HIST-DEFECT-PRE-V8-METRIC-ONLY",
+        "location": "Evaluators & reporters prior to Planthir",
+        "planthir_control": "observatory.ProcessFunnelAnalyzer + observatory.InternalTelemetryCollector + causal.*",
+        "program": "V6-V7.17"
+      }
+    ],
+    "repo_root": ".",
+    "schema": "anra-planthir-historical-atlas-v1",
+    "total_archived_runs_indexed": 52,
+    "unresolved_scientific_questions": [
+      "Why does near-100% query recall (V7-V7.17) still yield <50% confirmation accuracy on novel surface aliases and 3-hop/4-hop chains?",
+      "Does factorized typed heads + pointer attention (V8 F/P/U) overcome the readout-vs-representation bottleneck at S3/S20?",
+      "Do recurrent step dynamics (V8 U, T=1..3) improve multi-hop variable chaining without overfitting surface token statistics?"
+    ]
+  },
+  "experiment_id": "EXP-PLANTHIR-003",
+  "schema": "anra-planthir-exp-003-v1",
+  "timestamp_utc": "2026-11-15T22:29:37.303762+00:00"
+}
