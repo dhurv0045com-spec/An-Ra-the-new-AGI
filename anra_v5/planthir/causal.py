@@ -620,6 +620,45 @@ def run_surgical_mechanism_ablation(
                 model.cap_out.weight.copy_(saved_w)
                 if saved_b is not None:
                     model.cap_out.bias.copy_(saved_b)
+    elif getattr(policy, "x1_spec", None) is not None and model is not None:
+        x1_arch = getattr(policy.x1_spec, "architecture", None)
+        if x1_arch in ("X1-R", "X1-R-noedge") and hasattr(model, "r_to_ptr"):
+            mechanism_type = "x1_relational_slot_readout"
+            ablation_supported = True
+            saved_w = model.r_to_ptr.weight.detach().clone()
+            try:
+                with torch.no_grad():
+                    model.r_to_ptr.weight.zero_()
+                ablated_outcomes = []
+                ablated_first_actions = []
+                for w in worlds:
+                    ok, _, executed = _run_single_episode(policy, kernel, w)
+                    ablated_outcomes.append(ok)
+                    ablated_first_actions.append(executed[0] if executed else None)
+            finally:
+                with torch.no_grad():
+                    model.r_to_ptr.weight.copy_(saved_w)
+        elif x1_arch == "X1-P-capR" and hasattr(model, "cap_r_out"):
+            mechanism_type = "x1_query_residual_control"
+            ablation_supported = True
+            saved_w = model.cap_r_out.weight.detach().clone()
+            saved_b = model.cap_r_out.bias.detach().clone() if getattr(model.cap_r_out, "bias", None) is not None else None
+            try:
+                with torch.no_grad():
+                    model.cap_r_out.weight.zero_()
+                    if saved_b is not None:
+                        model.cap_r_out.bias.zero_()
+                ablated_outcomes = []
+                ablated_first_actions = []
+                for w in worlds:
+                    ok, _, executed = _run_single_episode(policy, kernel, w)
+                    ablated_outcomes.append(ok)
+                    ablated_first_actions.append(executed[0] if executed else None)
+            finally:
+                with torch.no_grad():
+                    model.cap_r_out.weight.copy_(saved_w)
+                    if saved_b is not None:
+                        model.cap_r_out.bias.copy_(saved_b)
 
     ablated_acc = sum(1 for ok in ablated_outcomes if ok) / len(ablated_outcomes)
     agreements = sum(

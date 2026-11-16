@@ -248,3 +248,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added machine-readable agent-info and read-only inspect-run with structured errors; stopped the obsolete GPU CLI before execution.
 - Expanded the Gemini handoff with schema/validate/run/resume design, file-level acceptance criteria and a fresh-agent usability trial.
 - Verified 10 agent-interface/execution tests; preserved curated review results and historical records; target GPU qualification remains pending.
+
+### 2026-11-17 | Antigravity | Implement Planthir Priorities 1-6 and declarative CLI
+- Implemented `PlanthirBackend` contract + non-V8 `X1RD2Backend`, subprocess `os._exit` recovery + `CURRENT.json` bundle generations, `ResourceMonitor` + `IndependentWorkerScheduler`, `design.py` + `validate_nonanticipating_teacher`, chunked streaming raw evidence + `replay.py`, and data-only `anra-planthir-spec-v1` CLI (`schema`/`init`/`validate`/`run`/`resume`/`verify-bundle`/`replay-bundle`/`explain-error`).
+- Preregistered `SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md` (`STUDY_OBSERVATIONS_PENDING`), gated obsolete CLI launchers, and updated `agent.md` guides and `Experiment Result/Planthir/upgrade-2026-11-17/`.
+- Verified on CPU: `python -m pytest -q` passed `506 passed, 1 skipped, 14 subtests passed`; `calibrate` caught `6/6` faults; `tools.verify_elendril_evidence` (`237` manifests) and `elendril audit` exited `0`; owner GPU and 6-task empirical runs remain pending.

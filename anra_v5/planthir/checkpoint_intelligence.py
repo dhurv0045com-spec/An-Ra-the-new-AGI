@@ -98,12 +98,24 @@ def _reconstruct_v8_spec(raw: Mapping[str, Any]) -> V8ModelSpec:
     return V8ModelSpec(**filtered)
 
 
+def _reconstruct_x1_spec(raw: Mapping[str, Any]):
+    from .adapters.x1_rd2_adapter import X1RD2Spec
+
+    valid_keys = {f.name for f in fields(X1RD2Spec)}
+    filtered = {k: v for k, v in raw.items() if k in valid_keys}
+    return X1RD2Spec(**filtered)
+
+
 def _extract_arch_and_params(
     scheduler_payload: Mapping[str, Any],
-) -> tuple[str, str, int | None, V8ModelSpec | None, ModelSpec | None]:
+) -> tuple[str, str, int | None, Any, ModelSpec | None]:
     meta = scheduler_payload.get("metadata", scheduler_payload)
     if not isinstance(meta, Mapping):
         meta = {}
+
+    if isinstance(meta.get("x1_model_spec"), Mapping):
+        x1_spec = _reconstruct_x1_spec(meta["x1_model_spec"])
+        return "X1-RD2", x1_spec.architecture, int(x1_spec.total_parameters()), x1_spec, None
 
     if isinstance(meta.get("v8_model_spec"), Mapping):
         v8_spec = _reconstruct_v8_spec(meta["v8_model_spec"])
@@ -248,14 +260,28 @@ def _instantiate_checkpoint_bundle(
     copy_enabled_override: bool | None,
     device: str,
 ) -> dict[str, Any]:
-    """Build model + V8ObservablePolicy and load weights for frozen causal probing."""
+    """Build model + ObservablePolicy and load weights for frozen causal probing."""
 
-    prog, arch, pcount, v8_spec, base_spec = _extract_arch_and_params(sched)
-    if v8_spec is not None and v8_spec.architecture in ARCHITECTURES:
+    from .adapters.x1_rd2_adapter import X1ObservablePolicy, X1RD2Spec, build_x1_model
+
+    prog, arch, pcount, backend_spec, base_spec = _extract_arch_and_params(sched)
+    if isinstance(backend_spec, X1RD2Spec):
+        model = build_x1_model(backend_spec, 0).to(torch.device(device))
+        model.load_state_dict(weights, strict=True)
+        model.eval()
+        policy: Any = X1ObservablePolicy(
+            model,
+            backend_spec,
+            model_identity=f"{state.lineage_id}:{sha[:12]}",
+            mode=mode,
+        )
+        v8_spec = None
+    elif isinstance(backend_spec, V8ModelSpec) and backend_spec.architecture in ARCHITECTURES:
+        v8_spec = backend_spec
         model = build_v8_model(v8_spec, 0, torch_module=torch).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
-        policy: V8ObservablePolicy | None = V8ObservablePolicy(
+        policy = V8ObservablePolicy(
             model,
             v8_spec,
             model_identity=f"{state.lineage_id}:{sha[:12]}",
@@ -263,6 +289,7 @@ def _instantiate_checkpoint_bundle(
             copy_enabled_override=copy_enabled_override,
         )
     elif base_spec is not None:
+        v8_spec = None
         model = initialize(base_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
@@ -283,7 +310,8 @@ def _instantiate_checkpoint_bundle(
         "model": model,
         "policy": policy,
         "v8_spec": v8_spec,
-        "model_spec": base_spec,
+        "x1_spec": backend_spec if isinstance(backend_spec, X1RD2Spec) else None,
+        "model_spec": base_spec or (backend_spec if isinstance(backend_spec, X1RD2Spec) else None),
         "scheduler": dict(sched),
         "payload_keys": sorted(payload_keys),
     }

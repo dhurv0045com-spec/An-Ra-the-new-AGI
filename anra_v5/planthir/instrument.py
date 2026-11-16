@@ -636,9 +636,136 @@ def run_fault_injection_suite() -> dict[str, Any]:
     }
 
 
+def _teacher_signature(decision: Any) -> Any:
+    if isinstance(decision, Mapping):
+        return {str(k): float(v) for k, v in sorted(decision.items())}
+    if hasattr(decision, "operation") and hasattr(decision, "argument"):
+        return (str(decision.operation), decision.argument)
+    if isinstance(decision, tuple) and len(decision) == 2:
+        return (str(decision[0]), decision[1])
+    return decision
+
+
+def _signatures_equal(a: Any, b: Any, *, tol: float = 1e-6) -> bool:
+    if isinstance(a, dict) and isinstance(b, dict):
+        if set(a) != set(b):
+            return False
+        return all(abs(float(a[k]) - float(b[k])) <= tol for k in a)
+    return a == b
+
+
+def validate_nonanticipating_teacher(
+    kernel: EnvironmentKernel,
+    world_pairs: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]],
+    *,
+    teacher_fn: Callable[[Any, Mapping[str, Any], UniversalObservation], Any] | None = None,
+    action_prefixes: Sequence[Sequence[UniversalAction]] | None = None,
+    distribution_tolerance: float = 1e-6,
+) -> dict[str, Any]:
+    """Fail closed when two worlds share identical visible history/availability yet yield different teacher outputs."""
+
+    if not world_pairs:
+        return {
+            "schema": "anra-planthir-nonanticipating-teacher-v1",
+            "passed": False,
+            "status": "NO_WORLD_PAIRS",
+            "checked_states": 0,
+            "comparable_pairs": 0,
+            "leaks": [{"code": "NO_WORLD_PAIRS"}],
+        }
+
+    leaks: list[dict[str, Any]] = []
+    checked_states = 0
+    comparable_pairs = 0
+
+    for idx, (world_a, world_b) in enumerate(world_pairs):
+        prefixes: Sequence[Sequence[UniversalAction]] = action_prefixes if action_prefixes is not None else ((),)
+        pair_had_comparable = False
+
+        for p_idx, prefix in enumerate(prefixes):
+            st_a = kernel.initial_state(world_a)
+            st_b = kernel.initial_state(world_b)
+            valid_prefix = True
+            for step_t in range(len(prefix) + 1):
+                if getattr(st_a, "terminal", False) or getattr(st_b, "terminal", False):
+                    break
+                obs_a = kernel.observe(st_a)
+                obs_b = kernel.observe(st_b)
+                vis_a = (
+                    obs_a.rendered_text,
+                    tuple(sorted(obs_a.available_tools.items())),
+                    tuple(sorted(obs_a.consumed_tools)),
+                    int(obs_a.decision_index),
+                )
+                vis_b = (
+                    obs_b.rendered_text,
+                    tuple(sorted(obs_b.available_tools.items())),
+                    tuple(sorted(obs_b.consumed_tools)),
+                    int(obs_b.decision_index),
+                )
+                if vis_a != vis_b:
+                    break
+                pair_had_comparable = True
+                checked_states += 1
+
+                if teacher_fn is not None:
+                    dec_a = _teacher_signature(teacher_fn(st_a, world_a, obs_a))
+                    dec_b = _teacher_signature(teacher_fn(st_b, world_b, obs_b))
+                else:
+                    dec_a = _teacher_signature(kernel.ideal_action(st_a))
+                    dec_b = _teacher_signature(kernel.ideal_action(st_b))
+
+                if not _signatures_equal(dec_a, dec_b, tol=distribution_tolerance):
+                    leaks.append(
+                        {
+                            "code": "ANTICIPATING_TEACHER_LEAK",
+                            "pair_index": idx,
+                            "prefix_index": p_idx,
+                            "step_index": step_t,
+                            "world_a_id": str(world_a.get("world_id", f"a-{idx}")),
+                            "world_b_id": str(world_b.get("world_id", f"b-{idx}")),
+                            "decision_a": dec_a,
+                            "decision_b": dec_b,
+                        }
+                    )
+                    valid_prefix = False
+                    break
+
+                if step_t < len(prefix):
+                    act = prefix[step_t]
+                    op = str(act.operation if hasattr(act, "operation") else act[0])
+                    arg = act.argument if hasattr(act, "operation") else act[1]
+                    tool_key = _TOOL_OP_TO_KEY.get(op)
+                    if tool_key is not None and not (
+                        obs_a.available_tools.get(tool_key, False) and obs_b.available_tools.get(tool_key, False)
+                    ):
+                        break
+                    st_a = kernel.step(st_a, op, arg)
+                    st_b = kernel.step(st_b, op, arg)
+            if not valid_prefix:
+                break
+        if pair_had_comparable:
+            comparable_pairs += 1
+
+    if comparable_pairs == 0 and not leaks:
+        leaks.append({"code": "NO_COMPARABLE_VISIBLE_HISTORIES"})
+
+    passed = len(leaks) == 0 and checked_states > 0
+    return {
+        "schema": "anra-planthir-nonanticipating-teacher-v1",
+        "passed": passed,
+        "status": "NONANTICIPATING_OK" if passed else "INSTRUMENT_DEFECT_DETECTED",
+        "checked_states": checked_states,
+        "comparable_pairs": comparable_pairs,
+        "leak_count": len(leaks),
+        "leaks": leaks,
+    }
+
+
 __all__ = [
     "run_fault_injection_suite",
     "validate_environment_kernel",
     "validate_metric_aggregator",
     "validate_model_and_gradients",
+    "validate_nonanticipating_teacher",
 ]

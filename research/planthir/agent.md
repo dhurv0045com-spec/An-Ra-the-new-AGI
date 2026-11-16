@@ -1,4 +1,4 @@
-# Historical guide: read the [current root guide](../../agent.md) and [reliability handoff](GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) first. Some original readiness, universality and productivity claims below are superseded. This document is retained for provenance.
+> **Updated Contract Notice:** Read the [current root guide](../../agent.md) first for the declarative `anra-planthir-spec-v1` CLI (`schema`, `init`, `validate`, `run`, `resume`, `verify-bundle --bundle-dir`, `replay-bundle`, `explain-error`). This document preserves the historical Python-API overview; legacy CLI examples such as `run-gpu-validation` and custom `trainer_factory` hooks are superseded and rejected by qualified backends.
 
 # `agent.md` — How AI Agents Must Use Planthir (`anra_v5.planthir`)
 
@@ -204,10 +204,10 @@ restored = CheckpointCatalog.restore_full_checkpoint_zip("path/to/checkpoint_ful
 
 | Step | Action | Exact Command / Check | Pass Criteria |
 | :--- | :--- | :--- | :--- |
-| **1. Calibrate** | Run instrument fault calibration before running research | `python -m anra_v5.planthir calibrate` | `all_detected: true` (`6/6`) and `healthy_v8_kernel_passed: true` |
-| **2. Canary / Bounded Run** | Verify gradient flow, Gate 2 confounder purity, & runtime on CPU or local GPU (`.venv-cuda`, stay well below system overload) | `python -m anra_v5.planthir run-gpu-validation --output-dir "Experiment Result/Planthir" --updates 60` (or `CartridgeRunner().run(...)`) | Exit code `0`, reasonable VRAM/time, finite loss/grads |
-| **3. Inspect Gates & Verify ZIPs** | Confirm all 5 Launch Gates passed and SHA-256 archives verify | Inspect `LAUNCH_GATE_CERTIFICATE.json` and run `python -m anra_v5.planthir verify-bundle --dir <bundle_dir>` (or `--zip <result.zip>`) | `all_5_gates_passed: true`, `verified: true`, `result.zip <= 20 MiB` (`20,971,520` B), Gate 5 `prediction_parity_rate == 1.0` |
-| **4. Minimal-Token Handoff** | Read ONLY `AI_HANDOFF_BRIEF.json` (~6 KB) to inspect metrics, confirmed vs. suspected claims, and ranked next steps before scaling to Kaggle `2xT4` | Open `AI_HANDOFF_BRIEF.json` + `RESULT_OVERVIEW.md` + `tier1_summary/SCIENTIFIC_SUMMARY.md` | Never dump multi-MB raw JSON/traces into prompt; keep `.zip`/`.npz`/`.bin` out of Git and append `<= 5`-line entry to `progress.md` |
+| **1. Schema & Calibrate** | Inspect schema and verify instrument calibration | `python -m anra_v5.planthir schema` and `python -m anra_v5.planthir calibrate` | `all_detected: true` (`6/6`) and `healthy_v8_kernel_passed: true` |
+| **2. Validate & Bounded Canary Run** | Generate/validate `anra-planthir-spec-v1` spec and run bounded canary | `python -m anra_v5.planthir validate --spec spec.json` and `python -m anra_v5.planthir run --spec spec.json --work-root runs/exp1 --canary` | Exit code `0`, `gates_passed: true`, `RESOURCE_RECEIPT.json` written |
+| **3. Inspect, Verify Custody & Replay** | Check generation pointer, custody sidecars, and isolated replay | `python -m anra_v5.planthir verify-bundle --bundle-dir runs/exp1/result_bundle` and `python -m anra_v5.planthir replay-bundle --bundle-dir runs/exp1/result_bundle` | `verified: true`, `status: "REPLAY_VERIFIED"`, `result.zip <= 20 MiB` |
+| **4. Minimal-Token Handoff** | Read ONLY `AI_HANDOFF_BRIEF.json` (~6 KB) to inspect metrics and claims | Open `AI_HANDOFF_BRIEF.json` + `RESULT_OVERVIEW.md` + `tier1_summary/SCIENTIFIC_SUMMARY.md` | Keep `.zip`/`.npz`/`.bin` out of Git and append `<= 5`-line entry to `progress.md` |
 
 ---
 

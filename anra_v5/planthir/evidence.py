@@ -7,8 +7,9 @@ from dataclasses import asdict
 import json
 import os
 from pathlib import Path, PurePosixPath
+import shutil
 import tempfile
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 import zipfile
 
 import numpy as np
@@ -22,6 +23,7 @@ from v5_training.state import TrainingState
 
 from .causal import _eval_ridge_classifier, _fit_ridge_classifier
 from .contracts import ExperimentRegistration
+from .execution import _atomic_write, _sync_dir, trigger_fault_point
 from .interpretation import ScientificInterpretationReport
 from .observatory import compute_effective_rank
 
@@ -31,6 +33,10 @@ RESULT_ZIP_NAME = "result.zip"
 FULL_CHECKPOINT_ZIP_NAME = "checkpoint_full.zip"
 DEFAULT_RESULT_ZIP_MAX_BYTES = 20 * 1024 * 1024
 ALLOWED_BUNDLE_STATUSES = ("COMPLETE", "PARTIAL", "NOT_RUN", "NO_GO", "INVALID_RESULTS")
+BUNDLE_POINTER_SCHEMA = "anra-planthir-bundle-pointer-v1"
+BUNDLE_POINTER_NAME = "CURRENT.json"
+GENERATIONS_DIR_NAME = "generations"
+QUARANTINE_DIR_NAME = ".quarantine"
 
 
 def _sanitize_json(obj: Any) -> Any:
@@ -192,6 +198,7 @@ def write_tier2_diagnostic_capsule(
     probe_arrays: Mapping[str, torch.Tensor | np.ndarray],
     diagnostics: Mapping[str, Any],
     max_bytes: int = TIER2_MAX_BYTES,
+    raw_evidence_link: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write compact Tier-2 Diagnostic Capsule (.json + float16 .npz) with SHA-256 manifest."""
 
@@ -240,6 +247,14 @@ def write_tier2_diagnostic_capsule(
     for fname in ("representations.npz", "diagnostics.json"):
         file_sha, size = _file_sha256(cdir / fname)
         members[fname] = {"byte_size": size, "sha256": file_sha}
+    selected_indices = list(range(selected))
+    omitted_fields = sorted(set(raw_arrays) - set(np_arrays))
+    if raw_evidence_link is not None:
+        if raw_evidence_link.get("selected_row_indices") is not None:
+            selected_indices = [int(i) for i in raw_evidence_link["selected_row_indices"]]
+        if raw_evidence_link.get("omitted_fields"):
+            omitted_fields = sorted(set(omitted_fields) | {str(x) for x in raw_evidence_link["omitted_fields"]})
+
     manifest = {
         "schema": "anra-planthir-tier2-capsule-v1", "experiment_id": experiment_id,
         "total_bytes": total_bytes,
@@ -249,6 +264,16 @@ def write_tier2_diagnostic_capsule(
                      "omitted_arrays": sorted(set(raw_arrays) - set(np_arrays))},
         "raw_evidence": {"arrays": raw_prefix + "/representations_full.npz",
                          "diagnostics": raw_prefix + "/diagnostics_full.json"},
+        "raw_evidence_link": {
+            "raw_manifest_sha256": raw_evidence_link.get("raw_manifest_sha256") if raw_evidence_link else None,
+            "selected_row_indices": selected_indices,
+            "omitted_fields": omitted_fields,
+            "lossy_quantization": {
+                "float_cast": "float16",
+                "source_dtypes": {k: str(v.dtype) for k, v in raw_arrays.items()},
+                "quantized_keys": sorted(k for k, v in np_arrays.items() if str(v.dtype) == "float16"),
+            },
+        },
         "members": members,
     }
     manifest_path = cdir / "CAPSULE_MANIFEST.json"
@@ -662,7 +687,10 @@ def _collect_checkpoint_lineages(checkpoint_root: Path | None) -> dict[str, dict
             "cumulative_tokens": int(state.cumulative_tokens),
             "curriculum_phase": str(state.curriculum_phase),
             "model_spec_sha256": str(state.identities.model_spec_sha256),
-            "architecture": str(sched.get("metadata", {}).get("v8_model_spec", {}).get("architecture", "unknown")),
+            "architecture": str(
+                sched.get("metadata", {}).get("v8_model_spec", {}).get("architecture")
+                or sched.get("metadata", {}).get("x1_model_spec", {}).get("architecture", "unknown")
+            ),
             "compact_files": compact_files,
             "fp16_files": fp16_files,
             "latest_full_files": latest_full_files,
@@ -894,6 +922,10 @@ def export_result_bundle(
                 candidate_path.unlink()
                 raise ValueError(f"evidence-only {RESULT_ZIP_NAME} size {candidate_size} B exceeds cap {max_result_zip_bytes} B")
     os.replace(candidate_path, result_zip_path)
+    result_zip_sha256, _ = _file_sha256(result_zip_path)
+    (out / "result.zip.sha256").write_text(
+        f"{result_zip_sha256}  {RESULT_ZIP_NAME}\n", encoding="ascii"
+    )
 
     # Always write full CheckpointStore archive containing matching status/index/overview metadata
     for fname, raw in (
@@ -926,6 +958,7 @@ def export_result_bundle(
         "result_zip": str(result_zip_path),
         "checkpoint_full_zip": str(full_zip_path),
         "result_zip_bytes": int(result_zip_path.stat().st_size),
+        "result_zip_sha256": result_zip_sha256,
         "checkpoint_full_zip_bytes": int(full_zip_path.stat().st_size),
         "checkpoint_full_zip_sha256": full_zip_sha256,
         "whole_checkpoint_embedded": whole_checkpoint_embedded,
@@ -1064,9 +1097,438 @@ def verify_result_bundle(
     }
 
 
+def _atomic_copy_file(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(dst.parent), prefix=f".tmp-{dst.name}-")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle, src.open("rb") as inp:
+            shutil.copyfileobj(inp, handle, length=1024 * 1024)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_path, dst)
+        _sync_dir(dst.parent)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+
+
+def quarantine_partial_generations(bundle_dir: Path | str) -> list[str]:
+    """Move incomplete staging/backup/temp bundle entries into `.quarantine` without altering CURRENT.json."""
+    bdir = Path(bundle_dir)
+    if not bdir.exists():
+        return []
+    qdir = bdir / QUARANTINE_DIR_NAME
+    quarantined: list[str] = []
+    for child in sorted(bdir.iterdir()):
+        if child.name.startswith((".staging-", ".backup-", ".tmp-")):
+            qdir.mkdir(parents=True, exist_ok=True)
+            dest = qdir / child.name
+            if dest.exists():
+                dest = qdir / f"{child.name}-{os.getpid()}"
+            os.replace(str(child), str(dest))
+            quarantined.append(child.name)
+    if quarantined:
+        _sync_dir(qdir)
+        _sync_dir(bdir)
+    return quarantined
+
+
+def resolve_published_generation(
+    bundle_dir: Path | str,
+    *,
+    expected_source_commit: str | None = None,
+    max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
+    verify: bool = True,
+) -> dict[str, Any]:
+    """Resolve and optionally verify the currently committed generation pointed to by `CURRENT.json`."""
+    bdir = Path(bundle_dir)
+    ptr_path = bdir / BUNDLE_POINTER_NAME
+    if not ptr_path.is_file():
+        raise ValueError(f"missing bundle pointer: {ptr_path}")
+    ptr = json.loads(ptr_path.read_text(encoding="utf-8"))
+    if ptr.get("schema") != BUNDLE_POINTER_SCHEMA:
+        raise ValueError(f"unsupported bundle pointer schema: {ptr.get('schema')!r}")
+    rel = str(ptr.get("generation_relpath", ""))
+    posix_rel = PurePosixPath(rel.replace("\\", "/"))
+    if not rel or posix_rel.is_absolute() or ".." in posix_rel.parts:
+        raise ValueError(f"unsafe generation_relpath: {rel!r}")
+    gen_dir = (bdir / posix_rel).resolve()
+    bdir_resolved = bdir.resolve()
+    if not gen_dir.is_dir() or bdir_resolved not in gen_dir.parents:
+        raise ValueError(f"published generation directory missing or escapes root: {gen_dir}")
+    result: dict[str, Any] = {
+        **ptr,
+        "bundle_dir": str(bdir),
+        "generation_dir": str(gen_dir),
+    }
+    if verify:
+        verified = verify_result_bundle(
+            gen_dir,
+            expected_source_commit=expected_source_commit,
+            max_result_zip_bytes=max_result_zip_bytes,
+        )
+        if (
+            ptr.get("result_manifest_sha256") != verified["result_manifest_sha256"]
+            or ptr.get("full_manifest_sha256") != verified["full_manifest_sha256"]
+        ):
+            raise ValueError("CURRENT.json manifest digest disagrees with published generation")
+        result["verification"] = verified
+    return result
+
+
+def publish_bundle_generation(
+    bundle_dir: Path | str,
+    *,
+    campaign_id: str,
+    source_commit: str,
+    status: str,
+    experiment_bundles: Mapping[str, Mapping[str, Any]],
+    checkpoint_root: Path | str | None = None,
+    max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
+    extra_root_files: Mapping[str, bytes] | None = None,
+    generation_id: str | None = None,
+    export_fn: Callable[..., Mapping[str, Any]] | None = None,
+    verify_fn: Callable[..., Mapping[str, Any]] | None = None,
+    enable_fault_injection: bool = True,
+) -> dict[str, Any]:
+    """Stage, verify, commit `generations/<gen_id>`, and atomically flip `CURRENT.json`."""
+    bdir = Path(bundle_dir)
+    bdir.mkdir(parents=True, exist_ok=True)
+    quarantined = quarantine_partial_generations(bdir)
+
+    gens_root = bdir / GENERATIONS_DIR_NAME
+    if generation_id is None:
+        existing_nums: list[int] = []
+        if gens_root.is_dir():
+            for d in gens_root.iterdir():
+                if d.is_dir() and d.name.startswith("gen-"):
+                    try:
+                        existing_nums.append(int(d.name.split("-", 1)[1]))
+                    except ValueError:
+                        pass
+        next_num = (max(existing_nums) + 1) if existing_nums else 1
+        gen_id = f"gen-{next_num:04d}"
+
+    staging = bdir / f".staging-{gen_id}"
+    if staging.exists():
+        shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True, exist_ok=True)
+
+    _export = export_fn or export_result_bundle
+    _verify = verify_fn or verify_result_bundle
+    receipt = dict(
+        _export(
+            staging,
+            campaign_id=campaign_id,
+            source_commit=source_commit,
+            status=status,
+            experiment_bundles=experiment_bundles,
+            checkpoint_root=checkpoint_root,
+            max_result_zip_bytes=max_result_zip_bytes,
+            extra_root_files=extra_root_files,
+        )
+    )
+    _sync_dir(staging)
+    if enable_fault_injection:
+        trigger_fault_point("publication_stage")
+
+    gens_root.mkdir(parents=True, exist_ok=True)
+    gen_dir = gens_root / gen_id
+    if gen_dir.exists():
+        raise FileExistsError(f"generation directory already exists: {gen_dir}")
+    os.replace(str(staging), str(gen_dir))
+    _sync_dir(gens_root)
+
+    try:
+        verified = dict(
+            _verify(
+                gen_dir,
+                expected_source_commit=source_commit,
+                max_result_zip_bytes=max_result_zip_bytes,
+            )
+        )
+    except BaseException:
+        qdir = bdir / QUARANTINE_DIR_NAME
+        qdir.mkdir(parents=True, exist_ok=True)
+        qdest = qdir / f"unverified-{gen_id}-{os.getpid()}"
+        if gen_dir.exists():
+            os.replace(str(gen_dir), str(qdest))
+        raise
+    if enable_fault_injection:
+        trigger_fault_point("publication_pointer")
+
+    pointer_doc = {
+        "schema": BUNDLE_POINTER_SCHEMA,
+        "campaign_id": campaign_id,
+        "source_commit": source_commit,
+        "current_generation": gen_id,
+        "generation_relpath": f"{GENERATIONS_DIR_NAME}/{gen_id}",
+        "status": str(verified["status"]),
+        "result_manifest_sha256": str(verified["result_manifest_sha256"]),
+        "full_manifest_sha256": str(verified["full_manifest_sha256"]),
+        "result_zip_bytes": int(receipt["result_zip_bytes"]),
+        "checkpoint_full_zip_bytes": int(receipt["checkpoint_full_zip_bytes"]),
+    }
+    pointer_bytes = (
+        json.dumps(_sanitize_json(pointer_doc), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    _atomic_write(bdir / BUNDLE_POINTER_NAME, pointer_bytes)
+
+    # Atomically refresh backward-compatible top-level bundle files after generation pointer commit
+    for entry in sorted(gen_dir.iterdir()):
+        if entry.is_file():
+            _atomic_copy_file(entry, bdir / entry.name)
+    _sync_dir(bdir)
+
+    return {
+        **receipt,
+        **verified,
+        "output_dir": str(bdir),
+        "generation_id": gen_id,
+        "generation_dir": str(gen_dir),
+        "generation_relpath": f"{GENERATIONS_DIR_NAME}/{gen_id}",
+        "pointer_path": str(bdir / BUNDLE_POINTER_NAME),
+        "result_zip": str(bdir / RESULT_ZIP_NAME),
+        "checkpoint_full_zip": str(bdir / FULL_CHECKPOINT_ZIP_NAME),
+        "quarantined_staging": quarantined,
+    }
+
+
+RAW_EVIDENCE_STREAM_SCHEMA = "anra-planthir-raw-evidence-stream-v1"
+RAW_EVIDENCE_MANIFEST_NAME = "RAW_EVIDENCE_MANIFEST.json"
+
+
+def _flush_raw_chunk(
+    out_dir: Path,
+    *,
+    chunk_idx: int,
+    jsonl_lines: list[bytes],
+    arr_cols: dict[str, list[np.ndarray]],
+    total_bytes_so_far: int,
+    max_total_bytes: int,
+) -> dict[str, Any]:
+    from .resources import ResourceQuotaExceededError
+
+    chunk_stem = f"chunk-{chunk_idx:04d}"
+    jsonl_path = out_dir / f"{chunk_stem}.jsonl"
+    jsonl_bytes = b"\n".join(jsonl_lines) + (b"\n" if jsonl_lines else b"")
+    npz_path: Path | None = None
+    npz_bytes = 0
+
+    try:
+        jsonl_path.write_bytes(jsonl_bytes)
+        if arr_cols:
+            npz_path = out_dir / f"{chunk_stem}.npz"
+            stacked = {k: np.stack(v, axis=0) for k, v in arr_cols.items()}
+            if any(arr.dtype.hasobject for arr in stacked.values()):
+                raise ValueError("object arrays rejected in raw evidence chunk stream")
+            np.savez_compressed(npz_path, **stacked)
+            npz_bytes = int(npz_path.stat().st_size)
+
+        chunk_bytes = len(jsonl_bytes) + npz_bytes
+        if total_bytes_so_far + chunk_bytes > max_total_bytes:
+            raise ResourceQuotaExceededError(
+                quota_name="max_raw_evidence_bytes",
+                limit=max_total_bytes,
+                observed=total_bytes_so_far + chunk_bytes,
+                phase="raw_evidence_streaming",
+            )
+
+        j_sha, j_size = _file_sha256(jsonl_path)
+        entry: dict[str, Any] = {
+            "chunk_id": chunk_stem,
+            "record_count": len(jsonl_lines),
+            "jsonl_file": jsonl_path.name,
+            "jsonl_bytes": j_size,
+            "jsonl_sha256": j_sha,
+            "npz_file": None,
+            "npz_bytes": 0,
+            "npz_sha256": None,
+            "array_shapes": {},
+        }
+        if npz_path is not None:
+            n_sha, n_size = _file_sha256(npz_path)
+            entry.update(
+                {
+                    "npz_file": npz_path.name,
+                    "npz_bytes": n_size,
+                    "npz_sha256": n_sha,
+                    "array_shapes": {k: list(np.stack(v, axis=0).shape) for k, v in arr_cols.items()},
+                }
+            )
+        return entry
+    except BaseException:
+        jsonl_path.unlink(missing_ok=True)
+        if npz_path is not None:
+            npz_path.unlink(missing_ok=True)
+        raise
+
+
+def stream_raw_evidence_chunks(
+    output_dir: Path | str,
+    records_iter: Iterable[Mapping[str, Any]],
+    *,
+    max_chunk_records: int = 64,
+    max_chunk_bytes: int = 512 * 1024,
+    max_total_bytes: int = 10 * 1024 * 1024,
+) -> dict[str, Any]:
+    """Stream bounded JSONL/NPZ raw evidence chunks to disk while enforcing write-time byte quotas."""
+
+    if type(max_chunk_records) is not int or max_chunk_records < 1:
+        raise ValueError("max_chunk_records must be positive")
+    if type(max_chunk_bytes) is not int or max_chunk_bytes < 1:
+        raise ValueError("max_chunk_bytes must be positive")
+    if type(max_total_bytes) is not int or max_total_bytes < 1:
+        raise ValueError("max_total_bytes must be positive")
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    chunks_meta: list[dict[str, Any]] = []
+    jsonl_buf: list[bytes] = []
+    arr_buf: dict[str, list[np.ndarray]] = {}
+    buf_approx_bytes = 0
+    total_bytes = 0
+    total_records = 0
+    chunk_idx = 0
+
+    for rec in records_iter:
+        arrays_field = rec.get("arrays")
+        row_payload = {str(k): v for k, v in rec.items() if k != "arrays"}
+        line_bytes = json.dumps(_sanitize_json(row_payload), sort_keys=True, allow_nan=False).encode("utf-8")
+        jsonl_buf.append(line_bytes)
+        buf_approx_bytes += len(line_bytes) + 1
+
+        if isinstance(arrays_field, Mapping):
+            for ak, av in arrays_field.items():
+                np_arr = av.detach().cpu().numpy() if isinstance(av, torch.Tensor) else np.asarray(av)
+                arr_buf.setdefault(str(ak), []).append(np_arr)
+                buf_approx_bytes += int(np_arr.nbytes)
+
+        total_records += 1
+        if len(jsonl_buf) >= max_chunk_records or buf_approx_bytes >= max_chunk_bytes:
+            chunk_idx += 1
+            meta = _flush_raw_chunk(
+                out_dir,
+                chunk_idx=chunk_idx,
+                jsonl_lines=jsonl_buf,
+                arr_cols=arr_buf,
+                total_bytes_so_far=total_bytes,
+                max_total_bytes=max_total_bytes,
+            )
+            chunks_meta.append(meta)
+            total_bytes += int(meta["jsonl_bytes"]) + int(meta["npz_bytes"])
+            jsonl_buf.clear()
+            arr_buf.clear()
+            buf_approx_bytes = 0
+
+    if jsonl_buf:
+        chunk_idx += 1
+        meta = _flush_raw_chunk(
+            out_dir,
+            chunk_idx=chunk_idx,
+            jsonl_lines=jsonl_buf,
+            arr_cols=arr_buf,
+            total_bytes_so_far=total_bytes,
+            max_total_bytes=max_total_bytes,
+        )
+        chunks_meta.append(meta)
+        total_bytes += int(meta["jsonl_bytes"]) + int(meta["npz_bytes"])
+        jsonl_buf.clear()
+        arr_buf.clear()
+
+    manifest_body = {
+        "schema": RAW_EVIDENCE_STREAM_SCHEMA,
+        "max_chunk_records": max_chunk_records,
+        "max_chunk_bytes": max_chunk_bytes,
+        "max_total_bytes": max_total_bytes,
+        "total_records": total_records,
+        "total_bytes": total_bytes,
+        "chunk_count": len(chunks_meta),
+        "chunks": chunks_meta,
+    }
+    manifest = {
+        **manifest_body,
+        "manifest_sha256": digest(manifest_body),
+    }
+    manifest_bytes = (
+        json.dumps(_sanitize_json(manifest), indent=2, sort_keys=True, allow_nan=False) + "\n"
+    ).encode("utf-8")
+    _atomic_write(out_dir / RAW_EVIDENCE_MANIFEST_NAME, manifest_bytes)
+    _sync_dir(out_dir)
+    return manifest
+
+
+def verify_raw_evidence_chunks(output_dir: Path | str) -> dict[str, Any]:
+    """Fail-closed SHA-256, quota, and row-count verification of chunked raw evidence."""
+
+    out_dir = Path(output_dir)
+    manifest_path = out_dir / RAW_EVIDENCE_MANIFEST_NAME
+    if not manifest_path.is_file():
+        raise ValueError(f"missing {RAW_EVIDENCE_MANIFEST_NAME} in {out_dir}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema") != RAW_EVIDENCE_STREAM_SCHEMA:
+        raise ValueError("unsupported raw evidence manifest schema")
+    body = {k: v for k, v in manifest.items() if k != "manifest_sha256"}
+    if digest(body) != manifest.get("manifest_sha256"):
+        raise ValueError("raw evidence manifest_sha256 mismatch")
+
+    max_total = int(manifest["max_total_bytes"])
+    total_bytes = 0
+    total_records = 0
+    for chunk in manifest.get("chunks", []):
+        jpath = out_dir / str(chunk["jsonl_file"])
+        if not jpath.is_file():
+            raise ValueError(f"missing raw evidence chunk jsonl: {jpath.name}")
+        j_sha, j_size = _file_sha256(jpath)
+        if j_size != int(chunk["jsonl_bytes"]) or j_sha != str(chunk["jsonl_sha256"]):
+            raise ValueError(f"checksum mismatch in raw evidence chunk: {jpath.name}")
+        raw_lines = [ln for ln in jpath.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        if len(raw_lines) != int(chunk["record_count"]):
+            raise ValueError(f"record count mismatch in raw evidence chunk: {jpath.name}")
+        for ln in raw_lines:
+            json.loads(ln)
+        total_bytes += j_size
+        total_records += len(raw_lines)
+
+        npz_name = chunk.get("npz_file")
+        if npz_name:
+            npath = out_dir / str(npz_name)
+            if not npath.is_file():
+                raise ValueError(f"missing raw evidence chunk npz: {npz_name}")
+            n_sha, n_size = _file_sha256(npath)
+            if n_size != int(chunk["npz_bytes"]) or n_sha != str(chunk["npz_sha256"]):
+                raise ValueError(f"checksum mismatch in raw evidence chunk: {npz_name}")
+            with np.load(npath, allow_pickle=False) as archive:
+                for k, arr in archive.items():
+                    if not np.isfinite(arr).all():
+                        raise ValueError(f"nonfinite array in raw evidence chunk {npz_name}:{k}")
+            total_bytes += n_size
+
+    if total_bytes != int(manifest["total_bytes"]) or total_bytes > max_total:
+        raise ValueError("raw evidence total_bytes mismatch or quota overflow")
+    if total_records != int(manifest["total_records"]):
+        raise ValueError("raw evidence total_records mismatch")
+
+    return {
+        "verified": True,
+        "manifest_sha256": str(manifest["manifest_sha256"]),
+        "total_records": total_records,
+        "total_bytes": total_bytes,
+        "chunk_count": len(manifest.get("chunks", [])),
+    }
+
+
 __all__ = [
+    "BUNDLE_POINTER_NAME",
+    "BUNDLE_POINTER_SCHEMA",
     "DEFAULT_RESULT_ZIP_MAX_BYTES",
     "FULL_CHECKPOINT_ZIP_NAME",
+    "GENERATIONS_DIR_NAME",
+    "QUARANTINE_DIR_NAME",
+    "RAW_EVIDENCE_MANIFEST_NAME",
+    "RAW_EVIDENCE_STREAM_SCHEMA",
     "RESULT_ZIP_NAME",
     "TIER1_MAX_BYTES",
     "TIER2_MAX_BYTES",
@@ -1074,6 +1536,11 @@ __all__ = [
     "export_result_bundle",
     "package_three_tier_evidence",
     "probe_from_capsule",
+    "publish_bundle_generation",
+    "quarantine_partial_generations",
+    "resolve_published_generation",
+    "stream_raw_evidence_chunks",
+    "verify_raw_evidence_chunks",
     "verify_result_bundle",
     "verify_single_planthir_zip",
     "verify_tier2_capsule",

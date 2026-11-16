@@ -1,19 +1,37 @@
 # Planthir agent guide
 
-Follow root `AGENTS.md` and read [the reliability and upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) before changing or using Planthir. The review started from `de4bce0ce7516a9e7d190a86de749ce64263e745`; start future work from the latest review commit. `purpose.md` retains the historical proposal and contains superseded claims: its reliability notice and the handoff describe current limits.
+Follow root `AGENTS.md` and read [the reliability and upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) alongside [the 6-task productivity study protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) before changing or using Planthir. `purpose.md` and `research/planthir/agent.md` retain historical context and earlier Python-level notes; this root guide defines the current declarative CLI and API contract.
 
-## Current usage
+## Agent-first declarative workflow
 
-Start with `python -m anra_v5.planthir agent-info` for machine-readable capabilities, required inputs and limitations. Use `python -m anra_v5.planthir inspect-run --work-root <run-directory>` to inspect saved run metadata without executing or changing a run. Inspection is not artifact verification; use the separate `verify-bundle` command before trusting delivered archives. The Gemini handoff specifies the next declarative schema/validate/run/resume tool interface and its acceptance tests.
+Prefer the composable data-only JSON CLI (`anra-planthir-spec-v1`) so agents avoid writing training loops or shell boilerplate:
 
-`anra_v5.planthir` provides V8 cartridge execution plus more general observation interfaces. The current `CartridgeRunner` explicitly supports the V8 backend; the observation protocols alone do not make arbitrary models or trainers compatible. Read current signatures and tests before constructing a cartridge. Register a control and treatment with one declared factor, matching data provenance and an actual source commit. Provide lineage- and V8 canonical-graph-disjoint probe training and evaluation worlds. The runner checks declared factors and many identities, but passing checks does not eliminate all confounding.
+1. **Discover contract & schema (read-only):**
+   - `python -m anra_v5.planthir agent-info`
+   - `python -m anra_v5.planthir schema`
+2. **Calibrate the instrument on CPU (`6/6` injected faults detected):**
+   - `python -m anra_v5.planthir calibrate`
+3. **Initialize & fail-closed validate a data-only spec (`backend_id`: `v8` or `x1_rd2`):**
+   - `python -m anra_v5.planthir init --backend x1_rd2 --out spec.json` (or `--backend v8`)
+   - `python -m anra_v5.planthir validate --spec spec.json --canary`
+   - Unknown keys, `eval`, dotted Python import strings, shell fragments, non-varying declared factors, parameter/precision/seed confounds, and transitive cohort/split leaks fail closed with exit code `1`. Use `python -m anra_v5.planthir explain-error --code <CODE>` for exact repair steps.
+4. **Run, inspect, and resume cleanly:**
+   - `python -m anra_v5.planthir run --spec spec.json --work-root runs/exp1 --canary`
+   - `python -m anra_v5.planthir inspect-run --work-root runs/exp1` (strictly read-only inspection)
+   - `python -m anra_v5.planthir resume --spec spec.json --work-root runs/exp1 --canary` (repairs uncommitted milestone bindings, quarantines partial `.staging-*` dirs, and resumes from committed `CheckpointStore` state; never force a mismatched identity/config onto an existing `work_root`).
+5. **Verify custody & independently replay exported bundles:**
+   - `python -m anra_v5.planthir verify-bundle --bundle-dir runs/exp1/result_bundle` (checks `CURRENT.json` generation pointer, `result.zip <= 20 MiB`, `checkpoint_full.zip`, `.sha256` custody sidecars, and manifests)
+   - `python -m anra_v5.planthir replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json` (extracts into an isolated temp workspace and verifies model reconstruction & predictions).
 
-Use `python -m pytest tests/test_planthir_scientific_reliability.py tests/test_planthir_execution_reliability.py tests/test_planthir_runner_reliability.py tests/test_planthir_instrument_reliability.py tests/test_planthir_evidence_reliability.py tests/test_planthir_universal_infrastructure.py -q` for the focused suite when appropriate. `python -m anra_v5.planthir calibrate` runs instrument calibration; inspect actual output and failures. The CPU canary is limited to 100,000 parameters, 32 samples and 8 updates. Do not substitute a long local training run for an infrastructure test. GPU qualification requires a separate owner-run bounded procedure and remains pending.
+## Backends, guarantees & open limits
 
-Bind each run to a fresh work directory. Resume only with `resume=True` and the same validated identity, configuration, source, runtime and device; do not force a mismatched work directory. Read status, checkpoints and errors after interruption. Existing recovery controls do not establish power-loss or real process-kill recovery at every write boundary.
+- **Registered backends (`anra_v5/planthir/backend.py`):** `v8` (`V8PlanthirBackend`) and non-V8 relational/D2 grouped loss `x1_rd2` (`X1RD2Backend` supporting `X1-P`, `X1-R`, `X1-R-noedge`, `X1-P-capR`, and `ce`/`pair_ce`/`pair_eq`/`pair_eq_cf`). Custom `trainer_factory` hooks are rejected by qualified backends.
+- **Measured runtime & bundle publication controls:** `CartridgeRunner` records `PROVENANCE_IDENTITY.json`, `RESOURCE_RECEIPT.json` (wall time, OS/psutil peak RSS, optional CUDA peak memory, disk usage), publishes bundles atomically via `generations/<gen_id>/` + `CURRENT.json` + `.quarantine/`, and supports parallel isolated subprocess scheduling (`IndependentWorkerScheduler`, `COORDINATOR_RECEIPT.json`).
+- **Typed design, cohorts & streaming:** `anra_v5.planthir.design` provides `TypedFactorSpec`, `TypedContrastSpec`, union-find `validate_cohort_and_split_transitivity`, and paired-seed Holm-Bonferroni `analyze_paired_seed_runs`. `validate_nonanticipating_teacher` catches teachers that peek at hidden state. `stream_raw_evidence_chunks` streams bounded `.jsonl`/`.npz` chunks with write-time byte quotas and capsule provenance links.
+- **CPU canary bounds:** Local CPU execution is restricted to `<= 100,000` parameters, `<= 32` samples, and `<= 8` updates. Obsolete CLI launchers (`run-gpu-validation`, `run-validation-study`) exit `1` on CLI; interactive owner GPU qualification (`torch` CUDA multi-seed runs) remains pending owner execution. Productivity study benchmarking (`anra_v5.planthir.productivity`) reports `STUDY_OBSERVATIONS_PENDING` until logged counterbalanced paired runs are analyzed.
 
-The five checks span admission, training, diagnostics and delivery; they are not all prelaunch gates. Inspect each check, count, assumption and artifact, rather than treating the overall certificate as a scientific conclusion. Default parity checks reload full weights on the same device and compare sampled predictions and hidden states; this is finite-sample integrity evidence. Compact capsules may be lossy and are separate from full raw evidence and checkpoints. Verify manifests and hashes and retain full raw artifacts according to repository policy.
+## Focused verification commands
 
-Interpret findings within their scope. Probe train/eval separation does not prove generalization; a linear probe measures linear decodability, not causal use. Oracle injection changes context as well as tool access. Intervals are unavailable by default unless independent linked-world clusters are explicitly assumed, and do not capture variation across training seeds. Surviving a falsifier does not confirm a hypothesis. Use paired independent runs and appropriate cohort clusters for general claims.
-
-Before concluding work, report what was implemented, the tests actually run and their results, any failed checks and pending owner GPU qualification. Preserve existing results and append the short dated `progress.md` entry required by `AGENTS.md`; do not put raw checkpoints, ZIPs or large run outputs in Git contrary to repository rules.
+- Full Planthir suite: `python -m pytest tests/test_planthir_*.py -q`
+- Repository evidence verification: `python -m tools.verify_elendril_evidence`
+- Before concluding work: never commit `.zip`, `.npz`, `.bin`, or raw run folders (`AGENTS.md`); append a concise `<= 5`-line dated entry to root `progress.md`; distinguish code, CPU checks, and pending GPU/productivity runs.

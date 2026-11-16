@@ -162,3 +162,25 @@ def _append_jsonl(file: Path, record: Any) -> None:
         os.fsync(handle.fileno())
     if created:
         _sync_dir(file.parent)
+
+
+def trigger_fault_point(stage: str) -> None:
+    """Test-only deterministic crash boundary for subprocess interruption recovery tests.
+
+    Activated only when PLANTHIR_FAULT_INJECTION_POINT matches ``stage`` (or prefix
+    before ':') and optional marker file PLANTHIR_FAULT_ONCE_FILE does not yet exist.
+    """
+    target = os.environ.get("PLANTHIR_FAULT_INJECTION_POINT", "").strip()
+    if not target:
+        return
+    if stage != target and not stage.startswith(target + ":"):
+        return
+    once_path_raw = os.environ.get("PLANTHIR_FAULT_ONCE_FILE", "").strip()
+    if once_path_raw:
+        once_path = Path(once_path_raw)
+        if once_path.exists():
+            return
+        once_path.parent.mkdir(parents=True, exist_ok=True)
+        once_path.write_text(stage + "\n", encoding="utf-8")
+    exit_code = int(os.environ.get("PLANTHIR_FAULT_EXIT_CODE", "99"))
+    os._exit(exit_code)

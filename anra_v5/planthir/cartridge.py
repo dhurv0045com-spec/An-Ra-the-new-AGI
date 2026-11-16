@@ -27,7 +27,13 @@ from anra_v5.elendril.representation import UTF8
 from anra_v5.elendril.v717_training import IndependentOrderTrainer
 from anra_v5.elendril.v8.holdout import canonical_graph_signature
 
+from anra_v5.elendril.publication import quarantine_interrupted_publication
 from .adapters.v8_adapter import V8EnvironmentKernel, V8ObservablePolicy
+from .backend import (
+    PlanthirBackend,
+    build_provenance_identity,
+    get_backend,
+)
 from .causal import (
     run_compute_depth_scaling_intervention,
     run_invariance_counterfactuals,
@@ -48,6 +54,8 @@ from .evidence import (
     export_result_bundle,
     package_three_tier_evidence,
     probe_from_capsule,
+    publish_bundle_generation,
+    quarantine_partial_generations,
     verify_result_bundle,
     verify_tier2_capsule,
 )
@@ -63,6 +71,12 @@ from .observatory import (
     analyze_checkpoint_trajectory,
 )
 from .registry import PlanthirRegistry
+from .resources import (
+    ResourceMonitor,
+    ResourceQuota,
+    ResourceQuotaExceededError,
+    cleanup_unreferenced_staging,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +86,7 @@ class CartridgeArmSpec:
     arm_id: str
     architecture_family: str
     is_control: bool
-    v8_spec: V8ModelSpec
+    v8_spec: V8ModelSpec | None
     recipe: Any
     dataset_identity: str
     order_seed: int = 7
@@ -82,6 +96,8 @@ class CartridgeArmSpec:
     policy_mode: str = "raw"
     b0_job: Mapping[str, Any] | None = None
     trainer_factory: Callable[..., Any] | None = None
+    backend_id: str = "v8"
+    model_spec: Any = None
 
 
 @dataclass(slots=True)
@@ -100,6 +116,8 @@ class ExperimentCartridge:
     probe_train_worlds: tuple[Mapping[str, Any], ...]
     parameter_tolerance_ratio: float = 2.0
     train_worlds: tuple[Mapping[str, Any], ...] = ()
+    backend_id: str = "v8"
+    backend_version: str | None = None
 
 
 def audit_experimental_design(
@@ -114,10 +132,14 @@ def audit_experimental_design(
         raise ValueError("parameter tolerance ratio must be finite and >= 1")
     comparisons, violations = [], []
     aliases = {"arch": "architecture", "learning_rate": "lr", "mechanism": "architecture"}
-    model_factors = {"pointer_dim", "recurrent_steps", "recurrent_dim", "copy_enabled", "bottleneck_width", "max_sequence_length"}
+    c_backend = get_backend(control.backend_id)
+    c_factor_cfg = c_backend.canonical_factor_config(control)
+    model_factors = set(c_factor_cfg.keys()) - {"architecture", "schema", "total_parameters", "base_spec"}
     configurable = set(asdict(control.recipe)) | model_factors | {"architecture", "dataset_identity", "order_seed", "model_size"}
     for arm in treatments:
         codes = []
+        if arm.backend_id != control.backend_id:
+            codes.append("BACKEND_MISMATCH")
         factors = {aliases.get(c.factor_name, c.factor_name) for c in arm.contrasts}
         if not arm.contrasts or any(c.control_arm != control.arm_id or c.treatment_arm != arm.arm_id for c in arm.contrasts):
             codes.append("INVALID_OR_MISSING_CONTRAST")
@@ -137,23 +159,30 @@ def audit_experimental_design(
             checks[key] = equal
             if not equal and varied != key:
                 codes.append(label + "_MISMATCH")
-        cs, ts = control.v8_spec.canonical(), arm.v8_spec.canonical()
-        cm, tm = asdict(control.v8_spec), asdict(arm.v8_spec)
+        t_backend = get_backend(arm.backend_id)
+        c_spec = c_backend.resolve_model_spec(control)
+        t_spec = t_backend.resolve_model_spec(arm)
+        cs = c_backend.canonical_model_spec(c_spec)
+        ts = t_backend.canonical_model_spec(t_spec)
+        cm = c_factor_cfg
+        tm = t_backend.canonical_factor_config(arm)
         if varied in model_factors:
-            if any(cm[k] != tm[k] for k in cm if k != varied):
-                codes.append('MODEL_SPEC_MISMATCH')
+            if any(cm.get(k) != tm.get(k) for k in set(cm) | set(tm) if k != varied):
+                codes.append("MODEL_SPEC_MISMATCH")
         elif cs != ts and varied not in {"architecture", "model_size"}:
             codes.append("MODEL_SPEC_MISMATCH")
-        if varied == 'model_size' and any(cm[k] != tm[k] for k in cm if k != 'base_spec'):
-            codes.append('MODEL_SPEC_MISMATCH')
-        for fixed in ('max_sequence_length', 'vocabulary_size'):
-            if cm[fixed] != tm[fixed] and varied != fixed:
-                codes.append(fixed.upper() + '_MISMATCH')
-        if cs["base_spec"] != ts["base_spec"] and varied != "model_size":
+        if varied == "model_size" and any(cm.get(k) != tm.get(k) for k in set(cm) | set(tm) if k != "base_spec"):
+            codes.append("MODEL_SPEC_MISMATCH")
+        for fixed in ("max_sequence_length", "vocabulary_size", "vocab_size"):
+            if fixed in cm and fixed in tm and cm[fixed] != tm[fixed] and varied != fixed:
+                label = "VOCABULARY_SIZE" if fixed == "vocab_size" else fixed.upper()
+                codes.append(label + "_MISMATCH")
+        if "base_spec" in cs and "base_spec" in ts and cs["base_spec"] != ts["base_spec"] and varied != "model_size":
             codes.append("BACKBONE_MISMATCH")
         if control.trainer_factory is not arm.trainer_factory:
             codes.append("TRAINER_IMPLEMENTATION_MISMATCH")
-        cp, tp = control.v8_spec.total_parameters(), arm.v8_spec.total_parameters()
+        cp = c_backend.model_parameter_count(c_spec)
+        tp = t_backend.model_parameter_count(t_spec)
         ratio = tp / cp
         param_ok = 1 / max_param_ratio <= ratio <= max_param_ratio
         if not param_ok:
@@ -229,8 +258,8 @@ def build_ai_handoff_brief(
             "stage1_info": funnel.get("stage1_info_seeking"),
             "stage3_1hop": funnel.get("stage3_single_hop_grounding"),
             "stage4_mhop": funnel.get("stage4_multi_hop_composition"),
-            "oracle_delta": cd.get("oracle_intervention", {}).get("delta_oracle"),
-            "probe_final": cd.get("linear_probe", {}).get("probe_final_symbol_accuracy"),
+            "oracle_delta": (cd.get("oracle_intervention") or {}).get("delta_oracle"),
+            "probe_final": (cd.get("linear_probe") or {}).get("probe_final_symbol_accuracy"),
             "ablation_delta": sa.get("accuracy_delta"),
             "ornamental_bypass": sa.get("ornamental_mechanism_bypass"),
             "compute_depth_gain": cds.get("recurrence_gain_over_zero"),
@@ -266,8 +295,8 @@ def build_ai_handoff_brief(
 
 
 def _collect_capsule_arrays(
-    policy: V8ObservablePolicy,
-    kernel: V8EnvironmentKernel,
+    policy: ObservablePolicy,
+    kernel: EnvironmentKernel,
     eval_worlds: Sequence[Mapping[str, Any]],
 ) -> dict[str, torch.Tensor]:
     obs_list = []
@@ -277,7 +306,7 @@ def _collect_capsule_arrays(
     op_labels = ("ANSWER", "QUERY", "RETRIEVE", "ABSTAIN")
 
     for w in eval_worlds:
-        vis_w = kernel.inject_oracle_information(w)
+        vis_w = kernel.inject_oracle_information(w) if hasattr(kernel, "inject_oracle_information") else w
         st = kernel.initial_state(vis_w)
         obs = kernel.observe(st)
         obs_list.append(obs)
@@ -301,16 +330,26 @@ def _collect_capsule_arrays(
     return arrays
 
 
-def _validate_cartridge(cartridge: ExperimentCartridge, device: str, cpu_canary: bool) -> dict[str, Any]:
-    """Validate before constructing a model or writing campaign success artifacts."""
+def _validate_cartridge(
+    cartridge: ExperimentCartridge,
+    device: str,
+    cpu_canary: bool,
+    *,
+    checkpoint_interval: int = 64,
+    max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
+) -> tuple[dict[str, Any], PlanthirBackend]:
+    """Validate backend contracts, splits, factors, and provenance before execution."""
+
     from .causal import _probe_split_keys
-    def _assert_disjoint_probe_worlds(left, right):
+
+    def _assert_disjoint_probe_worlds(left: Sequence[Mapping[str, Any]], right: Sequence[Mapping[str, Any]]) -> None:
         li, lg = _probe_split_keys(left)
         ri, rg = _probe_split_keys(right)
         if li & ri or lg & rg:
             raise ValueError("training/probe and evaluation worlds must be structurally disjoint")
-    if not isinstance(cartridge.kernel, V8EnvironmentKernel):
-        raise ValueError("CartridgeRunner currently supports the V8 backend only; generic observational protocols are separate")
+
+    backend = get_backend(cartridge.backend_id, expected_version=cartridge.backend_version)
+    backend.validate_kernel(cartridge.kernel)
     if not re.fullmatch(r"[0-9a-f]{40}", cartridge.source_commit):
         raise ValueError("source_commit must be a 40-character immutable Git SHA")
     if not cartridge.eval_worlds or not cartridge.probe_train_worlds:
@@ -323,56 +362,37 @@ def _validate_cartridge(cartridge: ExperimentCartridge, device: str, cpu_canary:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,70}", name):
             raise ValueError("campaign/arm IDs must be safe path components")
     for arm in arms:
-        arm.recipe.validate()
-        if arm.architecture_family != arm.v8_spec.architecture:
-            raise ValueError("architecture label differs from the model spec")
-        if arm.dataset_identity != cartridge.train_data.data_identity:
-            raise ValueError("arm dataset identity differs from actual prepared data")
-        if arm.trainer_factory is not None:
-            raise ValueError("unqualified custom trainer backend: explicit loss/policy/restore contracts required")
-        if arm.b0_job is not None:
-            raise ValueError("legacy b0_job is ambiguous with recipe; omit it: B0 now uses the registered arm recipe directly")
-        if any(type(u) is not int or not 1 <= u <= arm.recipe.total_updates for u in arm.milestone_updates):
-            raise ValueError("milestone updates must lie within the registered training horizon")
-        if arm.recipe.sampling != 'uniform' or arm.recipe.objective != 'ce':
-            raise ValueError("this backend currently qualifies uniform CE only; unsupported recipe must not be silently ignored")
-        samples = cartridge.train_data.byte_samples if arm.architecture_family == 'B0' else cartridge.train_data.typed_samples
-        if not samples:
-            raise ValueError("missing training samples for architecture")
-        if torch.device(device).type == 'cpu' and (not cpu_canary or len(samples) > 32 or arm.v8_spec.total_parameters() > 100000 or arm.recipe.total_updates > 8):
-            raise ValueError("CPU use is restricted to tiny mechanical fixtures")
-    train_worlds = list(cartridge.train_worlds)
-    if cartridge.train_data.dataset_name == 'D1':
-        from anra_v5.elendril.v8.data import build_d1_training_dataset
-        from anra_v5.elendril.v8.training import prepare_v8_training_data
-        quota = int(cartridge.train_data.manifest['world_count']) // 7
-        expected = prepare_v8_training_data('D1', d1_worlds_per_family=quota,
-            sample_limit_for_cpu=cartridge.train_data.manifest.get('slice_limit'))
-        if expected != cartridge.train_data:
-            raise ValueError("prepared D1 corpus content/identity does not match its claimed provenance")
-        wanted = {s.world_id for s in cartridge.train_data.byte_samples}
-        train_worlds = [w for w in build_d1_training_dataset(quota_per_family=quota).worlds if w['world_id'] in wanted]
-    if not train_worlds:
-        raise ValueError("training worlds required to verify structural split separation")
+        if arm.backend_id != cartridge.backend_id:
+            raise ValueError(f"arm {arm.arm_id!r} backend {arm.backend_id!r} != cartridge backend {cartridge.backend_id!r}")
+        backend.validate_arm(arm, cartridge.train_data, device=device, cpu_canary=cpu_canary)
+
+    ds_info = backend.validate_dataset_and_worlds(cartridge.train_data, cartridge.train_worlds)
+    train_worlds = ds_info["resolved_train_worlds"]
     for evaluation in (cartridge.eval_worlds, cartridge.multihop_worlds):
         if evaluation:
             _assert_disjoint_probe_worlds(train_worlds, evaluation)
             _assert_disjoint_probe_worlds(cartridge.probe_train_worlds, evaluation)
-    gate2 = audit_experimental_design(cartridge.control_arm, cartridge.treatment_arms,
-                                     max_param_ratio=cartridge.parameter_tolerance_ratio)
-    if not gate2['passed']:
+
+    gate2 = audit_experimental_design(
+        cartridge.control_arm,
+        cartridge.treatment_arms,
+        max_param_ratio=cartridge.parameter_tolerance_ratio,
+    )
+    if not gate2["passed"]:
         raise ValueError(f"Gate 2 rejected design: {gate2['violations']}")
-    identity = {
-        'schema': 'planthir-invocation-v2', 'campaign_id': cartridge.campaign_id,
-        'program': cartridge.program, 'source_commit': cartridge.source_commit,
-        'kernel': {'id': cartridge.kernel.kernel_id, 'configuration': {'max_actions': cartridge.kernel.max_actions, 'enforce_tool_consumption': cartridge.kernel.enforce_tool_consumption, 'renderer': cartridge.kernel.render_fn.__module__ + '.' + cartridge.kernel.render_fn.__qualname__}},
-        'arms': [asdict(a) for a in arms], 'training_samples_sha256': digest(asdict(cartridge.train_data)),
-        'evaluation_sha256': digest(cartridge.eval_worlds), 'multihop_sha256': digest(cartridge.multihop_worlds),
-        'probe_train_sha256': digest(cartridge.probe_train_worlds),
-        'train_worlds_sha256': digest(train_worlds),
-        'parameter_tolerance_ratio': cartridge.parameter_tolerance_ratio,
-    }
-    return identity
+
+    dataset_digest = {k: v for k, v in ds_info.items() if k != "resolved_train_worlds"}
+    configure_device(device)
+    provenance = build_provenance_identity(
+        cartridge=cartridge,
+        backend=backend,
+        train_worlds=train_worlds,
+        resolved_dataset_digest=dataset_digest,
+        device=device,
+        checkpoint_interval=checkpoint_interval,
+        max_result_zip_bytes=max_result_zip_bytes,
+    )
+    return provenance, backend
 
 
 def _check_deadline(deadline: float | None) -> None:
@@ -381,46 +401,9 @@ def _check_deadline(deadline: float | None) -> None:
 
 
 class CartridgeRunner:
-    """Qualified V8 execution backend; shared observation protocols are separate."""
+    """Backend-abstracted Planthir execution runner with admission, recovery, and delivery checks."""
 
-    def run(self, cartridge: ExperimentCartridge, *, work_root: Path,
-            bundle_out_dir: Path | None = None, device: str = "cpu", cpu_canary: bool = True,
-            max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
-            resume: bool = False, checkpoint_interval: int = 64,
-            max_wall_seconds: float | None = None) -> dict[str, Any]:
-        from .execution import run_session
-        if type(checkpoint_interval) is not int or checkpoint_interval < 1:
-            raise ValueError("checkpoint_interval must be a positive integer")
-        if max_wall_seconds is not None and (not math.isfinite(max_wall_seconds) or max_wall_seconds <= 0):
-            raise ValueError("max_wall_seconds must be positive and finite")
-        identity = _validate_cartridge(cartridge, device, cpu_canary)
-        if torch.device(device).type == 'cuda':
-            repo = Path(__file__).resolve().parents[2]
-            head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
-            dirty = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=repo, text=True).strip()
-            if head != cartridge.source_commit or dirty:
-                raise ValueError('production source must be a clean checkout of source_commit')
-        configure_device(device)
-        identity['execution_runtime'] = runtime_identity(torch.device(device))
-        identity['execution_device'] = str(torch.device(device))
-        identity['checkpoint_interval'] = checkpoint_interval
-        identity['max_result_zip_bytes'] = max_result_zip_bytes
-        deadline = None if max_wall_seconds is None else time.monotonic() + max_wall_seconds
-        with run_session(Path(work_root), identity, resume=resume) as session:
-            # Conservative raw + old/new archive space; measured platform quota remains an owner responsibility.
-            checkpoint_bytes = sum(a.v8_spec.total_parameters() * 16 * (len(set(a.milestone_updates) | {a.recipe.total_updates}) + 2)
-                                   for a in (cartridge.control_arm, *cartridge.treatment_arms))
-            required_bytes = checkpoint_bytes * 3 + 512 * 1024 * 1024
-            free_bytes = shutil.disk_usage(work_root).free
-            session['disk_admission'] = {'required_additional_bytes': required_bytes, 'free_bytes': free_bytes,
-                'scope': 'conservative serialization estimate, not a platform quota guarantee'}
-            if free_bytes < required_bytes:
-                raise OSError('insufficient free disk for checkpoints and verified staged exports')
-            return self._run(cartridge, work_root=work_root, bundle_out_dir=bundle_out_dir,
-                device=device, cpu_canary=cpu_canary, max_result_zip_bytes=max_result_zip_bytes,
-                resume=resume, checkpoint_interval=checkpoint_interval, deadline=deadline, session=session)
-
-    def _run(
+    def run(
         self,
         cartridge: ExperimentCartridge,
         *,
@@ -429,14 +412,143 @@ class CartridgeRunner:
         device: str = "cpu",
         cpu_canary: bool = True,
         max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
+        resume: bool = False,
+        checkpoint_interval: int = 64,
+        max_wall_seconds: float | None = None,
+        resource_quota: ResourceQuota | None = None,
+    ) -> dict[str, Any]:
+        from .execution import _atomic_write, run_session
+
+        if type(checkpoint_interval) is not int or checkpoint_interval < 1:
+            raise ValueError("checkpoint_interval must be a positive integer")
+        if max_wall_seconds is not None and (not math.isfinite(max_wall_seconds) or max_wall_seconds <= 0):
+            raise ValueError("max_wall_seconds must be positive and finite")
+        provenance, backend = _validate_cartridge(
+            cartridge,
+            device,
+            cpu_canary,
+            checkpoint_interval=checkpoint_interval,
+            max_result_zip_bytes=max_result_zip_bytes,
+        )
+        if torch.device(device).type == "cuda":
+            repo = Path(__file__).resolve().parents[2]
+            head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+            dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], cwd=repo, text=True).strip()
+            if head != cartridge.source_commit or dirty:
+                raise ValueError("production source must be a clean checkout of source_commit")
+        deadline = None if max_wall_seconds is None else time.monotonic() + max_wall_seconds
+        with run_session(Path(work_root), provenance, resume=resume) as session:
+            _atomic_write(
+                Path(work_root) / "PROVENANCE_IDENTITY.json",
+                (json.dumps(provenance, sort_keys=True, indent=2, allow_nan=False) + "\n").encode("utf-8"),
+            )
+            checkpoint_bytes = sum(
+                backend.model_parameter_count(backend.resolve_model_spec(a))
+                * 16
+                * (len(set(a.milestone_updates) | {a.recipe.total_updates}) + 2)
+                for a in (cartridge.control_arm, *cartridge.treatment_arms)
+            )
+            required_bytes = checkpoint_bytes * 3 + 512 * 1024 * 1024
+            free_bytes = shutil.disk_usage(work_root).free
+            session["disk_admission"] = {
+                "required_additional_bytes": required_bytes,
+                "free_bytes": free_bytes,
+                "scope": "conservative serialization estimate, not a platform quota guarantee",
+            }
+            if free_bytes < required_bytes:
+                raise OSError("insufficient free disk for checkpoints and verified staged exports")
+            return self._run(
+                cartridge,
+                backend=backend,
+                work_root=work_root,
+                bundle_out_dir=bundle_out_dir,
+                device=device,
+                cpu_canary=cpu_canary,
+                max_result_zip_bytes=max_result_zip_bytes,
+                resume=resume,
+                checkpoint_interval=checkpoint_interval,
+                deadline=deadline,
+                session=session,
+                resource_quota=resource_quota,
+            )
+
+    def _run(
+        self,
+        cartridge: ExperimentCartridge,
+        *,
+        backend: PlanthirBackend | None = None,
+        work_root: Path,
+        bundle_out_dir: Path | None = None,
+        device: str = "cpu",
+        cpu_canary: bool = True,
+        max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
         resume: bool = False, checkpoint_interval: int = 64,
         deadline: float | None = None, session: dict | None = None,
+        resource_quota: ResourceQuota | None = None,
     ) -> dict[str, Any]:
-        from .execution import append_update_log, read_update_log, _atomic_write
+        from .contracts import ObservablePolicy
+        from .execution import append_update_log, read_update_log, _atomic_write, trigger_fault_point
         def atomic_write_json(path, data):
             _atomic_write(path, (json.dumps(data, sort_keys=True, allow_nan=False) + "\n").encode())
+        active_backend = backend or get_backend(cartridge.backend_id, expected_version=cartridge.backend_version)
         work = Path(work_root)
         work.mkdir(parents=True, exist_ok=True)
+        monitor = ResourceMonitor(work_root=work, device=device, quota=resource_quota)
+        run_resource_status = "FAILED"
+        try:
+            return self._run_monitored(
+                cartridge,
+                active_backend=active_backend,
+                work=work,
+                bundle_out_dir=bundle_out_dir,
+                device=device,
+                cpu_canary=cpu_canary,
+                max_result_zip_bytes=max_result_zip_bytes,
+                resume=resume,
+                checkpoint_interval=checkpoint_interval,
+                deadline=deadline,
+                session=session if session is not None else {},
+                monitor=monitor,
+                atomic_write_json=atomic_write_json,
+                append_update_log=append_update_log,
+                read_update_log=read_update_log,
+                trigger_fault_point=trigger_fault_point,
+            )
+        except ResourceQuotaExceededError:
+            run_resource_status = "QUOTA_EXCEEDED"
+            cleanup_unreferenced_staging(work)
+            raise
+        except OSError:
+            cleanup_unreferenced_staging(work)
+            raise
+        finally:
+            try:
+                if (work / "FINAL_RECEIPT.json").is_file() and run_resource_status != "QUOTA_EXCEEDED":
+                    run_resource_status = "COMPLETE"
+            except Exception:
+                pass
+            monitor.write_receipt(status=run_resource_status)
+
+    def _run_monitored(
+        self,
+        cartridge: ExperimentCartridge,
+        *,
+        active_backend: PlanthirBackend,
+        work: Path,
+        bundle_out_dir: Path | None,
+        device: str,
+        cpu_canary: bool,
+        max_result_zip_bytes: int,
+        resume: bool,
+        checkpoint_interval: int,
+        deadline: float | None,
+        session: dict,
+        monitor: ResourceMonitor,
+        atomic_write_json: Any,
+        append_update_log: Any,
+        read_update_log: Any,
+        trigger_fault_point: Any,
+    ) -> dict[str, Any]:
         ckpt_root = work / "checkpoints"
         evidence_root = work / "evidence_bundles"
         bundle_dir = Path(bundle_out_dir) if bundle_out_dir is not None else (work / "result_bundle")
@@ -446,6 +558,7 @@ class CartridgeRunner:
 
         session["phase"] = "instrument"
         _check_deadline(deadline)
+        pre_phase = monitor.enter_phase("gate1_and_gate2_pre_run")
         # Gate 1: Instrument Integrity
         kernel_check = validate_environment_kernel(
             cartridge.kernel,
@@ -477,8 +590,10 @@ class CartridgeRunner:
         )
         if not gate2["passed"]:
             raise ValueError(f"Gate 2 Confounder Firewall rejected design: {gate2['violations']}")
+        monitor.exit_phase(pre_phase)
 
         # Gate 3: Gradient Health & Bounded Training with Milestones
+        train_phase = monitor.enter_phase("training_and_gate3")
         eval_worlds = list(cartridge.eval_worlds)
         multihop_worlds = list(cartridge.multihop_worlds)
         probe_train_worlds = list(cartridge.probe_train_worlds)
@@ -487,12 +602,12 @@ class CartridgeRunner:
         arm_training_records: dict[str, dict[str, Any]] = {}
         gate3_arms: dict[str, Any] = {}
         dev_obj = torch.device(device)
-        is_cpu = dev_obj.type == "cpu"
 
         for arm in all_arms:
             session["phase"] = "train:" + arm.arm_id
             _check_deadline(deadline)
-            param_count = int(arm.v8_spec.total_parameters())
+            arm_spec = active_backend.resolve_model_spec(arm)
+            param_count = int(active_backend.model_parameter_count(arm_spec))
             exp_id = f"{cartridge.campaign_id}-{arm.arm_id}"
             lineage_id = f"{cartridge.campaign_id.lower()}-{arm.arm_id}-s{arm.order_seed}"
             reg = ExperimentRegistration(
@@ -517,60 +632,47 @@ class CartridgeRunner:
             arm_state_path = work / "arm_state" / (arm.arm_id + ".json")
             journal_path = work / "updates" / (arm.arm_id + ".jsonl")
             initial_record = json.loads(arm_state_path.read_text()) if arm_state_path.exists() else None
-            arm_resume = resume and (ckpt_root / lineage_id / "LATEST").is_file()
+            lineage_dir = ckpt_root / lineage_id
+            arm_resume = resume and (lineage_dir / "LATEST").is_file()
+            if resume and lineage_dir.is_dir():
+                for left_gen in sorted(p for p in lineage_dir.iterdir() if p.name.startswith(".staging-")):
+                    try:
+                        gen_num = int(left_gen.name.split("-", 1)[1])
+                        quarantine_interrupted_publication(lineage_dir, gen_num)
+                    except (ValueError, IndexError):
+                        pass
 
-            if arm.architecture_family == "B0":
-                trainer = IndependentOrderTrainer(cartridge.train_data.byte_samples,
-                    spec=arm.v8_spec.base_spec, recipe=arm.recipe, order_seed=arm.order_seed,
-                    source_commit=cartridge.source_commit, root=ckpt_root, lineage=lineage_id,
-                    data_provenance={**cartridge.train_data.manifest, "v8_job": {"schema": "planthir-b0-recipe-v1", "arm": "B0", "max_sequence_length": arm.v8_spec.max_sequence_length, "recipe": asdict(arm.recipe)}}, tokenizer_manifest=UTF8.manifest.record(),
-                    device=device, method="uniform", resume=arm_resume)
-                trainer.v8_spec = arm.v8_spec
-            else:
-                trainer = V8TypedTrainer(cartridge.train_data.typed_samples,
-                    v8_spec=arm.v8_spec, recipe=arm.recipe, order_seed=arm.order_seed,
-                    source_commit=cartridge.source_commit, root=ckpt_root, lineage=lineage_id,
-                    data_provenance=cartridge.train_data.manifest, device=device,
-                    cpu_canary=(is_cpu and cpu_canary), resume=arm_resume)
+            trainer = active_backend.create_trainer(
+                arm,
+                cartridge.train_data,
+                source_commit=cartridge.source_commit,
+                root=ckpt_root,
+                lineage=lineage_id,
+                device=device,
+                cpu_canary=cpu_canary,
+                resume=arm_resume,
+            )
             if asdict(trainer.recipe) != asdict(arm.recipe):
                 raise ValueError("actual trainer recipe differs from preregistration")
             step_logs = read_update_log(journal_path, trainer.state.global_update)
             if arm_resume and initial_record is None:
                 raise ValueError("resume missing original gradient/initial telemetry receipt")
 
-            # Pre-update gradient flow verification on typed architectures
+            # Pre-update gradient flow verification
             if initial_record is not None:
                 grad_check = initial_record["grad_check"]
-            elif arm.architecture_family == "B0":
-                chunk = cartridge.train_data.byte_samples[:4]
-                toks, segs, eligible = batch_tensors([(s.tokens, s.eligible) for s in chunk], dev_obj)
-                def _byte_loss(m):
-                    logits = trainer.backend.logits(toks, segs)
-                    loss = torch.nn.functional.cross_entropy(logits[:, :-1].float().reshape(-1, logits.shape[-1]), toks[:, 1:].reshape(-1), reduction="none").reshape_as(toks[:, 1:])
-                    return (loss * eligible[:, 1:]).sum()
-                grad_check = validate_model_and_gradients(trainer.model, _byte_loss)
             else:
-                sample_chunk = cartridge.train_data.typed_samples[:4]
-                toks, segs, _ = batch_tensors([(s.tokens, s.eligible) for s in sample_chunk], dev_obj)
-                apos = torch.tensor([s.action_position for s in sample_chunk], device=dev_obj, dtype=torch.int64)
-                g_ops = torch.tensor([s.gold_op for s in sample_chunk], device=dev_obj, dtype=torch.int64)
-                g_args = torch.tensor([s.gold_arg for s in sample_chunk], device=dev_obj, dtype=torch.int64)
-
-                def _loss_fn(m: Any) -> torch.Tensor:
-                    out = m.forward_action(toks, segs, apos)
-                    nll, _ = compute_typed_nll(out, g_ops, g_args)
-                    return nll
-
-                grad_check = validate_model_and_gradients(trainer.model, _loss_fn)
+                loss_fn = active_backend.sample_gradient_loss_fn(trainer, arm, cartridge.train_data, dev_obj)
+                grad_check = validate_model_and_gradients(trainer.model, loss_fn)
 
             if not grad_check["passed"]:
                 raise RuntimeError(f"Gate 3 gradient check failed for {arm.arm_id}: {grad_check}")
 
             telemetry_probe_obs = [cartridge.kernel.observe(cartridge.kernel.initial_state(w)) for w in eval_worlds[:8]]
             telemetry_col = InternalTelemetryCollector()
-            init_policy = V8ObservablePolicy(
+            init_policy = active_backend.create_policy(
                 trainer.model,
-                arm.v8_spec,
+                arm_spec,
                 model_identity=f"init-{lineage_id}",
                 mode=arm.policy_mode,
             )
@@ -600,13 +702,33 @@ class CartridgeRunner:
                 step_info = trainer.step()
                 record = {"update": int(step_info["update"]), "loss": float(step_info["loss"]),
                           "pre_clip": float(step_info["pre_clip"])}
-                if record['update'] != step_idx + 1 or not all(math.isfinite(record[k]) for k in ('loss', 'pre_clip')):
+                if record["update"] != step_idx + 1 or not all(math.isfinite(record[k]) for k in ("loss", "pre_clip")):
                     raise ValueError("nonfinite or out-of-sequence training update")
+                trigger_fault_point(f"before_journal_append:{arm.arm_id}:u{record['update']}")
                 append_update_log(journal_path, record)
+                trigger_fault_point("after_journal_append")
+                trigger_fault_point(f"after_journal_append:{arm.arm_id}:u{record['update']}")
                 step_logs.append(record)
+                monitor.check_quotas(phase=f"training:{arm.arm_id}:u{record['update']}")
                 cur_u = step_idx + 1
                 if cur_u in milestone_set or cur_u % checkpoint_interval == 0:
-                    latest_sha = trainer.save()
+                    once_file = os.environ.get("PLANTHIR_FAULT_ONCE_FILE")
+                    already_fired = bool(once_file and Path(once_file).exists())
+                    fp_env = os.environ.get("PLANTHIR_FAULT_INJECTION_POINT", "")
+                    inject_ckpt = None
+                    if not already_fired:
+                        inject_ckpt = os.environ.get("PLANTHIR_CHECKPOINT_INJECT_CRASH") or (
+                            fp_env if fp_env.startswith("after_component:") else None
+                        )
+                    try:
+                        latest_sha = trainer.save(inject_crash_at=inject_ckpt)
+                    except BaseException:
+                        if inject_ckpt and (fp_env == inject_ckpt or "PLANTHIR_FAULT_EXIT_CODE" in os.environ):
+                            trigger_fault_point(inject_ckpt)
+                            os._exit(int(os.environ.get("PLANTHIR_FAULT_EXIT_CODE", "99")))
+                        raise
+                    trigger_fault_point("after_checkpoint_commit")
+                    trigger_fault_point(f"after_checkpoint_commit:{arm.arm_id}:u{cur_u}")
                     if cur_u in milestone_set:
                         trainer.store.record_milestone(threshold_tokens=int(trainer.state.cumulative_tokens), checkpoint_sha256=latest_sha)
                     trainer.store.prune(keep=set())
@@ -614,16 +736,16 @@ class CartridgeRunner:
                 if rec.lineage_id == lineage_id and int(rec.global_update) in milestone_set:
                     saved_milestones.append({"global_update": int(rec.global_update),
                         "checkpoint_sha256": rec.checkpoint_sha256})
-            saved_milestones.sort(key=lambda r: r['global_update'])
-            if {r['global_update'] for r in saved_milestones} != milestone_set:
+            saved_milestones.sort(key=lambda r: r["global_update"])
+            if {r["global_update"] for r in saved_milestones} != milestone_set:
                 raise ValueError("required milestone tensor checkpoint is missing")
             if len(step_logs) != total_u:
                 raise ValueError("committed training journal does not cover full horizon")
 
             # Capture live trained model actions & hidden states for Gate 5 parity self-audit
-            live_policy = V8ObservablePolicy(
+            live_policy = active_backend.create_policy(
                 trainer.model,
-                arm.v8_spec,
+                arm_spec,
                 model_identity=f"live-{lineage_id}",
                 mode=arm.policy_mode,
             )
@@ -663,7 +785,7 @@ class CartridgeRunner:
                 "latest_checkpoint_sha256": latest_sha,
             }
             del init_policy, live_policy, trainer
-            if dev_obj.type == 'cuda':
+            if dev_obj.type == "cuda":
                 torch.cuda.empty_cache()
 
         gate3 = {
@@ -671,8 +793,10 @@ class CartridgeRunner:
             "passed": all(v["passed"] for v in gate3_arms.values()),
             "arms": gate3_arms,
         }
+        monitor.exit_phase(train_phase)
 
         # Gate 4: Diagnostic execution; this is not automatic causal attribution.
+        eval_phase = monitor.enter_phase("evaluation_and_observatory")
         catalog = CheckpointCatalog.discover_checkpoints([ckpt_root], include_all_generations=True)
         funnel_analyzer = ProcessFunnelAnalyzer()
         arm_results: dict[str, Any] = {}
@@ -685,6 +809,7 @@ class CartridgeRunner:
             lineage_id = tr_info["lineage_id"]
             latest_sha = tr_info["latest_sha"]
             reg = tr_info["reg"]
+            arm_spec = active_backend.resolve_model_spec(arm)
 
             session["phase"] = "analyze:" + arm.arm_id
             _check_deadline(deadline)
@@ -713,11 +838,19 @@ class CartridgeRunner:
                 latest_rec, mode=arm.policy_mode, device=device
             )
             policy_raw = restored_raw["policy"]
-            policy_masked = V8ObservablePolicy(policy_raw.model, arm.v8_spec,
-                model_identity=latest_sha, mode='availability-mask')
+            policy_masked = active_backend.create_policy(
+                policy_raw.model,
+                arm_spec,
+                model_identity=latest_sha,
+                mode="availability-mask",
+            )
 
             funnel = funnel_analyzer.evaluate_suite(policy_raw, cartridge.kernel, eval_worlds, include_subgoals=True)
-            oracle = run_oracle_information_intervention(policy_raw, cartridge.kernel, eval_worlds)
+            oracle = (
+                run_oracle_information_intervention(policy_raw, cartridge.kernel, eval_worlds)
+                if hasattr(cartridge.kernel, "inject_oracle_information")
+                else None
+            )
             subgoal = run_subgoal_hop_decomposition(policy_raw, cartridge.kernel, multihop_worlds)
             inv = run_invariance_counterfactuals(
                 policy_raw,
@@ -837,19 +970,46 @@ class CartridgeRunner:
             },
         }
 
+        monitor.exit_phase(eval_phase)
         session["phase"] = "export"
         _check_deadline(deadline)
+        pub_phase = monitor.enter_phase("bundle_publication")
+        if resume:
+            quarantine_partial_generations(bundle_dir)
         # Gate 5: Bundle Export + Live-vs-Restored Parity Self-Audit
-        initial_receipt = export_result_bundle(
-            bundle_dir,
-            campaign_id=cartridge.campaign_id,
-            source_commit=cartridge.source_commit,
-            status="PARTIAL",
-            experiment_bundles=arm_bundles,
-            checkpoint_root=ckpt_root,
-            max_result_zip_bytes=max_result_zip_bytes,
-        )
+        # If CURRENT.json already commits a COMPLETE generation, keep it isolated while staging Gate 5.
+        existing_pointer = bundle_dir / "CURRENT.json"
+        has_committed_complete = False
+        if existing_pointer.is_file():
+            try:
+                has_committed_complete = json.loads(existing_pointer.read_text(encoding="utf-8")).get("status") == "COMPLETE"
+            except Exception:
+                has_committed_complete = False
         with tempfile.TemporaryDirectory(prefix="planthir-verify-") as restore_tmp:
+            if has_committed_complete:
+                gate5_stage_dir = Path(restore_tmp) / "gate5_stage"
+                initial_receipt = export_result_bundle(
+                    gate5_stage_dir,
+                    campaign_id=cartridge.campaign_id,
+                    source_commit=cartridge.source_commit,
+                    status="PARTIAL",
+                    experiment_bundles=arm_bundles,
+                    checkpoint_root=ckpt_root,
+                    max_result_zip_bytes=max_result_zip_bytes,
+                )
+            else:
+                initial_receipt = publish_bundle_generation(
+                    bundle_dir,
+                    campaign_id=cartridge.campaign_id,
+                    source_commit=cartridge.source_commit,
+                    status="PARTIAL",
+                    experiment_bundles=arm_bundles,
+                    checkpoint_root=ckpt_root,
+                    max_result_zip_bytes=max_result_zip_bytes,
+                    export_fn=export_result_bundle,
+                    verify_fn=None,
+                    enable_fault_injection=False,
+                )
             restored_store = CheckpointCatalog.restore_full_checkpoint_zip(
                 initial_receipt["checkpoint_full_zip"],
                 Path(restore_tmp) / "store",
@@ -968,10 +1128,9 @@ class CartridgeRunner:
         cert_bytes = (json.dumps(gates, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
         final_brief = json.loads(brief_bytes)
-        # Verify final archives off-path. An unsuccessful verification leaves the PARTIAL bundle intact.
-        staging = Path(tempfile.mkdtemp(prefix='.planthir-final-', dir=bundle_dir.parent))
-        final_receipt = export_result_bundle(
-            staging,
+        # Verify final archives via generation staging. An unsuccessful verification leaves the PARTIAL bundle intact.
+        final_receipt = publish_bundle_generation(
+            bundle_dir,
             campaign_id=cartridge.campaign_id,
             source_commit=cartridge.source_commit,
             status="COMPLETE",
@@ -982,22 +1141,12 @@ class CartridgeRunner:
                 "AI_HANDOFF_BRIEF.json": brief_bytes,
                 "LAUNCH_GATE_CERTIFICATE.json": cert_bytes,
             },
+            export_fn=export_result_bundle,
+            verify_fn=verify_result_bundle,
+            enable_fault_injection=True,
         )
-        verify_result_bundle(
-            staging,
-            expected_source_commit=cartridge.source_commit,
-            max_result_zip_bytes=max_result_zip_bytes,
-        )
-        backup = bundle_dir.with_name(bundle_dir.name + '.previous-' + uuid.uuid4().hex[:8])
-        bundle_dir.rename(backup)
-        try:
-            staging.rename(bundle_dir)
-        except BaseException:
-            backup.rename(bundle_dir)
-            raise
-        final_receipt = {k: (str(bundle_dir / Path(v).relative_to(staging))
-                            if isinstance(v, str) and v.startswith(str(staging) + os.sep) else v)
-                         for k, v in final_receipt.items()}
+        monitor.exit_phase(pub_phase)
+        resource_receipt = monitor.receipt(status="COMPLETE")
         atomic_write_json(work / "ARM_RESULTS.json", arm_results)
         atomic_write_json(work / "FINAL_RECEIPT.json", final_receipt)
         session["phase"] = "verified_complete"
@@ -1012,6 +1161,7 @@ class CartridgeRunner:
             "arms": arm_results,
             "registry": registry.export_dict(),
             "bundle_receipt": final_receipt,
+            "resource_receipt": resource_receipt,
             "ai_handoff_brief": final_brief,
             "token_fuel_report": fuel_report,
         }
