@@ -600,6 +600,8 @@ class CheckpointCatalog:
         )
         index_doc = verified["checkpoint_index"]
         entries = list(index_doc.get("entries", []))
+        if index_doc.get("checkpoint_mode_in_result_zip") == "sidecar_only":
+            raise ValueError("result.zip contains evidence only; restore checkpoint_full.zip with restore_full_checkpoint_zip")
 
         candidates = [
             entry
@@ -680,10 +682,39 @@ class CheckpointCatalog:
                 source_archive = "result.zip (compact_fp16)"
 
         bundle["source_archive"] = source_archive
+        bundle["weights_lossy"] = source_archive.endswith("(compact_fp16)")
+        bundle["resumable"] = source_archive.endswith("(full_embedded)")
         bundle["whole_checkpoint_embedded"] = bool(index_doc.get("whole_checkpoint_embedded", False))
         bundle["bundle_status"] = verified["final_status"].get("status")
         bundle["experiment_id"] = selected.get("experiment_id")
         return bundle
+
+    @staticmethod
+    def _validate_full_restore(dest: Path, verified: Mapping[str, Any]) -> None:
+        checkpoints_root = dest / "checkpoints"
+        expected = {
+            (str(e["lineage_id"]), str(e["latest_checkpoint_sha256"]))
+            for e in verified["checkpoint_index"].get("entries", [])
+            if e.get("lineage_id") and e.get("latest_checkpoint_sha256")
+        }
+        for lineage, sha in expected:
+            if not _is_sha256(sha) or Path(lineage).name != lineage or lineage in (".", ".."):
+                raise ValueError("invalid checkpoint index target")
+            store = CheckpointStore(checkpoints_root, lineage)
+            if store.latest_sha256() != sha:
+                raise ValueError(f"restored lineage LATEST mismatch: {lineage}")
+            store.restore(sha)
+        if checkpoints_root.is_dir():
+            for ldir in checkpoints_root.iterdir():
+                if ldir.is_dir():
+                    store = CheckpointStore(checkpoints_root, ldir.name)
+                    if store.latest_sha256() is None:
+                        raise ValueError(f"restored lineage missing LATEST commit: {ldir.name}")
+                    store.restore(store.latest_sha256())
+                    if store.objects.is_dir():
+                        for obj in store.objects.iterdir():
+                            if obj.is_dir():
+                                store.restore(obj.name)
 
     @classmethod
     def restore_full_checkpoint_zip(
@@ -698,10 +729,21 @@ class CheckpointCatalog:
         verified = verify_single_planthir_zip(
             full_zip, expected_source_commit=expected_source_commit
         )
+        if verified["manifest"].get("kind") != "checkpoint_full":
+            raise ValueError("archive is not a full checkpoint archive")
         dest = Path(dest_dir)
-        with zipfile.ZipFile(full_zip, "r") as zf:
-            members = [m for m in zf.namelist() if not m.endswith("/")]
-            _safe_extract_members(zf, members, dest)
+        if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
+            raise ValueError(f"restore destination must be absent or empty: {dest}")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
+            staged = Path(tmp) / "restore"
+            with zipfile.ZipFile(full_zip, "r") as zf:
+                members = [m for m in zf.namelist() if not m.endswith("/")]
+                _safe_extract_members(zf, members, staged)
+            cls._validate_full_restore(staged, verified)
+            if dest.exists():
+                dest.rmdir()
+            staged.rename(dest)
 
         checkpoints_root = dest / "checkpoints"
         verified_lineages: list[dict[str, Any]] = []

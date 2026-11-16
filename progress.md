@@ -237,3 +237,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Created root `purpose.md` and `research/planthir/purpose.md` detailing Level-5 architecture, math formulas, 5 Launch Gates, and 9 adversarial audit blind spots.
 - Created root `agent.md` and `research/planthir/agent.md` documenting cross-branch imports, <60-line cartridge/protocol templates, and the 4-step workflow.
 - Kept `AGENTS.md` untouched and verified clean documentation/repo status alongside the established Level-5 baseline (no code or training changes made).
+
+### 2026-11-16 | Codex | Harden Planthir recovery and evidence integrity
+- Implemented identity-bound resume, durable journals, milestone recovery, complete-export checks, bounded capsules/full raw sidecars and archive validation.
+- Corrected confounder checks, probe separation, calibration/isotropy, unsupported causal claims and fabricated productivity estimates; repaired B0 recipe use and model lifetimes.
+- Validation: 472 passed, 1 skipped, 14 subtests; final runner subset 14 passed; all six injected faults detected; historical evidence verification passed.
+- Added a Gemini execution handoff and enabled planthir CI; owner GPU qualification and general-backend support remain pending.

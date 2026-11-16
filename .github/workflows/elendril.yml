@@ -2,9 +2,9 @@ name: ELENDRIL mechanics and operator contracts
 
 on:
   push:
-    branches: [Elendril]
+    branches: [Elendril, planthir]
   pull_request:
-    branches: [Elendril]
+    branches: [Elendril, planthir]
 
 permissions:
   contents: read

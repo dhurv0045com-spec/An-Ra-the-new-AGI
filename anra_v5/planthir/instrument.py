@@ -5,6 +5,8 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import replace
 import math
+from hashlib import sha256
+import random
 from pathlib import Path
 import tempfile
 from typing import Any, Callable, Mapping, Sequence
@@ -111,6 +113,7 @@ def validate_environment_kernel(
     firewall_violations = 0
     subgoal_checks = 0
     subgoal_violations = 0
+    oracle_traces: list[tuple[list[UniversalObservation], list[tuple[str, str | None]]]] = []
 
     if static_steps_fn is None and isinstance(kernel, V8EnvironmentKernel):
         static_steps_fn = lambda w: build_teacher_steps_for_world(dict(w), render_fn=render_public_v8)
@@ -154,6 +157,7 @@ def validate_environment_kernel(
             if getattr(state, "terminal", False) or op not in _TOOL_OP_TO_KEY:
                 break
 
+        oracle_traces.append((observations, actions))
         outcome = kernel.verify(world, actions)
         tri_total += 1
         oracle_ok = bool(outcome.get("correct", False))
@@ -208,7 +212,7 @@ def validate_environment_kernel(
             m_state = kernel.initial_state(mutated)
             for step_idx, orig_obs in enumerate(observations):
                 m_obs = kernel.observe(m_state)
-                if m_obs.rendered_text != orig_obs.rendered_text or m_obs.available_tools != orig_obs.available_tools:
+                if m_obs != orig_obs:
                     firewall_violations += 1
                     defects.append({
                         "world_id": wid,
@@ -217,10 +221,8 @@ def validate_environment_kernel(
                         "detail": "mutating hidden.expected altered actor-visible observation",
                     })
                     break
-                m_op, m_arg = kernel.ideal_action(m_state)
+                m_op, m_arg = actions[step_idx]
                 m_state = kernel.step(m_state, m_op, m_arg)
-                if getattr(m_state, "terminal", False) or m_op not in _TOOL_OP_TO_KEY:
-                    break
 
         # Subgoal decomposition validity check
         subgoals = kernel.decompose_subgoals(world)
@@ -242,26 +244,36 @@ def validate_environment_kernel(
         oracle_actor = _OracleV8Actor(kernel)
         v8_eval_ok = 0
         v8_template0_worlds = [w for w in worlds if int(w.get("renderer_template", 0)) == 0]
-        for w in v8_template0_worlds:
+        if not v8_template0_worlds:
+            defects.append({"check": "v8_run_episode_oracle_parity", "detail": "no template-0 worlds available for requested parity check"})
+        for w, (observations, actions) in ((w, t) for w, t in zip(worlds, oracle_traces) if int(w.get("renderer_template", 0)) == 0):
             ep = v8_run_episode(
                 oracle_actor,
                 dict(w),
                 render_fn=render_public_v8,
                 enforce_tool_consumption=v8_enforce_tool_consumption,
+                max_actions=kernel.max_actions,
             )
-            if ep.outcome.correct:
+            expected_hashes = [sha256(o.rendered_text.encode("utf-8")).hexdigest() for o in observations]
+            actual_hashes = [step.public_text_sha256 for step in ep.steps]
+            def normalized(action):
+                op, arg = action
+                return (op, arg if op == "ANSWER" else None)
+            actual_actions = [(step.executed_proposal.operation, step.executed_proposal.argument) for step in ep.steps]
+            trace_matches = expected_hashes == actual_hashes and list(map(normalized, actions)) == list(map(normalized, actual_actions))
+            if ep.outcome.correct and trace_matches:
                 v8_eval_ok += 1
             else:
                 defects.append({
                     "world_id": str(w["world_id"]),
                     "check": "v8_run_episode_oracle_parity",
-                    "detail": f"v8_run_episode failed on oracle actor: status={ep.outcome.terminal_status}",
+                    "detail": f"v8 oracle trace or outcome mismatch: status={ep.outcome.terminal_status}, trace_matches={trace_matches}",
                 })
         v8_eval_check = {
             "checked": True,
             "worlds": len(v8_template0_worlds),
             "oracle_passed": v8_eval_ok,
-            "all_passed": v8_eval_ok == len(v8_template0_worlds),
+            "all_passed": bool(v8_template0_worlds) and v8_eval_ok == len(v8_template0_worlds),
         }
 
     passed = len(defects) == 0
@@ -342,8 +354,16 @@ def validate_model_and_gradients(
     """Perform a non-mutating forward/backward graph integrity and active-parameter check."""
 
     modes = [(m, m.training) for m in model.modules()]
-    model.train()
-    model.zero_grad(set_to_none=True)
+    buffers = [(b, b.detach().clone()) for b in model.buffers()]
+    gradients = [(p, p.grad, None if p.grad is None else p.grad.detach().clone()) for p in model.parameters()]
+    cpu_rng = torch.get_rng_state()
+    cuda_rng = torch.cuda.get_rng_state_all() if torch.cuda.is_initialized() else None
+    python_rng = random.getstate()
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+    numpy_rng = np.random.get_state() if np is not None else None
     defects: list[str] = []
     grad_norms: dict[str, float] = {}
     non_none_params: set[str] = set()
@@ -351,6 +371,8 @@ def validate_model_and_gradients(
     loss_value: float | None = None
 
     try:
+        model.train()
+        model.zero_grad(set_to_none=True)
         loss = loss_fn(model)
         loss_value = float(loss.detach().item())
         if not math.isfinite(loss_value):
@@ -370,14 +392,28 @@ def validate_model_and_gradients(
             if norm > 0.0:
                 nonzero_params.add(name)
 
+        if not nonzero_params:
+            defects.append("no_nonzero_gradients")
         if active_param_contract is not None:
             missing = sorted(active_param_contract - nonzero_params)
             for name in missing:
                 defects.append(f"missing_active_gradient:{name}")
     finally:
-        model.zero_grad(set_to_none=True)
+        with torch.no_grad():
+            for buffer, value in buffers:
+                buffer.copy_(value)
+            for param, original, value in gradients:
+                param.grad = original
+                if original is not None:
+                    original.copy_(value)
         for m, was in modes:
             m.training = was
+        torch.set_rng_state(cpu_rng)
+        if cuda_rng is not None:
+            torch.cuda.set_rng_state_all(cuda_rng)
+        random.setstate(python_rng)
+        if np is not None:
+            np.random.set_state(numpy_rng)
 
     passed = len(defects) == 0
     return {

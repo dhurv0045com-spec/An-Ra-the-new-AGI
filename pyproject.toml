@@ -10,8 +10,8 @@ requires-python = ">=3.11"
 readme = "README.md"
 
 [project.optional-dependencies]
-train = ["torch>=2.8,<3"]
-test = ["pytest>=8,<10", "nbformat>=5.10,<6"]
+train = ["torch>=2.8,<3", "numpy>=1.26,<3"]
+test = ["numpy>=1.26,<3", "pytest>=8,<10", "nbformat>=5.10,<6"]
 
 [project.scripts]
 elendril = "anra_v5.elendril.__main__:main"

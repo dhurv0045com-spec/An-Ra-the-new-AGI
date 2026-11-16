@@ -1,3 +1,5 @@
+> **Reliability review notice:** This document preserves the historical design and research brief below; some specifications, claimed guarantees, examples and results have been superseded. For current implemented controls, limitations, pending GPU qualification and an actionable upgrade plan, read [the Gemini reliability and upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [agent.md](agent.md). The five checks span the run lifecycle, and the cartridge backend currently supports V8 rather than arbitrary architectures.
+
 # Planthir (`anra_v5/planthir`) — Purpose, Architecture & Adversarial Audit Brief
 
 > **Audience:** Independent AI reviewers and research engineers auditing AN-RA's universal experimental infrastructure (`Planthir` Level 5) for reasoning errors, statistical blind spots, edge cases, or engineering flaws.

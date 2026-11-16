@@ -1,3 +1,5 @@
+# Historical guide: read the [current root guide](../../agent.md) and [reliability handoff](GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) first. Some original readiness, universality and productivity claims below are superseded. This document is retained for provenance.
+
 # `agent.md` — How AI Agents Must Use Planthir (`anra_v5.planthir`)
 
 > **Scope:** Instructions for any AI coding or research agent running experiments, evaluating architectures, or auditing results in AN-RA.

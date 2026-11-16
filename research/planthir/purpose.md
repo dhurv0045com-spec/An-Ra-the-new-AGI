@@ -1,3 +1,5 @@
+# Historical proposal: the [reliability handoff](GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) documents corrected claims, supported execution and pending qualification. Preserve this original proposal as history, not evidence that all its guarantees hold.
+
 # Planthir (`anra_v5/planthir`) — Purpose, Architecture & Adversarial Audit Brief
 
 > **Audience:** Independent AI reviewers and research engineers auditing AN-RA's universal experimental infrastructure (`Planthir` Level 5) for reasoning errors, statistical blind spots, edge cases, or engineering flaws.

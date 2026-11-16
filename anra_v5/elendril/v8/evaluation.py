@@ -64,6 +64,9 @@ def run_episode(
 ) -> EpisodeRecord:
     """Execute one episode with strict actor/verifier truth separation."""
 
+    if type(max_actions) is not int or max_actions < 1:
+        raise ValueError("max_actions must be a positive integer")
+
     initial_facts = tuple(PublicFact(**row) for row in world["initial_facts"]) + tuple(extra_initial_facts)
     ordered_facts = list(initial_facts)
     seen_facts = set(initial_facts)
@@ -191,8 +194,11 @@ def run_episode(
             executed_actions.append((op, arg))
             terminal_status = f"TERMINAL_{op}"
             break
+        executed_actions.append(("INVALID", None))
+        terminal_status = "INVALID_ACTION"
+        break
 
-    outcome = verify_episode_trace(world, executed_actions)
+    outcome = verify_episode_trace(world, executed_actions, action_budget=max_actions)
     if terminal_status not in ("INVALID_ACTION", "UNAVAILABLE_QUERY", "UNAVAILABLE_RETRIEVE"):
         terminal_status = outcome.terminal_status
     final_outcome = EvaluationOutcome(

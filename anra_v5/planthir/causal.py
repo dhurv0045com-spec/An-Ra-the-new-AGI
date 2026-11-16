@@ -10,6 +10,7 @@ import torch
 
 from anra_v5.elendril.codec import digest
 from anra_v5.elendril.v8.contracts import SYMBOLS
+from anra_v5.elendril.v8.holdout import canonical_graph_signature
 
 from .contracts import EnvironmentKernel, ObservablePolicy, UniversalObservation
 
@@ -38,12 +39,12 @@ def _paired_bootstrap_ci(
     *,
     samples: int = 400,
     seed: int = 202611,
-) -> list[float]:
-    if not diffs:
-        return [0.0, 0.0]
-    if len(diffs) == 1:
-        val = float(diffs[0])
-        return [val, val]
+) -> list[float] | None:
+    # A singleton or empty sample cannot estimate sampling uncertainty.
+    if len(diffs) < 2:
+        return None
+    if samples < 2:
+        raise ValueError("bootstrap requires at least two resamples")
     rng = random.Random(int(digest(["planthir-bootstrap-v1", seed, len(diffs)]), 16))
     n = len(diffs)
     means: list[float] = []
@@ -56,10 +57,71 @@ def _paired_bootstrap_ci(
     return [float(lo), float(hi)]
 
 
+
+def _clustered_bootstrap_ci(
+    diffs: Sequence[float], worlds: Sequence[Mapping[str, Any]], *,
+    assume_independent_clusters: bool,
+) -> tuple[list[float] | None, int | None]:
+    """Resample linked parent/pair groups only under an explicit independence assumption."""
+    if not assume_independent_clusters or not worlds or len(diffs) != len(worlds):
+        return None, None
+    if any(not w.get("world_id") for w in worlds):
+        return None, None
+    parent: dict[str, str] = {}
+    def find(k: str) -> str:
+        parent.setdefault(k, k)
+        while parent[k] != k:
+            parent[k] = parent[parent[k]]
+            k = parent[k]
+        return k
+    def union(a: str, b: str) -> None:
+        parent[find(a)] = find(b)
+    for w in worlds:
+        wid = "world:" + str(w["world_id"])
+        find(wid)
+        if w.get("parent_world_id"):
+            union(wid, "world:" + str(w["parent_world_id"]))
+        if w.get("pair_id"):
+            union(wid, "pair:" + str(w["pair_id"]))
+        if w.get("base_world_id"):
+            union(wid, "world:" + str(w["base_world_id"]))
+    groups: dict[str, list[float]] = {}
+    for w, diff in zip(worlds, diffs):
+        groups.setdefault(find("world:" + str(w["world_id"])), []).append(float(diff))
+    clusters = list(groups.values())
+    if len(clusters) < 2:
+        return None, len(clusters)
+    rng = random.Random(int(digest(["planthir-cluster-bootstrap-v1", len(clusters), len(diffs)]), 16))
+    means = []
+    for _ in range(400):
+        draw = [clusters[rng.randrange(len(clusters))] for _ in clusters]
+        means.append(sum(sum(group) for group in draw) / sum(len(group) for group in draw))
+    means.sort()
+    return [float(means[10]), float(means[390])], len(clusters)
+
+
+def _probe_split_keys(worlds: Sequence[Mapping[str, Any]]) -> tuple[set[str], set[str]]:
+    """Collect lineage identifiers and, for V8-shaped worlds, graph signatures."""
+    lineage: set[str] = set()
+    signatures: set[str] = set()
+    for w in worlds:
+        for field in ("world_id", "parent_world_id", "base_world_id"):
+            if w.get(field):
+                lineage.add("world:" + str(w[field]))
+        if w.get("pair_id"):
+            lineage.add("pair:" + str(w["pair_id"]))
+        if all(k in w for k in ("goal_subject", "hops", "initial_facts", "allowed_public_tools", "hidden")):
+            signature = canonical_graph_signature(dict(w))
+            if not signature["exact_canonicalization"]:
+                raise ValueError("probe split cannot establish graph disjointness: inexact V8 canonicalization")
+            signatures.add(str(signature["canonical_hash"]))
+    return lineage, signatures
+
 def run_oracle_information_intervention(
     policy: ObservablePolicy,
     kernel: EnvironmentKernel,
     worlds: Sequence[Mapping[str, Any]],
+    *, assume_independent_clusters: bool = False,
 ) -> dict[str, Any]:
     """Compare interactive rollout vs pre-merged hidden tool payloads (isolating tool-use bottlenecks)."""
 
@@ -71,6 +133,7 @@ def run_oracle_information_intervention(
     normal_ok: list[int] = []
     oracle_ok: list[int] = []
     tool_diffs: list[float] = []
+    tool_world_rows: list[Mapping[str, Any]] = []
     all_diffs: list[float] = []
     tool_normal = 0
     tool_oracle = 0
@@ -92,22 +155,29 @@ def run_oracle_information_intervention(
             tool_normal += n_int
             tool_oracle += o_int
             tool_diffs.append(float(o_int - n_int))
+            tool_world_rows.append(w)
 
     n = len(worlds)
     norm_acc = sum(normal_ok) / n
     orac_acc = sum(oracle_ok) / n
+    all_ci, cluster_count = _clustered_bootstrap_ci(all_diffs, worlds, assume_independent_clusters=assume_independent_clusters)
+    tool_ci, tool_cluster_count = _clustered_bootstrap_ci(tool_diffs, tool_world_rows, assume_independent_clusters=assume_independent_clusters)
     return {
         "intervention": "oracle_information_injection",
         "worlds": n,
         "normal_accuracy": norm_acc,
         "oracle_injected_accuracy": orac_acc,
         "delta_oracle": orac_acc - norm_acc,
-        "delta_oracle_95ci": _paired_bootstrap_ci(all_diffs),
+        "delta_oracle_95ci": all_ci,
         "tool_worlds": tool_n,
         "tool_normal_accuracy": (tool_normal / tool_n) if tool_n else None,
         "tool_oracle_accuracy": (tool_oracle / tool_n) if tool_n else None,
         "tool_delta_oracle": ((tool_oracle - tool_normal) / tool_n) if tool_n else None,
-        "tool_delta_oracle_95ci": _paired_bootstrap_ci(tool_diffs) if tool_diffs else None,
+        "tool_delta_oracle_95ci": tool_ci,
+        "bootstrap_unit": "linked_base_world_cluster",
+        "bootstrap_clusters": cluster_count,
+        "tool_bootstrap_clusters": tool_cluster_count,
+        "uncertainty_scope": "requires assumed independent linked-world clusters; conditional on supplied worlds and model, not training seeds",
     }
 
 
@@ -115,6 +185,7 @@ def run_subgoal_hop_decomposition(
     policy: ObservablePolicy,
     kernel: EnvironmentKernel,
     multi_hop_worlds: Sequence[Mapping[str, Any]],
+    *, assume_independent_clusters: bool = False,
 ) -> dict[str, Any]:
     """Decompose multi-hop reasoning on identical visible facts into Hop-1, Hop-2, and Full Chain."""
 
@@ -124,6 +195,7 @@ def run_subgoal_hop_decomposition(
     both_ok = 0
     full_ok = 0
     gap_diffs: list[float] = []
+    evaluated_worlds: list[Mapping[str, Any]] = []
 
     for w in multi_hop_worlds:
         subgoals = list(kernel.decompose_subgoals(w))
@@ -150,6 +222,7 @@ def run_subgoal_hop_decomposition(
         full_int = 1 if c_full else 0
         full_ok += full_int
         gap_diffs.append(float(joint - full_int))
+        evaluated_worlds.append(w)
 
     if evaluated == 0:
         return {
@@ -167,6 +240,7 @@ def run_subgoal_hop_decomposition(
     h2 = hop2_ok / evaluated
     joint_acc = both_ok / evaluated
     full_acc = full_ok / evaluated
+    gap_ci, cluster_count = _clustered_bootstrap_ci(gap_diffs, evaluated_worlds, assume_independent_clusters=assume_independent_clusters)
     return {
         "intervention": "subgoal_hop_decomposition",
         "worlds_decomposed": evaluated,
@@ -175,7 +249,10 @@ def run_subgoal_hop_decomposition(
         "joint_individual_hops_solvable": joint_acc,
         "full_chain_accuracy": full_acc,
         "composition_gap": joint_acc - full_acc,
-        "composition_gap_95ci": _paired_bootstrap_ci(gap_diffs),
+        "composition_gap_95ci": gap_ci,
+        "bootstrap_unit": "linked_base_world_cluster",
+        "bootstrap_clusters": cluster_count,
+        "uncertainty_scope": "requires assumed independent linked-world clusters; conditional on supplied worlds and model, not training seeds",
     }
 
 
@@ -338,6 +415,12 @@ def run_representation_linear_probe(
 
     if len(train_worlds) < 4 or len(eval_worlds) < 2:
         raise ValueError("linear probe requires at least 4 train worlds and 2 eval worlds")
+
+    train_lineage, train_graphs = _probe_split_keys(train_worlds)
+    eval_lineage, eval_graphs = _probe_split_keys(eval_worlds)
+    if (train_lineage & eval_lineage or train_graphs & eval_graphs
+            or any(a == b for a in train_worlds for b in eval_worlds)):
+        raise ValueError("probe training and evaluation worlds must be disjoint by lineage and V8 graph signature")
 
     op_vocab = ("ANSWER", "QUERY", "RETRIEVE", "ABSTAIN")
 

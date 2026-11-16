@@ -68,13 +68,39 @@ class UniversalObservation:
         if type(self.budget_remaining) is not int or self.budget_remaining < 1:
             violations.append(f"non_positive_budget_remaining:{self.budget_remaining!r}")
 
-        for tool_name in sorted(self.consumed_tools):
-            if self.available_tools.get(tool_name, False):
-                violations.append(f"consumed_tool_still_available:{tool_name}")
+        if not isinstance(self.available_tools, dict) or any(
+            not isinstance(k, str) or type(v) is not bool for k, v in self.available_tools.items()
+        ):
+            violations.append("invalid_available_tools")
+        if not isinstance(self.consumed_tools, frozenset) or any(
+            not isinstance(k, str) for k in self.consumed_tools
+        ):
+            violations.append("invalid_consumed_tools")
+        elif isinstance(self.available_tools, dict):
+            for tool_name in sorted(self.consumed_tools):
+                if self.available_tools.get(tool_name, False):
+                    violations.append(f"consumed_tool_still_available:{tool_name}")
 
-        for key in ("expected", "gold", "gold_answer", "hidden", "truth"):
-            if key in self.metadata:
-                violations.append(f"forbidden_metadata_key:{key}")
+        forbidden = {"expected", "gold", "gold_answer", "hidden", "truth", "ground_truth"}
+        def inspect_metadata(value: Any, seen: set[int]) -> None:
+            if isinstance(value, (Mapping, list, tuple)):
+                if id(value) in seen:
+                    return
+                seen.add(id(value))
+                if isinstance(value, Mapping):
+                    for key, item in value.items():
+                        if isinstance(key, str) and key.lower() in forbidden:
+                            violations.append(f"forbidden_metadata_key:{key}")
+                        inspect_metadata(item, seen)
+                else:
+                    for item in value:
+                        inspect_metadata(item, seen)
+            elif isinstance(value, str):
+                violations.extend(detect_truth_leaks(value))
+        if not isinstance(self.metadata, dict):
+            violations.append("invalid_metadata")
+        else:
+            inspect_metadata(self.metadata, set())
 
         return violations
 

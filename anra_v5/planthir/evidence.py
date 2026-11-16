@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from hashlib import sha256
+from dataclasses import asdict
 import json
 import os
 from pathlib import Path, PurePosixPath
 import tempfile
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 import zipfile
 
 import numpy as np
@@ -15,7 +16,9 @@ import torch
 
 from anra_v5.elendril.codec import canonical, digest
 from anra_v5.elendril.training import _dump, _load
-from v5_training.checkpoint import CheckpointStore, MILESTONES_FILENAME
+from v5_training.checkpoint import (CheckpointStore, MILESTONES_FILENAME, MANIFEST_SCHEMA,
+                                    REQUIRED_COMPONENTS, _canonical_json)
+from v5_training.state import TrainingState
 
 from .causal import _eval_ridge_classifier, _fit_ridge_classifier
 from .contracts import ExperimentRegistration
@@ -49,6 +52,21 @@ def _write_json(path: Path, payload: Mapping[str, Any]) -> bytes:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(raw)
     return raw
+
+
+def _compact_evidence(value: Any, reference: str, pointer: str = "") -> Any:
+    """Replace bulky fields with explicit JSON-pointer references to preserved evidence."""
+    if isinstance(value, dict):
+        return {str(k): _compact_evidence(v, reference, pointer + "/" + str(k).replace("~", "~0").replace("/", "~1"))
+                if k != "evidence_basis" else {"artifact": reference, "json_pointer": pointer + "/evidence_basis"}
+                for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        if len(value) > 16:
+            return {"artifact": reference, "json_pointer": pointer, "item_count": len(value)}
+        return [_compact_evidence(v, reference, pointer + "/" + str(i)) for i, v in enumerate(value)]
+    if isinstance(value, str) and len(value) > 1024:
+        return {"artifact": reference, "json_pointer": pointer, "characters": len(value)}
+    return value
 
 
 def write_tier1_summary(
@@ -89,8 +107,22 @@ def write_tier1_summary(
         "interpretation": interpretation.to_dict(),
         "recovery_binding": dict(recovery_binding) if recovery_binding else None,
     }
+    raw_dir = out.parent / "raw_evidence"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_summary = dict(summary_payload)
+    raw_summary["process_funnel"] = dict(process_funnel) if process_funnel is not None else None
+    _write_json(raw_dir / "tier1_full.json", raw_summary)
+    reference = f"raw_evidence/{registration.experiment_id}/tier1_full.json"
+    summary_payload = _compact_evidence(summary_payload, reference)
+    summary_payload["raw_evidence"] = reference
     json_path = out / "SCIENTIFIC_SUMMARY.json"
     raw_json = _write_json(json_path, summary_payload)
+    if len(raw_json) > max_bytes:
+        for section in ("causal_diagnostics", "interpretation", "process_funnel", "instrument_validation"):
+            summary_payload[section] = {"artifact": reference, "json_pointer": "/" + section}
+            raw_json = _write_json(json_path, summary_payload)
+            if len(raw_json) <= max_bytes:
+                break
     if len(raw_json) > max_bytes:
         raise ValueError(f"Tier-1 SCIENTIFIC_SUMMARY.json ({len(raw_json)} B) exceeds limit {max_bytes} B")
 
@@ -143,6 +175,12 @@ def write_tier1_summary(
 
     md_path = out / "SCIENTIFIC_SUMMARY.md"
     md_bytes = ("\n".join(lines) + "\n").encode("utf-8")
+    if len(md_bytes) > max_bytes:
+        md_bytes = (f"# {registration.experiment_id} - Tier-1 Scientific Summary\n\n"
+                    f"Interpretation status: `{interp.status}`. The full claims and evidence are in "
+                    f"`{reference}`; see SCIENTIFIC_SUMMARY.json for the bounded summary.\n").encode("utf-8")
+    if len(md_bytes) > max_bytes:
+        raise ValueError("Tier-1 Markdown metadata exceeds limit")
     md_path.write_bytes(md_bytes)
     return {"json": json_path, "markdown": md_path}
 
@@ -160,37 +198,57 @@ def write_tier2_diagnostic_capsule(
     cdir = Path(capsule_dir)
     cdir.mkdir(parents=True, exist_ok=True)
 
-    np_arrays: dict[str, np.ndarray] = {}
-    for key, val in probe_arrays.items():
-        arr = val.detach().cpu().numpy() if isinstance(val, torch.Tensor) else np.asarray(val)
-        if np.issubdtype(arr.dtype, np.floating):
-            arr = arr.astype(np.float16)
-        elif np.issubdtype(arr.dtype, np.integer):
-            arr = arr.astype(np.int64)
-        np_arrays[key] = arr
-
-    npz_path = cdir / "representations.npz"
-    np.savez_compressed(npz_path, **np_arrays)
-
+    raw_dir = cdir.parent / "raw_evidence"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_arrays = {key: (val.detach().cpu().numpy() if isinstance(val, torch.Tensor) else np.asarray(val))
+                  for key, val in probe_arrays.items()}
+    if any(arr.dtype.hasobject for arr in raw_arrays.values()):
+        raise ValueError("object arrays cannot be preserved safely in capsule evidence")
+    np.savez_compressed(raw_dir / "representations_full.npz", **raw_arrays)
+    _write_json(raw_dir / "diagnostics_full.json", diagnostics)
+    raw_prefix = f"raw_evidence/{experiment_id}"
+    compact_diagnostics = _compact_evidence(dict(diagnostics), raw_prefix + "/diagnostics_full.json")
     diag_path = cdir / "diagnostics.json"
-    _write_json(diag_path, diagnostics)
+    _write_json(diag_path, compact_diagnostics)
+    if diag_path.stat().st_size > max_bytes // 2:
+        _write_json(diag_path, {"artifact": raw_prefix + "/diagnostics_full.json", "json_pointer": ""})
+
+    rows = len(raw_arrays["decision_hidden"]) if "decision_hidden" in raw_arrays else 0
+    selected = rows
+    npz_path = cdir / "representations.npz"
+    while True:
+        np_arrays = {}
+        for key, arr in raw_arrays.items():
+            # Keep aligned row arrays together; other arrays remain in the raw sidecar.
+            if arr.ndim == 0 or len(arr) != rows:
+                continue
+            sample = arr[:selected]
+            if np.issubdtype(sample.dtype, np.floating):
+                sample = sample.astype(np.float16)
+            elif np.issubdtype(sample.dtype, np.integer):
+                sample = sample.astype(np.int64)
+            np_arrays[key] = sample
+        np.savez_compressed(npz_path, **np_arrays)
+        total_bytes = npz_path.stat().st_size + diag_path.stat().st_size
+        if total_bytes <= max_bytes:
+            break
+        if selected <= 1:
+            raise ValueError(f"Tier-2 capsule metadata or one sample exceeds limit {max_bytes} B")
+        selected = max(1, selected // 2)
 
     members = {}
-    total_bytes = 0
     for fname in ("representations.npz", "diagnostics.json"):
-        raw = (cdir / fname).read_bytes()
-        total_bytes += len(raw)
-        members[fname] = {"byte_size": len(raw), "sha256": sha256(raw).hexdigest()}
-
-    if total_bytes > max_bytes:
-        raise ValueError(f"Tier-2 Diagnostic Capsule size {total_bytes} B exceeds limit {max_bytes} B")
-
+        file_sha, size = _file_sha256(cdir / fname)
+        members[fname] = {"byte_size": size, "sha256": file_sha}
     manifest = {
-        "schema": "anra-planthir-tier2-capsule-v1",
-        "experiment_id": experiment_id,
+        "schema": "anra-planthir-tier2-capsule-v1", "experiment_id": experiment_id,
         "total_bytes": total_bytes,
         "array_shapes": {k: list(v.shape) for k, v in np_arrays.items()},
         "array_dtypes": {k: str(v.dtype) for k, v in np_arrays.items()},
+        "sampling": {"method": "first_rows", "original_rows": rows, "selected_rows": selected,
+                     "omitted_arrays": sorted(set(raw_arrays) - set(np_arrays))},
+        "raw_evidence": {"arrays": raw_prefix + "/representations_full.npz",
+                         "diagnostics": raw_prefix + "/diagnostics_full.json"},
         "members": members,
     }
     manifest_path = cdir / "CAPSULE_MANIFEST.json"
@@ -231,8 +289,13 @@ def probe_from_capsule(
     *,
     train_fraction: float = 0.6,
     l2_reg: float = 1.0,
+    group_ids: Sequence[str] | None = None,
 ) -> dict[str, Any]:
-    """Run offline representation rank and linear probes purely from a Tier-2 capsule (no Tier-3 weights)."""
+    """Run exploratory capsule probes; these do not qualify independent generalization.
+
+    Optional group IDs keep related rows together; callers must supply meaningful
+    groups and arrange an independent evaluation for scientific qualification.
+    """
 
     manifest = verify_tier2_capsule(capsule_dir)
     cdir = Path(capsule_dir)
@@ -240,23 +303,54 @@ def probe_from_capsule(
         if "decision_hidden" not in archive:
             raise ValueError("capsule representations.npz missing 'decision_hidden'")
         hidden = torch.from_numpy(archive["decision_hidden"].astype(np.float32))
+        if hidden.ndim != 2 or len(hidden) < 4 or not 0 < train_fraction < 1:
+            raise ValueError("capsule probe requires at least four rows and 0 < train_fraction < 1")
         results: dict[str, Any] = {
             "schema": "anra-planthir-capsule-probe-v1",
+            "qualification": "exploratory_only",
+            "independent_evaluation": False,
             "experiment_id": manifest["experiment_id"],
             "samples": int(hidden.shape[0]),
             "hidden_dim": int(hidden.shape[1]),
             "effective_rank": compute_effective_rank(hidden),
             "probes": {},
         }
-        split = max(2, min(hidden.shape[0] - 2, int(hidden.shape[0] * train_fraction)))
-        x_tr, x_ev = hidden[:split], hidden[split:]
+        if group_ids is None:
+            split = max(2, min(hidden.shape[0] - 2, int(hidden.shape[0] * train_fraction)))
+            train_mask = torch.arange(len(hidden)) < split
+            results["split_method"] = "row_order"
+        else:
+            if len(group_ids) != len(hidden) or any(not isinstance(g, str) or not g for g in group_ids):
+                raise ValueError("group_ids must contain one nonempty string per row")
+            groups = list(dict.fromkeys(group_ids))
+            if len(groups) < 2:
+                raise ValueError("group split requires at least two groups")
+            train_groups = set()
+            target = len(hidden) * train_fraction
+            for group in groups[:-1]:
+                if train_groups and sum(g in train_groups for g in group_ids) >= target:
+                    break
+                train_groups.add(group)
+            train_mask = torch.tensor([g in train_groups for g in group_ids], dtype=torch.bool)
+            results["split_method"] = "group_order"
+        eval_mask = ~train_mask
+        x_tr, x_ev = hidden[train_mask], hidden[eval_mask]
         for key in ("y_op", "y_hop1", "y_final"):
             if key not in archive:
                 continue
             y = torch.from_numpy(archive[key].astype(np.int64))
-            num_classes = int(y.max().item()) + 1
-            w = _fit_ridge_classifier(x_tr, y[:split], num_classes, l2_reg=l2_reg)
-            acc = _eval_ridge_classifier(w, x_ev, y[split:])
+            if y.ndim != 1 or len(y) != len(hidden):
+                raise ValueError(f"invalid capsule label shape for {key}")
+            y_tr, y_ev = y[train_mask], y[eval_mask]
+            train_valid, eval_valid = y_tr >= 0, y_ev >= 0
+            if not train_valid.any() or not eval_valid.any():
+                results["probes"][key] = None
+                continue
+            num_classes = int(y_tr[train_valid].max().item()) + 1
+            if (y_ev[eval_valid] >= num_classes).any():
+                num_classes = int(y.max().item()) + 1
+            w = _fit_ridge_classifier(x_tr[train_valid], y_tr[train_valid], num_classes, l2_reg=l2_reg)
+            acc = _eval_ridge_classifier(w, x_ev[eval_valid], y_ev[eval_valid])
             results["probes"][key] = acc
     return results
 
@@ -277,6 +371,7 @@ def bind_tier3_recovery_archive(
             "lineage": lineage,
             "latest_checkpoint_sha256": None,
         }
+    _verify_local_checkpoint_streaming(store, latest)
     manifest_path = store.objects / latest / "manifest.json"
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
@@ -335,12 +430,17 @@ def package_three_tier_evidence(
         "tier1_summary": {k: str(v) for k, v in t1.items()},
         "tier2_capsule": t2,
         "tier3_binding": recovery_binding,
+        "raw_evidence_dir": str(exp_dir / "raw_evidence"),
     }
 
 
 def _safe_arcname(name: str) -> str:
     p = PurePosixPath(name)
-    if p.is_absolute() or ".." in p.parts or any(part == "" for part in p.parts):
+    if (not name or "\\" in name or ":" in name or p.is_absolute()
+            or ".." in p.parts or p.as_posix() != name):
+        raise ValueError(f"unsafe archive member path: {name!r}")
+    reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+    if any(part.rstrip(" .") != part or part.split(".")[0].upper() in reserved for part in p.parts):
         raise ValueError(f"unsafe archive member path: {name!r}")
     return p.as_posix()
 
@@ -382,7 +482,10 @@ def _build_fp16_model_payload(model_bin_bytes: bytes) -> bytes:
     fp16_weights: dict[str, Any] = {}
     for key, val in weights.items():
         if isinstance(val, torch.Tensor) and torch.is_floating_point(val):
-            fp16_weights[key] = val.detach().cpu().to(dtype=torch.float16)
+            converted = val.detach().cpu().to(dtype=torch.float16)
+            if torch.isfinite(val).all() and not torch.isfinite(converted).all():
+                raise ValueError(f"FP16 conversion overflows for {key!r}")
+            fp16_weights[key] = converted
         elif isinstance(val, torch.Tensor):
             fp16_weights[key] = val.detach().cpu()
         else:
@@ -397,40 +500,35 @@ def _write_verified_zip(
     meta: Mapping[str, Any],
 ) -> dict[str, Any]:
     zip_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_entries: list[dict[str, Any]] = []
     sorted_items = sorted((_safe_arcname(arc), src) for arc, src in entries.items())
-    for arc, src in sorted_items:
-        if isinstance(src, (bytes, bytearray)):
-            file_sha, size = _bytes_sha256(bytes(src))
-        else:
-            file_sha, size = _file_sha256(Path(src))
-        manifest_entries.append({"path": arc, "sha256": file_sha, "bytes": size})
-
-    manifest = {
-        "schema": "anra-planthir-archive-manifest-v1",
-        **dict(meta),
-        "files": manifest_entries,
-        "manifest_sha256": digest(manifest_entries),
-    }
-    manifest_bytes = (
-        json.dumps(_sanitize_json(manifest), indent=2, sort_keys=True, allow_nan=False) + "\n"
-    ).encode("utf-8")
-
     fd, tmp_name = tempfile.mkstemp(dir=zip_path.parent, prefix=f".{zip_path.name}.", suffix=".tmp")
     os.close(fd)
     tmp_path = Path(tmp_name)
     try:
-        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        manifest_entries: list[dict[str, Any]] = []
+        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
             for arc, src in sorted_items:
-                if isinstance(src, (bytes, bytearray)):
-                    zf.writestr(arc, bytes(src))
-                else:
-                    zf.write(Path(src), arcname=arc)
+                h, size = sha256(), 0
+                with zf.open(arc, "w", force_zip64=True) as dst:
+                    if isinstance(src, (bytes, bytearray)):
+                        raw = bytes(src)
+                        dst.write(raw)
+                        h.update(raw)
+                        size = len(raw)
+                    else:
+                        with Path(src).open("rb") as inp:
+                            while chunk := inp.read(1024 * 1024):
+                                dst.write(chunk)
+                                h.update(chunk)
+                                size += len(chunk)
+                manifest_entries.append({"path": arc, "sha256": h.hexdigest(), "bytes": size})
+            manifest = {"schema": "anra-planthir-archive-manifest-v1", **dict(meta),
+                        "files": manifest_entries, "manifest_sha256": digest(manifest_entries)}
+            manifest_bytes = (json.dumps(_sanitize_json(manifest), indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
             zf.writestr("ARCHIVE_MANIFEST.json", manifest_bytes)
         os.replace(tmp_path, zip_path)
     except Exception:
-        if tmp_path.exists():
-            tmp_path.unlink()
+        tmp_path.unlink(missing_ok=True)
         raise
     return manifest
 
@@ -468,6 +566,44 @@ def _resolve_experiment_artifacts(
     return result_files, capsule_files, summary_data
 
 
+def _verify_local_checkpoint_streaming(store: CheckpointStore, sha: str) -> TrainingState:
+    """Verify a local v1 checkpoint without materializing model or optimizer bytes."""
+    if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+        raise ValueError("invalid checkpoint SHA-256")
+    obj = store.objects / sha
+    manifest_path = obj / "manifest.json"
+    if obj.is_symlink() or manifest_path.is_symlink() or not manifest_path.is_file():
+        raise ValueError("checkpoint manifest is missing")
+    raw = manifest_path.read_bytes()
+    if sha256(raw).hexdigest() != sha:
+        raise ValueError("checkpoint manifest hash mismatch")
+    manifest = json.loads(raw)
+    if set(manifest) != {"schema", "lineage_id", "state_sha256", "state", "components", "durability"} or manifest["schema"] != MANIFEST_SCHEMA or manifest["lineage_id"] != store.lineage_id:
+        raise ValueError("unsupported checkpoint schema or lineage")
+    components = manifest["components"]
+    if len(components) != len(REQUIRED_COMPONENTS) or {item["name"] for item in components} != REQUIRED_COMPONENTS:
+        raise ValueError("checkpoint component inventory is incomplete")
+    if {p.name for p in obj.iterdir()} != set(REQUIRED_COMPONENTS) | {"manifest.json"}:
+        raise ValueError("checkpoint directory contains missing or untracked components")
+    for item in components:
+        if set(item) != {"name", "sha256", "byte_size"}:
+            raise ValueError("invalid checkpoint component identity")
+        path = obj / item["name"]
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("checkpoint component is missing")
+        actual_sha, size = _file_sha256(path)
+        if size != item["byte_size"] or actual_sha != item["sha256"]:
+            raise ValueError(f"checkpoint component is corrupt: {item['name']}")
+    state = TrainingState.from_dict(manifest["state"])
+    if state.lineage_id != store.lineage_id or state.sha256() != manifest["state_sha256"]:
+        raise ValueError("checkpoint training state mismatch")
+    if (obj / "training_state.json").read_bytes() != _canonical_json(state.canonical()):
+        raise ValueError("training state payload mismatch")
+    if json.loads((obj / "cursor.json").read_bytes()) != json.loads(_canonical_json(asdict(state.cursor))) or json.loads((obj / "ledger.json").read_bytes()) != dict(state.tokens_by_source):
+        raise ValueError("checkpoint cursor or ledger disagrees with state")
+    return state
+
+
 def _collect_checkpoint_lineages(checkpoint_root: Path | None) -> dict[str, dict[str, Any]]:
     lineages: dict[str, dict[str, Any]] = {}
     if checkpoint_root is None or not Path(checkpoint_root).exists():
@@ -482,15 +618,16 @@ def _collect_checkpoint_lineages(checkpoint_root: Path | None) -> dict[str, dict
         if latest_sha is None:
             continue
         # Verify committed checkpoint integrity before packaging
-        state, payloads = store.restore(latest_sha)
-        fp16_model = _build_fp16_model_payload(payloads["model.bin"])
-        sched = json.loads(payloads["scheduler.json"])
+        state = _verify_local_checkpoint_streaming(store, latest_sha)
+        obj_dir = store.objects / latest_sha
+        model_payload = obj_dir / "model.bin"
+        sched = json.loads((obj_dir / "scheduler.json").read_bytes())
 
         compact_files: dict[str, Path | bytes] = {
             f"checkpoints/{ldir.name}/LATEST": ldir / "LATEST",
         }
         fp16_files: dict[str, Path | bytes] = {
-            f"checkpoints/{ldir.name}/objects/{latest_sha}/model_fp16.bin": fp16_model,
+            f"checkpoints/{ldir.name}/objects/{latest_sha}/model_fp16.bin": model_payload,
         }
         if (ldir / MILESTONES_FILENAME).is_file():
             compact_files[f"checkpoints/{ldir.name}/{MILESTONES_FILENAME}"] = ldir / MILESTONES_FILENAME
@@ -587,6 +724,16 @@ def export_result_bundle(
             base_result_entries[arc] = fpath
             full_entries[arc] = fpath
 
+        raw_dir_value = bundle.get("raw_evidence_dir")
+        if raw_dir_value:
+            raw_dir = Path(str(raw_dir_value))
+            required_raw = ("tier1_full.json", "diagnostics_full.json", "representations_full.npz")
+            for fname in required_raw:
+                fpath = raw_dir / fname
+                if not fpath.is_file():
+                    raise ValueError(f"missing raw evidence for {exp_id}: {fname}")
+                full_entries[f"raw_evidence/{exp_id}/{fname}"] = fpath
+
         reg = summary_data.get("registration", {})
         rb = bundle.get("tier3_binding") or summary_data.get("recovery_binding") or {}
         lineage_id = bundle.get("lineage_id") or rb.get("lineage")
@@ -637,7 +784,7 @@ def export_result_bundle(
     for linfo in lineages.values():
         full_entries.update(linfo["all_store_files"])
 
-    def _build_metadata_files(embedded_full: bool) -> tuple[bytes, bytes, bytes]:
+    def _build_metadata_files(embedded_full: bool, evidence_only: bool = False) -> tuple[bytes, bytes, bytes]:
         status_doc = {
             "schema": "anra-planthir-bundle-status-v1",
             "campaign_id": campaign_id,
@@ -656,7 +803,8 @@ def export_result_bundle(
             "campaign_id": campaign_id,
             "source_commit": source_commit,
             "whole_checkpoint_embedded": embedded_full,
-            "checkpoint_mode_in_result_zip": "full_embedded" if embedded_full else "compact_fp16",
+            "checkpoint_mode_in_result_zip": "full_embedded" if embedded_full else ("sidecar_only" if evidence_only else "compact_fp16"),
+            "full_checkpoint_sidecar": FULL_CHECKPOINT_ZIP_NAME,
             "entries": index_entries,
         }
         index_bytes = (
@@ -667,7 +815,7 @@ def export_result_bundle(
             f"# {campaign_id} — Clear Result & Checkpoint Overview",
             "",
             f"- **Status:** `{status}` | **Source Commit:** `{source_commit}`",
-            f"- **Checkpoints Indexed:** `{len(lineages)}` | **`result.zip` Checkpoint Mode:** `{'full_embedded (model.bin + optimizer.bin)' if embedded_full else 'compact_fp16 (model_fp16.bin + verified metadata; full optimizer/FP32 in checkpoint_full.zip)'}`",
+            f"- **Checkpoints Indexed:** `{len(lineages)}` | **`result.zip` Checkpoint Mode:** `{'full_embedded' if embedded_full else ('sidecar_only (checkpoint_full.zip required)' if evidence_only else 'compact_fp16 (lossy; full checkpoint in checkpoint_full.zip)')}`",
             "",
             "| Experiment ID | Arch | Params | Lineage ID | Checkpoint SHA-256 | Updates | Overall Acc | Interp Status |",
             "| :--- | :--- | ---: | :--- | :--- | ---: | ---: | :--- |",
@@ -702,7 +850,7 @@ def export_result_bundle(
     embedded_entries = dict(base_result_entries)
     for linfo in lineages.values():
         compact_entries.update(linfo["compact_files"])
-        compact_entries.update(linfo["fp16_files"])
+        # Conversion is deferred until the full candidate exceeds the size cap.
         embedded_entries.update(linfo["compact_files"])
         embedded_entries.update(linfo["latest_full_files"])
 
@@ -716,10 +864,17 @@ def export_result_bundle(
     ):
         embedded_entries[fname] = raw
 
-    _write_verified_zip(result_zip_path, embedded_entries, meta={**meta_common, "kind": "result"})
-    whole_checkpoint_embedded = result_zip_path.stat().st_size <= max_result_zip_bytes
+    candidate_path = out / ("." + RESULT_ZIP_NAME + ".candidate")
+    _write_verified_zip(candidate_path, embedded_entries, meta={**meta_common, "kind": "result"})
+    whole_checkpoint_embedded = candidate_path.stat().st_size <= max_result_zip_bytes
 
     if not whole_checkpoint_embedded:
+        model_files = [(arc, path) for linfo in lineages.values() for arc, path in linfo["fp16_files"].items()]
+        # Bound aggregate conversion and serialization memory; larger models use the full sidecar.
+        skip_compact = sum(path.stat().st_size for _, path in model_files) > max_result_zip_bytes * 2
+        if not skip_compact:
+            for arc, model_path in model_files:
+                compact_entries[arc] = _build_fp16_model_payload(model_path.read_bytes())
         status_bytes, index_bytes, overview_bytes = _build_metadata_files(embedded_full=False)
         for fname, raw in (
             ("FINAL_STATUS.json", status_bytes),
@@ -727,11 +882,18 @@ def export_result_bundle(
             ("RESULT_OVERVIEW.md", overview_bytes),
         ):
             compact_entries[fname] = raw
-        _write_verified_zip(result_zip_path, compact_entries, meta={**meta_common, "kind": "result"})
-        if result_zip_path.stat().st_size > max_result_zip_bytes:
-            raise ValueError(
-                f"compact {RESULT_ZIP_NAME} size {result_zip_path.stat().st_size} B exceeds cap {max_result_zip_bytes} B"
-            )
+        if not skip_compact:
+            _write_verified_zip(candidate_path, compact_entries, meta={**meta_common, "kind": "result"})
+        if skip_compact or candidate_path.stat().st_size > max_result_zip_bytes:
+            status_bytes, index_bytes, overview_bytes = _build_metadata_files(embedded_full=False, evidence_only=True)
+            evidence_entries = dict(base_result_entries)
+            evidence_entries.update({"FINAL_STATUS.json": status_bytes, "CHECKPOINT_INDEX.json": index_bytes, "RESULT_OVERVIEW.md": overview_bytes})
+            _write_verified_zip(candidate_path, evidence_entries, meta={**meta_common, "kind": "result"})
+            if candidate_path.stat().st_size > max_result_zip_bytes:
+                candidate_size = candidate_path.stat().st_size
+                candidate_path.unlink()
+                raise ValueError(f"evidence-only {RESULT_ZIP_NAME} size {candidate_size} B exceeds cap {max_result_zip_bytes} B")
+    os.replace(candidate_path, result_zip_path)
 
     # Always write full CheckpointStore archive containing matching status/index/overview metadata
     for fname, raw in (
@@ -741,6 +903,10 @@ def export_result_bundle(
     ):
         full_entries[fname] = raw
     _write_verified_zip(full_zip_path, full_entries, meta={**meta_common, "kind": "checkpoint_full"})
+    full_zip_sha256, _ = _file_sha256(full_zip_path)
+    (out / "checkpoint_full.zip.sha256").write_text(
+        f"{full_zip_sha256}  {FULL_CHECKPOINT_ZIP_NAME}\n", encoding="ascii"
+    )
 
     # Write standalone readable files in output_dir matching the ZIPs byte-for-byte
     (out / "FINAL_STATUS.json").write_bytes(status_bytes)
@@ -761,6 +927,7 @@ def export_result_bundle(
         "checkpoint_full_zip": str(full_zip_path),
         "result_zip_bytes": int(result_zip_path.stat().st_size),
         "checkpoint_full_zip_bytes": int(full_zip_path.stat().st_size),
+        "checkpoint_full_zip_sha256": full_zip_sha256,
         "whole_checkpoint_embedded": whole_checkpoint_embedded,
         "checkpoint_count": len(lineages),
         "experiment_count": len(experiment_bundles),
@@ -773,6 +940,8 @@ def verify_single_planthir_zip(
     *,
     expected_source_commit: str | None = None,
     max_bytes: int | None = None,
+    max_uncompressed_bytes: int = 128 * 1024**3,
+    max_members: int = 100_000,
 ) -> dict[str, Any]:
     """Fail-closed SHA-256 verification of `result.zip` or `checkpoint_full.zip`."""
 
@@ -784,7 +953,16 @@ def verify_single_planthir_zip(
         raise ValueError(f"archive {zp.name} ({zip_size} B) exceeds size limit {max_bytes} B")
 
     with zipfile.ZipFile(zp, "r") as zf:
-        names = set(zf.namelist())
+        member_names = zf.namelist()
+        if len(member_names) != len(set(member_names)):
+            raise ValueError("archive contains duplicate member names")
+        if len(member_names) > max_members:
+            raise ValueError("archive exceeds member count limit")
+        if sum(info.file_size for info in zf.infolist()) > max_uncompressed_bytes:
+            raise ValueError("archive exceeds uncompressed size limit")
+        if len({name.casefold() for name in member_names}) != len(member_names):
+            raise ValueError("archive contains case-insensitive member aliases")
+        names = set(member_names)
         required = {"ARCHIVE_MANIFEST.json", "FINAL_STATUS.json", "CHECKPOINT_INDEX.json", "RESULT_OVERVIEW.md"}
         missing_req = sorted(required - names)
         if missing_req:
@@ -803,6 +981,8 @@ def verify_single_planthir_zip(
         if digest(files) != manifest.get("manifest_sha256"):
             raise ValueError("archive manifest digest mismatch")
         declared = {str(entry["path"]): entry for entry in files}
+        if len(declared) != len(files) or "ARCHIVE_MANIFEST.json" in declared:
+            raise ValueError("archive manifest contains duplicate or reserved paths")
         if set(declared) | {"ARCHIVE_MANIFEST.json"} != names:
             raise ValueError("archive contents differ from ARCHIVE_MANIFEST.json")
 
@@ -825,7 +1005,10 @@ def verify_single_planthir_zip(
             if arc.startswith("capsules/") and arc.endswith("/CAPSULE_MANIFEST.json"):
                 cap_prefix = arc[: -len("CAPSULE_MANIFEST.json")]
                 cap_manifest = json.loads(zf.read(arc).decode("utf-8"))
-                for cname, cmeta in cap_manifest.get("members", {}).items():
+                if (cap_manifest.get("schema") != "anra-planthir-tier2-capsule-v1"
+                        or set(cap_manifest.get("members", {})) != {"representations.npz", "diagnostics.json"}):
+                    raise ValueError(f"invalid capsule manifest: {arc}")
+                for cname, cmeta in cap_manifest["members"].items():
                     member_arc = f"{cap_prefix}{cname}"
                     if member_arc not in declared:
                         raise ValueError(f"capsule member missing in archive: {member_arc}")

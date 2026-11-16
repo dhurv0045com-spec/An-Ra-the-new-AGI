@@ -45,6 +45,8 @@ def git(*args: str) -> bytes:
 
 
 def classify(path: str) -> tuple[str, str]:
+    if path == "agent.md":
+        return "REIMPLEMENT", "new Planthir operator instructions; original content remains at the recorded archive blob"
     if path in REIMPLEMENT:
         return "REIMPLEMENT", "replace legacy entry points or extract active regressions"
     if path.startswith("anra_v5/elendril/"):

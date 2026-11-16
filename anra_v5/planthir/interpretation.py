@@ -131,10 +131,10 @@ def synthesize_scientific_interpretation(
         s3 = funnel.get("stage3_single_hop_grounding")
         s4 = funnel.get("stage4_multi_hop_composition")
         if s1 is not None and s4 is not None and (s1 - s4) >= 0.25:
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-FUNNEL-DROP",
-                    category="confirmed",
+                    claim_id="S-FUNNEL-DROP",
+                    category="suspected",
                     statement=(
                         f"Observable decoupling between initial tool selection (Stage 1={s1:.3f}) "
                         f"and end-to-end multi-hop execution (Stage 4={s4:.3f})."
@@ -144,12 +144,12 @@ def synthesize_scientific_interpretation(
                 )
             )
         if s2 is not None and s2 < 0.80:
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-POST-TOOL-DISCIPLINE",
-                    category="confirmed",
+                    claim_id="S-POST-TOOL-DISCIPLINE",
+                    category="suspected",
                     statement=(
-                        f"Post-tool state transition breakdown: Stage 2 discipline is {s2:.3f} "
+                        f"Post-tool discipline on the sampled valid callers is {s2:.3f} "
                         "(repeated consumed tool or invalid post-tool step)."
                     ),
                     evidence_basis={"stage2_tool_discipline": s2},
@@ -169,26 +169,26 @@ def synthesize_scientific_interpretation(
             orac_acc = oracle_intervention.get("oracle_injected_accuracy")
 
         if delta is not None and abs(float(delta)) >= 0.15 and _ci_excludes_zero(ci):
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-TOOL-ACQUISITION-BOTTLENECK",
-                    category="confirmed",
+                    claim_id="S-ORACLE-INFORMATION-EFFECT",
+                    category="suspected",
                     statement=(
                         f"Injecting hidden tool facts directly into initial context changes accuracy by "
-                        f"{float(delta):+.3f} (95% CI {ci}), confirming a multi-step tool-use/transition bottleneck."
+                        f"{float(delta):+.3f} (conditional cluster-bootstrap 95% CI {ci}); this intervention also changes context and does not isolate a tool-use mechanism."
                     ),
                     evidence_basis=dict(oracle_intervention),
                     confidence_rule="paired_intervention_ci_excludes_zero",
                 )
             )
         elif orac_acc is not None and float(orac_acc) < 0.50:
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-INCONTEXT-BOTTLENECK",
-                    category="confirmed",
+                    claim_id="S-LOW-ORACLE-ACCURACY",
+                    category="suspected",
                     statement=(
                         f"Even with oracle tool information pre-merged in context (accuracy={float(orac_acc):.3f}), "
-                        "the model fails to resolve answers; failure is not solely due to tool acquisition."
+                        "accuracy is low on this suite; training progress and altered context remain competing explanations."
                     ),
                     evidence_basis=dict(oracle_intervention),
                     confidence_rule="oracle_ceiling_failure<0.50",
@@ -212,13 +212,13 @@ def synthesize_scientific_interpretation(
         joint = subgoal_decomposition.get("joint_individual_hops_solvable")
         full = subgoal_decomposition.get("full_chain_accuracy")
         if comp_gap is not None and float(comp_gap) >= 0.15 and _ci_excludes_zero(ci):
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-COMPOSITION-GAP",
-                    category="confirmed",
+                    claim_id="S-COMPOSITION-GAP",
+                    category="suspected",
                     statement=(
-                        f"Genuine multi-hop composition bottleneck: joint individual subgoals are solvable at "
-                        f"{float(joint):.3f} vs full chain {float(full):.3f} (gap {float(comp_gap):+.3f}, CI {ci})."
+                        f"Joint individual subgoals succeed at "
+                        f"{float(joint):.3f} vs full chain {float(full):.3f} (gap {float(comp_gap):+.3f}, CI {ci}); the altered tasks do not isolate composition as the cause."
                     ),
                     evidence_basis=dict(subgoal_decomposition),
                     confidence_rule="subgoal_paired_gap_ci_excludes_zero",
@@ -351,20 +351,20 @@ def synthesize_scientific_interpretation(
                     statement=(
                         f"Surgical clamping of {mtype} produced zero accuracy delta and "
                         f"{float(surgical_ablation.get('action_agreement_rate', 1.0)):.3f} action agreement; "
-                        "the specialized mechanism is currently bypassed by optimization."
+                        "this finite suite does not establish that the mechanism is bypassed in general."
                     ),
                     evidence_basis=dict(surgical_ablation),
                     confidence_rule="surgical_ablation_agreement>=0.98_and_delta==0",
                 )
             )
         elif delta >= 0.05:
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-ACTIVE-MECHANISM-CONTRIBUTION",
-                    category="confirmed",
+                    claim_id="S-ABLATION-ACCURACY-DROP",
+                    category="suspected",
                     statement=(
                         f"Surgical ablation of {mtype} reduced episode accuracy by {delta:+.3f}, "
-                        "confirming active causal contribution without retraining."
+                        "on these worlds; replication and uncertainty estimates are needed for a general claim."
                     ),
                     evidence_basis=dict(surgical_ablation),
                     confidence_rule="surgical_ablation_accuracy_delta>=0.05",
@@ -374,10 +374,10 @@ def synthesize_scientific_interpretation(
     if compute_depth_scaling and compute_depth_scaling.get("supports_variable_depth"):
         rgain = float(compute_depth_scaling.get("recurrence_gain_over_zero", 0.0))
         if rgain >= 0.05:
-            confirmed.append(
+            suspected.append(
                 ScientificClaim(
-                    claim_id="C-RECURRENT-COMPUTE-GAIN",
-                    category="confirmed",
+                    claim_id="S-RECURRENT-COMPUTE-GAIN",
+                    category="suspected",
                     statement=(
                         f"Test-time recurrent compute increases accuracy by {rgain:+.3f} over 0-step bypass "
                         f"(trained steps={compute_depth_scaling.get('trained_steps')})."
@@ -421,11 +421,11 @@ def synthesize_scientific_interpretation(
                 )
             )
         elif evals and all(e["status"] == "NOT_FALSIFIED" for e in evals):
-            confirmed.append(
+            unresolved.append(
                 ScientificClaim(
-                    claim_id=f"C-{hyp.hypothesis_id}",
-                    category="confirmed",
-                    statement=f"Hypothesis {hyp.hypothesis_id!r} survived preregistered falsifiers: {hyp.statement}",
+                    claim_id=f"U-{hyp.hypothesis_id}",
+                    category="unresolved",
+                    statement=f"Hypothesis {hyp.hypothesis_id!r} was not falsified by the available checks; it remains unconfirmed: {hyp.statement}",
                     evidence_basis={"falsifier_results": evals},
                     confidence_rule="all_preregistered_falsifiers_passed",
                 )

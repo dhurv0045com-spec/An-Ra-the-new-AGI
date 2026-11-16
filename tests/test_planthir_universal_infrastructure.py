@@ -222,7 +222,7 @@ def test_causal_interventions_and_epistemic_firewall() -> None:
     probe = run_representation_linear_probe(pol_raw, kernel, eval_worlds[:6], eval_worlds[6:10])
     funnel = ProcessFunnelAnalyzer().evaluate_suite(pol_raw, kernel, eval_worlds)
 
-    assert "delta_oracle" in oracle and len(oracle["delta_oracle_95ci"]) == 2
+    assert "delta_oracle" in oracle and oracle["delta_oracle_95ci"] is None
     assert subgoal["worlds_decomposed"] >= 1
     assert set(inv["decoder_modes"]) == {"raw", "availability-mask"}
     assert 0.0 <= probe["probe_operation_accuracy"] <= 1.0
@@ -599,7 +599,11 @@ def test_level5_cartridge_runner_5_gates_and_surgical_interventions(tmp_path: Pa
     td = prepare_v8_training_data("D1", d1_worlds_per_family=16, sample_limit_for_cpu=12)
     base = _tiny_base_spec()
     eval_worlds, multihop_worlds = _sample_stratified_worlds()
-    probe_worlds = list(eval_worlds[:8])
+    # Fit probe only on separate graph families; evaluated representations are not training data.
+    from anra_v5.planthir.causal import _probe_split_keys
+    _, excluded = _probe_split_keys(eval_worlds + multihop_worlds)
+    probe_worlds = [w for w in build_d1_training_dataset(seed=D1_TRAIN_SEED + 901, quota_per_family=16).worlds
+                    if next(iter(_probe_split_keys([w])[1])) not in excluded][:8]
     kernel = V8EnvironmentKernel(enforce_tool_consumption=True)
 
     recipe_ctrl = Recipe(
@@ -711,7 +715,8 @@ def test_level5_cartridge_runner_5_gates_and_surgical_interventions(tmp_path: Pa
     brief = out["ai_handoff_brief"]
     assert brief["all_5_gates_passed"] is True
     assert len(json.dumps(brief).encode("utf-8")) <= 8192
-    assert out["token_fuel_report"]["estimated_token_reduction_pct"] >= 80.0
+    assert out["token_fuel_report"]["estimated_token_reduction_pct"] is None
+    assert out["token_fuel_report"]["authoring_savings_status"] == "NOT_MEASURED"
     assert (bundle_dir / "AI_HANDOFF_BRIEF.json").is_file()
     assert (bundle_dir / "LAUNCH_GATE_CERTIFICATE.json").is_file()
     assert verify_result_bundle(bundle_dir, expected_source_commit=_COMMIT)["verified"] is True

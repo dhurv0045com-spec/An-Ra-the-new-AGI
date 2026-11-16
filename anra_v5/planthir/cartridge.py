@@ -1,9 +1,17 @@
-"""Level-5 Self-Auditing Experiment Cartridge Engine & 5-Gate Launch Pipeline."""
+"""Versioned V8 cartridge execution with admission, recovery and delivery checks."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 import json
+import math
+import os
+import re
+import time
+import tempfile
+import shutil
+import subprocess
+import uuid
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -12,6 +20,12 @@ import torch
 from anra_v5.elendril.v8.contracts import SYMBOLS, V8ModelSpec
 from anra_v5.elendril.v8.models import compute_typed_nll
 from anra_v5.elendril.v8.training import V8TypedTrainer, batch_tensors, create_v8_trainer
+
+from anra_v5.elendril.training import configure_device, runtime_identity
+from anra_v5.elendril.codec import digest
+from anra_v5.elendril.representation import UTF8
+from anra_v5.elendril.v717_training import IndependentOrderTrainer
+from anra_v5.elendril.v8.holdout import canonical_graph_signature
 
 from .adapters.v8_adapter import V8EnvironmentKernel, V8ObservablePolicy
 from .causal import (
@@ -85,6 +99,7 @@ class ExperimentCartridge:
     multihop_worlds: tuple[Mapping[str, Any], ...]
     probe_train_worlds: tuple[Mapping[str, Any], ...]
     parameter_tolerance_ratio: float = 2.0
+    train_worlds: tuple[Mapping[str, Any], ...] = ()
 
 
 def audit_experimental_design(
@@ -95,81 +110,67 @@ def audit_experimental_design(
 ) -> dict[str, Any]:
     """Gate 2 Confounder Firewall: reject confounded treatment-vs-control comparisons before training."""
 
-    c_params = int(control.v8_spec.total_parameters())
-    comparisons: list[dict[str, Any]] = []
-    violations: list[dict[str, Any]] = []
-
+    if not math.isfinite(max_param_ratio) or max_param_ratio < 1:
+        raise ValueError("parameter tolerance ratio must be finite and >= 1")
+    comparisons, violations = [], []
+    aliases = {"arch": "architecture", "learning_rate": "lr", "mechanism": "architecture"}
+    model_factors = {"pointer_dim", "recurrent_steps", "recurrent_dim", "copy_enabled", "bottleneck_width", "max_sequence_length"}
+    configurable = set(asdict(control.recipe)) | model_factors | {"architecture", "dataset_identity", "order_seed", "model_size"}
     for arm in treatments:
-        t_params = int(arm.v8_spec.total_parameters())
-        ratio = float(t_params / max(1, c_params))
-        held_tags = {c.lower() for con in arm.contrasts for c in con.held_constant}
-
-        dataset_ok = arm.dataset_identity == control.dataset_identity
-        seed_ok = (arm.order_seed == control.order_seed) and (
-            int(arm.recipe.seed) == int(control.recipe.seed)
-        )
-        updates_ok = int(arm.recipe.total_updates) == int(control.recipe.total_updates)
-        batch_ok = int(arm.recipe.batch_size) == int(control.recipe.batch_size)
-        lr_ok = float(arm.recipe.lr) == float(control.recipe.lr)
-        schedule_ok = str(arm.recipe.schedule) == str(control.recipe.schedule)
-        param_scale_checked = any(
-            ("param" in tag or "capacity" in tag or "matched" in tag) for tag in held_tags
-        )
-        param_ok = (
-            (1.0 / max_param_ratio) <= ratio <= max_param_ratio
-            if param_scale_checked
-            else True
-        )
-
-        arm_violations: list[str] = []
-        if not dataset_ok:
-            arm_violations.append("DATASET_MISMATCH")
-        if not seed_ok:
-            arm_violations.append("SEED_MISMATCH")
-        if not updates_ok:
-            arm_violations.append("UPDATE_BUDGET_MISMATCH")
-        if not batch_ok:
-            arm_violations.append("BATCH_SIZE_MISMATCH")
-        if not lr_ok:
-            arm_violations.append("LR_MISMATCH")
-        if not schedule_ok:
-            arm_violations.append("SCHEDULE_MISMATCH")
+        codes = []
+        factors = {aliases.get(c.factor_name, c.factor_name) for c in arm.contrasts}
+        if not arm.contrasts or any(c.control_arm != control.arm_id or c.treatment_arm != arm.arm_id for c in arm.contrasts):
+            codes.append("INVALID_OR_MISSING_CONTRAST")
+        if len(factors) != 1 or not factors <= configurable:
+            codes.append("UNREGISTERED_OR_MULTIPLE_FACTORS")
+        varied = next(iter(factors)) if len(factors) == 1 else None
+        checks = {}
+        c_recipe, t_recipe = asdict(control.recipe), asdict(arm.recipe)
+        names = {"seed": "SEED", "total_updates": "UPDATE_BUDGET", "batch_size": "BATCH_SIZE", "lr": "LR", "schedule": "SCHEDULE"}
+        for key in sorted(set(c_recipe) | set(t_recipe)):
+            equal = c_recipe.get(key) == t_recipe.get(key)
+            checks[key] = equal
+            if not equal and varied != key:
+                codes.append(names.get(key, key.upper()) + "_MISMATCH")
+        for key, label in (("dataset_identity", "DATASET"), ("order_seed", "ORDER_SEED"), ("policy_mode", "POLICY_MODE")):
+            equal = getattr(control, key) == getattr(arm, key)
+            checks[key] = equal
+            if not equal and varied != key:
+                codes.append(label + "_MISMATCH")
+        cs, ts = control.v8_spec.canonical(), arm.v8_spec.canonical()
+        cm, tm = asdict(control.v8_spec), asdict(arm.v8_spec)
+        if varied in model_factors:
+            if any(cm[k] != tm[k] for k in cm if k != varied):
+                codes.append('MODEL_SPEC_MISMATCH')
+        elif cs != ts and varied not in {"architecture", "model_size"}:
+            codes.append("MODEL_SPEC_MISMATCH")
+        if varied == 'model_size' and any(cm[k] != tm[k] for k in cm if k != 'base_spec'):
+            codes.append('MODEL_SPEC_MISMATCH')
+        for fixed in ('max_sequence_length', 'vocabulary_size'):
+            if cm[fixed] != tm[fixed] and varied != fixed:
+                codes.append(fixed.upper() + '_MISMATCH')
+        if cs["base_spec"] != ts["base_spec"] and varied != "model_size":
+            codes.append("BACKBONE_MISMATCH")
+        if control.trainer_factory is not arm.trainer_factory:
+            codes.append("TRAINER_IMPLEMENTATION_MISMATCH")
+        cp, tp = control.v8_spec.total_parameters(), arm.v8_spec.total_parameters()
+        ratio = tp / cp
+        param_ok = 1 / max_param_ratio <= ratio <= max_param_ratio
         if not param_ok:
-            arm_violations.append("PARAM_SCALE_CONFOUND")
-
-        if arm_violations:
-            violations.append({
-                "treatment_arm": arm.arm_id,
-                "control_arm": control.arm_id,
-                "codes": arm_violations,
-                "param_ratio": ratio,
-            })
-
-        comparisons.append({
-            "treatment_arm": arm.arm_id,
-            "control_arm": control.arm_id,
-            "dataset_identity_matched": dataset_ok,
-            "seed_matched": seed_ok,
-            "updates_matched": updates_ok,
-            "batch_size_matched": batch_ok,
-            "lr_matched": lr_ok,
-            "schedule_matched": schedule_ok,
-            "parameter_count_control": c_params,
-            "parameter_count_treatment": t_params,
-            "parameter_ratio": ratio,
-            "param_ok": param_ok,
-            "violations": arm_violations,
-        })
-
-    return {
-        "schema": "anra-planthir-gate2-confounder-firewall-v1",
-        "gate": "gate2_confounder_firewall",
-        "passed": len(violations) == 0,
-        "control_arm": control.arm_id,
-        "arms_checked": len(treatments),
-        "comparisons": comparisons,
-        "violations": violations,
-    }
+            codes.append("PARAM_SCALE_CONFOUND")
+        rec = {"control_arm": control.arm_id, "treatment_arm": arm.arm_id,
+               "registered_factor": varied, "field_equality": checks,
+               "parameter_count_control": cp, "parameter_count_treatment": tp,
+               "parameter_ratio": ratio, "parameter_tolerance_ratio": max_param_ratio,
+               "param_ok": param_ok, "violations": codes}
+        comparisons.append(rec)
+        if codes:
+            violations.append({"control_arm": control.arm_id, "treatment_arm": arm.arm_id, "codes": codes})
+    return {"schema": "anra-planthir-gate2-confounder-firewall-v2",
+            "gate": "gate2_confounder_firewall", "passed": not violations,
+            "control_arm": control.arm_id, "arms_checked": len(treatments),
+            "comparisons": comparisons, "violations": violations,
+            "scope": "Declared recipe/spec equality and explicit factor, not proof of equal FLOPs or causal identification."}
 
 
 def estimate_token_fuel_savings(
@@ -181,25 +182,20 @@ def estimate_token_fuel_savings(
 ) -> dict[str, Any]:
     """Quantify AI authoring + diagnostic context compression ("rocket fuel savings")."""
 
-    baseline_from_scratch_tokens_est = 1_000_000
-    # Empirical authoring (~10k tokens for ~45-line cartridge spec) + diagnostics + single follow-up pass (~170k)
-    cartridge_workflow_tokens_est = 180_000
-    reduction_pct = round(
-        100.0 * (1.0 - (cartridge_workflow_tokens_est / baseline_from_scratch_tokens_est)),
-        1,
-    )
-    compression_ratio = round(raw_summary_bytes / max(1, handoff_brief_bytes), 2)
+    if min(arm_count, milestone_count, raw_summary_bytes, handoff_brief_bytes) < 0:
+        raise ValueError("counts and byte sizes must be nonnegative")
     return {
-        "schema": "anra-planthir-token-fuel-report-v1",
-        "arms_evaluated": int(arm_count),
-        "milestones_tracked": int(milestone_count),
-        "baseline_from_scratch_tokens_est": baseline_from_scratch_tokens_est,
-        "cartridge_workflow_tokens_est": cartridge_workflow_tokens_est,
-        "estimated_token_reduction_pct": reduction_pct,
+        "schema": "anra-planthir-token-fuel-report-v2",
+        "arms_evaluated": int(arm_count), "milestones_tracked": int(milestone_count),
+        "baseline_from_scratch_tokens_est": None,
+        "cartridge_workflow_tokens_est": None,
+        "estimated_token_reduction_pct": None,
+        "authoring_savings_status": "NOT_MEASURED",
         "raw_diagnostic_json_bytes": int(raw_summary_bytes),
         "handoff_brief_bytes": int(handoff_brief_bytes),
         "handoff_brief_tokens_est": max(1, int(handoff_brief_bytes) // 4),
-        "context_handoff_compression_ratio": compression_ratio,
+        "token_estimate_method": "bytes/4 heuristic, not measured model tokens",
+        "context_handoff_compression_ratio": (round(raw_summary_bytes / handoff_brief_bytes, 2) if handoff_brief_bytes else None),
     }
 
 
@@ -285,13 +281,13 @@ def _collect_capsule_arrays(
         st = kernel.initial_state(vis_w)
         obs = kernel.observe(st)
         obs_list.append(obs)
-        ideal_op, _ = kernel.ideal_action(kernel.initial_state(w))
+        ideal_op, _ = kernel.ideal_action(st)
         y_op.append(op_labels.index(ideal_op))
         exp = w.get("hidden", {}).get("expected")
-        y_final.append(SYMBOLS.index(exp) if (isinstance(exp, str) and exp in SYMBOLS) else 0)
+        y_final.append(SYMBOLS.index(exp) if (isinstance(exp, str) and exp in SYMBOLS) else -1)
         sgs = {sg.stage_name: sg for sg in kernel.decompose_subgoals(vis_w)}
         h1_arg = sgs["hop_1"].expected_argument if "hop_1" in sgs else exp
-        y_hop1.append(SYMBOLS.index(h1_arg) if (isinstance(h1_arg, str) and h1_arg in SYMBOLS) else 0)
+        y_hop1.append(SYMBOLS.index(h1_arg) if (isinstance(h1_arg, str) and h1_arg in SYMBOLS) else -1)
 
     reps = policy.extract_representations(obs_list)
     arrays: dict[str, torch.Tensor] = {
@@ -305,10 +301,126 @@ def _collect_capsule_arrays(
     return arrays
 
 
-class CartridgeRunner:
-    """Executes the 5-Gate Self-Auditing Pipeline on any ExperimentCartridge."""
+def _validate_cartridge(cartridge: ExperimentCartridge, device: str, cpu_canary: bool) -> dict[str, Any]:
+    """Validate before constructing a model or writing campaign success artifacts."""
+    from .causal import _probe_split_keys
+    def _assert_disjoint_probe_worlds(left, right):
+        li, lg = _probe_split_keys(left)
+        ri, rg = _probe_split_keys(right)
+        if li & ri or lg & rg:
+            raise ValueError("training/probe and evaluation worlds must be structurally disjoint")
+    if not isinstance(cartridge.kernel, V8EnvironmentKernel):
+        raise ValueError("CartridgeRunner currently supports the V8 backend only; generic observational protocols are separate")
+    if not re.fullmatch(r"[0-9a-f]{40}", cartridge.source_commit):
+        raise ValueError("source_commit must be a 40-character immutable Git SHA")
+    if not cartridge.eval_worlds or not cartridge.probe_train_worlds:
+        raise ValueError("nonempty evaluation and disjoint probe-training worlds are required")
+    arms = (cartridge.control_arm, *cartridge.treatment_arms)
+    ids = [a.arm_id for a in arms]
+    if len(set(ids)) != len(ids) or not cartridge.control_arm.is_control or any(a.is_control for a in cartridge.treatment_arms):
+        raise ValueError("unique arm IDs and exactly one designated control required")
+    for name in [cartridge.campaign_id, *ids]:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,70}", name):
+            raise ValueError("campaign/arm IDs must be safe path components")
+    for arm in arms:
+        arm.recipe.validate()
+        if arm.architecture_family != arm.v8_spec.architecture:
+            raise ValueError("architecture label differs from the model spec")
+        if arm.dataset_identity != cartridge.train_data.data_identity:
+            raise ValueError("arm dataset identity differs from actual prepared data")
+        if arm.trainer_factory is not None:
+            raise ValueError("unqualified custom trainer backend: explicit loss/policy/restore contracts required")
+        if arm.b0_job is not None:
+            raise ValueError("legacy b0_job is ambiguous with recipe; omit it: B0 now uses the registered arm recipe directly")
+        if any(type(u) is not int or not 1 <= u <= arm.recipe.total_updates for u in arm.milestone_updates):
+            raise ValueError("milestone updates must lie within the registered training horizon")
+        if arm.recipe.sampling != 'uniform' or arm.recipe.objective != 'ce':
+            raise ValueError("this backend currently qualifies uniform CE only; unsupported recipe must not be silently ignored")
+        samples = cartridge.train_data.byte_samples if arm.architecture_family == 'B0' else cartridge.train_data.typed_samples
+        if not samples:
+            raise ValueError("missing training samples for architecture")
+        if torch.device(device).type == 'cpu' and (not cpu_canary or len(samples) > 32 or arm.v8_spec.total_parameters() > 100000 or arm.recipe.total_updates > 8):
+            raise ValueError("CPU use is restricted to tiny mechanical fixtures")
+    train_worlds = list(cartridge.train_worlds)
+    if cartridge.train_data.dataset_name == 'D1':
+        from anra_v5.elendril.v8.data import build_d1_training_dataset
+        from anra_v5.elendril.v8.training import prepare_v8_training_data
+        quota = int(cartridge.train_data.manifest['world_count']) // 7
+        expected = prepare_v8_training_data('D1', d1_worlds_per_family=quota,
+            sample_limit_for_cpu=cartridge.train_data.manifest.get('slice_limit'))
+        if expected != cartridge.train_data:
+            raise ValueError("prepared D1 corpus content/identity does not match its claimed provenance")
+        wanted = {s.world_id for s in cartridge.train_data.byte_samples}
+        train_worlds = [w for w in build_d1_training_dataset(quota_per_family=quota).worlds if w['world_id'] in wanted]
+    if not train_worlds:
+        raise ValueError("training worlds required to verify structural split separation")
+    for evaluation in (cartridge.eval_worlds, cartridge.multihop_worlds):
+        if evaluation:
+            _assert_disjoint_probe_worlds(train_worlds, evaluation)
+            _assert_disjoint_probe_worlds(cartridge.probe_train_worlds, evaluation)
+    gate2 = audit_experimental_design(cartridge.control_arm, cartridge.treatment_arms,
+                                     max_param_ratio=cartridge.parameter_tolerance_ratio)
+    if not gate2['passed']:
+        raise ValueError(f"Gate 2 rejected design: {gate2['violations']}")
+    identity = {
+        'schema': 'planthir-invocation-v2', 'campaign_id': cartridge.campaign_id,
+        'program': cartridge.program, 'source_commit': cartridge.source_commit,
+        'kernel': {'id': cartridge.kernel.kernel_id, 'configuration': {'max_actions': cartridge.kernel.max_actions, 'enforce_tool_consumption': cartridge.kernel.enforce_tool_consumption, 'renderer': cartridge.kernel.render_fn.__module__ + '.' + cartridge.kernel.render_fn.__qualname__}},
+        'arms': [asdict(a) for a in arms], 'training_samples_sha256': digest(asdict(cartridge.train_data)),
+        'evaluation_sha256': digest(cartridge.eval_worlds), 'multihop_sha256': digest(cartridge.multihop_worlds),
+        'probe_train_sha256': digest(cartridge.probe_train_worlds),
+        'train_worlds_sha256': digest(train_worlds),
+        'parameter_tolerance_ratio': cartridge.parameter_tolerance_ratio,
+    }
+    return identity
 
-    def run(
+
+def _check_deadline(deadline: float | None) -> None:
+    if deadline is not None and time.monotonic() >= deadline:
+        raise TimeoutError("campaign deadline reached; committed checkpoints and partial receipts preserved")
+
+
+class CartridgeRunner:
+    """Qualified V8 execution backend; shared observation protocols are separate."""
+
+    def run(self, cartridge: ExperimentCartridge, *, work_root: Path,
+            bundle_out_dir: Path | None = None, device: str = "cpu", cpu_canary: bool = True,
+            max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
+            resume: bool = False, checkpoint_interval: int = 64,
+            max_wall_seconds: float | None = None) -> dict[str, Any]:
+        from .execution import run_session
+        if type(checkpoint_interval) is not int or checkpoint_interval < 1:
+            raise ValueError("checkpoint_interval must be a positive integer")
+        if max_wall_seconds is not None and (not math.isfinite(max_wall_seconds) or max_wall_seconds <= 0):
+            raise ValueError("max_wall_seconds must be positive and finite")
+        identity = _validate_cartridge(cartridge, device, cpu_canary)
+        if torch.device(device).type == 'cuda':
+            repo = Path(__file__).resolve().parents[2]
+            head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
+            dirty = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=repo, text=True).strip()
+            if head != cartridge.source_commit or dirty:
+                raise ValueError('production source must be a clean checkout of source_commit')
+        configure_device(device)
+        identity['execution_runtime'] = runtime_identity(torch.device(device))
+        identity['execution_device'] = str(torch.device(device))
+        identity['checkpoint_interval'] = checkpoint_interval
+        identity['max_result_zip_bytes'] = max_result_zip_bytes
+        deadline = None if max_wall_seconds is None else time.monotonic() + max_wall_seconds
+        with run_session(Path(work_root), identity, resume=resume) as session:
+            # Conservative raw + old/new archive space; measured platform quota remains an owner responsibility.
+            checkpoint_bytes = sum(a.v8_spec.total_parameters() * 16 * (len(set(a.milestone_updates) | {a.recipe.total_updates}) + 2)
+                                   for a in (cartridge.control_arm, *cartridge.treatment_arms))
+            required_bytes = checkpoint_bytes * 3 + 512 * 1024 * 1024
+            free_bytes = shutil.disk_usage(work_root).free
+            session['disk_admission'] = {'required_additional_bytes': required_bytes, 'free_bytes': free_bytes,
+                'scope': 'conservative serialization estimate, not a platform quota guarantee'}
+            if free_bytes < required_bytes:
+                raise OSError('insufficient free disk for checkpoints and verified staged exports')
+            return self._run(cartridge, work_root=work_root, bundle_out_dir=bundle_out_dir,
+                device=device, cpu_canary=cpu_canary, max_result_zip_bytes=max_result_zip_bytes,
+                resume=resume, checkpoint_interval=checkpoint_interval, deadline=deadline, session=session)
+
+    def _run(
         self,
         cartridge: ExperimentCartridge,
         *,
@@ -317,7 +429,12 @@ class CartridgeRunner:
         device: str = "cpu",
         cpu_canary: bool = True,
         max_result_zip_bytes: int = DEFAULT_RESULT_ZIP_MAX_BYTES,
+        resume: bool = False, checkpoint_interval: int = 64,
+        deadline: float | None = None, session: dict | None = None,
     ) -> dict[str, Any]:
+        from .execution import append_update_log, read_update_log, _atomic_write
+        def atomic_write_json(path, data):
+            _atomic_write(path, (json.dumps(data, sort_keys=True, allow_nan=False) + "\n").encode())
         work = Path(work_root)
         work.mkdir(parents=True, exist_ok=True)
         ckpt_root = work / "checkpoints"
@@ -327,6 +444,8 @@ class CartridgeRunner:
         all_arms: tuple[CartridgeArmSpec, ...] = (cartridge.control_arm, *cartridge.treatment_arms)
         registry = PlanthirRegistry()
 
+        session["phase"] = "instrument"
+        _check_deadline(deadline)
         # Gate 1: Instrument Integrity
         kernel_check = validate_environment_kernel(
             cartridge.kernel,
@@ -371,6 +490,8 @@ class CartridgeRunner:
         is_cpu = dev_obj.type == "cpu"
 
         for arm in all_arms:
+            session["phase"] = "train:" + arm.arm_id
+            _check_deadline(deadline)
             param_count = int(arm.v8_spec.total_parameters())
             exp_id = f"{cartridge.campaign_id}-{arm.arm_id}"
             lineage_id = f"{cartridge.campaign_id.lower()}-{arm.arm_id}-s{arm.order_seed}"
@@ -392,48 +513,42 @@ class CartridgeRunner:
                 status="RUNNING",
             )
             registry.register(reg)
+            registry.save(work / "REGISTRY.json")
+            arm_state_path = work / "arm_state" / (arm.arm_id + ".json")
+            journal_path = work / "updates" / (arm.arm_id + ".jsonl")
+            initial_record = json.loads(arm_state_path.read_text()) if arm_state_path.exists() else None
+            arm_resume = resume and (ckpt_root / lineage_id / "LATEST").is_file()
 
-            if arm.trainer_factory is not None:
-                trainer = arm.trainer_factory(
-                    arm=arm,
-                    train_data=cartridge.train_data,
-                    ckpt_root=ckpt_root,
-                    lineage=lineage_id,
-                    source_commit=cartridge.source_commit,
-                    device=device,
-                    cpu_canary=cpu_canary,
-                )
-            elif arm.architecture_family == "B0":
-                if arm.b0_job is None:
-                    raise ValueError(f"B0 arm {arm.arm_id!r} requires b0_job")
-                trainer = create_v8_trainer(
-                    cartridge.train_data,
-                    dict(arm.b0_job),
-                    root=ckpt_root,
-                    source=cartridge.source_commit,
-                    device=device,
-                    cpu_canary=(is_cpu and cpu_canary),
-                    v8_spec_override=arm.v8_spec,
-                    updates_override=int(arm.recipe.total_updates),
-                )
-                lineage_id = str(trainer.store.lineage_id)
+            if arm.architecture_family == "B0":
+                trainer = IndependentOrderTrainer(cartridge.train_data.byte_samples,
+                    spec=arm.v8_spec.base_spec, recipe=arm.recipe, order_seed=arm.order_seed,
+                    source_commit=cartridge.source_commit, root=ckpt_root, lineage=lineage_id,
+                    data_provenance={**cartridge.train_data.manifest, "v8_job": {"schema": "planthir-b0-recipe-v1", "arm": "B0", "max_sequence_length": arm.v8_spec.max_sequence_length, "recipe": asdict(arm.recipe)}}, tokenizer_manifest=UTF8.manifest.record(),
+                    device=device, method="uniform", resume=arm_resume)
+                trainer.v8_spec = arm.v8_spec
             else:
-                trainer = V8TypedTrainer(
-                    cartridge.train_data.typed_samples,
-                    v8_spec=arm.v8_spec,
-                    recipe=arm.recipe,
-                    order_seed=arm.order_seed,
-                    source_commit=cartridge.source_commit,
-                    root=ckpt_root,
-                    lineage=lineage_id,
-                    data_provenance=cartridge.train_data.manifest,
-                    device=device,
-                    cpu_canary=(is_cpu and cpu_canary),
-                )
+                trainer = V8TypedTrainer(cartridge.train_data.typed_samples,
+                    v8_spec=arm.v8_spec, recipe=arm.recipe, order_seed=arm.order_seed,
+                    source_commit=cartridge.source_commit, root=ckpt_root, lineage=lineage_id,
+                    data_provenance=cartridge.train_data.manifest, device=device,
+                    cpu_canary=(is_cpu and cpu_canary), resume=arm_resume)
+            if asdict(trainer.recipe) != asdict(arm.recipe):
+                raise ValueError("actual trainer recipe differs from preregistration")
+            step_logs = read_update_log(journal_path, trainer.state.global_update)
+            if arm_resume and initial_record is None:
+                raise ValueError("resume missing original gradient/initial telemetry receipt")
 
             # Pre-update gradient flow verification on typed architectures
-            if arm.architecture_family == "B0":
-                grad_check = {"passed": True, "status": "PASS", "note": "byte-lm-joint-ce", "defects": []}
+            if initial_record is not None:
+                grad_check = initial_record["grad_check"]
+            elif arm.architecture_family == "B0":
+                chunk = cartridge.train_data.byte_samples[:4]
+                toks, segs, eligible = batch_tensors([(s.tokens, s.eligible) for s in chunk], dev_obj)
+                def _byte_loss(m):
+                    logits = trainer.backend.logits(toks, segs)
+                    loss = torch.nn.functional.cross_entropy(logits[:, :-1].float().reshape(-1, logits.shape[-1]), toks[:, 1:].reshape(-1), reduction="none").reshape_as(toks[:, 1:])
+                    return (loss * eligible[:, 1:]).sum()
+                grad_check = validate_model_and_gradients(trainer.model, _byte_loss)
             else:
                 sample_chunk = cartridge.train_data.typed_samples[:4]
                 toks, segs, _ = batch_tensors([(s.tokens, s.eligible) for s in sample_chunk], dev_obj)
@@ -459,40 +574,51 @@ class CartridgeRunner:
                 model_identity=f"init-{lineage_id}",
                 mode=arm.policy_mode,
             )
-            snap_init = telemetry_col.measure_snapshot(
+            snap_init = initial_record["snap_init"] if initial_record is not None else telemetry_col.measure_snapshot(
                 trainer.model,
                 step=0,
                 lr=float(arm.recipe.lr),
                 policy=init_policy,
                 probe_observations=telemetry_probe_obs,
             )
-            step_logs: list[dict[str, Any]] = []
+            if initial_record is None:
+                atomic_write_json(arm_state_path, {"grad_check": grad_check, "snap_init": snap_init})
             saved_milestones: list[dict[str, Any]] = []
             total_u = int(arm.recipe.total_updates)
             milestone_set = {int(u) for u in arm.milestone_updates if 1 <= int(u) <= total_u}
             milestone_set.add(total_u)
 
-            latest_sha = ""
-            for step_idx in range(total_u):
+            latest_sha = trainer.store.latest_sha256() or ""
+            # Repair the crash window between atomic checkpoint commit and milestone binding.
+            if latest_sha and trainer.state.global_update in milestone_set:
+                trainer.store.record_milestone(threshold_tokens=int(trainer.state.cumulative_tokens), checkpoint_sha256=latest_sha)
+            for step_idx in range(trainer.state.global_update, total_u):
+                if deadline is not None and time.monotonic() >= deadline:
+                    if trainer.state.global_update > trainer.published_update:
+                        trainer.save()
+                    _check_deadline(deadline)
                 step_info = trainer.step()
-                step_logs.append({
-                    "update": int(step_info["update"]),
-                    "loss": float(step_info["loss"]),
-                    "pre_clip": float(step_info["pre_clip"]),
-                })
+                record = {"update": int(step_info["update"]), "loss": float(step_info["loss"]),
+                          "pre_clip": float(step_info["pre_clip"])}
+                if record['update'] != step_idx + 1 or not all(math.isfinite(record[k]) for k in ('loss', 'pre_clip')):
+                    raise ValueError("nonfinite or out-of-sequence training update")
+                append_update_log(journal_path, record)
+                step_logs.append(record)
                 cur_u = step_idx + 1
-                if cur_u in milestone_set:
-                    sha = trainer.save()
-                    trainer.store.record_milestone(
-                        threshold_tokens=int(trainer.state.cumulative_tokens),
-                        checkpoint_sha256=sha,
-                    )
-                    saved_milestones.append({
-                        "global_update": cur_u,
-                        "cumulative_tokens": int(trainer.state.cumulative_tokens),
-                        "checkpoint_sha256": sha,
-                    })
-                    latest_sha = sha
+                if cur_u in milestone_set or cur_u % checkpoint_interval == 0:
+                    latest_sha = trainer.save()
+                    if cur_u in milestone_set:
+                        trainer.store.record_milestone(threshold_tokens=int(trainer.state.cumulative_tokens), checkpoint_sha256=latest_sha)
+                    trainer.store.prune(keep=set())
+            for rec in CheckpointCatalog.discover_checkpoints([ckpt_root], include_all_generations=True).records:
+                if rec.lineage_id == lineage_id and int(rec.global_update) in milestone_set:
+                    saved_milestones.append({"global_update": int(rec.global_update),
+                        "checkpoint_sha256": rec.checkpoint_sha256})
+            saved_milestones.sort(key=lambda r: r['global_update'])
+            if {r['global_update'] for r in saved_milestones} != milestone_set:
+                raise ValueError("required milestone tensor checkpoint is missing")
+            if len(step_logs) != total_u:
+                raise ValueError("committed training journal does not cover full horizon")
 
             # Capture live trained model actions & hidden states for Gate 5 parity self-audit
             live_policy = V8ObservablePolicy(
@@ -536,6 +662,9 @@ class CartridgeRunner:
                 "loss_final": step_logs[-1]["loss"],
                 "latest_checkpoint_sha256": latest_sha,
             }
+            del init_policy, live_policy, trainer
+            if dev_obj.type == 'cuda':
+                torch.cuda.empty_cache()
 
         gate3 = {
             "gate": "gate3_gradient_and_mechanism_health",
@@ -543,7 +672,7 @@ class CartridgeRunner:
             "arms": gate3_arms,
         }
 
-        # Gate 4: Trajectory + Full Causal Attribution (6 counterfactuals)
+        # Gate 4: Diagnostic execution; this is not automatic causal attribution.
         catalog = CheckpointCatalog.discover_checkpoints([ckpt_root], include_all_generations=True)
         funnel_analyzer = ProcessFunnelAnalyzer()
         arm_results: dict[str, Any] = {}
@@ -557,8 +686,10 @@ class CartridgeRunner:
             latest_sha = tr_info["latest_sha"]
             reg = tr_info["reg"]
 
+            session["phase"] = "analyze:" + arm.arm_id
+            _check_deadline(deadline)
             arm_recs = sorted(
-                [r for r in catalog.records if r.lineage_id == lineage_id],
+                [r for r in catalog.records if r.lineage_id == lineage_id and int(r.global_update) in (set(arm.milestone_updates) | {arm.recipe.total_updates})],
                 key=lambda r: (int(r.global_update), str(r.checkpoint_sha256)),
             )
             latest_matched = [r for r in arm_recs if r.checkpoint_sha256 == latest_sha]
@@ -571,7 +702,7 @@ class CartridgeRunner:
             if len(arm_recs) >= 2:
                 trajectory = analyze_checkpoint_trajectory(
                     arm_recs,
-                    load_fn=CheckpointCatalog.load_checkpoint_for_causal_probing,
+                    load_fn=lambda rec, **kwargs: CheckpointCatalog.load_checkpoint_for_causal_probing(rec, device=device, **kwargs),
                     kernel=cartridge.kernel,
                     eval_worlds=eval_worlds,
                     probe_train_worlds=probe_train_worlds,
@@ -579,13 +710,11 @@ class CartridgeRunner:
                 )
 
             restored_raw = CheckpointCatalog.load_checkpoint_for_causal_probing(
-                latest_rec, mode=arm.policy_mode, device="cpu"
-            )
-            restored_masked = CheckpointCatalog.load_checkpoint_for_causal_probing(
-                latest_rec, mode="availability-mask", device="cpu"
+                latest_rec, mode=arm.policy_mode, device=device
             )
             policy_raw = restored_raw["policy"]
-            policy_masked = restored_masked["policy"]
+            policy_masked = V8ObservablePolicy(policy_raw.model, arm.v8_spec,
+                model_identity=latest_sha, mode='availability-mask')
 
             funnel = funnel_analyzer.evaluate_suite(policy_raw, cartridge.kernel, eval_worlds, include_subgoals=True)
             oracle = run_oracle_information_intervention(policy_raw, cartridge.kernel, eval_worlds)
@@ -654,6 +783,7 @@ class CartridgeRunner:
             verify_tier2_capsule(evidence_root / arm.arm_id / "tier2_capsule")
             offline_probe = probe_from_capsule(evidence_root / arm.arm_id / "tier2_capsule")
             registry.update_status(exp_id, interp.status, result_ref=latest_sha)
+            registry.save(work / "REGISTRY.json")
 
             compact_funnel = {k: v for k, v in funnel.items() if k != "traces"}
             arm_results[arm.arm_id] = {
@@ -686,6 +816,9 @@ class CartridgeRunner:
                 "lineage_id": lineage_id,
                 "checkpoint_sha256": latest_sha,
             }
+            del policy_raw, policy_masked, restored_raw
+            if dev_obj.type == 'cuda':
+                torch.cuda.empty_cache()
 
         checkpoint_diffs = {
             f"{arm.arm_id}_vs_{cartridge.control_arm.arm_id}": CheckpointCatalog.diff_checkpoints(
@@ -696,72 +829,81 @@ class CartridgeRunner:
         }
         gate4 = {
             "gate": "gate4_trajectory_and_causal_attribution",
-            "passed": True,
+            "passed": len(arm_results) == len(all_arms),
+            "scope": "diagnostic execution and coverage, not scientific confirmation",
             "arms_analyzed": len(arm_results),
             "single_architecture_contrasts": {
                 k: v["single_architecture_contrast"] for k, v in checkpoint_diffs.items()
             },
         }
 
+        session["phase"] = "export"
+        _check_deadline(deadline)
         # Gate 5: Bundle Export + Live-vs-Restored Parity Self-Audit
         initial_receipt = export_result_bundle(
             bundle_dir,
             campaign_id=cartridge.campaign_id,
             source_commit=cartridge.source_commit,
-            status="COMPLETE",
+            status="PARTIAL",
             experiment_bundles=arm_bundles,
             checkpoint_root=ckpt_root,
             max_result_zip_bytes=max_result_zip_bytes,
         )
-        restored_store = CheckpointCatalog.restore_full_checkpoint_zip(
-            initial_receipt["checkpoint_full_zip"],
-            work / "restored_full_verify",
-            expected_source_commit=cartridge.source_commit,
-        )
-
-        parity_by_arm: dict[str, Any] = {}
-        all_parity_ok = True
-        for arm in all_arms:
-            tr_info = arm_training_records[arm.arm_id]
-            loaded_zip = CheckpointCatalog.load_from_result_zip(
-                initial_receipt["result_zip"],
-                experiment_id=tr_info["exp_id"],
+        with tempfile.TemporaryDirectory(prefix="planthir-verify-") as restore_tmp:
+            restored_store = CheckpointCatalog.restore_full_checkpoint_zip(
+                initial_receipt["checkpoint_full_zip"],
+                Path(restore_tmp) / "store",
                 expected_source_commit=cartridge.source_commit,
-                mode=arm.policy_mode,
-                device="cpu",
             )
-            z_policy = loaded_zip["policy"]
-            zip_actions = [
-                (a.operation, a.argument)
-                for a in (z_policy.propose_with_telemetry(obs) for obs in parity_obs)
-            ]
-            zip_hidden = z_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
 
-            live_actions = tr_info["live_actions"]
-            live_hidden = tr_info["live_hidden"]
-            matches = sum(1 for a, b in zip(live_actions, zip_actions) if a == b)
-            parity_rate = float(matches / len(live_actions))
-            max_diff = float((live_hidden - zip_hidden).abs().max().item())
-            diff_tol = 5e-2 if "compact_fp16" in str(loaded_zip["source_archive"]) else 1e-3
-            arm_ok = bool(parity_rate == 1.0 and max_diff <= diff_tol)
-            if not arm_ok:
-                all_parity_ok = False
-            parity_by_arm[arm.arm_id] = {
-                "passed": arm_ok,
-                "source_archive": loaded_zip["source_archive"],
-                "prediction_parity_rate": parity_rate,
-                "max_hidden_abs_diff": max_diff,
-                "worlds_checked": len(parity_obs),
+            parity_by_arm: dict[str, Any] = {}
+            all_parity_ok = True
+            for arm in all_arms:
+                tr_info = arm_training_records[arm.arm_id]
+                candidates = [r for r in restored_store["catalog"].records
+                              if r.lineage_id == tr_info["lineage_id"] and r.checkpoint_sha256 == tr_info["latest_sha"]]
+                if len(candidates) != 1:
+                    raise ValueError("full export missing expected exact checkpoint")
+                loaded_zip = CheckpointCatalog.load_checkpoint_for_causal_probing(
+                    candidates[0], mode=arm.policy_mode, device=device)
+                loaded_zip["source_archive"] = "checkpoint_full.zip (exact weights)"
+                z_policy = loaded_zip["policy"]
+                zip_actions = [
+                    (a.operation, a.argument)
+                    for a in (z_policy.propose_with_telemetry(obs) for obs in parity_obs)
+                ]
+                zip_hidden = z_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
+
+                live_actions = tr_info["live_actions"]
+                live_hidden = tr_info["live_hidden"]
+                matches = sum(1 for a, b in zip(live_actions, zip_actions) if a == b)
+                parity_rate = float(matches / len(live_actions))
+                max_diff = float((live_hidden - zip_hidden).abs().max().item())
+                diff_tol = 0.0
+                arm_ok = bool(parity_rate == 1.0 and max_diff <= diff_tol)
+                if not arm_ok:
+                    all_parity_ok = False
+                parity_by_arm[arm.arm_id] = {
+                    "passed": arm_ok,
+                    "source_archive": loaded_zip["source_archive"],
+                    "prediction_parity_rate": parity_rate,
+                    "max_hidden_abs_diff": max_diff,
+                    "worlds_checked": len(parity_obs),
+                }
+                # Do not retain one GPU model while allocating the next arm.
+                del z_policy, loaded_zip
+                if dev_obj.type == "cuda":
+                    torch.cuda.empty_cache()
+
+            gate5 = {
+                "gate": "gate5_bundle_and_live_parity_self_audit",
+                "passed": bool(all_parity_ok and restored_store["verified"]),
+                "scope": "same-device exact full weights; inference parity is not optimizer resume qualification",
+                "verified_full_lineages": len(restored_store["verified_lineages"]),
+                "parity_by_arm": parity_by_arm,
             }
-
-        gate5 = {
-            "gate": "gate5_bundle_and_live_parity_self_audit",
-            "passed": bool(all_parity_ok and restored_store["verified"]),
-            "verified_full_lineages": len(restored_store["verified_lineages"]),
-            "parity_by_arm": parity_by_arm,
-        }
-        if not gate5["passed"]:
-            raise RuntimeError(f"Gate 5 Bundle/Parity Self-Audit failed: {gate5}")
+            if not gate5["passed"]:
+                raise RuntimeError(f"Gate 5 Bundle/Parity Self-Audit failed: {gate5}")
 
         gates = {
             "gate1_instrument_integrity": gate1,
@@ -803,14 +945,33 @@ class CartridgeRunner:
             token_fuel_report=fuel_report,
         )
         brief_bytes = (json.dumps(final_brief, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
-        fuel_report["handoff_brief_bytes"] = len(brief_bytes)
-        fuel_report["handoff_brief_tokens_est"] = max(1, len(brief_bytes) // 4)
-        final_brief["token_fuel_report"] = fuel_report
-        brief_bytes = (json.dumps(final_brief, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+        # Avoid stale first-export size claims and self-inconsistent returned/embedded briefs.
+        final_brief["bundle_summary"] = {"final_sizes_and_hashes": "external FINAL_RECEIPT.json", "exact_restore_source": "checkpoint_full.zip"}
+        final_brief['total_arms'] = len(final_brief['arms'])
+        while len(json.dumps(final_brief, indent=2).encode()) > 7000 and final_brief['top_recommended_next_experiments']:
+            final_brief['top_recommended_next_experiments'].pop()
+        while len(json.dumps(final_brief, indent=2).encode()) > 7000 and final_brief['arms']:
+            final_brief['arms'].pop()
+        final_brief['arms_omitted_from_brief'] = final_brief['total_arms'] - len(final_brief['arms'])
+        final_brief['full_reports'] = 'per-experiment tier1 summaries in result.zip; ARM_RESULTS.json in work directory'
+        for _ in range(20):
+            brief_bytes = (json.dumps(final_brief, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+            fuel_report = estimate_token_fuel_savings(arm_count=len(arm_results), milestone_count=milestone_count,
+                raw_summary_bytes=raw_arm_bytes, handoff_brief_bytes=len(brief_bytes))
+            if final_brief['token_fuel_report'] == fuel_report:
+                break
+            final_brief['token_fuel_report'] = fuel_report
+        else:
+            raise ValueError('handoff size accounting failed to converge')
+        if len(brief_bytes) > 8192:
+            raise ValueError('handoff brief exceeds bounded context limit')
         cert_bytes = (json.dumps(gates, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
+        final_brief = json.loads(brief_bytes)
+        # Verify final archives off-path. An unsuccessful verification leaves the PARTIAL bundle intact.
+        staging = Path(tempfile.mkdtemp(prefix='.planthir-final-', dir=bundle_dir.parent))
         final_receipt = export_result_bundle(
-            bundle_dir,
+            staging,
             campaign_id=cartridge.campaign_id,
             source_commit=cartridge.source_commit,
             status="COMPLETE",
@@ -823,18 +984,27 @@ class CartridgeRunner:
             },
         )
         verify_result_bundle(
-            bundle_dir,
+            staging,
             expected_source_commit=cartridge.source_commit,
             max_result_zip_bytes=max_result_zip_bytes,
         )
-        final_brief["bundle_summary"] = {
-            "result_zip_bytes": final_receipt["result_zip_bytes"],
-            "checkpoint_full_zip_bytes": final_receipt["checkpoint_full_zip_bytes"],
-            "whole_checkpoint_embedded": final_receipt["whole_checkpoint_embedded"],
-        }
+        backup = bundle_dir.with_name(bundle_dir.name + '.previous-' + uuid.uuid4().hex[:8])
+        bundle_dir.rename(backup)
+        try:
+            staging.rename(bundle_dir)
+        except BaseException:
+            backup.rename(bundle_dir)
+            raise
+        final_receipt = {k: (str(bundle_dir / Path(v).relative_to(staging))
+                            if isinstance(v, str) and v.startswith(str(staging) + os.sep) else v)
+                         for k, v in final_receipt.items()}
+        atomic_write_json(work / "ARM_RESULTS.json", arm_results)
+        atomic_write_json(work / "FINAL_RECEIPT.json", final_receipt)
+        session["phase"] = "verified_complete"
+        session["bundle_receipt"] = str(work / "FINAL_RECEIPT.json")
 
         return {
-            "schema": "anra-planthir-cartridge-run-v1",
+            "schema": "anra-planthir-cartridge-run-v2",
             "campaign_id": cartridge.campaign_id,
             "device": device,
             "gates": gates,

@@ -44,20 +44,34 @@ def compute_effective_rank(hidden: torch.Tensor) -> float:
     return float(math.exp(entropy))
 
 
-def compute_representation_isotropy(hidden: torch.Tensor) -> dict[str, float]:
-    """Measure batch representation diversity via off-diagonal cosine similarity."""
+def compute_representation_isotropy(hidden: torch.Tensor) -> dict[str, float | None]:
+    """Measure directional spread using the normalized second-moment spectrum.
 
+    A score of one requires energy equally spread across all feature dimensions;
+    antipodal vectors on one axis therefore do not appear isotropic. This is
+    sample-size limited: at most min(N, D) directions can be observed.
+    """
     if hidden.ndim != 2:
         raise ValueError(f"expected 2D hidden tensor [N, D], got shape {tuple(hidden.shape)}")
-    n = hidden.shape[0]
-    if n < 2:
-        return {"mean_offdiag_cosine": 0.0, "isotropy": 1.0}
+    n, d = hidden.shape
+    if n < 2 or d == 0:
+        return {"mean_offdiag_cosine": None, "isotropy": None}
     normed = F.normalize(hidden.float(), dim=-1, eps=1e-8)
+    if not torch.isfinite(normed).all():
+        raise ValueError("hidden representations must be finite")
     cos = normed @ normed.transpose(0, 1)
     mask = ~torch.eye(n, dtype=torch.bool, device=cos.device)
     mean_offdiag = float(cos[mask].mean().item())
-    isotropy = max(0.0, min(1.0, 1.0 - abs(mean_offdiag)))
-    return {"mean_offdiag_cosine": mean_offdiag, "isotropy": isotropy}
+    singular = torch.linalg.svdvals(normed)
+    eig = singular.square()
+    total = eig.sum()
+    if total <= 1e-12:
+        return {"mean_offdiag_cosine": mean_offdiag, "isotropy": None}
+    probabilities = eig / total
+    participation = 1.0 / float(probabilities.square().sum().item())
+    # Normalize so a one-dimensional collapse maps to zero when d > 1.
+    isotropy = (participation - 1.0) / (d - 1) if d > 1 else 1.0
+    return {"mean_offdiag_cosine": mean_offdiag, "isotropy": max(0.0, min(1.0, isotropy))}
 
 
 def classify_parameter_group(param_name: str) -> str:
@@ -180,6 +194,7 @@ class FunnelEpisodeTrace:
     executed_actions: tuple[tuple[str, str | None], ...]
     ideal_first_action: tuple[str, str | None]
     confidence: float
+    action_correct: bool
     telemetry_summary: dict[str, float]
 
 
@@ -216,6 +231,12 @@ def _classify_divergence(
 
 def _calibration_metrics(confidences: Sequence[float], outcomes: Sequence[bool], *, bins: int = 10) -> dict[str, float | None]:
     n = len(confidences)
+    if n != len(outcomes):
+        raise ValueError("confidence and outcome lengths must match")
+    if bins <= 0:
+        raise ValueError("bins must be positive")
+    if any(not math.isfinite(float(c)) or not 0 <= float(c) <= 1 for c in confidences):
+        raise ValueError("confidences must be finite probabilities")
     if n == 0:
         return {"brier_score": None, "ece": None, "aurc": None}
     clipped = [max(0.0, min(1.0, float(c))) for c in confidences]
@@ -276,6 +297,7 @@ class ProcessFunnelAnalyzer:
             initial_called_valid_tool = False
             ideal_first: tuple[str, str | None] = ("ABSTAIN", None)
             confidences: list[float] = []
+            action_correctness: list[bool] = []
             telemetry_accum: dict[str, list[float]] = {}
 
             for step_idx in range(8):
@@ -284,6 +306,7 @@ class ProcessFunnelAnalyzer:
                 action = policy.propose_with_telemetry(obs)
                 conf = math.exp(action.log_probability) if math.isfinite(action.log_probability) else 0.0
                 confidences.append(max(0.0, min(1.0, conf)))
+                action_correctness.append((action.operation, action.argument) == (ideal_op, ideal_arg))
                 for tk, tv in action.telemetry.items():
                     if math.isfinite(tv):
                         telemetry_accum.setdefault(tk, []).append(float(tv))
@@ -298,7 +321,7 @@ class ProcessFunnelAnalyzer:
                     ideal_first = (ideal_op, ideal_arg)
                     initial_needed_tool = ideal_op in _TOOL_OP_TO_KEY
                     initial_called_tool = action.operation in _TOOL_OP_TO_KEY
-                    stage1_match = initial_needed_tool == initial_called_tool
+                    stage1_match = (action.operation == ideal_op) if initial_needed_tool else not initial_called_tool
                     if initial_called_tool:
                         tkey = _TOOL_OP_TO_KEY[action.operation]
                         initial_called_valid_tool = bool(obs.available_tools.get(tkey, False))
@@ -331,6 +354,7 @@ class ProcessFunnelAnalyzer:
                     executed_actions=tuple(executed),
                     ideal_first_action=ideal_first,
                     confidence=confidences[-1] if confidences else 0.0,
+                    action_correct=action_correctness[-1] if action_correctness else False,
                     telemetry_summary=tel_summary,
                 )
             )
@@ -366,7 +390,7 @@ class ProcessFunnelAnalyzer:
             vals = [t.telemetry_summary[key] for t in traces if key in t.telemetry_summary]
             telemetry_means[key] = sum(vals) / len(vals)
 
-        cal = _calibration_metrics([t.confidence for t in traces], [t.correct for t in traces])
+        cal = _calibration_metrics([t.confidence for t in traces], [t.action_correct for t in traces])
 
         native_1hop_acc = _acc(native_1hop)
         subgoal_1hop_acc = (subgoal_hop1_correct / subgoal_hop1_total) if subgoal_hop1_total else None
@@ -380,7 +404,7 @@ class ProcessFunnelAnalyzer:
             "funnel": {
                 "stage1_info_seeking": sum(1 for t in traces if t.stage1_tool_need_match) / n,
                 "stage1_tool_recall_when_needed": (
-                    sum(1 for t in need_tool if t.initial_called_tool) / len(need_tool)
+                    sum(1 for t in need_tool if t.stage1_tool_need_match) / len(need_tool)
                 ) if need_tool else None,
                 "stage1_unnecessary_tool_rate": (
                     sum(1 for t in no_need_tool if t.initial_called_tool) / len(no_need_tool)
@@ -402,7 +426,7 @@ class ProcessFunnelAnalyzer:
                 "unsolvable": len(unsolvable),
             },
             "divergence_taxonomy": {k: div_counts.get(k, 0) for k in DIVERGENCE_TAXONOMY},
-            "calibration": cal,
+            "calibration": {**cal, "target": "last_action_matches_ideal_action"},
             "telemetry_means": telemetry_means,
             "traces": [
                 {
@@ -460,7 +484,7 @@ def analyze_checkpoint_trajectory(
             "stage3_single_hop_grounding": fdict.get("stage3_single_hop_grounding"),
             "stage4_multi_hop_composition": fdict.get("stage4_multi_hop_composition"),
             "effective_rank": float(eff_rank),
-            "isotropy": float(iso),
+            "isotropy": float(iso) if iso is not None else None,
             "probe_final_symbol_accuracy": probe.get("probe_final_symbol_accuracy"),
             "head_minus_probe_gap": probe.get("head_minus_probe_gap"),
         })
