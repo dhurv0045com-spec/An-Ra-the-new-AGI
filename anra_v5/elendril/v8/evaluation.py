@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 import math
 import random
+import re
 from typing import Any, Callable
 
 import torch
@@ -15,7 +16,7 @@ from anra_v5.elendril.representation import UTF8, SpecialToken
 from anra_v5.elendril.training import batch_tensors, logits_for
 from anra_v5.elendril.v6_evaluation import parse_action
 
-from .contracts import POLICY_MODES, SCREEN_MAX_SEQUENCE, SYMBOLS, EvaluationOutcome, PolicyProposal, PublicInput, V8ModelSpec
+from .contracts import OBSERVATION_VERSION, POLICY_MODES, SCREEN_MAX_SEQUENCE, SYMBOLS, EvaluationOutcome, PolicyProposal, PublicInput, V8ModelSpec
 from .data import render_public_v8
 from .models import OP_TO_INDEX, algebraic_null_from_joint, compute_typed_nll
 from .policies import V8BytePolicy, V8TypedPolicy, make_policy
@@ -395,30 +396,70 @@ def evaluate_worlds_by_mode(
             if not open_states:
                 break
 
-            obs_cache: dict[tuple[int, tuple[PublicFact, ...], bool, bool], tuple[str, PublicInput, str, str | None]] = {}
+            obs_cache: dict[
+                tuple[object, ...],
+                tuple[str, PublicInput, str, str | None],
+            ] = {}
             state_obs: list[tuple[_EpisodeRolloutState, str, PublicInput, str, str | None]] = []
             unique_pubs: list[PublicInput] = []
-            pub_to_idx: dict[PublicInput, int] = {}
+            pub_to_idx: dict[tuple[str, str, PublicInput], int] = {}
             modes_per_pub: list[set[str]] = []
 
             for st in open_states:
-                cache_key = (world_obj_to_idx[id(st.world)], tuple(st.ordered_facts), st.query_avail, st.mem_avail)
+                text = render_fn(
+                    ordered_facts=tuple(st.ordered_facts),
+                    goal_subject=st.goal_subject,
+                    hops=st.hops,
+                    query_available=st.query_avail,
+                    memory_available=st.mem_avail,
+                    template_id=st.template_id,
+                    alias_prefix=st.alias_prefix,
+                    order_seed=st.order_seed,
+                    decision=decision,
+                )
+                text_sha256 = sha256(text.encode("utf-8")).hexdigest()
+                pub = PublicInput(
+                    text_utf8=text,
+                    query_available=st.query_avail,
+                    memory_available=st.mem_avail,
+                    action_budget=max_actions - decision,
+                    observation_version=OBSERVATION_VERSION,
+                )
+                cache_key = (
+                    UTF8.identity,
+                    pub.observation_version,
+                    text_sha256,
+                    tuple(st.ordered_facts),
+                    st.query_avail,
+                    st.mem_avail,
+                    pub.action_budget,
+                    st.goal_subject,
+                    st.hops,
+                )
                 cached = obs_cache.get(cache_key)
                 if cached is None:
-                    cached = st.observe(render_fn, decision=decision, max_actions=max_actions)
+                    ideal_op, ideal_arg = teacher_decide(
+                        tuple(st.ordered_facts),
+                        st.goal_subject,
+                        st.hops,
+                        st.query_avail,
+                        st.mem_avail,
+                    )
+                    cached = (text_sha256, pub, ideal_op, ideal_arg)
                     obs_cache[cache_key] = cached
                 text_sha256, pub, ideal_op, ideal_arg = cached
                 state_obs.append((st, text_sha256, pub, ideal_op, ideal_arg))
-                p_idx = pub_to_idx.get(pub)
+                pub_identity = (model_identity, UTF8.identity, pub)
+                p_idx = pub_to_idx.get(pub_identity)
                 if p_idx is None:
                     p_idx = len(unique_pubs)
-                    pub_to_idx[pub] = p_idx
+                    pub_to_idx[pub_identity] = p_idx
                     unique_pubs.append(pub)
                     modes_per_pub.append({st.mode})
                 else:
                     modes_per_pub[p_idx].add(st.mode)
 
-            proposals_by_pub_and_mode: dict[tuple[int, str], tuple[PolicyProposal, PolicyProposal]] = {}
+            proposals_by_pub_and_mode: dict[tuple[str, int, str], tuple[PolicyProposal, PolicyProposal]] = {}
             if is_b0:
                 assert isinstance(base_policy, V8BytePolicy)
                 raw_only_pubs = [i for i, mset in enumerate(modes_per_pub) if mset == {"raw"}]
@@ -428,7 +469,7 @@ def evaluate_worlds_by_mode(
                     sub_pubs = [unique_pubs[i] for i in sub_indices]
                     batch_props = base_policy.propose_batch(sub_pubs, max_cand_batch_seqs=cand_batch_seqs)
                     for pub_idx, pair in zip(sub_indices, batch_props):
-                        proposals_by_pub_and_mode[(pub_idx, "raw")] = pair
+                        proposals_by_pub_and_mode[(model_identity, pub_idx, "raw")] = pair
                 for sub_start in range(0, len(cand_pubs), chunk_size):
                     sub_indices = cand_pubs[sub_start : sub_start + chunk_size]
                     sub_pubs = [unique_pubs[i] for i in sub_indices]
@@ -441,7 +482,7 @@ def evaluate_worlds_by_mode(
                     for m, pairs in scored_by_mode.items():
                         for pub_idx, pair in zip(sub_indices, pairs):
                             if m in modes_per_pub[pub_idx]:
-                                proposals_by_pub_and_mode[(pub_idx, m)] = pair
+                                proposals_by_pub_and_mode[(model_identity, pub_idx, m)] = pair
             else:
                 assert isinstance(base_policy, V8TypedPolicy)
                 for sub_start in range(0, len(unique_pubs), chunk_size):
@@ -452,7 +493,7 @@ def evaluate_worlds_by_mode(
                         probs_19 = probs_19_batch[k]
                         p_len = prompt_lens[k]
                         for m in modes_per_pub[pub_idx]:
-                            proposals_by_pub_and_mode[(pub_idx, m)] = base_policy.proposals_from_probs(
+                            proposals_by_pub_and_mode[(model_identity, pub_idx, m)] = base_policy.proposals_from_probs(
                                 probs_19,
                                 pub,
                                 evaluated_positions=p_len,
@@ -460,8 +501,8 @@ def evaluate_worlds_by_mode(
                             )
 
             for st, text_sha256, pub, ideal_op, ideal_arg in state_obs:
-                pub_idx = pub_to_idx[pub]
-                exec_prop, raw_prop = proposals_by_pub_and_mode[(pub_idx, st.mode)]
+                pub_idx = pub_to_idx[(model_identity, UTF8.identity, pub)]
+                exec_prop, raw_prop = proposals_by_pub_and_mode[(model_identity, pub_idx, st.mode)]
                 st.apply_step(
                     decision=decision,
                     text_sha256=text_sha256,
@@ -1206,6 +1247,93 @@ def evaluate_a20_recovery_extension(
     }
 
 
+def legacy_v8_eval_worlds(
+    policy: Any,
+    worlds: list[dict[str, object]] | tuple[dict[str, object], ...],
+    *,
+    render_fn: Callable[..., str] = render_public_v8,
+    max_actions: int = 4,
+) -> list[EpisodeRecord]:
+    """Explicit opt-in legacy V8 evaluation adapter reproducing unconsumed-tool bugs for H01 only."""
+
+    return [
+        run_episode(
+            policy,
+            w,
+            render_fn=render_fn,
+            max_actions=max_actions,
+            enforce_tool_consumption=False,
+        )
+        for w in worlds
+    ]
+
+
+def verify_v8_trace_transitions(
+    world: dict[str, object],
+    steps: list[dict[str, object]] | tuple[dict[str, object], ...],
+    *,
+    max_actions: int = 4,
+) -> list[str]:
+    """Independent replay check verifying consumed-tool flags, hashes, and termination in trace rows."""
+
+    errors: list[str] = []
+    if not steps:
+        return ["empty_trace_steps"]
+    qa = bool(world["allowed_public_tools"]["query_available"])
+    ma = bool(world["allowed_public_tools"]["memory_available"])
+    terminated = False
+    executed_actions: list[tuple[str, str | None]] = []
+
+    for idx, step in enumerate(steps):
+        if terminated:
+            errors.append(f"post_terminal_step_at:{idx}")
+            break
+        if idx >= max_actions:
+            errors.append(f"step_exceeds_action_budget:{idx}>={max_actions}")
+            break
+        text = str(step.get("public_text_utf8", ""))
+        declared_sha = str(step.get("public_text_sha256", ""))
+        actual_sha = sha256(text.encode("utf-8")).hexdigest()
+        if declared_sha != actual_sha:
+            errors.append(f"prompt_sha_mismatch_at:{idx}")
+        flag_match = re.search(r"Query=([01])\s+Memory=([01])", text)
+        if flag_match is None:
+            errors.append(f"missing_tool_flags_at:{idx}")
+        else:
+            shown_q = bool(int(flag_match.group(1)))
+            shown_m = bool(int(flag_match.group(2)))
+            if shown_q != qa or shown_m != ma:
+                errors.append(
+                    f"stale_tool_flag_at:{idx}:shown=({shown_q},{shown_m})!=expected=({qa},{ma})"
+                )
+        exec_prop = step.get("executed_proposal", {})
+        if not isinstance(exec_prop, dict):
+            errors.append(f"invalid_executed_proposal_at:{idx}")
+            break
+        op = str(exec_prop.get("operation", "INVALID"))
+        arg = exec_prop.get("argument")
+        executed_actions.append((op, None if arg is None else str(arg)))
+        if op == "QUERY":
+            if not qa:
+                terminated = True
+            else:
+                qa = False
+        elif op == "RETRIEVE":
+            if not ma:
+                terminated = True
+            else:
+                ma = False
+        else:
+            terminated = True
+
+    outcome = verify_episode_trace(world, executed_actions, action_budget=max_actions)
+    if len(executed_actions) > max_actions:
+        errors.append("action_count_exceeded")
+    if outcome.terminal_status not in ("answered", "abstained", "invalid_action", "budget_exhausted"):
+        errors.append(f"unexpected_terminal_status:{outcome.terminal_status}")
+    return errors
+
+
 __all__ = [
     "EpisodeRecord",
     "EpisodeStepRecord",
@@ -1213,8 +1341,10 @@ __all__ = [
     "evaluate_a20_recovery_extension",
     "evaluate_f03_reverse_extension",
     "evaluate_worlds_by_mode",
+    "legacy_v8_eval_worlds",
     "run_episode",
     "run_pointer_interventions",
     "select_stratified_probe_steps",
     "summarize_suite_episodes",
+    "verify_v8_trace_transitions",
 ]

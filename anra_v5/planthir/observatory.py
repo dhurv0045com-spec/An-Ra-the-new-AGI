@@ -78,11 +78,32 @@ def classify_parameter_group(param_name: str) -> str:
     """Map parameter names across architectures into universal functional groups."""
 
     low = param_name.lower()
-    if "embed" in low:
+    if "embed" in low or low.startswith(("token_emb.", "pos_emb.")):
         return "embedding"
-    if any(k in low for k in ("q_proj", "k_proj", "gate", "mem")):
+    if any(
+        k in low
+        for k in (
+            "q_proj",
+            "k_proj",
+            "gate",
+            "mem",
+            "tok_ln",
+            "tok_proj",
+            "slots_init",
+            "slot_",
+            "agg_",
+            "rel_",
+            "edge_",
+            "msg_",
+            "noedge_",
+            "goal_q_proj",
+            "read_ln",
+            "r_to_ptr",
+            "cap_r_",
+        )
+    ):
         return "pointer_or_memory"
-    if any(k in low for k in ("u_q", "u_k", "u_v", "u_out", "u_gru", "recur")):
+    if any(k in low for k in ("u_q", "u_k", "u_v", "u_out", "u_gru", "recur", "u_blocks")):
         return "recurrent"
     if any(k in low for k in ("head", "cap_in", "cap_out", "joint_head", "op_head", "val_head")):
         return "head"
