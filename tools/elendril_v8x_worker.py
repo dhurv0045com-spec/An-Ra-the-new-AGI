@@ -119,6 +119,17 @@ def prepare_splits(
 ) -> dict[str, Any]:
     """Generate and persist structurally verified D1-H / D2 train & evaluation splits."""
 
+    data_dir = work_dir / "data"
+    man_file = data_dir / "manifest.json"
+    eval_file = data_dir / "eval_splits.json"
+    if man_file.is_file() and eval_file.is_file():
+        existing = json.loads(man_file.read_text(encoding="utf-8"))
+        if bool(existing.get("cpu_fixtures")) == bool(cpu_fixtures):
+            saved_sha = existing.get("manifest_sha256")
+            check_doc = {k: v for k, v in existing.items() if k != "manifest_sha256"}
+            if saved_sha and digest(check_doc) == saved_sha:
+                return existing
+
     quota = 1 if cpu_fixtures else 512
     d1h = build_x1_d1h_training_dataset(quota_per_family=quota)
     d2 = build_x1_d2_paired_dataset(base_worlds=d1h.worlds[: (12 if cpu_fixtures else len(d1h.worlds))])
@@ -408,7 +419,7 @@ def _save_and_eval_milestone(
         model_identity=f"{job['job_id']}:u{update}",
         mode="raw",
     )
-    recs = evaluate_x1_worlds_batched(pol, kernel, worlds, batch_size=16)
+    recs = evaluate_x1_worlds_batched(pol, kernel, worlds, batch_size=32)
     summary = summarize_x1_episodes(recs)
     _atomic_write_json(ms_dir / "summary.json", summary)
     _atomic_write_jsonl(ms_dir / "episodes.jsonl", recs)

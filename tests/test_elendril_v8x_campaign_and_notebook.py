@@ -150,17 +150,23 @@ def test_export_rejects_traversal_tamper_and_wrong_source(tmp_path: Path) -> Non
         verify_single_x1_zip(bad_nested)
 
 
-def test_notebook_generation_compilation_and_disabled_execution(tmp_path: Path) -> None:
+def test_notebook_generation_compilation_and_disabled_execution(tmp_path: Path, capsys) -> None:
     nb_path = tmp_path / "test_x1.ipynb"
     write_notebook(nb_path, source_commit=DUMMY_COMMIT)
     v = verify_notebook_file(nb_path, expected_source_commit=DUMMY_COMMIT)
     assert v["verified"] is True
 
+    # Default owner-armed notebook compiles cleanly and launches A0..D2 without manual code edits
+    armed_nb = build_notebook_dict(source_commit=DUMMY_COMMIT)
+    assert any("OWNER_AUTHORIZED = True" in "".join(c.get("source", [])) for c in armed_nb["cells"])
+
     # Execute every code cell under OWNER_AUTHORIZED=False to verify zero side effects & NOT LAUNCHED banner
-    nb = build_notebook_dict(source_commit=DUMMY_COMMIT)
+    nb = build_notebook_dict(source_commit=DUMMY_COMMIT, owner_authorized_default=False)
     ns: dict[str, object] = {}
     for cell in nb["cells"]:
         if cell["cell_type"] == "code":
             exec(compile("".join(cell["source"]), "<nb-cell>", "exec"), ns, ns)
     assert ns["OWNER_AUTHORIZED"] is False
     assert ns["SOURCE_SHA"] == DUMMY_COMMIT
+    out_text = capsys.readouterr().out
+    assert "NOT LAUNCHED:" in out_text

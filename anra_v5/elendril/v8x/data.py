@@ -12,7 +12,6 @@ from typing import Any, Mapping, Sequence
 
 from anra_v5.elendril.codec import canonical, digest
 from anra_v5.elendril.representation import UTF8, SpecialToken
-from anra_v5.planthir.contracts import detect_truth_leaks
 
 from .contracts import (
     ACTION_19_LABELS,
@@ -448,6 +447,8 @@ def _check_world_fits_640(world: Mapping[str, Any]) -> bool:
         states.append((init_f + m_f, qa, False, 3))
     if qa and ma:
         states.append((init_f + q_f + m_f, False, False, 2))
+
+    from anra_v5.planthir.contracts import detect_truth_leaks
 
     # Check assigned renderer AND heldout renderer (3)
     for rid in {int(world.get("renderer_template", 0)), 3}:

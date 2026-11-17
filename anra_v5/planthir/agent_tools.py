@@ -19,16 +19,6 @@ from anra_v5.elendril.v6_registry import MODEL_PROFILES
 from anra_v5.elendril.v8.contracts import V8ModelSpec, build_v8_model_spec
 from anra_v5.elendril.v8.data import D1_TRAIN_SEED, build_d1_training_dataset
 from anra_v5.elendril.v8.training import prepare_v8_training_data
-from anra_v5.elendril.v8x.contracts import X1ModelSpec, build_x1_model_spec
-from anra_v5.elendril.v8x.data import (
-    X1D1HDataset,
-    X1D2Dataset,
-    build_x1_d1h_training_dataset,
-    build_x1_d2_paired_dataset,
-    build_x1_eval_splits,
-)
-from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
-from anra_v5.elendril.v8x.training import X1TrainRecipe
 
 from .adapters.v8_adapter import V8EnvironmentKernel
 from .adapters.x1_rd2_adapter import (
@@ -37,7 +27,6 @@ from .adapters.x1_rd2_adapter import (
     X1RD2Spec,
     prepare_x1_rd2_training_data,
 )
-from .adapters.x1_s20_adapter import prepare_x1_s20_canary_data
 from .backend import get_backend, list_backends
 from .cartridge import (
     CartridgeArmSpec,
@@ -503,6 +492,9 @@ def _build_arm_components(
             )
 
         if backend_id == "x1_s20":
+            from anra_v5.elendril.v8x.contracts import build_x1_model_spec
+            from anra_v5.elendril.v8x.training import X1TrainRecipe
+
             base_spec, max_seq = _build_base_model_spec(m_doc, default_ctx=640, defaults_from_s20=True)
             x1_s20_spec = build_x1_model_spec(
                 arch,
@@ -978,6 +970,14 @@ def _validate_and_compile(
         train_worlds = build_d1_training_dataset(quota_per_family=max(16, d1_quota)).worlds
         kernel = V8EnvironmentKernel()
     elif backend_id == "x1_s20":
+        from anra_v5.elendril.v8x.data import (
+            build_x1_d1h_training_dataset,
+            build_x1_d2_paired_dataset,
+            build_x1_eval_splits,
+        )
+        from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
+        from .adapters.x1_s20_adapter import prepare_x1_s20_canary_data
+
         qpf = int(ds_doc.get("quota_per_family", 1 if cpu_canary else 512))
         ctrl_obj = str(doc.get("control_arm", {}).get("recipe", {}).get("objective", "standard"))
         use_paired = str(ds_doc.get("dataset_name", "")) in ("D2", "X1-D2") or ctrl_obj.startswith("PAIR")
