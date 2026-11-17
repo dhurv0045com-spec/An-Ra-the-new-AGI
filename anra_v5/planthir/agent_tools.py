@@ -76,6 +76,7 @@ _DATASET_KEYS = {
     "multihop_world_count",
     "probe_world_count",
     "seed_offset",
+    "extra_config",
 }
 _ARM_KEYS = {
     "arm_id",
@@ -128,6 +129,7 @@ _MODEL_KEYS = {
     "cap_hidden_dim",
     "cap_r_hidden",
     "noedge_mlp_dim",
+    "extra_config",
 }
 _RECIPE_KEYS = {
     "seed",
@@ -143,6 +145,7 @@ _RECIPE_KEYS = {
     "eq_weight",
     "cf_weight",
     "cf_margin",
+    "extra_config",
 }
 _CONTRAST_KEYS = {
     "contrast_id",
@@ -179,6 +182,7 @@ _EXECUTION_KEYS = {
     "min_free_disk_bytes",
     "max_cpu_rss_bytes",
     "max_cuda_allocated_bytes",
+    "extra_config",
 }
 
 _FORBIDDEN_CODE_PATTERN = re.compile(
@@ -343,6 +347,96 @@ def _build_base_model_spec(
     return base, max_seq
 
 
+def _allowed_keys_for_backend(backend: Any | None) -> dict[str, set[str]]:
+    ext = backend.json_schema_extensions() if backend is not None and callable(getattr(backend, "json_schema_extensions", None)) else {}
+    return {
+        "dataset": _DATASET_KEYS | {str(x) for x in ext.get("dataset", ())},
+        "model": _MODEL_KEYS | {str(x) for x in ext.get("model", ())},
+        "recipe": _RECIPE_KEYS | {str(x) for x in ext.get("recipe", ())},
+        "execution": _EXECUTION_KEYS | {str(x) for x in ext.get("execution", ())},
+    }
+
+
+def _auto_populate_design_metadata(
+    doc: Mapping[str, Any],
+    *,
+    extra_arch_head_keys: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Auto-infer single-factor contrast & sanity falsifier for concise specs while preserving confounder checks."""
+
+    out = json.loads(json.dumps(dict(doc)))
+    ctrl = out.get("control_arm")
+    trts = out.get("treatment_arms")
+    if not isinstance(ctrl, dict) or not isinstance(trts, list) or not trts:
+        return out
+
+    from .design import _ARCH_HEAD_KEYS, _OBJ_COMPANION_KEYS
+
+    head_keys = _ARCH_HEAD_KEYS | set(extra_arch_head_keys)
+    c_arch = ctrl.get("architecture")
+    c_mod = ctrl.get("model") if isinstance(ctrl.get("model"), dict) else {}
+    c_rec = ctrl.get("recipe") if isinstance(ctrl.get("recipe"), dict) else {}
+
+    for idx, trt in enumerate(trts):
+        if not isinstance(trt, dict):
+            continue
+        diffs: list[str] = []
+        arch_diff = trt.get("architecture") != c_arch
+        if arch_diff:
+            diffs.append("architecture")
+        t_mod = trt.get("model") if isinstance(trt.get("model"), dict) else {}
+        for mk in sorted(set(c_mod) | set(t_mod)):
+            if c_mod.get(mk) == t_mod.get(mk):
+                continue
+            if arch_diff and mk in head_keys:
+                continue
+            diffs.append(mk)
+        t_rec = trt.get("recipe") if isinstance(trt.get("recipe"), dict) else {}
+        obj_diff = t_rec.get("objective") != c_rec.get("objective")
+        for rk in sorted(set(c_rec) | set(t_rec)):
+            if c_rec.get(rk) == t_rec.get(rk):
+                continue
+            if obj_diff and rk in _OBJ_COMPANION_KEYS:
+                continue
+            diffs.append(rk)
+        if trt.get("order_seed", 7) != ctrl.get("order_seed", 7):
+            diffs.append("order_seed")
+        if trt.get("policy_mode", "raw") != ctrl.get("policy_mode", "raw"):
+            diffs.append("policy_mode")
+
+        # Declare only the FIRST differing factor if contrasts omitted, so multi-factor confounds still fail Gate 2!
+        if not trt.get("contrasts") and diffs:
+            primary = diffs[0]
+            trt["contrasts"] = [
+                {
+                    "contrast_id": f"C_AUTO_{idx + 1}_{primary.upper()}",
+                    "factor_name": primary,
+                    "control_arm": str(ctrl.get("arm_id", "CTRL")),
+                    "treatment_arm": str(trt.get("arm_id", f"TRT_{idx + 1}")),
+                    "held_constant": ["order_seed", "precision"],
+                    "expected_mechanism_signature": f"auto_{primary}_intervention",
+                }
+            ]
+        if not trt.get("hypotheses") and not out.get("hypotheses") and not out.get("falsifiers"):
+            trt["hypotheses"] = [
+                {
+                    "hypothesis_id": f"H_AUTO_{idx + 1}",
+                    "statement": f"Controlled comparison for {trt.get('arm_id', f'TRT_{idx + 1}')} stays finite.",
+                    "mechanism_target": f"auto_{diffs[0] if diffs else 'baseline'}_intervention",
+                    "falsifiers": [
+                        {
+                            "falsifier_id": f"F_AUTO_{idx + 1}",
+                            "description": "Overall evaluation accuracy stays finite and non-negative",
+                            "metric_name": "overall_accuracy",
+                            "comparator": ">=",
+                            "threshold": 0.0,
+                        }
+                    ],
+                }
+            ]
+    return out
+
+
 def _build_arm_components(
     arm_doc: Mapping[str, Any],
     *,
@@ -351,6 +445,8 @@ def _build_arm_components(
     dataset_identity: str,
     arm_path: str,
     errors: list[dict[str, Any]],
+    allowed_model_keys: set[str] | None = None,
+    allowed_recipe_keys: set[str] | None = None,
 ) -> CartridgeArmSpec | None:
     if not _check_closed_keys(arm_doc, _ARM_KEYS, arm_path, errors):
         return None
@@ -365,9 +461,9 @@ def _build_arm_components(
 
     m_doc = arm_doc.get("model", {})
     r_doc = arm_doc.get("recipe", {})
-    if not _check_closed_keys(m_doc, _MODEL_KEYS, f"{arm_path}.model", errors):
+    if not _check_closed_keys(m_doc, allowed_model_keys or _MODEL_KEYS, f"{arm_path}.model", errors):
         return None
-    if not _check_closed_keys(r_doc, _RECIPE_KEYS, f"{arm_path}.recipe", errors):
+    if not _check_closed_keys(r_doc, allowed_recipe_keys or _RECIPE_KEYS, f"{arm_path}.recipe", errors):
         return None
 
     contrasts_list: list[CausalContrastSpec] = []
@@ -612,6 +708,14 @@ def init_spec_template(
     """Generate a valid starter `anra-planthir-spec-v1` JSON template ready for `validate` and `run`."""
 
     commit = _repo_head_commit()
+    try:
+        be = get_backend(backend_id)
+        if callable(getattr(be, "default_template", None)):
+            tpl = dict(be.default_template(canary=canary))  # type: ignore[attr-defined]
+            tpl["source_commit"] = commit
+            return tpl
+    except ValueError:
+        pass
     if backend_id == "v8":
         return {
             "schema": SPEC_SCHEMA_VERSION,
@@ -918,10 +1022,13 @@ def _validate_and_compile(
     if backend_id not in list_backends():
         errors.append({"code": "UNSUPPORTED_BACKEND", "field": "backend_id", "detail": f"backend {backend_id!r} not in {list_backends()}"})
 
+    pre_backend = get_backend(backend_id) if backend_id in list_backends() else None
+    key_map = _allowed_keys_for_backend(pre_backend)
+
     ds_doc = doc.get("dataset", {})
-    _check_closed_keys(ds_doc, _DATASET_KEYS, "dataset", errors)
+    _check_closed_keys(ds_doc, key_map["dataset"], "dataset", errors)
     ex_doc = doc.get("execution", {})
-    _check_closed_keys(ex_doc, _EXECUTION_KEYS, "execution", errors)
+    _check_closed_keys(ex_doc, key_map["execution"], "execution", errors)
 
     for fn in ("campaign_id", "program", "source_commit"):
         v = doc.get(fn)
@@ -944,6 +1051,11 @@ def _validate_and_compile(
 
     backend = get_backend(backend_id, expected_version=doc.get("backend_version"))
     caps = backend.capabilities()
+    extra_head_keys = tuple(backend.capacity_match_keys()) if callable(getattr(backend, "capacity_match_keys", None)) else ()
+    doc = _auto_populate_design_metadata(doc, extra_arch_head_keys=extra_head_keys)
+    ds_doc = doc.get("dataset", {})
+    ex_doc = doc.get("execution", {})
+
     device = str(ex_doc.get("device", "cpu"))
     cpu_canary = bool(canary_override if canary_override is not None else ex_doc.get("cpu_canary", True))
     max_zip_bytes = int(ex_doc.get("max_result_zip_bytes", DEFAULT_RESULT_ZIP_MAX_BYTES))
@@ -951,72 +1063,105 @@ def _validate_and_compile(
     param_tol = float(ex_doc.get("parameter_tolerance_ratio", 1.05))
     max_wall = ex_doc.get("max_wall_seconds")
 
-    # Materialize dataset identity (required for both full design check and execution)
-    seed_offset = int(ds_doc.get("seed_offset", 7))
-    eval_count = int(ds_doc.get("eval_world_count", 4))
-    mh_count = int(ds_doc.get("multihop_world_count", 2))
-    probe_count = int(ds_doc.get("probe_world_count", 4))
-    d1_quota = int(ds_doc.get("d1_worlds_per_family", 16))
-    num_groups = int(ds_doc.get("num_groups", 4))
-    raw_cpu_limit = ds_doc.get("sample_limit_for_cpu", 8 if cpu_canary else None)
-    cpu_limit = None if raw_cpu_limit is None else int(raw_cpu_limit)
+    # Validate treatment/control keys cleanly even for custom backend builders
+    _build_arm_components_only_keys = True
+    _ = _build_arm_components_only_keys
+    _check_closed_keys(doc.get("control_arm", {}), _ARM_KEYS, "control_arm", errors)
+    if isinstance(doc.get("control_arm"), Mapping):
+        _check_closed_keys(doc["control_arm"].get("model", {}), key_map["model"], "control_arm.model", errors)
+        _check_closed_keys(doc["control_arm"].get("recipe", {}), key_map["recipe"], "control_arm.recipe", errors)
+    for t_idx, t_raw in enumerate(doc.get("treatment_arms", [])):
+        if _check_closed_keys(t_raw, _ARM_KEYS, f"treatment_arms[{t_idx}]", errors):
+            _check_closed_keys(t_raw.get("model", {}), key_map["model"], f"treatment_arms[{t_idx}].model", errors)
+            _check_closed_keys(t_raw.get("recipe", {}), key_map["recipe"], f"treatment_arms[{t_idx}].recipe", errors)
+    if errors:
+        return {"schema": "anra-planthir-spec-validation-v1", "valid": False, "status": "INVALID_SPEC", "backend_id": backend_id, "errors": errors}, None, {}
 
-    if backend_id == "v8":
-        train_data = prepare_v8_training_data(
-            str(ds_doc.get("dataset_name", "D1")),
-            d1_worlds_per_family=d1_quota,
-            sample_limit_for_cpu=cpu_limit,
-        )
-        train_worlds = build_d1_training_dataset(quota_per_family=max(16, d1_quota)).worlds
-        kernel = V8EnvironmentKernel()
-    elif backend_id == "x1_s20":
-        from anra_v5.elendril.v8x.data import (
-            build_x1_d1h_training_dataset,
-            build_x1_d2_paired_dataset,
-            build_x1_eval_splits,
-        )
-        from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
-        from .adapters.x1_s20_adapter import prepare_x1_s20_canary_data
-
-        qpf = int(ds_doc.get("quota_per_family", 1 if cpu_canary else 512))
-        ctrl_obj = str(doc.get("control_arm", {}).get("recipe", {}).get("objective", "standard"))
-        use_paired = str(ds_doc.get("dataset_name", "")) in ("D2", "X1-D2") or ctrl_obj.startswith("PAIR")
-        if cpu_canary:
-            max_st = int(ds_doc.get("max_states", 16))
-            train_data, train_worlds = prepare_x1_s20_canary_data(
-                objective="PAIR-EQ" if use_paired else "standard",
-                quota_per_family=max(1, qpf),
-                max_states=min(32, max_st),
-            )
-        else:
-            d1h = build_x1_d1h_training_dataset(quota_per_family=qpf)
-            train_worlds = d1h.worlds
-            train_data = build_x1_d2_paired_dataset(base_worlds=train_worlds) if use_paired else d1h
-        kernel = X1S20EnvironmentKernel()
+    if callable(getattr(backend, "build_arm_and_data", None)):
+        built = backend.build_arm_and_data(doc, cpu_canary=cpu_canary)  # type: ignore[attr-defined]
+        train_data = built["train_data"]
+        train_worlds = tuple(built["train_worlds"])
+        kernel = built["kernel"]
+        ctrl_arm = built["control_arm"]
+        trt_arms = list(built["treatment_arms"])
+        eval_list = list(built["eval_worlds"])
+        mh_list = list(built.get("multihop_worlds", eval_list[:2]))
+        probe_list = list(built.get("probe_train_worlds", train_worlds[:4]))
+        eval_count = len(eval_list)
+        mh_count = len(mh_list)
+        probe_count = len(probe_list)
+        custom_built = True
     else:
-        train_data, train_worlds = prepare_x1_rd2_training_data(num_groups=num_groups)
-        kernel = X1RD2EnvironmentKernel()
+        custom_built = False
+        # Materialize dataset identity (required for both full design check and execution)
+        seed_offset = int(ds_doc.get("seed_offset", 7))
+        eval_count = int(ds_doc.get("eval_world_count", 4))
+        mh_count = int(ds_doc.get("multihop_world_count", 2))
+        probe_count = int(ds_doc.get("probe_world_count", 4))
+        d1_quota = int(ds_doc.get("d1_worlds_per_family", 16))
+        num_groups = int(ds_doc.get("num_groups", 4))
+        raw_cpu_limit = ds_doc.get("sample_limit_for_cpu", 8 if cpu_canary else None)
+        cpu_limit = None if raw_cpu_limit is None else int(raw_cpu_limit)
 
-    ctrl_arm = _build_arm_components(
-        doc.get("control_arm", {}),
-        backend_id=backend_id,
-        is_control=True,
-        dataset_identity=train_data.data_identity,
-        arm_path="control_arm",
-        errors=errors,
-    )
-    trt_arms: list[CartridgeArmSpec] = []
-    for idx, t_raw in enumerate(doc.get("treatment_arms", [])):
-        arm_obj = _build_arm_components(
-            t_raw,
+        if backend_id == "v8":
+            train_data = prepare_v8_training_data(
+                str(ds_doc.get("dataset_name", "D1")),
+                d1_worlds_per_family=d1_quota,
+                sample_limit_for_cpu=cpu_limit,
+            )
+            train_worlds = build_d1_training_dataset(quota_per_family=max(16, d1_quota)).worlds
+            kernel = V8EnvironmentKernel()
+        elif backend_id == "x1_s20":
+            from anra_v5.elendril.v8x.data import (
+                build_x1_d1h_training_dataset,
+                build_x1_d2_paired_dataset,
+            )
+            from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
+            from .adapters.x1_s20_adapter import prepare_x1_s20_canary_data
+
+            qpf = int(ds_doc.get("quota_per_family", 1 if cpu_canary else 512))
+            ctrl_obj = str(doc.get("control_arm", {}).get("recipe", {}).get("objective", "standard"))
+            use_paired = str(ds_doc.get("dataset_name", "")) in ("D2", "X1-D2") or ctrl_obj.startswith("PAIR")
+            if cpu_canary:
+                max_st = int(ds_doc.get("max_states", 16))
+                train_data, train_worlds = prepare_x1_s20_canary_data(
+                    objective="PAIR-EQ" if use_paired else "standard",
+                    quota_per_family=max(1, qpf),
+                    max_states=min(32, max_st),
+                )
+            else:
+                d1h = build_x1_d1h_training_dataset(quota_per_family=qpf)
+                train_worlds = d1h.worlds
+                train_data = build_x1_d2_paired_dataset(base_worlds=train_worlds) if use_paired else d1h
+            kernel = X1S20EnvironmentKernel()
+        else:
+            train_data, train_worlds = prepare_x1_rd2_training_data(num_groups=num_groups)
+            kernel = X1RD2EnvironmentKernel()
+
+        ctrl_arm = _build_arm_components(
+            doc.get("control_arm", {}),
             backend_id=backend_id,
-            is_control=False,
+            is_control=True,
             dataset_identity=train_data.data_identity,
-            arm_path=f"treatment_arms[{idx}]",
+            arm_path="control_arm",
             errors=errors,
+            allowed_model_keys=key_map["model"],
+            allowed_recipe_keys=key_map["recipe"],
         )
-        if arm_obj is not None:
-            trt_arms.append(arm_obj)
+        trt_arms = []
+        for idx, t_raw in enumerate(doc.get("treatment_arms", [])):
+            arm_obj = _build_arm_components(
+                t_raw,
+                backend_id=backend_id,
+                is_control=False,
+                dataset_identity=train_data.data_identity,
+                arm_path=f"treatment_arms[{idx}]",
+                errors=errors,
+                allowed_model_keys=key_map["model"],
+                allowed_recipe_keys=key_map["recipe"],
+            )
+            if arm_obj is not None:
+                trt_arms.append(arm_obj)
 
     root_hyps = _parse_hypotheses(doc.get("hypotheses"), "hypotheses", errors)
     root_falsifiers_raw = doc.get("falsifiers")
@@ -1100,7 +1245,13 @@ def _validate_and_compile(
             errors.append({"code": "INVALID_TYPED_CONTRAST", "field": f"typed_contrasts[{idx}]", "detail": str(exc)})
 
     if (fspecs or tcons) and not errors:
-        typed_audit = audit_typed_experimental_design(ctrl_arm, tuple(trt_arms), factors=tuple(fspecs), typed_contrasts=tuple(tcons))
+        typed_audit = audit_typed_experimental_design(
+            ctrl_arm,
+            tuple(trt_arms),
+            factors=tuple(fspecs),
+            typed_contrasts=tuple(tcons),
+            extra_arch_head_keys=extra_head_keys,
+        )
         if not typed_audit["passed"]:
             for v in typed_audit["violations"]:
                 errors.append({"code": str(v["code"]), "field": "typed_design", "detail": str(v)})
@@ -1113,42 +1264,45 @@ def _validate_and_compile(
         max_cuda_allocated_bytes=ex_doc.get("max_cuda_allocated_bytes"),
     )
 
-    eval_list: list[dict[str, Any]] = []
-    mh_list: list[dict[str, Any]] = []
-    probe_list: list[dict[str, Any]] = []
-    if backend_id == "x1_s20":
-        x1_splits = build_x1_eval_splits(
-            train_worlds=train_worlds,
-            dev_per_family=max(1, (eval_count + 11) // 12),
-            conf_per_family=max(1, (probe_count + 11) // 12),
-            depth_per_hop=max(1, (mh_count + 3) // 4),
-            milestone_per_family=1,
-        )
-        eval_list = list(x1_splits["dev_views"][:eval_count])
-        mh_cands = [w for w in x1_splits["depth_stress_views"] if int(w.get("hops", 1)) >= 2]
-        mh_list = (mh_cands or list(x1_splits["depth_stress_views"]))[:mh_count]
-        probe_list = list(x1_splits["conf_views"][:probe_count])
-    else:
-        seen_ids, seen_graphs = _probe_split_keys(train_worlds)
-        pool1 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset, quota_per_family=max(16, d1_quota)).worlds
-        pool2 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset + 53, quota_per_family=16).worlds
+    if not custom_built:
+        eval_list = []
+        mh_list = []
+        probe_list = []
+        if backend_id == "x1_s20":
+            from anra_v5.elendril.v8x.data import build_x1_eval_splits
 
-        for w in (*pool1, *pool2):
-            if int(w["renderer_template"]) != 0:
-                continue
-            wi, wg = _probe_split_keys([w])
-            if (wi & seen_ids) or (wg & seen_graphs):
-                continue
-            if len(eval_list) < eval_count:
-                eval_list.append(w)
-            elif len(mh_list) < mh_count:
-                mh_list.append(w)
-            elif len(probe_list) < probe_count:
-                probe_list.append(w)
-            else:
-                break
-            seen_ids |= wi
-            seen_graphs |= wg
+            x1_splits = build_x1_eval_splits(
+                train_worlds=train_worlds,
+                dev_per_family=max(1, (eval_count + 11) // 12),
+                conf_per_family=max(1, (probe_count + 11) // 12),
+                depth_per_hop=max(1, (mh_count + 3) // 4),
+                milestone_per_family=1,
+            )
+            eval_list = list(x1_splits["dev_views"][:eval_count])
+            mh_cands = [w for w in x1_splits["depth_stress_views"] if int(w.get("hops", 1)) >= 2]
+            mh_list = (mh_cands or list(x1_splits["depth_stress_views"]))[:mh_count]
+            probe_list = list(x1_splits["conf_views"][:probe_count])
+        else:
+            seen_ids, seen_graphs = _probe_split_keys(train_worlds, kernel=kernel)
+            pool1 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset, quota_per_family=max(16, d1_quota)).worlds
+            pool2 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset + 53, quota_per_family=16).worlds
+
+            for w in (*pool1, *pool2):
+                if int(w["renderer_template"]) != 0:
+                    continue
+                wi, wg = _probe_split_keys([w], kernel=kernel)
+                if (wi & seen_ids) or (wg & seen_graphs):
+                    continue
+                if len(eval_list) < eval_count:
+                    eval_list.append(w)
+                elif len(mh_list) < mh_count:
+                    mh_list.append(w)
+                elif len(probe_list) < probe_count:
+                    probe_list.append(w)
+                else:
+                    break
+                seen_ids |= wi
+                seen_graphs |= wg
 
     if len(eval_list) < eval_count or len(mh_list) < mh_count or len(probe_list) < probe_count:
         errors.append(
@@ -1342,7 +1496,7 @@ def planthir_doctor() -> dict[str, Any]:
     try:
         backends = list_backends()
         be_details = {}
-        for bid in ("v8", "x1_rd2", "x1_s20"):
+        for bid in sorted(backends):
             be = get_backend(bid)
             caps = be.capabilities()
             be_details[bid] = {
@@ -1379,7 +1533,7 @@ def planthir_doctor() -> dict[str, Any]:
     # 3. Declarative starter templates compile & validate cleanly
     tpl_status: dict[str, Any] = {}
     tpl_ok = True
-    for bid in ("v8", "x1_rd2", "x1_s20"):
+    for bid in sorted(list_backends()):
         try:
             doc = init_spec_template(backend_id=bid, canary=True)
             val = validate_spec_document(doc, canary_override=True)

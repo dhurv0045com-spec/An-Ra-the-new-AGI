@@ -302,3 +302,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-18 | Antigravity | Arm zero-edit X1 multi-session notebook and push solely to Elendril
 - Rebuilt `notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb` (`8c59dab4bf4c3f021f0c029816b20f5ff1b379e0345332c3ddd39c3907bd82ca`) pinned to `8e62ca0f2046c0f07910fdd20abee40508631227` with `OWNER_AUTHORIZED = True` and automatic `A0..D2` scheduling.
 - Fixed standalone import cycle in `anra_v5/elendril/v8x/data.py`, deleted extra branch `codex/v8-mechanism-lab` locally and remotely, and pushed solely to `origin/Elendril`.
+
+### 2026-11-18 | Antigravity | Sync Planthir v2 audit upgrades onto Elendril
+- Synced Planthir v2 (`a1be81f4`: `ExperimentModule`, `GenericExperimentTrainer`, `CampaignOrchestrator`, `PLANTHIR_BACKEND_MODULES`, kernel Gate 4 hooks, scheduler `cuda:0` remap, Hitchhiker fixes, and `agent.md` Path 1/Path 2 guide) onto `Elendril`.
+- Preserved all existing `Elendril` `v8`/`v8x` modules, campaign/export/notebook scripts, and notebooks.
+- Verified on CPU: `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU runs remain pending.

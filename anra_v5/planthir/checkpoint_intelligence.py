@@ -126,6 +126,18 @@ def _extract_arch_and_params(
     if not isinstance(meta, Mapping):
         meta = {}
 
+    if isinstance(meta.get("backend_id"), str):
+        try:
+            from .backend import get_backend
+
+            be = get_backend(meta["backend_id"])
+            if callable(getattr(be, "extract_checkpoint_metadata", None)):
+                extracted = be.extract_checkpoint_metadata(meta)  # type: ignore[attr-defined]
+                if extracted is not None:
+                    return extracted
+        except Exception:
+            pass
+
     if isinstance(meta.get("x1_model_spec"), Mapping):
         raw_x1 = meta["x1_model_spec"]
         if meta.get("schema") == "elendril-x1-s20-training-v1" or isinstance(raw_x1.get("base_spec"), Mapping):
@@ -284,6 +296,27 @@ def _instantiate_checkpoint_bundle(
     from anra_v5.elendril.v8x.evaluation import X1S20ObservablePolicy
     from anra_v5.elendril.v8x.models import build_x1_s20_model
     from .adapters.x1_rd2_adapter import X1ObservablePolicy, X1RD2Spec, build_x1_model
+
+    meta = sched.get("metadata", sched)
+    if isinstance(meta, Mapping) and isinstance(meta.get("backend_id"), str):
+        try:
+            from .backend import get_backend
+
+            be = get_backend(meta["backend_id"])
+            if callable(getattr(be, "restore_checkpoint_bundle", None)):
+                custom_res = be.restore_checkpoint_bundle(  # type: ignore[attr-defined]
+                    state=state,
+                    sched=sched,
+                    weights=weights,
+                    sha=sha,
+                    mode=mode,
+                    device=device,
+                    copy_enabled_override=copy_enabled_override,
+                )
+                if custom_res is not None:
+                    return custom_res
+        except Exception:
+            pass
 
     prog, arch, pcount, backend_spec, base_spec = _extract_arch_and_params(sched)
     if isinstance(backend_spec, X1ModelSpec):

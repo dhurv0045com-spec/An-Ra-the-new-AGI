@@ -128,10 +128,22 @@ def build_custody_receipt(
 
 
 def _build_kernel_for_backend(backend_id: str):
+    try:
+        from .backend import get_backend
+
+        be = get_backend(backend_id)
+        if callable(getattr(be, "create_kernel", None)):
+            return be.create_kernel()  # type: ignore[attr-defined]
+    except Exception:
+        pass
     if backend_id == "x1_rd2":
         from .adapters.x1_rd2_adapter import X1RD2EnvironmentKernel
 
         return X1RD2EnvironmentKernel()
+    if backend_id == "x1_s20":
+        from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
+
+        return X1S20EnvironmentKernel()
     from .adapters.v8_adapter import V8EnvironmentKernel
 
     return V8EnvironmentKernel()
@@ -148,6 +160,7 @@ def independent_replay_bundle(
     accuracy_tolerance: float = 0.0,
     output_path: Path | str | None = None,
     independent_environment: bool = False,
+    reference_predictions: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Restore an exported bundle into an isolated temp workspace and independently replay checkpoints & checks."""
 
@@ -227,6 +240,7 @@ def independent_replay_bundle(
                 if int(w.get("renderer_template", 0)) == 0
             )[:4]
 
+        agreement_statuses: list[str] = []
         for lineage_id, rec in sorted(latest_by_lineage.items()):
             loaded = CheckpointCatalog.load_checkpoint_for_causal_probing(
                 rec,
@@ -236,7 +250,15 @@ def independent_replay_bundle(
             try:
                 model = loaded["model"]
                 policy = loaded["policy"]
-                backend_id = "x1_rd2" if hasattr(model, "x1_spec") else "v8"
+                backend_id = str(loaded.get("backend_id") or "")
+                if not backend_id:
+                    prog_fam = str(loaded.get("program_family", ""))
+                    if hasattr(model, "x1_spec"):
+                        backend_id = "x1_s20" if getattr(getattr(model, "x1_spec", None), "base_spec", None) is not None else "x1_rd2"
+                    elif prog_fam.startswith("V8") or not prog_fam:
+                        backend_id = "v8"
+                    else:
+                        backend_id = prog_fam
                 kernel = _build_kernel_for_backend(backend_id)
                 obs_list = [kernel.observe(kernel.initial_state(w)) for w in eval_worlds]
                 props = [policy.propose_with_telemetry(o) for o in obs_list]
@@ -246,8 +268,13 @@ def independent_replay_bundle(
                     defects.append(f"NONFINITE_REPLAY_HIDDEN:{lineage_id}")
 
                 correct = 0
-                for w in eval_worlds:
+                replayed_cases: dict[str, dict[str, Any]] = {}
+                world_by_id = {str(w.get("world_id", idx)): w for idx, w in enumerate(eval_worlds)}
+                for idx, w in enumerate(eval_worlds):
+                    wid = str(w.get("world_id", idx))
                     st = kernel.initial_state(w)
+                    init_obs = kernel.observe(st)
+                    init_sha = sha256(init_obs.rendered_text.encode("utf-8")).hexdigest()
                     actions: list[tuple[str, str | None]] = []
                     for _ in range(4):
                         if getattr(st, "terminal", False):
@@ -259,9 +286,72 @@ def independent_replay_bundle(
                     res = kernel.verify(w, actions)
                     if res.get("correct"):
                         correct += 1
+                    first_op, first_arg = actions[0] if actions else ("INVALID", None)
+                    replayed_cases[wid] = {
+                        "world_id": wid,
+                        "rendered_input_sha256": init_sha,
+                        "operation": first_op,
+                        "argument": first_arg,
+                        "correct": bool(res.get("correct")),
+                    }
                 replay_acc = float(correct / max(len(eval_worlds), 1))
 
-                # Compare exact parameter count and any matched summary accuracy when worlds match
+                ref_rows: Sequence[Mapping[str, Any]] | None = None
+                if reference_predictions is not None:
+                    ref_rows = reference_predictions.get(lineage_id)
+                    if ref_rows is None:
+                        for exp_doc in recorded_summaries.values():
+                            if str(exp_doc.get("lineage_id", "")) == lineage_id:
+                                ref_rows = reference_predictions.get(str(exp_doc.get("experiment_id", "")))
+                if ref_rows is None:
+                    for exp_doc in recorded_summaries.values():
+                        if exp_doc.get("reference_predictions") and (
+                            str(exp_doc.get("checkpoint_sha256", "")) == rec.checkpoint_sha256
+                            or str(exp_doc.get("lineage_id", "")) == lineage_id
+                        ):
+                            ref_rows = exp_doc["reference_predictions"]
+                            break
+
+                if ref_rows is not None:
+                    case_mismatches: list[dict[str, Any]] = []
+                    for ref in ref_rows:
+                        r_wid = str(ref.get("world_id", ""))
+                        if r_wid not in replayed_cases:
+                            if r_wid in world_by_id:
+                                case_mismatches.append({"world_id": r_wid, "reason": "UNREPLAYED_CASE"})
+                            else:
+                                case_mismatches.append({"world_id": r_wid, "reason": "MISSING_REFERENCE_CASE"})
+                            continue
+                        got_c = replayed_cases[r_wid]
+                        if ref.get("rendered_input_sha256") and ref["rendered_input_sha256"] != got_c["rendered_input_sha256"]:
+                            case_mismatches.append({"world_id": r_wid, "reason": "RENDERED_INPUT_HASH_MISMATCH"})
+                        elif (str(ref.get("operation")), ref.get("argument")) != (got_c["operation"], got_c["argument"]):
+                            case_mismatches.append({
+                                "world_id": r_wid,
+                                "reason": "PREDICTION_MISMATCH",
+                                "expected": [ref.get("operation"), ref.get("argument")],
+                                "observed": [got_c["operation"], got_c["argument"]],
+                            })
+                    orig_agree = {
+                        "status": "MATCHED" if not case_mismatches else "MISMATCH",
+                        "matched": len(case_mismatches) == 0,
+                        "checked_cases": len(ref_rows),
+                        "mismatches": case_mismatches,
+                    }
+                    if case_mismatches:
+                        defects.append(f"ORIGINAL_PREDICTION_MISMATCH:{lineage_id}")
+                        agreement_statuses.append("MISMATCH")
+                    else:
+                        agreement_statuses.append("MATCHED")
+                else:
+                    orig_agree = {
+                        "status": "PROBE_ONLY_NO_REFERENCE",
+                        "matched": None,
+                        "checked_cases": 0,
+                        "mismatches": [],
+                    }
+                    agreement_statuses.append("PROBE_ONLY_NO_REFERENCE")
+
                 actual_params = sum(int(p.numel()) for p in model.parameters())
                 lineage_reports.append(
                     {
@@ -271,11 +361,14 @@ def independent_replay_bundle(
                         "backend_id": backend_id,
                         "architecture": rec.architecture,
                         "parameter_count": actual_params,
+                        "restore_verified": bool(restored.get("verified")),
                         "probe_worlds": len(obs_list),
                         "operations": [p.operation for p in props],
                         "hidden_shape": list(reps.shape),
                         "finite_hidden": finite_hidden,
                         "replay_probe_accuracy": replay_acc,
+                        "probe_accuracy": replay_acc,
+                        "original_prediction_agreement": orig_agree,
                     }
                 )
             finally:
@@ -283,11 +376,20 @@ def independent_replay_bundle(
                 if torch.device(device).type == "cuda" and torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
+    if any(s == "MISMATCH" for s in agreement_statuses):
+        overall_agreement = "MISMATCH"
+    elif agreement_statuses and all(s == "MATCHED" for s in agreement_statuses):
+        overall_agreement = "MATCHED"
+    else:
+        overall_agreement = "PROBE_ONLY_NO_REFERENCE"
+
     verified = len(defects) == 0
     receipt = {
         "schema": "anra-planthir-replay-receipt-v1",
         "verified": verified,
         "status": "REPLAY_VERIFIED" if verified else "REPLAY_FAILED",
+        "restore_verified": bool(not any(d == "RESTORE_FULL_CHECKPOINT_ZIP_UNVERIFIED" for d in defects)),
+        "prediction_agreement_status": overall_agreement,
         "independent_environment": bool(independent_environment),
         "accuracy_tolerance": float(accuracy_tolerance),
         "bundle_root": str(Path(bundle_dir)),

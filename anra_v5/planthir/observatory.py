@@ -74,8 +74,16 @@ def compute_representation_isotropy(hidden: torch.Tensor) -> dict[str, float | N
     return {"mean_offdiag_cosine": mean_offdiag, "isotropy": max(0.0, min(1.0, isotropy))}
 
 
-def classify_parameter_group(param_name: str) -> str:
+def classify_parameter_group(param_name: str, custom_map: Mapping[str, str] | None = None) -> str:
     """Map parameter names across architectures into universal functional groups."""
+
+    if custom_map:
+        if param_name in custom_map:
+            return str(custom_map[param_name])
+        low_orig = param_name.lower()
+        for pat, grp in custom_map.items():
+            if pat.lower() in low_orig or param_name.startswith(pat):
+                return str(grp)
 
     low = param_name.lower()
     if "embed" in low or low.startswith(("token_emb.", "pos_emb.")):

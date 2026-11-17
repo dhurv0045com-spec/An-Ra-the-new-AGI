@@ -347,8 +347,8 @@ def _validate_cartridge(
     from .causal import _probe_split_keys
 
     def _assert_disjoint_probe_worlds(left: Sequence[Mapping[str, Any]], right: Sequence[Mapping[str, Any]]) -> None:
-        li, lg = _probe_split_keys(left)
-        ri, rg = _probe_split_keys(right)
+        li, lg = _probe_split_keys(left, kernel=cartridge.kernel)
+        ri, rg = _probe_split_keys(right, kernel=cartridge.kernel)
         if li & ri or lg & rg:
             raise ValueError("training/probe and evaluation worlds must be structurally disjoint")
 
