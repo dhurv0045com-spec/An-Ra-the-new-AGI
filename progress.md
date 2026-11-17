@@ -263,3 +263,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added `anra_v5/palantiri/__init__.py` and `__main__.py` re-exporting `anra_v5.planthir`, and registered `palantiri` script + package discovery in `pyproject.toml`.
 - Updated `agent.md` and `research/planthir/agent.md` with Section 0 (exact one-sentence voice-prompt protocol) and cross-branch `origin/palantiri` install instructions.
 - Verified `python -m anra_v5.palantiri doctor`, `calibrate`, tree/curation/CLI suites, and `tools.verify_elendril_evidence`; pushed both `origin/planthir` and `origin/palantiri`.
+
+### 2026-11-18 | Antigravity | Fix cross-branch prompt protocol in agent.md and add planter alias
+- Removed the mistaken branch-rename sentence from `agent.md` and `research/planthir/agent.md`, replacing Section 0 with parameterized `origin/<source-branch>` instructions (e.g. `hitchhiker`, `Elendril`).
+- Added `anra_v5/planter/__init__.py` + `__main__.py`, registered `planter` in `pyproject.toml`, and updated `tests/test_planthir_declarative_cli_and_usability.py` to enforce alias parity and prompt cleanup.
+- Verified `tests/test_elendril_tree.py`, `tests/test_planthir_declarative_cli_and_usability.py`, and `python -m anra_v5.planter doctor` on CPU (`GREEN_SIGNAL`); GPU runs remain pending.

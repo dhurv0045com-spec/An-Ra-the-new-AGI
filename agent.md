@@ -1,91 +1,94 @@
-# Palantiri (`anra_v5.palantiri` / `anra_v5.planthir`) — Agent Operating & Installation Guide
+# Planthir / Palantiri (`anra_v5.planthir` / `anra_v5.palantiri` / `anra_v5.planter`) — Agent Guide
 
-> **Canonical Manual:** Copy-paste guide for any AI agent installing, verifying, or running controlled experiments with **Palantiri** (aliases: `anra_v5.palantiri`, `anra_v5.planthir`, branches `palantiri` and `planthir`). Follow root [AGENTS.md](AGENTS.md) at all times. Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity studies.
+> **Canonical Manual:** Guide for any AI agent installing, verifying, or running controlled experiments with the **Planthir** experiment system (aliases: `planthir`, `palantiri`, `planter`; Python modules `anra_v5.planthir`, `anra_v5.palantiri`, `anra_v5.planter`). Follow root [AGENTS.md](AGENTS.md) at all times. Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity studies.
 
 ---
 
-## 0. One-Sentence User Prompt Protocol (Read First)
+## 0. Cross-Branch Prompt Protocol (Read First)
 
-When the user gives the standard one-sentence experiment command in any branch:
+The **technology name** (`planthir` / `palantiri` / `planter`) is independent of the **Git branch name** (for example `hitchhiker`, `Elendril`, `palantiri`, or `planthir`).
 
-> **"Use the technology palantiri from the branch. Change the branch name into something different from this branch. Make this experiment with the help of the technology palantiri."**
+When the user asks you in natural language to run an experiment using a named branch — for example:
+
+> **"Use the technology planthir (or planter / palantiri) from the branch `hitchhiker` (or `Elendril`) to perform the experiment."**
 
 Execute these exact steps immediately without asking redundant questions:
 
-1. **Create a new branch so you never mutate the current branch directly:**
+1. **Identify `<source-branch>` from the user's request** (e.g. `hitchhiker`, `Elendril`, `palantiri`, or `planthir`) and **work on an experiment branch** (do not mutate the reference branch directly unless instructed):
    ```bash
    git checkout -b exp/<short-experiment-name>
    ```
-2. **Pull Palantiri only if `anra_v5/palantiri` is not already present in the current branch:**
-   - **Bash / Linux / Colab / Kaggle:**
-     ```bash
-     git fetch origin palantiri
-     git checkout origin/palantiri -- anra_v5/palantiri anra_v5/planthir anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
-     ```
-   - **Windows PowerShell:**
-     ```powershell
-     git fetch origin palantiri
-     git checkout origin/palantiri -- anra_v5/palantiri anra_v5/planthir anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
-     ```
+2. **Pull the technology files from `origin/<source-branch>` if `anra_v5/planthir` is absent (or older) in the current branch:**
+   ```bash
+   git fetch origin <source-branch>
+   git checkout origin/<source-branch> -- anra_v5/planthir anra_v5/palantiri anra_v5/planter anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
+   ```
+   For example, for `<source-branch> = hitchhiker`:
+   ```bash
+   git fetch origin hitchhiker
+   git checkout origin/hitchhiker -- anra_v5/planthir anra_v5/palantiri anra_v5/planter anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
+   ```
+   *(If you are already on `hitchhiker`, `Elendril`, `palantiri`, or `planthir`, these files are already installed locally.)*
 3. **Run preflight self-checks (`GREEN_SIGNAL` + `6/6` fault calibration):**
    ```bash
-   python -m anra_v5.palantiri doctor
-   python -m anra_v5.palantiri calibrate
+   python -m anra_v5.planthir doctor
+   python -m anra_v5.planthir calibrate
    ```
+   *(Equivalent aliases: `python -m anra_v5.palantiri` or `python -m anra_v5.planter`.)*
 4. **Author & validate only the experiment delta in a data-only JSON spec (`anra-planthir-spec-v1`):**
    ```bash
-   python -m anra_v5.palantiri init --backend x1_rd2 --out spec.json   # or --backend v8
+   python -m anra_v5.planthir init --backend x1_rd2 --out spec.json   # or --backend v8
    # Edit ONLY the contrast / architecture / recipe delta in spec.json
-   python -m anra_v5.palantiri validate --spec spec.json --canary
-   python -m anra_v5.palantiri run --spec spec.json --work-root runs/exp1 --canary
+   python -m anra_v5.planthir validate --spec spec.json --canary
+   python -m anra_v5.planthir run --spec spec.json --work-root runs/exp1 --canary
    ```
 5. **For GPU production runs (`--device cuda:0 --no-canary`):** commit tracked changes first (`git status --porcelain --untracked-files=no` must be clean), set `"source_commit": "HEAD"`, `"device": "cuda:0"`, `"cpu_canary": false`, `"sample_limit_for_cpu": null`, then run, verify custody, and replay:
    ```bash
-   python -m anra_v5.palantiri verify-bundle --bundle-dir runs/exp1/result_bundle
-   python -m anra_v5.palantiri replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json
+   python -m anra_v5.planthir verify-bundle --bundle-dir runs/exp1/result_bundle
+   python -m anra_v5.planthir replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json
    ```
 
 ---
 
 ## 1. Quick Install & Cross-Branch Setup
 
-Palantiri lives at `anra_v5/palantiri/` and `anra_v5/planthir/` (CLI scripts `palantiri` and `planthir` in `pyproject.toml`). Both `python -m anra_v5.palantiri` and `python -m anra_v5.planthir` execute the identical engine, binding into AN-RA's `anra_v5/elendril/` (including the `enforce_tool_consumption=True` evaluator fix) and `v5_*` runtime modules.
+The technology lives at `anra_v5/planthir/` (with CLI/module aliases `anra_v5/palantiri/` and `anra_v5/planter/`, and console scripts `planthir`, `palantiri`, `planter` in `pyproject.toml`), binding into AN-RA's `anra_v5/elendril/` (including the `enforce_tool_consumption=True` evaluator fix) and `v5_*` runtime modules. It is pre-installed on `hitchhiker`, `Elendril`, `palantiri`, and `planthir`.
 
-### Method A — Branch Directly from `palantiri` (or `Elendril` / `hitchhiker`)
+### Method A — Branch Directly from Any Pre-Installed Branch (`hitchhiker`, `Elendril`, `palantiri`, `planthir`)
 
 ```bash
-git fetch origin palantiri
-git checkout -b exp/my-new-experiment origin/palantiri
+git fetch origin <source-branch>
+git checkout -b exp/my-new-experiment origin/<source-branch>
 pip install -e . --no-build-isolation --no-deps   # optional if using PYTHONPATH=.
-python -m anra_v5.palantiri doctor
+python -m anra_v5.planthir doctor
 ```
 
-### Method B — Copy Palantiri into Any Older / Custom Branch
+### Method B — Copy the Technology into Any Older / Custom Branch
 
 - **Bash / Linux / Colab / Kaggle:**
   ```bash
-  git fetch origin palantiri
-  git checkout origin/palantiri -- \
-    anra_v5/palantiri anra_v5/planthir \
+  git fetch origin <source-branch>
+  git checkout origin/<source-branch> -- \
+    anra_v5/planthir anra_v5/palantiri anra_v5/planter \
     anra_v5/elendril \
     v5_contracts v5_evaluation v5_model v5_training \
     pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json \
     agent.md research/planthir tests/test_planthir_*.py
   pip install -e . --no-build-isolation --no-deps
-  python -m anra_v5.palantiri doctor
+  python -m anra_v5.planthir doctor
   ```
 
 - **Windows PowerShell:**
   ```powershell
-  git fetch origin palantiri
-  git checkout origin/palantiri -- `
-    anra_v5/palantiri anra_v5/planthir `
+  git fetch origin <source-branch>
+  git checkout origin/<source-branch> -- `
+    anra_v5/planthir anra_v5/palantiri anra_v5/planter `
     anra_v5/elendril `
     v5_contracts v5_evaluation v5_model v5_training `
     pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json `
     agent.md research/planthir tests/test_planthir_*.py
   $env:PYTHONPATH = "."
-  python -m anra_v5.palantiri doctor
+  python -m anra_v5.planthir doctor
   ```
 
 > **Green Signal Gate:** Stop immediately if `python -m anra_v5.palantiri doctor` exits `1` or reports `"green_signal": false`. On Windows/CPU setups without editable install, prefix Python commands with `PYTHONPATH=.` (Bash) or `$env:PYTHONPATH="."` (PowerShell).
