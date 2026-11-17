@@ -106,6 +106,7 @@ from .evidence import (
 from .instrument import (
     audit_sampled_strata,
     run_fault_injection_suite,
+    run_scientific_shortcut_calibration,
     validate_environment_kernel,
     validate_metric_aggregator,
     validate_model_and_gradients,
@@ -281,6 +282,7 @@ __all__ = [
     "run_oracle_information_intervention",
     "run_representation_linear_probe",
     "run_scheduled_workers",
+    "run_scientific_shortcut_calibration",
     "run_subgoal_hop_decomposition",
     "run_surgical_mechanism_ablation",
     "run_validation_study",

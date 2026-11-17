@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import uuid
 from typing import Any, Iterator
 
@@ -27,6 +28,23 @@ def _sync_dir(path: Path) -> None:
             os.close(fd)
 
 
+def _atomic_replace(src: str | Path, dst: str | Path) -> None:
+    """Replace `dst` with `src`, retrying brief Windows AV/indexer file locks."""
+    if os.name != "nt":
+        os.replace(src, dst)
+        return
+    last_exc: PermissionError | None = None
+    for attempt in range(6):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as exc:
+            last_exc = exc
+            time.sleep(0.02 * (attempt + 1))
+    assert last_exc is not None
+    raise last_exc
+
+
 def _atomic_write(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
@@ -35,7 +53,7 @@ def _atomic_write(path: Path, content: bytes) -> None:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(name, path)
+        _atomic_replace(name, path)
         _sync_dir(path.parent)
     finally:
         if os.path.exists(name):

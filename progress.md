@@ -283,3 +283,8 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Synced Planthir v2 (`a1be81f4`: `ExperimentModule`, `GenericExperimentTrainer`, `CampaignOrchestrator`, `PLANTHIR_BACKEND_MODULES`, kernel Gate 4 hooks, scheduler `cuda:0` remap, and Hitchhiker audit fixes) plus `v8`/`v8x` modules onto `hitchhiker`.
 - Preserved all Hitchhiker/Y1 archives, `research/hitchhiker/BRANCH_AND_PALANTIRI_AUDIT.md`, and `tools/audit_query_bridge_crossover.py`.
 - Verified on CPU: `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU runs remain pending.
+
+### 2026-11-18 | Antigravity | Sync strict Hitchhiker audit fixes and shortcut calibration
+- Synced `28831541` Planthir updates (`replay.py` case/decoder join + tolerance, `registry.py` `status_events_sha256`, `design.py` zero-variance sign-flip inference, `x1_rd2_adapter.py`/`agent_tools.py` balanced strata, `instrument.py` shortcut calibration, `productivity.py` error-detection timing, and `execution.py`/`evidence.py` `_atomic_replace`).
+- Preserved Hitchhiker/Y1 archives, `research/hitchhiker/BRANCH_AND_PALANTIRI_AUDIT.md`, and `tools/audit_query_bridge_crossover.py`.
+- Verified on CPU via `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU runs remain pending.

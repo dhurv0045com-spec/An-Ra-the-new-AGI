@@ -626,7 +626,7 @@ def _counterfactual_world(world: Mapping[str, Any]) -> dict[str, Any]:
     w = deepcopy(dict(world))
     w["world_id"] = f"{world['world_id']}::cf"
     exp = w["hidden"]["expected"]
-    if exp in SYMBOLS:
+    if isinstance(exp, str) and exp in SYMBOLS:
         alt = SYMBOLS[(SYMBOLS.index(exp) + 1) % len(SYMBOLS)]
         w["hidden"]["expected"] = alt
         for row in list(w["initial_facts"]) + list(w["hidden"]["query_payload"]) + list(w["hidden"]["memory_payload"]):
@@ -641,13 +641,27 @@ def prepare_x1_rd2_training_data(
     max_length: int = 640,
     seed: int = 8100,
 ) -> tuple[X1RD2TrainingData, tuple[dict[str, Any], ...]]:
-    """Build deterministic D2 4-view groups rendered by X1RD2EnvironmentKernel."""
+    """Build deterministic D2 4-view groups stratified across canonical operations (ANSWER/QUERY/RETRIEVE/ABSTAIN)."""
 
     from anra_v5.elendril.v8.data import build_d1_training_dataset
 
     d1 = build_d1_training_dataset(seed=seed, quota_per_family=16)
-    selected_worlds = [dict(w) for w in d1.worlds[:num_groups]]
     kernel = X1RD2EnvironmentKernel()
+    buckets: dict[str, list[dict[str, Any]]] = {"ANSWER": [], "QUERY": [], "RETRIEVE": [], "ABSTAIN": []}
+    for raw_w in d1.worlds:
+        op0, _ = kernel.ideal_action(kernel.initial_state(raw_w))
+        buckets.setdefault(op0, []).append(dict(raw_w))
+
+    selected_worlds: list[dict[str, Any]] = []
+    op_cycle = ("ANSWER", "QUERY", "RETRIEVE", "ABSTAIN")
+    while len(selected_worlds) < num_groups:
+        progressed = False
+        for op_name in op_cycle:
+            if buckets[op_name] and len(selected_worlds) < num_groups:
+                selected_worlds.append(buckets[op_name].pop(0))
+                progressed = True
+        if not progressed:
+            break
     answer_marker_id = UTF8.special(SpecialToken.ANSWER)
 
     def _to_sample(w: Mapping[str, Any], gid: str, view_kind: str) -> X1D2Sample:
@@ -694,6 +708,11 @@ def prepare_x1_rd2_training_data(
             )
         )
 
+    op_names = {0: "ANSWER", 1: "QUERY", 2: "RETRIEVE", 3: "ABSTAIN"}
+    can_op_counts: dict[str, int] = {}
+    for g in groups:
+        op_label = op_names.get(int(g.samples[0].gold_op), "UNKNOWN")
+        can_op_counts[op_label] = can_op_counts.get(op_label, 0) + 1
     manifest = {
         "schema": "anra-x1-d2-data-v1",
         "dataset": "X1-D2",
@@ -701,6 +720,14 @@ def prepare_x1_rd2_training_data(
         "group_count": len(groups),
         "sample_count": sum(len(g.samples) for g in groups),
         "world_ids": [str(w["world_id"]) for w in selected_worlds],
+        "sampled_strata": {
+            "canonical_operation_counts": dict(sorted(can_op_counts.items())),
+            "interactive_claim_eligible": bool(
+                can_op_counts.get("ANSWER", 0) > 0
+                and (can_op_counts.get("QUERY", 0) + can_op_counts.get("RETRIEVE", 0)) > 0
+                and can_op_counts.get("ABSTAIN", 0) > 0
+            ),
+        },
         "groups_sha256": digest([asdict(g) for g in groups]),
     }
     data = X1RD2TrainingData(
