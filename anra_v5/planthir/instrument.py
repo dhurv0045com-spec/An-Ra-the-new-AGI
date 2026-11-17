@@ -762,7 +762,59 @@ def validate_nonanticipating_teacher(
     }
 
 
+_DEFAULT_OP_NAMES = {0: "ANSWER", 1: "QUERY", 2: "RETRIEVE", 3: "ABSTAIN"}
+
+
+def audit_sampled_strata(
+    records_or_worlds: Sequence[Any],
+    *,
+    kernel: EnvironmentKernel | None = None,
+    required_operations: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Audit operation & family counts on the exact truncated/sampled dataset used for training or eval."""
+
+    op_counts: dict[str, int] = {}
+    family_counts: dict[str, int] = {}
+    for item in records_or_worlds:
+        op_name: str | None = None
+        fam_name = "unknown"
+        if isinstance(item, Mapping):
+            fam_name = str(item.get("family", item.get("schema", "unknown")))
+            raw_op = item.get("ideal_operation", item.get("target_op", item.get("gold_op")))
+            if isinstance(raw_op, int):
+                op_name = _DEFAULT_OP_NAMES.get(raw_op, f"OP_{raw_op}")
+            elif isinstance(raw_op, str) and raw_op:
+                op_name = raw_op
+            elif kernel is not None:
+                st = kernel.initial_state(item)
+                op_name = str(kernel.ideal_action(st)[0])
+        else:
+            fam_name = str(getattr(item, "family", getattr(item, "task_family", "unknown")))
+            raw_op = getattr(item, "gold_op", getattr(item, "target_op", None))
+            if isinstance(raw_op, int):
+                op_name = _DEFAULT_OP_NAMES.get(raw_op, f"OP_{raw_op}")
+            elif isinstance(raw_op, str) and raw_op:
+                op_name = raw_op
+        key_op = op_name or "UNKNOWN"
+        op_counts[key_op] = op_counts.get(key_op, 0) + 1
+        family_counts[fam_name] = family_counts.get(fam_name, 0) + 1
+
+    missing_ops = [op for op in required_operations if op_counts.get(str(op), 0) <= 0]
+    passed = len(records_or_worlds) > 0 and len(missing_ops) == 0
+    return {
+        "schema": "anra-planthir-sampled-strata-audit-v1",
+        "passed": passed,
+        "status": "STRATA_OK" if passed else "STRATA_DEFECT",
+        "total_items": len(records_or_worlds),
+        "operation_counts": dict(sorted(op_counts.items())),
+        "family_counts": dict(sorted(family_counts.items())),
+        "required_operations": [str(x) for x in required_operations],
+        "missing_required_operations": missing_ops,
+    }
+
+
 __all__ = [
+    "audit_sampled_strata",
     "run_fault_injection_suite",
     "validate_environment_kernel",
     "validate_metric_aggregator",

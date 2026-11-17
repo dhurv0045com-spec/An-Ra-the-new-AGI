@@ -10,9 +10,30 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from .execution import _atomic_write, _sync_dir
+
+
+def _remap_cuda_command_args(cmd: Sequence[str], *, child_device: str = "cuda:0") -> list[str]:
+    """Rewrite child CLI `--device cuda:N` flags to `cuda:0` once CUDA_VISIBLE_DEVICES pins one GPU."""
+
+    out: list[str] = []
+    i = 0
+    items = [str(x) for x in cmd]
+    while i < len(items):
+        tok = items[i]
+        if tok == "--device" and i + 1 < len(items) and items[i + 1].startswith("cuda:"):
+            out.extend(["--device", child_device])
+            i += 2
+            continue
+        if tok.startswith("--device=cuda:"):
+            out.append(f"--device={child_device}")
+            i += 1
+            continue
+        out.append(tok)
+        i += 1
+    return out
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,11 +147,17 @@ class IndependentWorkerScheduler:
         coordinator_root: Path | str,
         max_parallel: int | None = None,
         allow_shared_cuda_device: bool = False,
+        remap_child_cuda_device: bool = True,
+        in_process_runner: Callable[[WorkerJobSpec, Mapping[str, str], Sequence[str]], int | Mapping[str, Any]]
+        | Callable[[WorkerJobSpec], int | Mapping[str, Any]]
+        | None = None,
     ) -> None:
         self.coordinator_root = Path(coordinator_root)
         self.coordinator_root.mkdir(parents=True, exist_ok=True)
         self.max_parallel = max_parallel
         self.allow_shared_cuda_device = allow_shared_cuda_device
+        self.remap_child_cuda_device = bool(remap_child_cuda_device)
+        self.in_process_runner = in_process_runner
 
     def _run_one(self, job: WorkerJobSpec, *, log_dir: Path) -> dict[str, Any]:
         wroot = Path(job.work_root).resolve()
@@ -146,24 +173,47 @@ class IndependentWorkerScheduler:
         env["PLANTHIR_WORKER_LOCK_PATH"] = str(lock.lock_path)
         if str(job.device).startswith("cuda:"):
             env.setdefault("CUDA_VISIBLE_DEVICES", str(job.device).split(":", 1)[1])
+            env["PLANTHIR_VISIBLE_CUDA_DEVICE"] = "cuda:0"
+            if self.remap_child_cuda_device:
+                cmd = _remap_cuda_command_args(cmd, child_device="cuda:0")
 
         try:
-            proc = subprocess.run(
-                cmd,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=job.timeout_seconds,
-                check=False,
-            )
+            if self.in_process_runner is not None:
+                import inspect
+
+                sig = inspect.signature(self.in_process_runner)
+                if len(sig.parameters) >= 3:
+                    raw_res = self.in_process_runner(job, env, cmd)  # type: ignore[misc]
+                else:
+                    raw_res = self.in_process_runner(job)  # type: ignore[call-arg]
+                if isinstance(raw_res, Mapping):
+                    exit_code = int(raw_res.get("exit_code", 0))
+                    stdout_text = str(raw_res.get("stdout", ""))
+                    stderr_text = str(raw_res.get("stderr", ""))
+                else:
+                    exit_code = int(raw_res)
+                    stdout_text = ""
+                    stderr_text = ""
+            else:
+                proc = subprocess.run(
+                    cmd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=job.timeout_seconds,
+                    check=False,
+                )
+                exit_code = int(proc.returncode)
+                stdout_text = proc.stdout
+                stderr_text = proc.stderr
             dt = round(float(time.perf_counter() - t0), 6)
             log_text = (
                 f"$ {' '.join(cmd)}\n"
-                f"--- STDOUT ---\n{proc.stdout}\n"
-                f"--- STDERR ---\n{proc.stderr}\n"
+                f"--- STDOUT ---\n{stdout_text}\n"
+                f"--- STDERR ---\n{stderr_text}\n"
             )
             log_path.write_text(log_text, encoding="utf-8", errors="replace")
-            status = "SUCCEEDED" if proc.returncode == 0 else "FAILED"
+            status = "SUCCEEDED" if exit_code == 0 else "FAILED"
             resource_receipt = wroot / "RESOURCE_RECEIPT.json"
             res_summary = None
             if resource_receipt.is_file():
@@ -174,14 +224,15 @@ class IndependentWorkerScheduler:
             return {
                 "worker_id": job.worker_id,
                 "status": status,
-                "exit_code": int(proc.returncode),
+                "exit_code": exit_code,
                 "work_root": str(wroot),
                 "device": str(job.device),
+                "visible_cuda_device": env.get("PLANTHIR_VISIBLE_CUDA_DEVICE", str(job.device)),
                 "command": cmd,
                 "wall_seconds": dt,
                 "log_path": str(log_path),
-                "stdout_tail": proc.stdout[-1000:],
-                "stderr_tail": proc.stderr[-1000:],
+                "stdout_tail": stdout_text[-1000:],
+                "stderr_tail": stderr_text[-1000:],
                 "resource_receipt_path": str(resource_receipt) if resource_receipt.is_file() else None,
                 "resource_summary": (
                     {

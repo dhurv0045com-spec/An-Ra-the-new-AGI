@@ -74,15 +74,44 @@ def compute_representation_isotropy(hidden: torch.Tensor) -> dict[str, float | N
     return {"mean_offdiag_cosine": mean_offdiag, "isotropy": max(0.0, min(1.0, isotropy))}
 
 
-def classify_parameter_group(param_name: str) -> str:
+def classify_parameter_group(param_name: str, custom_map: Mapping[str, str] | None = None) -> str:
     """Map parameter names across architectures into universal functional groups."""
 
+    if custom_map:
+        if param_name in custom_map:
+            return str(custom_map[param_name])
+        low_orig = param_name.lower()
+        for pat, grp in custom_map.items():
+            if pat.lower() in low_orig or param_name.startswith(pat):
+                return str(grp)
+
     low = param_name.lower()
-    if "embed" in low:
+    if "embed" in low or low.startswith(("token_emb.", "pos_emb.")):
         return "embedding"
-    if any(k in low for k in ("q_proj", "k_proj", "gate", "mem")):
+    if any(
+        k in low
+        for k in (
+            "q_proj",
+            "k_proj",
+            "gate",
+            "mem",
+            "tok_ln",
+            "tok_proj",
+            "slots_init",
+            "slot_",
+            "agg_",
+            "rel_",
+            "edge_",
+            "msg_",
+            "noedge_",
+            "goal_q_proj",
+            "read_ln",
+            "r_to_ptr",
+            "cap_r_",
+        )
+    ):
         return "pointer_or_memory"
-    if any(k in low for k in ("u_q", "u_k", "u_v", "u_out", "u_gru", "recur")):
+    if any(k in low for k in ("u_q", "u_k", "u_v", "u_out", "u_gru", "recur", "u_blocks")):
         return "recurrent"
     if any(k in low for k in ("head", "cap_in", "cap_out", "joint_head", "op_head", "val_head")):
         return "head"

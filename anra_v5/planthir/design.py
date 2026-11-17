@@ -147,6 +147,8 @@ _ARCH_HEAD_KEYS = {
     "agg_iterations",
     "msg_iterations",
     "cap_hidden_dim",
+    "cap_r_hidden",
+    "noedge_mlp_dim",
     "output_mapping",
     "policy_interface",
 }
@@ -158,10 +160,12 @@ def _factor_diffs(
     trt: Mapping[str, Any],
     *,
     declared_factor: str | None = None,
+    extra_arch_head_keys: Sequence[str] = (),
 ) -> list[str]:
     changed: list[str] = []
     arch_changed = ctrl.get("architecture") != trt.get("architecture")
     obj_changed = ctrl.get("objective") != trt.get("objective")
+    head_keys = _ARCH_HEAD_KEYS | {str(x) for x in extra_arch_head_keys}
     keys = sorted(set(ctrl) | set(trt))
     for k in keys:
         if k == "model_config":
@@ -173,7 +177,7 @@ def _factor_diffs(
                         continue
                     if c_cfg.get(mk) == t_cfg.get(mk):
                         continue
-                    if mk == "architecture" or (arch_changed and mk in _ARCH_HEAD_KEYS):
+                    if mk == "architecture" or (arch_changed and mk in head_keys):
                         if "architecture" not in changed:
                             changed.append("architecture")
                     elif mk == "base_spec":
@@ -181,7 +185,7 @@ def _factor_diffs(
                     else:
                         changed.append(str(mk))
             continue
-        if k in _ARCH_HEAD_KEYS and arch_changed and declared_factor == "architecture":
+        if k in head_keys and arch_changed and declared_factor == "architecture":
             continue
         if k in _OBJ_COMPANION_KEYS and obj_changed and declared_factor == "objective":
             continue
@@ -201,6 +205,7 @@ def audit_typed_experimental_design(
     factors: Sequence[TypedFactorSpec] = (),
     typed_contrasts: Sequence[TypedContrastSpec] = (),
     canonical_fn: Callable[[Any], Mapping[str, Any]] | None = None,
+    extra_arch_head_keys: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Fail closed when declared factors do not vary, treatments are missing, or undeclared confounds differ."""
 
@@ -279,7 +284,12 @@ def audit_typed_experimental_design(
         if con.expected_treatment_value is not None and tf.get(con.factor_name) != con.expected_treatment_value:
             codes.append("TREATMENT_VALUE_MISMATCH")
 
-        diffs = _factor_diffs(cf, tf, declared_factor=con.factor_name)
+        diffs = _factor_diffs(
+            cf,
+            tf,
+            declared_factor=con.factor_name,
+            extra_arch_head_keys=extra_arch_head_keys,
+        )
         undeclared = [d for d in diffs if d != con.factor_name]
         if undeclared:
             codes.append("UNDECLARED_CONFOUNDED_FACTOR")
@@ -587,12 +597,16 @@ def analyze_paired_seed_runs(
             t_stat = 0.0 if mean_d == 0.0 else math.copysign(1e12, mean_d)
             p_raw = 1.0 if mean_d == 0.0 else 0.0
             ci_t = (mean_d, mean_d)
+            variance_status = "DEGENERATE_ZERO_VARIANCE"
         else:
             t_stat = mean_d / se_d
             df = m_units - 1
             p_raw = _student_t_two_sided_p(abs(t_stat), df)
             t_crit = _student_t_crit(alpha, df)
             ci_t = (mean_d - t_crit * se_d, mean_d + t_crit * se_d)
+            variance_status = "NONZERO_VARIANCE"
+
+        sign_flip_p = 1.0 if mean_d == 0.0 else float(min(1.0, math.ldexp(2.0, -min(m_units, 1000))))
 
         rng = random.Random(bootstrap_seed)
         boots: list[float] = []
@@ -610,9 +624,11 @@ def analyze_paired_seed_runs(
             "n_clusters": m_units,
             "mean_paired_diff": float(mean_d),
             "se": float(se_d),
+            "variance_status": variance_status,
             "t_stat": float(t_stat),
             "df": int(m_units - 1),
             "p_raw": float(p_raw),
+            "sign_flip_p_value": sign_flip_p,
             "t_ci": [float(ci_t[0]), float(ci_t[1])],
             "bootstrap_ci": [float(boots[lo_idx]), float(boots[hi_idx])],
             "defects": [],

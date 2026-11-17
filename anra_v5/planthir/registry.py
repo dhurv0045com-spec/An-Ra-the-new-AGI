@@ -89,6 +89,7 @@ class PlanthirRegistry:
             "registration": registration.canonical_dict(),
             "status": registration.status,
             "result_ref": None,
+            "status_events": [{"status": registration.status, "result_ref": None, "sequence": 0}],
         }
         return reg_sha
 
@@ -101,10 +102,19 @@ class PlanthirRegistry:
     ) -> None:
         if experiment_id not in self._entries:
             raise KeyError(f"unknown experiment_id: {experiment_id!r}")
-        self._entries[experiment_id]["status"] = status
-        self._entries[experiment_id]["registration"]["status"] = status
+        entry = self._entries[experiment_id]
+        # Keep frozen `registration` immutable so registration_sha256 never drifts across status events.
+        entry["status"] = status
         if result_ref is not None:
-            self._entries[experiment_id]["result_ref"] = result_ref
+            entry["result_ref"] = result_ref
+        events = entry.setdefault("status_events", [])
+        events.append(
+            {
+                "status": str(status),
+                "result_ref": result_ref if result_ref is not None else entry.get("result_ref"),
+                "sequence": len(events),
+            }
+        )
 
     def get(self, experiment_id: str) -> dict[str, Any]:
         if experiment_id not in self._entries:
@@ -115,6 +125,7 @@ class PlanthirRegistry:
             "registration": _deserialize_registration(entry["registration"]),
             "status": entry["status"],
             "result_ref": entry["result_ref"],
+            "status_events": list(entry.get("status_events", ())),
         }
 
     def list_registrations(
@@ -157,14 +168,29 @@ class PlanthirRegistry:
         doc = json.loads(Path(path).read_text(encoding="utf-8"))
         if doc.get("schema") != "anra-planthir-registry-v1":
             raise ValueError("unsupported PlanthirRegistry schema")
+        recorded_reg_sha = doc.get("registry_sha256")
+        if recorded_reg_sha is not None:
+            unsigned = {k: v for k, v in doc.items() if k != "registry_sha256"}
+            expected_reg_sha = digest(unsigned)
+            if recorded_reg_sha != expected_reg_sha:
+                raise ValueError(
+                    f"PlanthirRegistry digest mismatch: stored={recorded_reg_sha} != expected={expected_reg_sha}"
+                )
         reg = cls()
         for exp_id, entry in doc.get("entries", {}).items():
             parsed = _deserialize_registration(entry["registration"])
+            computed_sha = parsed.sha256()
+            stored_sha = entry.get("registration_sha256")
+            if stored_sha is not None and stored_sha != computed_sha:
+                raise ValueError(
+                    f"entry {exp_id!r} registration_sha256 mismatch: stored={stored_sha} != computed={computed_sha}"
+                )
             reg._entries[exp_id] = {
-                "registration_sha256": parsed.sha256(),
+                "registration_sha256": computed_sha,
                 "registration": parsed.canonical_dict(),
                 "status": entry.get("status", parsed.status),
                 "result_ref": entry.get("result_ref"),
+                "status_events": list(entry.get("status_events", ())),
             }
         return reg
 

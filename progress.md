@@ -268,3 +268,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Removed the mistaken branch-rename sentence from `agent.md` and `research/planthir/agent.md`, replacing Section 0 with parameterized `origin/<source-branch>` instructions (e.g. `hitchhiker`, `Elendril`).
 - Added `anra_v5/planter/__init__.py` + `__main__.py`, registered `planter` in `pyproject.toml`, and updated `tests/test_planthir_declarative_cli_and_usability.py` to enforce alias parity and prompt cleanup.
 - Verified `tests/test_elendril_tree.py`, `tests/test_planthir_declarative_cli_and_usability.py`, and `python -m anra_v5.planter doctor` on CPU (`GREEN_SIGNAL`); GPU runs remain pending.
+
+### 2026-11-18 | Antigravity | Implement Planthir v2 audit upgrades and Hitchhiker fixes
+- Synced V8 `obs_cache` fix, `anra_v5/elendril/v8x/`, and `x1_s20_adapter.py` from `0c818f12`; added `anra_v5/planthir/runtime.py` (`ExperimentModule`, `GenericExperimentTrainer`, `batched_rollout`, `CampaignOrchestrator`, safe archive/notebook builders).
+- Removed core backend hardcoding (`PLANTHIR_BACKEND_MODULES`, schema extensions, auto-inferred contrasts, kernel Gate 4 hooks, `IndependentWorkerScheduler` `cuda:0` child remap + `in_process_runner`), and landed Hitchhiker fixes (`PlanthirRegistry` invariance, case-level replay agreement, degenerate variance reporting, `audit_sampled_strata`).
+- Updated `agent.md`/`research/planthir/agent.md` (Path 1/Path 2, Fast Tests, Gotchas); verified on CPU via `doctor`, `calibrate`, `test_planthir_v2_audit_upgrades.py`, `test_elendril_v8x_instrument.py`, `test_elendril_tree.py`, and `test_planthir_declarative_cli_and_usability.py` (GPU pending).

@@ -571,6 +571,8 @@ class V8TypedTrainer:
                 expected_parent_sha256=self.parent,
                 inject_crash_at=inject_crash_at,
             )
+            if inject_crash_at is None:
+                self.store.prune(keep=set())
         self.published_update = state.global_update
         self.state = state
         self.faulted = False
