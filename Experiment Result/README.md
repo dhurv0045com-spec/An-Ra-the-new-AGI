@@ -6,6 +6,8 @@ This is a **results folder only**. It is not an instruction to Codex and does no
 
 ## Saved results
 
+- **[V8-Y1 — audited results and next diagnostic](V8-Y1/y1-all-9c80885013/RESULTS.md)**. All S3 candidates failed; S20 did not rescue the recipes. Independent replay covers 464,880 episodes; timestamp and post-query shortcuts limit interpretation.
+
 - **[Hitchhiker — Stage 1 S3 screening](Hitchhiker/hh-stage1-4bfe3a806e3b/RESULTS.md)**. Fifteen verified jobs; no intervention passed, and a four-hop positional shortcut was identified.
 
 - **[V7.17 — S20 optimization and seed investigation](V7.17/f443d3f4141b4163bbc130d46ebd7395/RESULTS.md)**. Eight verified runs; lower LR improves all three matched seeds, while novel chain tasks and alias robustness remain failures.
