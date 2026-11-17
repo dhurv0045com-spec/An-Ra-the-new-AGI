@@ -60,6 +60,8 @@ class PairedTaskObservation:
     baseline_quality_score: float
     planthir_quality_score: float
     planthir_passed: bool
+    baseline_error_detection_seconds: float | None = None
+    planthir_error_detection_seconds: float | None = None
 
 
 def default_protocol_manifest() -> dict[str, Any]:
@@ -72,6 +74,7 @@ def default_protocol_manifest() -> dict[str, Any]:
         "primary_endpoints": [
             "paired_token_reduction_fraction",
             "paired_wall_time_reduction_fraction",
+            "paired_error_detection_time_reduction_fraction",
             "quality_delta",
         ],
         "quality_noninferiority_margin": -0.05,
@@ -109,6 +112,16 @@ def analyze_productivity_study(
                     baseline_quality_score=float(item["baseline_quality_score"]),
                     planthir_quality_score=float(item["planthir_quality_score"]),
                     planthir_passed=bool(item["planthir_passed"]),
+                    baseline_error_detection_seconds=(
+                        float(item["baseline_error_detection_seconds"])
+                        if item.get("baseline_error_detection_seconds") is not None
+                        else None
+                    ),
+                    planthir_error_detection_seconds=(
+                        float(item["planthir_error_detection_seconds"])
+                        if item.get("planthir_error_detection_seconds") is not None
+                        else None
+                    ),
                 )
             )
 
@@ -127,6 +140,7 @@ def analyze_productivity_study(
 
     token_reductions: list[float] = []
     time_reductions: list[float] = []
+    err_time_reductions: list[float] = []
     quality_deltas: list[float] = []
     for obs in normalized:
         if obs.baseline_tokens <= 0 or obs.planthir_tokens < 0 or obs.baseline_wall_seconds <= 0 or obs.planthir_wall_seconds < 0:
@@ -143,10 +157,19 @@ def analyze_productivity_study(
         token_reductions.append((obs.baseline_tokens - obs.planthir_tokens) / float(obs.baseline_tokens))
         time_reductions.append((obs.baseline_wall_seconds - obs.planthir_wall_seconds) / float(obs.baseline_wall_seconds))
         quality_deltas.append(obs.planthir_quality_score - obs.baseline_quality_score)
+        if obs.baseline_error_detection_seconds is not None and obs.planthir_error_detection_seconds is not None:
+            if obs.baseline_error_detection_seconds <= 0 or obs.planthir_error_detection_seconds < 0:
+                defects.append(f"INVALID_ERROR_TIMING:{obs.task_id}")
+            else:
+                err_time_reductions.append(
+                    (obs.baseline_error_detection_seconds - obs.planthir_error_detection_seconds)
+                    / float(obs.baseline_error_detection_seconds)
+                )
 
     mean_tok = sum(token_reductions) / len(token_reductions) if token_reductions else 0.0
     mean_time = sum(time_reductions) / len(time_reductions) if time_reductions else 0.0
     mean_q = sum(quality_deltas) / len(quality_deltas) if quality_deltas else 0.0
+    mean_err_time = (sum(err_time_reductions) / len(err_time_reductions)) if err_time_reductions else None
     pass_rate = sum(1 for o in normalized if o.planthir_passed) / len(normalized)
     if mean_q < -0.05:
         defects.append("QUALITY_NONINFERIORITY_FAILED")
@@ -160,6 +183,7 @@ def analyze_productivity_study(
         "orders_covered": sorted(orders_seen),
         "mean_token_reduction_fraction": round(mean_tok, 6),
         "mean_wall_time_reduction_fraction": round(mean_time, 6),
+        "mean_error_detection_time_reduction_fraction": round(mean_err_time, 6) if mean_err_time is not None else None,
         "mean_quality_delta": round(mean_q, 6),
         "planthir_pass_rate": round(pass_rate, 6),
         "defects": defects,

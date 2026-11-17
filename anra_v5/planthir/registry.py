@@ -84,12 +84,14 @@ class PlanthirRegistry:
             raise ValueError(
                 f"conflicting registration for experiment_id {registration.experiment_id!r}"
             )
+        events_init = [{"status": registration.status, "result_ref": None, "sequence": 0}]
         self._entries[registration.experiment_id] = {
             "registration_sha256": reg_sha,
             "registration": registration.canonical_dict(),
             "status": registration.status,
             "result_ref": None,
-            "status_events": [{"status": registration.status, "result_ref": None, "sequence": 0}],
+            "status_events": events_init,
+            "status_events_sha256": digest(events_init),
         }
         return reg_sha
 
@@ -115,6 +117,7 @@ class PlanthirRegistry:
                 "sequence": len(events),
             }
         )
+        entry["status_events_sha256"] = digest(events)
 
     def get(self, experiment_id: str) -> dict[str, Any]:
         if experiment_id not in self._entries:
@@ -185,12 +188,19 @@ class PlanthirRegistry:
                 raise ValueError(
                     f"entry {exp_id!r} registration_sha256 mismatch: stored={stored_sha} != computed={computed_sha}"
                 )
+            events_list = list(entry.get("status_events", ()))
+            stored_events_sha = entry.get("status_events_sha256")
+            if stored_events_sha is not None and stored_events_sha != digest(events_list):
+                raise ValueError(
+                    f"entry {exp_id!r} status_events_sha256 mismatch"
+                )
             reg._entries[exp_id] = {
                 "registration_sha256": computed_sha,
                 "registration": parsed.canonical_dict(),
                 "status": entry.get("status", parsed.status),
                 "result_ref": entry.get("result_ref"),
-                "status_events": list(entry.get("status_events", ())),
+                "status_events": events_list,
+                "status_events_sha256": digest(events_list),
             }
         return reg
 

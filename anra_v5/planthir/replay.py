@@ -269,7 +269,10 @@ def independent_replay_bundle(
 
                 correct = 0
                 replayed_cases: dict[str, dict[str, Any]] = {}
+                replayed_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
                 world_by_id = {str(w.get("world_id", idx)): w for idx, w in enumerate(eval_worlds)}
+                extra_mode_policies: dict[str, Any] = {"raw": policy}
+                extra_mode_loaded: list[dict[str, Any]] = []
                 for idx, w in enumerate(eval_worlds):
                     wid = str(w.get("world_id", idx))
                     st = kernel.initial_state(w)
@@ -287,54 +290,98 @@ def independent_replay_bundle(
                     if res.get("correct"):
                         correct += 1
                     first_op, first_arg = actions[0] if actions else ("INVALID", None)
-                    replayed_cases[wid] = {
+                    case_rec = {
                         "world_id": wid,
+                        "checkpoint_sha256": rec.checkpoint_sha256,
+                        "decoder": "raw",
                         "rendered_input_sha256": init_sha,
                         "operation": first_op,
                         "argument": first_arg,
                         "correct": bool(res.get("correct")),
                     }
+                    replayed_cases[wid] = case_rec
+                    replayed_by_key[(wid, "raw", init_sha)] = case_rec
                 replay_acc = float(correct / max(len(eval_worlds), 1))
 
                 ref_rows: Sequence[Mapping[str, Any]] | None = None
+                matched_summary_acc: float | None = None
                 if reference_predictions is not None:
                     ref_rows = reference_predictions.get(lineage_id)
                     if ref_rows is None:
                         for exp_doc in recorded_summaries.values():
                             if str(exp_doc.get("lineage_id", "")) == lineage_id:
                                 ref_rows = reference_predictions.get(str(exp_doc.get("experiment_id", "")))
-                if ref_rows is None:
-                    for exp_doc in recorded_summaries.values():
-                        if exp_doc.get("reference_predictions") and (
-                            str(exp_doc.get("checkpoint_sha256", "")) == rec.checkpoint_sha256
-                            or str(exp_doc.get("lineage_id", "")) == lineage_id
-                        ):
+                for exp_doc in recorded_summaries.values():
+                    if (
+                        str(exp_doc.get("checkpoint_sha256", "")) == rec.checkpoint_sha256
+                        or str(exp_doc.get("lineage_id", "")) == lineage_id
+                    ):
+                        if "overall_accuracy" in exp_doc and exp_doc["overall_accuracy"] is not None:
+                            matched_summary_acc = float(exp_doc["overall_accuracy"])
+                        if ref_rows is None and exp_doc.get("reference_predictions"):
                             ref_rows = exp_doc["reference_predictions"]
-                            break
+                        break
 
                 if ref_rows is not None:
                     case_mismatches: list[dict[str, Any]] = []
                     for ref in ref_rows:
                         r_wid = str(ref.get("world_id", ""))
-                        if r_wid not in replayed_cases:
-                            if r_wid in world_by_id:
-                                case_mismatches.append({"world_id": r_wid, "reason": "UNREPLAYED_CASE"})
-                            else:
-                                case_mismatches.append({"world_id": r_wid, "reason": "MISSING_REFERENCE_CASE"})
+                        r_dec = str(ref.get("decoder", ref.get("mode", "raw")))
+                        r_ckpt = str(ref.get("checkpoint_sha256", rec.checkpoint_sha256))
+                        if r_ckpt != rec.checkpoint_sha256:
+                            case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": "CHECKPOINT_SHA_MISMATCH"})
                             continue
-                        got_c = replayed_cases[r_wid]
+                        if r_dec != "raw":
+                            if r_wid not in world_by_id:
+                                case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": "MISSING_REFERENCE_CASE"})
+                                continue
+                            if r_dec not in extra_mode_policies:
+                                mod_loaded = CheckpointCatalog.load_checkpoint_for_causal_probing(
+                                    rec, mode=r_dec, device=device
+                                )
+                                extra_mode_loaded.append(mod_loaded)
+                                extra_mode_policies[r_dec] = mod_loaded["policy"]
+                            mpol = extra_mode_policies[r_dec]
+                            w_m = world_by_id[r_wid]
+                            st_m = kernel.initial_state(w_m)
+                            obs0_m = kernel.observe(st_m)
+                            sha_m = sha256(obs0_m.rendered_text.encode("utf-8")).hexdigest()
+                            act_m = mpol.propose_with_telemetry(obs0_m)
+                            got_c = {
+                                "world_id": r_wid,
+                                "checkpoint_sha256": rec.checkpoint_sha256,
+                                "decoder": r_dec,
+                                "rendered_input_sha256": sha_m,
+                                "operation": act_m.operation,
+                                "argument": act_m.argument,
+                            }
+                        else:
+                            if r_wid not in replayed_cases:
+                                reason = "UNREPLAYED_CASE" if r_wid in world_by_id else "MISSING_REFERENCE_CASE"
+                                case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": reason})
+                                continue
+                            got_c = replayed_cases[r_wid]
                         if ref.get("rendered_input_sha256") and ref["rendered_input_sha256"] != got_c["rendered_input_sha256"]:
-                            case_mismatches.append({"world_id": r_wid, "reason": "RENDERED_INPUT_HASH_MISMATCH"})
+                            case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": "RENDERED_INPUT_HASH_MISMATCH"})
                         elif (str(ref.get("operation")), ref.get("argument")) != (got_c["operation"], got_c["argument"]):
                             case_mismatches.append({
                                 "world_id": r_wid,
+                                "decoder": r_dec,
                                 "reason": "PREDICTION_MISMATCH",
                                 "expected": [ref.get("operation"), ref.get("argument")],
                                 "observed": [got_c["operation"], got_c["argument"]],
                             })
+                    if matched_summary_acc is not None and abs(replay_acc - matched_summary_acc) > float(accuracy_tolerance):
+                        case_mismatches.append({
+                            "reason": "AGGREGATE_ACCURACY_OUT_OF_TOLERANCE",
+                            "expected": matched_summary_acc,
+                            "observed": replay_acc,
+                            "tolerance": float(accuracy_tolerance),
+                        })
                     orig_agree = {
                         "status": "MATCHED" if not case_mismatches else "MISMATCH",
                         "matched": len(case_mismatches) == 0,
+                        "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
                         "checked_cases": len(ref_rows),
                         "mismatches": case_mismatches,
                     }
@@ -347,10 +394,12 @@ def independent_replay_bundle(
                     orig_agree = {
                         "status": "PROBE_ONLY_NO_REFERENCE",
                         "matched": None,
+                        "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
                         "checked_cases": 0,
                         "mismatches": [],
                     }
                     agreement_statuses.append("PROBE_ONLY_NO_REFERENCE")
+                del extra_mode_loaded
 
                 actual_params = sum(int(p.numel()) for p in model.parameters())
                 lineage_reports.append(
@@ -380,16 +429,36 @@ def independent_replay_bundle(
         overall_agreement = "MISMATCH"
     elif agreement_statuses and all(s == "MATCHED" for s in agreement_statuses):
         overall_agreement = "MATCHED"
+    elif any(s == "MATCHED" for s in agreement_statuses):
+        overall_agreement = "PARTIAL_MATCH"
     else:
         overall_agreement = "PROBE_ONLY_NO_REFERENCE"
 
+    mean_probe_acc = (
+        float(sum(r["probe_accuracy"] for r in lineage_reports) / len(lineage_reports))
+        if lineage_reports
+        else 0.0
+    )
+    all_agree_mismatches = [
+        {"lineage_id": r["lineage_id"], **m}
+        for r in lineage_reports
+        for m in r["original_prediction_agreement"]["mismatches"]
+    ]
     verified = len(defects) == 0
     receipt = {
         "schema": "anra-planthir-replay-receipt-v1",
         "verified": verified,
         "status": "REPLAY_VERIFIED" if verified else "REPLAY_FAILED",
         "restore_verified": bool(not any(d == "RESTORE_FULL_CHECKPOINT_ZIP_UNVERIFIED" for d in defects)),
+        "probe_accuracy": mean_probe_acc,
         "prediction_agreement_status": overall_agreement,
+        "original_prediction_agreement": {
+            "status": overall_agreement,
+            "matched": (True if overall_agreement == "MATCHED" else (False if overall_agreement == "MISMATCH" else None)),
+            "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
+            "checked_cases": sum(r["original_prediction_agreement"]["checked_cases"] for r in lineage_reports),
+            "mismatches": all_agree_mismatches,
+        },
         "independent_environment": bool(independent_environment),
         "accuracy_tolerance": float(accuracy_tolerance),
         "bundle_root": str(Path(bundle_dir)),

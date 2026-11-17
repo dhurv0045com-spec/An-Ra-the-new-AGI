@@ -27,6 +27,7 @@ from anra_v5.planthir import (
     UniversalObservation,
     WorkerJobSpec,
     analyze_paired_seed_runs,
+    analyze_productivity_study,
     audit_sampled_strata,
     batched_rollout,
     build_cartridge_from_spec,
@@ -37,11 +38,15 @@ from anra_v5.planthir import (
     independent_replay_bundle,
     init_spec_template,
     planthir_doctor,
+    prepare_x1_rd2_training_data,
+    run_fault_injection_suite,
+    run_scientific_shortcut_calibration,
     safe_extract_planthir_archive,
     validate_spec_document,
 )
 from anra_v5.planthir.backend import _BACKENDS
 from anra_v5.planthir.cartridge import CartridgeRunner
+from anra_v5.planthir.productivity import PairedTaskObservation, SIX_BENCHMARK_TASKS
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -417,71 +422,164 @@ def test_hitchhiker_audit_fixes_registry_replay_stats_strata_and_docs(tmp_path: 
     with pytest.raises(ValueError, match="digest mismatch"):
         PlanthirRegistry.load(tampered)
 
-    # 2. Paired seed degenerate variance flag + sign-flip exact probability
+    doc_ev = json.loads(reg_path.read_text(encoding="utf-8"))
+    doc_ev["entries"]["EXP-1"]["status_events"][0]["status"] = "FORGED"
+    tampered_ev = tmp_path / "BAD_EV.json"
+    tampered_ev.write_text(json.dumps(doc_ev), encoding="utf-8")
+    with pytest.raises(ValueError, match="digest mismatch|status_events_sha256 mismatch"):
+        PlanthirRegistry.load(tampered_ev)
+
+    # 2. Paired seed degenerate variance flag, sign-flip exact probability, ties, and per-seed reports
     stats_rep = analyze_paired_seed_runs(
         [
-            {"contrast_id": "C1", "pair_id": "p1", "init_seed": 7, "order_seed": 7, "control_value": 0.5, "treatment_value": 0.75},
-            {"contrast_id": "C1", "pair_id": "p2", "init_seed": 19, "order_seed": 19, "control_value": 0.5, "treatment_value": 0.75},
-            {"contrast_id": "C1", "pair_id": "p3", "init_seed": 41, "order_seed": 41, "control_value": 0.5, "treatment_value": 0.75},
+            {"contrast_id": "C1", "pair_id": "p1", "init_seed": 7, "order_seed": 7, "control_value": 0.5, "treatment_value": 0.75, "family_se": 0.04},
+            {"contrast_id": "C1", "pair_id": "p2", "init_seed": 19, "order_seed": 19, "control_value": 0.5, "treatment_value": 0.75, "family_se": 0.06},
+            {"contrast_id": "C1", "pair_id": "p3", "init_seed": 41, "order_seed": 41, "control_value": 0.5, "treatment_value": 0.75, "family_se": 0.05},
+            {"contrast_id": "C_TIES", "pair_id": "t1", "init_seed": 7, "order_seed": 7, "control_value": 0.5, "treatment_value": 0.5},
+            {"contrast_id": "C_TIES", "pair_id": "t2", "init_seed": 19, "order_seed": 19, "control_value": 0.5, "treatment_value": 0.75},
+            {"contrast_id": "C_TIES", "pair_id": "t3", "init_seed": 41, "order_seed": 41, "control_value": 0.5, "treatment_value": 0.25},
         ]
     )
     c1 = stats_rep["contrasts"]["C1"]
     assert c1["variance_status"] == "DEGENERATE_ZERO_VARIANCE"
+    assert c1["t_stat"] is None
+    assert c1["p_raw"] == pytest.approx(0.25)
     assert c1["sign_flip_p_value"] == pytest.approx(0.25)
+    assert c1["significant_holm"] is False
+    assert c1["independent_unit"] == "seed_pair_cluster"
+    assert len(c1["per_seed_effects"]) == 3
+    assert c1["family_uncertainty_conditional_on_seeds"]["mean_family_se"] == pytest.approx(0.05)
+    cties = stats_rep["contrasts"]["C_TIES"]
+    assert cties["tie_count"] == 1 and cties["positive_count"] == 1 and cties["negative_count"] == 1
+    assert cties["significant_holm"] is False
 
-    # 3. Strata audit flags missing QUERY/ABSTAIN operations
+    # 3. X1 RD2 stratified group selection across 4, 8, 32 + strata audit
+    for n_grp in (4, 8, 32):
+        ds, _ = prepare_x1_rd2_training_data(num_groups=n_grp)
+        counts = ds.manifest["sampled_strata"]["canonical_operation_counts"]
+        assert set(counts) >= {"ANSWER", "QUERY", "RETRIEVE", "ABSTAIN"}
+        assert ds.manifest["sampled_strata"]["interactive_claim_eligible"] is True
+
     strata_bad = audit_sampled_strata(
         [{"gold_op": 0, "family": "X01"}, {"gold_op": 0, "family": "X02"}],
         required_operations=("ANSWER", "QUERY"),
     )
     assert strata_bad["passed"] is False and strata_bad["missing_required_operations"] == ["QUERY"]
     strata_ok = audit_sampled_strata(
-        [{"gold_op": 0, "family": "X01"}, {"gold_op": 1, "family": "X03"}],
-        required_operations=("ANSWER", "QUERY"),
+        [{"gold_op": 0, "family": "X01"}, {"gold_op": 1, "family": "X03"}, {"gold_op": 3, "family": "X04"}],
+        required_operations=("ANSWER", "QUERY", "ABSTAIN"),
     )
-    assert strata_ok["passed"] is True
+    assert strata_ok["passed"] is True and strata_ok["interactive_claim_eligible"] is True
 
     # 4. Custom param map in observatory
     assert classify_parameter_group("my_weird_tensor", custom_map={"my_weird": "custom_mech"}) == "custom_mech"
 
-    # 5. Replay bundle case-by-case prediction agreement (detects swapped predictions)
+    # 5. Replay bundle case-by-case prediction agreement (exact match, swapped equal-accuracy rejection, missing case)
     plugin = _make_toy_plugin("toy_rep").register()
     try:
         tpl = init_spec_template(backend_id="toy_rep", canary=True)
         cart, run_kwargs = build_cartridge_from_spec(tpl, canary_override=True)
         work = tmp_path / "rep_work"
-        res = CartridgeRunner().run(cart, work_root=work, **run_kwargs)
+        CartridgeRunner().run(cart, work_root=work, **run_kwargs)
         lin = f"{cart.campaign_id.lower()}-{cart.control_arm.arm_id}-s{cart.control_arm.order_seed}"
         bdir = work / "result_bundle"
-        # First pass probe-only to get actual predictions, then verify swapped mismatch detection
         probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
         assert probe_rec["prediction_agreement_status"] == "PROBE_ONLY_NO_REFERENCE"
         lineages = {row["lineage_id"]: row for row in probe_rec["restored_lineages"]}
         assert lin in lineages
-        ref_list = []
-        kernel = _ToyKernel()
-        for w in cart.eval_worlds:
-            init_obs = kernel.observe(kernel.initial_state(w))
-            from hashlib import sha256 as _sha256
+        lin_ckpt = lineages[lin]["checkpoint_sha256"]
 
-            ref_list.append(
-                {
-                    "world_id": w["world_id"],
-                    "rendered_input_sha256": _sha256(init_obs.rendered_text.encode("utf-8")).hexdigest(),
-                    "operation": "ANSWER",
-                    "argument": "Z",  # Guaranteed mismatch
-                }
-            )
+        from hashlib import sha256 as _sha256
+        from anra_v5.planthir import CheckpointCatalog
+
+        cat = CheckpointCatalog.discover_checkpoints([work / "checkpoints"])
+        kernel = _ToyKernel()
+        ref_by_lin: dict[str, list[dict[str, Any]]] = {}
+        for row in probe_rec["restored_lineages"]:
+            r_lin = row["lineage_id"]
+            target_rec = max([r for r in cat.records if r.lineage_id == r_lin], key=lambda r: r.global_update)
+            loaded_ref = CheckpointCatalog.load_checkpoint_for_causal_probing(target_rec, mode="raw", device="cpu")
+            ref_pol = loaded_ref["policy"]
+            lin_rows = []
+            for w in cart.eval_worlds:
+                init_obs = kernel.observe(kernel.initial_state(w))
+                act = ref_pol.propose_with_telemetry(init_obs)
+                lin_rows.append(
+                    {
+                        "world_id": w["world_id"],
+                        "checkpoint_sha256": row["checkpoint_sha256"],
+                        "decoder": "raw",
+                        "rendered_input_sha256": _sha256(init_obs.rendered_text.encode("utf-8")).hexdigest(),
+                        "operation": act.operation,
+                        "argument": act.argument,
+                    }
+                )
+            ref_by_lin[r_lin] = lin_rows
+        ref_exact = ref_by_lin[lin]
+        exact_rec = independent_replay_bundle(
+            bdir,
+            worlds=cart.eval_worlds,
+            reference_predictions=ref_by_lin,
+        )
+        assert exact_rec["prediction_agreement_status"] == "MATCHED"
+        assert exact_rec["original_prediction_agreement"]["matched"] is True
+
+        # Exchange two case predictions (preserving aggregate accuracy) -> must fail!
+        exchanged = json.loads(json.dumps(ref_exact))
+        diff_pair = next(((i, j) for i in range(len(exchanged)) for j in range(i + 1, len(exchanged)) if exchanged[i]["argument"] != exchanged[j]["argument"]), None)
+        if diff_pair is not None:
+            i, j = diff_pair
+            exchanged[i]["argument"], exchanged[j]["argument"] = exchanged[j]["argument"], exchanged[i]["argument"]
+        else:
+            exchanged[0]["argument"] = "B" if exchanged[0]["argument"] == "A" else "A"
         with pytest.raises(ValueError, match="ORIGINAL_PREDICTION_MISMATCH"):
             independent_replay_bundle(
                 bdir,
                 worlds=cart.eval_worlds,
-                reference_predictions={lin: ref_list},
+                reference_predictions={**ref_by_lin, lin: exchanged},
+            )
+        missing_case = ref_exact + [{**ref_exact[0], "world_id": "nonexistent_world"}]
+        with pytest.raises(ValueError, match="ORIGINAL_PREDICTION_MISMATCH"):
+            independent_replay_bundle(
+                bdir,
+                worlds=cart.eval_worlds,
+                reference_predictions={**ref_by_lin, lin: missing_case},
             )
     finally:
         _BACKENDS.pop("toy_rep", None)
 
-    # 6. agent.md sections present
+    # 6. Scientific shortcut calibration & planted-error timing in productivity study
+    sci_cal = run_scientific_shortcut_calibration(families=16)
+    assert sci_cal["passed"] is True
+    assert sci_cal["policies"]["timestamp_rank_shortcut"]["shortcut_detected"] is True
+    assert sci_cal["policies"]["terminal_value_copy_shortcut"]["shortcut_detected"] is True
+    assert sci_cal["policies"]["traversal_oracle"]["qualifies_for_claims"] == ["general_traversal", "interactive_tool_decision"]
+    full_cal = run_fault_injection_suite()
+    assert full_cal["total_faults"] == 6 and full_cal["detected_faults"] == 6
+    assert full_cal["scientific_shortcuts_rejected"] is True and full_cal["all_detected"] is True
+
+    obs_err = [
+        PairedTaskObservation(
+            task_id=t["task_id"],
+            participant_id=f"P{i % 2}",
+            order="baseline_first" if i % 2 == 0 else "planthir_first",
+            baseline_tokens=10_000,
+            planthir_tokens=2_000,
+            baseline_wall_seconds=100.0,
+            planthir_wall_seconds=20.0,
+            baseline_quality_score=0.9,
+            planthir_quality_score=0.95,
+            planthir_passed=True,
+            baseline_error_detection_seconds=600.0,
+            planthir_error_detection_seconds=60.0,
+        )
+        for i, t in enumerate(SIX_BENCHMARK_TASKS)
+    ]
+    study_res = analyze_productivity_study(obs_err)
+    assert study_res["passed"] is True
+    assert study_res["mean_error_detection_time_reduction_fraction"] == pytest.approx(0.9)
+
+    # 7. agent.md sections present
     doc_text = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
     for needle in (
         "Path 1 — Varying Hyperparams / Existing Arms",
