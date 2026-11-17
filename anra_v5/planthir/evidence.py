@@ -23,7 +23,7 @@ from v5_training.state import TrainingState
 
 from .causal import _eval_ridge_classifier, _fit_ridge_classifier
 from .contracts import ExperimentRegistration
-from .execution import _atomic_write, _sync_dir, trigger_fault_point
+from .execution import _atomic_replace, _atomic_write, _sync_dir, trigger_fault_point
 from .interpretation import ScientificInterpretationReport
 from .observatory import compute_effective_rank
 
@@ -1106,7 +1106,7 @@ def _atomic_copy_file(src: Path, dst: Path) -> None:
             shutil.copyfileobj(inp, handle, length=1024 * 1024)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(tmp_path, dst)
+        _atomic_replace(tmp_path, dst)
         _sync_dir(dst.parent)
     finally:
         if tmp_path.exists():

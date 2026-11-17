@@ -625,14 +625,17 @@ def run_fault_injection_suite() -> dict[str, Any]:
             "error": error_msg,
         })
 
+    sci_cal = run_scientific_shortcut_calibration()
     detected_count = sum(1 for c in cases if c["detected"])
     return {
         "schema": "anra-planthir-fault-injection-v1",
         "total_faults": len(cases),
         "detected_faults": detected_count,
-        "all_detected": detected_count == len(cases),
+        "scientific_shortcuts_rejected": bool(sci_cal["passed"]),
+        "all_detected": detected_count == len(cases) and bool(sci_cal["passed"]),
         "healthy_v8_kernel_passed": healthy_report["passed"],
         "cases": cases,
+        "scientific_shortcut_calibration": sci_cal,
     }
 
 
@@ -801,6 +804,11 @@ def audit_sampled_strata(
 
     missing_ops = [op for op in required_operations if op_counts.get(str(op), 0) <= 0]
     passed = len(records_or_worlds) > 0 and len(missing_ops) == 0
+    interactive_ok = bool(
+        op_counts.get("ANSWER", 0) > 0
+        and (op_counts.get("QUERY", 0) + op_counts.get("RETRIEVE", 0)) > 0
+        and op_counts.get("ABSTAIN", 0) > 0
+    )
     return {
         "schema": "anra-planthir-sampled-strata-audit-v1",
         "passed": passed,
@@ -808,14 +816,176 @@ def audit_sampled_strata(
         "total_items": len(records_or_worlds),
         "operation_counts": dict(sorted(op_counts.items())),
         "family_counts": dict(sorted(family_counts.items())),
+        "interactive_claim_eligible": interactive_ok,
         "required_operations": [str(x) for x in required_operations],
         "missing_required_operations": missing_ops,
+    }
+
+
+def run_scientific_shortcut_calibration(*, seed: int = 1801, families: int = 64) -> dict[str, Any]:
+    """Calibrate whether Planthir distinguishes true traversal from timestamp-rank & terminal-copy shortcuts."""
+
+    rng = random.Random(seed)
+    alphabet = [chr(ord("A") + i) for i in range(16)]
+    crossover_families: list[list[dict[str, Any]]] = []
+    interactive_cases: list[dict[str, Any]] = []
+
+    for f_idx in range(families):
+        a, b, c, d, e, f, g, h = rng.sample(alphabet, 8)
+        order = rng.sample(range(6), 6)
+        ticks = rng.sample(range(1000, 9000), 6)
+        fam_cases: list[dict[str, Any]] = []
+        for swapped in (False, True):
+            edges = [(a, c), (b, d), (c, f if swapped else e), (d, e if swapped else f), (e, g), (f, h)]
+            rows = [(edges[i][0], edges[i][1], ticks[i]) for i in order]
+            for query, answer in ((a, h if swapped else g), (b, g if swapped else h)):
+                fam_cases.append({"rows": rows, "query": query, "answer": answer})
+        crossover_families.append(fam_cases)
+
+        # Missing internal edge interactive probes (1 solvable via QUERY, 1 unsolvable requiring ABSTAIN)
+        hidden_row = (c, e, ticks[2])
+        vis_partial = [r for idx_r, r in enumerate(rows) if idx_r != order.index(2)] if 2 in order else list(rows[:-1])
+        # Build exact missing-edge case with C->E absent initially
+        base_rows = [(a, c, ticks[0]), (c, e, ticks[2]), (e, g, ticks[4])]
+        missing_init = [(a, c, ticks[0]), (e, g, ticks[4])]
+        interactive_cases.append(
+            {
+                "kind": "missing_edge_queryable",
+                "init_rows": missing_init,
+                "query_payload": [(c, e, ticks[2])],
+                "query_available": True,
+                "query": a,
+                "expected": ("QUERY", "ANSWER", g),
+                "new_terminal_val": e,  # returned query row ends in E, whereas full 3-hop answer is G!
+            }
+        )
+        interactive_cases.append(
+            {
+                "kind": "missing_edge_unsolvable",
+                "init_rows": missing_init,
+                "query_payload": [],
+                "query_available": False,
+                "query": a,
+                "expected": ("ABSTAIN", "ABSTAIN", None),
+                "new_terminal_val": g,
+            }
+        )
+
+    def _eval_policy(policy_kind: str) -> dict[str, Any]:
+        fam_ok = 0
+        case_ok = 0
+        inter_ok = 0
+        for fam in crossover_families:
+            hits = 0
+            for case in fam:
+                rows = case["rows"]
+                if policy_kind == "timestamp_rank_shortcut":
+                    pred = sorted(rows, key=lambda r: r[2])[2][1]
+                elif policy_kind == "terminal_value_copy_shortcut":
+                    pred = rows[-1][1]
+                else:
+                    edge_map = {s: v for s, v, _ in rows}
+                    cur = case["query"]
+                    for _ in range(3):
+                        cur = edge_map[cur]
+                    pred = cur
+                if pred == case["answer"]:
+                    case_ok += 1
+                    hits += 1
+            if hits == 4:
+                fam_ok += 1
+
+        for ic in interactive_cases:
+            if policy_kind == "traversal_oracle":
+                rows_now = list(ic["init_rows"])
+                edge_map = {s: v for s, v, _ in rows_now}
+                cur: str | None = ic["query"]
+                resolved = True
+                for _ in range(3):
+                    if cur not in edge_map:
+                        resolved = False
+                        break
+                    cur = edge_map[cur]
+                if not resolved and ic["query_available"]:
+                    rows_now.extend(ic["query_payload"])
+                    edge_map = {s: v for s, v, _ in rows_now}
+                    cur = ic["query"]
+                    resolved = True
+                    for _ in range(3):
+                        if cur not in edge_map:
+                            resolved = False
+                            break
+                        cur = edge_map[cur]
+                    act_seq = ("ANSWER", cur) if resolved else ("ABSTAIN", None)
+                    ok = act_seq == (ic["expected"][1], ic["expected"][2]) and ic["expected"][0] == "QUERY"
+                elif not resolved:
+                    ok = ic["expected"][0] == "ABSTAIN"
+                else:
+                    ok = False
+                if ok:
+                    inter_ok += 1
+            elif policy_kind == "terminal_value_copy_shortcut":
+                if ic["query_available"]:
+                    act_seq = ("ANSWER", ic["new_terminal_val"])
+                    ok = ic["expected"][0] == "QUERY" and act_seq == (ic["expected"][1], ic["expected"][2])
+                else:
+                    act_seq = ("ANSWER", ic["init_rows"][-1][1])
+                    ok = act_seq[0] == ic["expected"][0]
+                if ok:
+                    inter_ok += 1
+            else:
+                act_seq = ("ANSWER", sorted(ic["init_rows"], key=lambda r: r[2])[-1][1])
+                ok = act_seq == (ic["expected"][1], ic["expected"][2]) and ic["expected"][0] == "ANSWER"
+                if ok:
+                    inter_ok += 1
+
+        comp_acc = float(fam_ok / max(1, len(crossover_families)))
+        inter_acc = float(inter_ok / max(1, len(interactive_cases)))
+        claims: list[str] = []
+        if comp_acc == 1.0:
+            claims.append("general_traversal")
+        if inter_acc == 1.0:
+            claims.append("interactive_tool_decision")
+        return {
+            "policy_id": policy_kind,
+            "crossover_case_accuracy": float(case_ok / max(1, 4 * len(crossover_families))),
+            "complete_family_accuracy": comp_acc,
+            "interactive_tool_accuracy": inter_acc,
+            "shortcut_detected": bool(comp_acc < 1.0 or inter_acc < 1.0),
+            "qualifies_for_claims": claims,
+        }
+
+    policies = {
+        name: _eval_policy(name)
+        for name in ("timestamp_rank_shortcut", "terminal_value_copy_shortcut", "traversal_oracle")
+    }
+    passed = (
+        policies["timestamp_rank_shortcut"]["shortcut_detected"] is True
+        and policies["timestamp_rank_shortcut"]["complete_family_accuracy"] == 0.0
+        and policies["timestamp_rank_shortcut"]["qualifies_for_claims"] == []
+        and policies["terminal_value_copy_shortcut"]["shortcut_detected"] is True
+        and policies["terminal_value_copy_shortcut"]["complete_family_accuracy"] == 0.0
+        and policies["terminal_value_copy_shortcut"]["qualifies_for_claims"] == []
+        and policies["traversal_oracle"]["shortcut_detected"] is False
+        and policies["traversal_oracle"]["complete_family_accuracy"] == 1.0
+        and policies["traversal_oracle"]["interactive_tool_accuracy"] == 1.0
+        and set(policies["traversal_oracle"]["qualifies_for_claims"]) == {"general_traversal", "interactive_tool_decision"}
+    )
+    return {
+        "schema": "anra-planthir-scientific-shortcut-calibration-v1",
+        "passed": passed,
+        "status": "SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED" if passed else "SCIENTIFIC_CALIBRATION_FAILED",
+        "seed": seed,
+        "families": families,
+        "interactive_cases": len(interactive_cases),
+        "policies": policies,
     }
 
 
 __all__ = [
     "audit_sampled_strata",
     "run_fault_injection_suite",
+    "run_scientific_shortcut_calibration",
     "validate_environment_kernel",
     "validate_metric_aggregator",
     "validate_model_and_gradients",

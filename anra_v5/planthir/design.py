@@ -522,6 +522,8 @@ def analyze_paired_seed_runs(
         seen_pairs: set[str] = set()
         seen_seeds: set[tuple[int, int]] = set()
         deltas: list[float] = []
+        per_seed_effects: list[dict[str, Any]] = []
+        family_ses: list[float] = []
         cluster_counts: dict[str, int] = {}
         cluster_weights: dict[str, set[float]] = {}
         cluster_deltas: dict[str, list[float]] = {}
@@ -554,6 +556,22 @@ def analyze_paired_seed_runs(
             deltas.append(delta)
 
             cl = str(r.get("cluster_id") if r.get("cluster_id") not in (None, "") else pid)
+            fam_se = r.get("family_se")
+            fam_se_val = float(fam_se) if fam_se is not None and math.isfinite(float(fam_se)) else None
+            if fam_se_val is not None:
+                family_ses.append(fam_se_val)
+            per_seed_effects.append(
+                {
+                    "pair_id": pid,
+                    "init_seed": init_s,
+                    "order_seed": order_s,
+                    "cluster_id": cl,
+                    "control_value": cf,
+                    "treatment_value": tf,
+                    "delta": float(delta),
+                    "family_se": fam_se_val,
+                }
+            )
             cluster_counts[cl] = cluster_counts.get(cl, 0) + 1
             cluster_deltas.setdefault(cl, []).append(delta)
             cw = r.get("cluster_weight", 1.0)
@@ -593,20 +611,36 @@ def analyze_paired_seed_runs(
         mean_d = sum(unit_deltas) / m_units
         var_d = sum((x - mean_d) ** 2 for x in unit_deltas) / (m_units - 1)
         se_d = math.sqrt(var_d / m_units)
+        non_zero = [d for d in unit_deltas if d != 0.0]
+        if not non_zero:
+            sign_flip_p = 1.0
+        elif all(d > 0.0 for d in non_zero) or all(d < 0.0 for d in non_zero):
+            sign_flip_p = float(min(1.0, math.ldexp(2.0, -min(len(non_zero), 1000))))
+        elif len(non_zero) <= 16:
+            abs_obs = abs(sum(non_zero))
+            extreme = 0
+            n_nz = len(non_zero)
+            for mask in range(1 << n_nz):
+                signed_sum = sum(non_zero[k] if (mask >> k) & 1 else -non_zero[k] for k in range(n_nz))
+                if abs(signed_sum) >= abs_obs - 1e-12:
+                    extreme += 1
+            sign_flip_p = float(extreme / (1 << n_nz))
+        else:
+            z_eq = sum(1.0 if d > 0.0 else -1.0 for d in non_zero) / math.sqrt(len(non_zero))
+            sign_flip_p = float(math.erfc(abs(z_eq) / math.sqrt(2.0)))
+
         if se_d == 0.0:
-            t_stat = 0.0 if mean_d == 0.0 else math.copysign(1e12, mean_d)
-            p_raw = 1.0 if mean_d == 0.0 else 0.0
+            t_stat: float | None = None
+            p_raw = float(sign_flip_p)
             ci_t = (mean_d, mean_d)
             variance_status = "DEGENERATE_ZERO_VARIANCE"
         else:
-            t_stat = mean_d / se_d
+            t_stat = float(mean_d / se_d)
             df = m_units - 1
             p_raw = _student_t_two_sided_p(abs(t_stat), df)
             t_crit = _student_t_crit(alpha, df)
             ci_t = (mean_d - t_crit * se_d, mean_d + t_crit * se_d)
             variance_status = "NONZERO_VARIANCE"
-
-        sign_flip_p = 1.0 if mean_d == 0.0 else float(min(1.0, math.ldexp(2.0, -min(m_units, 1000))))
 
         rng = random.Random(bootstrap_seed)
         boots: list[float] = []
@@ -620,15 +654,25 @@ def analyze_paired_seed_runs(
         results[cid] = {
             "status": "VALID_INFERENCE",
             "passed": True,
+            "independent_unit": "seed_pair_cluster",
             "n_pairs": len(deltas),
             "n_clusters": m_units,
             "mean_paired_diff": float(mean_d),
             "se": float(se_d),
             "variance_status": variance_status,
-            "t_stat": float(t_stat),
+            "t_stat": t_stat,
             "df": int(m_units - 1),
             "p_raw": float(p_raw),
             "sign_flip_p_value": sign_flip_p,
+            "positive_count": sum(1 for d in unit_deltas if d > 0.0),
+            "negative_count": sum(1 for d in unit_deltas if d < 0.0),
+            "tie_count": sum(1 for d in unit_deltas if d == 0.0),
+            "per_seed_effects": per_seed_effects,
+            "family_uncertainty_conditional_on_seeds": (
+                {"mean_family_se": float(sum(family_ses) / len(family_ses)), "reported_pairs": len(family_ses)}
+                if family_ses
+                else None
+            ),
             "t_ci": [float(ci_t[0]), float(ci_t[1])],
             "bootstrap_ci": [float(boots[lo_idx]), float(boots[hi_idx])],
             "defects": [],

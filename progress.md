@@ -307,3 +307,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced Planthir v2 (`a1be81f4`: `ExperimentModule`, `GenericExperimentTrainer`, `CampaignOrchestrator`, `PLANTHIR_BACKEND_MODULES`, kernel Gate 4 hooks, scheduler `cuda:0` remap, Hitchhiker fixes, and `agent.md` Path 1/Path 2 guide) onto `Elendril`.
 - Preserved all existing `Elendril` `v8`/`v8x` modules, campaign/export/notebook scripts, and notebooks.
 - Verified on CPU: `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU runs remain pending.
+
+### 2026-11-18 | Antigravity | Sync strict Hitchhiker audit fixes and shortcut calibration
+- Synced `28831541` Planthir updates (`replay.py` case/decoder join + tolerance, `registry.py` `status_events_sha256`, `design.py` zero-variance sign-flip inference, `x1_rd2_adapter.py`/`agent_tools.py` balanced strata, `instrument.py` shortcut calibration, `productivity.py` error-detection timing, and `execution.py`/`evidence.py` `_atomic_replace`) while preserving `8e62ca0f` lazy `v8x` imports in `agent_tools.py`.
+- Preserved all existing `Elendril` `v8`/`v8x` modules, campaign/export/notebook scripts, and notebooks.
+- Verified on CPU: `import anra_v5.elendril.v8x.data`, `tests/test_elendril_v8x_data_and_protocol.py`, `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU pending.

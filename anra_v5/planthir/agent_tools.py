@@ -76,6 +76,7 @@ _DATASET_KEYS = {
     "multihop_world_count",
     "probe_world_count",
     "seed_offset",
+    "required_operations",
     "extra_config",
 }
 _ARM_KEYS = {
@@ -1347,6 +1348,27 @@ def _validate_and_compile(
             "errors": [{"code": "TRANSITIVE_COHORT_LEAKAGE", "field": "dataset", "detail": str(transitivity["leaks"])}],
         }, None, {}
 
+    from .instrument import audit_sampled_strata
+
+    req_ops = tuple(str(x) for x in ds_doc.get("required_operations", ()))
+    train_strata = audit_sampled_strata(train_worlds, kernel=kernel, required_operations=req_ops)
+    eval_strata = audit_sampled_strata(eval_w, kernel=kernel, required_operations=())
+    if req_ops and not train_strata["passed"]:
+        return {
+            "schema": "anra-planthir-spec-validation-v1",
+            "valid": False,
+            "status": "INVALID_SPEC",
+            "backend_id": backend_id,
+            "errors": [
+                {
+                    "code": "MISSING_REQUIRED_STRATA",
+                    "field": "dataset.required_operations",
+                    "detail": f"missing canonical initial operations in sampled training population: {train_strata['missing_required_operations']}",
+                }
+            ],
+            "sampled_strata": {"train": train_strata, "eval": eval_strata},
+        }, None, {}
+
     cartridge = None
     if materialize_data:
         cartridge = ExperimentCartridge(
@@ -1383,6 +1405,7 @@ def _validate_and_compile(
         "errors": [],
         "design_audit": design_audit,
         "cohort_transitivity": transitivity,
+        "sampled_strata": {"train": train_strata, "eval": eval_strata},
         "capabilities": asdict(caps),
     }, cartridge, run_kwargs
 
