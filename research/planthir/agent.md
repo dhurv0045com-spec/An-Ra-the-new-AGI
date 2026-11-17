@@ -1,13 +1,13 @@
-# `research/planthir/agent.md` — Palantiri / Planthir Quick Mirror
+# `research/planthir/agent.md` — Planthir / Palantiri / Planter Quick Mirror
 
-> **Canonical Guide:** See root [agent.md](../../agent.md) for the one-sentence user prompt protocol, cross-branch `origin/palantiri` installation commands, `anra-planthir-spec-v1` JSON templates, and Python extension recipes.
+> **Canonical Guide:** See root [agent.md](../../agent.md) for the cross-branch user prompt protocol, `origin/<source-branch>` installation commands, `anra-planthir-spec-v1` JSON templates, and Python extension recipes.
 
-## Quick Summary for Agents (`anra_v5.palantiri` / `anra_v5.planthir`)
+## Quick Summary for Agents (`anra_v5.planthir` / `anra_v5.palantiri` / `anra_v5.planter`)
 
-1. **One-Sentence User Command Protocol:** When told *"Use the technology palantiri from the branch. Change the branch name into something different from this branch. Make this experiment with the help of the technology palantiri"*:
-   - Create a new branch (`git checkout -b exp/<short-name>`).
-   - Pull from `origin/palantiri` if `anra_v5/palantiri` is absent.
-   - Verify with `python -m anra_v5.palantiri doctor` (`green_signal: true`) and `python -m anra_v5.palantiri calibrate` (`6/6`).
+1. **Cross-Branch User Command Protocol:** When told *"Use the technology planthir (or planter / palantiri) from the branch `<branch>` (e.g. `hitchhiker`) to perform the experiment"*:
+   - Create an experiment branch (`git checkout -b exp/<short-name>`).
+   - Pull from `origin/<branch>` if `anra_v5/planthir` is absent (or older) in the current branch.
+   - Verify with `python -m anra_v5.planthir doctor` (`green_signal: true`) and `python -m anra_v5.planthir calibrate` (`6/6`).
 2. **Declarative CLI workflow:**
    - `python -m anra_v5.palantiri doctor`
    - `python -m anra_v5.palantiri schema`

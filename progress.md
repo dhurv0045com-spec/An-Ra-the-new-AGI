@@ -264,3 +264,8 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 ### 2026-11-17 | Antigravity | Integrate Palantiri/Planthir research infrastructure onto hitchhiker
 - Copied `anra_v5/palantiri`, `anra_v5/planthir`, `anra_v5/elendril/v8`, `pyproject.toml`, `agent.md`, `purpose.md`, `research/planthir/`, `Experiment Result/Planthir/`, `tools/audit_tree.py`, `docs/TREE_INVENTORY.json`, and `tests/test_planthir_*.py` from `planthir` (`692c9406`), preserving all Hitchhiker/Y1 modules, notebooks, and progress history.
 - Verified on CPU inside `hitchhiker`: `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`), `calibrate` (`6/6`), `tools.verify_elendril_evidence`, and tree/curation/Y1/Planthir tests.
+
+### 2026-11-18 | Antigravity | Sync cross-branch prompt protocol in agent.md and planter alias
+- Updated `agent.md`, `research/planthir/agent.md`, `anra_v5/planter/`, `pyproject.toml`, and `tests/test_planthir_declarative_cli_and_usability.py` from `planthir` (`e6472fd4`).
+- Removed the mistaken branch-rename line from `agent.md` so agents pull cleanly from `origin/<source-branch>` (e.g. `hitchhiker`, `Elendril`).
+- Verified `tests/test_elendril_tree.py`, `tests/test_planthir_declarative_cli_and_usability.py`, and `python -m anra_v5.planter doctor` on CPU (`GREEN_SIGNAL`); GPU runs remain pending.
