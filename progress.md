@@ -293,3 +293,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Repaired V8 observation cache key & trace verification (`anra_v5/elendril/v8/evaluation.py`), built full `anra_v5/elendril/v8x/` (`42` core S20 jobs, `R`/`R-noedge`/`P-capR`/`U-*`, `D1-H`/`D2`), and registered `x1_s20` into Planthir/Palantiri.
 - Built `tools/elendril_v8x_{worker,campaign,export}.py`, `tools/analyze_elendril_v8x_results.py`, and `tools/build_elendril_v8x_notebook.py` using `IndependentWorkerScheduler`, verified archive security, and `Experiment Result/V8-X1/` pre-run templates.
 - Verified on CPU fixtures (`test_elendril_v8x_*.py` + `test_planthir_*.py` + `doctor` `GREEN_SIGNAL`); S20 2xT4 GPU execution remains pending owner launch.
+
+### 2026-11-18 | Antigravity | Publish X1 Kaggle 2xT4 notebook pinned to Commit A
+- Generated `notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb` pinned to Commit A (`6c684820c0c71a5f8bc019dbff3e915381b8b13c`) with disabled default `OWNER_AUTHORIZED = False`.
+- Verified byte-identical rebuild via `git archive 6c684820c0c71a5f8bc019dbff3e915381b8b13c` (SHA-256 `79e242b83f509082448a4d90b87f02203484e4dc669d008e293292e796c91739`) and updated `Experiment Result/V8-X1/` & `research/v8-x/IMPLEMENTATION_HANDOFF.md`.
+- CPU-qualified, GPU admission/execution pending owner Kaggle 2xT4 run.

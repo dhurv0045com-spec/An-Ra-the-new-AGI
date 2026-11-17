@@ -19,15 +19,18 @@
 - `tools/elendril_v8x_{worker,campaign,export}.py`, `tools/analyze_elendril_v8x_results.py`, `tools/build_elendril_v8x_notebook.py`: isolated 2-GPU scheduling via Planthir `IndependentWorkerScheduler`, 330-min cap + 45-min reserve, 2 GiB disk reserve, ZIP security verification, offline intake, and deterministic notebook generation.
 
 ## 3. CLI & Notebook Launch Workflow (Kaggle 2xT4)
+- **Pinned Runtime Commit A (`SOURCE_SHA`):** `6c684820c0c71a5f8bc019dbff3e915381b8b13c`
+- **Generated Notebook SHA-256 (`notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb`):** `79e242b83f509082448a4d90b87f02203484e4dc669d008e293292e796c91739`
+
 ```bash
-python -m tools.elendril_v8x_campaign prepare --source <COMMIT_A> --session A0 --work-dir <DIR>
-python -m tools.elendril_v8x_campaign validate --source <COMMIT_A> --session A0 --work-dir <DIR> --cpu-fixtures
-python -m tools.elendril_v8x_campaign admit --source <COMMIT_A> --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 330
-python -m tools.elendril_v8x_campaign run --source <COMMIT_A> --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 330 --output-dir <OUT> --owner-authorized
+python -m tools.elendril_v8x_campaign prepare --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR>
+python -m tools.elendril_v8x_campaign validate --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR> --cpu-fixtures
+python -m tools.elendril_v8x_campaign admit --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 330
+python -m tools.elendril_v8x_campaign run --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 330 --output-dir <OUT> --owner-authorized
 ```
 - Notebook: `notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb` (default `OWNER_AUTHORIZED = False`, prints `NOT LAUNCHED:` until owner flips `OWNER_AUTHORIZED = True`).
-- Byte-identical notebook rebuild from runtime commit A (`<COMMIT_A>`):
+- Byte-identical notebook rebuild verified from `git archive 6c684820c0c71a5f8bc019dbff3e915381b8b13c`:
   ```bash
-  python -m tools.build_elendril_v8x_notebook --source <COMMIT_A> --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb
-  python -m tools.build_elendril_v8x_notebook --source <COMMIT_A> --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb --check
+  python -m tools.build_elendril_v8x_notebook --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb
+  python -m tools.build_elendril_v8x_notebook --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb --check
   ```

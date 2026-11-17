@@ -2,8 +2,9 @@
   "schema": "elendril-x1-curated-metrics-v1",
   "status": "NOT_RUN",
   "execution_state": "CPU_QUALIFIED_GPU_PENDING",
-  "source_commit": "PENDING_RUNTIME_COMMIT_A",
-  "notebook_commit": "PENDING_NOTEBOOK_COMMIT_B",
+  "source_commit": "6c684820c0c71a5f8bc019dbff3e915381b8b13c",
+  "notebook_path": "notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb",
+  "notebook_sha256": "79e242b83f509082448a4d90b87f02203484e4dc669d008e293292e796c91739",
   "core_sessions": [
     "A0",
     "A1",
