@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from hashlib import sha256
+import importlib
 import json
 import os
 from pathlib import Path
@@ -560,11 +561,29 @@ def register_backend(backend: PlanthirBackend, *, contract_version: str = BACKEN
     _BACKENDS[backend.backend_id] = backend
 
 
+def _load_env_backend_modules() -> None:
+    """Import plugin modules named in PLANTHIR_BACKEND_MODULES so child CLIs discover custom backends."""
+
+    raw = os.environ.get("PLANTHIR_BACKEND_MODULES", "").strip()
+    if not raw or raw == _LOADED_ENV_MODULES.get("last", ""):
+        return
+    for spec in raw.split(","):
+        mod_name = spec.strip()
+        if not mod_name:
+            continue
+        mod = importlib.import_module(mod_name)
+        reg_fn = getattr(mod, "register_planthir_backends", None)
+        if callable(reg_fn):
+            reg_fn()
+    _LOADED_ENV_MODULES["last"] = raw
+
+
 def get_backend(backend_id: str, *, expected_version: str | None = None) -> PlanthirBackend:
     """Resolve a registered backend by ID and optional version check."""
 
     if not _BACKENDS_LOADED_X1:
         _ensure_builtin_backends()
+    _load_env_backend_modules()
     if backend_id not in _BACKENDS:
         raise ValueError(f"unknown or unsupported backend: {backend_id!r} (available={sorted(_BACKENDS)})")
     backend = _BACKENDS[backend_id]
@@ -578,10 +597,12 @@ def get_backend(backend_id: str, *, expected_version: str | None = None) -> Plan
 def list_backends() -> dict[str, dict[str, Any]]:
     if not _BACKENDS_LOADED_X1:
         _ensure_builtin_backends()
+    _load_env_backend_modules()
     return {k: b.capabilities().canonical() for k, b in sorted(_BACKENDS.items())}
 
 
 _BACKENDS_LOADED_X1 = False
+_LOADED_ENV_MODULES: dict[str, str] = {}
 
 
 def _ensure_builtin_backends() -> None:
@@ -595,6 +616,13 @@ def _ensure_builtin_backends() -> None:
         register_backend(X1RD2Backend())
     except ImportError:
         pass
+    try:
+        from .adapters.x1_s20_adapter import X1S20Backend
+
+        register_backend(X1S20Backend())
+    except ImportError:
+        pass
+    _load_env_backend_modules()
 
 
 __all__ = [

@@ -98,6 +98,19 @@ def _reconstruct_v8_spec(raw: Mapping[str, Any]) -> V8ModelSpec:
     return V8ModelSpec(**filtered)
 
 
+def _reconstruct_x1_s20_spec(raw: Mapping[str, Any]):
+    from anra_v5.elendril.v8x.contracts import X1ModelSpec
+
+    data = dict(raw)
+    if isinstance(data.get("base_spec"), Mapping):
+        data["base_spec"] = _reconstruct_model_spec(data["base_spec"])
+    if isinstance(data.get("output_mapping"), list):
+        data["output_mapping"] = tuple(str(x) for x in data["output_mapping"])
+    valid_keys = {f.name for f in fields(X1ModelSpec)}
+    filtered = {k: v for k, v in data.items() if k in valid_keys}
+    return X1ModelSpec(**filtered)
+
+
 def _reconstruct_x1_spec(raw: Mapping[str, Any]):
     from .adapters.x1_rd2_adapter import X1RD2Spec
 
@@ -113,8 +126,25 @@ def _extract_arch_and_params(
     if not isinstance(meta, Mapping):
         meta = {}
 
+    if isinstance(meta.get("backend_id"), str):
+        try:
+            from .backend import get_backend
+
+            be = get_backend(meta["backend_id"])
+            if callable(getattr(be, "extract_checkpoint_metadata", None)):
+                extracted = be.extract_checkpoint_metadata(meta)  # type: ignore[attr-defined]
+                if extracted is not None:
+                    return extracted
+        except Exception:
+            pass
+
     if isinstance(meta.get("x1_model_spec"), Mapping):
-        x1_spec = _reconstruct_x1_spec(meta["x1_model_spec"])
+        raw_x1 = meta["x1_model_spec"]
+        if meta.get("schema") == "elendril-x1-s20-training-v1" or isinstance(raw_x1.get("base_spec"), Mapping):
+            x1_s20_spec = _reconstruct_x1_s20_spec(raw_x1)
+            prog = "X1-byte" if x1_s20_spec.architecture == "B0" else "X1-S20"
+            return prog, x1_s20_spec.architecture, int(x1_s20_spec.total_parameters()), x1_s20_spec, x1_s20_spec.base_spec
+        x1_spec = _reconstruct_x1_spec(raw_x1)
         return "X1-RD2", x1_spec.architecture, int(x1_spec.total_parameters()), x1_spec, None
 
     if isinstance(meta.get("v8_model_spec"), Mapping):
@@ -262,10 +292,46 @@ def _instantiate_checkpoint_bundle(
 ) -> dict[str, Any]:
     """Build model + ObservablePolicy and load weights for frozen causal probing."""
 
+    from anra_v5.elendril.v8x.contracts import X1ModelSpec
+    from anra_v5.elendril.v8x.evaluation import X1S20ObservablePolicy
+    from anra_v5.elendril.v8x.models import build_x1_s20_model
     from .adapters.x1_rd2_adapter import X1ObservablePolicy, X1RD2Spec, build_x1_model
 
+    meta = sched.get("metadata", sched)
+    if isinstance(meta, Mapping) and isinstance(meta.get("backend_id"), str):
+        try:
+            from .backend import get_backend
+
+            be = get_backend(meta["backend_id"])
+            if callable(getattr(be, "restore_checkpoint_bundle", None)):
+                custom_res = be.restore_checkpoint_bundle(  # type: ignore[attr-defined]
+                    state=state,
+                    sched=sched,
+                    weights=weights,
+                    sha=sha,
+                    mode=mode,
+                    device=device,
+                    copy_enabled_override=copy_enabled_override,
+                )
+                if custom_res is not None:
+                    return custom_res
+        except Exception:
+            pass
+
     prog, arch, pcount, backend_spec, base_spec = _extract_arch_and_params(sched)
-    if isinstance(backend_spec, X1RD2Spec):
+    if isinstance(backend_spec, X1ModelSpec):
+        v8_spec = None
+        model = build_x1_s20_model(backend_spec, 0, torch_module=torch).to(torch.device(device))
+        model.load_state_dict(weights, strict=True)
+        model.eval()
+        policy = X1S20ObservablePolicy(
+            model,
+            backend_spec,
+            model_identity=f"{state.lineage_id}:{sha[:12]}",
+            mode=mode,
+            copy_enabled_override=copy_enabled_override,
+        )
+    elif isinstance(backend_spec, X1RD2Spec):
         model = build_x1_model(backend_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()

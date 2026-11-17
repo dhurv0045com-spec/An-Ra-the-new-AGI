@@ -100,17 +100,30 @@ def _clustered_bootstrap_ci(
     return [float(means[10]), float(means[390])], len(clusters)
 
 
-def _probe_split_keys(worlds: Sequence[Mapping[str, Any]]) -> tuple[set[str], set[str]]:
-    """Collect lineage identifiers and, for V8-shaped worlds, graph signatures."""
+def _probe_split_keys(
+    worlds: Sequence[Mapping[str, Any]],
+    *,
+    kernel: Any = None,
+) -> tuple[set[str], set[str]]:
+    """Collect lineage identifiers and structural signatures via kernel hook or V8/X1 fallback."""
     lineage: set[str] = set()
     signatures: set[str] = set()
+    sig_fn = getattr(kernel, "structural_signature", None) if kernel is not None else None
     for w in worlds:
         for field in ("world_id", "parent_world_id", "base_world_id"):
             if w.get(field):
                 lineage.add("world:" + str(w[field]))
         if w.get("pair_id"):
             lineage.add("pair:" + str(w["pair_id"]))
-        if all(k in w for k in ("goal_subject", "hops", "initial_facts", "allowed_public_tools", "hidden")):
+        if callable(sig_fn):
+            signatures.add(str(sig_fn(w)))
+        elif w.get("structural_signature"):
+            signatures.add(str(w["structural_signature"]))
+        elif w.get("schema") == "elendril-x1-d1h-v1" or "structure_hash" in w:
+            from anra_v5.elendril.v8x.data import canonical_x1_graph_signature
+
+            signatures.add(canonical_x1_graph_signature(w))
+        elif all(k in w for k in ("goal_subject", "hops", "initial_facts", "allowed_public_tools", "hidden")):
             signature = canonical_graph_signature(dict(w))
             if not signature["exact_canonicalization"]:
                 raise ValueError("probe split cannot establish graph disjointness: inexact V8 canonicalization")
@@ -262,46 +275,80 @@ def _cyclic_shift_symbol(sym: str | None, shift: int = 1) -> str | None:
     return SYMBOLS[(SYMBOLS.index(sym) + shift) % len(SYMBOLS)]
 
 
-def _permute_world(world: Mapping[str, Any], shift: int = 1) -> dict[str, Any]:
+def _permute_world(world: Mapping[str, Any], shift: int = 1, *, kernel: Any = None) -> dict[str, Any]:
+    if kernel is not None and callable(getattr(kernel, "permute_world", None)):
+        return deepcopy(dict(kernel.permute_world(world, shift=shift)))
     w = deepcopy(dict(world))
-    w["world_id"] = f"{w['world_id']}::sym_perm_{shift}"
-    w["goal_subject"] = _cyclic_shift_symbol(str(w["goal_subject"]), shift)
-    for row in w["initial_facts"]:
-        row["subject"] = _cyclic_shift_symbol(str(row["subject"]), shift)
-        row["value"] = _cyclic_shift_symbol(row["value"], shift)
-    for key in ("query_payload", "memory_payload"):
-        for row in w["hidden"][key]:
+    if "world_id" in w:
+        w["world_id"] = f"{w['world_id']}::sym_perm_{shift}"
+    if "goal_subject" in w:
+        w["goal_subject"] = _cyclic_shift_symbol(str(w["goal_subject"]), shift)
+    for row in w.get("initial_facts", ()):
+        if isinstance(row, dict) and "subject" in row and "value" in row:
             row["subject"] = _cyclic_shift_symbol(str(row["subject"]), shift)
             row["value"] = _cyclic_shift_symbol(row["value"], shift)
-    w["hidden"]["expected"] = _cyclic_shift_symbol(w["hidden"]["expected"], shift)
+    hidden = w.get("hidden")
+    if isinstance(hidden, dict):
+        for key in ("query_payload", "memory_payload"):
+            for row in hidden.get(key, ()):
+                if isinstance(row, dict) and "subject" in row and "value" in row:
+                    row["subject"] = _cyclic_shift_symbol(str(row["subject"]), shift)
+                    row["value"] = _cyclic_shift_symbol(row["value"], shift)
+        if "expected" in hidden:
+            hidden["expected"] = _cyclic_shift_symbol(hidden["expected"], shift)
     return w
 
 
-def _reverse_world_rows(world: Mapping[str, Any]) -> dict[str, Any]:
+def _reverse_world_rows(world: Mapping[str, Any], *, kernel: Any = None) -> dict[str, Any]:
+    if kernel is not None and callable(getattr(kernel, "reverse_world", None)):
+        return deepcopy(dict(kernel.reverse_world(world)))
     w = deepcopy(dict(world))
-    w["world_id"] = f"{w['world_id']}::row_reverse"
+    if "world_id" in w:
+        w["world_id"] = f"{w['world_id']}::row_reverse"
     w["row_order_seed"] = 0
-    w["initial_facts"] = list(reversed(w["initial_facts"]))
-    w["hidden"]["query_payload"] = list(reversed(w["hidden"]["query_payload"]))
-    w["hidden"]["memory_payload"] = list(reversed(w["hidden"]["memory_payload"]))
+    if isinstance(w.get("initial_facts"), list):
+        w["initial_facts"] = list(reversed(w["initial_facts"]))
+    hidden = w.get("hidden")
+    if isinstance(hidden, dict):
+        if isinstance(hidden.get("query_payload"), list):
+            hidden["query_payload"] = list(reversed(hidden["query_payload"]))
+        if isinstance(hidden.get("memory_payload"), list):
+            hidden["memory_payload"] = list(reversed(hidden["memory_payload"]))
     return w
 
 
-def _inject_distractor_chain(world: Mapping[str, Any]) -> dict[str, Any]:
+def _inject_distractor_chain(world: Mapping[str, Any], *, kernel: Any = None) -> dict[str, Any]:
+    if kernel is not None and callable(getattr(kernel, "inject_distractor", None)):
+        return deepcopy(dict(kernel.inject_distractor(world)))
     w = deepcopy(dict(world))
-    w["world_id"] = f"{w['world_id']}::distractor"
-    used: set[str] = {str(w["goal_subject"])}
-    for row in list(w["initial_facts"]) + list(w["hidden"]["query_payload"]) + list(w["hidden"]["memory_payload"]):
-        used.add(str(row["subject"]))
-        if row["value"] is not None:
-            used.add(str(row["value"]))
+    if "world_id" in w:
+        w["world_id"] = f"{w['world_id']}::distractor"
+    if not isinstance(w.get("initial_facts"), list):
+        return w
+    hidden = w.get("hidden") if isinstance(w.get("hidden"), dict) else {}
+    used: set[str] = {str(w.get("goal_subject", ""))}
+    for row in list(w.get("initial_facts", ())) + list(hidden.get("query_payload", ())) + list(hidden.get("memory_payload", ())):
+        if isinstance(row, Mapping):
+            if "subject" in row:
+                used.add(str(row["subject"]))
+            if row.get("value") is not None:
+                used.add(str(row["value"]))
     unused = [s for s in SYMBOLS if s not in used]
     if len(unused) >= 3:
         d1, d2, d3 = unused[0], unused[1], unused[2]
-        w["initial_facts"] = list(w["initial_facts"]) + [
-            {"subject": d1, "source": "s0", "tick": 901, "value": d2},
-            {"subject": d2, "source": "s0", "tick": 902, "value": d3},
-        ]
+        is_x1 = world.get("schema") == "elendril-x1-d1h-v1" or any(
+            isinstance(r, Mapping) and "epoch" in r for r in w.get("initial_facts", ())
+        )
+        if is_x1:
+            w["initial_facts"] = list(w["initial_facts"]) + [
+                {"subject": d1, "source": "S0", "epoch": 1, "value": d2},
+                {"subject": d2, "source": "S0", "epoch": 1, "value": d3},
+            ]
+        else:
+            w["initial_facts"] = list(w["initial_facts"]) + [
+                {"subject": d1, "source": "s0", "tick": 901, "value": d2},
+                {"subject": d2, "source": "s0", "tick": 902, "value": d3},
+            ]
     return w
 
 
@@ -328,9 +375,9 @@ def run_invariance_counterfactuals(
 
     for w in worlds:
         c_base, act_base, _ = _run_single_episode(policy, kernel, w)
-        c_perm, act_perm, _ = _run_single_episode(policy, kernel, _permute_world(w, shift=1))
-        c_rev, act_rev, _ = _run_single_episode(policy, kernel, _reverse_world_rows(w))
-        c_dist, act_dist, _ = _run_single_episode(policy, kernel, _inject_distractor_chain(w))
+        c_perm, act_perm, _ = _run_single_episode(policy, kernel, _permute_world(w, shift=1, kernel=kernel))
+        c_rev, act_rev, _ = _run_single_episode(policy, kernel, _reverse_world_rows(w, kernel=kernel))
+        c_dist, act_dist, _ = _run_single_episode(policy, kernel, _inject_distractor_chain(w, kernel=kernel))
 
         base_ok += 1 if c_base else 0
         perm_ok += 1 if c_perm else 0
@@ -416,8 +463,8 @@ def run_representation_linear_probe(
     if len(train_worlds) < 4 or len(eval_worlds) < 2:
         raise ValueError("linear probe requires at least 4 train worlds and 2 eval worlds")
 
-    train_lineage, train_graphs = _probe_split_keys(train_worlds)
-    eval_lineage, eval_graphs = _probe_split_keys(eval_worlds)
+    train_lineage, train_graphs = _probe_split_keys(train_worlds, kernel=kernel)
+    eval_lineage, eval_graphs = _probe_split_keys(eval_worlds, kernel=kernel)
     if (train_lineage & eval_lineage or train_graphs & eval_graphs
             or any(a == b for a in train_worlds for b in eval_worlds)):
         raise ValueError("probe training and evaluation worlds must be disjoint by lineage and V8 graph signature")
@@ -565,7 +612,19 @@ def run_surgical_mechanism_ablation(
     ablated_outcomes: list[bool] = list(baseline_outcomes)
     ablated_first_actions: list[tuple[str, str | None] | None] = list(baseline_first_actions)
 
-    if v8_spec is not None and arch == "P":
+    custom_ablate = getattr(policy, "ablate_mechanism", None) or getattr(model, "ablate_mechanism", None)
+    if callable(custom_ablate):
+        with custom_ablate() as mtype:
+            if mtype:
+                mechanism_type = str(mtype)
+                ablation_supported = True
+                ablated_outcomes = []
+                ablated_first_actions = []
+                for w in worlds:
+                    ok, _, executed = _run_single_episode(policy, kernel, w)
+                    ablated_outcomes.append(ok)
+                    ablated_first_actions.append(executed[0] if executed else None)
+    elif v8_spec is not None and arch == "P":
         mechanism_type = "pointer_copy_gate"
         ablation_supported = True
         ablated_policy = policy.__class__(
@@ -621,8 +680,9 @@ def run_surgical_mechanism_ablation(
                 if saved_b is not None:
                     model.cap_out.bias.copy_(saved_b)
     elif getattr(policy, "x1_spec", None) is not None and model is not None:
-        x1_arch = getattr(policy.x1_spec, "architecture", None)
-        if x1_arch in ("X1-R", "X1-R-noedge") and hasattr(model, "r_to_ptr"):
+        x1_spec = policy.x1_spec
+        x1_arch = getattr(x1_spec, "architecture", None)
+        if x1_arch in ("X1-R", "X1-R-noedge", "R", "R-noedge") and hasattr(model, "r_to_ptr"):
             mechanism_type = "x1_relational_slot_readout"
             ablation_supported = True
             saved_w = model.r_to_ptr.weight.detach().clone()
@@ -638,7 +698,7 @@ def run_surgical_mechanism_ablation(
             finally:
                 with torch.no_grad():
                     model.r_to_ptr.weight.copy_(saved_w)
-        elif x1_arch == "X1-P-capR" and hasattr(model, "cap_r_out"):
+        elif x1_arch in ("X1-P-capR", "P-capR") and hasattr(model, "cap_r_out"):
             mechanism_type = "x1_query_residual_control"
             ablation_supported = True
             saved_w = model.cap_r_out.weight.detach().clone()
@@ -659,6 +719,61 @@ def run_surgical_mechanism_ablation(
                     model.cap_r_out.weight.copy_(saved_w)
                     if saved_b is not None:
                         model.cap_r_out.bias.copy_(saved_b)
+        elif x1_arch == "P":
+            mechanism_type = "pointer_copy_gate"
+            ablation_supported = True
+            ablated_policy = policy.__class__(
+                model,
+                x1_spec,
+                model_identity=f"{getattr(policy, 'model_identity', 'policy')}:no-copy",
+                mode=getattr(policy, "mode", "raw"),
+                copy_enabled_override=False,
+            )
+            ablated_outcomes = []
+            ablated_first_actions = []
+            for w in worlds:
+                ok, _, executed = _run_single_episode(ablated_policy, kernel, w)
+                ablated_outcomes.append(ok)
+                ablated_first_actions.append(executed[0] if executed else None)
+        elif x1_arch == "F-cap" and hasattr(model, "cap_out"):
+            mechanism_type = "value_residual_bottleneck"
+            ablation_supported = True
+            saved_w = model.cap_out.weight.detach().clone()
+            saved_b = model.cap_out.bias.detach().clone() if getattr(model.cap_out, "bias", None) is not None else None
+            try:
+                with torch.no_grad():
+                    model.cap_out.weight.zero_()
+                    if saved_b is not None:
+                        model.cap_out.bias.zero_()
+                ablated_outcomes = []
+                ablated_first_actions = []
+                for w in worlds:
+                    ok, _, executed = _run_single_episode(policy, kernel, w)
+                    ablated_outcomes.append(ok)
+                    ablated_first_actions.append(executed[0] if executed else None)
+            finally:
+                with torch.no_grad():
+                    model.cap_out.weight.copy_(saved_w)
+                    if saved_b is not None:
+                        model.cap_out.bias.copy_(saved_b)
+        elif str(x1_arch).startswith("U-") or x1_arch == "U2-untied":
+            mechanism_type = "recurrent_refinement"
+            ablation_supported = True
+            if hasattr(model, "x1_spec"):
+                orig_model_spec = model.x1_spec
+                orig_policy_spec = policy.x1_spec
+                try:
+                    model.x1_spec = _SpecStepProxy(orig_model_spec, recurrent_steps=0)
+                    policy.x1_spec = _SpecStepProxy(orig_policy_spec, recurrent_steps=0)
+                    ablated_outcomes = []
+                    ablated_first_actions = []
+                    for w in worlds:
+                        ok, _, executed = _run_single_episode(policy, kernel, w)
+                        ablated_outcomes.append(ok)
+                        ablated_first_actions.append(executed[0] if executed else None)
+                finally:
+                    model.x1_spec = orig_model_spec
+                    policy.x1_spec = orig_policy_spec
 
     ablated_acc = sum(1 for ok in ablated_outcomes if ok) / len(ablated_outcomes)
     agreements = sum(
@@ -695,13 +810,45 @@ def run_compute_depth_scaling_intervention(
     if not worlds:
         raise ValueError("worlds cannot be empty")
     v8_spec = getattr(policy, "v8_spec", None)
+    x1_spec = getattr(policy, "x1_spec", None)
     model = getattr(policy, "model", None)
+    depth_ctx = getattr(policy, "compute_depth_context", None) or getattr(model, "compute_depth_context", None)
+    if callable(depth_ctx):
+        trained_steps = int(getattr(policy, "trained_compute_steps", getattr(model, "trained_compute_steps", 0)))
+        steps_to_eval = sorted({int(k) for k in step_grid if int(k) >= 0} | {0, trained_steps})
+        acc_by_steps: dict[str, float] = {}
+        for k in steps_to_eval:
+            with depth_ctx(k):
+                correct = sum(1 for w in worlds if _run_single_episode(policy, kernel, w)[0])
+                acc_by_steps[str(k)] = float(correct / len(worlds))
+        trained_acc = acc_by_steps[str(trained_steps)]
+        zero_acc = acc_by_steps["0"]
+        higher = [acc_by_steps[str(k)] for k in steps_to_eval if k > trained_steps]
+        return {
+            "intervention": "compute_depth_scaling",
+            "supports_variable_depth": True,
+            "trained_steps": trained_steps,
+            "accuracy_by_steps": acc_by_steps,
+            "recurrence_gain_over_zero": float(trained_acc - zero_acc),
+            "extrapolation_gain_above_trained": float(max(higher) - trained_acc) if higher else 0.0,
+        }
     if (
-        v8_spec is None
-        or getattr(v8_spec, "architecture", None) != "U"
-        or model is None
-        or not hasattr(model, "v8_spec")
+        v8_spec is not None
+        and getattr(v8_spec, "architecture", None) == "U"
+        and model is not None
+        and hasattr(model, "v8_spec")
     ):
+        spec_attr = "v8_spec"
+        active_spec = v8_spec
+    elif (
+        x1_spec is not None
+        and (str(getattr(x1_spec, "architecture", "")).startswith("U-") or getattr(x1_spec, "architecture", "") == "U2-untied")
+        and model is not None
+        and hasattr(model, "x1_spec")
+    ):
+        spec_attr = "x1_spec"
+        active_spec = x1_spec
+    else:
         return {
             "intervention": "compute_depth_scaling",
             "supports_variable_depth": False,
@@ -711,21 +858,21 @@ def run_compute_depth_scaling_intervention(
             "extrapolation_gain_above_trained": 0.0,
         }
 
-    trained_steps = int(v8_spec.recurrent_steps)
+    trained_steps = int(active_spec.recurrent_steps)
     steps_to_eval = sorted({int(k) for k in step_grid if int(k) >= 0} | {0, trained_steps})
-    orig_model_spec = model.v8_spec
-    orig_policy_spec = policy.v8_spec
+    orig_model_spec = getattr(model, spec_attr)
+    orig_policy_spec = getattr(policy, spec_attr)
     acc_by_steps: dict[str, float] = {}
 
     try:
         for k in steps_to_eval:
-            model.v8_spec = _SpecStepProxy(orig_model_spec, recurrent_steps=k)
-            policy.v8_spec = _SpecStepProxy(orig_policy_spec, recurrent_steps=k)
+            setattr(model, spec_attr, _SpecStepProxy(orig_model_spec, recurrent_steps=k))
+            setattr(policy, spec_attr, _SpecStepProxy(orig_policy_spec, recurrent_steps=k))
             correct = sum(1 for w in worlds if _run_single_episode(policy, kernel, w)[0])
             acc_by_steps[str(k)] = float(correct / len(worlds))
     finally:
-        model.v8_spec = orig_model_spec
-        policy.v8_spec = orig_policy_spec
+        setattr(model, spec_attr, orig_model_spec)
+        setattr(policy, spec_attr, orig_policy_spec)
 
     trained_acc = acc_by_steps[str(trained_steps)]
     zero_acc = acc_by_steps["0"]

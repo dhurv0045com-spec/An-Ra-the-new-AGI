@@ -162,6 +162,15 @@ class EnvironmentKernel(Protocol):
 
 
 @runtime_checkable
+class CounterfactualEnvironmentKernel(EnvironmentKernel, Protocol):
+    """Optional EnvironmentKernel extensions so Gate 4 & split auditing never hardcode world schemas."""
+
+    def inject_distractor(self, world: Mapping[str, Any]) -> dict[str, Any]: ...
+
+    def structural_signature(self, world: Mapping[str, Any]) -> str: ...
+
+
+@runtime_checkable
 class ObservablePolicy(Protocol):
     """Policy interface exposing distributions and hidden representations for diagnostics."""
 

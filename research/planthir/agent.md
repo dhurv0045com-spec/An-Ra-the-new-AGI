@@ -1,23 +1,17 @@
 # `research/planthir/agent.md` — Planthir / Palantiri / Planter Quick Mirror
 
-> **Canonical Guide:** See root [agent.md](../../agent.md) for the cross-branch user prompt protocol, `origin/<source-branch>` installation commands, `anra-planthir-spec-v1` JSON templates, and Python extension recipes.
+> **Canonical Guide:** See root [agent.md](../../agent.md) for full details, Path 1 vs Path 2 recipes, Fast Test Budget rules, and the Gotchas Cheat-Sheet.
 
 ## Quick Summary for Agents (`anra_v5.planthir` / `anra_v5.palantiri` / `anra_v5.planter`)
 
-1. **Cross-Branch User Command Protocol:** When told *"Use the technology planthir (or planter / palantiri) from the branch `<branch>` (e.g. `hitchhiker`) to perform the experiment"*:
+1. **Cross-Branch User Command Protocol:** When told *"Use the technology planthir (or planter / palantiri) from the branch `<branch>` (e.g. `hitchhiker`, `Elendril`) to perform the experiment"*:
    - Create an experiment branch (`git checkout -b exp/<short-name>`).
    - Pull from `origin/<branch>` if `anra_v5/planthir` is absent (or older) in the current branch.
    - Verify with `python -m anra_v5.planthir doctor` (`green_signal: true`) and `python -m anra_v5.planthir calibrate` (`6/6`).
-2. **Declarative CLI workflow:**
-   - `python -m anra_v5.palantiri doctor`
-   - `python -m anra_v5.palantiri schema`
-   - `python -m anra_v5.palantiri calibrate`
-   - `python -m anra_v5.palantiri init --backend x1_rd2 --out spec.json` (or `--backend v8`)
-   - `python -m anra_v5.palantiri validate --spec spec.json --canary`
-   - `python -m anra_v5.palantiri run --spec spec.json --work-root runs/exp1 --canary`
-   - `python -m anra_v5.palantiri inspect-run --work-root runs/exp1`
-   - `python -m anra_v5.palantiri resume --spec spec.json --work-root runs/exp1 --canary`
-   - `python -m anra_v5.palantiri verify-bundle --bundle-dir runs/exp1/result_bundle`
-   - `python -m anra_v5.palantiri replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json`
-   - `python -m anra_v5.palantiri explain-error --code <CODE>`
-3. **Rules & Honesty:** CPU canary enforces `<= 100,000` parameters, `<= 32` samples, `<= 8` updates. CUDA production runs require a clean git tracked tree matching `"source_commit"`. Do not fabricate productivity savings (`STUDY_OBSERVATIONS_PENDING` until paired logs are provided) and keep `.zip`/`.npz`/`.bin` out of Git per root `AGENTS.md`.
+2. **Choose Workflow Path:**
+   - **Path 1 — Varying Hyperparams / Existing Arms (`spec.json` only):** `init --backend <id>` -> `validate` -> `run` -> `inspect-run` / `resume` -> `verify-bundle --bundle-dir ...` -> `replay-bundle --bundle-dir ...` (`explain-error --code <CODE>` on failures; never edit `.py` engine files).
+   - **Path 2 — New Architecture / Environment / Loss (`ExperimentModule` in 1 standalone file):** Implement `model_factory`, `dataset_factory`, `loss_fn`, `kernel_factory` + `policy_factory` using `ExperimentModule` + `GenericExperimentTrainer` + `CampaignOrchestrator` (`export_session_archives`, `build_pinned_kaggle_notebook`). Make **zero edits** to `anra_v5/planthir/` core files (`PLANTHIR_BACKEND_MODULES` auto-loads plugins).
+3. **Fast Tests & Core Gotchas:**
+   - Use `IndependentWorkerScheduler(..., in_process_runner=...)` in pytest instead of 6+ cold `torch` subprocesses (`<15s`). Child CUDA pinning automatically rewrites `--device cuda:N` -> `cuda:0`.
+   - `v5_model.core.ModelSpec` uses `vocabulary` (no `.logits()`; call `core(tokens, *packed_layout(segments, torch_module=torch))`). `IdentityBindings` uses `optimizer_spec_sha256`.
+   - Keep `.zip`/`.npz`/`.bin` out of Git (`audit_tree.py`) and limit `progress.md` entries to `<= 5` non-empty lines.
