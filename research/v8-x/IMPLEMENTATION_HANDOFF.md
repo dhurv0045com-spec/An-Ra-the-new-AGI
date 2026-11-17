@@ -19,18 +19,18 @@
 - `tools/elendril_v8x_{worker,campaign,export}.py`, `tools/analyze_elendril_v8x_results.py`, `tools/build_elendril_v8x_notebook.py`: isolated 2-GPU scheduling via Planthir `IndependentWorkerScheduler`, 330-min cap + 45-min reserve, 2 GiB disk reserve, ZIP security verification, offline intake, and deterministic notebook generation.
 
 ## 3. CLI & Notebook Launch Workflow (Kaggle 2xT4)
-- **Pinned Runtime Commit A (`SOURCE_SHA`):** `6c684820c0c71a5f8bc019dbff3e915381b8b13c`
-- **Generated Notebook SHA-256 (`notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb`):** `79e242b83f509082448a4d90b87f02203484e4dc669d008e293292e796c91739`
+- **Pinned Runtime Commit (`SOURCE_SHA`):** `8e62ca0f2046c0f07910fdd20abee40508631227`
+- **Generated Notebook SHA-256 (`notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb`):** `8c59dab4bf4c3f021f0c029816b20f5ff1b379e0345332c3ddd39c3907bd82ca`
 
 ```bash
-python -m tools.elendril_v8x_campaign prepare --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR>
-python -m tools.elendril_v8x_campaign validate --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR> --cpu-fixtures
-python -m tools.elendril_v8x_campaign admit --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 330
-python -m tools.elendril_v8x_campaign run --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 330 --output-dir <OUT> --owner-authorized
+python -m tools.elendril_v8x_campaign prepare --source 8e62ca0f2046c0f07910fdd20abee40508631227 --session A0 --work-dir <DIR>
+python -m tools.elendril_v8x_campaign validate --source 8e62ca0f2046c0f07910fdd20abee40508631227 --session A0 --work-dir <DIR> --cpu-fixtures
+python -m tools.elendril_v8x_campaign admit --source 8e62ca0f2046c0f07910fdd20abee40508631227 --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 480
+python -m tools.elendril_v8x_campaign run --source 8e62ca0f2046c0f07910fdd20abee40508631227 --session A0 --work-dir <DIR> --devices 0,1 --max-minutes 480 --output-dir <OUT> --owner-authorized
 ```
-- Notebook: `notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb` (default `OWNER_AUTHORIZED = False`, prints `NOT LAUNCHED:` until owner flips `OWNER_AUTHORIZED = True`).
-- Byte-identical notebook rebuild verified from `git archive 6c684820c0c71a5f8bc019dbff3e915381b8b13c`:
+- Notebook: `notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb` (owner-armed `OWNER_AUTHORIZED = True`; automatically loops `SESSIONS = ["A0", "A1", "A2", "A3", "D0", "D1", "D2"]` on 2xT4 GPU within available wall-clock and disk budget with zero edits).
+- Byte-identical notebook rebuild verified from `git archive 8e62ca0f2046c0f07910fdd20abee40508631227`:
   ```bash
-  python -m tools.build_elendril_v8x_notebook --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb
-  python -m tools.build_elendril_v8x_notebook --source 6c684820c0c71a5f8bc019dbff3e915381b8b13c --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb --check
+  python -m tools.build_elendril_v8x_notebook --source 8e62ca0f2046c0f07910fdd20abee40508631227 --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb
+  python -m tools.build_elendril_v8x_notebook --source 8e62ca0f2046c0f07910fdd20abee40508631227 --output notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb --check
   ```
