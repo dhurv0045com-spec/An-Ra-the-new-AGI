@@ -114,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("schema", help="Print strict anra-planthir-spec-v1 data-only JSON schema.")
 
     p_init = sub.add_parser("init", help="Generate a valid canary anra-planthir-spec-v1 JSON template.")
-    p_init.add_argument("--backend", choices=["v8", "x1_rd2"], default="x1_rd2")
+    p_init.add_argument("--backend", choices=["v8", "x1_rd2", "x1_s20"], default="x1_rd2")
     p_init.add_argument("--out", default=None, help="Optional output file path to write JSON template.")
     p_init.add_argument("--no-canary", action="store_true", help="Disable CPU canary flag in template.")
 

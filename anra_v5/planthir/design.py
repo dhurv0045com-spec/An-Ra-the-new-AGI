@@ -147,6 +147,8 @@ _ARCH_HEAD_KEYS = {
     "agg_iterations",
     "msg_iterations",
     "cap_hidden_dim",
+    "cap_r_hidden",
+    "noedge_mlp_dim",
     "output_mapping",
     "policy_interface",
 }

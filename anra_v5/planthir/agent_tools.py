@@ -19,6 +19,16 @@ from anra_v5.elendril.v6_registry import MODEL_PROFILES
 from anra_v5.elendril.v8.contracts import V8ModelSpec, build_v8_model_spec
 from anra_v5.elendril.v8.data import D1_TRAIN_SEED, build_d1_training_dataset
 from anra_v5.elendril.v8.training import prepare_v8_training_data
+from anra_v5.elendril.v8x.contracts import X1ModelSpec, build_x1_model_spec
+from anra_v5.elendril.v8x.data import (
+    X1D1HDataset,
+    X1D2Dataset,
+    build_x1_d1h_training_dataset,
+    build_x1_d2_paired_dataset,
+    build_x1_eval_splits,
+)
+from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
+from anra_v5.elendril.v8x.training import X1TrainRecipe
 
 from .adapters.v8_adapter import V8EnvironmentKernel
 from .adapters.x1_rd2_adapter import (
@@ -27,6 +37,7 @@ from .adapters.x1_rd2_adapter import (
     X1RD2Spec,
     prepare_x1_rd2_training_data,
 )
+from .adapters.x1_s20_adapter import prepare_x1_s20_canary_data
 from .backend import get_backend, list_backends
 from .cartridge import (
     CartridgeArmSpec,
@@ -68,6 +79,8 @@ _ROOT_KEYS = {
 _DATASET_KEYS = {
     "dataset_name",
     "d1_worlds_per_family",
+    "quota_per_family",
+    "max_states",
     "num_groups",
     "sample_limit_for_cpu",
     "eval_world_count",
@@ -124,6 +137,8 @@ _MODEL_KEYS = {
     "agg_iterations",
     "msg_iterations",
     "cap_hidden_dim",
+    "cap_r_hidden",
+    "noedge_mlp_dim",
 }
 _RECIPE_KEYS = {
     "seed",
@@ -311,6 +326,34 @@ def _parse_hypotheses(raw_list: Any, base_path: str, errors: list[dict[str, Any]
     return tuple(out)
 
 
+def _build_base_model_spec(
+    m_doc: Mapping[str, Any],
+    *,
+    default_ctx: int = 512,
+    defaults_from_s20: bool = False,
+) -> tuple[Any, int]:
+    s20 = MODEL_PROFILES["S20"]
+    width = int(m_doc.get("width", m_doc.get("hidden_dim", s20.width if defaults_from_s20 else 32)))
+    layers = int(m_doc.get("layers", m_doc.get("num_layers", s20.layers if defaults_from_s20 else 1)))
+    qheads = int(m_doc.get("query_heads", m_doc.get("num_heads", s20.query_heads if defaults_from_s20 else 2)))
+    kvheads = int(m_doc.get("kv_heads", s20.kv_heads if defaults_from_s20 else 1))
+    hdim = int(m_doc.get("head_dimension", s20.head_dimension if defaults_from_s20 else max(1, width // max(qheads, 1))))
+    ffn = int(m_doc.get("ffn_width", s20.ffn_width if defaults_from_s20 else width * 2))
+    ctx = int(m_doc.get("context_length", m_doc.get("max_sequence_length", default_ctx)))
+    max_seq = min(ctx, int(m_doc.get("max_sequence_length", ctx)))
+    base = replace(
+        s20,
+        width=width,
+        layers=layers,
+        query_heads=qheads,
+        kv_heads=kvheads,
+        head_dimension=hdim,
+        ffn_width=ffn,
+        context_length=ctx,
+    )
+    return base, max_seq
+
+
 def _build_arm_components(
     arm_doc: Mapping[str, Any],
     *,
@@ -371,24 +414,7 @@ def _build_arm_components(
         order_seed = int(arm_doc.get("order_seed", 7))
 
         if backend_id == "v8":
-            width = int(m_doc.get("width", m_doc.get("hidden_dim", 32)))
-            layers = int(m_doc.get("layers", m_doc.get("num_layers", 1)))
-            qheads = int(m_doc.get("query_heads", m_doc.get("num_heads", 2)))
-            kvheads = int(m_doc.get("kv_heads", 1))
-            hdim = int(m_doc.get("head_dimension", max(1, width // max(qheads, 1))))
-            ffn = int(m_doc.get("ffn_width", width * 2))
-            ctx = int(m_doc.get("context_length", m_doc.get("max_sequence_length", 512)))
-            max_seq = min(ctx, int(m_doc.get("max_sequence_length", ctx)))
-            base = replace(
-                MODEL_PROFILES["S20"],
-                width=width,
-                layers=layers,
-                query_heads=qheads,
-                kv_heads=kvheads,
-                head_dimension=hdim,
-                ffn_width=ffn,
-                context_length=ctx,
-            )
+            base, max_seq = _build_base_model_spec(m_doc, default_ctx=512, defaults_from_s20=False)
             v8_spec = build_v8_model_spec(
                 arch,
                 base_spec=base,
@@ -474,6 +500,53 @@ def _build_arm_components(
                 contrasts=tuple(contrasts_list),
                 backend_id="x1_rd2",
                 model_spec=x1_spec,
+            )
+
+        if backend_id == "x1_s20":
+            base_spec, max_seq = _build_base_model_spec(m_doc, default_ctx=640, defaults_from_s20=True)
+            x1_s20_spec = build_x1_model_spec(
+                arch,
+                base_spec=base_spec,
+                pointer_dim=int(m_doc.get("pointer_dim", 16)),
+                slot_dim=int(m_doc.get("slot_dim", 16)),
+                num_slots=int(m_doc.get("num_slots", 4)),
+                slot_edge_hidden=int(m_doc.get("slot_edge_hidden", 16)),
+                agg_iterations=int(m_doc.get("agg_iterations", 2)),
+                msg_iterations=int(m_doc.get("msg_iterations", 2)),
+                recurrent_dim=int(m_doc.get("recurrent_dim", 64)),
+                max_sequence_length=max_seq,
+            )
+            x1_s20_recipe = X1TrainRecipe(
+                seed=int(r_doc.get("seed", 1)),
+                total_updates=int(r_doc.get("total_updates", 2)),
+                batch_size=int(r_doc.get("batch_size", 4)),
+                micro_batch_size=int(r_doc.get("micro_batch_size", 2)),
+                lr=float(r_doc.get("lr", 1e-4)),
+                clip=float(r_doc.get("clip", 1.0)),
+                objective=str(r_doc.get("objective", "standard")),
+                eq_weight=float(r_doc.get("eq_weight", 0.1)),
+                cf_weight=float(r_doc.get("cf_weight", 0.1)),
+                cf_margin=float(r_doc.get("cf_margin", 0.5)),
+                sampling=str(r_doc.get("sampling", "uniform")),
+                schedule=str(r_doc.get("schedule", "cosine")),
+                precision=str(r_doc.get("precision", "fp32")),
+            )
+            if not milestones:
+                milestones = (x1_s20_recipe.total_updates,)
+            return CartridgeArmSpec(
+                arm_id=arm_id,
+                architecture_family=arch,
+                is_control=is_control,
+                v8_spec=None,
+                recipe=x1_s20_recipe,
+                dataset_identity=dataset_identity,
+                milestone_updates=milestones,
+                policy_mode=policy_mode,
+                order_seed=order_seed,
+                hypotheses=hypotheses_tuple,
+                contrasts=tuple(contrasts_list),
+                backend_id="x1_s20",
+                model_spec=x1_s20_spec,
             )
 
         errors.append({"code": "UNSUPPORTED_BACKEND", "field": "backend_id", "detail": f"unsupported backend_id {backend_id!r}"})
@@ -704,6 +777,131 @@ def init_spec_template(
             },
         }
 
+    if backend_id == "x1_s20":
+        return {
+            "schema": SPEC_SCHEMA_VERSION,
+            "campaign_id": "X1-S20-CANARY-TEMPLATE" if canary else "X1-S20-CAMPAIGN",
+            "program": "ELENDRIL-V8-X1",
+            "source_commit": commit,
+            "backend_id": "x1_s20",
+            "dataset": {
+                "dataset_name": "X1-D1-H",
+                "quota_per_family": 1,
+                "max_states": 16,
+                "eval_world_count": 4,
+                "multihop_world_count": 2,
+                "probe_world_count": 4,
+                "seed_offset": 23,
+            },
+            "control_arm": {
+                "arm_id": "P_CAPR",
+                "architecture": "P-capR",
+                "model": {
+                    "width": 16,
+                    "layers": 1,
+                    "query_heads": 2,
+                    "kv_heads": 1,
+                    "head_dimension": 8,
+                    "ffn_width": 32,
+                    "context_length": 640,
+                    "pointer_dim": 8,
+                    "slot_dim": 8,
+                    "num_slots": 4,
+                    "slot_edge_hidden": 8,
+                },
+                "recipe": {
+                    "seed": 1,
+                    "total_updates": 2,
+                    "batch_size": 4,
+                    "micro_batch_size": 2,
+                    "lr": 1e-4,
+                    "objective": "standard",
+                    "sampling": "uniform",
+                    "schedule": "cosine",
+                    "precision": "fp32",
+                },
+                "milestone_updates": [1, 2],
+                "order_seed": 1,
+            },
+            "treatment_arms": [
+                {
+                    "arm_id": "R_MAIN",
+                    "architecture": "R",
+                    "model": {
+                        "width": 16,
+                        "layers": 1,
+                        "query_heads": 2,
+                        "kv_heads": 1,
+                        "head_dimension": 8,
+                        "ffn_width": 32,
+                        "context_length": 640,
+                        "pointer_dim": 8,
+                        "slot_dim": 8,
+                        "num_slots": 4,
+                        "slot_edge_hidden": 8,
+                        "agg_iterations": 2,
+                        "msg_iterations": 2,
+                    },
+                    "recipe": {
+                        "seed": 1,
+                        "total_updates": 2,
+                        "batch_size": 4,
+                        "micro_batch_size": 2,
+                        "lr": 1e-4,
+                        "objective": "standard",
+                        "sampling": "uniform",
+                        "schedule": "cosine",
+                        "precision": "fp32",
+                    },
+                    "milestone_updates": [1, 2],
+                    "order_seed": 1,
+                    "contrasts": [
+                        {
+                            "contrast_id": "C_R_VS_P_CAPR",
+                            "factor_name": "architecture",
+                            "control_arm": "P_CAPR",
+                            "treatment_arm": "R_MAIN",
+                            "held_constant": ["lr", "objective", "precision", "order_seed"],
+                            "expected_mechanism_signature": "x1_relational_slot_readout",
+                        }
+                    ],
+                    "hypotheses": [
+                        {
+                            "hypothesis_id": "H_X1_S20_SLOTS",
+                            "statement": "Relational slot readout in R causally participates in pointer predictions.",
+                            "mechanism_target": "x1_relational_slot_readout",
+                            "falsifiers": [
+                                {
+                                    "falsifier_id": "F_X1_S20_FINITE",
+                                    "description": "Evaluation accuracy stays finite on canary worlds",
+                                    "metric_name": "overall_accuracy",
+                                    "comparator": ">=",
+                                    "threshold": 0.0,
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+            "factors": [{"factor_name": "architecture", "factor_type": "architecture", "control_value": "P-capR", "levels": ["P-capR", "R"]}],
+            "typed_contrasts": [
+                {
+                    "contrast_id": "C_R_VS_P_CAPR",
+                    "factor_name": "architecture",
+                    "control_arm_id": "P_CAPR",
+                    "treatment_arm_id": "R_MAIN",
+                    "target_mechanism": "x1_relational_slot_readout",
+                    "expected_treatment_value": "R",
+                }
+            ],
+            "execution": {
+                "device": "cpu",
+                "cpu_canary": bool(canary),
+                "checkpoint_interval": 1,
+                "parameter_tolerance_ratio": 1.05,
+            },
+        }
+
     raise ValueError(f"unsupported template backend_id: {backend_id!r}")
 
 
@@ -779,6 +977,22 @@ def _validate_and_compile(
         )
         train_worlds = build_d1_training_dataset(quota_per_family=max(16, d1_quota)).worlds
         kernel = V8EnvironmentKernel()
+    elif backend_id == "x1_s20":
+        qpf = int(ds_doc.get("quota_per_family", 1 if cpu_canary else 512))
+        ctrl_obj = str(doc.get("control_arm", {}).get("recipe", {}).get("objective", "standard"))
+        use_paired = str(ds_doc.get("dataset_name", "")) in ("D2", "X1-D2") or ctrl_obj.startswith("PAIR")
+        if cpu_canary:
+            max_st = int(ds_doc.get("max_states", 16))
+            train_data, train_worlds = prepare_x1_s20_canary_data(
+                objective="PAIR-EQ" if use_paired else "standard",
+                quota_per_family=max(1, qpf),
+                max_states=min(32, max_st),
+            )
+        else:
+            d1h = build_x1_d1h_training_dataset(quota_per_family=qpf)
+            train_worlds = d1h.worlds
+            train_data = build_x1_d2_paired_dataset(base_worlds=train_worlds) if use_paired else d1h
+        kernel = X1S20EnvironmentKernel()
     else:
         train_data, train_worlds = prepare_x1_rd2_training_data(num_groups=num_groups)
         kernel = X1RD2EnvironmentKernel()
@@ -899,29 +1113,42 @@ def _validate_and_compile(
         max_cuda_allocated_bytes=ex_doc.get("max_cuda_allocated_bytes"),
     )
 
-    seen_ids, seen_graphs = _probe_split_keys(train_worlds)
-    pool1 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset, quota_per_family=max(16, d1_quota)).worlds
-    pool2 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset + 53, quota_per_family=16).worlds
-
     eval_list: list[dict[str, Any]] = []
     mh_list: list[dict[str, Any]] = []
     probe_list: list[dict[str, Any]] = []
-    for w in (*pool1, *pool2):
-        if int(w["renderer_template"]) != 0:
-            continue
-        wi, wg = _probe_split_keys([w])
-        if (wi & seen_ids) or (wg & seen_graphs):
-            continue
-        if len(eval_list) < eval_count:
-            eval_list.append(w)
-        elif len(mh_list) < mh_count:
-            mh_list.append(w)
-        elif len(probe_list) < probe_count:
-            probe_list.append(w)
-        else:
-            break
-        seen_ids |= wi
-        seen_graphs |= wg
+    if backend_id == "x1_s20":
+        x1_splits = build_x1_eval_splits(
+            train_worlds=train_worlds,
+            dev_per_family=max(1, (eval_count + 11) // 12),
+            conf_per_family=max(1, (probe_count + 11) // 12),
+            depth_per_hop=max(1, (mh_count + 3) // 4),
+            milestone_per_family=1,
+        )
+        eval_list = list(x1_splits["dev_views"][:eval_count])
+        mh_cands = [w for w in x1_splits["depth_stress_views"] if int(w.get("hops", 1)) >= 2]
+        mh_list = (mh_cands or list(x1_splits["depth_stress_views"]))[:mh_count]
+        probe_list = list(x1_splits["conf_views"][:probe_count])
+    else:
+        seen_ids, seen_graphs = _probe_split_keys(train_worlds)
+        pool1 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset, quota_per_family=max(16, d1_quota)).worlds
+        pool2 = build_d1_training_dataset(seed=D1_TRAIN_SEED + seed_offset + 53, quota_per_family=16).worlds
+
+        for w in (*pool1, *pool2):
+            if int(w["renderer_template"]) != 0:
+                continue
+            wi, wg = _probe_split_keys([w])
+            if (wi & seen_ids) or (wg & seen_graphs):
+                continue
+            if len(eval_list) < eval_count:
+                eval_list.append(w)
+            elif len(mh_list) < mh_count:
+                mh_list.append(w)
+            elif len(probe_list) < probe_count:
+                probe_list.append(w)
+            else:
+                break
+            seen_ids |= wi
+            seen_graphs |= wg
 
     if len(eval_list) < eval_count or len(mh_list) < mh_count or len(probe_list) < probe_count:
         errors.append(
@@ -1115,7 +1342,7 @@ def planthir_doctor() -> dict[str, Any]:
     try:
         backends = list_backends()
         be_details = {}
-        for bid in ("v8", "x1_rd2"):
+        for bid in ("v8", "x1_rd2", "x1_s20"):
             be = get_backend(bid)
             caps = be.capabilities()
             be_details[bid] = {
@@ -1124,7 +1351,7 @@ def planthir_doctor() -> dict[str, Any]:
                 "architectures": list(caps.supported_architectures),
                 "objectives": list(caps.supported_objectives),
             }
-        b_ok = set(backends) >= {"v8", "x1_rd2"}
+        b_ok = set(backends) >= {"v8", "x1_rd2", "x1_s20"}
         checks["backends_and_contracts"] = {"passed": b_ok, "registered": backends, "details": be_details}
         if not b_ok:
             all_ok = False
@@ -1152,7 +1379,7 @@ def planthir_doctor() -> dict[str, Any]:
     # 3. Declarative starter templates compile & validate cleanly
     tpl_status: dict[str, Any] = {}
     tpl_ok = True
-    for bid in ("v8", "x1_rd2"):
+    for bid in ("v8", "x1_rd2", "x1_s20"):
         try:
             doc = init_spec_template(backend_id=bid, canary=True)
             val = validate_spec_document(doc, canary_override=True)

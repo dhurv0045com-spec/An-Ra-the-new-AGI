@@ -595,6 +595,12 @@ def _ensure_builtin_backends() -> None:
         register_backend(X1RD2Backend())
     except ImportError:
         pass
+    try:
+        from .adapters.x1_s20_adapter import X1S20Backend
+
+        register_backend(X1S20Backend())
+    except ImportError:
+        pass
 
 
 __all__ = [

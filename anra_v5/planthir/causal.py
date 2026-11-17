@@ -110,7 +110,11 @@ def _probe_split_keys(worlds: Sequence[Mapping[str, Any]]) -> tuple[set[str], se
                 lineage.add("world:" + str(w[field]))
         if w.get("pair_id"):
             lineage.add("pair:" + str(w["pair_id"]))
-        if all(k in w for k in ("goal_subject", "hops", "initial_facts", "allowed_public_tools", "hidden")):
+        if w.get("schema") == "elendril-x1-d1h-v1" or "structure_hash" in w:
+            from anra_v5.elendril.v8x.data import canonical_x1_graph_signature
+
+            signatures.add(canonical_x1_graph_signature(w))
+        elif all(k in w for k in ("goal_subject", "hops", "initial_facts", "allowed_public_tools", "hidden")):
             signature = canonical_graph_signature(dict(w))
             if not signature["exact_canonicalization"]:
                 raise ValueError("probe split cannot establish graph disjointness: inexact V8 canonicalization")
@@ -298,10 +302,19 @@ def _inject_distractor_chain(world: Mapping[str, Any]) -> dict[str, Any]:
     unused = [s for s in SYMBOLS if s not in used]
     if len(unused) >= 3:
         d1, d2, d3 = unused[0], unused[1], unused[2]
-        w["initial_facts"] = list(w["initial_facts"]) + [
-            {"subject": d1, "source": "s0", "tick": 901, "value": d2},
-            {"subject": d2, "source": "s0", "tick": 902, "value": d3},
-        ]
+        is_x1 = world.get("schema") == "elendril-x1-d1h-v1" or any(
+            isinstance(r, Mapping) and "epoch" in r for r in w.get("initial_facts", ())
+        )
+        if is_x1:
+            w["initial_facts"] = list(w["initial_facts"]) + [
+                {"subject": d1, "source": "S0", "epoch": 1, "value": d2},
+                {"subject": d2, "source": "S0", "epoch": 1, "value": d3},
+            ]
+        else:
+            w["initial_facts"] = list(w["initial_facts"]) + [
+                {"subject": d1, "source": "s0", "tick": 901, "value": d2},
+                {"subject": d2, "source": "s0", "tick": 902, "value": d3},
+            ]
     return w
 
 
@@ -621,8 +634,9 @@ def run_surgical_mechanism_ablation(
                 if saved_b is not None:
                     model.cap_out.bias.copy_(saved_b)
     elif getattr(policy, "x1_spec", None) is not None and model is not None:
-        x1_arch = getattr(policy.x1_spec, "architecture", None)
-        if x1_arch in ("X1-R", "X1-R-noedge") and hasattr(model, "r_to_ptr"):
+        x1_spec = policy.x1_spec
+        x1_arch = getattr(x1_spec, "architecture", None)
+        if x1_arch in ("X1-R", "X1-R-noedge", "R", "R-noedge") and hasattr(model, "r_to_ptr"):
             mechanism_type = "x1_relational_slot_readout"
             ablation_supported = True
             saved_w = model.r_to_ptr.weight.detach().clone()
@@ -638,7 +652,7 @@ def run_surgical_mechanism_ablation(
             finally:
                 with torch.no_grad():
                     model.r_to_ptr.weight.copy_(saved_w)
-        elif x1_arch == "X1-P-capR" and hasattr(model, "cap_r_out"):
+        elif x1_arch in ("X1-P-capR", "P-capR") and hasattr(model, "cap_r_out"):
             mechanism_type = "x1_query_residual_control"
             ablation_supported = True
             saved_w = model.cap_r_out.weight.detach().clone()
@@ -659,6 +673,61 @@ def run_surgical_mechanism_ablation(
                     model.cap_r_out.weight.copy_(saved_w)
                     if saved_b is not None:
                         model.cap_r_out.bias.copy_(saved_b)
+        elif x1_arch == "P":
+            mechanism_type = "pointer_copy_gate"
+            ablation_supported = True
+            ablated_policy = policy.__class__(
+                model,
+                x1_spec,
+                model_identity=f"{getattr(policy, 'model_identity', 'policy')}:no-copy",
+                mode=getattr(policy, "mode", "raw"),
+                copy_enabled_override=False,
+            )
+            ablated_outcomes = []
+            ablated_first_actions = []
+            for w in worlds:
+                ok, _, executed = _run_single_episode(ablated_policy, kernel, w)
+                ablated_outcomes.append(ok)
+                ablated_first_actions.append(executed[0] if executed else None)
+        elif x1_arch == "F-cap" and hasattr(model, "cap_out"):
+            mechanism_type = "value_residual_bottleneck"
+            ablation_supported = True
+            saved_w = model.cap_out.weight.detach().clone()
+            saved_b = model.cap_out.bias.detach().clone() if getattr(model.cap_out, "bias", None) is not None else None
+            try:
+                with torch.no_grad():
+                    model.cap_out.weight.zero_()
+                    if saved_b is not None:
+                        model.cap_out.bias.zero_()
+                ablated_outcomes = []
+                ablated_first_actions = []
+                for w in worlds:
+                    ok, _, executed = _run_single_episode(policy, kernel, w)
+                    ablated_outcomes.append(ok)
+                    ablated_first_actions.append(executed[0] if executed else None)
+            finally:
+                with torch.no_grad():
+                    model.cap_out.weight.copy_(saved_w)
+                    if saved_b is not None:
+                        model.cap_out.bias.copy_(saved_b)
+        elif str(x1_arch).startswith("U-") or x1_arch == "U2-untied":
+            mechanism_type = "recurrent_refinement"
+            ablation_supported = True
+            if hasattr(model, "x1_spec"):
+                orig_model_spec = model.x1_spec
+                orig_policy_spec = policy.x1_spec
+                try:
+                    model.x1_spec = _SpecStepProxy(orig_model_spec, recurrent_steps=0)
+                    policy.x1_spec = _SpecStepProxy(orig_policy_spec, recurrent_steps=0)
+                    ablated_outcomes = []
+                    ablated_first_actions = []
+                    for w in worlds:
+                        ok, _, executed = _run_single_episode(policy, kernel, w)
+                        ablated_outcomes.append(ok)
+                        ablated_first_actions.append(executed[0] if executed else None)
+                finally:
+                    model.x1_spec = orig_model_spec
+                    policy.x1_spec = orig_policy_spec
 
     ablated_acc = sum(1 for ok in ablated_outcomes if ok) / len(ablated_outcomes)
     agreements = sum(
@@ -695,13 +764,25 @@ def run_compute_depth_scaling_intervention(
     if not worlds:
         raise ValueError("worlds cannot be empty")
     v8_spec = getattr(policy, "v8_spec", None)
+    x1_spec = getattr(policy, "x1_spec", None)
     model = getattr(policy, "model", None)
     if (
-        v8_spec is None
-        or getattr(v8_spec, "architecture", None) != "U"
-        or model is None
-        or not hasattr(model, "v8_spec")
+        v8_spec is not None
+        and getattr(v8_spec, "architecture", None) == "U"
+        and model is not None
+        and hasattr(model, "v8_spec")
     ):
+        spec_attr = "v8_spec"
+        active_spec = v8_spec
+    elif (
+        x1_spec is not None
+        and (str(getattr(x1_spec, "architecture", "")).startswith("U-") or getattr(x1_spec, "architecture", "") == "U2-untied")
+        and model is not None
+        and hasattr(model, "x1_spec")
+    ):
+        spec_attr = "x1_spec"
+        active_spec = x1_spec
+    else:
         return {
             "intervention": "compute_depth_scaling",
             "supports_variable_depth": False,
@@ -711,21 +792,21 @@ def run_compute_depth_scaling_intervention(
             "extrapolation_gain_above_trained": 0.0,
         }
 
-    trained_steps = int(v8_spec.recurrent_steps)
+    trained_steps = int(active_spec.recurrent_steps)
     steps_to_eval = sorted({int(k) for k in step_grid if int(k) >= 0} | {0, trained_steps})
-    orig_model_spec = model.v8_spec
-    orig_policy_spec = policy.v8_spec
+    orig_model_spec = getattr(model, spec_attr)
+    orig_policy_spec = getattr(policy, spec_attr)
     acc_by_steps: dict[str, float] = {}
 
     try:
         for k in steps_to_eval:
-            model.v8_spec = _SpecStepProxy(orig_model_spec, recurrent_steps=k)
-            policy.v8_spec = _SpecStepProxy(orig_policy_spec, recurrent_steps=k)
+            setattr(model, spec_attr, _SpecStepProxy(orig_model_spec, recurrent_steps=k))
+            setattr(policy, spec_attr, _SpecStepProxy(orig_policy_spec, recurrent_steps=k))
             correct = sum(1 for w in worlds if _run_single_episode(policy, kernel, w)[0])
             acc_by_steps[str(k)] = float(correct / len(worlds))
     finally:
-        model.v8_spec = orig_model_spec
-        policy.v8_spec = orig_policy_spec
+        setattr(model, spec_attr, orig_model_spec)
+        setattr(policy, spec_attr, orig_policy_spec)
 
     trained_acc = acc_by_steps[str(trained_steps)]
     zero_acc = acc_by_steps["0"]
