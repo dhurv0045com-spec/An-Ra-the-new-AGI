@@ -274,3 +274,7 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Verified SUMMARY/EVIDENCE inventories and replayed 464,880 raw-action episodes; recomputed the failed T1 gate, checked 42,880 updates and 39,936 logit argmax records.
 - Documented all arms, S20 contrasts, query-insensitive outputs, timestamp/post-query shortcuts, label skew and split-custody limits.
 - Saved curated report/metrics, reusable audit tools and entry-point links; no neural inference, checkpoint restore or new training performed.
+
+### 2026-11-18 | Codex | Branch and Palantiri scientific audit
+- Reproduced CPU calibration and checked registration lifecycle, degenerate paired-seed inference and X1 sampled operation coverage.
+- Added a 256-family reference-policy crossover pilot and a scientific audit. Neural evaluation remains pending.
