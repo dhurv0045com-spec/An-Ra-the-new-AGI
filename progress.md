@@ -288,3 +288,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Updated `agent.md`, `research/planthir/agent.md`, `anra_v5/planter/`, `pyproject.toml`, and `tests/test_planthir_declarative_cli_and_usability.py` from `planthir` (`e6472fd4`).
 - Removed the mistaken branch-rename line from `agent.md` so agents pull cleanly from `origin/<source-branch>` (e.g. `hitchhiker`, `Elendril`).
 - Verified `tests/test_elendril_tree.py`, `tests/test_planthir_declarative_cli_and_usability.py`, and `python -m anra_v5.planter doctor` on CPU (`GREEN_SIGNAL`); GPU runs remain pending.
+
+### 2026-11-18 | Antigravity | Implement ELENDRIL V8-X1 runtime, Planthir x1_s20 backend, and orchestration
+- Repaired V8 observation cache key & trace verification (`anra_v5/elendril/v8/evaluation.py`), built full `anra_v5/elendril/v8x/` (`42` core S20 jobs, `R`/`R-noedge`/`P-capR`/`U-*`, `D1-H`/`D2`), and registered `x1_s20` into Planthir/Palantiri.
+- Built `tools/elendril_v8x_{worker,campaign,export}.py`, `tools/analyze_elendril_v8x_results.py`, and `tools/build_elendril_v8x_notebook.py` using `IndependentWorkerScheduler`, verified archive security, and `Experiment Result/V8-X1/` pre-run templates.
+- Verified on CPU fixtures (`test_elendril_v8x_*.py` + `test_planthir_*.py` + `doctor` `GREEN_SIGNAL`); S20 2xT4 GPU execution remains pending owner launch.

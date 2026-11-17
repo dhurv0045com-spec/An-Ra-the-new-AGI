@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 import json
 import math
+import os
 from pathlib import Path
 import random
 from typing import Any, Mapping, Sequence
@@ -110,8 +111,8 @@ class X1S20Trainer:
         self.x1_spec = x1_spec
         self.recipe = recipe
         self.order_seed = int(order_seed)
-        self.states = tuple(states)
-        self.groups = tuple(groups)
+        self.states = tuple(states or ())
+        self.groups = tuple(groups or ())
         self.is_paired = is_paired
         self.device = torch.device(device)
 
@@ -461,7 +462,9 @@ class X1S20Trainer:
             bb_bytes = _dump(core_keys)
             bb_sha = sha256(bb_bytes).hexdigest()
             if not bb_path.exists():
-                bb_path.write_bytes(bb_bytes)
+                tmp_bb = bb_path.with_suffix(f".{os.getpid()}.tmp")
+                tmp_bb.write_bytes(bb_bytes)
+                os.replace(tmp_bb, bb_path)
             head_path = out_dir / "head_weights.bin"
             head_bytes = _dump(head_keys)
             head_path.write_bytes(head_bytes)

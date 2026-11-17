@@ -1,0 +1,29 @@
+{
+  "schema": "elendril-x1-curated-metrics-v1",
+  "status": "NOT_RUN",
+  "execution_state": "CPU_QUALIFIED_GPU_PENDING",
+  "source_commit": "PENDING_RUNTIME_COMMIT_A",
+  "notebook_commit": "PENDING_NOTEBOOK_COMMIT_B",
+  "core_sessions": [
+    "A0",
+    "A1",
+    "A2",
+    "A3",
+    "D0",
+    "D1",
+    "D2"
+  ],
+  "expected_core_jobs": 42,
+  "completed_jobs": [],
+  "failed_jobs": [],
+  "missing_jobs": [],
+  "h01_status": {
+    "hypothesis": "H01",
+    "status": "HISTORICAL_WEIGHTS_NOT_AVAILABLE"
+  },
+  "measured_gpu_outcomes": null,
+  "notes": [
+    "No S20 19.87M parameter run has been executed locally or on GPU.",
+    "Run notebooks/ELENDRIL_V8_X1_KAGGLE_T4X2.ipynb with OWNER_AUTHORIZED = True on Kaggle 2xT4 to populate session results."
+  ]
+}
