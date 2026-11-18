@@ -292,3 +292,9 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 ### 2026-11-18 | Codex | Avendi V8-Y2 research and implementation handoff
 - Registered 25 historical observations and designed frozen diagnostics, controlled acquisition, state exchange, and conditional correction studies.
 - Checked the updated Palantiri audit regression and reference crossover pilot. Avendi training, semantic fixture integration and neural measurements remain prospective.
+
+### 2026-11-18 | Antigravity | Avendi V8-Y2 implementation, CPU P0 qualification, and Kaggle T4x2 notebook
+- Implemented `anra_v5/elendril/avendi/{protocol,worlds,oracle,render,frozen,metrics,objectives,transition,correction,module}.py`, `research/avendi/REGISTRY.json` (`13f8f46c9065...`), `tools/{avendi_campaign,build_avendi_notebook,analyze_avendi}.py`, and `notebooks/AVENDI_V8_Y2_T4X2.ipynb`.
+- Registered `avendi_v8_y2` with Planthir (`ExperimentModule`) and verified token-for-token Y1 raw-byte adapter equivalence, 10,920-family canonical 1-hop allocation, destructive goal/bridge erasure, and P1–P6 stage gates.
+- Verified on CPU: `pytest -q tests/test_avendi_fixture.py tests/test_avendi_restore.py tests/test_avendi_decisions.py` (`10 passed`), `planthir validate`, and full `--phase fixture`/`--phase frozen` intake (`Experiment Result/Avendi-V8-Y2/avendi-frozen-0acbe87814/`).
+- Pending owner GPU execution: Kaggle 2xT4 `--phase frozen` with `ELENDRIL_V8_Y1_FULL.zip` attached, followed by admitted conditional stage (`acquisition` / `transition`).

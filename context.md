@@ -1,4 +1,6 @@
-# AN-RA V8-Y1 & Hitchhiker context
+# Avendi V8-Y2, AN-RA V8-Y1 & Hitchhiker context
+
+**Current prospective protocol (2026-11-18, branch `hitchhiker`):** [Avendi V8-Y2 Registry](research/avendi/REGISTRY.json) (`design_sha256: 13f8f46c9065115b9bbdecb2884edba2ff88a3bf9e01cba2afd613739c344fbd`), [Y1 Discovery Register](research/avendi/Y1_DISCOVERY_REGISTER.md), [CPU P0 & frozen intake report](Experiment%20Result/Avendi-V8-Y2/avendi-frozen-0acbe87814/RESULTS.md), `anra_v5/elendril/avendi/{protocol,worlds,oracle,render,frozen,metrics,objectives,transition,correction,module}.py`, `tools/{avendi_campaign,build_avendi_notebook,analyze_avendi}.py`, and [AVENDI_V8_Y2_T4X2.ipynb](notebooks/AVENDI_V8_Y2_T4X2.ipynb) are implemented and CPU-qualified.
 
 **Latest owner results (2026-11-18):** [V8-Y1 audited results](Experiment%20Result/V8-Y1/y1-all-9c80885013/RESULTS.md). Replayed 464,880 recorded episodes from 39 prediction jobs; no outcome mismatches, and the failed T1 gate reproduces. The 12-run S3 screen found no winner; the six-run S20 follow-up did not establish a capacity benefit. New fixture audits expose a perfect timestamp-rank shortcut and terminal-answer placement after queries. Repair those controls before interpreting new gains. Full Y1 checkpoint restoration remains unverified; source, evidence limits and next diagnostic are in the report. Earlier prospective text below is historical where superseded.
 
