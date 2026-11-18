@@ -16,33 +16,50 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from anra_v5.planthir import (
+    BytePromptTrainer,
     CampaignOrchestrator,
+    CampaignStageSpec,
     ExperimentModule,
     ExperimentRegistration,
     GenericDatasetBundle,
+    GenericTrainRecipe,
     IndependentWorkerScheduler,
+    LegacyByteObservablePolicy,
+    LogitsPolicy,
     PlanthirRegistry,
     SessionJob,
+    StaticPromptKernel,
     UniversalAction,
     UniversalObservation,
     WorkerJobSpec,
     analyze_paired_seed_runs,
     analyze_productivity_study,
+    audit_pair_margin_gradient_sign_reversal,
     audit_sampled_strata,
     batched_rollout,
+    bootstrap_paired_families,
     build_cartridge_from_spec,
+    build_deterministic_retraining_recipe,
     build_pinned_kaggle_notebook,
+    build_verification_matrix,
     classify_parameter_group,
+    compute_ce_and_pair_margin_terms,
     export_session_archives,
+    frame_byte_prompt_sample,
     get_backend,
     independent_replay_bundle,
     init_spec_template,
+    load_legacy_byte_checkpoint,
+    locate_checkpoint_store_root,
     planthir_doctor,
     prepare_x1_rd2_training_data,
+    render_campaign_results_markdown,
     run_fault_injection_suite,
     run_scientific_shortcut_calibration,
     safe_extract_planthir_archive,
+    score_crossover_panel,
     validate_spec_document,
+    verify_crossover_fixture,
 )
 from anra_v5.planthir.backend import _BACKENDS
 from anra_v5.planthir.cartridge import CartridgeRunner
@@ -591,3 +608,299 @@ def test_hitchhiker_audit_fixes_registry_replay_stats_strata_and_docs(tmp_path: 
         "vocabulary",
     ):
         assert needle in doc_text
+
+
+def test_avendi_postmortem_upgrades_static_kernel_byte_loader_crossover_and_v6_archives(tmp_path: Path) -> None:
+    from anra_v5.elendril.representation import UTF8
+    from tools.elendril_v6_export import verify_zip as v6_verify_zip
+    from v5_contracts.model_spec import ModelSpec
+
+    # 1. ExperimentModule with omitted kernel_factory, policy_factory, and probe_train_worlds/multihop_worlds
+    def _static_model(arch: str, mcfg: dict, seed: int) -> nn.Module:
+        return _ToyDepthModel(width=int(mcfg.get("width", 8)), toy_head_width=int(mcfg.get("toy_head_width", 4)), seed=seed)
+
+    def _static_ds(dcfg: dict, cpu_canary: bool) -> dict:
+        tr = [
+            {
+                "world_id": f"tr_{i}",
+                "sig": f"s_{i}",
+                "feat": [1.0 if i % 2 == 0 else -1.0, 0.5, -0.2, 0.1],
+                "label": i % 2,
+                "hidden": {"expected": "A" if i % 2 == 0 else "B", "expected_operation": "ANSWER"},
+            }
+            for i in range(int(dcfg.get("num_items", 8)))
+        ]
+        ev = [
+            {
+                "world_id": f"ev_{i}",
+                "sig": f"ev_{i}",
+                "feat": [1.0 if i % 2 == 0 else -1.0, 0.5, -0.2, 0.1],
+                "label": i % 2,
+                "hidden": {"expected": "A" if i % 2 == 0 else "B", "expected_operation": "ANSWER"},
+            }
+            for i in range(6)
+        ]
+        # Intentionally omit probe_train_worlds and multihop_worlds to prove no self-inflicted leakage!
+        return {
+            "train_data": GenericDatasetBundle(dataset_name="static_toy", items=tuple(tr), data_identity="st-1", manifest={"n": len(tr)}),
+            "train_worlds": tr,
+            "eval_worlds": ev,
+        }
+
+    def _static_loss(model: _ToyDepthModel, chunk, recipe) -> torch.Tensor:
+        logits, _ = model(torch.tensor([it["feat"] for it in chunk], dtype=torch.float32))
+        return F.cross_entropy(logits, torch.tensor([it["label"] for it in chunk], dtype=torch.int64))
+
+    static_mod = ExperimentModule(
+        backend_id="toy_static_default",
+        architectures=("toy_base", "toy_deep"),
+        objectives=("ce",),
+        model_factory=_static_model,
+        dataset_factory=_static_ds,
+        loss_fn=_static_loss,
+        action_labels=("A", "B"),
+        default_dataset_config={"dataset_name": "static_toy", "num_items": 8},
+        default_model_config={"width": 8, "toy_head_width": 4},
+        treatment_architecture="toy_deep",
+        treatment_model_config={"width": 8, "toy_head_width": 6},
+        extra_arch_head_keys=("toy_head_width",),
+    ).register()
+    try:
+        tpl = init_spec_template(backend_id="toy_static_default", canary=True)
+        val_rep = validate_spec_document(tpl, canary_override=True)
+        assert val_rep["valid"] is True, val_rep
+        assert val_rep["cohort_transitivity"]["passed"] is True
+        cart, rkw = build_cartridge_from_spec(tpl, canary_override=True)
+        assert isinstance(cart.kernel, StaticPromptKernel)
+        res = CartridgeRunner().run(cart, work_root=tmp_path / "static_run", **rkw)
+        assert res["gates"]["all_5_gates_passed"] is True
+        pol = static_mod.create_policy(
+            _ToyDepthModel(8, 4, 1),
+            get_backend("toy_static_default").resolve_model_spec(cart.control_arm),
+            model_identity="m_static",
+        )
+        assert isinstance(pol, LogitsPolicy)
+        roll = batched_rollout(pol, cart.kernel, cart.eval_worlds, batch_size=3)
+        assert len(roll) == len(cart.eval_worlds)
+    finally:
+        _BACKENDS.pop("toy_static_default", None)
+
+    # 2. BytePromptSample + gradient sign-reversal negative control + BytePromptTrainer + LegacyByteObservablePolicy restore
+    grad_ctrl = audit_pair_margin_gradient_sign_reversal()
+    assert grad_ctrl["passed"] is True and grad_ctrl["gradient_cosine"] <= -0.999
+
+    prev_det = torch.are_deterministic_algorithms_enabled()
+    prev_threads = torch.get_num_threads()
+    byte_root = tmp_path / "byte_ckpts"
+    try:
+        byte_spec = ModelSpec(
+            schema="anra-v5-model-spec/v1",
+            family="dense-decoder-transformer",
+            vocabulary_size=UTF8.vocabulary_size,
+            width=16,
+            layers=1,
+            query_heads=2,
+            kv_heads=1,
+            head_dimension=8,
+            ffn_width=32,
+            context_length=64,
+            rope_base=10_000.0,
+            norm_epsilon=1e-5,
+            tied_embeddings=True,
+            qk_norm=True,
+            qk_norm_affine=True,
+            linear_bias=False,
+            dropout=0.0,
+        )
+        byte_samples = [
+            frame_byte_prompt_sample(
+                f"Q=A;A={'E' if i % 2 == 0 else 'F'}",
+                "E" if i % 2 == 0 else "F",
+                rival_answer="F" if i % 2 == 0 else "E",
+                task_id=f"bs_{i}",
+                world_id=f"w_{i}",
+                family_id=f"fam_{i // 2}",
+                cell_key="q0_b0" if i % 2 == 0 else "q0_b1",
+            )
+            for i in range(8)
+        ]
+        b_trainer = BytePromptTrainer(
+            byte_samples,
+            spec=byte_spec,
+            recipe=GenericTrainRecipe(seed=7, total_updates=2, batch_size=4, micro_batch_size=2, objective="ce_pair_margin", cf_weight=0.5, cf_margin=1.0),
+            source_commit="a" * 40,
+            root=byte_root,
+            lineage="y1-s3-s7",
+            data_provenance={"split": "train", "license": "MIT"},
+            device="cpu",
+            cpu_canary=True,
+        )
+        b_trainer.step()
+        b_trainer.save()
+        b_trainer.step()
+        ckpt_sha = b_trainer.save()
+    finally:
+        torch.use_deterministic_algorithms(prev_det)
+        torch.set_num_threads(prev_threads)
+
+    assert locate_checkpoint_store_root(byte_root, expected_lineages=("y1-s3-s7",)) == byte_root
+    restored = load_legacy_byte_checkpoint(byte_root, lineage_id="y1-s3-s7", checkpoint_sha256=ckpt_sha, device="cpu")
+    assert isinstance(restored["policy"], LegacyByteObservablePolicy)
+    obs_probe = UniversalObservation(
+        obs_id="probe0",
+        rendered_text="Q=A;A=E",
+        available_tools={"query": False, "memory": False},
+        consumed_tools=frozenset(),
+        decision_index=0,
+        budget_remaining=1,
+        metadata={"world_id": "probe0"},
+    )
+    act_probe = restored["policy"].propose_with_telemetry(obs_probe)
+    assert act_probe.operation in ("ANSWER", "QUERY", "RETRIEVE", "ABSTAIN")
+    assert len(act_probe.metadata["first_logits"]) == UTF8.vocabulary_size
+    reps = restored["policy"].extract_representations([obs_probe])
+    assert reps["decision_hidden"].shape == (1, UTF8.vocabulary_size)
+
+    # 3. CampaignOrchestrator stage DAG, missing & present frozen checkpoint evaluation, and results markdown
+    orch = CampaignOrchestrator(campaign_id="AVENDI-TEST", source_commit="a" * 40, work_dir=tmp_path / "orch")
+    miss_rec = orch.evaluate_frozen_checkpoints(tmp_path / "absent_dir", expected_lineages=("y1-s3-s7",))
+    assert miss_rec["status"] == "MISSING_CHECKPOINT_ARTIFACT"
+    assert miss_rec["missing_lineages"] == ["y1-s3-s7"]
+    assert miss_rec["retraining_recipe"]["status"] == "REQUIRES_FRESH_IDENTITY_AND_OWNER_COMPUTE_APPROVAL"
+
+    ok_rec = orch.evaluate_frozen_checkpoints(byte_root, expected_lineages=("y1-s3-s7",))
+    assert ok_rec["status"] == "COMPLETE" and ok_rec["evaluated_lineages"]["y1-s3-s7"]["policy_loaded"] is True
+
+    dag_rec = orch.run_stage_dag(
+        [
+            CampaignStageSpec("p0", "fixture", lambda ctx: {"status": "COMPLETE", "one_hop_acc": 0.5}),
+            CampaignStageSpec(
+                "p3",
+                "acquisition",
+                lambda ctx: {"status": "COMPLETE", "ran_p3": True},
+                predicate_fn=lambda ctx: (ctx.get("one_hop_acc", 1.0) < 0.8, "one_hop_acc < 0.8"),
+            ),
+            CampaignStageSpec(
+                "p4",
+                "transition",
+                lambda ctx: {"status": "COMPLETE", "ran_p4": True},
+                predicate_fn=lambda ctx: (ctx.get("one_hop_acc", 0.0) >= 0.8, "requires one_hop_acc >= 0.8"),
+            ),
+        ],
+        selected_phase="all",
+    )
+    assert dag_rec["status"] == "COMPLETE"
+    by_stage = {s["stage_id"]: s for s in dag_rec["stages"]}
+    assert by_stage["p3"]["status"] == "COMPLETE" and by_stage["p4"]["status"] == "NOT_APPLICABLE"
+
+    vmat = build_verification_matrix(checkpoint_restore="PASS", regenerated_per_case_agreement="PASS")
+    assert len(vmat) == 6
+    md = render_campaign_results_markdown(
+        title="Test Report",
+        campaign_id="AVENDI-TEST",
+        source_commit="a" * 40,
+        status="COMPLETE",
+        verification_matrix=vmat,
+        stage_summaries={"p0": {"one_hop_acc": 0.5}},
+    )
+    assert "| `checkpoint_restore` | `PASS` |" in md
+
+    # 4. verify_crossover_fixture, score_crossover_panel, and bootstrap_paired_families
+    fams = [
+        {
+            "family_id": "f0",
+            "cells": [
+                {"world_id": "c00", "cell_key": "q0_b0", "public_prompt": "goal=G1 G1->X X->A", "hidden": {"expected": "A"}},
+                {"world_id": "c01", "cell_key": "q0_b1", "public_prompt": "goal=G1 G1->Y Y->B", "hidden": {"expected": "B"}},
+                {"world_id": "c10", "cell_key": "q1_b0", "public_prompt": "goal=G2 G2->Z Z->C", "hidden": {"expected": "C"}},
+                {"world_id": "c11", "cell_key": "q1_b1", "public_prompt": "goal=G2 G2->W W->D", "hidden": {"expected": "D"}},
+            ],
+        },
+        {
+            "family_id": "f1",
+            "cells": [
+                {"world_id": "d00", "cell_key": "q0_b0", "public_prompt": "goal=G3 G3->X X->E", "hidden": {"expected": "E"}},
+                {"world_id": "d01", "cell_key": "q0_b1", "public_prompt": "goal=G3 G3->Y Y->F", "hidden": {"expected": "F"}},
+                {"world_id": "d10", "cell_key": "q1_b0", "public_prompt": "goal=G4 G4->Z Z->G", "hidden": {"expected": "G"}},
+                {"world_id": "d11", "cell_key": "q1_b1", "public_prompt": "goal=G4 G4->W W->H", "hidden": {"expected": "H"}},
+            ],
+        },
+    ]
+    fix_ok = verify_crossover_fixture(
+        fams,
+        oracle_fn=lambda c: c["hidden"]["expected"] if "goal=" in c["public_prompt"] else "!",
+        blind_policies={"const_A": lambda _c: "A"},
+        erase_goal_fn=lambda c: {**c, "public_prompt": c["public_prompt"].replace("goal=", "x=")},
+        erase_bridge_fn=lambda c: {**c, "public_prompt": "erased"},
+        splits_by_name={"train": fams[:1], "eval": fams[1:]},
+    )
+    assert fix_ok["passed"] is True
+    assert fix_ok["oracle"]["complete_family_accuracy"] == 1.0
+    assert fix_ok["blind_policies"]["const_A"]["shortcut_rejected"] is True
+
+    fix_leak = verify_crossover_fixture(fams, splits_by_name={"train": fams[:1], "eval": fams[:1]})
+    assert fix_leak["passed"] is False
+    assert any(d["code"] == "INSTANTIATED_STATE_OVERLAP" for d in fix_leak["defects"])
+
+    preds = {
+        "c00": {"raw_exact_correct": True, "signed_margin": 1.0, "endpoint_margin": 2.0},
+        "c01": {"raw_exact_correct": True, "signed_margin": 1.0, "endpoint_margin": -2.0},
+        "c10": {"raw_exact_correct": True, "signed_margin": 1.0, "endpoint_margin": -2.0},
+        "c11": {"raw_exact_correct": True, "signed_margin": 1.0, "endpoint_margin": 2.0},
+        "d00": {"raw_exact_correct": False, "ap_constrained_correct": True, "signed_margin": 0.5, "endpoint_margin": 1.0},
+        "d01": {"raw_exact_correct": True, "signed_margin": 0.5, "endpoint_margin": -1.0},
+        "d10": {"raw_exact_correct": True, "signed_margin": 0.5, "endpoint_margin": -1.0},
+        "d11": {"raw_exact_correct": True, "signed_margin": 0.5, "endpoint_margin": 1.0},
+    }
+    panel = score_crossover_panel(fams, preds)
+    assert panel["all4_raw_accuracy"] == pytest.approx(0.5)
+    assert panel["ap_constrained_all4_accuracy"] == pytest.approx(1.0)
+    assert panel["decoding_gap"] == pytest.approx(0.5)
+    assert panel["latent_flip_rate"] == pytest.approx(1.0)
+    assert panel["mean_signed_interaction"] == pytest.approx(1.5)
+
+    boot_res = bootstrap_paired_families({"f0": 0.0, "f1": 0.5, "f2": 0.25}, {"f0": 1.0, "f1": 1.0, "f2": 0.75}, resamples=500, seed=7)
+    assert boot_res["mean_delta"] == pytest.approx(2.0 / 3.0)
+    assert boot_res["positive_count"] == 3 and boot_res["ci_low"] > 0.0
+
+    # 5. export_session_archives unified v6-verified archives + pinned Kaggle helper + agent.md mirror parity
+    f_res = tmp_path / "RESULTS.md"
+    f_res.write_text(md, encoding="utf-8")
+    f_ckpt = tmp_path / "weights.bin"
+    f_ckpt.write_bytes(b"weights")
+    exp_out = tmp_path / "v6_bundles"
+    exp_rec = export_session_archives(
+        tmp_path,
+        exp_out,
+        prefix="AVENDI",
+        summary_files={"RESULTS.md": f_res},
+        evidence_files={"RESULTS.md": f_res},
+        analysis_files={"RESULTS.md": f_res},
+        full_files={"RESULTS.md": f_res, "weights.bin": f_ckpt},
+        source_commit="a" * 40,
+    )
+    assert exp_rec["verified"] is True and exp_rec["v6_manifest_embedded"] is True
+    for zname in ("AVENDI_SUMMARY.zip", "AVENDI_EVIDENCE.zip", "AVENDI_ANALYSIS.zip", "AVENDI_FULL.zip"):
+        zver = v6_verify_zip(exp_out / zname)
+        assert zver["status"] == "EXPORT_VERIFIED"
+
+    nb_cfg = build_pinned_kaggle_notebook(
+        source_commit="a" * 40,
+        title="NB",
+        launch_command="python -m tools.avendi_campaign",
+        discover_kaggle_inputs=("ELENDRIL_V8_Y1_FULL.zip",),
+        mirror_outputs_to_working=True,
+    )
+    nb_src = "".join(nb_cfg["cells"][1]["source"])
+    assert "ELENDRIL_V8_Y1_FULL.zip" in nb_src and "/kaggle/working" in nb_src
+
+    root_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
+    mirror_doc = (REPO_ROOT / "research" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    assert root_doc == mirror_doc
+    for contract_needle in (
+        "UTF8.special(SpecialToken.ANSWER)",
+        "TokenSample",
+        "DEGENERATE_ZERO_VARIANCE",
+        "StaticPromptKernel",
+    ):
+        assert contract_needle in root_doc
