@@ -705,6 +705,7 @@ def planthir_spec_schema() -> dict[str, Any]:
             "agent-info",
             "calibrate",
             "historical-atlas",
+            "rescore-archive",
         ],
     }
 
@@ -1618,6 +1619,23 @@ def planthir_doctor() -> dict[str, Any]:
         "free_disk_bytes": free_bytes,
     }
 
+    # 6. Paired comparison preflight (2 arms x 3 seeds + dropped-arm explanation)
+    try:
+        from .design import run_paired_comparison_preflight
+
+        pf = run_paired_comparison_preflight()
+        pf_ok = bool(pf.get("passed", False))
+        checks["paired_comparison_preflight"] = {
+            "passed": pf_ok,
+            "complete_pairs": pf["complete_fixture"]["complete_pair_count"],
+            "dropped_pair_detected": len(pf["dropped_arm_fixture"]["missing_pairs"]) == 1,
+        }
+        if not pf_ok:
+            all_ok = False
+    except Exception as exc:
+        all_ok = False
+        checks["paired_comparison_preflight"] = {"passed": False, "error": str(exc)}
+
     return {
         "schema": "anra-planthir-doctor-v1",
         "green_signal": all_ok,
@@ -1659,6 +1677,7 @@ def agent_info() -> dict[str, Any]:
             "verify-bundle": {"mutates_files": False, "trains": False},
             "replay-bundle": {"mutates_files": "only with --output", "trains": False},
             "explain-error": {"mutates_files": False, "trains": False},
+            "rescore-archive": {"mutates_files": True, "trains": False},
         },
         "legacy_commands": {
             "run-gpu-validation": "NOT_QUALIFIED: requires an interactive owner GPU session before launching cloud workloads",
