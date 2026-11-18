@@ -789,14 +789,357 @@ def bootstrap_paired_families(
     }
 
 
+@dataclass(frozen=True, slots=True)
+class PairedSeedObservation:
+    """Typed matched-seed control vs treatment comparison row accepted by `analyze_paired_seed_runs`."""
+
+    contrast_id: str
+    pair_id: str
+    init_seed: int
+    order_seed: int
+    control_arm_id: str
+    treatment_arm_id: str
+    control_value: float
+    treatment_value: float
+    family_se: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "contrast_id": str(self.contrast_id),
+            "pair_id": str(self.pair_id),
+            "init_seed": int(self.init_seed),
+            "order_seed": int(self.order_seed),
+            "control_arm_id": str(self.control_arm_id),
+            "treatment_arm_id": str(self.treatment_arm_id),
+            "control_value": float(self.control_value),
+            "treatment_value": float(self.treatment_value),
+        }
+        if self.family_se is not None:
+            out["family_se"] = float(self.family_se)
+        return out
+
+
+def _ep_first_and_final_action(rec: Mapping[str, Any]) -> tuple[tuple[str, Any] | None, tuple[str, Any] | None]:
+    steps = rec.get("steps")
+    if isinstance(steps, Sequence) and not isinstance(steps, (str, bytes)) and len(steps) > 0:
+        s0, s_end = steps[0], steps[-1]
+        if isinstance(s0, Mapping) and isinstance(s_end, Mapping):
+            f = (str(s0.get("executed_op", s0.get("operation", ""))), s0.get("executed_arg", s0.get("argument")))
+            l = (str(s_end.get("executed_op", s_end.get("operation", ""))), s_end.get("executed_arg", s_end.get("argument")))
+            return f, l
+    acts = rec.get("actions")
+    if isinstance(acts, Sequence) and not isinstance(acts, (str, bytes)) and len(acts) > 0:
+        return (acts[0][0], acts[0][1]), (acts[-1][0], acts[-1][1])
+    if "executed_op" in rec or "operation" in rec:
+        act = (str(rec.get("executed_op", rec.get("operation", ""))), rec.get("executed_arg", rec.get("argument")))
+        return act, act
+    return None, None
+
+
+def compare_paired_episode_records(
+    control_records: Sequence[Mapping[str, Any]],
+    treatment_records: Sequence[Mapping[str, Any]],
+    *,
+    id_key: str = "world_id",
+    base_key: str = "base_world_id",
+    family_key: str = "family",
+    view_key: str = "form",
+) -> dict[str, Any]:
+    """Compare paired control vs treatment episode traces on identical world IDs and surface opposing solves."""
+
+    ctrl_by_id: dict[str, Mapping[str, Any]] = {}
+    trt_by_id: dict[str, Mapping[str, Any]] = {}
+    for idx, r in enumerate(control_records):
+        eid = str(r.get(id_key, "")).strip()
+        if not eid:
+            raise ValueError(f"control record at index {idx} missing {id_key!r}")
+        if eid in ctrl_by_id:
+            raise ValueError(f"duplicate {id_key!r} in control_records: {eid!r}")
+        ctrl_by_id[eid] = r
+    for idx, r in enumerate(treatment_records):
+        eid = str(r.get(id_key, "")).strip()
+        if not eid:
+            raise ValueError(f"treatment record at index {idx} missing {id_key!r}")
+        if eid in trt_by_id:
+            raise ValueError(f"duplicate {id_key!r} in treatment_records: {eid!r}")
+        trt_by_id[eid] = r
+
+    if set(ctrl_by_id) != set(trt_by_id):
+        miss_c = sorted(set(trt_by_id) - set(ctrl_by_id))
+        miss_t = sorted(set(ctrl_by_id) - set(trt_by_id))
+        raise ValueError(f"episode ID sets differ (missing_in_control={miss_c[:5]}, missing_in_treatment={miss_t[:5]})")
+    if not ctrl_by_id:
+        raise ValueError("compare_paired_episode_records requires non-empty paired records")
+
+    both = 0
+    trt_only = 0
+    ctrl_only = 0
+    neither = 0
+    first_op_disagree = 0
+    action_disagree = 0
+
+    fam_stats: dict[str, dict[str, Any]] = {}
+    view_stats: dict[str, dict[str, Any]] = {}
+    trt_only_firstop_ids: list[str] = []
+    trt_only_any_ids: list[str] = []
+    ctrl_only_firstop_ids: list[str] = []
+    ctrl_only_any_ids: list[str] = []
+    distinct_bases: set[str] = set()
+
+    for eid in sorted(ctrl_by_id):
+        c = ctrl_by_id[eid]
+        t = trt_by_id[eid]
+        c_ok = bool(c.get("correct", c.get("raw_exact_correct", False)))
+        t_ok = bool(t.get("correct", t.get("raw_exact_correct", False)))
+        fam = str(c.get(family_key) or c.get("family_id") or c.get("category") or "default")
+        view = str(c.get(view_key) or c.get("view") or c.get("cell_key") or "canonical")
+        distinct_bases.add(str(c.get(base_key) or c.get("family_id") or eid))
+
+        cf, cl = _ep_first_and_final_action(c)
+        tf, tl = _ep_first_and_final_action(t)
+        op_diff = (cf is not None and tf is not None and cf[0] != tf[0])
+        act_diff = (cf != tf) or (cl != tl)
+        if op_diff:
+            first_op_disagree += 1
+        if act_diff:
+            action_disagree += 1
+
+        if c_ok and t_ok:
+            both += 1
+            bucket = "both_solved"
+        elif t_ok and not c_ok:
+            trt_only += 1
+            bucket = "treatment_only_solved"
+            trt_only_any_ids.append(eid)
+            if op_diff:
+                trt_only_firstop_ids.append(eid)
+        elif c_ok and not t_ok:
+            ctrl_only += 1
+            bucket = "control_only_solved"
+            ctrl_only_any_ids.append(eid)
+            if op_diff:
+                ctrl_only_firstop_ids.append(eid)
+        else:
+            neither += 1
+            bucket = "neither_solved"
+
+        for grp_map, grp_key in ((fam_stats, fam), (view_stats, view)):
+            entry = grp_map.setdefault(
+                grp_key,
+                {
+                    "both_solved": 0,
+                    "treatment_only_solved": 0,
+                    "control_only_solved": 0,
+                    "neither_solved": 0,
+                    "episodes": 0,
+                },
+            )
+            entry[bucket] += 1
+            entry["episodes"] += 1
+
+    def _finalize_groups(grp_map: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
+        for k, v in sorted(grp_map.items()):
+            n_g = max(1, v["episodes"])
+            c_acc = (v["both_solved"] + v["control_only_solved"]) / n_g
+            t_acc = (v["both_solved"] + v["treatment_only_solved"]) / n_g
+            out[k] = {
+                **v,
+                "control_accuracy": float(c_acc),
+                "treatment_accuracy": float(t_acc),
+                "delta": float(t_acc - c_acc),
+            }
+        return out
+
+    n_ep = len(ctrl_by_id)
+    ctrl_acc = (both + ctrl_only) / n_ep
+    trt_acc = (both + trt_only) / n_ep
+    rule = "first_sorted_episode_id_with_opposing_correctness_and_first_op_divergence_fallback_any_opposing"
+    return {
+        "schema": "anra-planthir-paired-episode-comparison-v1",
+        "episode_count": n_ep,
+        "distinct_base_world_count": len(distinct_bases),
+        "control_accuracy": float(ctrl_acc),
+        "treatment_accuracy": float(trt_acc),
+        "net_accuracy_delta": float(trt_acc - ctrl_acc),
+        "both_solved": both,
+        "treatment_only_solved": trt_only,
+        "control_only_solved": ctrl_only,
+        "neither_solved": neither,
+        "first_operation_disagreement_count": first_op_disagree,
+        "action_disagreement_count": action_disagree,
+        "by_family": _finalize_groups(fam_stats),
+        "by_view": _finalize_groups(view_stats),
+        "contrasting_trace_ids": {
+            "selection_rule": rule,
+            "treatment_only_example_id": trt_only_firstop_ids[0] if trt_only_firstop_ids else (trt_only_any_ids[0] if trt_only_any_ids else None),
+            "control_only_example_id": ctrl_only_firstop_ids[0] if ctrl_only_firstop_ids else (ctrl_only_any_ids[0] if ctrl_only_any_ids else None),
+        },
+    }
+
+
+def build_paired_seed_observations(
+    arm_records: Sequence[Mapping[str, Any]],
+    *,
+    contrast_id: str = "PRIMARY",
+    control_arm: str,
+    treatment_arm: str,
+    metric_key: str = "value",
+    init_seed_key: str = "init_seed",
+    order_seed_key: str = "order_seed",
+    arm_key: str = "architecture",
+) -> dict[str, Any]:
+    """Pair arm-level job rows into typed `PairedSeedObservation` objects, reporting missing arms cleanly without discarding completed rows."""
+
+    grouped: dict[tuple[int, int], dict[str, Mapping[str, Any]]] = {}
+    for idx, rec in enumerate(arm_records):
+        if arm_key not in rec or init_seed_key not in rec or metric_key not in rec:
+            raise ValueError(f"arm record at index {idx} missing required key ({arm_key!r}, {init_seed_key!r}, or {metric_key!r})")
+        init_s = int(rec[init_seed_key])
+        ord_s = int(rec.get(order_seed_key, init_s))
+        arm_val = str(rec[arm_key])
+        bucket = grouped.setdefault((init_s, ord_s), {})
+        if arm_val in bucket:
+            raise ValueError(f"duplicate record for arm {arm_val!r} at seed ({init_s}, {ord_s})")
+        bucket[arm_val] = rec
+
+    observations: list[PairedSeedObservation] = []
+    missing_pairs: list[dict[str, Any]] = []
+    for (init_s, ord_s) in sorted(grouped):
+        arms = grouped[(init_s, ord_s)]
+        has_ctrl = control_arm in arms
+        has_trt = treatment_arm in arms
+        if has_ctrl and has_trt:
+            c_rec = arms[control_arm]
+            t_rec = arms[treatment_arm]
+            c_se = c_rec.get("family_se")
+            t_se = t_rec.get("family_se")
+            comb_se = (math.sqrt(float(c_se) ** 2 + float(t_se) ** 2) if (c_se is not None and t_se is not None) else (float(c_se) if c_se is not None else (float(t_se) if t_se is not None else None)))
+            observations.append(
+                PairedSeedObservation(
+                    contrast_id=str(contrast_id),
+                    pair_id=f"{init_s}:{ord_s}",
+                    init_seed=init_s,
+                    order_seed=ord_s,
+                    control_arm_id=str(c_rec.get("arm_id", control_arm)),
+                    treatment_arm_id=str(t_rec.get("arm_id", treatment_arm)),
+                    control_value=float(c_rec[metric_key]),
+                    treatment_value=float(t_rec[metric_key]),
+                    family_se=comb_se,
+                )
+            )
+        else:
+            missing = [a for a, present in ((control_arm, has_ctrl), (treatment_arm, has_trt)) if not present]
+            present = sorted(arms)
+            missing_pairs.append(
+                {
+                    "pair_id": f"{init_s}:{ord_s}",
+                    "init_seed": init_s,
+                    "order_seed": ord_s,
+                    "missing_arms": missing,
+                    "present_arms": present,
+                    "explanation": (
+                        f"Seed pair (init_seed={init_s}, order_seed={ord_s}) is missing arm(s) {missing}; "
+                        f"present arm(s): {present}."
+                    ),
+                }
+            )
+
+    if len(observations) >= 2:
+        inference = analyze_paired_seed_runs([o.to_dict() for o in observations])
+    else:
+        inference = {
+            "schema": "anra-planthir-paired-seed-analysis-v1",
+            "passed": False,
+            "status": "INSUFFICIENT_COMPLETE_PAIRS",
+            "defects": [f"fewer than 2 complete matched seed pairs ({len(observations)} found)"],
+            "contrasts": {},
+        }
+
+    complete = not missing_pairs and len(observations) >= 2 and bool(inference.get("passed", False))
+    return {
+        "schema": "anra-planthir-paired-seed-bundle-v1",
+        "status": "COMPLETE_PAIRS" if complete else "INCOMPLETE_PAIRS_REPORTED",
+        "contrast_id": str(contrast_id),
+        "control_arm": str(control_arm),
+        "treatment_arm": str(treatment_arm),
+        "complete_pair_count": len(observations),
+        "observations": [o.to_dict() for o in observations],
+        "missing_pairs": missing_pairs,
+        "preserved_arm_records": [dict(r) for r in arm_records],
+        "inference": inference,
+    }
+
+
+def run_paired_comparison_preflight(
+    *,
+    control_arm: str = "P",
+    treatment_arm: str = "R",
+    seeds: Sequence[int] = (7, 19, 41),
+) -> dict[str, Any]:
+    """Validate the paired comparison & dropped-arm reporting pipeline on tiny synthetic fixtures before GPU spend."""
+
+    seed_list = [int(s) for s in seeds]
+    if len(seed_list) < 2:
+        raise ValueError("run_paired_comparison_preflight requires at least 2 seeds")
+
+    complete_rows: list[dict[str, Any]] = []
+    for idx, s in enumerate(seed_list):
+        complete_rows.append({"architecture": control_arm, "init_seed": s, "order_seed": s, "value": 0.60 + 0.02 * idx})
+        complete_rows.append({"architecture": treatment_arm, "init_seed": s, "order_seed": s, "value": 0.62 + 0.03 * (idx % 2)})
+
+    complete_fx = build_paired_seed_observations(
+        complete_rows,
+        contrast_id="PREFLIGHT_PRIMARY",
+        control_arm=control_arm,
+        treatment_arm=treatment_arm,
+    )
+    dropped_rows = complete_rows[:-1]  # drop final seed's treatment row while keeping control + earlier traces
+    dropped_fx = build_paired_seed_observations(
+        dropped_rows,
+        contrast_id="PREFLIGHT_PRIMARY",
+        control_arm=control_arm,
+        treatment_arm=treatment_arm,
+    )
+
+    last_s = seed_list[-1]
+    complete_ok = (
+        complete_fx["status"] == "COMPLETE_PAIRS"
+        and complete_fx["complete_pair_count"] == len(seed_list)
+        and complete_fx["missing_pairs"] == []
+        and bool(complete_fx["inference"].get("passed", False))
+    )
+    dropped_ok = (
+        dropped_fx["status"] == "INCOMPLETE_PAIRS_REPORTED"
+        and dropped_fx["complete_pair_count"] == len(seed_list) - 1
+        and len(dropped_fx["missing_pairs"]) == 1
+        and dropped_fx["missing_pairs"][0]["missing_arms"] == [treatment_arm]
+        and str(last_s) in dropped_fx["missing_pairs"][0]["explanation"]
+        and len(dropped_fx["preserved_arm_records"]) == len(dropped_rows)
+        and (len(seed_list) - 1 < 2 or bool(dropped_fx["inference"].get("passed", False)))
+    )
+    passed = bool(complete_ok and dropped_ok)
+    return {
+        "schema": "anra-planthir-paired-preflight-v1",
+        "passed": passed,
+        "status": "PREFLIGHT_PASSED" if passed else "PREFLIGHT_FAILED",
+        "complete_fixture": complete_fx,
+        "dropped_arm_fixture": dropped_fx,
+    }
+
+
 __all__ = [
     "ALLOWED_FACTOR_TYPES",
     "CohortClusterSpec",
+    "PairedSeedObservation",
     "SeedPairSpec",
     "TypedContrastSpec",
     "TypedFactorSpec",
     "analyze_paired_seed_runs",
     "audit_typed_experimental_design",
     "bootstrap_paired_families",
+    "build_paired_seed_observations",
+    "compare_paired_episode_records",
+    "run_paired_comparison_preflight",
     "validate_cohort_and_split_transitivity",
 ]

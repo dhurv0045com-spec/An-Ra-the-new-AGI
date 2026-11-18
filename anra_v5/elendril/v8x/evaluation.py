@@ -16,9 +16,12 @@ from anra_v5.elendril.representation import UTF8, SpecialToken
 from anra_v5.elendril.training import batch_tensors
 from anra_v5.elendril.v8.contracts import ACTION_19_LABELS, POLICY_MODES, SYMBOLS, PolicyProposal
 from anra_v5.elendril.v8.policies import V8BytePolicy, _apply_mode_to_distribution, _index_to_action
+from anra_v5.planthir.causal import stratify_intervention_worlds, summarize_diagnostic_coverage
 from anra_v5.planthir.contracts import SubgoalProbeSpec, UniversalAction, UniversalObservation
 
 from .contracts import X1EvaluationOutcome, X1ModelSpec, X1_OBSERVATION_VERSION, X1_U_ARCHITECTURES
+
+_R_MECHANISTIC_FAMILIES = ("X02", "X03", "X05", "X06", "X07", "X08", "X09")
 from .data import (
     PublicFactX1,
     render_public_x1,
@@ -492,16 +495,30 @@ def run_x1_lesion_and_intervention_battery(
     *,
     model_identity: str,
     u_sweep_worlds: Sequence[Mapping[str, Any]] | None = None,
+    stratify_sample: bool = True,
+    max_sample_views: int = 48,
+    target_families: Sequence[str] = _R_MECHANISTIC_FAMILIES,
+    seed_ids: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Run Section 9.2 lesion, renderer, and depth-extrapolation probes on a frozen X1 checkpoint."""
 
     kernel = X1S20EnvironmentKernel()
     base_pol = X1S20ObservablePolicy(model, x1_spec, model_identity=model_identity, mode="raw")
-    sample = list(dev_views[:48])
+    sample = (
+        stratify_intervention_worlds(dev_views, max_worlds=max_sample_views, target_families=target_families)
+        if stratify_sample
+        else list(dev_views[:max_sample_views])
+    )
+    cov = summarize_diagnostic_coverage(sample, target_families=target_families, seed_ids=seed_ids)
     base_recs = evaluate_x1_worlds_batched(base_pol, kernel, sample)
     base_acc = sum(1 for r in base_recs if r["correct"]) / max(len(base_recs), 1)
 
-    report: dict[str, Any] = {"baseline_accuracy": float(base_acc), "sample_worlds": len(sample), "interventions": {}}
+    report: dict[str, Any] = {
+        "baseline_accuracy": float(base_acc),
+        "sample_worlds": len(sample),
+        "coverage": cov,
+        "interventions": {},
+    }
 
     # Pointer / relational lesions per architecture
     lesions: tuple[str, ...]
@@ -516,9 +533,58 @@ def run_x1_lesion_and_intervention_battery(
         l_pol = X1S20ObservablePolicy(model, x1_spec, model_identity=f"{model_identity}:{lmode}", mode="raw", lesion_mode=lmode)
         l_recs = evaluate_x1_worlds_batched(l_pol, kernel, sample)
         l_acc = sum(1 for r in l_recs if r["correct"]) / max(len(l_recs), 1)
+        gained = 0
+        lost = 0
+        unchanged_ok = 0
+        unchanged_bad = 0
+        first_op_changed = 0
+        first_act_changed = 0
+        changed_ids: list[str] = []
+        for br, lr in zip(base_recs, l_recs):
+            b_ok = bool(br["correct"])
+            l_ok = bool(lr["correct"])
+            if l_ok and not b_ok:
+                gained += 1
+            elif b_ok and not l_ok:
+                lost += 1
+            elif b_ok and l_ok:
+                unchanged_ok += 1
+            else:
+                unchanged_bad += 1
+            bs0 = br["steps"][0] if br.get("steps") else {}
+            ls0 = lr["steps"][0] if lr.get("steps") else {}
+            b_fa = (bs0.get("executed_op"), bs0.get("executed_arg"))
+            l_fa = (ls0.get("executed_op"), ls0.get("executed_arg"))
+            if b_fa[0] != l_fa[0]:
+                first_op_changed += 1
+            if b_fa != l_fa:
+                first_act_changed += 1
+            if (b_ok != l_ok or b_fa != l_fa) and len(changed_ids) < 32:
+                changed_ids.append(str(br["world_id"]))
+        paired_changes = {
+            "total_episodes": len(sample),
+            "gained_correct_count": gained,
+            "lost_correct_count": lost,
+            "unchanged_correct_count": unchanged_ok,
+            "unchanged_wrong_count": unchanged_bad,
+            "net_correct_delta": gained - lost,
+            "first_operation_changed_count": first_op_changed,
+            "first_action_changed_count": first_act_changed,
+            "changed_world_ids": changed_ids,
+        }
+        delta = float(l_acc - base_acc)
+        if not cov["coverage_complete"]:
+            mech_status = "MECHANISM_UNRESOLVED_MISSING_TARGET_FAMILIES"
+        elif abs(delta) <= 1e-6 and first_act_changed == 0:
+            mech_status = "NO_NET_EFFECT_ON_COVERED_FAMILIES"
+        else:
+            mech_status = "ACTIVE_INTERVENTION_EFFECT"
         report["interventions"][lmode] = {
             "accuracy": float(l_acc),
-            "delta_vs_baseline": float(l_acc - base_acc),
+            "delta_vs_baseline": delta,
+            "coverage": cov,
+            "paired_changes": paired_changes,
+            "mechanism_status": mech_status,
         }
 
     # Test-time U depth sweep (1, 2, 4, 8 iterations) per Section 8.3

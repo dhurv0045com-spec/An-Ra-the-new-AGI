@@ -1118,15 +1118,54 @@ class CartridgeRunner:
             final_brief['arms'].pop()
         final_brief['arms_omitted_from_brief'] = final_brief['total_arms'] - len(final_brief['arms'])
         final_brief['full_reports'] = 'per-experiment tier1 summaries in result.zip; ARM_RESULTS.json in work directory'
+        converged = False
         for _ in range(20):
             brief_bytes = (json.dumps(final_brief, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
-            fuel_report = estimate_token_fuel_savings(arm_count=len(arm_results), milestone_count=milestone_count,
-                raw_summary_bytes=raw_arm_bytes, handoff_brief_bytes=len(brief_bytes))
-            if final_brief['token_fuel_report'] == fuel_report:
+            fuel_report = estimate_token_fuel_savings(
+                arm_count=len(arm_results),
+                milestone_count=milestone_count,
+                raw_summary_bytes=raw_arm_bytes,
+                handoff_brief_bytes=len(brief_bytes),
+            )
+            if final_brief["token_fuel_report"] == fuel_report:
+                converged = True
                 break
-            final_brief['token_fuel_report'] = fuel_report
-        else:
-            raise ValueError('handoff size accounting failed to converge')
+            final_brief["token_fuel_report"] = fuel_report
+        if not converged:
+            # Resolve 1-byte serialization oscillations (e.g., 12.1 vs 12.11) by scanning nearby exact fixed points
+            base_len = len(brief_bytes)
+            for cand_len in range(max(1, base_len - 8), base_len + 24):
+                cand_report = estimate_token_fuel_savings(
+                    arm_count=len(arm_results),
+                    milestone_count=milestone_count,
+                    raw_summary_bytes=raw_arm_bytes,
+                    handoff_brief_bytes=cand_len,
+                )
+                final_brief["token_fuel_report"] = cand_report
+                cand_bytes = (json.dumps(final_brief, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+                if len(cand_bytes) == cand_len:
+                    brief_bytes = cand_bytes
+                    fuel_report = cand_report
+                    converged = True
+                    break
+            if not converged:
+                for cand_len in range(base_len, base_len + 16):
+                    cand_report = estimate_token_fuel_savings(
+                        arm_count=len(arm_results),
+                        milestone_count=milestone_count,
+                        raw_summary_bytes=raw_arm_bytes,
+                        handoff_brief_bytes=cand_len,
+                    )
+                    final_brief["token_fuel_report"] = cand_report
+                    cand_bytes = (json.dumps(final_brief, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
+                    gap = cand_len - len(cand_bytes)
+                    if 0 <= gap <= 8:
+                        brief_bytes = cand_bytes[:-1] + (b" " * gap) + b"\n"
+                        fuel_report = cand_report
+                        converged = True
+                        break
+        if not converged:
+            raise ValueError("handoff size accounting failed to converge")
         if len(brief_bytes) > 8192:
             raise ValueError('handoff brief exceeds bounded context limit')
         cert_bytes = (json.dumps(gates, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")

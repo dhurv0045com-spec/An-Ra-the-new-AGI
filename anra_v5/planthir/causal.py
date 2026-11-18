@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from copy import deepcopy
 import random
 from typing import Any, Callable, Mapping, Sequence
@@ -13,6 +14,214 @@ from anra_v5.elendril.v8.contracts import SYMBOLS
 from anra_v5.elendril.v8.holdout import canonical_graph_signature
 
 from .contracts import EnvironmentKernel, ObservablePolicy, UniversalObservation
+
+
+def summarize_diagnostic_coverage(
+    worlds: Sequence[Mapping[str, Any]],
+    *,
+    target_families: Sequence[str] = (),
+    seed_ids: Sequence[int] = (),
+) -> dict[str, Any]:
+    """Summarize sampled worlds, base clusters, families, views, seeds, and target-family coverage."""
+
+    base_worlds: set[str] = set()
+    families: set[str] = set()
+    views: set[str] = set()
+    seeds: set[int] = {int(s) for s in seed_ids}
+
+    for idx, w in enumerate(worlds):
+        base_id = w.get("base_world_id") or w.get("family_id") or w.get("world_id") or f"w_{idx}"
+        fam_id = w.get("family") or w.get("family_id") or w.get("category") or "default"
+        view_id = w.get("form") or w.get("view") or w.get("cell_key") or "canonical"
+        base_worlds.add(str(base_id))
+        families.add(str(fam_id))
+        views.add(str(view_id))
+        for sk in ("seed", "init_seed"):
+            if w.get(sk) is not None:
+                seeds.add(int(w[sk]))
+
+    targets = sorted({str(f) for f in target_families if str(f)})
+    covered = [f for f in targets if f in families]
+    missing = [f for f in targets if f not in families]
+    if targets:
+        ratio = f"{len(covered)}/{len(targets)}"
+        coverage_complete = len(missing) == 0
+    else:
+        ratio = "N/A"
+        coverage_complete = len(worlds) > 0
+    eligible = bool(coverage_complete and len(worlds) > 0)
+
+    sorted_fams = sorted(families)
+    if targets and not coverage_complete:
+        fam_label = ",".join(sorted_fams) if len(sorted_fams) <= 4 else f"{len(sorted_fams)} families"
+        summary = (
+            f"{len(base_worlds)} base worlds ({len(worlds)} views) across {fam_label}; "
+            f"target-family coverage {ratio} (missing {missing}). Mechanism unresolved."
+        )
+    else:
+        summary = (
+            f"{len(base_worlds)} base worlds ({len(worlds)} views) across {len(sorted_fams)} "
+            f"family/families ({len(views)} view(s)), target-family coverage {ratio}."
+        )
+
+    return {
+        "schema": "anra-planthir-diagnostic-coverage-v1",
+        "sample_episodes": len(worlds),
+        "distinct_base_world_count": len(base_worlds),
+        "distinct_base_worlds": sorted(base_worlds),
+        "distinct_family_count": len(sorted_fams),
+        "distinct_families": sorted_fams,
+        "distinct_view_count": len(views),
+        "distinct_views": sorted(views),
+        "distinct_seed_count": len(seeds),
+        "distinct_seeds": sorted(seeds),
+        "target_families": targets,
+        "covered_target_families": covered,
+        "missing_target_families": missing,
+        "target_family_coverage_ratio": ratio,
+        "coverage_complete": coverage_complete,
+        "mechanism_resolution_eligible": eligible,
+        "coverage_summary": summary,
+    }
+
+
+def stratify_intervention_worlds(
+    worlds: Sequence[Mapping[str, Any]],
+    *,
+    max_worlds: int = 48,
+    family_key: str = "family",
+    base_key: str = "base_world_id",
+    target_families: Sequence[str] = (),
+) -> list[Mapping[str, Any]]:
+    """Select base-world view groups round-robin across families so diagnostic samples cover all mechanisms."""
+
+    limit = max(1, int(max_worlds))
+    if len(worlds) <= limit:
+        return list(worlds)
+
+    by_fam_base: dict[str, dict[str, list[Mapping[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+    fam_order: list[str] = []
+    seen_fams: set[str] = set()
+    for idx, w in enumerate(worlds):
+        fam = str(w.get(family_key) or w.get("family_id") or w.get("category") or "default")
+        base = str(w.get(base_key) or w.get("family_id") or w.get("world_id") or f"w_{idx}")
+        if fam not in seen_fams:
+            seen_fams.add(fam)
+            fam_order.append(fam)
+        by_fam_base[fam][base].append(w)
+
+    fam_queues: dict[str, list[list[Mapping[str, Any]]]] = {
+        fam: list(by_fam_base[fam].values()) for fam in fam_order
+    }
+    target_set = {str(f) for f in target_families if str(f)}
+    ordered_fams = [f for f in target_families if f in fam_queues]
+    ordered_fams = list(dict.fromkeys(ordered_fams)) + [f for f in sorted(fam_queues) if f not in set(ordered_fams)]
+
+    selected: list[Mapping[str, Any]] = []
+    selected_ids: set[int] = set()
+
+    # If full first groups exceed `limit`, ensure every family gets represented on pass 1 unless target_families fit whole.
+    first_group_sizes = [len(fam_queues[f][0]) for f in ordered_fams if fam_queues[f]]
+    full_groups_needed = sum(first_group_sizes)
+    target_group_sum = sum(len(fam_queues[f][0]) for f in ordered_fams if f in target_set and fam_queues[f])
+    use_target_whole = bool(target_set) and target_group_sum <= limit
+
+    if not use_target_whole and len(ordered_fams) <= limit and full_groups_needed > limit:
+        per_fam_pass1 = max(1, limit // len(ordered_fams))
+        for fam in ordered_fams:
+            if len(selected) >= limit:
+                break
+            q = fam_queues[fam]
+            if not q:
+                continue
+            group = q[0]
+            take_n = min(per_fam_pass1, limit - len(selected))
+            for w in group[:take_n]:
+                if id(w) not in selected_ids:
+                    selected_ids.add(id(w))
+                    selected.append(w)
+            rem = group[take_n:]
+            if rem:
+                q[0] = rem
+            else:
+                q.pop(0)
+
+    while len(selected) < limit:
+        progressed = False
+        for fam in ordered_fams:
+            if len(selected) >= limit:
+                break
+            q = fam_queues[fam]
+            if not q:
+                continue
+            group = q.pop(0)
+            take = group[: limit - len(selected)]
+            for w in take:
+                if id(w) not in selected_ids:
+                    selected_ids.add(id(w))
+                    selected.append(w)
+                    progressed = True
+        if not progressed:
+            break
+    return selected
+
+
+def _summarize_paired_episode_changes(
+    worlds: Sequence[Mapping[str, Any]],
+    baseline_outcomes: Sequence[bool],
+    baseline_first_actions: Sequence[tuple[str, str | None] | None],
+    intervention_outcomes: Sequence[bool],
+    intervention_first_actions: Sequence[tuple[str, str | None] | None],
+    *,
+    baseline_final_actions: Sequence[tuple[str, str | None] | None] | None = None,
+    intervention_final_actions: Sequence[tuple[str, str | None] | None] | None = None,
+) -> dict[str, Any]:
+    gained = 0
+    lost = 0
+    unchanged_ok = 0
+    unchanged_bad = 0
+    first_op_changed = 0
+    first_act_changed = 0
+    final_act_changed = 0
+    changed_ids: list[str] = []
+
+    fin_base = baseline_final_actions or [None] * len(worlds)
+    fin_int = intervention_final_actions or [None] * len(worlds)
+    for idx, (w, ok0, ok1, fa0, fa1, la0, la1) in enumerate(
+        zip(worlds, baseline_outcomes, intervention_outcomes, baseline_first_actions, intervention_first_actions, fin_base, fin_int)
+    ):
+        if ok1 and not ok0:
+            gained += 1
+        elif ok0 and not ok1:
+            lost += 1
+        elif ok0 and ok1:
+            unchanged_ok += 1
+        else:
+            unchanged_bad += 1
+
+        op0 = fa0[0] if fa0 is not None else None
+        op1 = fa1[0] if fa1 is not None else None
+        if op0 != op1:
+            first_op_changed += 1
+        if fa0 != fa1:
+            first_act_changed += 1
+        if la0 != la1:
+            final_act_changed += 1
+        if (ok0 != ok1 or fa0 != fa1 or la0 != la1) and len(changed_ids) < 32:
+            changed_ids.append(str(w.get("world_id", f"w_{idx}")))
+
+    return {
+        "total_episodes": len(worlds),
+        "gained_correct_count": gained,
+        "lost_correct_count": lost,
+        "unchanged_correct_count": unchanged_ok,
+        "unchanged_wrong_count": unchanged_bad,
+        "net_correct_delta": gained - lost,
+        "first_operation_changed_count": first_op_changed,
+        "first_action_changed_count": first_act_changed,
+        "final_action_changed_count": final_act_changed,
+        "changed_world_ids": changed_ids,
+    }
 
 
 def _run_single_episode(
@@ -134,7 +343,10 @@ def run_oracle_information_intervention(
     policy: ObservablePolicy,
     kernel: EnvironmentKernel,
     worlds: Sequence[Mapping[str, Any]],
-    *, assume_independent_clusters: bool = False,
+    *,
+    assume_independent_clusters: bool = False,
+    target_families: Sequence[str] = (),
+    seed_ids: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Compare interactive rollout vs pre-merged hidden tool payloads (isolating tool-use bottlenecks)."""
 
@@ -178,6 +390,7 @@ def run_oracle_information_intervention(
     return {
         "intervention": "oracle_information_injection",
         "worlds": n,
+        "coverage": summarize_diagnostic_coverage(worlds, target_families=target_families, seed_ids=seed_ids),
         "normal_accuracy": norm_acc,
         "oracle_injected_accuracy": orac_acc,
         "delta_oracle": orac_acc - norm_acc,
@@ -358,6 +571,8 @@ def run_invariance_counterfactuals(
     worlds: Sequence[Mapping[str, Any]],
     *,
     mode_policies: Mapping[str, ObservablePolicy] | None = None,
+    target_families: Sequence[str] = (),
+    seed_ids: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Test symbol permutation equivariance, row reversal, distractors, and decoder modes."""
 
@@ -402,6 +617,7 @@ def run_invariance_counterfactuals(
     return {
         "intervention": "invariance_counterfactuals",
         "worlds": n,
+        "coverage": summarize_diagnostic_coverage(worlds, target_families=target_families, seed_ids=seed_ids),
         "baseline_accuracy": base_ok / n,
         "symbol_permutation": {
             "accuracy": perm_ok / n,
@@ -589,18 +805,27 @@ def run_surgical_mechanism_ablation(
     policy: Any,
     kernel: EnvironmentKernel,
     worlds: Sequence[Mapping[str, Any]],
+    *,
+    target_families: Sequence[str] = (),
+    seed_ids: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Zero-retraining surgical ablation testing whether specialized modules causally contribute or are bypassed."""
 
     if not worlds:
         raise ValueError("worlds cannot be empty")
 
-    baseline_outcomes: list[bool] = []
-    baseline_first_actions: list[tuple[str, str | None] | None] = []
-    for w in worlds:
-        ok, _, executed = _run_single_episode(policy, kernel, w)
-        baseline_outcomes.append(ok)
-        baseline_first_actions.append(executed[0] if executed else None)
+    def _run_pass(pol: Any) -> tuple[list[bool], list[tuple[str, str | None] | None], list[tuple[str, str | None] | None]]:
+        outcomes: list[bool] = []
+        firsts: list[tuple[str, str | None] | None] = []
+        finals: list[tuple[str, str | None] | None] = []
+        for w in worlds:
+            ok, fin, executed = _run_single_episode(pol, kernel, w)
+            outcomes.append(ok)
+            firsts.append(executed[0] if executed else None)
+            finals.append(fin)
+        return outcomes, firsts, finals
+
+    baseline_outcomes, baseline_first_actions, baseline_final_actions = _run_pass(policy)
     baseline_acc = sum(1 for ok in baseline_outcomes if ok) / len(baseline_outcomes)
 
     v8_spec = getattr(policy, "v8_spec", None)
@@ -611,6 +836,7 @@ def run_surgical_mechanism_ablation(
     ablation_supported = False
     ablated_outcomes: list[bool] = list(baseline_outcomes)
     ablated_first_actions: list[tuple[str, str | None] | None] = list(baseline_first_actions)
+    ablated_final_actions: list[tuple[str, str | None] | None] = list(baseline_final_actions)
 
     custom_ablate = getattr(policy, "ablate_mechanism", None) or getattr(model, "ablate_mechanism", None)
     if callable(custom_ablate):
@@ -618,12 +844,7 @@ def run_surgical_mechanism_ablation(
             if mtype:
                 mechanism_type = str(mtype)
                 ablation_supported = True
-                ablated_outcomes = []
-                ablated_first_actions = []
-                for w in worlds:
-                    ok, _, executed = _run_single_episode(policy, kernel, w)
-                    ablated_outcomes.append(ok)
-                    ablated_first_actions.append(executed[0] if executed else None)
+                ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
     elif v8_spec is not None and arch == "P":
         mechanism_type = "pointer_copy_gate"
         ablation_supported = True
@@ -634,12 +855,7 @@ def run_surgical_mechanism_ablation(
             mode=getattr(policy, "mode", "raw"),
             copy_enabled_override=False,
         )
-        ablated_outcomes = []
-        ablated_first_actions = []
-        for w in worlds:
-            ok, _, executed = _run_single_episode(ablated_policy, kernel, w)
-            ablated_outcomes.append(ok)
-            ablated_first_actions.append(executed[0] if executed else None)
+        ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(ablated_policy)
     elif v8_spec is not None and arch == "U" and model is not None and hasattr(model, "v8_spec"):
         mechanism_type = "recurrent_refinement"
         ablation_supported = True
@@ -649,12 +865,7 @@ def run_surgical_mechanism_ablation(
         try:
             model.v8_spec = zero_spec
             policy.v8_spec = _SpecStepProxy(orig_policy_spec, recurrent_steps=0)
-            ablated_outcomes = []
-            ablated_first_actions = []
-            for w in worlds:
-                ok, _, executed = _run_single_episode(policy, kernel, w)
-                ablated_outcomes.append(ok)
-                ablated_first_actions.append(executed[0] if executed else None)
+            ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
         finally:
             model.v8_spec = orig_model_spec
             policy.v8_spec = orig_policy_spec
@@ -668,12 +879,7 @@ def run_surgical_mechanism_ablation(
                 model.cap_out.weight.zero_()
                 if saved_b is not None:
                     model.cap_out.bias.zero_()
-            ablated_outcomes = []
-            ablated_first_actions = []
-            for w in worlds:
-                ok, _, executed = _run_single_episode(policy, kernel, w)
-                ablated_outcomes.append(ok)
-                ablated_first_actions.append(executed[0] if executed else None)
+            ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
         finally:
             with torch.no_grad():
                 model.cap_out.weight.copy_(saved_w)
@@ -689,12 +895,7 @@ def run_surgical_mechanism_ablation(
             try:
                 with torch.no_grad():
                     model.r_to_ptr.weight.zero_()
-                ablated_outcomes = []
-                ablated_first_actions = []
-                for w in worlds:
-                    ok, _, executed = _run_single_episode(policy, kernel, w)
-                    ablated_outcomes.append(ok)
-                    ablated_first_actions.append(executed[0] if executed else None)
+                ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
             finally:
                 with torch.no_grad():
                     model.r_to_ptr.weight.copy_(saved_w)
@@ -708,12 +909,7 @@ def run_surgical_mechanism_ablation(
                     model.cap_r_out.weight.zero_()
                     if saved_b is not None:
                         model.cap_r_out.bias.zero_()
-                ablated_outcomes = []
-                ablated_first_actions = []
-                for w in worlds:
-                    ok, _, executed = _run_single_episode(policy, kernel, w)
-                    ablated_outcomes.append(ok)
-                    ablated_first_actions.append(executed[0] if executed else None)
+                ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
             finally:
                 with torch.no_grad():
                     model.cap_r_out.weight.copy_(saved_w)
@@ -729,12 +925,7 @@ def run_surgical_mechanism_ablation(
                 mode=getattr(policy, "mode", "raw"),
                 copy_enabled_override=False,
             )
-            ablated_outcomes = []
-            ablated_first_actions = []
-            for w in worlds:
-                ok, _, executed = _run_single_episode(ablated_policy, kernel, w)
-                ablated_outcomes.append(ok)
-                ablated_first_actions.append(executed[0] if executed else None)
+            ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(ablated_policy)
         elif x1_arch == "F-cap" and hasattr(model, "cap_out"):
             mechanism_type = "value_residual_bottleneck"
             ablation_supported = True
@@ -745,12 +936,7 @@ def run_surgical_mechanism_ablation(
                     model.cap_out.weight.zero_()
                     if saved_b is not None:
                         model.cap_out.bias.zero_()
-                ablated_outcomes = []
-                ablated_first_actions = []
-                for w in worlds:
-                    ok, _, executed = _run_single_episode(policy, kernel, w)
-                    ablated_outcomes.append(ok)
-                    ablated_first_actions.append(executed[0] if executed else None)
+                ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
             finally:
                 with torch.no_grad():
                     model.cap_out.weight.copy_(saved_w)
@@ -765,12 +951,7 @@ def run_surgical_mechanism_ablation(
                 try:
                     model.x1_spec = _SpecStepProxy(orig_model_spec, recurrent_steps=0)
                     policy.x1_spec = _SpecStepProxy(orig_policy_spec, recurrent_steps=0)
-                    ablated_outcomes = []
-                    ablated_first_actions = []
-                    for w in worlds:
-                        ok, _, executed = _run_single_episode(policy, kernel, w)
-                        ablated_outcomes.append(ok)
-                        ablated_first_actions.append(executed[0] if executed else None)
+                    ablated_outcomes, ablated_first_actions, ablated_final_actions = _run_pass(policy)
                 finally:
                     model.x1_spec = orig_model_spec
                     policy.x1_spec = orig_policy_spec
@@ -781,20 +962,55 @@ def run_surgical_mechanism_ablation(
     )
     agreement_rate = agreements / len(worlds)
     acc_delta = float(baseline_acc - ablated_acc)
-    ornamental_bypass = bool(
-        ablation_supported and agreement_rate >= 0.98 and abs(acc_delta) <= 1e-6
+    cov = summarize_diagnostic_coverage(worlds, target_families=target_families, seed_ids=seed_ids)
+    paired_changes = _summarize_paired_episode_changes(
+        worlds,
+        baseline_outcomes,
+        baseline_first_actions,
+        ablated_outcomes,
+        ablated_first_actions,
+        baseline_final_actions=baseline_final_actions,
+        intervention_final_actions=ablated_final_actions,
     )
+
+    fam_label = ",".join(cov["distinct_families"]) if len(cov["distinct_families"]) <= 3 else f"{cov['distinct_family_count']} families"
+    if cov["target_families"] and not cov["coverage_complete"]:
+        ornamental_bypass = False
+        mechanism_status = "MECHANISM_UNRESOLVED_MISSING_TARGET_FAMILIES"
+        prefix = "Zero net change" if abs(acc_delta) <= 1e-6 else f"Net change {acc_delta:+.3f}"
+        headline = (
+            f"{prefix} on {cov['distinct_base_world_count']} {fam_label} worlds. "
+            f"Target-family coverage {cov['target_family_coverage_ratio']}. Mechanism unresolved."
+        )
+    else:
+        ornamental_bypass = bool(
+            ablation_supported and agreement_rate >= 0.98 and abs(acc_delta) <= 1e-6
+        )
+        mechanism_status = (
+            "ORNAMENTAL_MECHANISM_BYPASS"
+            if ornamental_bypass
+            else ("ACTIVE_MECHANISM" if ablation_supported and (abs(acc_delta) > 1e-6 or paired_changes["first_action_changed_count"] > 0) else "NO_ABLATION_SUPPORTED")
+        )
+        headline = (
+            f"Delta {acc_delta:+.3f} on {cov['distinct_base_world_count']} {fam_label} worlds "
+            f"(+{paired_changes['gained_correct_count']} / -{paired_changes['lost_correct_count']}, "
+            f"first-op changed {paired_changes['first_operation_changed_count']})."
+        )
 
     return {
         "intervention": "surgical_mechanism_ablation",
         "mechanism_type": mechanism_type,
         "ablation_supported": ablation_supported,
         "worlds": len(worlds),
+        "coverage": cov,
+        "paired_changes": paired_changes,
         "baseline_accuracy": float(baseline_acc),
         "ablated_accuracy": float(ablated_acc),
         "accuracy_delta": acc_delta,
         "action_agreement_rate": float(agreement_rate),
         "ornamental_mechanism_bypass": ornamental_bypass,
+        "mechanism_status": mechanism_status,
+        "headline": headline,
     }
 
 
@@ -804,6 +1020,8 @@ def run_compute_depth_scaling_intervention(
     worlds: Sequence[Mapping[str, Any]],
     *,
     step_grid: Sequence[int] = (0, 1, 2, 4),
+    target_families: Sequence[str] = (),
+    seed_ids: Sequence[int] = (),
 ) -> dict[str, Any]:
     """Sweep test-time recurrent depth without retraining to measure compute scaling & extrapolation."""
 
@@ -827,6 +1045,7 @@ def run_compute_depth_scaling_intervention(
         return {
             "intervention": "compute_depth_scaling",
             "supports_variable_depth": True,
+            "coverage": summarize_diagnostic_coverage(worlds, target_families=target_families, seed_ids=seed_ids),
             "trained_steps": trained_steps,
             "accuracy_by_steps": acc_by_steps,
             "recurrence_gain_over_zero": float(trained_acc - zero_acc),
@@ -852,6 +1071,7 @@ def run_compute_depth_scaling_intervention(
         return {
             "intervention": "compute_depth_scaling",
             "supports_variable_depth": False,
+            "coverage": summarize_diagnostic_coverage(worlds, target_families=target_families, seed_ids=seed_ids),
             "trained_steps": 0,
             "accuracy_by_steps": {},
             "recurrence_gain_over_zero": 0.0,
@@ -882,6 +1102,7 @@ def run_compute_depth_scaling_intervention(
     return {
         "intervention": "compute_depth_scaling",
         "supports_variable_depth": True,
+        "coverage": summarize_diagnostic_coverage(worlds, target_families=target_families, seed_ids=seed_ids),
         "trained_steps": trained_steps,
         "accuracy_by_steps": acc_by_steps,
         "recurrence_gain_over_zero": float(trained_acc - zero_acc),
@@ -896,4 +1117,6 @@ __all__ = [
     "run_representation_linear_probe",
     "run_subgoal_hop_decomposition",
     "run_surgical_mechanism_ablation",
+    "stratify_intervention_worlds",
+    "summarize_diagnostic_coverage",
 ]

@@ -6,7 +6,11 @@ from collections import Counter, defaultdict
 import random
 from typing import Any, Mapping, Sequence
 
-from anra_v5.planthir.design import analyze_paired_seed_runs
+from anra_v5.planthir.design import (
+    analyze_paired_seed_runs,
+    build_paired_seed_observations,
+    compare_paired_episode_records,
+)
 
 from .contracts import X1_FAMILIES
 from .protocol import X1_ADVANCEMENT_THRESHOLDS
@@ -150,11 +154,34 @@ def cluster_bootstrap_paired_world_diff(
 
 def evaluate_x1_development_selection(
     seed_pairs: Sequence[Mapping[str, Any]],
+    *,
+    arm_records: Sequence[Mapping[str, Any]] | None = None,
+    control_arm: str = "P",
+    treatment_arm: str = "R",
 ) -> dict[str, Any]:
     """Evaluate Section 9.3 development candidate selection rules without fabricating promotion."""
 
+    paired_bundle: dict[str, Any] | None = None
+    if arm_records is not None:
+        paired_bundle = build_paired_seed_observations(
+            arm_records,
+            contrast_id="X1_DEV_PRIMARY",
+            control_arm=control_arm,
+            treatment_arm=treatment_arm,
+            metric_key="macro_12_accuracy",
+        )
+        seed_pairs = [
+            {
+                "init_seed": o["init_seed"],
+                "order_seed": o["order_seed"],
+                "ctrl_macro_12": o["control_value"],
+                "trt_macro_12": o["treatment_value"],
+            }
+            for o in paired_bundle["observations"]
+        ]
+
     if not seed_pairs:
-        return {"qualified": False, "reason": "NO_SEED_PAIRS", "deltas": []}
+        return {"qualified": False, "reason": "NO_SEED_PAIRS", "deltas": [], "paired_bundle": paired_bundle}
     deltas = [float(p["trt_macro_12"] - p["ctrl_macro_12"]) for p in seed_pairs]
     mean_gain = sum(deltas) / len(deltas)
     pos_count = sum(1 for d in deltas if d > 0.0)
@@ -184,6 +211,7 @@ def evaluate_x1_development_selection(
         "min_seed_delta": float(min_delta),
         "seed_deltas": deltas,
         "paired_seed_stats": paired_stats,
+        "paired_bundle": paired_bundle,
     }
 
 
