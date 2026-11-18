@@ -321,3 +321,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-18 | Codex | Expand X1 A0 scientific report
 - Published per-seed checkpoint trajectories, matched P/R disagreements, paired renderer outcomes, depth and counterfactual results, and follow-up decision criteria.
 - Verified the owner archive digest and aligned all 2,304 final views per job before computing paired counts.
+
+### 2026-11-18 | Antigravity | Sync Avendi V8-Y2 post-mortem Planthir blueprint upgrades onto Elendril
+- Synced `ea329931` Planthir updates (`StaticPromptKernel`, `LogitsPolicy`, auto-namespaced `ExperimentModule` fallback splits, `BytePromptSample`/`BytePromptTrainer`, `LegacyByteObservablePolicy`/`load_legacy_byte_checkpoint`, `CampaignStageSpec`/`run_stage_dag`/`evaluate_frozen_checkpoints`, `verify_crossover_fixture`/`score_crossover_panel`/`bootstrap_paired_families`, v6-verified `export_session_archives`, and updated `agent.md` + mirror); `agent_tools.py` kept `8e62ca0f` lazy `v8x` imports intact.
+- Preserved all existing `Elendril` `v8`/`v8x` modules, A0 owner results (`71578526`), tools, and notebooks.
+- Verified on CPU via `tests/test_elendril_tree.py` (following `12 passed` across `test_planthir_v2_audit_upgrades.py`, `test_elendril_v8x_data_and_protocol.py`, `test_elendril_tree.py`) and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU pending.
