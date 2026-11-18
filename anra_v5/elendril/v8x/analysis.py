@@ -161,17 +161,23 @@ def evaluate_x1_development_selection(
     min_delta = min(deltas)
 
     # Also invoke Planthir's exact paired-seed inferential statistical summary
-    obs = []
-    for p in seed_pairs:
-        obs.append({"arm_role": "control", "init_seed": p["init_seed"], "order_seed": p["order_seed"], "cluster_id": "x1-dev", "value": p["ctrl_macro_12"]})
-        obs.append({"arm_role": "treatment", "init_seed": p["init_seed"], "order_seed": p["order_seed"], "cluster_id": "x1-dev", "value": p["trt_macro_12"]})
+    obs = [
+        {
+            "pair_id": f"{p['init_seed']}:{p['order_seed']}",
+            "init_seed": p["init_seed"],
+            "order_seed": p["order_seed"],
+            "control_value": p["ctrl_macro_12"],
+            "treatment_value": p["trt_macro_12"],
+        }
+        for p in seed_pairs
+    ]
     paired_stats = analyze_paired_seed_runs(obs) if len(seed_pairs) >= 2 else None
 
     mean_ok = mean_gain >= float(X1_ADVANCEMENT_THRESHOLDS["development_mean_gain_min"])
     pos_ok = pos_count >= int(X1_ADVANCEMENT_THRESHOLDS["development_positive_seeds_min"])
     drop_ok = min_delta >= float(X1_ADVANCEMENT_THRESHOLDS["development_max_single_seed_drop"])
     return {
-        "qualified": bool(mean_ok and pos_ok and drop_ok),
+        "qualified": bool(mean_ok and pos_ok and drop_ok and paired_stats and paired_stats["passed"]),
         "mean_gain": float(mean_gain),
         "positive_seeds": int(pos_count),
         "total_seeds": len(deltas),

@@ -202,3 +202,12 @@ def test_x1_d2_pairs_splits_transitivity_and_42_job_protocol() -> None:
     # Check non-X1-resolve sanity
     st, _ = resolve_public_x1_belief([PublicFactX1("n0", "A", "S0", 1)], "n0", 1, min_epoch=3)
     assert st == "missing"
+
+
+def test_x1_development_gate_uses_one_observation_per_matched_seed():
+    from anra_v5.elendril.v8x.analysis import evaluate_x1_development_selection
+    pairs = [dict(init_seed=s, order_seed=s, ctrl_macro_12=0.5, trt_macro_12=0.6) for s in (7,19,41)]
+    gate = evaluate_x1_development_selection(pairs)
+    inference = gate['paired_seed_stats']['contrasts']['default']
+    assert gate['qualified'] and inference['n_clusters'] == inference['n_pairs'] == 3
+    assert not evaluate_x1_development_selection([pairs[0], pairs[0], pairs[1]])['qualified']

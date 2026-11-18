@@ -312,3 +312,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced `28831541` Planthir updates (`replay.py` case/decoder join + tolerance, `registry.py` `status_events_sha256`, `design.py` zero-variance sign-flip inference, `x1_rd2_adapter.py`/`agent_tools.py` balanced strata, `instrument.py` shortcut calibration, `productivity.py` error-detection timing, and `execution.py`/`evidence.py` `_atomic_replace`) while preserving `8e62ca0f` lazy `v8x` imports in `agent_tools.py`.
 - Preserved all existing `Elendril` `v8`/`v8x` modules, campaign/export/notebook scripts, and notebooks.
 - Verified on CPU: `import anra_v5.elendril.v8x.data`, `tests/test_elendril_v8x_data_and_protocol.py`, `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU pending.
+
+### 2026-11-18 | Codex | Audit X1 A0 owner results
+- Verified analysis ZIP and rescored 31,488 action traces against regenerated development/depth worlds. Published curated A0 metrics, provenance and report.
+- Repaired matched-seed input and duplicate-pair gating; four data/protocol tests passed. Mean R minus P was −0.38 points; A0 did not qualify R.
+- Located X01-only lesion coverage and a large held-out renderer gap. Proposed frozen checkpoint comparisons across families; causal attribution remains open.

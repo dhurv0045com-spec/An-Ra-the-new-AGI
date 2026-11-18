@@ -1,0 +1,10 @@
+{
+  "archive_manifest_sha256": "f930c2ebd291b790f509a3b1930c21bd4a338005af7751489bd38aad6c7c8af1",
+  "archive_path": "..\\ELENDRIL_X1_A0_ANALYSIS.zip",
+  "archive_zip_sha256": "66f1c98b83c3951f5e870707b419695e7ec89a96bfae8719ecab9e2e8334758a",
+  "cpu_fixtures": false,
+  "d1h_identity": "8e897a19f66eef38aca9312b3f93d933bd1ac6f772d762a6bb362e191b9e452e",
+  "schema": "elendril-x1-curated-provenance-v1",
+  "session": "A0",
+  "source_commit": "8e62ca0f2046c0f07910fdd20abee40508631227"
+}
