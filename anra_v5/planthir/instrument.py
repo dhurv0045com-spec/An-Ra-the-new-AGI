@@ -982,12 +982,247 @@ def run_scientific_shortcut_calibration(*, seed: int = 1801, families: int = 64)
     }
 
 
+def _xf_get(obj: Any, *names: str, default: Any = None) -> Any:
+    for name in names:
+        if isinstance(obj, Mapping):
+            if name in obj and obj[name] is not None:
+                return obj[name]
+            hidden = obj.get("hidden")
+            if isinstance(hidden, Mapping) and name in hidden and hidden[name] is not None:
+                return hidden[name]
+        elif hasattr(obj, name):
+            val = getattr(obj, name)
+            if val is not None:
+                return val
+    return default
+
+
+def _xf_norm_action(val: Any) -> tuple[str, str | None]:
+    if isinstance(val, (tuple, list)) and len(val) >= 2:
+        return (str(val[0]), None if val[1] is None else str(val[1]))
+    if isinstance(val, Mapping):
+        arg = val.get("argument")
+        return (str(val.get("operation", "ANSWER")), None if arg is None else str(arg))
+    if hasattr(val, "operation") and hasattr(val, "argument"):
+        arg = getattr(val, "argument")
+        return (str(getattr(val, "operation")), None if arg is None else str(arg))
+    if val is None or str(val) in ("!", "ABSTAIN"):
+        return ("ABSTAIN", None)
+    if str(val) in ("Q", "QUERY"):
+        return ("QUERY", None)
+    if str(val) in ("R", "RETRIEVE"):
+        return ("RETRIEVE", None)
+    return ("ANSWER", str(val))
+
+
+def verify_crossover_fixture(
+    families: Sequence[Any],
+    *,
+    oracle_fn: Callable[[Any], Any] | None = None,
+    blind_policies: Mapping[str, Callable[[Any], Any]] | None = None,
+    erase_goal_fn: Callable[[Any], Any] | None = None,
+    erase_bridge_fn: Callable[[Any], Any] | None = None,
+    splits_by_name: Mapping[str, Sequence[Any]] | None = None,
+) -> dict[str, Any]:
+    """Verify a 4-cell crossover fixture (oracle=1.0, blind policies=0.0, goal/bridge erasures fail, split custody clean)."""
+    fams = list(families)
+    if not fams:
+        raise ValueError("verify_crossover_fixture requires at least one 4-cell family")
+
+    defects: list[dict[str, Any]] = []
+    fam_cells: list[tuple[str, list[Any]]] = []
+    for idx, fam in enumerate(fams):
+        fid = str(_xf_get(fam, "family_id", "world_id", "id", default=f"fam_{idx}"))
+        cells = list(_xf_get(fam, "cells", default=()) or ())
+        if len(cells) != 4:
+            defects.append({"code": "INVALID_FAMILY_CELL_COUNT", "family_id": fid, "count": len(cells)})
+        fam_cells.append((fid, cells))
+
+    def _eval_fn(fn: Callable[[Any], Any], transform: Callable[[Any], Any] | None = None) -> dict[str, float]:
+        fam_ok = 0
+        case_ok = 0
+        total_cases = 0
+        for _fid, cells in fam_cells:
+            all_ok = bool(cells)
+            for cell in cells:
+                total_cases += 1
+                exp_op = _xf_get(cell, "expected_operation", default=None)
+                exp_ans = _xf_get(cell, "expected_answer", "expected", "target", default=None)
+                expected = _xf_norm_action((exp_op, exp_ans) if exp_op is not None else exp_ans)
+                probe_cell = transform(cell) if transform is not None else cell
+                try:
+                    pred = _xf_norm_action(fn(probe_cell))
+                except (ValueError, KeyError, IndexError):
+                    pred = ("ABSTAIN", None)
+                ok = pred == expected
+                if ok:
+                    case_ok += 1
+                else:
+                    all_ok = False
+            if all_ok:
+                fam_ok += 1
+        return {
+            "complete_family_accuracy": float(fam_ok / max(1, len(fam_cells))),
+            "case_accuracy": float(case_ok / max(1, total_cases)),
+        }
+
+    oracle_res: dict[str, Any] | None = None
+    if oracle_fn is not None:
+        oracle_res = _eval_fn(oracle_fn)
+        if oracle_res["complete_family_accuracy"] < 1.0:
+            defects.append({"code": "ORACLE_BELOW_UNITY", **oracle_res})
+
+    blind_res: dict[str, dict[str, Any]] = {}
+    for pname, pfn in dict(blind_policies or {}).items():
+        stats = _eval_fn(pfn)
+        rejected = stats["complete_family_accuracy"] == 0.0
+        if not rejected:
+            defects.append({"code": "BLIND_POLICY_SOLVED_CROSSOVER", "policy_id": pname, **stats})
+        blind_res[str(pname)] = {**stats, "shortcut_rejected": rejected}
+
+    erasure_res: dict[str, Any] = {}
+    if oracle_fn is not None:
+        for ename, efn in (("goal_erased", erase_goal_fn), ("bridge_erased", erase_bridge_fn)):
+            if efn is not None:
+                stats = _eval_fn(oracle_fn, transform=efn)
+                dropped = stats["complete_family_accuracy"] < 1.0
+                if not dropped:
+                    defects.append({"code": f"ERASURE_NO_EFFECT:{ename}", **stats})
+                erasure_res[ename] = {**stats, "accuracy_dropped": dropped}
+
+    overlap_report: dict[str, Any] = {"checked": bool(splits_by_name), "overlaps": []}
+    if splits_by_name:
+        seen_prompts: dict[str, set[str]] = {}
+        seen_ids: dict[str, set[str]] = {}
+        for split_name, entries in splits_by_name.items():
+            sname = str(split_name)
+            for item in entries:
+                sub_cells = list(_xf_get(item, "cells", default=()) or ()) or [item]
+                for c in sub_cells:
+                    prompt = str(_xf_get(c, "public_prompt", "rendered_text", "prompt", default="") or "").strip()
+                    if prompt:
+                        seen_prompts.setdefault(prompt, set()).add(sname)
+                    cid = str(_xf_get(c, "case_id", "world_id", "id", default="") or "").strip()
+                    if cid:
+                        seen_ids.setdefault(cid, set()).add(sname)
+        prompt_overlaps = [{"key": k, "splits": sorted(sp)} for k, sp in seen_prompts.items() if len(sp) > 1]
+        id_overlaps = [{"key": k, "splits": sorted(sp)} for k, sp in seen_ids.items() if len(sp) > 1]
+        all_overlaps = prompt_overlaps + id_overlaps
+        overlap_report["overlaps"] = all_overlaps
+        if all_overlaps:
+            defects.append({"code": "INSTANTIATED_STATE_OVERLAP", "count": len(all_overlaps), "sample": all_overlaps[:5]})
+
+    passed = len(defects) == 0
+    return {
+        "schema": "anra-planthir-crossover-fixture-v1",
+        "passed": passed,
+        "status": "FIXTURE_VERIFIED" if passed else "FIXTURE_DEFECT_DETECTED",
+        "family_count": len(fam_cells),
+        "oracle": oracle_res,
+        "blind_policies": blind_res,
+        "erasure_controls": erasure_res,
+        "split_custody": overlap_report,
+        "defects": defects,
+    }
+
+
+def score_crossover_panel(
+    families: Sequence[Any],
+    case_predictions: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Compute 4-cell raw accuracy, latent_flip, min_signed_margin, signed interaction, and decoding gap."""
+    fams = list(families)
+    if not fams:
+        raise ValueError("score_crossover_panel requires at least one family")
+
+    per_family: dict[str, dict[str, Any]] = {}
+    total_cases = 0
+    case_correct = 0
+    false_abst = 0
+    malformed = 0
+
+    for idx, fam in enumerate(fams):
+        fid = str(_xf_get(fam, "family_id", "world_id", "id", default=f"fam_{idx}"))
+        cells = list(_xf_get(fam, "cells", default=()) or ())
+        if not cells:
+            raise ValueError(f"family {fid!r} has no cells")
+
+        raw_flags: list[bool] = []
+        ap_flags: list[bool] = []
+        s_vals: list[float] = []
+        m_vals: list[float] = []
+        m_by_cell: dict[str, float] = {}
+
+        for c_idx, cell in enumerate(cells):
+            cid = str(_xf_get(cell, "case_id", "world_id", "id", default=""))
+            if cid not in case_predictions:
+                raise KeyError(f"missing prediction record for case {cid!r}")
+            pred = case_predictions[cid]
+            ckey = str(_xf_get(cell, "cell_key", default=f"c{c_idx}"))
+
+            total_cases += 1
+            raw_ok = bool(pred.get("raw_exact_correct", pred.get("correct", False)))
+            ap_ok = bool(pred.get("ap_constrained_correct", raw_ok))
+            if raw_ok:
+                case_correct += 1
+            if bool(pred.get("false_abstention", False)):
+                false_abst += 1
+            if bool(pred.get("malformed_action", False)):
+                malformed += 1
+
+            s_i = float(pred["signed_margin"]) if pred.get("signed_margin") is not None else (1.0 if raw_ok else -1.0)
+            m_gh = float(pred["endpoint_margin"]) if pred.get("endpoint_margin") is not None else s_i
+
+            raw_flags.append(raw_ok)
+            ap_flags.append(ap_ok)
+            s_vals.append(s_i)
+            m_vals.append(m_gh)
+            m_by_cell[ckey] = m_gh
+
+        if all(k in m_by_cell for k in ("q0_b0", "q0_b1", "q1_b0", "q1_b1")):
+            interaction = (m_by_cell["q0_b0"] - m_by_cell["q0_b1"] - m_by_cell["q1_b0"] + m_by_cell["q1_b1"]) / 4.0
+        elif len(m_vals) == 4:
+            interaction = (m_vals[0] - m_vals[1] - m_vals[2] + m_vals[3]) / 4.0
+        else:
+            interaction = 0.0
+
+        per_family[fid] = {
+            "all4_raw_correct": all(raw_flags),
+            "ap_constrained_all4_correct": all(ap_flags),
+            "latent_flip": all(s > 0.0 for s in s_vals),
+            "min_signed_margin": float(min(s_vals)),
+            "signed_interaction": float(interaction),
+        }
+
+    n_fams = len(per_family)
+    all4_acc = float(sum(1 for r in per_family.values() if r["all4_raw_correct"]) / n_fams)
+    ap_all4_acc = float(sum(1 for r in per_family.values() if r["ap_constrained_all4_correct"]) / n_fams)
+    latent_rate = float(sum(1 for r in per_family.values() if r["latent_flip"]) / n_fams)
+    return {
+        "schema": "anra-planthir-crossover-panel-v1",
+        "family_count": n_fams,
+        "case_count": total_cases,
+        "case_accuracy": float(case_correct / max(1, total_cases)),
+        "all4_raw_accuracy": all4_acc,
+        "ap_constrained_all4_accuracy": ap_all4_acc,
+        "decoding_gap": float(ap_all4_acc - all4_acc),
+        "latent_flip_rate": latent_rate,
+        "mean_min_signed_margin": float(sum(r["min_signed_margin"] for r in per_family.values()) / n_fams),
+        "mean_signed_interaction": float(sum(r["signed_interaction"] for r in per_family.values()) / n_fams),
+        "false_abstention_rate": float(false_abst / max(1, total_cases)),
+        "malformed_rate": float(malformed / max(1, total_cases)),
+        "per_family": per_family,
+    }
+
+
 __all__ = [
     "audit_sampled_strata",
     "run_fault_injection_suite",
     "run_scientific_shortcut_calibration",
+    "score_crossover_panel",
     "validate_environment_kernel",
     "validate_metric_aggregator",
     "validate_model_and_gradients",
     "validate_nonanticipating_teacher",
+    "verify_crossover_fixture",
 ]

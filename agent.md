@@ -64,7 +64,7 @@ Execute these steps immediately without asking redundant questions:
 
 > **Scope:** When you introduce new model math, a new task environment, or a new loss function, put your novel science in **one standalone module** (e.g. `experiments/<name>.py`) and plug it into `anra_v5.planthir.ExperimentModule` + `GenericExperimentTrainer` + `CampaignOrchestrator`. Make **zero edits** to `anra_v5/planthir/` core files (`backend.py`, `agent_tools.py`, `causal.py`, `design.py`, `checkpoint_intelligence.py`).
 
-Minimal `experiments/<name>.py` recipe (**4 hooks + `ExperimentModule`**):
+Minimal `experiments/<name>.py` recipe (**3 required hooks + optional `kernel_factory` / `policy_factory`**):
 
 ```python
 from anra_v5.planthir import (
@@ -82,8 +82,7 @@ from anra_v5.planthir import (
 # 2. dataset_factory(dataset_config: Mapping, cpu_canary: bool) -> dict with:
 #    {"train_data": GenericDatasetBundle(...), "train_worlds": ..., "eval_worlds": ..., "multihop_worlds": ..., "probe_train_worlds": ...}
 # 3. loss_fn(model: nn.Module, batch: Sequence[Any], recipe: GenericTrainRecipe) -> torch.Tensor
-# 4. kernel_factory() -> EnvironmentKernel (optional counterfactual hooks: structural_signature, inject_distractor, permute_world, reverse_world)
-#    policy_factory(model, model_spec, *, model_identity: str, mode: str = "raw", copy_enabled_override: bool | None = None) -> ObservablePolicy
+# 4. Optional kernel_factory / policy_factory: omitted defaults use StaticPromptKernel + LogitsPolicy!
 
 module = ExperimentModule(
     backend_id="my_exp",
@@ -92,16 +91,17 @@ module = ExperimentModule(
     model_factory=build_my_model,
     dataset_factory=build_my_dataset,
     loss_fn=my_loss_fn,
-    kernel_factory=MyKernel,
-    policy_factory=MyPolicy,
+    action_labels=("A", "B"),  # optional; defaults cleanly to StaticPromptKernel + LogitsPolicy
     extra_model_keys=("my_width",),
     extra_dataset_keys=("num_samples",),
 ).register()
 ```
 
 - Subprocess CLIs auto-load your plugin without touching `backend.py` by setting `PLANTHIR_BACKEND_MODULES=experiments.<name>` (provided your module calls `.register()` or defines `register_planthir_backends()`), and `python -m anra_v5.planthir init --backend my_exp --out spec.json` works out of the box!
-- For multi-seed / 2xT4 Kaggle campaigns, wrap your wave execution with `CampaignOrchestrator` (`prepare` -> `admit` -> `run_waves`), package `<PREFIX>_ANALYSIS.zip` + `<PREFIX>_FULL.zip` with `export_session_archives`, and emit your pinned notebook via `build_pinned_kaggle_notebook`.
-- Use `audit_sampled_strata(records_or_worlds, kernel=..., required_operations=("ANSWER", "QUERY"))` to verify sampled/truncated datasets don't starve any action class.
+- **Built-in helpers you should reuse instead of rewriting:**
+  - *Legacy byte / V6 / Y1 checkpoints & training:* `LegacyByteObservablePolicy`, `load_legacy_byte_checkpoint`, `locate_checkpoint_store_root`, `build_deterministic_retraining_recipe`, `BytePromptTrainer`, `frame_byte_prompt_sample`, `compute_ce_and_pair_margin_terms`, `audit_pair_margin_gradient_sign_reversal`.
+  - *4-cell crossover fixtures & family stats:* `verify_crossover_fixture`, `score_crossover_panel`, `bootstrap_paired_families`, `audit_sampled_strata`.
+  - *Conditional multi-stage DAGs, reports & V6-verified bundles:* `CampaignStageSpec`, `CampaignOrchestrator.run_stage_dag`, `CampaignOrchestrator.evaluate_frozen_checkpoints`, `build_verification_matrix`, `render_campaign_results_markdown`, `export_session_archives(..., summary_files=..., evidence_files=..., full_files=...)` (embeds `BUNDLE_MANIFEST.json` + `SHA256SUMS` passing `tools.elendril_v6_export.verify_zip`), and `build_pinned_kaggle_notebook(..., discover_kaggle_inputs=..., mirror_outputs_to_working=True)`.
 
 ---
 
@@ -122,6 +122,10 @@ module = ExperimentModule(
 | **`IndependentWorkerScheduler` GPU Pinning** | When `WorkerJobSpec(device="cuda:1")` runs, the scheduler sets `CUDA_VISIBLE_DEVICES="1"` in the child AND automatically rewrites `--device cuda:1` -> `--device cuda:0` (`remap_child_cuda_device=True`). Child processes should read `PLANTHIR_VISIBLE_CUDA_DEVICE` (`cuda:0`) and never manually index `cuda:1` when `CUDA_VISIBLE_DEVICES` is pinned. |
 | **Planthir CLI Bundle Flags** | Always use **`--bundle-dir`** (`verify-bundle --bundle-dir ...`, `replay-bundle --bundle-dir ...`), never `--dir`. |
 | **Repository Audit Rules (`AGENTS.md` / `audit_tree.py`)** | Never commit `.zip`, `.npz`, `.bin`, `.pt`, or raw `runs/` folders. Keep curated JSON/Markdown only under `Experiment Result/<Program>/`. Every `progress.md` entry must be **`<= 5` non-empty lines** including its heading (`YYYY-MM-DD \| Agent \| Title`). |
+| **`UTF8` & `SpecialToken` (`anra_v5/elendril/representation.py`)** | `SpecialToken` is a string `Enum` (`int(SpecialToken.EOS)` raises `TypeError`). Always use `UTF8.bos_id` (`1`), `UTF8.eos_id` (`2`), `UTF8.pad_id` (`0`), and `UTF8.special(SpecialToken.ANSWER)` (`3`). `UTF8.encode(text)` shifts UTF-8 bytes by `+4`. `UTF8.frame(prompt, answer)` returns `FramedExample` with `.ids` and `.loss_mask` (target starts at `framed.loss_mask.index(True)` right after token `3`). Or call `frame_byte_prompt_sample(...)`. |
+| **`V6Trainer` / `FoundationTrainer` (`anra_v5/elendril/foundation_training.py`)** | Samples must be `TokenSample(task_id, tokens, eligible, world_id, category)` (or subclass `BytePromptSample`). Call `configure_device(device)` before trainer init. `Recipe` uses `lr` and `clip` (never `learning_rate` or `grad_clip`), and LR schedule is `self.learning_rate(u)`. `TrainingState.complete` is a `@property`, never pass `complete=` to `dataclasses.replace(self.state, ...)`. Prefer built-in `BytePromptTrainer` for new UTF-8 experiments. |
+| **`analyze_paired_seed_runs` & `bootstrap_paired_families` (`anra_v5/planthir/design.py`)** | `analyze_paired_seed_runs` takes `observations: Sequence[Mapping[str, Any]]` with keys `{"contrast_id", "pair_id", "init_seed", "order_seed", "control_value", "treatment_value"}` and returns `results["contrasts"][cid]["variance_status"]` (`"DEGENERATE_ZERO_VARIANCE"` or `"NONZERO_VARIANCE"`). Use `bootstrap_paired_families(control_scores, treatment_scores, resamples=2000)` for 4-cell family paired bootstrap. |
+| **`ExperimentModule` `dataset_factory` splits & defaults (`anra_v5/planthir/runtime.py`)** | Omitting `kernel_factory` / `policy_factory` cleanly defaults to `StaticPromptKernel` + `LogitsPolicy`, and omitting `probe_train_worlds` / `multihop_worlds` auto-namespaces fallback slices to avoid self-inflicted `TRANSITIVE_COHORT_LEAKAGE`; for custom disjoint evaluation sets, explicitly return distinct `"probe_train_worlds"` / `"multihop_worlds"` in `dataset_factory`. |
 
 ---
 

@@ -298,3 +298,8 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Registered `avendi_v8_y2` with Planthir (`ExperimentModule`) and verified token-for-token Y1 raw-byte adapter equivalence, 10,920-family canonical 1-hop allocation, destructive goal/bridge erasure, and P1–P6 stage gates.
 - Verified on CPU: `pytest -q tests/test_avendi_fixture.py tests/test_avendi_restore.py tests/test_avendi_decisions.py` (`10 passed`), `planthir validate`, and full `--phase fixture`/`--phase frozen` intake (`Experiment Result/Avendi-V8-Y2/avendi-frozen-0acbe87814/`).
 - Pending owner GPU execution: Kaggle 2xT4 `--phase frozen` with `ELENDRIL_V8_Y1_FULL.zip` attached, followed by admitted conditional stage (`acquisition` / `transition`).
+
+### 2026-11-18 | Antigravity | Sync Avendi V8-Y2 post-mortem Planthir blueprint upgrades onto hitchhiker
+- Synced `ea329931` Planthir updates (`StaticPromptKernel`, `LogitsPolicy`, auto-namespaced `ExperimentModule` fallback splits, `BytePromptSample`/`BytePromptTrainer`, `LegacyByteObservablePolicy`/`load_legacy_byte_checkpoint`, `CampaignStageSpec`/`run_stage_dag`/`evaluate_frozen_checkpoints`, `verify_crossover_fixture`/`score_crossover_panel`/`bootstrap_paired_families`, v6-verified `export_session_archives`, and updated `agent.md` + mirror).
+- Preserved all Avendi V8-Y2 modules, tools, notebooks, registries, and curated results on `hitchhiker`.
+- Verified on CPU via `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_avendi_fixture.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU pending.

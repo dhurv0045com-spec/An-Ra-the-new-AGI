@@ -12,7 +12,10 @@ from typing import Any, Mapping, Sequence
 import zipfile
 
 import torch
+import torch.nn.functional as F
 
+from anra_v5.elendril.backend import BackendIdentity, NeuralBackend
+from anra_v5.elendril.representation import LEGACY, SpecialToken, UTF8
 from anra_v5.elendril.training import _load
 from anra_v5.elendril.v8.contracts import ARCHITECTURES, V8ModelSpec, build_v8_model_spec
 from anra_v5.elendril.v8.models import build_v8_model
@@ -22,6 +25,7 @@ from v5_training.checkpoint import CheckpointStore, MILESTONES_FILENAME
 from v5_training.state import TrainingState
 
 from .adapters.v8_adapter import V8ObservablePolicy
+from .contracts import UniversalAction, UniversalObservation
 from .evidence import verify_single_planthir_zip
 
 _HEX64 = set("0123456789abcdef")
@@ -359,7 +363,14 @@ def _instantiate_checkpoint_bundle(
         model = initialize(base_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
-        policy = None
+        policy = LegacyByteObservablePolicy(
+            model,
+            base_spec,
+            model_identity=f"{state.lineage_id}:{sha[:12]}",
+            mode=mode,
+            copy_enabled_override=copy_enabled_override,
+            device=device,
+        )
     else:
         raise ValueError(f"cannot reconstruct model spec from scheduler.json for {sha}")
 
@@ -880,4 +891,267 @@ class CheckpointCatalog:
         }
 
 
-__all__ = ["CheckpointCatalog", "CheckpointRecord"]
+_LEGACY_BYTE_AP_SYMBOLS = tuple("ABCDEFGHIJKLMNOP")
+
+
+class LegacyByteObservablePolicy:
+    """ObservablePolicy adapter for legacy `v5_model.core.Core` / `V6Trainer` / `Y1Trainer` checkpoints."""
+
+    policy_id = "planthir-legacy-byte-policy-v1"
+
+    def __init__(
+        self,
+        model: Any,
+        model_spec: ModelSpec,
+        *,
+        model_identity: str = "legacy-byte-model",
+        mode: str = "raw",
+        copy_enabled_override: bool | None = None,
+        device: str = "cpu",
+        max_new_tokens: int = 3,
+    ) -> None:
+        self.model = model
+        self.model_spec = model_spec
+        self.model_identity = str(model_identity)
+        self.mode = str(mode)
+        self.copy_enabled_override = copy_enabled_override
+        self.max_new_tokens = max(1, int(max_new_tokens))
+        self.tokenizer = UTF8 if int(model_spec.vocabulary_size) == int(UTF8.vocabulary_size) else LEGACY
+        self.backend = NeuralBackend(
+            model,
+            BackendIdentity(
+                model_spec.sha256(),
+                self.tokenizer.identity,
+                model_spec.vocabulary_size,
+                model_spec.context_length,
+            ),
+            pad_id=self.tokenizer.pad_id,
+            bos_id=self.tokenizer.bos_id,
+            eos_id=self.tokenizer.eos_id,
+        )
+        self._ans_delim = UTF8.special(SpecialToken.ANSWER) if self.tokenizer is UTF8 else None
+
+    def _frame_prompt_tokens(self, obs: UniversalObservation) -> tuple[int, ...]:
+        if isinstance(obs.metadata, Mapping) and obs.metadata.get("prompt_tokens") is not None:
+            seq = [int(t) for t in obs.metadata["prompt_tokens"]]
+        else:
+            seq = [int(self.tokenizer.bos_id), *[int(t) for t in self.tokenizer.encode(obs.rendered_text)]]
+        if not seq or seq[0] != self.tokenizer.bos_id:
+            seq = [self.tokenizer.bos_id, *seq]
+        if self._ans_delim is not None and seq[-1] != self._ans_delim:
+            seq.append(self._ans_delim)
+        if len(seq) > self.model_spec.context_length:
+            # Keep BOS prefix and tail window if oversized for probe safety
+            keep = self.model_spec.context_length - 1
+            seq = [self.tokenizer.bos_id, *seq[-keep:]]
+        return tuple(seq)
+
+    def _decode_emitted_action(self, content_tokens: Sequence[int]) -> tuple[str, str | None]:
+        if not content_tokens:
+            return ("ABSTAIN", None)
+        try:
+            text = self.tokenizer.decode(content_tokens)
+        except Exception:
+            return ("ABSTAIN", None)
+        if text == "Q":
+            return ("QUERY", None)
+        if text == "R":
+            return ("RETRIEVE", None)
+        if text == "!":
+            return ("ABSTAIN", None)
+        return ("ANSWER", text)
+
+    def _action_distribution(self, first_logits: torch.Tensor) -> dict[str, float]:
+        probs = F.softmax(first_logits.float(), dim=-1)
+        if self.tokenizer is UTF8:
+            dist = {
+                f"ANSWER:{sym}": float(probs[int(UTF8.encode(sym)[0])].item())
+                for sym in _LEGACY_BYTE_AP_SYMBOLS
+            }
+            dist["QUERY:Q"] = float(probs[int(UTF8.encode("Q")[0])].item())
+            dist["RETRIEVE:R"] = float(probs[int(UTF8.encode("R")[0])].item())
+            dist["ABSTAIN:!"] = float(probs[int(UTF8.encode("!")[0])].item())
+            return dist
+        return {
+            "EOS": float(probs[self.tokenizer.eos_id].item()),
+            "TOP1": float(probs.max().item()),
+        }
+
+    def propose_with_telemetry(self, obs: UniversalObservation) -> UniversalAction:
+        prompt_seq = list(self._frame_prompt_tokens(obs))
+        cur_seq = list(prompt_seq)
+        stop_ids = {self.tokenizer.eos_id, self.tokenizer.pad_id, self.tokenizer.bos_id}
+        if self._ans_delim is not None:
+            stop_ids.add(self._ans_delim)
+
+        dev = self.backend.device
+        was_training = bool(self.model.training)
+        self.model.eval()
+        emitted: list[int] = []
+        first_logits: torch.Tensor | None = None
+        try:
+            with torch.inference_mode():
+                for step in range(self.max_new_tokens):
+                    t_in = torch.tensor([cur_seq], device=dev, dtype=torch.int64)
+                    step_logits = self.backend.logits(t_in, torch.zeros_like(t_in))[0, -1].detach().cpu().float()
+                    if step == 0:
+                        first_logits = step_logits
+                    next_tok = int(torch.argmax(step_logits).item())
+                    emitted.append(next_tok)
+                    if next_tok in stop_ids or len(cur_seq) >= self.model_spec.context_length:
+                        break
+                    cur_seq.append(next_tok)
+        finally:
+            self.model.train(was_training)
+
+        assert first_logits is not None
+        content_tokens = [tok for tok in emitted if tok not in stop_ids]
+        op, arg = self._decode_emitted_action(content_tokens)
+        probs = F.softmax(first_logits, dim=-1)
+        lead_tok = emitted[0] if emitted else self.tokenizer.eos_id
+        lp = float(torch.log(probs[lead_tok].clamp_min(1e-8)).item())
+        return UniversalAction(
+            operation=op,
+            argument=arg,
+            log_probability=lp,
+            action_distribution=self._action_distribution(first_logits),
+            mode=self.mode,
+            raw_operation=op,
+            raw_argument=arg,
+            metadata={
+                "raw_tokens": emitted,
+                "first_logits": [float(v) for v in first_logits.tolist()],
+            },
+        )
+
+    def propose_batch(self, obs_batch: Sequence[UniversalObservation]) -> list[UniversalAction]:
+        return [self.propose_with_telemetry(obs) for obs in obs_batch]
+
+    def extract_representations(self, obs_batch: Sequence[UniversalObservation]) -> dict[str, torch.Tensor]:
+        if not obs_batch:
+            return {"decision_hidden": torch.zeros((0, self.model_spec.vocabulary_size), dtype=torch.float32)}
+        seqs = [self._frame_prompt_tokens(obs) for obs in obs_batch]
+        max_len = max(len(s) for s in seqs)
+        pad_id = self.tokenizer.pad_id
+        dev = self.backend.device
+        tokens_rows = [list(s) + [pad_id] * (max_len - len(s)) for s in seqs]
+        seg_rows = [[0] * len(s) + [-1] * (max_len - len(s)) for s in seqs]
+        was_training = bool(self.model.training)
+        self.model.eval()
+        try:
+            with torch.inference_mode():
+                tok_t = torch.tensor(tokens_rows, device=dev, dtype=torch.int64)
+                seg_t = torch.tensor(seg_rows, device=dev, dtype=torch.int64)
+                logits_all = self.backend.logits(tok_t, seg_t)
+                reps = torch.stack([logits_all[i, len(s) - 1, :] for i, s in enumerate(seqs)], dim=0).detach().cpu()
+        finally:
+            self.model.train(was_training)
+        return {"decision_hidden": reps}
+
+
+def locate_checkpoint_store_root(
+    checkpoint_root_or_zip: Path | str,
+    temp_extract_dir: Path | str | None = None,
+    *,
+    expected_lineages: Sequence[str] = (),
+) -> Path | None:
+    """Resolve either an unpacked CheckpointStore root or a `.zip` containing `checkpoints/`."""
+    target = Path(checkpoint_root_or_zip)
+    if not target.exists():
+        return None
+    expected_set = [str(x) for x in expected_lineages]
+
+    if target.is_file() and target.suffix.lower() == ".zip":
+        if temp_extract_dir is None:
+            raise ValueError("temp_extract_dir is required when locating checkpoints inside a .zip archive")
+        ext_root = Path(temp_extract_dir)
+        with zipfile.ZipFile(target, "r") as zf:
+            cp_members = [m for m in zf.namelist() if m.startswith("checkpoints/") and not m.endswith("/")]
+            if not cp_members:
+                return None
+            _safe_extract_members(zf, cp_members, ext_root)
+        return ext_root / "checkpoints"
+
+    if target.is_dir():
+        if (target / "LATEST").is_file() or (target / MILESTONES_FILENAME).is_file():
+            return target.parent
+        if (target / "checkpoints").is_dir():
+            return target / "checkpoints"
+        if any(p.is_dir() and ((p / "LATEST").is_file() or (p / MILESTONES_FILENAME).is_file()) for p in target.iterdir()):
+            return target
+        if expected_set and any((target / lin).is_dir() for lin in expected_set):
+            return target
+        for cand in sorted(target.rglob("*.zip")):
+            if cand.is_file():
+                try:
+                    with zipfile.ZipFile(cand, "r") as zf:
+                        if any(m.startswith("checkpoints/") for m in zf.namelist()):
+                            return locate_checkpoint_store_root(
+                                cand, temp_extract_dir=temp_extract_dir, expected_lineages=expected_set
+                            )
+                except Exception:
+                    continue
+        for cand_dir in sorted(target.rglob("checkpoints")):
+            if cand_dir.is_dir():
+                return cand_dir
+    return None
+
+
+def load_legacy_byte_checkpoint(
+    checkpoint_root_or_zip: Path | str,
+    *,
+    lineage_id: str,
+    checkpoint_sha256: str | None = None,
+    mode: str = "raw",
+    device: str = "cpu",
+) -> dict[str, Any]:
+    """One-call loader restoring a verified legacy V6/Y1/byte checkpoint wrapped with LegacyByteObservablePolicy."""
+    with tempfile.TemporaryDirectory() as tmp:
+        store_root = locate_checkpoint_store_root(
+            checkpoint_root_or_zip,
+            temp_extract_dir=Path(tmp),
+            expected_lineages=(lineage_id,),
+        )
+        if store_root is None or not store_root.is_dir():
+            raise FileNotFoundError(f"no CheckpointStore root found inside {checkpoint_root_or_zip!r}")
+        return CheckpointCatalog.load_checkpoint_for_causal_probing(
+            store_root,
+            lineage_id=lineage_id,
+            checkpoint_sha256=checkpoint_sha256,
+            mode=mode,
+            device=device,
+        )
+
+
+def build_deterministic_retraining_recipe(
+    missing_lineages: Sequence[str],
+    *,
+    original_source_commit: str = "",
+    original_protocol_sha256: str = "",
+    command_template: str = "",
+    hyperparameters: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Produce an explicit, non-forged deterministic retraining recipe when full weights are absent."""
+    return {
+        "schema": "anra-planthir-retraining-recipe-v1",
+        "status": "REQUIRES_FRESH_IDENTITY_AND_OWNER_COMPUTE_APPROVAL",
+        "note": (
+            "SUMMARY and EVIDENCE archives do not contain model weights. Recreating missing lineages "
+            "requires a fresh run identity and explicit owner GPU authorization."
+        ),
+        "original_source_commit": str(original_source_commit),
+        "original_protocol_sha256": str(original_protocol_sha256),
+        "missing_lineages": [str(x) for x in missing_lineages],
+        "recreation_command_template": str(command_template),
+        "hyperparameters": dict(hyperparameters or {}),
+    }
+
+
+__all__ = [
+    "CheckpointCatalog",
+    "CheckpointRecord",
+    "LegacyByteObservablePolicy",
+    "build_deterministic_retraining_recipe",
+    "load_legacy_byte_checkpoint",
+    "locate_checkpoint_store_root",
+]

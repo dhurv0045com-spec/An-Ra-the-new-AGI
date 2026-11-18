@@ -117,6 +117,7 @@ class UniversalAction:
     raw_operation: str
     raw_argument: str | None
     telemetry: dict[str, float] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not isinstance(self.operation, str) or not self.operation:

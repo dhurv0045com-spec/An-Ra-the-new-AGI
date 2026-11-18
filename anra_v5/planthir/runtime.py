@@ -16,17 +16,22 @@ import zipfile
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from anra_v5.elendril.codec import canonical, digest
+from anra_v5.elendril.foundation_training import TokenSample
 from anra_v5.elendril.publication import quarantine_interrupted_publication, writer_lock
-from anra_v5.elendril.representation import UTF8
-from anra_v5.elendril.training import _dump, _load, runtime_identity
+from anra_v5.elendril.representation import SpecialToken, UTF8
+from anra_v5.elendril.training import _dump, _load, batch_tensors, configure_device, runtime_identity
+from v5_contracts.model_spec import ModelSpec
+from v5_model.core import initialize, packed_layout
 from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer, optimizer_group_receipt, validate_parameter_ownership
 from v5_training.state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
 from .backend import BACKEND_CONTRACT_VERSION, BackendCapabilities, register_backend
-from .contracts import EnvironmentKernel, ObservablePolicy
+from .contracts import EnvironmentKernel, ObservablePolicy, UniversalAction, UniversalObservation
+from .execution import _atomic_replace
 from .resources import measure_free_disk_bytes
 from .scheduler import IndependentWorkerScheduler, WorkerJobSpec
 
@@ -462,8 +467,541 @@ def batched_rollout(
     return results
 
 
+_AUTO_SPLIT_ID_KEYS = (
+    "world_id",
+    "task_id",
+    "id",
+    "base_world_id",
+    "base_id",
+    "parent_world_id",
+    "parent_id",
+    "counterfactual_mate_id",
+    "mate_world_id",
+    "eq_mate_id",
+    "group_id",
+    "cohort_id",
+    "cluster_id",
+    "lineage_group",
+    "base_signature",
+    "signature",
+    "canonical_family_key",
+    "family_id",
+    "sig",
+)
+_DEFAULT_ACTION_LABELS = ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P")
+
+
+def _auto_namespace_fallback_split(worlds: Sequence[Mapping[str, Any]], tag: str) -> tuple[dict[str, Any], ...]:
+    """Rewrite cohort/world identifiers in synthesized fallback splits to prevent train/probe overlap."""
+    out: list[dict[str, Any]] = []
+    suffix = f"::__auto_{tag}"
+    for idx, w in enumerate(worlds):
+        if not isinstance(w, Mapping):
+            out.append({"world_id": f"{tag}_{idx}{suffix}", "value": w})
+            continue
+        cloned = dict(w)
+        has_any_id = False
+        for key in _AUTO_SPLIT_ID_KEYS:
+            val = cloned.get(key)
+            if val not in (None, ""):
+                cloned[key] = f"{val}{suffix}"
+                has_any_id = True
+        links = cloned.get("related_world_ids")
+        if isinstance(links, Sequence) and not isinstance(links, (str, bytes)):
+            cloned["related_world_ids"] = [f"{lv}{suffix}" if lv not in (None, "") else lv for lv in links]
+        if not has_any_id:
+            cloned["world_id"] = f"{tag}_{idx}{suffix}"
+        out.append(cloned)
+    return tuple(out)
+
+
+@dataclass(frozen=True, slots=True)
+class _StaticPromptState:
+    world_id: str
+    public_prompt: str
+    rendered_text: str
+    available_tools: dict[str, bool]
+    consumed_tools: frozenset[str]
+    step: int = 0
+    terminal: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+class StaticPromptKernel:
+    """Default truth-firewalled EnvironmentKernel for static prompt->action or feature->label worlds."""
+
+    kernel_id = "planthir-static-prompt-kernel-v1"
+
+    def __init__(self, *, action_labels: Sequence[str] | None = None) -> None:
+        self.action_labels = tuple(str(x) for x in action_labels) if action_labels is not None else _DEFAULT_ACTION_LABELS
+        self._expected_by_wid: dict[str, tuple[str, str | None]] = {}
+
+    @staticmethod
+    def _world_id(world: Mapping[str, Any]) -> str:
+        return str(world.get("world_id") or world.get("case_id") or world.get("task_id") or world.get("id") or "w0")
+
+    def _extract_expected(self, world: Mapping[str, Any]) -> tuple[str, str | None]:
+        hidden = world.get("hidden") if isinstance(world.get("hidden"), Mapping) else {}
+        raw_op = hidden.get("expected_operation", world.get("expected_operation"))
+        raw_arg = None
+        for key in ("expected", "expected_answer", "target", "label"):
+            if key in hidden and hidden[key] is not None:
+                raw_arg = hidden[key]
+                break
+            if key in world and world[key] is not None:
+                raw_arg = world[key]
+                break
+        if isinstance(raw_arg, bool):
+            lbl = self.action_labels[1 if raw_arg else 0]
+            return ("ANSWER", lbl)
+        if isinstance(raw_arg, int) and 0 <= raw_arg < len(self.action_labels) and raw_op is None:
+            raw_arg = self.action_labels[raw_arg]
+        if raw_op is not None:
+            op_s = str(raw_op)
+            if op_s in ("QUERY", "RETRIEVE", "ABSTAIN"):
+                return (op_s, None if op_s != "ANSWER" else (str(raw_arg) if raw_arg is not None else None))
+            return (op_s, str(raw_arg) if raw_arg is not None else None)
+        if raw_arg is None or str(raw_arg) in ("!", "ABSTAIN"):
+            return ("ABSTAIN", None)
+        if str(raw_arg) in ("Q", "QUERY"):
+            return ("QUERY", None)
+        if str(raw_arg) in ("R", "RETRIEVE"):
+            return ("RETRIEVE", None)
+        return ("ANSWER", str(raw_arg))
+
+    def structural_signature(self, world: Mapping[str, Any]) -> str:
+        return str(
+            world.get("canonical_family_key")
+            or world.get("sig")
+            or world.get("family_id")
+            or f"hops:{world.get('hops', 1)}"
+        )
+
+    def inject_distractor(self, world: Mapping[str, Any]) -> dict[str, Any]:
+        w = dict(world)
+        wid = self._world_id(world)
+        w["world_id"] = f"{wid}::dist"
+        if "sig" in w:
+            w["sig"] = f"{w['sig']}::dist"
+        if "public_prompt" in w and w["public_prompt"] is not None:
+            w["public_prompt"] = f"{w['public_prompt']}\n# distractor=Z0"
+        if "feat" in w and isinstance(w["feat"], list):
+            w["feat"] = list(w["feat"])
+        return w
+
+    def permute_world(self, world: Mapping[str, Any], shift: int = 1) -> dict[str, Any]:
+        w = dict(world)
+        wid = self._world_id(world)
+        w["world_id"] = f"{wid}::perm{shift}"
+        if "sig" in w:
+            w["sig"] = f"{w['sig']}::perm{shift}"
+        return w
+
+    def reverse_world(self, world: Mapping[str, Any]) -> dict[str, Any]:
+        w = dict(world)
+        wid = self._world_id(world)
+        w["world_id"] = f"{wid}::rev"
+        if "sig" in w:
+            w["sig"] = f"{w['sig']}::rev"
+        return w
+
+    def initial_state(self, world: Mapping[str, Any]) -> _StaticPromptState:
+        wid = self._world_id(world)
+        self._expected_by_wid[wid] = self._extract_expected(world)
+        if isinstance(world.get("available_tools"), Mapping):
+            avail = {str(k): bool(v) for k, v in world["available_tools"].items()}
+        else:
+            avail = {
+                "query": bool(world.get("query_available", False)),
+                "memory": bool(world.get("memory_available", False)),
+            }
+        if world.get("public_prompt") is not None:
+            public_prompt = str(world["public_prompt"])
+            rendered = public_prompt
+        elif world.get("rendered_text") is not None:
+            public_prompt = str(world["rendered_text"])
+            rendered = public_prompt
+        elif world.get("prompt") is not None:
+            public_prompt = str(world["prompt"])
+            rendered = public_prompt
+        else:
+            sig = world.get("sig", wid)
+            feat = world.get("feat")
+            public_prompt = f"PROMPT sig={sig}" + (f" feat={json.dumps(list(feat))}" if feat is not None else "")
+            rendered = public_prompt
+        meta: dict[str, Any] = {"world_id": wid}
+        if world.get("feat") is not None:
+            meta["feat"] = list(world["feat"])
+        if world.get("prompt_tokens") is not None:
+            meta["prompt_tokens"] = [int(t) for t in world["prompt_tokens"]]
+        return _StaticPromptState(
+            world_id=wid,
+            public_prompt=public_prompt,
+            rendered_text=rendered,
+            available_tools=avail,
+            consumed_tools=frozenset(),
+            step=0,
+            terminal=False,
+            metadata=meta,
+        )
+
+    def observe(self, state: _StaticPromptState) -> UniversalObservation:
+        return UniversalObservation(
+            obs_id=f"{state.world_id}:s{state.step}",
+            rendered_text=state.rendered_text,
+            available_tools=dict(state.available_tools),
+            consumed_tools=state.consumed_tools,
+            decision_index=int(state.step),
+            budget_remaining=max(0, 1 - int(state.step)),
+            metadata=dict(state.metadata),
+        )
+
+    def ideal_action(self, state: _StaticPromptState | Mapping[str, Any]) -> tuple[str, str | None]:
+        if isinstance(state, _StaticPromptState):
+            if state.world_id in self._expected_by_wid:
+                return self._expected_by_wid[state.world_id]
+            return ("ANSWER", self.action_labels[0])
+        return self._extract_expected(state)
+
+    def step(self, state: _StaticPromptState, operation: str, argument: str | None) -> _StaticPromptState:
+        consumed = set(state.consumed_tools)
+        avail = dict(state.available_tools)
+        if operation == "QUERY":
+            consumed.add("query")
+            avail["query"] = False
+        elif operation == "RETRIEVE":
+            consumed.add("retrieve")
+            avail["retrieve"] = False
+        return _StaticPromptState(
+            world_id=state.world_id,
+            public_prompt=state.public_prompt,
+            rendered_text=state.rendered_text,
+            available_tools=avail,
+            consumed_tools=frozenset(consumed),
+            step=state.step + 1,
+            terminal=True,
+            metadata=dict(state.metadata),
+        )
+
+    def verify(self, world: Mapping[str, Any], actions: Sequence[tuple[str, str | None]]) -> dict[str, Any]:
+        expected = self._extract_expected(world)
+        act = actions[0] if actions else ("INVALID", None)
+        return {"correct": bool(act == expected), "terminal_status": "answered", "expected": expected, "observed": act}
+
+    def decompose_subgoals(self, world: Mapping[str, Any]) -> tuple[Any, ...]:
+        return ()
+
+
+class LogitsPolicy:
+    """Default ObservablePolicy wrapping any nn.Module returning logits or `(logits, hidden)`."""
+
+    policy_id = "planthir-logits-policy-v1"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        model_spec: Any = None,
+        *,
+        model_identity: str = "planthir-logits-policy",
+        mode: str = "raw",
+        copy_enabled_override: bool | None = None,
+        action_labels: Sequence[str] | None = None,
+        input_encoder: Callable[[UniversalObservation], Any] | None = None,
+    ) -> None:
+        self.model = model
+        self.model_spec = model_spec
+        self.model_identity = str(model_identity)
+        self.mode = str(mode)
+        self.copy_enabled_override = copy_enabled_override
+        self.action_labels = tuple(str(x) for x in action_labels) if action_labels is not None else None
+        self.input_encoder = input_encoder
+
+    def _encode_obs(self, obs: UniversalObservation) -> torch.Tensor:
+        if self.input_encoder is not None:
+            val = self.input_encoder(obs)
+            return val if isinstance(val, torch.Tensor) else torch.tensor(val, dtype=torch.float32)
+        if "feat" in obs.metadata and obs.metadata["feat"] is not None:
+            return torch.tensor(obs.metadata["feat"], dtype=torch.float32)
+        if "feat=" in obs.rendered_text:
+            raw = obs.rendered_text.split("feat=", 1)[1].splitlines()[0].strip()
+            if "#" in raw:
+                raw = raw.split("#", 1)[0].strip()
+            return torch.tensor(json.loads(raw), dtype=torch.float32)
+        if "prompt_tokens" in obs.metadata and obs.metadata["prompt_tokens"] is not None:
+            return torch.tensor(obs.metadata["prompt_tokens"], dtype=torch.int64)
+        return torch.tensor((UTF8.bos_id, *UTF8.encode(obs.rendered_text)), dtype=torch.int64)
+
+    def _forward_logits_and_hidden(self, obs_batch: Sequence[UniversalObservation]) -> tuple[torch.Tensor, torch.Tensor]:
+        first_param = next(self.model.parameters(), None)
+        device = first_param.device if first_param is not None else torch.device("cpu")
+        encoded = [self._encode_obs(o) for o in obs_batch]
+        if encoded and encoded[0].ndim == 1 and encoded[0].dtype in (torch.int32, torch.int64):
+            max_len = max(int(t.shape[0]) for t in encoded)
+            padded = [
+                F.pad(t, (0, max_len - int(t.shape[0])), value=UTF8.pad_id) if int(t.shape[0]) < max_len else t
+                for t in encoded
+            ]
+            x = torch.stack(padded, dim=0).to(device)
+        else:
+            x = torch.stack(encoded, dim=0).to(device)
+
+        was_training = bool(self.model.training)
+        self.model.eval()
+        try:
+            with torch.no_grad():
+                out = self.model(x)
+        finally:
+            self.model.train(was_training)
+
+        if isinstance(out, tuple) and len(out) >= 2:
+            logits, hidden = out[0], out[1]
+        elif isinstance(out, Mapping):
+            logits = out["logits"]
+            hidden = out.get("hidden", logits)
+        else:
+            logits = out
+            hidden = out
+        if logits.ndim == 3:
+            logits = logits[:, -1, :]
+        if hidden.ndim == 3:
+            hidden = hidden[:, -1, :]
+        return logits, hidden
+
+    def _labels_for_dim(self, dim: int) -> tuple[str, ...]:
+        if self.action_labels is not None and len(self.action_labels) >= dim:
+            return tuple(self.action_labels[:dim])
+        if dim <= len(_DEFAULT_ACTION_LABELS):
+            return _DEFAULT_ACTION_LABELS[:dim]
+        return tuple(f"C{i}" for i in range(dim))
+
+    @staticmethod
+    def _decode_label(label: str) -> tuple[str, str | None]:
+        if label in ("Q", "QUERY"):
+            return ("QUERY", None)
+        if label in ("R", "RETRIEVE"):
+            return ("RETRIEVE", None)
+        if label in ("!", "ABSTAIN"):
+            return ("ABSTAIN", None)
+        return ("ANSWER", label)
+
+    def propose_with_telemetry(self, obs: UniversalObservation) -> UniversalAction:
+        return self.propose_batch([obs])[0]
+
+    def propose_batch(self, obs_batch: Sequence[UniversalObservation]) -> list[UniversalAction]:
+        logits, _ = self._forward_logits_and_hidden(obs_batch)
+        probs = F.softmax(logits.float(), dim=-1)
+        labels = self._labels_for_dim(int(logits.shape[-1]))
+        actions: list[UniversalAction] = []
+        for row in probs:
+            idx = int(torch.argmax(row).item())
+            lbl = labels[idx]
+            op, arg = self._decode_label(lbl)
+            lp = float(torch.log(row[idx].clamp_min(1e-8)).item())
+            dist = {
+                f"{self._decode_label(l)[0]}:{self._decode_label(l)[1] or l}": float(row[j].item())
+                for j, l in enumerate(labels)
+            }
+            actions.append(
+                UniversalAction(
+                    operation=op,
+                    argument=arg,
+                    log_probability=lp,
+                    action_distribution=dist,
+                    mode=self.mode,
+                    raw_operation=op,
+                    raw_argument=arg,
+                )
+            )
+        return actions
+
+    def extract_representations(self, obs_batch: Sequence[UniversalObservation]) -> dict[str, torch.Tensor]:
+        _, hidden = self._forward_logits_and_hidden(obs_batch)
+        return {"decision_hidden": hidden}
+
+
+@dataclass(frozen=True)
+class BytePromptSample(TokenSample):
+    """UTF-8 framed byte-token sample with optional counterfactual endpoint IDs."""
+
+    family_id: str = ""
+    cell_key: str = ""
+    gold_token_id: int = 0
+    rival_token_id: int = 0
+
+
+def frame_byte_prompt_sample(
+    prompt: str,
+    answer: str,
+    *,
+    task_id: str = "sample0",
+    world_id: str = "w0",
+    category: str = "route",
+    family_id: str = "",
+    cell_key: str = "",
+    rival_answer: str | None = None,
+    max_length: int | None = None,
+    pad_to: int | None = None,
+    truncate_prompt: bool = False,
+) -> BytePromptSample:
+    """Frame `(prompt, answer)` via `UTF8.frame` and return a `TokenSample`-compatible `BytePromptSample`."""
+    framed = UTF8.frame(
+        prompt,
+        answer,
+        max_length=max_length,
+        pad_to=pad_to,
+        truncate_prompt=truncate_prompt,
+    )
+    gold_id = int(UTF8.encode(answer)[0]) if answer else int(UTF8.eos_id)
+    rival_id = int(UTF8.encode(rival_answer)[0]) if rival_answer else int(UTF8.eos_id)
+    return BytePromptSample(
+        task_id=str(task_id),
+        tokens=framed.ids,
+        eligible=framed.loss_mask,
+        world_id=str(world_id),
+        category=str(category),
+        family_id=str(family_id),
+        cell_key=str(cell_key),
+        gold_token_id=gold_id,
+        rival_token_id=rival_id,
+    )
+
+
+def compute_ce_and_pair_margin_terms(
+    logits: torch.Tensor,
+    tokens: torch.Tensor,
+    loss_weights: torch.Tensor,
+    chunk: Sequence[Any],
+    *,
+    margin: float = 1.0,
+) -> tuple[torch.Tensor, torch.Tensor, int, int]:
+    """Compute eligible-token cross-entropy sum and counterfactual pair-margin relu sum."""
+    ce_losses = F.cross_entropy(
+        logits[:, :-1].float().reshape(-1, logits.shape[-1]),
+        tokens[:, 1:].reshape(-1),
+        reduction="none",
+    ).reshape_as(tokens[:, 1:])
+    ce_sum = (ce_losses * loss_weights[:, 1:]).sum()
+    eligible_tokens = int(loss_weights[:, 1:].sum().item())
+
+    margin_terms: list[torch.Tensor] = []
+    for row_idx, sample in enumerate(chunk):
+        gold_id = int(getattr(sample, "gold_token_id", 0) or 0)
+        rival_id = int(getattr(sample, "rival_token_id", 0) or 0)
+        elig = getattr(sample, "eligible", ())
+        if gold_id <= 0 or rival_id <= 0 or gold_id == rival_id or not any(elig):
+            continue
+        first_pos = elig.index(True)
+        if first_pos < 1:
+            continue
+        step_logits = logits[row_idx, first_pos - 1].float()
+        s_i = step_logits[gold_id] - step_logits[rival_id]
+        margin_terms.append(F.relu(float(margin) - s_i))
+    margin_sum = torch.stack(margin_terms).sum() if margin_terms else ce_sum.new_tensor(0.0)
+    return ce_sum, margin_sum, eligible_tokens, len(margin_terms)
+
+
+def audit_pair_margin_gradient_sign_reversal() -> dict[str, Any]:
+    """Negative control: swapping gold and rival pair labels reverses the auxiliary margin gradient."""
+    logits = torch.zeros((1, 4, UTF8.vocabulary_size), dtype=torch.float32, requires_grad=True)
+    tokens = torch.tensor([[UTF8.bos_id, 69, 70, UTF8.eos_id]], dtype=torch.int64)
+    weights = torch.tensor([[0.0, 0.0, 1.0, 1.0]], dtype=torch.float32)
+
+    s_orig = BytePromptSample(
+        task_id="neg_orig",
+        tokens=(UTF8.bos_id, 69, 70, UTF8.eos_id),
+        eligible=(False, False, True, True),
+        world_id="fam0",
+        gold_token_id=69,
+        rival_token_id=70,
+    )
+    s_swap = replace(s_orig, task_id="neg_swap", gold_token_id=70, rival_token_id=69)
+
+    _, m_orig, _, n1 = compute_ce_and_pair_margin_terms(logits, tokens, weights, [s_orig], margin=1.0)
+    (g_orig,) = torch.autograd.grad(m_orig, logits)
+    v_orig = g_orig[0, 1].detach().clone()
+
+    _, m_swap, _, n2 = compute_ce_and_pair_margin_terms(logits, tokens, weights, [s_swap], margin=1.0)
+    (g_swap,) = torch.autograd.grad(m_swap, logits)
+    v_swap = g_swap[0, 1].detach().clone()
+
+    cos = float(F.cosine_similarity(v_orig.unsqueeze(0), v_swap.unsqueeze(0)).item())
+    passed = n1 == 1 and n2 == 1 and float(v_orig[69]) < 0.0 and float(v_swap[69]) > 0.0 and cos <= -0.999
+    return {
+        "schema": "anra-planthir-pair-margin-grad-control-v1",
+        "passed": bool(passed),
+        "orig_gold_grad": float(v_orig[69]),
+        "swap_gold_grad": float(v_swap[69]),
+        "gradient_cosine": cos,
+    }
+
+
+class BytePromptTrainer(GenericExperimentTrainer):
+    """Built-in byte-token trainer for `v5_contracts.model_spec.ModelSpec` / `Core` with CheckpointCatalog custody."""
+
+    def __init__(
+        self,
+        samples: Sequence[TokenSample],
+        *,
+        spec: ModelSpec,
+        recipe: GenericTrainRecipe | None = None,
+        source_commit: str,
+        root: Path | str,
+        lineage: str,
+        data_provenance: Mapping[str, Any],
+        order_seed: int | None = None,
+        device: str = "cpu",
+        cpu_canary: bool = True,
+        resume: bool = False,
+        max_cpu_params: int = 100_000,
+        max_cpu_samples: int = 32,
+        max_cpu_updates: int = 8,
+    ) -> None:
+        spec.assert_valid()
+        rcp = recipe if recipe is not None else GenericTrainRecipe()
+        configure_device(device)
+        model = initialize(spec, int(rcp.seed))
+
+        def _byte_loss(m: nn.Module, chunk: Sequence[TokenSample], cur_recipe: GenericTrainRecipe) -> torch.Tensor:
+            dev = next(m.parameters()).device
+            toks, segs, elig = batch_tensors([(s.tokens, s.eligible) for s in chunk], device=dev)
+            pos, mask = packed_layout(segs, torch_module=torch)
+            logits = m(toks, pos, mask)
+            ce_sum, margin_sum, elig_cnt, m_cnt = compute_ce_and_pair_margin_terms(
+                logits,
+                toks,
+                elig.float(),
+                chunk,
+                margin=float(getattr(cur_recipe, "cf_margin", 1.0)),
+            )
+            ce_loss = ce_sum / float(max(1, elig_cnt))
+            cf_w = float(getattr(cur_recipe, "cf_weight", 0.0))
+            if (getattr(cur_recipe, "objective", "ce") in ("ce_pair_margin", "pair_margin") or cf_w > 0.0) and m_cnt > 0:
+                return ce_loss + cf_w * (margin_sum / float(m_cnt))
+            return ce_loss
+
+        super().__init__(
+            backend_id="byte_prompt",
+            model=model,
+            model_spec=spec,
+            recipe=rcp,
+            loss_fn=_byte_loss,
+            items=samples,
+            data_provenance=data_provenance,
+            order_seed=(int(rcp.seed) if order_seed is None else int(order_seed)),
+            source_commit=source_commit,
+            root=root,
+            lineage=lineage,
+            device=device,
+            cpu_canary=cpu_canary,
+            resume=resume,
+            max_cpu_params=max_cpu_params,
+            max_cpu_samples=max_cpu_samples,
+            max_cpu_updates=max_cpu_updates,
+        )
+
+
 class ExperimentModule:
-    """Single-file PlanthirBackend plugin turning 4 scientific functions into a full CLI & Gate backend."""
+    """Single-file PlanthirBackend plugin turning core scientific hooks into a full CLI & Gate backend."""
 
     contract_version = BACKEND_CONTRACT_VERSION
 
@@ -478,8 +1016,10 @@ class ExperimentModule:
         model_factory: Callable[[str, Mapping[str, Any], int], nn.Module],
         dataset_factory: Callable[[Mapping[str, Any], bool], Mapping[str, Any]],
         loss_fn: Callable[[nn.Module, Sequence[Any], Any], Any],
-        kernel_factory: Callable[[], EnvironmentKernel],
-        policy_factory: Callable[..., ObservablePolicy],
+        kernel_factory: Callable[[], EnvironmentKernel] | None = None,
+        policy_factory: Callable[..., ObservablePolicy] | None = None,
+        action_labels: Sequence[str] | None = None,
+        input_encoder: Callable[[UniversalObservation], Any] | None = None,
         default_dataset_config: Mapping[str, Any] | None = None,
         default_model_config: Mapping[str, Any] | None = None,
         treatment_architecture: str | None = None,
@@ -498,8 +1038,29 @@ class ExperimentModule:
         self.model_factory = model_factory
         self.dataset_factory = dataset_factory
         self.loss_fn = loss_fn
-        self.kernel_factory = kernel_factory
-        self.policy_factory = policy_factory
+        self.action_labels = tuple(str(x) for x in action_labels) if action_labels is not None else None
+        self.input_encoder = input_encoder
+        if kernel_factory is not None:
+            self.kernel_factory = kernel_factory
+        else:
+            lbls = self.action_labels
+            self.kernel_factory = lambda: StaticPromptKernel(action_labels=lbls)
+        if policy_factory is not None:
+            self.policy_factory = policy_factory
+        else:
+            lbls = self.action_labels
+            enc = self.input_encoder
+            self.policy_factory = (
+                lambda model, model_spec, *, model_identity="planthir-logits-policy", mode="raw", copy_enabled_override=None: LogitsPolicy(
+                    model,
+                    model_spec,
+                    model_identity=model_identity,
+                    mode=mode,
+                    copy_enabled_override=copy_enabled_override,
+                    action_labels=lbls,
+                    input_encoder=enc,
+                )
+            )
         self.default_dataset_config = dict(default_dataset_config or {"dataset_name": "default", "num_samples": 16})
         self.default_model_config = dict(default_model_config or {"width": 16})
         self.treatment_architecture = str(treatment_architecture or (self.architectures[1] if len(self.architectures) > 1 else self.architectures[0]))
@@ -610,8 +1171,16 @@ class ExperimentModule:
         train_data = ds_bundle["train_data"]
         train_worlds = tuple(ds_bundle["train_worlds"])
         eval_worlds = tuple(ds_bundle["eval_worlds"])
-        mh_worlds = tuple(ds_bundle.get("multihop_worlds", eval_worlds[:2]))
-        probe_worlds = tuple(ds_bundle.get("probe_train_worlds", train_worlds[:4]))
+        mh_worlds = (
+            tuple(ds_bundle["multihop_worlds"])
+            if "multihop_worlds" in ds_bundle
+            else _auto_namespace_fallback_split(eval_worlds[:2], "multihop")
+        )
+        probe_worlds = (
+            tuple(ds_bundle["probe_train_worlds"])
+            if "probe_train_worlds" in ds_bundle
+            else _auto_namespace_fallback_split(train_worlds[:4], "probe_train")
+        )
         dataset_identity = str(getattr(train_data, "data_identity", digest(str(len(train_worlds)))))
 
         def _compile_arm(arm_doc: Mapping[str, Any], is_ctrl: bool) -> CartridgeArmSpec:
@@ -1005,6 +1574,207 @@ class CampaignOrchestrator:
         (self.work_dir / "CAMPAIGN_STATUS.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return summary
 
+    def run_stage_dag(
+        self,
+        stages: Sequence["CampaignStageSpec"],
+        *,
+        selected_phase: str = "all",
+        initial_context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a multi-stage conditional admission pipeline with phase selection and gating receipts."""
+        ctx: dict[str, Any] = dict(initial_context or {})
+        stage_records: list[dict[str, Any]] = []
+        any_failed = False
+        for stage in stages:
+            if selected_phase not in ("all", stage.phase, stage.stage_id):
+                stage_records.append(
+                    {"stage_id": stage.stage_id, "phase": stage.phase, "status": "SKIPPED_BY_PHASE", "reason": f"selected_phase={selected_phase!r}"}
+                )
+                continue
+            if stage.predicate_fn is not None:
+                eligible, reason = stage.predicate_fn(ctx)
+                if not eligible:
+                    rec = {"stage_id": stage.stage_id, "phase": stage.phase, "status": "NOT_APPLICABLE", "reason": str(reason)}
+                    stage_records.append(rec)
+                    ctx.setdefault("stages", {})[stage.stage_id] = rec
+                    continue
+            res = dict(stage.runner_fn(ctx))
+            status = str(res.get("status", "COMPLETE"))
+            if status in ("FAILED", "INVALID", "INVALID_RESULTS", "ERROR"):
+                any_failed = True
+            rec = {"stage_id": stage.stage_id, "phase": stage.phase, "status": status, "result": res}
+            stage_records.append(rec)
+            ctx.setdefault("stages", {})[stage.stage_id] = rec
+            ctx.update({k: v for k, v in res.items() if k not in ("status", "stages")})
+
+        receipt = {
+            "schema": "anra-planthir-stage-dag-v1",
+            "campaign_id": self.campaign_id,
+            "selected_phase": selected_phase,
+            "status": "FAILED" if any_failed else "COMPLETE",
+            "stages": stage_records,
+        }
+        (self.work_dir / "STAGE_DAG_RECEIPT.json").write_text(
+            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return receipt
+
+    def evaluate_frozen_checkpoints(
+        self,
+        checkpoint_root_or_zip: Path | str | None,
+        *,
+        expected_lineages: Sequence[str],
+        eval_fn: Callable[[dict[str, Any]], Mapping[str, Any]] | None = None,
+        retraining_recipe_builder: Callable[[Sequence[str]], Mapping[str, Any]] | None = None,
+        device: str = "cpu",
+    ) -> dict[str, Any]:
+        """Locate & evaluate frozen checkpoints or emit missing-artifact quarantine + retraining recipe."""
+        from .checkpoint_intelligence import (
+            CheckpointCatalog,
+            build_deterministic_retraining_recipe,
+            locate_checkpoint_store_root,
+        )
+
+        expected = [str(x) for x in expected_lineages]
+        missing: list[str] = []
+        evaluated: dict[str, Any] = {}
+        store_root: Path | None = None
+
+        if checkpoint_root_or_zip is None or not Path(checkpoint_root_or_zip).exists():
+            missing = list(expected)
+        else:
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                store_root = locate_checkpoint_store_root(
+                    checkpoint_root_or_zip,
+                    temp_extract_dir=Path(tmp),
+                    expected_lineages=expected,
+                )
+                if store_root is None or not store_root.is_dir():
+                    missing = list(expected)
+                else:
+                    for lin in expected:
+                        lin_dir = store_root / lin
+                        if not ((lin_dir / "LATEST").is_file() or (lin_dir / "milestones.json").is_file()):
+                            missing.append(lin)
+                            continue
+                        bundle = CheckpointCatalog.load_checkpoint_for_causal_probing(
+                            store_root,
+                            lineage_id=lin,
+                            mode="raw",
+                            device=device,
+                        )
+                        try:
+                            eval_out = dict(eval_fn(bundle)) if eval_fn is not None else {
+                                "lineage_id": lin,
+                                "checkpoint_sha256": bundle["checkpoint_sha256"],
+                                "global_update": bundle["global_update"],
+                                "policy_loaded": bundle.get("policy") is not None,
+                            }
+                            evaluated[lin] = eval_out
+                        finally:
+                            del bundle
+
+        if missing:
+            recipe = (
+                dict(retraining_recipe_builder(missing))
+                if retraining_recipe_builder is not None
+                else build_deterministic_retraining_recipe(
+                    missing,
+                    original_source_commit=self.source_commit,
+                )
+            )
+            receipt = {
+                "schema": "anra-planthir-frozen-eval-receipt-v1",
+                "campaign_id": self.campaign_id,
+                "status": "MISSING_CHECKPOINT_ARTIFACT",
+                "expected_lineages": expected,
+                "missing_lineages": missing,
+                "evaluated_lineages": evaluated,
+                "retraining_recipe": recipe,
+            }
+        else:
+            receipt = {
+                "schema": "anra-planthir-frozen-eval-receipt-v1",
+                "campaign_id": self.campaign_id,
+                "status": "COMPLETE",
+                "expected_lineages": expected,
+                "missing_lineages": [],
+                "evaluated_lineages": evaluated,
+                "retraining_recipe": None,
+            }
+        (self.work_dir / "FROZEN_EVAL_RECEIPT.json").write_text(
+            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return receipt
+
+
+@dataclass(frozen=True, slots=True)
+class CampaignStageSpec:
+    """Declarative stage node inside `CampaignOrchestrator.run_stage_dag`."""
+
+    stage_id: str
+    phase: str
+    runner_fn: Callable[[dict[str, Any]], Mapping[str, Any]]
+    predicate_fn: Callable[[dict[str, Any]], tuple[bool, str]] | None = None
+    ceiling_minutes: float | None = None
+    description: str = ""
+
+
+def build_verification_matrix(
+    *,
+    byte_integrity: str = "PASS",
+    oracle_fixture_correctness: str = "PASS",
+    recorded_action_replay: str = "PASS",
+    checkpoint_restore: str = "MISSING_CHECKPOINT_ARTIFACT",
+    regenerated_per_case_agreement: str = "BLOCKED_BY_MISSING_CHECKPOINT",
+    training_reproduction: str = "NOT_RUN",
+) -> list[dict[str, str]]:
+    """Return the canonical 6-row Planthir verification matrix."""
+    return [
+        {"check": "byte_integrity", "status": str(byte_integrity)},
+        {"check": "oracle_fixture_correctness", "status": str(oracle_fixture_correctness)},
+        {"check": "recorded_action_replay", "status": str(recorded_action_replay)},
+        {"check": "checkpoint_restore", "status": str(checkpoint_restore)},
+        {"check": "regenerated_per_case_agreement", "status": str(regenerated_per_case_agreement)},
+        {"check": "training_reproduction", "status": str(training_reproduction)},
+    ]
+
+
+def render_campaign_results_markdown(
+    *,
+    title: str,
+    campaign_id: str,
+    source_commit: str,
+    status: str,
+    verification_matrix: Sequence[Mapping[str, Any]],
+    stage_summaries: Mapping[str, Any] | None = None,
+) -> str:
+    """Render a standardized `RESULTS.md` report with the 6-row verification table and stage outcomes."""
+    lines = [
+        f"# {title}",
+        "",
+        f"- **Campaign ID:** `{campaign_id}`",
+        f"- **Source commit:** `{source_commit}`",
+        f"- **Status:** `{status}`",
+        "",
+        "## Verification Matrix",
+        "",
+        "| Check | Status |",
+        "|---|---|",
+    ]
+    for row in verification_matrix:
+        lines.append(f"| `{row.get('check', '')}` | `{row.get('status', '')}` |")
+    if stage_summaries:
+        lines.extend(["", "## Stage Summaries", ""])
+        for sid, info in sorted(stage_summaries.items()):
+            lines.append(f"- `{sid}`: `{json.dumps(info, sort_keys=True)}`")
+    lines.append("")
+    return "\n".join(lines)
+
 
 def safe_extract_planthir_archive(zip_path: Path | str, dest_dir: Path | str) -> list[str]:
     """Safely inspect and extract a Planthir session ZIP rejecting traversal, symlinks, duplicates, and bombs."""
@@ -1049,48 +1819,166 @@ def export_session_archives(
     output_dir: Path | str,
     *,
     prefix: str,
-    analysis_files: Mapping[str, Path | str],
+    analysis_files: Mapping[str, Path | str] | None = None,
     full_files: Mapping[str, Path | str] | None = None,
+    summary_files: Mapping[str, Path | str] | None = None,
+    evidence_files: Mapping[str, Path | str] | None = None,
     status: str = "COMPLETE",
+    source_commit: str | None = None,
+    protocol_sha256: str | None = None,
+    rescore: Mapping[str, Any] | None = None,
+    summary_max_bytes: int = 5 * 1024 * 1024,
+    include_v6_manifest: bool | None = None,
 ) -> dict[str, Any]:
-    """Export hardened ANALYSIS.zip + FULL.zip session bundles with SHA-256 sidecars, FINAL_STATUS, and DELIVERY_RECEIPT."""
+    """Export hardened session bundles (and optional v6-verified SUMMARY/EVIDENCE/FULL ZIPs) with SHA-256 sidecars."""
 
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
+    use_v6 = (
+        bool(include_v6_manifest)
+        if include_v6_manifest is not None
+        else (summary_files is not None or evidence_files is not None)
+    )
+    resolved_commit = str(source_commit) if (source_commit and len(str(source_commit)) == 40) else "0" * 40
+    resolved_proto = (
+        str(protocol_sha256)
+        if (protocol_sha256 and len(str(protocol_sha256)) == 64)
+        else sha256(f"{prefix}:{resolved_commit}".encode("utf-8")).hexdigest()
+    )
+    rescore_doc = dict(rescore) if rescore is not None else {"status": "PASS"}
 
-    def _write_zip(zpath: Path, mapping: Mapping[str, Path | str]) -> str:
-        with zipfile.ZipFile(zpath, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for arc_name, src_path in sorted(mapping.items()):
-                norm_arc = str(arc_name).replace("\\", "/").lstrip("/")
-                if ".." in PurePosixPath(norm_arc).parts:
-                    raise ValueError(f"unsafe archive path: {arc_name!r}")
-                zf.write(Path(src_path), arcname=norm_arc)
-        raw_sha = sha256(zpath.read_bytes()).hexdigest()
-        (zpath.parent / f"{zpath.name}.sha256").write_text(f"{raw_sha}  {zpath.name}\n", encoding="utf-8")
-        return raw_sha
+    def _validate_arc_name(arc_name: str) -> str:
+        norm_arc = str(arc_name).replace("\\", "/").lstrip("/")
+        parts = PurePosixPath(norm_arc).parts
+        if (
+            not norm_arc
+            or "\\" in norm_arc
+            or ":" in norm_arc
+            or ".." in parts
+            or any(p in ("", ".", "..") or p.endswith((".", " ")) for p in parts)
+        ):
+            raise ValueError(f"unsafe archive path: {arc_name!r}")
+        return norm_arc
 
-    a_zip = out / f"{prefix}_ANALYSIS.zip"
-    a_sha = _write_zip(a_zip, analysis_files)
-    f_zip = out / f"{prefix}_FULL.zip"
-    f_sha = _write_zip(f_zip, full_files if full_files is not None else analysis_files)
+    def _write_zip(zpath: Path, mapping: Mapping[str, Path | str], *, max_bytes: int | None = None) -> str:
+        tmp_zip = zpath.parent / f".tmp-{zpath.name}-{os.getpid()}.zip"
+        try:
+            with zipfile.ZipFile(tmp_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                if use_v6:
+                    file_records: list[dict[str, Any]] = []
+                    seen_arc: set[str] = set()
+                    for arc_name, src_path in sorted(mapping.items()):
+                        norm_arc = _validate_arc_name(arc_name)
+                        if norm_arc in ("BUNDLE_MANIFEST.json", "README_RESULTS.md", "SHA256SUMS") or norm_arc.casefold() in seen_arc:
+                            continue
+                        seen_arc.add(norm_arc.casefold())
+                        data = Path(src_path).read_bytes()
+                        zf.writestr(norm_arc, data)
+                        file_records.append(
+                            {"name": norm_arc, "byte_size": len(data), "sha256": sha256(data).hexdigest()}
+                        )
+                    readme_bytes = (
+                        f"# Elendril / Planthir Results ({prefix})\n\n"
+                        f"- Campaign status: `{status}`\n"
+                        f"- Independent rescore status: `{rescore_doc.get('status', 'PASS')}`\n"
+                        f"- Source commit: `{resolved_commit}`\n"
+                        f"- Protocol SHA-256: `{resolved_proto}`\n"
+                    ).encode("utf-8")
+                    zf.writestr("README_RESULTS.md", readme_bytes)
+                    file_records.append(
+                        {"name": "README_RESULTS.md", "byte_size": len(readme_bytes), "sha256": sha256(readme_bytes).hexdigest()}
+                    )
+                    file_records.sort(key=lambda r: r["name"])
+                    sums_bytes = "".join(
+                        f"{r['sha256']}  {r['name']}\n" for r in file_records
+                    ).encode("utf-8")
+                    zf.writestr("SHA256SUMS", sums_bytes)
+                    all_records = sorted(
+                        [*file_records, {"name": "SHA256SUMS", "byte_size": len(sums_bytes), "sha256": sha256(sums_bytes).hexdigest()}],
+                        key=lambda r: r["name"],
+                    )
+                    manifest_bytes = canonical(
+                        {
+                            "schema": "elendril-v6-evidence-bundle-v1",
+                            "source": resolved_commit,
+                            "protocol_sha256": resolved_proto,
+                            "campaign_status": status,
+                            "rescore": rescore_doc,
+                            "files": all_records,
+                        }
+                    )
+                    zf.writestr("BUNDLE_MANIFEST.json", manifest_bytes)
+                else:
+                    for arc_name, src_path in sorted(mapping.items()):
+                        norm_arc = _validate_arc_name(arc_name)
+                        zf.write(Path(src_path), arcname=norm_arc)
+            zip_bytes = tmp_zip.read_bytes()
+            if max_bytes is not None and len(zip_bytes) > int(max_bytes):
+                raise ValueError(f"{zpath.name} size {len(zip_bytes)} exceeds cap {max_bytes}")
+            raw_sha = sha256(zip_bytes).hexdigest()
+            _atomic_replace(tmp_zip, zpath)
+            (zpath.parent / f"{zpath.name}.sha256").write_text(f"{raw_sha}  {zpath.name}\n", encoding="utf-8")
+            return raw_sha
+        finally:
+            tmp_zip.unlink(missing_ok=True)
 
-    final_status = {
+    a_map = dict(analysis_files or summary_files or {})
+    f_map = dict(full_files) if full_files is not None else dict(a_map)
+
+    archive_paths: dict[str, str] = {}
+    archive_hashes: dict[str, str] = {}
+    final_status: dict[str, Any] = {
         "schema": "anra-planthir-session-final-status-v1",
         "prefix": prefix,
         "status": status,
         "source_root": str(source_root),
-        "analysis_zip": a_zip.name,
-        "analysis_zip_sha256": a_sha,
-        "full_zip": f_zip.name,
-        "full_zip_sha256": f_sha,
+        "source_commit": resolved_commit,
+        "protocol_sha256": resolved_proto,
     }
+
+    if analysis_files is not None or summary_files is None:
+        a_zip = out / f"{prefix}_ANALYSIS.zip"
+        a_sha = _write_zip(a_zip, a_map)
+        final_status["analysis_zip"] = a_zip.name
+        final_status["analysis_zip_sha256"] = a_sha
+        archive_paths["analysis"] = str(a_zip)
+        archive_hashes["analysis"] = a_sha
+
+    if summary_files is not None:
+        s_zip = out / f"{prefix}_SUMMARY.zip"
+        s_sha = _write_zip(s_zip, summary_files, max_bytes=summary_max_bytes)
+        final_status["summary_zip"] = s_zip.name
+        final_status["summary_zip_sha256"] = s_sha
+        archive_paths["summary"] = str(s_zip)
+        archive_hashes["summary"] = s_sha
+
+    if evidence_files is not None:
+        e_zip = out / f"{prefix}_EVIDENCE.zip"
+        e_sha = _write_zip(e_zip, evidence_files)
+        final_status["evidence_zip"] = e_zip.name
+        final_status["evidence_zip_sha256"] = e_sha
+        archive_paths["evidence"] = str(e_zip)
+        archive_hashes["evidence"] = e_sha
+
+    f_zip = out / f"{prefix}_FULL.zip"
+    f_sha = _write_zip(f_zip, f_map)
+    final_status["full_zip"] = f_zip.name
+    final_status["full_zip_sha256"] = f_sha
+    archive_paths["full"] = str(f_zip)
+    archive_hashes["full"] = f_sha
+
     (out / "FINAL_STATUS.json").write_text(json.dumps(final_status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     receipt = {
         "schema": "anra-planthir-delivery-receipt-v1",
         "verified": True,
+        "v6_manifest_embedded": bool(use_v6),
         "final_status": final_status,
-        "analysis_entries": sorted(analysis_files),
-        "full_entries": sorted(full_files if full_files is not None else analysis_files),
+        "archives": archive_paths,
+        "archive_sha256": archive_hashes,
+        "analysis_entries": sorted(a_map),
+        "summary_entries": sorted(summary_files) if summary_files is not None else [],
+        "evidence_entries": sorted(evidence_files) if evidence_files is not None else [],
+        "full_entries": sorted(f_map),
     }
     (out / "DELIVERY_RECEIPT.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return receipt
@@ -1102,6 +1990,8 @@ def build_pinned_kaggle_notebook(
     title: str,
     launch_command: Sequence[str] | str,
     owner_authorized: bool = False,
+    discover_kaggle_inputs: Sequence[str] = (),
+    mirror_outputs_to_working: bool = False,
 ) -> dict[str, Any]:
     """Generate a deterministic, pinned Kaggle 2xT4 `.ipynb` notebook with explicit authorization guard."""
 
@@ -1109,15 +1999,26 @@ def build_pinned_kaggle_notebook(
 
     cmd_args = list(shlex.split(launch_command)) if isinstance(launch_command, str) else [str(x) for x in launch_command]
     auth_val = "True" if owner_authorized else "False"
+    input_names = [str(x) for x in discover_kaggle_inputs]
     code_lines = [
         f"SOURCE_SHA = {source_commit!r}\n",
         f"OWNER_AUTHORIZED = {auth_val}\n",
+        f"DISCOVER_INPUTS = {input_names!r}\n",
+        f"MIRROR_WORKING = {bool(mirror_outputs_to_working)!r}\n",
         "if not OWNER_AUTHORIZED:\n",
         "    print('NOT LAUNCHED: set OWNER_AUTHORIZED = True before running GPU launch.')\n",
         "else:\n",
-        "    import subprocess\n",
+        "    from pathlib import Path\n",
+        "    import shutil, subprocess\n",
         "    subprocess.check_call(['git', 'checkout', SOURCE_SHA])\n",
+        "    if DISCOVER_INPUTS and Path('/kaggle/input').is_dir():\n",
+        "        for name in DISCOVER_INPUTS:\n",
+        "            found = sorted(Path('/kaggle/input').rglob(name))\n",
+        "            print('KAGGLE_INPUT', name, [str(p) for p in found])\n",
         f"    subprocess.check_call({cmd_args!r})\n",
+        "    if MIRROR_WORKING and Path('/kaggle/working').is_dir():\n",
+        "        for p in sorted(Path('.').glob('*.zip')) + sorted(Path('.').glob('*.sha256')) + sorted(Path('.').glob('FINAL_STATUS.json')):\n",
+        "            shutil.copy2(p, Path('/kaggle/working') / p.name)\n",
     ]
     return {
         "nbformat": 4,
@@ -1135,15 +2036,25 @@ def build_pinned_kaggle_notebook(
 
 
 __all__ = [
+    "BytePromptSample",
+    "BytePromptTrainer",
     "CampaignOrchestrator",
+    "CampaignStageSpec",
     "ExperimentModule",
     "GenericDatasetBundle",
     "GenericExperimentTrainer",
     "GenericModelSpec",
     "GenericTrainRecipe",
+    "LogitsPolicy",
     "SessionJob",
+    "StaticPromptKernel",
+    "audit_pair_margin_gradient_sign_reversal",
     "batched_rollout",
     "build_pinned_kaggle_notebook",
+    "build_verification_matrix",
+    "compute_ce_and_pair_margin_terms",
     "export_session_archives",
+    "frame_byte_prompt_sample",
+    "render_campaign_results_markdown",
     "safe_extract_planthir_archive",
 ]

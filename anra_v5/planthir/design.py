@@ -703,6 +703,92 @@ def analyze_paired_seed_runs(
     }
 
 
+def bootstrap_paired_families(
+    control_scores: Mapping[str, float] | Sequence[float],
+    treatment_scores: Mapping[str, float] | Sequence[float],
+    *,
+    resamples: int = 2000,
+    seed: int = 1801,
+    alpha: float = 0.05,
+) -> dict[str, Any]:
+    """Stratified paired-family bootstrap with exact sign-flip checks and zero-variance flagging."""
+    if isinstance(control_scores, Mapping) and isinstance(treatment_scores, Mapping):
+        if set(control_scores) != set(treatment_scores):
+            raise ValueError("control_scores and treatment_scores mappings must contain identical family keys")
+        keys = sorted(str(k) for k in control_scores)
+        if not keys:
+            raise ValueError("bootstrap_paired_families requires at least one paired family")
+        ctrl_vals = [float(control_scores[k]) for k in keys]
+        trt_vals = [float(treatment_scores[k]) for k in keys]
+    elif not isinstance(control_scores, Mapping) and not isinstance(treatment_scores, Mapping):
+        ctrl_vals = [float(v) for v in control_scores]
+        trt_vals = [float(v) for v in treatment_scores]
+        if not ctrl_vals or len(ctrl_vals) != len(trt_vals):
+            raise ValueError("control_scores and treatment_scores sequences must have equal non-zero length")
+    else:
+        raise TypeError("control_scores and treatment_scores must both be mappings or both be sequences")
+
+    deltas = [t - c for c, t in zip(ctrl_vals, trt_vals)]
+    n = len(deltas)
+    mean_d = float(sum(deltas) / n)
+    ctrl_mean = float(sum(ctrl_vals) / n)
+    trt_mean = float(sum(trt_vals) / n)
+    pos_cnt = sum(1 for d in deltas if d > 0.0)
+    neg_cnt = sum(1 for d in deltas if d < 0.0)
+    tie_cnt = sum(1 for d in deltas if d == 0.0)
+    zero_var = all(d == deltas[0] for d in deltas)
+    variance_status = "DEGENERATE_ZERO_VARIANCE" if zero_var else "NONZERO_VARIANCE"
+
+    non_zero = [d for d in deltas if d != 0.0]
+    n_nz = len(non_zero)
+    if n_nz == 0:
+        sign_flip_p = 1.0
+    elif n_nz <= 16:
+        obs_abs = abs(sum(non_zero))
+        extreme = 0
+        total_signs = 1 << n_nz
+        for mask in range(total_signs):
+            s_val = sum(non_zero[j] if ((mask >> j) & 1) else -non_zero[j] for j in range(n_nz))
+            if abs(s_val) >= obs_abs - 1e-12:
+                extreme += 1
+        sign_flip_p = float(extreme / total_signs)
+    else:
+        denom = math.sqrt(sum(d * d for d in non_zero))
+        z_eq = abs(sum(non_zero)) / denom if denom > 0.0 else 0.0
+        sign_flip_p = float(math.erfc(z_eq / math.sqrt(2.0)))
+
+    rng = random.Random(int(seed))
+    n_boot = max(100, int(resamples))
+    boots: list[float] = []
+    for _ in range(n_boot):
+        sample = [deltas[rng.randrange(n)] for _ in range(n)]
+        boots.append(sum(sample) / n)
+    boots.sort()
+    lo_idx = max(0, min(n_boot - 1, int(math.floor((alpha / 2.0) * n_boot))))
+    hi_idx = max(0, min(n_boot - 1, int(math.ceil((1.0 - alpha / 2.0) * n_boot)) - 1))
+    le_zero = sum(1 for b in boots if b <= 0.0) / n_boot
+    ge_zero = sum(1 for b in boots if b >= 0.0) / n_boot
+    boot_p = float(min(1.0, 2.0 * min(le_zero, ge_zero)))
+
+    return {
+        "schema": "anra-planthir-family-bootstrap-v1",
+        "n_families": n,
+        "resamples": n_boot,
+        "alpha": float(alpha),
+        "control_mean": ctrl_mean,
+        "treatment_mean": trt_mean,
+        "mean_delta": mean_d,
+        "positive_count": pos_cnt,
+        "negative_count": neg_cnt,
+        "tie_count": tie_cnt,
+        "variance_status": variance_status,
+        "sign_flip_p_value": sign_flip_p,
+        "ci_low": float(boots[lo_idx]),
+        "ci_high": float(boots[hi_idx]),
+        "bootstrap_p_two_sided": boot_p,
+    }
+
+
 __all__ = [
     "ALLOWED_FACTOR_TYPES",
     "CohortClusterSpec",
@@ -711,5 +797,6 @@ __all__ = [
     "TypedFactorSpec",
     "analyze_paired_seed_runs",
     "audit_typed_experimental_design",
+    "bootstrap_paired_families",
     "validate_cohort_and_split_transitivity",
 ]
