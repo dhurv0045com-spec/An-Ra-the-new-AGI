@@ -317,3 +317,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Verified analysis ZIP and rescored 31,488 action traces against regenerated development/depth worlds. Published curated A0 metrics, provenance and report.
 - Repaired matched-seed input and duplicate-pair gating; four data/protocol tests passed. Mean R minus P was −0.38 points; A0 did not qualify R.
 - Located X01-only lesion coverage and a large held-out renderer gap. Proposed frozen checkpoint comparisons across families; causal attribution remains open.
+
+### 2026-11-18 | Codex | Expand X1 A0 scientific report
+- Published per-seed checkpoint trajectories, matched P/R disagreements, paired renderer outcomes, depth and counterfactual results, and follow-up decision criteria.
+- Verified the owner archive digest and aligned all 2,304 final views per job before computing paired counts.

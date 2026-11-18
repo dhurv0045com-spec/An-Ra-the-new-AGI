@@ -29,3 +29,78 @@ R led by 8.45 points midway. Most of that lead disappeared by the final matched 
 **Next experiment.** Use the existing frozen checkpoints first. Cross sham, zero-R, permuted edges and copy disabled with the canonical/narrative views of identical worlds. Include all seven mechanistic families, X10, and the depth suite. Record paired changes in operations, answer values, target log-probability and supported accuracy per base world and seed. If lesions change predictions primarily on deeper worlds, test that interaction with the registered R-noedge and capacity-matched P-capR comparisons in A2. If R and sham remain indistinguishable while copy removal has a large effect, measure the norm and gradient of the R contribution before spending another training budget. For the rendering gap, change one presentation feature at a time on the same worlds and check whether first-operation errors recover. Keep follow-up development analyses separate from any later confirmation.
 
 Reproduce with `python -m tools.rescore_x1_a0 PATH_TO_ANALYSIS_ZIP METRICS.json` from the repository root. Per-seed outcomes and immutable source/archive identities are in the adjacent JSON files.
+
+## Detailed findings by checkpoint, task and matched world
+
+### Where seed 19 changed the result
+
+All six runs used the standard training objective. The table follows the same 576 development views throughout training. The full-cohort score in the opening table uses 2,304 views at the final checkpoint.
+
+| Model and seed | Update 0 | 592 | 1,184 | 1,472 | 2,368 | Mean loss, first → last 100 updates |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| P, 7 | 0.35% | 32.64% | 42.36% | 47.40% | 62.50% | 1.802 → 0.439 |
+| R, 7 | 0.35% | 35.42% | 56.94% | 61.46% | 68.23% | 1.797 → 0.469 |
+| P, 19 | 0.00% | 33.33% | 46.35% | 64.93% | 68.40% | 1.873 → 0.446 |
+| R, 19 | 0.00% | 31.08% | 55.03% | 55.90% | 64.24% | 1.871 → 0.570 |
+| P, 41 | 5.21% | 48.78% | 53.65% | 56.42% | 64.41% | 1.815 → 0.437 |
+| R, 41 | 5.21% | 49.13% | 55.73% | 58.33% | 65.97% | 1.816 → 0.441 |
+
+On seed 19, R led P at update 1,184. By update 1,472 P had reached 64.93% while R stood at 55.90%. Both continued improving through the last checkpoint. A diagnosis of training collapse would miss the observed crossover. The checkpoint spacing leaves its precise timing open.
+
+The following counts pair P and R by base world and view at the final checkpoint. Each row sums to 2,304. The six views of one world share structure, so these counts describe disagreements and cannot be treated as independent training replications.
+
+| Seed | Both correct | Only P correct | Only R correct | Both wrong |
+| --- | ---: | ---: | ---: | ---: |
+| 7 | 1189 | 182 | 277 | 656 |
+| 19 | 1239 | 279 | 143 | 643 |
+| 41 | 1248 | 150 | 165 | 741 |
+
+Seed 41 illustrates why to keep the traces. A net gain of 15 correct episodes combines 165 R-only successes with 150 P-only successes. On seed 19, the corresponding balance reverses to 143 versus 279. Replaying these discordant worlds with frozen weights gives a targeted way to study which decisions change.
+
+### Transfer between presentations
+
+| View on the same base world | P | R | R − P (points) |
+| --- | ---: | ---: | ---: |
+| Held-out narrative | 16.15% | 25.43% | +9.29 |
+| Canonical | 74.39% | 69.79% | -4.60 |
+| Entity/code permutation | 56.51% | 61.55% | +5.03 |
+| Irrelevant facts | 74.65% | 69.27% | -5.38 |
+| Relevant counterfactual | 75.09% | 71.09% | -3.99 |
+| Changed fact order | 75.35% | 72.74% | -2.60 |
+
+| Model | Both renderings correct | Canonical only | Narrative only | Both wrong |
+| --- | ---: | ---: | ---: | ---: |
+| P | 150 | 707 | 36 | 259 |
+| R | 225 | 579 | 68 | 280 |
+
+Each rendering comparison pairs 384 base worlds within each of three seeds. P lost a correct canonical solution on 707 world–seed pairs and gained one on 36. R lost 579 and gained 68. Alternate wording therefore changes which particular worlds the models solve. R recovers some robustness while its canonical accuracy falls.
+
+### Depth, counterfactuals and abstention
+
+| Depth stress, links followed | P | R | R − P (points) |
+| --- | ---: | ---: | ---: |
+| 1 | 87.50% | 84.11% | -3.39 |
+| 2 | 83.85% | 81.25% | -2.60 |
+| 3 | 89.32% | 86.72% | -2.60 |
+| 4 | 70.57% | 71.09% | +0.52 |
+| 5 | 58.59% | 58.33% | -0.26 |
+
+The separate depth suite contains 64 base worlds per hop count, each evaluated on two linked views. Both models score higher at three hops than at two, then decline at four and five. The worlds also differ between hop counts, so the curve alone cannot identify a computation limit.
+
+| Matched endpoint | P | R | R − P (points) |
+| --- | ---: | ---: | ---: |
+| Canonical and changed answer both correct, seven mechanistic families | 80.80% | 74.70% | -6.10 |
+| Canonical, permuted and irrelevant-fact views all correct | 51.30% | 52.34% | +1.04 |
+| Unanswerable, missing evidence or tied authority | 22.74% | 23.26% | +0.52 |
+| Unanswerable after available tools | 40.80% | 53.99% | +13.19 |
+
+The three-view conjunction is scored on these A0 checkpoints, which trained on D1-H. It is an evaluation of invariance. An effect of training with a paired-view objective requires the separate objective comparison.
+
+### How to decide the follow-up
+
+1. Retrieve the full A0 checkpoints and match each final checkpoint to the SHA in the curated metrics. Reproduce intact actions on the archived worlds before interpreting any changes under intervention.
+2. Evaluate identical worlds under intact R, sham, zero relational contribution, permuted edges and disabled copy. Balance base worlds across the seven mechanistic families, hop counts and renderings. Save paired action changes even if aggregate accuracy stays constant.
+3. A repeatable loss under relational intervention relative to sham, concentrated on multi-hop or counterfactual pairs, would support a functional contribution there. If only copy removal moves the answers, test whether the relational path alters target log-probabilities without changing the winning action. If tool decisions already diverge at the first step, isolate the renderer fields naming available actions and the goal.
+4. Choose the next training comparison from those outcomes. A localized relational effect motivates the capacity and edge controls in A2. A first-operation rendering defect motivates a paired-renderer intervention with fixed facts, training budget and seeds. Use a fresh held-out renderer for confirmation after choosing the intervention.
+
+The tables use the [curated per-job metrics](METRICS.json). The two disagreement tables additionally pair final episodes from the owner archive identified in [provenance](PROVENANCE.json), using seed, base-world ID and view. Accuracy counts use the independently rescored supported-correct verdict. The matched analyses are retrospective development findings.
