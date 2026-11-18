@@ -308,3 +308,7 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 - Synced `5d53b4a0` Planthir/V8-X1 updates (`compare_paired_episode_records`, `PairedSeedObservation`/`build_paired_seed_observations`/`run_paired_comparison_preflight`, `summarize_diagnostic_coverage`, `stratify_intervention_worlds`, `build_analyst_first_page_report`, `rescore_compact_analysis_archive` + `rescore-archive` CLI, `interpretation.py` unresolved-coverage/slice diagnosis, and `cartridge.py` convergence fix).
 - Preserved all Avendi V8-Y2 modules, tools, notebooks, registries, and curated results on `hitchhiker`.
 - Verified on CPU via `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU pending.
+
+### 2026-11-19 Codex — Avendi frozen checkpoint results
+Published the owner P0–P2 audit for avendi-frozen-63c10bbd2f. Reproduced P0, checked six parent manifests and rescored 13,824 first-logit rows. Every checkpoint failed both family gates.
+Recorded position and abstention findings, full-sequence replay limits and the next matched row-permutation diagnostic. P3–P6 remain unexecuted.

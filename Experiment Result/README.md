@@ -6,7 +6,9 @@ This is a **results folder only**. It is not an instruction to Codex and does no
 
 ## Saved results
 
-- **[Avendi V8-Y2 — CPU P0 instrument qualification and frozen intake](Avendi-V8-Y2/avendi-frozen-0acbe87814/RESULTS.md)**. Full 256-family/panel P0 instrument qualified on CPU (`256/256` oracle, `0/256` shortcuts, destructive goal/bridge erasure and custody checks `PASS`); P1/P2 frozen Y1 S3 evaluation is `BLOCKED` pending owner attachment of `ELENDRIL_V8_Y1_FULL.zip`.
+- **[Avendi V8-Y2 frozen checkpoint results](Avendi-V8-Y2/avendi-frozen-63c10bbd2f/RESULTS.md)**. All six Y1 S3 checkpoints were restored in the owner run. Every checkpoint solved 0/256 complete one-hop and 0/256 complete three-hop families. F00 seed 7 chose the last rendered value on 1,020/1,024 one-hop cases. The next diagnostic permutes row order on the same facts before P3 acquisition.
+
+- **[Avendi V8-Y2 — CPU P0 instrument qualification and frozen intake](Avendi-V8-Y2/avendi-frozen-0acbe87814/RESULTS.md)**. Full 256-family/panel P0 instrument qualified on CPU (`256/256` oracle, `0/256` shortcuts, destructive goal/bridge erasure and custody checks `PASS`); this earlier intake lacked the Y1 weights. The November 19 owner run above restored all six checkpoints.
 
 - **[V8-Y1 — audited results and next diagnostic](V8-Y1/y1-all-9c80885013/RESULTS.md)**. All S3 candidates failed; S20 did not rescue the recipes. Independent replay covers 464,880 episodes; timestamp and post-query shortcuts limit interpretation.
 
