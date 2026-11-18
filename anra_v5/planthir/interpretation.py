@@ -69,6 +69,7 @@ def synthesize_scientific_interpretation(
     compute_depth_scaling: Mapping[str, Any] | None = None,
     learning_trajectory: Mapping[str, Any] | None = None,
     internal_telemetry: Mapping[str, Any] | None = None,
+    slice_comparisons: Mapping[str, Any] | None = None,
     hypotheses: Sequence[HypothesisSpec] = (),
     observed_metrics_for_falsifiers: Mapping[str, float] | None = None,
 ) -> ScientificInterpretationReport:
@@ -340,10 +341,41 @@ def synthesize_scientific_interpretation(
             )
 
     # 6b. Surgical mechanism ablation & compute-depth scaling counterfactuals
-    if surgical_ablation and surgical_ablation.get("ablation_supported"):
+    if surgical_ablation and (surgical_ablation.get("ablation_supported") or (surgical_ablation.get("coverage") or {}).get("target_families")):
         delta = float(surgical_ablation.get("accuracy_delta", 0.0))
         mtype = str(surgical_ablation.get("mechanism_type", "mechanism"))
-        if surgical_ablation.get("ornamental_mechanism_bypass"):
+        cov = surgical_ablation.get("coverage") or {}
+        if cov.get("target_families") and cov.get("coverage_complete") is False:
+            unresolved.append(
+                ScientificClaim(
+                    claim_id="U-INCOMPLETE-DIAGNOSTIC-COVERAGE",
+                    category="unresolved",
+                    statement=(
+                        f"Intervention {mtype!r} recorded {delta:+.3f} net accuracy delta on "
+                        f"{cov.get('distinct_base_world_count', cov.get('sample_episodes'))} base worlds "
+                        f"({cov.get('distinct_families')}), with target-family coverage "
+                        f"{cov.get('target_family_coverage_ratio')} (missing {cov.get('missing_target_families')}). "
+                        "Mechanism unresolved."
+                    ),
+                    evidence_basis={"coverage": dict(cov), "accuracy_delta": delta},
+                    confidence_rule="incomplete_target_family_coverage",
+                )
+            )
+            recs.append(
+                RecommendedExperiment(
+                    rank=len(recs) + 1,
+                    action_id="EVALUATE_FROZEN_LESIONS_ON_TARGET_FAMILIES",
+                    title="Evaluate surgical lesions on frozen checkpoints across all missing target families",
+                    rationale=(
+                        f"Target-family coverage was {cov.get('target_family_coverage_ratio')}; "
+                        "re-run frozen lesions stratified across all mechanistic families before claiming bypass."
+                    ),
+                    cost_tier="CPU_OR_SINGLE_GPU_MINUTES",
+                    expected_info_gain_per_gpu_hour=95.0,
+                    discriminates_between=("ornamental_mechanism", "untested_family_engagement"),
+                )
+            )
+        elif surgical_ablation.get("ablation_supported") and surgical_ablation.get("ornamental_mechanism_bypass"):
             suspected.append(
                 ScientificClaim(
                     claim_id="S-ORNAMENTAL-MECHANISM-BYPASS",
@@ -357,7 +389,7 @@ def synthesize_scientific_interpretation(
                     confidence_rule="surgical_ablation_agreement>=0.98_and_delta==0",
                 )
             )
-        elif delta >= 0.05:
+        elif surgical_ablation.get("ablation_supported") and delta >= 0.05:
             suspected.append(
                 ScientificClaim(
                     claim_id="S-ABLATION-ACCURACY-DROP",
@@ -368,6 +400,55 @@ def synthesize_scientific_interpretation(
                     ),
                     evidence_basis=dict(surgical_ablation),
                     confidence_rule="surgical_ablation_accuracy_delta>=0.05",
+                )
+            )
+
+    # 6d. Predeclared slice / renderer sensitivity
+    if slice_comparisons:
+        largest_drop = 0.0
+        largest_info: dict[str, Any] = {}
+        slices_iter: Sequence[Mapping[str, Any]]
+        if isinstance(slice_comparisons.get("slices"), Sequence):
+            slices_iter = slice_comparisons["slices"]
+        else:
+            slices_iter = [
+                {"slice_name": str(k), **(dict(v) if isinstance(v, Mapping) else {"value": v})}
+                for k, v in slice_comparisons.items()
+            ]
+        for srow in slices_iter:
+            drop_val: float | None = None
+            if srow.get("drop") is not None:
+                drop_val = float(srow["drop"])
+            elif srow.get("baseline_accuracy") is not None and srow.get("slice_accuracy") is not None:
+                drop_val = float(srow["baseline_accuracy"]) - float(srow["slice_accuracy"])
+            elif srow.get("canonical_accuracy") is not None and srow.get("alt_accuracy") is not None:
+                drop_val = float(srow["canonical_accuracy"]) - float(srow["alt_accuracy"])
+            if drop_val is not None and drop_val > largest_drop:
+                largest_drop = drop_val
+                largest_info = dict(srow)
+        if largest_drop >= 0.20:
+            suspected.append(
+                ScientificClaim(
+                    claim_id="S-RENDERER-OR-SLICE-TRANSFER-GAP",
+                    category="suspected",
+                    statement=(
+                        f"Largest predeclared slice drop was {largest_drop:.3f} on "
+                        f"{largest_info.get('slice_name', 'alt_slice')}; wording, token layout, and "
+                        "tool-selection effects remain competing explanations."
+                    ),
+                    evidence_basis=largest_info,
+                    confidence_rule="predeclared_slice_drop>=0.20",
+                )
+            )
+            recs.append(
+                RecommendedExperiment(
+                    rank=len(recs) + 1,
+                    action_id="CROSS_FROZEN_LESIONS_WITH_RENDERER_VIEWS",
+                    title="Cross frozen surgical lesions with canonical vs narrative/held-out renderer views of identical base worlds",
+                    rationale="Discriminates representation/copy/relational reliance from surface presentation fragility using existing checkpoints.",
+                    cost_tier="SINGLE_T4_MINUTES",
+                    expected_info_gain_per_gpu_hour=92.0,
+                    discriminates_between=("presentation_sensitivity", "core_mechanism_failure"),
                 )
             )
 

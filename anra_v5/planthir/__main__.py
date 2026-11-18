@@ -26,6 +26,7 @@ from .evidence import DEFAULT_RESULT_ZIP_MAX_BYTES, resolve_published_generation
 from .instrument import run_fault_injection_suite
 from .registry import build_historical_atlas
 from .replay import build_custody_receipt, independent_replay_bundle
+from .runtime import rescore_compact_analysis_archive
 from .validation_study import (
     run_exp_004_live_gpu_cartridge_validation,
     run_validation_study,
@@ -161,6 +162,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_atlas = sub.add_parser("historical-atlas", help="Print historical AN-RA version registry summary.")
     p_atlas.add_argument("--output-json", default=None)
 
+    p_rescore = sub.add_parser("rescore-archive", help="Verify a compact analysis archive and rebuild RESULTS.md + METRICS.json in a fresh dir.")
+    p_rescore.add_argument("--archive", required=True)
+    p_rescore.add_argument("--out", required=True)
+
     sub.add_parser("run-validation-study", help="Deprecated CLI alias; directs callers to schema/init/validate/run.")
     sub.add_parser("run-gpu-validation", help="Legacy command rejected until interactive GPU qualification completes.")
     return parser
@@ -278,6 +283,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = build_historical_atlas(output_json=Path(args.output_json) if args.output_json else None)
         _emit(report)
         return 0
+
+    if args.command == "rescore-archive":
+        try:
+            receipt = rescore_compact_analysis_archive(args.archive, args.out)
+            _emit(receipt)
+            return 0 if receipt["verified"] else 1
+        except Exception as exc:
+            _emit({"verified": False, "error": type(exc).__name__, "detail": str(exc)})
+            return 1
 
     if args.command == "run-validation-study":
         _emit(

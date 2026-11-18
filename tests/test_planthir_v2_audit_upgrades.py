@@ -26,6 +26,7 @@ from anra_v5.planthir import (
     IndependentWorkerScheduler,
     LegacyByteObservablePolicy,
     LogitsPolicy,
+    PairedSeedObservation,
     PlanthirRegistry,
     SessionJob,
     StaticPromptKernel,
@@ -38,11 +39,14 @@ from anra_v5.planthir import (
     audit_sampled_strata,
     batched_rollout,
     bootstrap_paired_families,
+    build_analyst_first_page_report,
     build_cartridge_from_spec,
     build_deterministic_retraining_recipe,
+    build_paired_seed_observations,
     build_pinned_kaggle_notebook,
     build_verification_matrix,
     classify_parameter_group,
+    compare_paired_episode_records,
     compute_ce_and_pair_margin_terms,
     export_session_archives,
     frame_byte_prompt_sample,
@@ -54,10 +58,16 @@ from anra_v5.planthir import (
     planthir_doctor,
     prepare_x1_rd2_training_data,
     render_campaign_results_markdown,
+    rescore_compact_analysis_archive,
     run_fault_injection_suite,
+    run_paired_comparison_preflight,
     run_scientific_shortcut_calibration,
+    run_surgical_mechanism_ablation,
     safe_extract_planthir_archive,
     score_crossover_panel,
+    stratify_intervention_worlds,
+    summarize_diagnostic_coverage,
+    synthesize_scientific_interpretation,
     validate_spec_document,
     verify_crossover_fixture,
 )
@@ -904,3 +914,192 @@ def test_avendi_postmortem_upgrades_static_kernel_byte_loader_crossover_and_v6_a
         "StaticPromptKernel",
     ):
         assert contract_needle in root_doc
+
+
+def test_codex_x1_a0_review_feedback_coverage_pairing_preflight_first_page_and_rescore(tmp_path: Path) -> None:
+    # 1. Paired episode disagreement comparison (treatment-only vs control-only, by family/view, deterministic exemplars)
+    ctrl_eps = [
+        {"world_id": "w00", "base_world_id": "b0", "family": "X01", "form": "canonical", "correct": True, "steps": [{"executed_op": "ANSWER", "executed_arg": "A"}]},
+        {"world_id": "w01", "base_world_id": "b0", "family": "X01", "form": "alt_renderer", "correct": False, "steps": [{"executed_op": "ABSTAIN", "executed_arg": None}]},
+        {"world_id": "w02", "base_world_id": "b1", "family": "X02", "form": "canonical", "correct": True, "steps": [{"executed_op": "QUERY", "executed_arg": None}]},
+        {"world_id": "w03", "base_world_id": "b1", "family": "X02", "form": "alt_renderer", "correct": False, "steps": [{"executed_op": "ANSWER", "executed_arg": "B"}]},
+    ]
+    trt_eps = [
+        {"world_id": "w00", "base_world_id": "b0", "family": "X01", "form": "canonical", "correct": True, "steps": [{"executed_op": "ANSWER", "executed_arg": "A"}]},
+        {"world_id": "w01", "base_world_id": "b0", "family": "X01", "form": "alt_renderer", "correct": True, "steps": [{"executed_op": "ANSWER", "executed_arg": "A"}]},
+        {"world_id": "w02", "base_world_id": "b1", "family": "X02", "form": "canonical", "correct": False, "steps": [{"executed_op": "ABSTAIN", "executed_arg": None}]},
+        {"world_id": "w03", "base_world_id": "b1", "family": "X02", "form": "alt_renderer", "correct": False, "steps": [{"executed_op": "ANSWER", "executed_arg": "C"}]},
+    ]
+    ep_cmp = compare_paired_episode_records(ctrl_eps, trt_eps)
+    assert ep_cmp["both_solved"] == 1
+    assert ep_cmp["treatment_only_solved"] == 1
+    assert ep_cmp["control_only_solved"] == 1
+    assert ep_cmp["neither_solved"] == 1
+    assert ep_cmp["first_operation_disagreement_count"] == 2
+    assert ep_cmp["contrasting_trace_ids"]["treatment_only_example_id"] == "w01"
+    assert ep_cmp["contrasting_trace_ids"]["control_only_example_id"] == "w02"
+    assert ep_cmp["by_view"]["alt_renderer"]["treatment_only_solved"] == 1
+    assert ep_cmp["by_family"]["X02"]["control_only_solved"] == 1
+
+    # 2. Diagnostic coverage + stratified world selection + unresolved-coverage firewall in interpretation
+    x01_only = [
+        {"world_id": f"x01_b{b}_v{v}", "base_world_id": f"x01_b{b}", "family": "X01", "form": f"v{v}", "sig": f"s{b}", "feat": [1.0, 0.5, -0.2, 0.1], "hidden": {"expected": "A", "expected_operation": "ANSWER"}}
+        for b in range(8)
+        for v in range(6)
+    ]
+    r_mech = ("X02", "X03", "X05", "X06", "X07", "X08", "X09")
+    cov_x01 = summarize_diagnostic_coverage(x01_only, target_families=r_mech, seed_ids=(7, 19, 41))
+    assert cov_x01["distinct_base_world_count"] == 8
+    assert cov_x01["distinct_families"] == ["X01"]
+    assert cov_x01["distinct_view_count"] == 6
+    assert cov_x01["distinct_seed_count"] == 3
+    assert cov_x01["target_family_coverage_ratio"] == "0/7"
+    assert cov_x01["coverage_complete"] is False
+    assert "Mechanism unresolved." in cov_x01["coverage_summary"]
+
+    class _ShamBypassModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.w = nn.Parameter(torch.ones(1))
+            self._ablate = False
+
+        @contextmanager
+        def ablate_mechanism(self):
+            self._ablate = True
+            try:
+                yield "x1_relational_slot_readout"
+            finally:
+                self._ablate = False
+
+        def forward(self, x):
+            logits = torch.tensor([[5.0, 0.0]] * x.shape[0])
+            return logits, x
+
+    ab_pol = LogitsPolicy(_ShamBypassModel(), action_labels=("A", "B"))
+    ab_res = run_surgical_mechanism_ablation(
+        ab_pol,
+        StaticPromptKernel(action_labels=("A", "B")),
+        x01_only[:12],
+        target_families=r_mech,
+        seed_ids=(7,),
+    )
+    assert ab_res["ornamental_mechanism_bypass"] is False
+    assert ab_res["mechanism_status"] == "MECHANISM_UNRESOLVED_MISSING_TARGET_FAMILIES"
+    assert "Mechanism unresolved." in ab_res["headline"]
+    assert ab_res["paired_changes"]["gained_correct_count"] == 0
+
+    interp = synthesize_scientific_interpretation(
+        experiment_id="X1-A0-TEST",
+        instrument_validation={"passed": True, "status": "PASSED"},
+        surgical_ablation=ab_res,
+        slice_comparisons={"canonical_vs_alt": {"slice_name": "canonical_vs_alt", "baseline_accuracy": 0.744, "slice_accuracy": 0.161}},
+    )
+    assert any(c.claim_id == "U-INCOMPLETE-DIAGNOSTIC-COVERAGE" for c in interp.unresolved_questions)
+    assert any(c.claim_id == "S-RENDERER-OR-SLICE-TRANSFER-GAP" for c in interp.suspected_mechanisms)
+    assert interp.recommended_next_experiments[0].action_id == "EVALUATE_FROZEN_LESIONS_ON_TARGET_FAMILIES"
+
+    all_12_fams = [
+        {"world_id": f"{fam}_b{b}_v{v}", "base_world_id": f"{fam}_b{b}", "family": fam, "form": f"v{v}"}
+        for fam in ("X01", "X02", "X03", "X04", "X05", "X06", "X07", "X08", "X09", "X10", "X11", "X12")
+        for b in range(4)
+        for v in range(6)
+    ]
+    strat = stratify_intervention_worlds(all_12_fams, max_worlds=48)
+    cov_strat = summarize_diagnostic_coverage(strat, target_families=r_mech)
+    assert len(strat) == 48 and cov_strat["coverage_complete"] is True and cov_strat["target_family_coverage_ratio"] == "7/7"
+
+    # 3. Typed pair constructor + preflight comparison fixture + doctor integration
+    pf = run_paired_comparison_preflight()
+    assert pf["passed"] is True
+    assert pf["complete_fixture"]["complete_pair_count"] == 3
+    assert pf["dropped_arm_fixture"]["status"] == "INCOMPLETE_PAIRS_REPORTED"
+    assert len(pf["dropped_arm_fixture"]["preserved_arm_records"]) == 5
+    assert "41" in pf["dropped_arm_fixture"]["missing_pairs"][0]["explanation"]
+    doc_rep = planthir_doctor()
+    assert doc_rep["green_signal"] is True and doc_rep["checks"]["paired_comparison_preflight"]["passed"] is True
+
+    # 4. Analyst's first page + compact analysis archive rebuild via rescore-archive
+    arm_rows = [
+        {"architecture": "P", "init_seed": 7, "order_seed": 7, "value": 0.5951},
+        {"architecture": "R", "init_seed": 7, "order_seed": 7, "value": 0.6363},
+        {"architecture": "P", "init_seed": 19, "order_seed": 19, "value": 0.6589},
+        {"architecture": "R", "init_seed": 19, "order_seed": 19, "value": 0.5998},
+        {"architecture": "P", "init_seed": 41, "order_seed": 41, "value": 0.6068},
+        {"architecture": "R", "init_seed": 41, "order_seed": 41, "value": 0.6133},
+    ]
+    bundle = build_paired_seed_observations(arm_rows, contrast_id="R_VS_P", control_arm="P", treatment_arm="R")
+    metrics_payload = {
+        "title": "X1 A0 Test Report",
+        "campaign_id": "X1-A0-TEST",
+        "source_commit": "a" * 40,
+        "decision_summary": "Retain P as comparator; R missed the registered +5.0 pt development threshold (-0.38 pt).",
+        "control_arm": "P",
+        "treatment_arm": "R",
+        "arm_records": arm_rows,
+        "episodes_by_arm_seed": {"P": {"7": ctrl_eps}, "R": {"7": trt_eps}},
+        "predeclared_slices": [
+            {
+                "slice_name": "canonical_vs_alt_renderer",
+                "baseline_accuracy": 0.744,
+                "slice_accuracy": 0.161,
+                "control_first_op_disagree_rate": 0.142,
+                "treatment_first_op_disagree_rate": 0.455,
+            }
+        ],
+        "interventions": {"zero_r_on_x01": ab_res},
+        "retrospective_findings": ["R gained +4.12 pts on seed 7 but dropped -5.90 pts on seed 19."],
+        "next_experiment": {
+            "title": "Cross frozen surgical lesions with canonical vs narrative views across all 7 mechanistic families",
+            "requires_artifact": "X1_A0_FULL.zip",
+            "discriminates_between": ("renderer_fragility", "relational_routing_failure"),
+            "protocol": "Evaluate frozen checkpoints without retraining.",
+        },
+        "full_archive": {"name": "X1_A0_FULL.zip", "sha256": "b" * 64, "verified": True},
+    }
+    m_src = tmp_path / "src" / "METRICS.json"
+    m_src.parent.mkdir(parents=True, exist_ok=True)
+    m_src.write_text(json.dumps(metrics_payload, indent=2) + "\n", encoding="utf-8")
+    arch_dir = tmp_path / "archives"
+    exp = export_session_archives(
+        tmp_path / "src",
+        arch_dir,
+        prefix="X1A0",
+        analysis_files={"METRICS.json": m_src},
+        include_v6_manifest=True,
+        source_commit="a" * 40,
+    )
+    zip_path = Path(exp["archives"]["analysis"])
+    fresh_dir = tmp_path / "fresh_rebuild"
+    rescore_rec = rescore_compact_analysis_archive(zip_path, fresh_dir)
+    assert rescore_rec["verified"] is True and rescore_rec["v6_zip_verified"] is True
+    assert rescore_rec["complete_pair_count"] == 3 and rescore_rec["rescored_seed_count"] == 1
+    rebuilt_md = (fresh_dir / "RESULTS.md").read_text(encoding="utf-8")
+    for expected_piece in (
+        "X1A0_ANALYSIS.zip",
+        "X1_A0_FULL.zip",
+        "rescore-archive",
+        "Retain P as comparator",
+        "`[PREDECLARED]`",
+        "`[RETROSPECTIVE]`",
+        "w01",
+        "w02",
+        "0/7",
+        "Mechanism unresolved.",
+    ):
+        assert expected_piece in rebuilt_md
+
+    # Verify CLI `python -m anra_v5.planthir rescore-archive`
+    cli_out = tmp_path / "cli_rebuild"
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    proc = subprocess.run(
+        [sys.executable, "-m", "anra_v5.planthir", "rescore-archive", "--archive", str(zip_path), "--out", str(cli_out)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert json.loads(proc.stdout)["verified"] is True
+    assert (cli_out / "RESULTS.md").is_file() and (cli_out / "METRICS.json").is_file()
