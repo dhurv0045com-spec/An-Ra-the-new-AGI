@@ -267,7 +267,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             _emit(receipt)
             return 0 if receipt["verified"] else 1
         except Exception as exc:
-            _emit({"verified": False, "status": "REPLAY_FAILED", "error": type(exc).__name__, "detail": str(exc)})
+            status = "INSUFFICIENT_REPLAY_EVIDENCE" if "INSUFFICIENT_REPLAY_EVIDENCE" in str(exc) else "REPLAY_FAILED"
+            _emit({"verified": False, "status": status, "error": type(exc).__name__, "detail": str(exc)})
             return 1
 
     if args.command == "explain-error":

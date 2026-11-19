@@ -806,6 +806,7 @@ class CartridgeRunner:
         arm_results: dict[str, Any] = {}
         arm_bundles: dict[str, dict[str, Any]] = {}
         latest_recs: dict[str, Any] = {}
+        replay_ref_lineages: dict[str, dict[str, Any]] = {}
 
         for arm in all_arms:
             tr_info = arm_training_records[arm.arm_id]
@@ -848,6 +849,66 @@ class CartridgeRunner:
                 model_identity=latest_sha,
                 mode="availability-mask",
             )
+
+            # Record full deterministic replay reference cohort & multi-step history for independent replay-bundle
+            from hashlib import sha256 as _ref_sha256
+
+            ref_cases: list[dict[str, Any]] = []
+            ref_correct = 0
+            ref_steps_cap = max(4, int(getattr(cartridge.kernel, "max_actions", 8) or 8))
+            for r_idx, r_w in enumerate(eval_worlds):
+                r_wid = str(r_w.get("world_id", r_idx))
+                if hasattr(policy_raw, "reset_episode"):
+                    policy_raw.reset_episode()
+                r_st = cartridge.kernel.initial_state(r_w)
+                r_init_obs = cartridge.kernel.observe(r_st)
+                r_init_sha = _ref_sha256(r_init_obs.rendered_text.encode("utf-8")).hexdigest()
+                r_actions: list[tuple[str, str | None]] = []
+                r_history: list[dict[str, Any]] = []
+                for r_step_idx in range(ref_steps_cap):
+                    if getattr(r_st, "terminal", False):
+                        break
+                    r_obs = cartridge.kernel.observe(r_st)
+                    r_obs_sha = _ref_sha256(r_obs.rendered_text.encode("utf-8")).hexdigest()
+                    r_act = policy_raw.propose_with_telemetry(r_obs)
+                    r_actions.append((r_act.operation, r_act.argument))
+                    r_history.append(
+                        {
+                            "step_index": r_step_idx,
+                            "rendered_input_sha256": r_obs_sha,
+                            "operation": r_act.operation,
+                            "argument": r_act.argument,
+                        }
+                    )
+                    r_st = cartridge.kernel.step(r_st, r_act.operation, r_act.argument)
+                r_ver = cartridge.kernel.verify(r_w, r_actions)
+                r_ok = bool(r_ver.get("correct", False))
+                if r_ok:
+                    ref_correct += 1
+                r_first_op, r_first_arg = r_actions[0] if r_actions else ("INVALID", None)
+                ref_cases.append(
+                    {
+                        "world_id": r_wid,
+                        "checkpoint_sha256": latest_sha,
+                        "decoder": arm.policy_mode,
+                        "renderer": r_w.get("renderer_template", r_w.get("renderer", 0)),
+                        "rendered_input_sha256": r_init_sha,
+                        "operation": r_first_op,
+                        "argument": r_first_arg,
+                        "correct": r_ok,
+                        "actions": [[op, arg] for op, arg in r_actions],
+                        "history": r_history,
+                    }
+                )
+            replay_ref_lineages[lineage_id] = {
+                "arm_id": arm.arm_id,
+                "experiment_id": exp_id,
+                "backend_id": cartridge.backend_id,
+                "checkpoint_sha256": latest_sha,
+                "decoder": arm.policy_mode,
+                "overall_accuracy": float(ref_correct / max(len(eval_worlds), 1)),
+                "reference_predictions": ref_cases,
+            }
 
             funnel = funnel_analyzer.evaluate_suite(policy_raw, cartridge.kernel, eval_worlds, include_subgoals=True)
             oracle = (
@@ -1169,6 +1230,20 @@ class CartridgeRunner:
         if len(brief_bytes) > 8192:
             raise ValueError('handoff brief exceeds bounded context limit')
         cert_bytes = (json.dumps(gates, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+        ordered_ref_ids = [str(w.get("world_id", i)) for i, w in enumerate(eval_worlds)]
+        replay_ref_doc = {
+            "schema": "anra-planthir-replay-reference-v1",
+            "campaign_id": cartridge.campaign_id,
+            "source_commit": cartridge.source_commit,
+            "backend_id": cartridge.backend_id,
+            "kernel_id": cartridge.kernel.kernel_id,
+            "ordered_world_ids": ordered_ref_ids,
+            "cohort_sha256": digest(ordered_ref_ids),
+            "worlds_sha256": digest(list(eval_worlds)),
+            "eval_worlds": list(eval_worlds),
+            "lineages": replay_ref_lineages,
+        }
+        replay_ref_bytes = (json.dumps(replay_ref_doc, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
         final_brief = json.loads(brief_bytes)
         # Verify final archives via generation staging. An unsuccessful verification leaves the PARTIAL bundle intact.
@@ -1183,6 +1258,7 @@ class CartridgeRunner:
             extra_root_files={
                 "AI_HANDOFF_BRIEF.json": brief_bytes,
                 "LAUNCH_GATE_CERTIFICATE.json": cert_bytes,
+                "REPLAY_REFERENCE.json": replay_ref_bytes,
             },
             export_fn=export_result_bundle,
             verify_fn=verify_result_bundle,

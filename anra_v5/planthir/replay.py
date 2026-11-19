@@ -128,14 +128,14 @@ def build_custody_receipt(
 
 
 def _build_kernel_for_backend(backend_id: str):
-    try:
-        from .backend import get_backend
+    from .backend import get_backend
 
+    try:
         be = get_backend(backend_id)
-        if callable(getattr(be, "create_kernel", None)):
-            return be.create_kernel()  # type: ignore[attr-defined]
-    except Exception:
-        pass
+    except (KeyError, ValueError):
+        be = None
+    if be is not None and callable(getattr(be, "create_kernel", None)):
+        return be.create_kernel()  # type: ignore[attr-defined]
     if backend_id == "x1_rd2":
         from .adapters.x1_rd2_adapter import X1RD2EnvironmentKernel
 
@@ -144,9 +144,68 @@ def _build_kernel_for_backend(backend_id: str):
         from anra_v5.elendril.v8x.evaluation import X1S20EnvironmentKernel
 
         return X1S20EnvironmentKernel()
-    from .adapters.v8_adapter import V8EnvironmentKernel
+    if backend_id == "v8":
+        from .adapters.v8_adapter import V8EnvironmentKernel
 
-    return V8EnvironmentKernel()
+        return V8EnvironmentKernel()
+    raise ValueError(
+        f"MISSING_BACKEND_PLUGIN:{backend_id}: Backend {backend_id!r} is not registered. "
+        "Set PLANTHIR_BACKEND_MODULES or register the backend plugin before running replay."
+    )
+
+
+def _canonical_digest(obj: Any) -> str:
+    return sha256(json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+
+
+def _rollout_case(
+    kernel: Any,
+    policy: Any,
+    world: Mapping[str, Any],
+    *,
+    world_idx: int,
+    checkpoint_sha256: str,
+    decoder: str,
+    steps_limit: int,
+) -> dict[str, Any]:
+    wid = str(world.get("world_id", world_idx))
+    if hasattr(policy, "reset_episode"):
+        policy.reset_episode()
+    st = kernel.initial_state(world)
+    init_obs = kernel.observe(st)
+    init_sha = sha256(init_obs.rendered_text.encode("utf-8")).hexdigest()
+    actions: list[tuple[str, str | None]] = []
+    history: list[dict[str, Any]] = []
+    for step_idx in range(steps_limit):
+        if getattr(st, "terminal", False):
+            break
+        obs = kernel.observe(st)
+        obs_sha = sha256(obs.rendered_text.encode("utf-8")).hexdigest()
+        act = policy.propose_with_telemetry(obs)
+        actions.append((act.operation, act.argument))
+        history.append(
+            {
+                "step_index": step_idx,
+                "rendered_input_sha256": obs_sha,
+                "operation": act.operation,
+                "argument": act.argument,
+            }
+        )
+        st = kernel.step(st, act.operation, act.argument)
+    res = kernel.verify(world, actions)
+    first_op, first_arg = actions[0] if actions else ("INVALID", None)
+    return {
+        "world_id": wid,
+        "checkpoint_sha256": checkpoint_sha256,
+        "decoder": decoder,
+        "renderer": world.get("renderer_template", world.get("renderer", 0)),
+        "rendered_input_sha256": init_sha,
+        "operation": first_op,
+        "argument": first_arg,
+        "correct": bool(res.get("correct")),
+        "actions": [[op, arg] for op, arg in actions],
+        "history": history,
+    }
 
 
 def independent_replay_bundle(
@@ -161,6 +220,8 @@ def independent_replay_bundle(
     output_path: Path | str | None = None,
     independent_environment: bool = False,
     reference_predictions: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+    use_archived_reference: bool = True,
+    require_archived_reference: bool = False,
 ) -> dict[str, Any]:
     """Restore an exported bundle into an isolated temp workspace and independently replay checkpoints & checks."""
 
@@ -176,8 +237,14 @@ def independent_replay_bundle(
 
     defects: list[str] = []
     lineage_reports: list[dict[str, Any]] = []
+    archived_ref: dict[str, Any] | None = None
+    legacy_v8_compatibility = False
+    insufficient_evidence = False
+    supported_recovery_path: str | None = None
 
     with zipfile.ZipFile(result_zip, "r") as rz:
+        if use_archived_reference and "REPLAY_REFERENCE.json" in rz.namelist():
+            archived_ref = json.loads(rz.read("REPLAY_REFERENCE.json").decode("utf-8"))
         recorded_summaries: dict[str, dict[str, Any]] = {}
         for name in sorted(rz.namelist()):
             if name.startswith("experiments/") and name.endswith("/SCIENTIFIC_SUMMARY.json"):
@@ -206,12 +273,27 @@ def independent_replay_bundle(
                 finally:
                     tpath.unlink(missing_ok=True)
 
+    archived_worlds: list[Mapping[str, Any]] | None = None
+    if archived_ref is not None:
+        if archived_ref.get("schema") != "anra-planthir-replay-reference-v1":
+            defects.append(f"INVALID_REPLAY_REFERENCE_SCHEMA:{archived_ref.get('schema')}")
+        ref_eval_worlds = archived_ref.get("eval_worlds")
+        if not isinstance(ref_eval_worlds, list) or not ref_eval_worlds:
+            defects.append("EMPTY_REPLAY_REFERENCE_WORLDS")
+        else:
+            ordered_ids = [str(w.get("world_id", i)) for i, w in enumerate(ref_eval_worlds)]
+            if archived_ref.get("ordered_world_ids") != ordered_ids or archived_ref.get("cohort_sha256") != _canonical_digest(ordered_ids):
+                defects.append("REPLAY_COHORT_HASH_MISMATCH")
+            if archived_ref.get("worlds_sha256") != _canonical_digest(ref_eval_worlds):
+                defects.append("REPLAY_WORLDS_HASH_MISMATCH")
+            archived_worlds = list(ref_eval_worlds)
+
     if raw_evidence_dir is not None:
         from .evidence import verify_raw_evidence_chunks
 
         verify_raw_evidence_chunks(raw_evidence_dir)
 
-    with tempfile.TemporaryDirectory(prefix="planthir-indep-replay-") as iso_tmp:
+    with tempfile.TemporaryDirectory(prefix="planthir-indep-replay-", ignore_cleanup_errors=True) as iso_tmp:
         restored = CheckpointCatalog.restore_full_checkpoint_zip(
             full_zip,
             Path(iso_tmp) / "restored_store",
@@ -230,21 +312,22 @@ def independent_replay_bundle(
         if not latest_by_lineage:
             defects.append("NO_CHECKPOINT_LINEAGES_RESTORED")
 
-        eval_worlds = list(worlds) if worlds is not None else []
-        if not eval_worlds:
-            from anra_v5.elendril.v8.data import D1_TRAIN_SEED, build_d1_training_dataset
-
-            eval_worlds = list(
-                w
-                for w in build_d1_training_dataset(seed=D1_TRAIN_SEED + 11, quota_per_family=16).worlds
-                if int(w.get("renderer_template", 0)) == 0
-            )[:4]
-
         agreement_statuses: list[str] = []
+        archived_lineages = (
+            archived_ref.get("lineages", {})
+            if isinstance(archived_ref, Mapping) and isinstance(archived_ref.get("lineages"), Mapping)
+            else {}
+        )
         for lineage_id, rec in sorted(latest_by_lineage.items()):
+            archived_lin = archived_lineages.get(lineage_id) if isinstance(archived_lineages, Mapping) else None
+            target_mode = (
+                str(archived_lin.get("decoder", "raw"))
+                if isinstance(archived_lin, Mapping) and archived_lin.get("decoder")
+                else "raw"
+            )
             loaded = CheckpointCatalog.load_checkpoint_for_causal_probing(
                 rec,
-                mode="raw",
+                mode=target_mode,
                 device=device,
             )
             try:
@@ -259,50 +342,94 @@ def independent_replay_bundle(
                         backend_id = "v8"
                     else:
                         backend_id = prog_fam
+
+                # Validate backend consistency against archived REPLAY_REFERENCE.json BEFORE running worlds
+                if archived_ref is not None:
+                    ref_bid = str(archived_ref.get("backend_id") or "")
+                    if ref_bid and ref_bid != backend_id:
+                        defects.append(f"BACKEND_MISMATCH:{lineage_id}:ref={ref_bid}:ckpt={backend_id}")
+                    if isinstance(archived_lin, Mapping):
+                        lin_bid = str(archived_lin.get("backend_id") or "")
+                        if lin_bid and lin_bid != backend_id:
+                            defects.append(f"BACKEND_MISMATCH:{lineage_id}:lineage_ref={lin_bid}:ckpt={backend_id}")
+
                 kernel = _build_kernel_for_backend(backend_id)
+
+                # Resolve evaluation worlds AFTER resolving backend_id (never silently feed V8 worlds to non-V8 backends)
+                if worlds is not None:
+                    eval_worlds = list(worlds)
+                elif archived_worlds is not None:
+                    eval_worlds = list(archived_worlds)
+                elif backend_id == "v8" and not require_archived_reference:
+                    from anra_v5.elendril.v8.data import D1_TRAIN_SEED, build_d1_training_dataset
+
+                    eval_worlds = list(
+                        w
+                        for w in build_d1_training_dataset(seed=D1_TRAIN_SEED + 11, quota_per_family=16).worlds
+                        if int(w.get("renderer_template", 0)) == 0
+                    )[:4]
+                    legacy_v8_compatibility = True
+                    supported_recovery_path = (
+                        "Legacy V8 bundle lacked REPLAY_REFERENCE.json; replayed with canonical V8 D1 compatibility probe. "
+                        "Re-export the bundle with REPLAY_REFERENCE.json or supply explicit worlds/reference_predictions for exact agreement."
+                    )
+                else:
+                    insufficient_evidence = True
+                    supported_recovery_path = (
+                        f"Bundle for backend {backend_id!r} lacks REPLAY_REFERENCE.json and no explicit eval worlds were supplied. "
+                        "Re-export the bundle using Planthir with REPLAY_REFERENCE.json archiving, or call "
+                        "independent_replay_bundle(..., worlds=..., reference_predictions=...) with the backend's recorded evaluation cohort."
+                    )
+                    defects.append(f"INSUFFICIENT_REPLAY_REFERENCE:{lineage_id}:{backend_id}")
+                    lineage_reports.append(
+                        {
+                            "lineage_id": lineage_id,
+                            "checkpoint_sha256": rec.checkpoint_sha256,
+                            "global_update": int(rec.global_update),
+                            "backend_id": backend_id,
+                            "architecture": rec.architecture,
+                            "parameter_count": sum(int(p.numel()) for p in model.parameters()),
+                            "restore_verified": bool(restored.get("verified")),
+                            "probe_worlds": 0,
+                            "operations": [],
+                            "hidden_shape": [],
+                            "finite_hidden": True,
+                            "replay_probe_accuracy": 0.0,
+                            "probe_accuracy": 0.0,
+                            "original_prediction_agreement": {
+                                "status": "INSUFFICIENT_REPLAY_EVIDENCE",
+                                "matched": False,
+                                "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
+                                "checked_cases": 0,
+                                "mismatches": [
+                                    {
+                                        "backend_id": backend_id,
+                                        "reason": "INSUFFICIENT_REPLAY_REFERENCE",
+                                    }
+                                ],
+                            },
+                        }
+                    )
+                    agreement_statuses.append("INSUFFICIENT_REPLAY_EVIDENCE")
+                    continue
+
+                if not eval_worlds:
+                    defects.append(f"EMPTY_EVAL_WORLDS:{lineage_id}:{backend_id}")
+                    agreement_statuses.append("MISMATCH")
+                    continue
+
                 obs_list = [kernel.observe(kernel.initial_state(w)) for w in eval_worlds]
-                props = [policy.propose_with_telemetry(o) for o in obs_list]
+                props = []
+                for o in obs_list:
+                    if hasattr(policy, "reset_episode"):
+                        policy.reset_episode()
+                    props.append(policy.propose_with_telemetry(o))
                 reps = policy.extract_representations(obs_list)["decision_hidden"].detach().cpu()
                 finite_hidden = bool(torch.isfinite(reps).all().item())
                 if not finite_hidden:
                     defects.append(f"NONFINITE_REPLAY_HIDDEN:{lineage_id}")
 
-                correct = 0
-                replayed_cases: dict[str, dict[str, Any]] = {}
-                replayed_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
-                world_by_id = {str(w.get("world_id", idx)): w for idx, w in enumerate(eval_worlds)}
-                extra_mode_policies: dict[str, Any] = {"raw": policy}
-                extra_mode_loaded: list[dict[str, Any]] = []
-                for idx, w in enumerate(eval_worlds):
-                    wid = str(w.get("world_id", idx))
-                    st = kernel.initial_state(w)
-                    init_obs = kernel.observe(st)
-                    init_sha = sha256(init_obs.rendered_text.encode("utf-8")).hexdigest()
-                    actions: list[tuple[str, str | None]] = []
-                    for _ in range(4):
-                        if getattr(st, "terminal", False):
-                            break
-                        obs = kernel.observe(st)
-                        act = policy.propose_with_telemetry(obs)
-                        actions.append((act.operation, act.argument))
-                        st = kernel.step(st, act.operation, act.argument)
-                    res = kernel.verify(w, actions)
-                    if res.get("correct"):
-                        correct += 1
-                    first_op, first_arg = actions[0] if actions else ("INVALID", None)
-                    case_rec = {
-                        "world_id": wid,
-                        "checkpoint_sha256": rec.checkpoint_sha256,
-                        "decoder": "raw",
-                        "rendered_input_sha256": init_sha,
-                        "operation": first_op,
-                        "argument": first_arg,
-                        "correct": bool(res.get("correct")),
-                    }
-                    replayed_cases[wid] = case_rec
-                    replayed_by_key[(wid, "raw", init_sha)] = case_rec
-                replay_acc = float(correct / max(len(eval_worlds), 1))
-
+                # Resolve reference rows before rollout so multi-step cap covers full recorded history
                 ref_rows: Sequence[Mapping[str, Any]] | None = None
                 matched_summary_acc: float | None = None
                 if reference_predictions is not None:
@@ -311,29 +438,70 @@ def independent_replay_bundle(
                         for exp_doc in recorded_summaries.values():
                             if str(exp_doc.get("lineage_id", "")) == lineage_id:
                                 ref_rows = reference_predictions.get(str(exp_doc.get("experiment_id", "")))
+                if ref_rows is None and isinstance(archived_lin, Mapping):
+                    ref_rows = archived_lin.get("reference_predictions")
+                    if archived_lin.get("overall_accuracy") is not None:
+                        matched_summary_acc = float(archived_lin["overall_accuracy"])
+                    if not ref_rows:
+                        defects.append(f"EMPTY_ARCHIVED_REFERENCE:{lineage_id}")
+                elif ref_rows is None and archived_ref is not None:
+                    defects.append(f"MISSING_ARCHIVED_REFERENCE:{lineage_id}")
+
                 for exp_doc in recorded_summaries.values():
                     if (
                         str(exp_doc.get("checkpoint_sha256", "")) == rec.checkpoint_sha256
                         or str(exp_doc.get("lineage_id", "")) == lineage_id
                     ):
-                        if "overall_accuracy" in exp_doc and exp_doc["overall_accuracy"] is not None:
+                        if matched_summary_acc is None and "overall_accuracy" in exp_doc and exp_doc["overall_accuracy"] is not None:
                             matched_summary_acc = float(exp_doc["overall_accuracy"])
                         if ref_rows is None and exp_doc.get("reference_predictions"):
                             ref_rows = exp_doc["reference_predictions"]
                         break
 
+                max_ref_hist = 0
+                if ref_rows:
+                    for rr in ref_rows:
+                        hist = rr.get("history")
+                        if isinstance(hist, Sequence):
+                            max_ref_hist = max(max_ref_hist, len(hist))
+                steps_limit = max(4, int(getattr(kernel, "max_actions", 8) or 8), max_ref_hist)
+
+                correct = 0
+                replayed_cases: dict[str, dict[str, Any]] = {}
+                world_by_id = {str(w.get("world_id", idx)): (idx, w) for idx, w in enumerate(eval_worlds)}
+                extra_mode_policies: dict[str, Any] = {target_mode: policy}
+                extra_mode_loaded: list[dict[str, Any]] = []
+                for idx, w in enumerate(eval_worlds):
+                    case_rec = _rollout_case(
+                        kernel,
+                        policy,
+                        w,
+                        world_idx=idx,
+                        checkpoint_sha256=rec.checkpoint_sha256,
+                        decoder=target_mode,
+                        steps_limit=steps_limit,
+                    )
+                    if case_rec["correct"]:
+                        correct += 1
+                    replayed_cases[case_rec["world_id"]] = case_rec
+                replay_acc = float(correct / max(len(eval_worlds), 1))
+
                 if ref_rows is not None:
                     case_mismatches: list[dict[str, Any]] = []
                     for ref in ref_rows:
                         r_wid = str(ref.get("world_id", ""))
-                        r_dec = str(ref.get("decoder", ref.get("mode", "raw")))
+                        r_dec = str(ref.get("decoder", ref.get("mode", target_mode)))
                         r_ckpt = str(ref.get("checkpoint_sha256", rec.checkpoint_sha256))
                         if r_ckpt != rec.checkpoint_sha256:
-                            case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": "CHECKPOINT_SHA_MISMATCH"})
+                            case_mismatches.append(
+                                {"world_id": r_wid, "backend_id": backend_id, "decoder": r_dec, "reason": "CHECKPOINT_SHA_MISMATCH"}
+                            )
                             continue
-                        if r_dec != "raw":
+                        if r_dec != target_mode:
                             if r_wid not in world_by_id:
-                                case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": "MISSING_REFERENCE_CASE"})
+                                case_mismatches.append(
+                                    {"world_id": r_wid, "backend_id": backend_id, "decoder": r_dec, "reason": "MISSING_REFERENCE_CASE"}
+                                )
                                 continue
                             if r_dec not in extra_mode_policies:
                                 mod_loaded = CheckpointCatalog.load_checkpoint_for_causal_probing(
@@ -342,42 +510,111 @@ def independent_replay_bundle(
                                 extra_mode_loaded.append(mod_loaded)
                                 extra_mode_policies[r_dec] = mod_loaded["policy"]
                             mpol = extra_mode_policies[r_dec]
-                            w_m = world_by_id[r_wid]
-                            st_m = kernel.initial_state(w_m)
-                            obs0_m = kernel.observe(st_m)
-                            sha_m = sha256(obs0_m.rendered_text.encode("utf-8")).hexdigest()
-                            act_m = mpol.propose_with_telemetry(obs0_m)
-                            got_c = {
-                                "world_id": r_wid,
-                                "checkpoint_sha256": rec.checkpoint_sha256,
-                                "decoder": r_dec,
-                                "rendered_input_sha256": sha_m,
-                                "operation": act_m.operation,
-                                "argument": act_m.argument,
-                            }
+                            w_idx_m, w_m = world_by_id[r_wid]
+                            got_c = _rollout_case(
+                                kernel,
+                                mpol,
+                                w_m,
+                                world_idx=w_idx_m,
+                                checkpoint_sha256=rec.checkpoint_sha256,
+                                decoder=r_dec,
+                                steps_limit=steps_limit,
+                            )
                         else:
                             if r_wid not in replayed_cases:
                                 reason = "UNREPLAYED_CASE" if r_wid in world_by_id else "MISSING_REFERENCE_CASE"
-                                case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": reason})
+                                case_mismatches.append(
+                                    {"world_id": r_wid, "backend_id": backend_id, "decoder": r_dec, "reason": reason}
+                                )
                                 continue
                             got_c = replayed_cases[r_wid]
-                        if ref.get("rendered_input_sha256") and ref["rendered_input_sha256"] != got_c["rendered_input_sha256"]:
-                            case_mismatches.append({"world_id": r_wid, "decoder": r_dec, "reason": "RENDERED_INPUT_HASH_MISMATCH"})
+
+                        if "renderer" in ref and ref["renderer"] is not None and ref["renderer"] != got_c.get("renderer"):
+                            case_mismatches.append(
+                                {
+                                    "world_id": r_wid,
+                                    "backend_id": backend_id,
+                                    "decoder": r_dec,
+                                    "reason": "RENDERER_MISMATCH",
+                                    "expected": ref["renderer"],
+                                    "observed": got_c.get("renderer"),
+                                }
+                            )
+                        elif ref.get("rendered_input_sha256") and ref["rendered_input_sha256"] != got_c["rendered_input_sha256"]:
+                            case_mismatches.append(
+                                {
+                                    "world_id": r_wid,
+                                    "backend_id": backend_id,
+                                    "decoder": r_dec,
+                                    "reason": "RENDERED_INPUT_HASH_MISMATCH",
+                                    "expected": ref["rendered_input_sha256"],
+                                    "observed": got_c["rendered_input_sha256"],
+                                }
+                            )
                         elif (str(ref.get("operation")), ref.get("argument")) != (got_c["operation"], got_c["argument"]):
-                            case_mismatches.append({
-                                "world_id": r_wid,
-                                "decoder": r_dec,
-                                "reason": "PREDICTION_MISMATCH",
-                                "expected": [ref.get("operation"), ref.get("argument")],
-                                "observed": [got_c["operation"], got_c["argument"]],
-                            })
+                            case_mismatches.append(
+                                {
+                                    "world_id": r_wid,
+                                    "backend_id": backend_id,
+                                    "decoder": r_dec,
+                                    "step_index": 0,
+                                    "reason": "PREDICTION_MISMATCH",
+                                    "expected": [ref.get("operation"), ref.get("argument")],
+                                    "observed": [got_c["operation"], got_c["argument"]],
+                                }
+                            )
+                        elif isinstance(ref.get("history"), Sequence):
+                            ref_hist = list(ref["history"])
+                            got_hist = list(got_c.get("history", []))
+                            if len(ref_hist) != len(got_hist):
+                                case_mismatches.append(
+                                    {
+                                        "world_id": r_wid,
+                                        "backend_id": backend_id,
+                                        "decoder": r_dec,
+                                        "reason": "HISTORY_LENGTH_MISMATCH",
+                                        "expected_steps": len(ref_hist),
+                                        "observed_steps": len(got_hist),
+                                    }
+                                )
+                            else:
+                                for s_idx, (rs, gs) in enumerate(zip(ref_hist, got_hist)):
+                                    if rs.get("rendered_input_sha256") and rs["rendered_input_sha256"] != gs.get("rendered_input_sha256"):
+                                        case_mismatches.append(
+                                            {
+                                                "world_id": r_wid,
+                                                "backend_id": backend_id,
+                                                "decoder": r_dec,
+                                                "step_index": s_idx,
+                                                "reason": "STEP_INPUT_HASH_MISMATCH",
+                                                "expected": rs["rendered_input_sha256"],
+                                                "observed": gs.get("rendered_input_sha256"),
+                                            }
+                                        )
+                                        break
+                                    if (str(rs.get("operation")), rs.get("argument")) != (gs.get("operation"), gs.get("argument")):
+                                        case_mismatches.append(
+                                            {
+                                                "world_id": r_wid,
+                                                "backend_id": backend_id,
+                                                "decoder": r_dec,
+                                                "step_index": s_idx,
+                                                "reason": "STEP_PREDICTION_MISMATCH",
+                                                "expected": [rs.get("operation"), rs.get("argument")],
+                                                "observed": [gs.get("operation"), gs.get("argument")],
+                                            }
+                                        )
+                                        break
                     if matched_summary_acc is not None and abs(replay_acc - matched_summary_acc) > float(accuracy_tolerance):
-                        case_mismatches.append({
-                            "reason": "AGGREGATE_ACCURACY_OUT_OF_TOLERANCE",
-                            "expected": matched_summary_acc,
-                            "observed": replay_acc,
-                            "tolerance": float(accuracy_tolerance),
-                        })
+                        case_mismatches.append(
+                            {
+                                "backend_id": backend_id,
+                                "reason": "AGGREGATE_ACCURACY_OUT_OF_TOLERANCE",
+                                "expected": matched_summary_acc,
+                                "observed": replay_acc,
+                                "tolerance": float(accuracy_tolerance),
+                            }
+                        )
                     orig_agree = {
                         "status": "MATCHED" if not case_mismatches else "MISMATCH",
                         "matched": len(case_mismatches) == 0,
@@ -425,7 +662,9 @@ def independent_replay_bundle(
                 if torch.device(device).type == "cuda" and torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-    if any(s == "MISMATCH" for s in agreement_statuses):
+    if any(s == "INSUFFICIENT_REPLAY_EVIDENCE" for s in agreement_statuses):
+        overall_agreement = "INSUFFICIENT_REPLAY_EVIDENCE"
+    elif any(s == "MISMATCH" for s in agreement_statuses):
         overall_agreement = "MISMATCH"
     elif agreement_statuses and all(s == "MATCHED" for s in agreement_statuses):
         overall_agreement = "MATCHED"
@@ -445,16 +684,25 @@ def independent_replay_bundle(
         for m in r["original_prediction_agreement"]["mismatches"]
     ]
     verified = len(defects) == 0
+    if verified:
+        status = "REPLAY_VERIFIED"
+    elif insufficient_evidence:
+        status = "INSUFFICIENT_REPLAY_EVIDENCE"
+    else:
+        status = "REPLAY_FAILED"
     receipt = {
         "schema": "anra-planthir-replay-receipt-v1",
         "verified": verified,
-        "status": "REPLAY_VERIFIED" if verified else "REPLAY_FAILED",
+        "status": status,
         "restore_verified": bool(not any(d == "RESTORE_FULL_CHECKPOINT_ZIP_UNVERIFIED" for d in defects)),
+        "archived_reference_used": bool(archived_ref is not None),
+        "legacy_v8_compatibility": bool(legacy_v8_compatibility),
+        "supported_recovery_path": supported_recovery_path,
         "probe_accuracy": mean_probe_acc,
         "prediction_agreement_status": overall_agreement,
         "original_prediction_agreement": {
             "status": overall_agreement,
-            "matched": (True if overall_agreement == "MATCHED" else (False if overall_agreement == "MISMATCH" else None)),
+            "matched": (True if overall_agreement == "MATCHED" else (False if overall_agreement in ("MISMATCH", "INSUFFICIENT_REPLAY_EVIDENCE") else None)),
             "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
             "checked_cases": sum(r["original_prediction_agreement"]["checked_cases"] for r in lineage_reports),
             "mismatches": all_agree_mismatches,
@@ -474,6 +722,8 @@ def independent_replay_bundle(
         _atomic_write(op, (json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8"))
         _sync_dir(op.parent)
     if not verified:
+        if insufficient_evidence:
+            raise ValueError(f"INSUFFICIENT_REPLAY_EVIDENCE: {defects}; recovery: {supported_recovery_path}")
         raise ValueError(f"independent bundle replay failed: {defects}")
     return receipt
 

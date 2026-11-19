@@ -510,7 +510,10 @@ def test_hitchhiker_audit_fixes_registry_replay_stats_strata_and_docs(tmp_path: 
         CartridgeRunner().run(cart, work_root=work, **run_kwargs)
         lin = f"{cart.campaign_id.lower()}-{cart.control_arm.arm_id}-s{cart.control_arm.order_seed}"
         bdir = work / "result_bundle"
-        probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
+        matched_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
+        assert matched_rec["prediction_agreement_status"] == "MATCHED"
+        assert matched_rec["original_prediction_agreement"]["matched"] is True
+        probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds, use_archived_reference=False)
         assert probe_rec["prediction_agreement_status"] == "PROBE_ONLY_NO_REFERENCE"
         lineages = {row["lineage_id"]: row for row in probe_rec["restored_lineages"]}
         assert lin in lineages

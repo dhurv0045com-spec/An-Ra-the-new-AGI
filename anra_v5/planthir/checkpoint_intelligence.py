@@ -131,14 +131,21 @@ def _extract_arch_and_params(
         meta = {}
 
     if isinstance(meta.get("backend_id"), str):
+        bid = str(meta["backend_id"])
         try:
             from .backend import get_backend
 
-            be = get_backend(meta["backend_id"])
+            be = get_backend(bid)
             if callable(getattr(be, "extract_checkpoint_metadata", None)):
                 extracted = be.extract_checkpoint_metadata(meta)  # type: ignore[attr-defined]
                 if extracted is not None:
                     return extracted
+        except (KeyError, ValueError):
+            if bid not in ("v8", "x1_rd2", "x1_s20", "byte_prompt"):
+                raw_ms = meta.get("model_spec") if isinstance(meta.get("model_spec"), Mapping) else {}
+                arch = str(meta.get("architecture", raw_ms.get("architecture", "unknown")))
+                pcount = meta.get("parameter_count", raw_ms.get("parameter_count"))
+                return bid, arch, (int(pcount) if isinstance(pcount, int) else None), None, None
         except Exception:
             pass
 
@@ -303,27 +310,35 @@ def _instantiate_checkpoint_bundle(
 
     meta = sched.get("metadata", sched)
     if isinstance(meta, Mapping) and isinstance(meta.get("backend_id"), str):
-        try:
-            from .backend import get_backend
+        bid = str(meta["backend_id"])
+        from .backend import get_backend
 
-            be = get_backend(meta["backend_id"])
-            if callable(getattr(be, "restore_checkpoint_bundle", None)):
-                custom_res = be.restore_checkpoint_bundle(  # type: ignore[attr-defined]
-                    state=state,
-                    sched=sched,
-                    weights=weights,
-                    sha=sha,
-                    mode=mode,
-                    device=device,
-                    copy_enabled_override=copy_enabled_override,
-                )
-                if custom_res is not None:
-                    return custom_res
-        except Exception:
-            pass
+        try:
+            be = get_backend(bid)
+        except (KeyError, ValueError) as exc:
+            if bid not in ("v8", "x1_rd2", "x1_s20", "byte_prompt"):
+                raise ValueError(
+                    f"MISSING_BACKEND_PLUGIN:{bid}: backend {bid!r} is not registered for checkpoint restore; "
+                    "register the plugin or set PLANTHIR_BACKEND_MODULES"
+                ) from exc
+            be = None
+        if be is not None and callable(getattr(be, "restore_checkpoint_bundle", None)):
+            custom_res = be.restore_checkpoint_bundle(  # type: ignore[attr-defined]
+                state=state,
+                sched=sched,
+                weights=weights,
+                sha=sha,
+                mode=mode,
+                device=device,
+                copy_enabled_override=copy_enabled_override,
+            )
+            if custom_res is not None:
+                return custom_res
 
     prog, arch, pcount, backend_spec, base_spec = _extract_arch_and_params(sched)
+    resolved_backend_id = "v8"
     if isinstance(backend_spec, X1ModelSpec):
+        resolved_backend_id = "x1_s20"
         v8_spec = None
         model = build_x1_s20_model(backend_spec, 0, torch_module=torch).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
@@ -336,6 +351,7 @@ def _instantiate_checkpoint_bundle(
             copy_enabled_override=copy_enabled_override,
         )
     elif isinstance(backend_spec, X1RD2Spec):
+        resolved_backend_id = "x1_rd2"
         model = build_x1_model(backend_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
@@ -347,6 +363,7 @@ def _instantiate_checkpoint_bundle(
         )
         v8_spec = None
     elif isinstance(backend_spec, V8ModelSpec) and backend_spec.architecture in ARCHITECTURES:
+        resolved_backend_id = "v8"
         v8_spec = backend_spec
         model = build_v8_model(v8_spec, 0, torch_module=torch).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
@@ -359,6 +376,7 @@ def _instantiate_checkpoint_bundle(
             copy_enabled_override=copy_enabled_override,
         )
     elif base_spec is not None:
+        resolved_backend_id = "v8"
         v8_spec = None
         model = initialize(base_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
@@ -377,6 +395,7 @@ def _instantiate_checkpoint_bundle(
     return {
         "checkpoint_sha256": sha,
         "lineage_id": state.lineage_id,
+        "backend_id": resolved_backend_id,
         "global_update": state.global_update,
         "cumulative_tokens": state.cumulative_tokens,
         "curriculum_phase": state.curriculum_phase,
