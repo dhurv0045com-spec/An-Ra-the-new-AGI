@@ -1,0 +1,44 @@
+{
+  "campaign": "Avendi V8-Y3",
+  "scope": "CPU_QUALIFICATION_AND_FULL_DUAL_GPU_ORCHESTRATION_VERIFIED",
+  "branch": "exp/avendi-v8-y3",
+  "implementation_commit": "8eb6823c5fde5b37b26d2f2040e0e9d95fa54aa9",
+  "prior_implementation_commit": "a90cd32651378022dcc9127b2c7d4d083556ed87",
+  "technology_baseline": "ba1c0e978f890021a10e2365b61d5403bc486ce5",
+  "pinned_notebook": "notebooks/AVENDI_V8_Y3_T4X2.ipynb",
+  "full_orchestration": {
+    "jobs_total": 88,
+    "main_jobs": 54,
+    "short_fork_jobs": 24,
+    "p6_adapt_jobs": 9,
+    "p1_frozen_job": 1,
+    "full_scale_families": {"train": 1024, "dev": 256, "confirm": 256, "transfer": 256},
+    "full_scale_updates": {"main": 55296, "short_forks": 5376, "u19": 768, "p4_endpoint": 2304, "arkenstone": 2304},
+    "tier_dependencies": "Tier 0 runs P1 + P2/P3/P4/P6/P7-s20 (parents first) across cuda:0/cuda:1; Tier 1 unlocks P5 + P7-ark + P6-adapt after parents finish",
+    "cross_session_resume": "AVENDI_Y3_FULL.zip carries jobs/, studies/, and ckpts/; reconcile_verified_resume verifies archive SHA-256 and spec_sha256 with fail_on_rejection=True"
+  },
+  "acceptance": {
+    "doctor": "GREEN_SIGNAL",
+    "calibrate": "6/6 SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED",
+    "pytest_parallel": "24 passed in 293.47s (tests/test_avendi_y3.py + tests/test_elendril_tree.py + tests/test_planthir_v2_audit_upgrades.py)",
+    "avendi_y3_cli_chain": {
+      "status": "MATCHED",
+      "verified": true,
+      "result_zip_sha256": "bfd6413d8c6e4a57f7199ab246259d9bf58b5658806f7e60d11669cac363e984",
+      "checkpoint_full_zip_sha256": "e6a07f78b24ea321540d5d16450b9fbc55c1fb17f986714a4f0e8ac8fe0e85d1"
+    },
+    "clean_archive_launch": {
+      "main_jobs": 54,
+      "short_forks": 24,
+      "p6_adapt_jobs": 9,
+      "studies": 50,
+      "platform_uses": 44,
+      "init_status": "TEMPLATE_WRITTEN"
+    }
+  },
+  "pending_owner_gpu": [
+    "Kaggle 2xT4 FULL campaign execution via notebooks/AVENDI_V8_Y3_T4X2.ipynb (OWNER_AUTHORIZED = True)",
+    "Multi-session RESUME_INPUT handoff on any deferred PENDING_QUEUE.json jobs across 300-min sessions",
+    "Mounted ELENDRIL_V8_Y1_FULL.zip restoration for all 6 Y1 parents"
+  ]
+}
