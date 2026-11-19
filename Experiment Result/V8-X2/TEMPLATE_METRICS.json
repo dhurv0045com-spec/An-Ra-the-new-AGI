@@ -1,0 +1,35 @@
+{
+  "schema": "elendril-x2-metrics-template-v1",
+  "program": "ELENDRIL-V8-X2",
+  "qualification_stage": "CPU_QUALIFIED_READY_FOR_OWNER_CANARY",
+  "runtime_source_commit": "PENDING_COMMIT_A",
+  "legacy_x1_source_commit": "8e62ca0f2046c0f07910fdd20abee40508631227",
+  "notebook_path": "notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb",
+  "notebook_sha256": "PENDING_COMMIT_B",
+  "base_full_job_equivalents": 126,
+  "separate_ledgers": {
+    "evidenced_a0_jobs": 6,
+    "frozen_a0_diagnosis_jobs": 6,
+    "t14_routing_prep_jobs": 6,
+    "t13_transfer_parent_jobs": 48
+  },
+  "status_axes": {
+    "execution_status": "PENDING",
+    "delivery_status": "PENDING",
+    "scientific_status": "UNRUN",
+    "causal_status": "UNRESOLVED"
+  },
+  "primary_endpoints": {
+    "P2": "role_swapped_relevant_edit_both_correct",
+    "R2": "relation_dependent_first_operation_accuracy",
+    "U-P": "interior_edge_both_correct_4_5_hop",
+    "DM": "selective_edit_and_untouched_sibling_conjunction",
+    "PS": "t14_price_crossover_expected_utility_regret_reduction"
+  },
+  "owner_hardware_gates_pending": [
+    "live_2xT4_canary_and_replay_bundle_gate",
+    "dual_lane_physical_gpu_pinning_and_peak_vram_profile",
+    "full_s20_block_training_and_external_archive_custody",
+    "locked_confirmation_panel_scoring"
+  ]
+}

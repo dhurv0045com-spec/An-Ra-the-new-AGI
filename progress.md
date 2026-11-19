@@ -331,3 +331,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced `5d53b4a0` Planthir/V8-X1 updates (`compare_paired_episode_records`, `PairedSeedObservation`/`build_paired_seed_observations`/`run_paired_comparison_preflight`, `summarize_diagnostic_coverage`, `stratify_intervention_worlds`, `build_analyst_first_page_report`, `rescore_compact_analysis_archive` + `rescore-archive` CLI, `interpretation.py` unresolved-coverage/slice diagnosis, and `cartridge.py` convergence fix) while preserving `8e62ca0f` lazy `v8x` imports in `agent_tools.py`.
 - Preserved all existing `Elendril` `v8`/`v8x` modules, A0 owner results, tools, and notebooks.
 - Verified on CPU via `import anra_v5.elendril.v8x.data`, `tests/test_planthir_v2_audit_upgrades.py`, `tests/test_elendril_v8x_data_and_protocol.py`, `tests/test_elendril_tree.py`, and post-commit `python -m anra_v5.planthir doctor` (`GREEN_SIGNAL`); GPU pending.
+
+### 2026-11-19 | Antigravity | Fix Palantiri replay blocker and implement Elendril V8-X2 runtime
+- Repaired §0 independent replay (`REPLAY_REFERENCE.json`, backend-before-world resolution, strict `MISSING_BACKEND_PLUGIN` & `INSUFFICIENT_REPLAY_EVIDENCE` receipts, multi-step history checks) with fresh-subprocess CLI regression tests.
+- Implemented `experiments.elendril_x2` Palantiri plugin (5 S20 `<=5%`-overhead model pairs, Generator B, D1-H selective-edit, T13 FST + 512-law solver, T14 price-crossover + DP, 126-equivalent registry, 4-axis qualification).
+- Built `experiments/x2/campaign.py` (`CampaignOrchestrator` dual-source routing, verified resume, dual-clock admission) and `tools/build_elendril_x2_notebook.py` with all 6 failure-injection recovery tests; CPU-qualified, owner 2xT4 canary pending.
