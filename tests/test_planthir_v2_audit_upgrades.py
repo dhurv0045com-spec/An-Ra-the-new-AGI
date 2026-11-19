@@ -70,6 +70,8 @@ from anra_v5.planthir import (
     synthesize_scientific_interpretation,
     validate_spec_document,
     verify_crossover_fixture,
+    verify_full_mode_dispatch,
+    verify_session_archive,
     verify_shared_backbone_and_head_overhead,
 )
 from anra_v5.planthir.backend import _BACKENDS
@@ -1379,3 +1381,333 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
         "verify_shared_backbone_and_head_overhead",
     ):
         assert needle in root_doc
+
+
+def test_avendi_y3_postmortem_run_registered_plan_full_dispatch_session_verify_notebook_and_docs(tmp_path: Path) -> None:
+    import anra_v5.palantiri as pal
+    import anra_v5.planter as plt
+    import anra_v5.planthir as pla
+
+    commit_sha = "c" * 40
+    ds_counts = {"train_families": 1024, "val_families": 256, "test_families": 256}
+    jobs = [
+        SessionJob(
+            job_id=f"j_{arch}_s{seed}",
+            architecture=arch,
+            init_seed=seed,
+            order_seed=seed,
+            updates=100,
+            session="S1",
+            device="cuda:0",
+            extra={"eval_rows": 256, "dataset_counts": ds_counts},
+        )
+        for seed in (7, 19, 41)
+        for arch in ("CTRL", "TRT")
+    ]
+
+    def _runner(job: SessionJob, wroot: Path, device: str) -> dict:
+        ckpt = wroot / "ckpt.json"
+        ckpt.write_text(json.dumps({"job_id": job.job_id, "device": device}), encoding="utf-8")
+        return {
+            "exit_code": 0,
+            "completed_updates": job.updates,
+            "eval_rows": 256,
+            "dataset_counts": ds_counts,
+        }
+
+    # 1. CampaignOrchestrator.run_registered_plan: inventory_only + disposable profile + full run + no-full export
+    prof_seen_dirs: list[Path] = []
+
+    def _profile(sample_job: SessionJob, prof_dir: Path) -> float:
+        prof_seen_dirs.append(prof_dir)
+        (prof_dir / "prof_marker.txt").write_text(sample_job.job_id, encoding="utf-8")
+        return 24.0
+
+    inv_dir = tmp_path / "inv_run"
+    orch_inv = CampaignOrchestrator(
+        campaign_id="Y3-INV",
+        source_commit=commit_sha,
+        work_dir=inv_dir,
+        max_minutes=330.0,
+        reserve_minutes=45.0,
+        min_disk_bytes=1024,
+    )
+    inv_res = orch_inv.run_registered_plan(
+        jobs,
+        profile_fn=_profile,
+        per_job_disk_bytes=1024,
+        available_disk_bytes=10**8,
+        inventory_only=True,
+    )
+    assert inv_res["status"] == "INVENTORY_ONLY"
+    assert inv_res["dispatched_job_ids"] == []
+    assert prof_seen_dirs and not (inv_dir in prof_seen_dirs[0].parents or prof_seen_dirs[0] == inv_dir)
+    assert (inv_dir / "PREPARED_MANIFEST.json").is_file()
+    assert (inv_dir / "PENDING_QUEUE.json").is_file()
+    assert (inv_dir / "INVENTORY_PLAN.json").is_file()
+
+    # Full run with write_full_zip=False AND then default full run with all 4 archives
+    no_full_dir = tmp_path / "no_full_run"
+    res_no_full = CampaignOrchestrator(
+        campaign_id="Y3-NOFULL",
+        source_commit=commit_sha,
+        work_dir=no_full_dir,
+        max_minutes=330.0,
+        reserve_minutes=45.0,
+        min_disk_bytes=1024,
+    ).run_registered_plan(
+        jobs,
+        job_runner=_runner,
+        measured_seconds_per_update=24.0,
+        per_job_disk_bytes=1024,
+        available_disk_bytes=10**8,
+        export_prefix="NOFULL",
+        write_full_zip=False,
+    )
+    assert res_no_full["status"] == "COMPLETE"
+    assert "full" not in res_no_full["export_receipt"]["archives"]
+    assert set(res_no_full["archive_verifications"]) == {"summary", "evidence", "analysis"}
+
+    # 2. verify_full_mode_dispatch passing on healthy multi-session dual-GPU run_registered_plan wrapper
+    def _healthy_dispatch(work_dir: Path, *, session_minutes: float, resume_input=None) -> dict:
+        orch = CampaignOrchestrator(
+            campaign_id="Y3-DISPATCH",
+            source_commit=commit_sha,
+            work_dir=work_dir,
+            max_minutes=330.0,
+            reserve_minutes=45.0,
+            min_disk_bytes=1024,
+        )
+        return orch.run_registered_plan(
+            jobs,
+            job_runner=_runner,
+            devices=("cuda:0", "cuda:1"),
+            resume_input=resume_input,
+            profile_fn=_profile,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            outer_remaining_minutes=float(session_minutes),
+            export_prefix="Y3",
+        )
+
+    ok_disp = verify_full_mode_dispatch(
+        _healthy_dispatch,
+        expected_job_ids=[j.job_id for j in jobs],
+        expected_seeds=(7, 19, 41),
+        required_devices=("cuda:0", "cuda:1"),
+        min_dataset_counts=ds_counts,
+        tight_session_minutes=130.0,
+        full_session_minutes=300.0,
+        work_root=tmp_path / "verify_ok",
+    )
+    assert ok_disp["passed"] is True and ok_disp["defects"] == []
+    assert ok_disp["full_pass"]["dispatched_count"] == 6
+    assert set(ok_disp["full_pass"]["dispatched_devices"]) == {"cuda:0", "cuda:1"}
+    assert len(ok_disp["multi_session_resume"]["session_1_deferred"]) == 2
+    assert set(ok_disp["multi_session_resume"]["session_2_dispatched"]) == set(
+        ok_disp["multi_session_resume"]["session_1_deferred"]
+    )
+    assert json.loads((tmp_path / "verify_ok" / "session_2" / "PENDING_QUEUE.json").read_text(encoding="utf-8"))[
+        "pending_job_ids"
+    ] == []
+
+    # 3. Tampered spec_sha256 inside resume archive fails closed in run_registered_plan
+    s1_zip = Path(tmp_path / "verify_ok" / "session_1" / "exports" / "Y3_ANALYSIS.zip")
+    tamper_zip = tmp_path / "tampered_resume.zip"
+    ext_tamp = tmp_path / "ext_tamp"
+    safe_extract_planthir_archive(s1_zip, ext_tamp)
+    jr_doc = json.loads((ext_tamp / "JOB_RECEIPTS.json").read_text(encoding="utf-8"))
+    jr_doc["receipts"][0]["spec_sha256"] = "0" * 64
+    (ext_tamp / "JOB_RECEIPTS.json").write_text(json.dumps(jr_doc), encoding="utf-8")
+    with zipfile.ZipFile(tamper_zip, "w") as zf:
+        for f in sorted(ext_tamp.rglob("*")):
+            if f.is_file() and f.name not in ("BUNDLE_MANIFEST.json", "README_RESULTS.md", "SHA256SUMS"):
+                zf.write(f, arcname=f.relative_to(ext_tamp).as_posix())
+    with pytest.raises(ValueError, match="verified resume rejected jobs"):
+        CampaignOrchestrator(
+            campaign_id="Y3-TAMPER",
+            source_commit=commit_sha,
+            work_dir=tmp_path / "tamper_work",
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            jobs,
+            job_runner=_runner,
+            resume_input=tamper_zip,
+            measured_seconds_per_update=24.0,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+        )
+
+    # 4. verify_full_mode_dispatch fails closed on every FULL-mode compression/dispatch defect
+    def _bad_missing_and_serial(work_dir: Path, *, session_minutes: float, resume_input=None) -> dict:
+        return CampaignOrchestrator(
+            campaign_id="Y3-BAD1",
+            source_commit=commit_sha,
+            work_dir=work_dir,
+            max_minutes=330.0,
+            reserve_minutes=45.0,
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            [j for j in jobs if j.init_seed == 7],
+            job_runner=lambda job, wroot, dev: {
+                "exit_code": 0,
+                "completed_updates": job.updates,
+                "eval_rows": 32,
+                "dataset_counts": {"train_families": 32, "val_families": 8, "test_families": 8},
+            },
+            devices=("cuda:0",),
+            measured_seconds_per_update=1.0,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            outer_remaining_minutes=float(session_minutes),
+        )
+
+    with pytest.raises(ValueError, match="FULL-mode dispatch verification failed"):
+        verify_full_mode_dispatch(
+            _bad_missing_and_serial,
+            expected_job_ids=[j.job_id for j in jobs],
+            expected_seeds=(7, 19, 41),
+            required_devices=("cuda:0", "cuda:1"),
+            min_dataset_counts=ds_counts,
+            tight_session_minutes=60.0,
+        )
+    bad1_res = verify_full_mode_dispatch(
+        _bad_missing_and_serial,
+        expected_job_ids=[j.job_id for j in jobs],
+        expected_seeds=(7, 19, 41),
+        required_devices=("cuda:0", "cuda:1"),
+        min_dataset_counts=ds_counts,
+        tight_session_minutes=60.0,
+        raise_on_failure=False,
+    )
+    defect_text_1 = "\n".join(bad1_res["defects"])
+    for code in (
+        "MISSING_REGISTERED_JOBS",
+        "MISSING_GPU_LANES",
+        "SERIAL_DISPATCH_DETECTED",
+        "MISSING_REQUIRED_SEEDS",
+        "COMPRESSED_DATASET_DENOMINATOR:train_families:32<1024",
+        "TIGHT_SESSION_DID_NOT_DEFER_OVERFLOW",
+    ):
+        assert code in defect_text_1
+
+    def _bad_reexec_resume(work_dir: Path, *, session_minutes: float, resume_input=None) -> dict:
+        return CampaignOrchestrator(
+            campaign_id="Y3-BAD2",
+            source_commit=commit_sha,
+            work_dir=work_dir,
+            max_minutes=330.0,
+            reserve_minutes=45.0,
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            jobs,
+            job_runner=_runner,
+            devices=("cuda:0", "cuda:1"),
+            resume_input=None,  # Bug: ignores resume_input and re-runs all Session-1 jobs
+            measured_seconds_per_update=24.0,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            outer_remaining_minutes=float(session_minutes),
+        )
+
+    bad2_res = verify_full_mode_dispatch(
+        _bad_reexec_resume,
+        expected_job_ids=[j.job_id for j in jobs],
+        expected_seeds=(7, 19, 41),
+        required_devices=("cuda:0", "cuda:1"),
+        tight_session_minutes=130.0,
+        raise_on_failure=False,
+    )
+    assert any(d.startswith("RESUME_REEXECUTED_COMPLETED_JOBS") for d in bad2_res["defects"])
+
+    # 5. verify_session_archive checks v6 manifest, .sha256 sidecar, max_bytes, source commit & rejects plain ZIPs
+    ok_sum = Path(tmp_path / "verify_ok" / "full_pass" / "exports" / "Y3_SUMMARY.zip")
+    ver_ok = verify_session_archive(ok_sum, max_bytes=5 * 1024 * 1024, expected_source_commit=commit_sha)
+    assert ver_ok["verified"] is True and ver_ok["v6_manifest_verified"] is True and ver_ok["sidecar_verified"] is True
+
+    with pytest.raises(ValueError, match="exceeds cap"):
+        verify_session_archive(ok_sum, max_bytes=10)
+    with pytest.raises(ValueError, match="SOURCE_COMMIT_MISMATCH"):
+        verify_session_archive(ok_sum, expected_source_commit="d" * 40)
+    with pytest.raises(ValueError, match="MISSING_ARCHIVE_MEMBER"):
+        verify_session_archive(ok_sum, required_members=("DOES_NOT_EXIST.json",))
+
+    (ok_sum.parent / f"{ok_sum.name}.sha256").write_text("0" * 64 + f"  {ok_sum.name}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="SIDECAR_SHA256_MISMATCH"):
+        verify_session_archive(ok_sum)
+
+    plain_zip = tmp_path / "plain_cartridge_style.zip"
+    with zipfile.ZipFile(plain_zip, "w") as zf:
+        zf.writestr("ARCHIVE_MANIFEST.json", "{}")
+    with pytest.raises(ValueError, match="MISSING_SIDECAR_SHA256"):
+        verify_session_archive(plain_zip, require_sidecar_sha256=True)
+    with pytest.raises(ValueError, match="MISSING_V6_BUNDLE_MANIFEST"):
+        verify_session_archive(plain_zip, require_sidecar_sha256=False, require_v6_manifest=True)
+
+    # 6. Upgraded build_pinned_kaggle_notebook handles repo_url, FULL controls, and OWNER_AUTHORIZED=False dry-run
+    nb = build_pinned_kaggle_notebook(
+        source_commit=commit_sha,
+        title="Avendi V8-Y3 Kaggle",
+        launch_command="python -m experiments.avendi_y3.module --mode FULL",
+        owner_authorized=False,
+        repo_url="https://example.invalid/anra.git",
+        repo_dir="anra_repo",
+        campaign_mode="FULL",
+        session_minutes=300,
+        resume_input="/kaggle/input/s1/Y3_FULL.zip",
+        inventory_command="python -m experiments.avendi_y3.module --inventory-only",
+        preflight_canary_backend="x1_s20",
+        require_dual_gpu=True,
+        emit_file_links=True,
+    )
+    assert len(nb["cells"]) == 4
+    c1_src = "".join(nb["cells"][1]["source"])
+    gate_src = "".join(nb["cells"][2]["source"])
+    for needle in (
+        "'clone', '--no-checkout'",
+        "CAMPAIGN_MODE = 'FULL'",
+        "SESSION_MINUTES = 300",
+        "RESUME_INPUT = '/kaggle/input/s1/Y3_FULL.zip'",
+        "--inventory-only",
+    ):
+        assert needle in c1_src
+    assert "if REQUIRE_DUAL_GPU and globals().get('OWNER_AUTHORIZED', False):" in gate_src
+
+    # Executing the gate cell's dual-GPU guard under OWNER_AUTHORIZED=False with 0 visible GPUs does not raise
+    class _FakeCuda:
+        @staticmethod
+        def device_count() -> int:
+            return 0
+
+    class _FakeTorch:
+        cuda = _FakeCuda()
+
+    guard_only_src = gate_src.split("subprocess.check_call", 1)[0]
+    guard_only_src = "\n".join(ln for ln in guard_only_src.splitlines() if "import os," not in ln)
+    exec_ns = {"OWNER_AUTHORIZED": False, "torch": _FakeTorch()}
+    exec(guard_only_src, exec_ns)
+
+    # 7. Three-way agent.md parity + new Avendi Y3 post-mortem contract needles + alias parity
+    root_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
+    pkg_doc = (REPO_ROOT / "anra_v5" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    res_doc = (REPO_ROOT / "research" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    assert root_doc == pkg_doc == res_doc
+    for needle in (
+        "run_registered_plan",
+        "verify_full_mode_dispatch",
+        "verify_session_archive",
+        "SubgoalProbeSpec",
+        "forbidden_metadata_key",
+        "archive_sha256",
+        "job.worker_id",
+        "v5_model.core.initialize",
+        "UTF8.decode",
+        "pytest -n auto",
+        "2,500–3,200",
+    ):
+        assert needle in root_doc
+
+    assert pal.verify_full_mode_dispatch is pla.verify_full_mode_dispatch
+    assert plt.verify_full_mode_dispatch is pla.verify_full_mode_dispatch
+    assert pal.verify_session_archive is pla.verify_session_archive
+    assert plt.verify_session_archive is pla.verify_session_archive
