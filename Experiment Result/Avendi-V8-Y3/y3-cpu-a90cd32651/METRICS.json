@@ -1,0 +1,67 @@
+{
+  "campaign": "Avendi V8-Y3",
+  "scope": "CPU_QUALIFICATION_AND_PACKAGING_ONLY",
+  "branch": "exp/avendi-v8-y3",
+  "implementation_commit": "a90cd32651378022dcc9127b2c7d4d083556ed87",
+  "technology_baseline": "ba1c0e978f890021a10e2365b61d5403bc486ce5",
+  "handoff_base": "0c9342223afb421ea084c26bf8148f0247be3fd7",
+  "pinned_notebook": "notebooks/AVENDI_V8_Y3_T4X2.ipynb",
+  "line_counts": {
+    "experiments/avendi_y3/plan.py": 157,
+    "experiments/avendi_y3/tasks.py": 408,
+    "experiments/avendi_y3/models.py": 437,
+    "experiments/avendi_y3/module.py": 476,
+    "tests/test_avendi_y3.py": 237,
+    "total": 1715,
+    "limit": 1900
+  },
+  "acceptance": {
+    "doctor": "GREEN_SIGNAL",
+    "calibrate": "6/6 SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED",
+    "pytest_avendi_y3": "12 passed in 31.08s",
+    "pytest_full_repo": "560 passed, 1 skipped, 14 subtests passed in 3538.09s",
+    "clean_archive_launch": {
+      "plan_training_jobs": 54,
+      "inventory_studies": 50,
+      "init_status": "TEMPLATE_WRITTEN"
+    },
+    "cli_backends": {
+      "x1_s20": {
+        "gates_passed": true,
+        "verified": true,
+        "prediction_agreement_status": "MATCHED",
+        "result_zip_sha256": "1cb02de4a12d9168ece04d791e46ffdd91fe5612bac8911a34970955fc6e9949",
+        "checkpoint_full_zip_sha256": "573e05b4b8b645f9b03d9f1a7d41bb13f13fe64e734b0d7bdbf3fa1500ea563d"
+      },
+      "avendi_y3": {
+        "gates_passed": true,
+        "verified": true,
+        "prediction_agreement_status": "MATCHED",
+        "result_zip_sha256": "b35022add8cb7b5d998280149ad11b72d5ce35320539b8d7d597f1518aff4d42",
+        "checkpoint_full_zip_sha256": "7b0cd801917be9f6a49a3b33b288420e5310913e24aa5c9fbc3e0450db71f20c"
+      }
+    }
+  },
+  "canary_campaign": {
+    "status": "COMPLETE",
+    "mode": "CANARY",
+    "studies_executed": 50,
+    "studies_total": 50,
+    "platform_uses_executed": 44,
+    "platform_uses_total": 44,
+    "platform_use_statuses": ["PASS", "UNAVAILABLE_MISSING_PARENT"],
+    "rescore_verified": true,
+    "summary_zip_bytes": 5411,
+    "archive_sha256": {
+      "analysis": "a72806f89b9b58afe3d3b428de3fce12f707ca019ff9356afa442a347365d6ac",
+      "summary": "4d8d4a922b807a4e300e232be556fc439651c4c4f479b768ad1dc4fd1065bf5a",
+      "evidence": "38305b9846567b3e1f371784360d772c933a95c41739e3bdf1c12a905f420154",
+      "full": "617f3b7d3fe5a2f8976d12504b7e300cb9c81a5d868213665f30b78103098d0e"
+    }
+  },
+  "pending_owner_gpu": [
+    "Kaggle 2xT4 FULL profiling (8 warmup + 32 timed updates)",
+    "54 main GPU training jobs (55,296 updates) and 24 short forks (5,376 updates)",
+    "Mounted ELENDRIL_V8_Y1_FULL.zip restoration for P1 (6 lineages) and sealed confirmation outcomes"
+  ]
+}
