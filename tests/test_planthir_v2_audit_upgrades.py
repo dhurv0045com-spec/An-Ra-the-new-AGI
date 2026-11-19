@@ -70,6 +70,7 @@ from anra_v5.planthir import (
     synthesize_scientific_interpretation,
     validate_spec_document,
     verify_crossover_fixture,
+    verify_shared_backbone_and_head_overhead,
 )
 from anra_v5.planthir.backend import _BACKENDS
 from anra_v5.planthir.cartridge import CartridgeRunner
@@ -1106,3 +1107,93 @@ def test_codex_x1_a0_review_feedback_coverage_pairing_preflight_first_page_and_r
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["verified"] is True
     assert (cli_out / "RESULTS.md").is_file() and (cli_out / "METRICS.json").is_file()
+
+
+def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tmp_path: Path) -> None:
+    from hashlib import sha256 as _sha
+
+    orch = CampaignOrchestrator(
+        campaign_id="X2-DUAL-CLOCK",
+        source_commit="a" * 40,
+        work_dir=tmp_path / "camp_dual",
+        max_minutes=330.0,
+        reserve_minutes=45.0,
+        min_disk_bytes=1024,
+    )
+    jobs = [SessionJob(f"j{i}", "DELTA", 7 + i, 7 + i, 100, device="cuda:0") for i in range(6)]
+    plan = orch.admit_slice(
+        jobs,
+        measured_seconds_per_update=24.0,
+        per_job_disk_bytes=1024,
+        parallel_workers=2,
+        available_disk_bytes=10**8,
+        outer_remaining_minutes=130.0,
+    )
+    assert plan["admitted_job_ids"] == ["j0", "j1", "j2", "j3"]
+    assert plan["deferred_pending_job_ids"] == ["j4", "j5"]
+    assert plan["next_resumable_job_id"] == "j4"
+    assert (tmp_path / "camp_dual" / "PENDING_QUEUE.json").is_file()
+
+    good_zip = tmp_path / "j0.zip"
+    with zipfile.ZipFile(good_zip, "w") as zf:
+        zf.writestr("FINAL_STATUS.json", '{"status": "COMPLETE"}\n')
+    good_sha = _sha(good_zip.read_bytes()).hexdigest()
+    reg_rows = [
+        {"job_id": "j0", "source_commit": "a" * 40, "spec_sha256": "s0", "updates": 100},
+        {"job_id": "j1", "source_commit": "a" * 40, "spec_sha256": "s1", "updates": 100},
+        {"job_id": "j2", "source_commit": "a" * 40, "spec_sha256": "s2", "updates": 100},
+    ]
+    rec_res = orch.reconcile_verified_resume(
+        [
+            {"job_id": "j0", "source_commit": "a" * 40, "spec_sha256": "s0", "completed_updates": 100, "eval_rows": 64, "archive_path": str(good_zip), "archive_sha256": good_sha},
+            {"job_id": "j1", "source_commit": "a" * 40, "spec_sha256": "SWAPPED", "completed_updates": 100, "eval_rows": 64, "archive_path": str(good_zip), "archive_sha256": good_sha},
+            {"job_id": "j2", "source_commit": "a" * 40, "spec_sha256": "s2", "completed_updates": 100, "eval_rows": 64, "archive_path": str(good_zip), "archive_sha256": good_sha, "required_archive_members": ["MISSING.json"]},
+        ],
+        reg_rows,
+        required_archive_members=("FINAL_STATUS.json",),
+    )
+    assert rec_res["verified_completed_jobs"] == ["j0"]
+    assert rec_res["next_resumable_job_id"] == "j1"
+    rej_by_id = {r["job_id"]: r["reasons"] for r in rec_res["rejected_jobs"]}
+    assert "SWAPPED_SPEC_SHA256" in rej_by_id["j1"]
+    assert "MISSING_ARCHIVE_MEMBER:MISSING.json" in rej_by_id["j2"]
+
+    class _Wrap(nn.Module):
+        def __init__(self, seed: int, head_out: int) -> None:
+            super().__init__()
+            torch.manual_seed(seed)
+            self.core = nn.Linear(10, 10)
+            self.head = nn.Linear(10, head_out)
+    ok_bb = verify_shared_backbone_and_head_overhead(_Wrap(7, 1), _Wrap(7, 1), backbone_prefix="core.", max_head_overhead_ratio=0.15, max_control_parity_ratio=0.02)
+    assert ok_bb["passed"] is True and ok_bb["backbone_digest_match"] is True
+    bad_bb = verify_shared_backbone_and_head_overhead(_Wrap(7, 1), _Wrap(8, 1), backbone_prefix="core.")
+    assert bad_bb["passed"] is False and "BACKBONE_DIGEST_MISMATCH" in bad_bb["defects"]
+
+    nb = build_pinned_kaggle_notebook(
+        source_commit="a" * 40,
+        title="V8-X2 Kaggle",
+        launch_command="python -m experiments.elendril_x2.module",
+        extra_pinned_repos={"x1_worker": {"repo_url": "https://example.invalid/repo.git", "commit": "b" * 40}},
+        preflight_canary_backend="x1_s20",
+        require_dual_gpu=True,
+        emit_file_links=True,
+    )
+    assert len(nb["cells"]) == 5
+    nb_src = "\n".join("".join(c["source"]) for c in nb["cells"])
+    for tok in ("OWNER_AUTHORIZED = False", "device_count() >= 2", "replay-bundle", "FileLink"):
+        assert tok in nb_src
+
+    root_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
+    pkg_doc = (REPO_ROOT / "anra_v5" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    assert root_doc == pkg_doc
+    for needle in (
+        "Two-Agent Framework Protocol",
+        "6-Rule Zero-Degradation Specification",
+        "MANDATORY PALANTIRI BUILDER CONTRACT",
+        "policy.reset_episode()",
+        "in_process_runner",
+        "admit_slice",
+        "reconcile_verified_resume",
+        "verify_shared_backbone_and_head_overhead",
+    ):
+        assert needle in root_doc

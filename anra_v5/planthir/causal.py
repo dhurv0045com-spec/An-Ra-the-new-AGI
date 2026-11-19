@@ -229,14 +229,17 @@ def _run_single_episode(
     kernel: EnvironmentKernel,
     world: Mapping[str, Any],
 ) -> tuple[bool, tuple[str, str | None] | None, list[tuple[str, str | None]]]:
+    if callable(getattr(policy, "reset_episode", None)):
+        policy.reset_episode()  # type: ignore[attr-defined]
     state = kernel.initial_state(world)
     executed: list[tuple[str, str | None]] = []
-    for _ in range(8):
+    max_steps = int(getattr(kernel, "max_actions", 8) or 8)
+    for _ in range(max_steps):
         obs = kernel.observe(state)
         action = policy.propose_with_telemetry(obs)
         executed.append((action.operation, action.argument))
         state = kernel.step(state, action.operation, action.argument)
-        if getattr(state, "terminal", False):
+        if bool(state.get("terminal", False)) if isinstance(state, Mapping) else bool(getattr(state, "terminal", False)):
             break
     outcome = kernel.verify(world, executed)
     final_act = executed[-1] if executed else None
@@ -703,6 +706,23 @@ def run_representation_linear_probe(
     w_op = _fit_ridge_classifier(x_op_tr, y_op_tr, len(op_vocab), l2_reg=l2_reg)
     probe_op_acc = _eval_ridge_classifier(w_op, x_op_ev, y_op_ev)
 
+    def _extract_target_symbol(world: Mapping[str, Any]) -> str | None:
+        if callable(getattr(kernel, "target_symbol", None)):
+            exp_val = kernel.target_symbol(world)  # type: ignore[attr-defined]
+        else:
+            hidden = world.get("hidden")
+            exp_val = None
+            if isinstance(hidden, Mapping):
+                for key in ("expected", "expected_answer", "true_answer"):
+                    if hidden.get(key) is not None:
+                        exp_val = hidden.get(key)
+                        break
+            if exp_val is None:
+                exp_val = world.get("target")
+        if isinstance(exp_val, str) and len(exp_val) == 1 and exp_val in SYMBOLS:
+            return exp_val
+        return None
+
     def _collect_symbol_xy(
         worlds: Sequence[Mapping[str, Any]],
     ) -> tuple[torch.Tensor | None, torch.Tensor | None, torch.Tensor | None, list[bool]]:
@@ -711,8 +731,8 @@ def run_representation_linear_probe(
         y_final: list[int] = []
         head_ok: list[bool] = []
         for w in worlds:
-            exp = w.get("hidden", {}).get("expected")
-            if exp is None or exp not in SYMBOLS:
+            exp = _extract_target_symbol(w)
+            if exp is None:
                 continue
             vis_w = (
                 kernel.inject_oracle_information(w)  # type: ignore[attr-defined]
@@ -722,20 +742,25 @@ def run_representation_linear_probe(
             st = kernel.initial_state(vis_w)
             obs = kernel.observe(st)
             obs_list.append(obs)
-            y_final.append(SYMBOLS.index(str(exp)))
+            y_final.append(SYMBOLS.index(exp))
 
             subgoals = list(kernel.decompose_subgoals(vis_w))
             by_stage = {sg.stage_name: sg for sg in subgoals}
-            if "hop_1" in by_stage and by_stage["hop_1"].expected_argument in SYMBOLS:
-                y_hop1.append(SYMBOLS.index(str(by_stage["hop_1"].expected_argument)))
+            sg_arg = by_stage["hop_1"].expected_argument if "hop_1" in by_stage else None
+            if isinstance(sg_arg, str) and len(sg_arg) == 1 and sg_arg in SYMBOLS:
+                y_hop1.append(SYMBOLS.index(sg_arg))
             else:
-                y_hop1.append(SYMBOLS.index(str(exp)))
+                y_hop1.append(SYMBOLS.index(exp))
 
+            if callable(getattr(policy, "reset_episode", None)):
+                policy.reset_episode()
             act = policy.propose_with_telemetry(obs)
-            head_ok.append(act.operation == "ANSWER" and act.argument == str(exp))
+            head_ok.append(act.operation == "ANSWER" and act.argument == exp)
 
         if not obs_list:
             return None, None, None, []
+        if callable(getattr(policy, "reset_episode", None)):
+            policy.reset_episode()
         reps = policy.extract_representations(obs_list)["decision_hidden"]
         return (
             reps,
@@ -758,7 +783,7 @@ def run_representation_linear_probe(
         head_final_acc = sum(1 for ok in head_ev_ok if ok) / len(head_ev_ok)
 
     # Multi-hop only linear probe accuracy when multi-hop eval worlds are present
-    mh_eval = [w for w in eval_worlds if int(w.get("hops", 1)) >= 2 and w.get("hidden", {}).get("expected") in SYMBOLS]
+    mh_eval = [w for w in eval_worlds if int(w.get("hops", 1)) >= 2 and _extract_target_symbol(w) is not None]
     probe_mh_hop1: float | None = None
     probe_mh_final: float | None = None
     head_mh_final: float | None = None

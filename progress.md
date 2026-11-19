@@ -341,3 +341,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Generated `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` (`1f73d18de1bbd8ee1de6bc1cb81fa702767d083feaf291a043a5d9657eb9b951`) pinned to Commit A (`bfc3d9563fa91713888163c334301fe6e15ade78`) and legacy X1 worker (`8e62ca0f2046c0f07910fdd20abee40508631227`).
 - Verified byte-identical rebuild from `git archive bfc3d9563fa91713888163c334301fe6e15ade78`, zero-edit `OWNER_AUTHORIZED = True` with mandatory 2xT4 canary + `replay-bundle` gate, and disabled dry-run guard.
 - Status: `CPU_QUALIFIED_READY_FOR_OWNER_CANARY`; live 2xT4 GPU canary and S20 waves await owner Kaggle Run All.
+
+### 2026-11-19 | Antigravity | Sync Palantiri post-mortem upgrades and Two-Agent agent.md onto Elendril
+- Synced non-conflicting `f437b5a3` Palantiri upgrades (`causal.py`/`observatory.py` expected-symbol & `reset_episode()` guards, `runtime.py` `admit_slice()`, `reconcile_verified_resume()`, `verify_shared_backbone_and_head_overhead()`, multi-cell `build_pinned_kaggle_notebook()`, `__init__.py` export) plus Two-Agent `agent.md` (`anra_v5/planthir/agent.md` & `research/planthir/agent.md`).
+- Preserved all existing Elendril V8-X2 modules (`experiments/x2/*`), replay fixes (`7d49aeca` / `REPLAY_REFERENCE.json`), Commit A pinned notebook (`cb9a9159`), and regression tests untouched.
+- Verified on CPU via `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`) and `tests/test_planthir_v2_audit_upgrades.py`, `test_planthir_replay_blocker_regression.py`, `test_elendril_v8x_data_and_protocol.py`, `test_elendril_tree.py`; GPU pending.

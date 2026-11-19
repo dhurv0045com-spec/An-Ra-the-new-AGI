@@ -183,6 +183,7 @@ from .runtime import (
     render_campaign_results_markdown,
     rescore_compact_analysis_archive,
     safe_extract_planthir_archive,
+    verify_shared_backbone_and_head_overhead,
 )
 from .validation_study import (
     run_exp_001_fault_calibration,
@@ -352,6 +353,7 @@ __all__ = [
     "verify_provenance_identity",
     "verify_raw_evidence_chunks",
     "verify_result_bundle",
+    "verify_shared_backbone_and_head_overhead",
     "verify_single_planthir_zip",
     "verify_tier2_capsule",
     "write_tier1_summary",

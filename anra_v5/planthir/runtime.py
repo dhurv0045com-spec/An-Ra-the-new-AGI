@@ -814,6 +814,11 @@ class LogitsPolicy:
             )
         return actions
 
+    def reset_episode(self) -> None:
+        """Reset per-episode model/policy state if the underlying module tracks episodic buffers."""
+        if callable(getattr(self.model, "reset_episode", None)):
+            self.model.reset_episode()  # type: ignore[attr-defined]
+
     def extract_representations(self, obs_batch: Sequence[UniversalObservation]) -> dict[str, torch.Tensor]:
         _, hidden = self._forward_logits_and_hidden(obs_batch)
         return {"decision_hidden": hidden}
@@ -1103,7 +1108,18 @@ class ExperimentModule:
         )
 
     def create_kernel(self) -> EnvironmentKernel:
-        return self.kernel_factory()
+        kernel = self.kernel_factory()
+        if not callable(getattr(kernel, "ideal_action", None)):
+            try:
+                setattr(kernel, "ideal_action", lambda _state: ("ABSTAIN", None))
+            except Exception:
+                pass
+        if not callable(getattr(kernel, "decompose_subgoals", None)):
+            try:
+                setattr(kernel, "decompose_subgoals", lambda _world: ())
+            except Exception:
+                pass
+        return kernel
 
     def default_template(self, *, canary: bool = True) -> dict[str, Any]:
         ctrl_arch = self.architectures[0]
@@ -1383,13 +1399,19 @@ class ExperimentModule:
         mode: str = "raw",
         copy_enabled_override: bool | None = None,
     ) -> ObservablePolicy:
-        return self.policy_factory(
+        pol = self.policy_factory(
             model,
             model_spec,
             model_identity=model_identity,
             mode=mode,
             copy_enabled_override=copy_enabled_override,
         )
+        if not hasattr(pol, "policy_id"):
+            try:
+                setattr(pol, "policy_id", f"{self.backend_id}:{model_identity}:{mode}")
+            except Exception:
+                pass
+        return pol
 
     def extract_checkpoint_metadata(self, meta: Mapping[str, Any]) -> tuple[str, str, int | None, Any, None]:
         raw_ms = meta.get("model_spec", {})
@@ -1495,10 +1517,16 @@ class CampaignOrchestrator:
         per_job_disk_bytes: int = 128 * 1024 * 1024,
         parallel_workers: int = 2,
         available_disk_bytes: int | None = None,
+        outer_remaining_minutes: float | None = None,
     ) -> dict[str, Any]:
         total_updates = sum(int(j.updates) for j in jobs)
         est_minutes = ((total_updates * float(est_seconds_per_update)) / max(1, int(parallel_workers))) / 60.0
-        usable_minutes = max(0.0, self.max_minutes - self.reserve_minutes)
+        eff_max = (
+            min(self.max_minutes, float(outer_remaining_minutes))
+            if outer_remaining_minutes is not None
+            else self.max_minutes
+        )
+        usable_minutes = max(0.0, eff_max - self.reserve_minutes)
         free_disk = int(available_disk_bytes if available_disk_bytes is not None else measure_free_disk_bytes(self.work_dir))
         est_disk = len(jobs) * int(per_job_disk_bytes)
         time_ok = est_minutes <= usable_minutes
@@ -1510,6 +1538,7 @@ class CampaignOrchestrator:
             "status": "ADMITTED" if admitted else "DENIED",
             "estimated_wall_minutes": round(est_minutes, 3),
             "usable_wall_minutes": round(usable_minutes, 3),
+            "outer_remaining_minutes": (float(outer_remaining_minutes) if outer_remaining_minutes is not None else None),
             "free_disk_bytes": free_disk,
             "estimated_job_disk_bytes": est_disk,
             "min_disk_reserve_bytes": self.min_disk_bytes,
@@ -1519,6 +1548,165 @@ class CampaignOrchestrator:
         (self.work_dir / "ADMISSION_RECEIPT.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if not admitted:
             raise RuntimeError(f"campaign admission denied: time_ok={time_ok}, disk_ok={disk_ok}")
+        return receipt
+
+    def admit_slice(
+        self,
+        jobs: Sequence[SessionJob],
+        *,
+        measured_seconds_per_update: float,
+        per_job_disk_bytes: int,
+        parallel_workers: int = 2,
+        available_disk_bytes: int | None = None,
+        outer_remaining_minutes: float | None = None,
+        startup_overhead_seconds: float = 0.0,
+        export_reserve_bytes: int = 0,
+    ) -> dict[str, Any]:
+        """Greedily pack the largest whole-job prefix fitting dual wall clocks and disk reserves."""
+        if float(measured_seconds_per_update) <= 0.0:
+            raise ValueError("measured_seconds_per_update must be positive (supply warmed profile timing)")
+        if int(per_job_disk_bytes) <= 0:
+            raise ValueError("per_job_disk_bytes must be positive")
+        n_workers = max(1, int(parallel_workers))
+        eff_max = (
+            min(self.max_minutes, float(outer_remaining_minutes))
+            if outer_remaining_minutes is not None
+            else self.max_minutes
+        )
+        usable_minutes = max(0.0, eff_max - self.reserve_minutes)
+        free_disk = int(available_disk_bytes if available_disk_bytes is not None else measure_free_disk_bytes(self.work_dir))
+
+        lane_secs = [0.0 for _ in range(n_workers)]
+        admitted_ids: list[str] = []
+        deferred_ids: list[str] = []
+        packing_stopped = False
+        for job in jobs:
+            if packing_stopped:
+                deferred_ids.append(job.job_id)
+                continue
+            cand_lanes = list(lane_secs)
+            min_lane = min(range(n_workers), key=lambda idx: cand_lanes[idx])
+            cand_lanes[min_lane] += float(startup_overhead_seconds) + int(job.updates) * float(measured_seconds_per_update)
+            cand_minutes = max(cand_lanes) / 60.0
+            cand_disk = (len(admitted_ids) + 1) * int(per_job_disk_bytes) + int(export_reserve_bytes)
+            if cand_minutes <= usable_minutes and (free_disk - cand_disk) >= self.min_disk_bytes:
+                lane_secs = cand_lanes
+                admitted_ids.append(job.job_id)
+            else:
+                packing_stopped = True
+                deferred_ids.append(job.job_id)
+
+        est_minutes = (max(lane_secs) / 60.0) if admitted_ids else 0.0
+        est_disk = len(admitted_ids) * int(per_job_disk_bytes) + int(export_reserve_bytes)
+        plan = {
+            "schema": "anra-planthir-session-admission-plan-v1",
+            "campaign_id": self.campaign_id,
+            "source_commit": self.source_commit,
+            "admitted_job_ids": admitted_ids,
+            "deferred_pending_job_ids": deferred_ids,
+            "next_resumable_job_id": deferred_ids[0] if deferred_ids else None,
+            "admitted_count": len(admitted_ids),
+            "deferred_count": len(deferred_ids),
+            "measured_seconds_per_update": float(measured_seconds_per_update),
+            "estimated_wall_minutes": round(est_minutes, 3),
+            "usable_wall_minutes": round(usable_minutes, 3),
+            "session_max_minutes": self.max_minutes,
+            "outer_remaining_minutes": (float(outer_remaining_minutes) if outer_remaining_minutes is not None else None),
+            "reserve_minutes": self.reserve_minutes,
+            "free_disk_bytes": free_disk,
+            "estimated_disk_bytes": est_disk,
+            "min_disk_reserve_bytes": self.min_disk_bytes,
+        }
+        queue_doc = {
+            "schema": "anra-planthir-pending-queue-v1",
+            "campaign_id": self.campaign_id,
+            "pending_job_ids": deferred_ids,
+            "next_resumable_job_id": plan["next_resumable_job_id"],
+        }
+        (self.work_dir / "SESSION_ADMISSION_PLAN.json").write_text(
+            json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        (self.work_dir / "PENDING_QUEUE.json").write_text(
+            json.dumps(queue_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return plan
+
+    def reconcile_verified_resume(
+        self,
+        imported_receipts: Sequence[Mapping[str, Any]],
+        registry_rows: Sequence[Mapping[str, Any]],
+        *,
+        required_archive_members: Sequence[str] = (),
+        fail_on_rejection: bool = False,
+    ) -> dict[str, Any]:
+        """Verify imported job receipts (commit, spec, steps, eval rows, archive SHA/members) before skip-list rebuild."""
+        reg_by_id = {str(r["job_id"]): dict(r) for r in registry_rows}
+        verified_ids: list[str] = []
+        rejected: list[dict[str, Any]] = []
+
+        for raw in imported_receipts:
+            jid = str(raw.get("job_id", ""))
+            reg = reg_by_id.get(jid)
+            reasons: list[str] = []
+            if reg is None:
+                reasons.append("UNKNOWN_JOB_ID")
+            else:
+                expected_commit = str(reg.get("source_commit") or self.source_commit)
+                if str(raw.get("source_commit", "")) != expected_commit or expected_commit != self.source_commit:
+                    reasons.append("SOURCE_COMMIT_MISMATCH")
+                if reg.get("spec_sha256") and str(raw.get("spec_sha256", "")) != str(reg["spec_sha256"]):
+                    reasons.append("SWAPPED_SPEC_SHA256")
+                target_updates = int(reg.get("updates", 0))
+                if int(raw.get("completed_updates", 0)) < target_updates:
+                    reasons.append("INCOMPLETE_UPDATES")
+                if int(raw.get("eval_rows", 0)) <= 0:
+                    reasons.append("MISSING_EVAL_ROWS")
+                arch_raw = raw.get("archive_path")
+                if arch_raw:
+                    ap = Path(str(arch_raw))
+                    if not ap.is_file():
+                        reasons.append("MISSING_ARCHIVE_FILE")
+                    else:
+                        if raw.get("archive_sha256"):
+                            actual_sha = sha256(ap.read_bytes()).hexdigest()
+                            if actual_sha != str(raw["archive_sha256"]):
+                                reasons.append("ARCHIVE_SHA256_MISMATCH")
+                        req_members = tuple(raw.get("required_archive_members", ()) or required_archive_members)
+                        if req_members:
+                            with zipfile.ZipFile(ap, "r") as zf:
+                                z_names = set(zf.namelist())
+                            for mem in req_members:
+                                if str(mem) not in z_names:
+                                    reasons.append(f"MISSING_ARCHIVE_MEMBER:{mem}")
+                elif required_archive_members:
+                    reasons.append("MISSING_ARCHIVE_PATH")
+
+            if reasons:
+                rejected.append({"job_id": jid, "reasons": reasons})
+            elif jid not in verified_ids:
+                verified_ids.append(jid)
+
+        verified_sorted = sorted(verified_ids)
+        pending_ids = [str(r["job_id"]) for r in registry_rows if str(r["job_id"]) not in set(verified_sorted)]
+        (self.work_dir / "COMPLETED_JOBS.json").write_text(
+            json.dumps({"completed_jobs": verified_sorted}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        receipt = {
+            "schema": "anra-planthir-verified-resume-v1",
+            "campaign_id": self.campaign_id,
+            "source_commit": self.source_commit,
+            "verified_completed_jobs": verified_sorted,
+            "rejected_jobs": rejected,
+            "pending_job_ids": pending_ids,
+            "next_resumable_job_id": pending_ids[0] if pending_ids else None,
+        }
+        (self.work_dir / "VERIFIED_RESUME_RECEIPT.json").write_text(
+            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        if fail_on_rejection and rejected:
+            raise ValueError(f"verified resume rejected jobs: {rejected}")
         return receipt
 
     def run_waves(
@@ -1646,7 +1834,7 @@ class CampaignOrchestrator:
         else:
             import tempfile
 
-            with tempfile.TemporaryDirectory() as tmp:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
                 store_root = locate_checkpoint_store_root(
                     checkpoint_root_or_zip,
                     temp_extract_dir=Path(tmp),
@@ -1968,7 +2156,7 @@ def rescore_compact_analysis_archive(
         v6_verify_zip(zp)
         v6_verified = True
 
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         ext = Path(tmp) / "extracted"
         safe_extract_planthir_archive(zp, ext)
         metrics_path = ext / "METRICS.json"
@@ -2262,6 +2450,65 @@ def export_session_archives(
     return receipt
 
 
+def verify_shared_backbone_and_head_overhead(
+    control_model: nn.Module,
+    treatment_model: nn.Module,
+    *,
+    backbone_prefix: str = "core.",
+    max_head_overhead_ratio: float | None = 0.05,
+    max_control_parity_ratio: float | None = None,
+) -> dict[str, Any]:
+    """Verify byte-identical shared backbone tensor digests plus head-overhead and control parity budgets."""
+
+    def _summarize(mod: nn.Module) -> tuple[str, int, int, int]:
+        h = sha256()
+        bb_params = 0
+        head_params = 0
+        total_params = 0
+        for name, param in sorted(mod.named_parameters()):
+            n = int(param.numel())
+            total_params += n
+            if name.startswith(backbone_prefix):
+                bb_params += n
+                t = param.detach().cpu().contiguous()
+                raw = t.view(torch.int16).numpy().tobytes() if t.dtype == torch.bfloat16 else t.numpy().tobytes()
+                h.update(f"{name}:{tuple(t.shape)}:{t.dtype}:".encode("utf-8"))
+                h.update(raw)
+            else:
+                head_params += n
+        return h.hexdigest(), bb_params, head_params, total_params
+
+    c_sha, c_bb, c_head, c_tot = _summarize(control_model)
+    t_sha, t_bb, t_head, t_tot = _summarize(treatment_model)
+    defects: list[str] = []
+    if c_bb == 0 or t_bb == 0:
+        defects.append(f"MISSING_BACKBONE_PREFIX:{backbone_prefix}")
+    if c_sha != t_sha:
+        defects.append("BACKBONE_DIGEST_MISMATCH")
+    overhead_ratio = (float(t_head) / float(t_bb)) if t_bb > 0 else float("inf")
+    if max_head_overhead_ratio is not None and overhead_ratio > float(max_head_overhead_ratio):
+        defects.append(f"HEAD_OVERHEAD_EXCEEDED:{overhead_ratio:.4f}>{float(max_head_overhead_ratio):.4f}")
+    parity_diff_ratio = (abs(float(t_tot) - float(c_tot)) / float(max(c_tot, 1)))
+    if max_control_parity_ratio is not None and parity_diff_ratio > float(max_control_parity_ratio):
+        defects.append(f"CONTROL_PARITY_EXCEEDED:{parity_diff_ratio:.4f}>{float(max_control_parity_ratio):.4f}")
+    return {
+        "schema": "anra-planthir-backbone-overhead-v1",
+        "passed": len(defects) == 0,
+        "backbone_prefix": str(backbone_prefix),
+        "backbone_digest_match": c_sha == t_sha and c_bb > 0 and t_bb > 0,
+        "control_backbone_sha256": c_sha,
+        "treatment_backbone_sha256": t_sha,
+        "backbone_parameters": int(t_bb),
+        "control_head_parameters": int(c_head),
+        "treatment_head_parameters": int(t_head),
+        "treatment_head_overhead_ratio": round(overhead_ratio, 6) if math.isfinite(overhead_ratio) else None,
+        "total_parameters_control": int(c_tot),
+        "total_parameters_treatment": int(t_tot),
+        "control_parity_diff_ratio": round(parity_diff_ratio, 6),
+        "defects": defects,
+    }
+
+
 def build_pinned_kaggle_notebook(
     *,
     source_commit: str,
@@ -2270,6 +2517,12 @@ def build_pinned_kaggle_notebook(
     owner_authorized: bool = False,
     discover_kaggle_inputs: Sequence[str] = (),
     mirror_outputs_to_working: bool = False,
+    extra_pinned_repos: Mapping[str, Mapping[str, str]] | None = None,
+    preflight_canary_backend: str | None = None,
+    require_dual_gpu: bool = False,
+    working_export_globs: Sequence[str] = ("*.zip", "*.sha256", "FINAL_STATUS.json"),
+    emit_file_links: bool = False,
+    backend_modules: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Generate a deterministic, pinned Kaggle 2xT4 `.ipynb` notebook with explicit authorization guard."""
 
@@ -2278,11 +2531,14 @@ def build_pinned_kaggle_notebook(
     cmd_args = list(shlex.split(launch_command)) if isinstance(launch_command, str) else [str(x) for x in launch_command]
     auth_val = "True" if owner_authorized else "False"
     input_names = [str(x) for x in discover_kaggle_inputs]
+    export_globs = [str(x) for x in working_export_globs]
+    backend_mods = [str(x) for x in backend_modules]
     code_lines = [
         f"SOURCE_SHA = {source_commit!r}\n",
         f"OWNER_AUTHORIZED = {auth_val}\n",
         f"DISCOVER_INPUTS = {input_names!r}\n",
         f"MIRROR_WORKING = {bool(mirror_outputs_to_working)!r}\n",
+        f"EXPORT_GLOBS = {export_globs!r}\n",
         "if not OWNER_AUTHORIZED:\n",
         "    print('NOT LAUNCHED: set OWNER_AUTHORIZED = True before running GPU launch.')\n",
         "else:\n",
@@ -2295,9 +2551,70 @@ def build_pinned_kaggle_notebook(
         "            print('KAGGLE_INPUT', name, [str(p) for p in found])\n",
         f"    subprocess.check_call({cmd_args!r})\n",
         "    if MIRROR_WORKING and Path('/kaggle/working').is_dir():\n",
-        "        for p in sorted(Path('.').glob('*.zip')) + sorted(Path('.').glob('*.sha256')) + sorted(Path('.').glob('FINAL_STATUS.json')):\n",
-        "            shutil.copy2(p, Path('/kaggle/working') / p.name)\n",
+        "        for pat in EXPORT_GLOBS:\n",
+        "            for p in sorted(Path('.').glob(pat)):\n",
+        "                if p.is_file():\n",
+        "                    shutil.copy2(p, Path('/kaggle/working') / p.name)\n",
     ]
+    cells: list[dict[str, Any]] = [
+        {"cell_type": "markdown", "metadata": {}, "source": [f"# {title}\n", f"Pinned commit: `{source_commit}`\n"]},
+        {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": code_lines},
+    ]
+    if extra_pinned_repos:
+        repo_items = sorted((str(k), dict(v)) for k, v in extra_pinned_repos.items())
+        extra_lines = [
+            f"EXTRA_PINNED_REPOS = {repo_items!r}\n",
+            "import subprocess\n",
+            "from pathlib import Path\n",
+            "for name, cfg in EXTRA_PINNED_REPOS:\n",
+            "    dest = Path(cfg.get('dest', f'./pinned_{name}'))\n",
+            "    if not dest.exists():\n",
+            "        subprocess.check_call(['git', 'clone', cfg['repo_url'], str(dest)])\n",
+            "    subprocess.check_call(['git', 'checkout', cfg['commit']], cwd=str(dest))\n",
+            "    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=str(dest), text=True).strip()\n",
+            "    assert head == cfg['commit'], f'{name} HEAD mismatch: {head}'\n",
+        ]
+        cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": extra_lines})
+    if require_dual_gpu or preflight_canary_backend or backend_mods:
+        gate_lines = [
+            f"REQUIRE_DUAL_GPU = {bool(require_dual_gpu)!r}\n",
+            f"PREFLIGHT_BACKEND = {preflight_canary_backend!r}\n",
+            f"BACKEND_MODULES = {backend_mods!r}\n",
+            "import os, subprocess, sys, torch\n",
+            "from pathlib import Path\n",
+            "if BACKEND_MODULES:\n",
+            "    os.environ['PLANTHIR_BACKEND_MODULES'] = ','.join(BACKEND_MODULES)\n",
+            "if REQUIRE_DUAL_GPU:\n",
+            "    assert torch.cuda.device_count() >= 2, f'Expected >=2 GPUs, found {torch.cuda.device_count()}'\n",
+            "subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'doctor'])\n",
+            "if PREFLIGHT_BACKEND:\n",
+            "    cdir = Path('work/preflight_canary')\n",
+            "    cdir.mkdir(parents=True, exist_ok=True)\n",
+            "    spec_p = cdir / 'spec.json'\n",
+            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'init', '--backend', PREFLIGHT_BACKEND, '--out', str(spec_p)])\n",
+            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'validate', '--spec', str(spec_p), '--canary'])\n",
+            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'run', '--spec', str(spec_p), '--work-root', str(cdir / 'cpu'), '--canary', '--device', 'cpu'])\n",
+            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'verify-bundle', '--bundle-dir', str(cdir / 'cpu' / 'result_bundle')])\n",
+            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'replay-bundle', '--bundle-dir', str(cdir / 'cpu' / 'result_bundle'), '--output', str(cdir / 'REPLAY_RECEIPT.json')])\n",
+        ]
+        cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": gate_lines})
+    if emit_file_links:
+        link_lines = [
+            f"LINK_GLOBS = {export_globs!r}\n",
+            "from pathlib import Path\n",
+            "try:\n",
+            "    from IPython.display import FileLink, display\n",
+            "except Exception:\n",
+            "    FileLink = None\n",
+            "wdir = Path('/kaggle/working') if Path('/kaggle/working').is_dir() else Path('.')\n",
+            "for pat in LINK_GLOBS:\n",
+            "    for f in sorted(wdir.glob(pat)):\n",
+            "        if FileLink is not None:\n",
+            "            display(FileLink(str(f)))\n",
+            "        else:\n",
+            "            print('ARTIFACT:', f)\n",
+        ]
+        cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": link_lines})
     return {
         "nbformat": 4,
         "nbformat_minor": 5,
@@ -2306,10 +2623,7 @@ def build_pinned_kaggle_notebook(
             "language_info": {"name": "python", "version": "3.11"},
             "planthir_source_commit": source_commit,
         },
-        "cells": [
-            {"cell_type": "markdown", "metadata": {}, "source": [f"# {title}\n", f"Pinned commit: `{source_commit}`\n"]},
-            {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": code_lines},
-        ],
+        "cells": cells,
     }
 
 
@@ -2337,4 +2651,5 @@ __all__ = [
     "render_campaign_results_markdown",
     "rescore_compact_analysis_archive",
     "safe_extract_planthir_archive",
+    "verify_shared_backbone_and_head_overhead",
 ]
