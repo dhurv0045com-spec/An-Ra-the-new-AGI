@@ -2295,6 +2295,7 @@ def export_session_archives(
     rescore: Mapping[str, Any] | None = None,
     summary_max_bytes: int = 5 * 1024 * 1024,
     include_v6_manifest: bool | None = None,
+    write_full_zip: bool = True,
 ) -> dict[str, Any]:
     """Export hardened session bundles (and optional v6-verified SUMMARY/EVIDENCE/FULL ZIPs) with SHA-256 sidecars."""
 
@@ -2378,10 +2379,14 @@ def export_session_archives(
                     for arc_name, src_path in sorted(mapping.items()):
                         norm_arc = _validate_arc_name(arc_name)
                         zf.write(Path(src_path), arcname=norm_arc)
-            zip_bytes = tmp_zip.read_bytes()
-            if max_bytes is not None and len(zip_bytes) > int(max_bytes):
-                raise ValueError(f"{zpath.name} size {len(zip_bytes)} exceeds cap {max_bytes}")
-            raw_sha = sha256(zip_bytes).hexdigest()
+            zip_size = tmp_zip.stat().st_size
+            if max_bytes is not None and zip_size > int(max_bytes):
+                raise ValueError(f"{zpath.name} size {zip_size} exceeds cap {max_bytes}")
+            h = sha256()
+            with tmp_zip.open("rb") as fh:
+                while chunk := fh.read(1024 * 1024):
+                    h.update(chunk)
+            raw_sha = h.hexdigest()
             _atomic_replace(tmp_zip, zpath)
             (zpath.parent / f"{zpath.name}.sha256").write_text(f"{raw_sha}  {zpath.name}\n", encoding="utf-8")
             return raw_sha
@@ -2426,12 +2431,13 @@ def export_session_archives(
         archive_paths["evidence"] = str(e_zip)
         archive_hashes["evidence"] = e_sha
 
-    f_zip = out / f"{prefix}_FULL.zip"
-    f_sha = _write_zip(f_zip, f_map)
-    final_status["full_zip"] = f_zip.name
-    final_status["full_zip_sha256"] = f_sha
-    archive_paths["full"] = str(f_zip)
-    archive_hashes["full"] = f_sha
+    if write_full_zip:
+        f_zip = out / f"{prefix}_FULL.zip"
+        f_sha = _write_zip(f_zip, f_map)
+        final_status["full_zip"] = f_zip.name
+        final_status["full_zip_sha256"] = f_sha
+        archive_paths["full"] = str(f_zip)
+        archive_hashes["full"] = f_sha
 
     (out / "FINAL_STATUS.json").write_text(json.dumps(final_status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     receipt = {
@@ -2444,7 +2450,7 @@ def export_session_archives(
         "analysis_entries": sorted(a_map),
         "summary_entries": sorted(summary_files) if summary_files is not None else [],
         "evidence_entries": sorted(evidence_files) if evidence_files is not None else [],
-        "full_entries": sorted(f_map),
+        "full_entries": sorted(f_map) if write_full_zip else [],
     }
     (out / "DELIVERY_RECEIPT.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return receipt

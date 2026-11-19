@@ -355,3 +355,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-19 | Antigravity | Publish repaired V8-X2 Kaggle 2xT4 notebook (Commit B2)
 - Regenerated `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` pinned to Runtime Commit A2 (`df084bdca3417ba9892c8f5c726a5f405f6187d3`), verified byte-identical vs clean `git archive` export (13,969 bytes, SHA-256 `7d8c50e8ef12afb80d24345128ad1d45c407740ed9dd0037608e202366681b8d`).
 - Updated `Experiment Result/V8-X2/TEMPLATE_METRICS.json` and `research/v8-x2/IMPLEMENTATION_HANDOFF.md` with Commit A2 pin and Session 1 (no `/kaggle/input`) / Session 2+ workflow.
+
+### 2026-11-19 | Antigravity | Switch V8-X2 to 10h combined session with completed-job weight pruning and single complete results ZIP
+- Added `write_full_zip: bool = True` + streaming SHA-256 to `anra_v5/planthir/runtime.py`, `prune_completed_job_heavy_artifacts()` + `on_wave_complete` + `results_only` complete ZIP export to `experiments/x2/campaign.py`, and updated `tools/build_elendril_x2_notebook.py` (`600m`/`660m`/`45m` reserve, `0.65s/u`, `PER_JOB_DISK_MB=32`, 43 jobs in Run 1, per-wave `ELENDRIL_V8_X2_ANALYSIS.zip` refresh).
+- Verified `35 passed` across all 5 suites (`test_elendril_x2_campaign_and_recovery.py`, `test_elendril_x2_science_and_plugin.py`, `test_elendril_tree.py`, `test_planthir_resources_and_scheduler.py`, `test_planthir_v2_audit_upgrades.py`).

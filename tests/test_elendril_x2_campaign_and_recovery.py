@@ -12,6 +12,7 @@ import sys
 import tempfile
 import zipfile
 
+import numpy as np
 import pytest
 import torch
 
@@ -30,9 +31,10 @@ from experiments.x2.campaign import (
     compute_effective_budget_minutes,
     discover_kaggle_input_receipts,
     materialize_x2_job_spec,
+    prune_completed_job_heavy_artifacts,
 )
 from experiments.x2.registry import X1_LEGACY_SOURCE_SHA, build_x2_design_registry, evaluate_x2_qualification
-from tools.build_elendril_x2_notebook import build_notebook_dict, render_notebook_bytes
+from tools.build_elendril_x2_notebook import DEFAULT_X2_SESSIONS, build_notebook_dict, render_notebook_bytes
 from v5_training.checkpoint import CheckpointStore
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -324,9 +326,13 @@ def test_x2_kaggle_notebook_ast_zero_edit_default_and_disabled_dry_run() -> None
             if cell["cell_type"] == "code":
                 ast.parse("".join(cell["source"]))
 
-    # Zero-edit published notebook must arm OWNER_AUTHORIZED = True
+    # Zero-edit published notebook must arm OWNER_AUTHORIZED = True & 10h results-only defaults
     cfg_src = "".join(nb_on["cells"][1]["source"])
     assert "OWNER_AUTHORIZED = True" in cfg_src
+    assert "SESSION_MAX_MINUTES = 600" in cfg_src
+    assert "OUTER_MAX_MINUTES = 660" in cfg_src
+    assert "RESULTS_ONLY_EXPORT = True" in cfg_src
+    assert "PRUNE_COMPLETED_WEIGHTS = True" in cfg_src
     assert commit in cfg_src
     assert X1_LEGACY_SOURCE_SHA in cfg_src
 
@@ -537,4 +543,149 @@ def test_dual_gpu_cuda_visible_devices_and_backend_env_isolation(
     assert seen_env[rows[1]["job_id"]]["CUDA_VISIBLE_DEVICES"] == "1"
     assert seen_env[rows[0]["job_id"]]["PLANTHIR_BACKEND_MODULES"] == "experiments.elendril_x2"
     assert seen_env[rows[1]["job_id"]]["PLANTHIR_BACKEND_MODULES"] == "experiments.elendril_x2"
+
+
+def test_combined_10h_session_pruning_and_results_only_export(tmp_path: Path) -> None:
+    """Verify completed-job weight pruning, PARTIAL protection, results_only=True complete ZIP, and 43-job admission."""
+    commit = _head_commit()
+    camp = ElendrilX2Campaign(
+        source_commit=commit,
+        work_dir=tmp_path / "camp10h",
+        outer_max_minutes=660.0,
+        session_max_minutes=600.0,
+        export_reserve_minutes=45.0,
+    )
+    camp.prepare(DEFAULT_X2_SESSIONS)
+    (tmp_path / "camp10h" / "specs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "camp10h" / "specs" / "sample_spec.json").write_text('{"ok": true}\n', encoding="utf-8")
+
+    rows_leg = [r for r in camp.select_session_rows(["A1"]) if r["backend_id"] == "x1_s20_legacy"]
+    leg_done_row = rows_leg[0]
+    leg_partial_row = rows_leg[1]
+    x2_row = next(r for r in camp.select_session_rows(["IIIb-DM"]))
+
+    # 1. Completed legacy X1 job with heavy weights alongside complete results/episodes
+    ld_jid = leg_done_row["job_id"]
+    ld_root = tmp_path / "camp10h" / "jobs" / ld_jid
+    ld_sub = ld_root / "jobs" / ld_jid
+    (ld_sub / "milestones" / "u2368").mkdir(parents=True, exist_ok=True)
+    (ld_root / "checkpoints" / ld_jid / "objects" / "abc").mkdir(parents=True, exist_ok=True)
+    (ld_root / "shared_backbones").mkdir(parents=True, exist_ok=True)
+    (ld_sub / "job.json").write_text(
+        json.dumps(
+            {
+                "job_id": ld_jid,
+                "status": "COMPLETE",
+                "source_commit": X1_LEGACY_SOURCE_SHA,
+                "completed_updates": 2368,
+                "model_spec_sha256": leg_done_row["extra"]["legacy_model_spec_sha256"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (ld_sub / "updates.jsonl").write_text('{"update": 1, "loss": 0.4}\n', encoding="utf-8")
+    (ld_sub / "milestones" / "u2368" / "episodes.jsonl").write_text('{"correct": false}\n' * 4, encoding="utf-8")
+    (ld_sub / "milestones" / "u2368" / "summary.json").write_text('{"accuracy": 0.75}\n', encoding="utf-8")
+    (ld_sub / "milestones" / "u2368" / "model_inference.bin").write_bytes(b"WEIGHTS" * 100)
+    (ld_root / "checkpoints" / ld_jid / "objects" / "abc" / "optimizer.bin").write_bytes(b"OPT" * 100)
+    (ld_root / "shared_backbones" / "init.bin").write_bytes(b"BB" * 100)
+
+    # 2. Completed X2 job with probes.npz + result.zip + heavy checkpoint_full.zip/generations/checkpoints
+    x2_jid = x2_row["job_id"]
+    x2_root = tmp_path / "camp10h" / "jobs" / x2_jid
+    (x2_root / "evidence_bundles" / "TRT" / "tier2_capsule").mkdir(parents=True, exist_ok=True)
+    (x2_root / "result_bundle" / "generations" / "gen-0001").mkdir(parents=True, exist_ok=True)
+    (x2_root / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (x2_root / "FINAL_RECEIPT.json").write_text(
+        json.dumps({"status": "COMPLETE", "source_commit": commit}) + "\n", encoding="utf-8"
+    )
+    (x2_root / "ARM_RESULTS.json").write_text(
+        json.dumps(
+            {
+                "CTRL": {"milestones": [{"global_update": 2368}], "process_funnel": {"episodes": 6}},
+                "TRT": {"milestones": [{"global_update": 2368}], "process_funnel": {"episodes": 6}},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    np.savez(x2_root / "evidence_bundles" / "TRT" / "tier2_capsule" / "probes.npz", acts=np.zeros((2, 3)))
+    (x2_root / "result_bundle" / "CURRENT.json").write_text('{"current_generation": "gen-0001"}\n', encoding="utf-8")
+    (x2_root / "result_bundle" / "result.zip").write_bytes(b"RESULT_ZIP_BYTES")
+    (x2_root / "result_bundle" / "checkpoint_full.zip").write_bytes(b"FULL_CKPT" * 100)
+    (x2_root / "result_bundle" / "generations" / "gen-0001" / "checkpoint_full.zip").write_bytes(b"GEN_CKPT" * 100)
+    (x2_root / "checkpoints" / "model.bin").write_bytes(b"CKPT_BIN" * 100)
+
+    # 3. PARTIAL legacy X1 job — must NEVER be pruned
+    lp_jid = leg_partial_row["job_id"]
+    lp_root = tmp_path / "camp10h" / "jobs" / lp_jid
+    (lp_root / "jobs" / lp_jid).mkdir(parents=True, exist_ok=True)
+    (lp_root / "checkpoints" / "state").mkdir(parents=True, exist_ok=True)
+    (lp_root / "jobs" / lp_jid / "job.json").write_text(
+        json.dumps({"job_id": lp_jid, "status": "PARTIAL", "completed_updates": 64}) + "\n",
+        encoding="utf-8",
+    )
+    partial_opt = lp_root / "checkpoints" / "state" / "optimizer.bin"
+    partial_opt.write_bytes(b"KEEP_PARTIAL_OPT")
+
+    p_ld = prune_completed_job_heavy_artifacts(ld_root)
+    p_x2 = prune_completed_job_heavy_artifacts(x2_root)
+    p_lp = prune_completed_job_heavy_artifacts(lp_root)
+
+    assert p_ld["pruned"] is True and p_ld["bytes_freed"] > 0
+    assert not (ld_sub / "milestones" / "u2368" / "model_inference.bin").exists()
+    assert not (ld_root / "checkpoints").exists()
+    assert not (ld_root / "shared_backbones").exists()
+    assert (ld_sub / "job.json").is_file()
+    assert (ld_sub / "updates.jsonl").is_file()
+    assert (ld_sub / "milestones" / "u2368" / "episodes.jsonl").is_file()
+    assert (ld_sub / "milestones" / "u2368" / "summary.json").is_file()
+
+    assert p_x2["pruned"] is True and p_x2["bytes_freed"] > 0
+    assert not (x2_root / "checkpoints").exists()
+    assert not (x2_root / "result_bundle" / "generations").exists()
+    assert not (x2_root / "result_bundle" / "checkpoint_full.zip").exists()
+    assert (x2_root / "FINAL_RECEIPT.json").is_file()
+    assert (x2_root / "ARM_RESULTS.json").is_file()
+    assert (x2_root / "evidence_bundles" / "TRT" / "tier2_capsule" / "probes.npz").is_file()
+    assert (x2_root / "result_bundle" / "result.zip").is_file()
+
+    assert p_lp["pruned"] is False and p_lp["bytes_freed"] == 0
+    assert partial_opt.is_file()
+
+    out_dir = tmp_path / "out_results_only"
+    delivery = camp.export_archives(out_dir, prefix="ELENDRIL_V8_X2", status="PARTIAL", results_only=True)
+    assert "full" not in delivery["archives"]
+    assert not (out_dir / "ELENDRIL_V8_X2_FULL.zip").exists()
+    a_zip = Path(delivery["archives"]["analysis"])
+    assert a_zip.is_file()
+
+    with zipfile.ZipFile(a_zip, "r") as zf:
+        names = set(zf.namelist())
+    assert f"jobs/{ld_jid}/jobs/{ld_jid}/job.json" in names
+    assert f"jobs/{ld_jid}/jobs/{ld_jid}/updates.jsonl" in names
+    assert f"jobs/{ld_jid}/jobs/{ld_jid}/milestones/u2368/episodes.jsonl" in names
+    assert f"jobs/{ld_jid}/jobs/{ld_jid}/milestones/u2368/summary.json" in names
+    assert f"jobs/{x2_jid}/FINAL_RECEIPT.json" in names
+    assert f"jobs/{x2_jid}/ARM_RESULTS.json" in names
+    assert f"jobs/{x2_jid}/evidence_bundles/TRT/tier2_capsule/probes.npz" in names
+    assert f"jobs/{x2_jid}/result_bundle/result.zip" in names
+    assert "specs/sample_spec.json" in names
+    assert not any(n.endswith(".bin") or n.endswith("checkpoint_full.zip") for n in names)
+
+    discovered = discover_kaggle_input_receipts(out_dir, tmp_path / "ext_ro", camp.registry)
+    res_rec = build_verified_resume_set(
+        registry=camp.registry, work_dir=tmp_path / "res_ro", imported_receipts=discovered
+    )
+    assert set(res_rec["verified_completed_ids"]) == {ld_jid, x2_jid}
+
+    plan_10h = camp.admit_slice(
+        DEFAULT_X2_SESSIONS,
+        measured_seconds_per_update=0.65,
+        measured_per_job_disk_bytes=32 * 1024 * 1024,
+        parallel_workers=2,
+        available_disk_bytes=15 * 1024**3,
+    )
+    assert len(plan_10h["admitted_job_ids"]) == 43
 

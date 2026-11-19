@@ -7,6 +7,7 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import time
@@ -627,6 +628,76 @@ def discover_kaggle_input_receipts(
     return [receipts_by_job[k] for k in sorted(receipts_by_job)]
 
 
+def prune_completed_job_heavy_artifacts(job_work_dir: Path | str) -> dict[str, Any]:
+    """Prune heavy weight/optimizer binaries for VERIFIED COMPLETE jobs while preserving all results/episodes/probes."""
+    jroot = Path(job_work_dir)
+    if not jroot.is_dir():
+        return {"pruned": False, "files_removed": 0, "bytes_freed": 0}
+
+    x2_complete = False
+    final_rec = jroot / "FINAL_RECEIPT.json"
+    if final_rec.is_file():
+        try:
+            doc = json.loads(final_rec.read_text(encoding="utf-8"))
+            x2_complete = doc.get("status") == "COMPLETE"
+        except Exception:
+            x2_complete = False
+
+    x1_complete = False
+    jobs_sub = jroot / "jobs"
+    if jobs_sub.is_dir():
+        for jpath in jobs_sub.glob("*/job.json"):
+            try:
+                doc = json.loads(jpath.read_text(encoding="utf-8"))
+                if doc.get("status") == "COMPLETE":
+                    x1_complete = True
+                    break
+            except Exception:
+                continue
+
+    if not x2_complete and not x1_complete:
+        return {"pruned": False, "files_removed": 0, "bytes_freed": 0}
+
+    files_removed = 0
+    bytes_freed = 0
+
+    def _rm_file(path: Path) -> None:
+        nonlocal files_removed, bytes_freed
+        if path.is_file():
+            try:
+                bytes_freed += path.stat().st_size
+                path.unlink()
+                files_removed += 1
+            except OSError:
+                pass
+
+    def _rm_tree(dpath: Path) -> None:
+        nonlocal files_removed, bytes_freed
+        if dpath.is_dir():
+            for child in dpath.rglob("*"):
+                if child.is_file():
+                    try:
+                        bytes_freed += child.stat().st_size
+                        files_removed += 1
+                    except OSError:
+                        pass
+            shutil.rmtree(dpath, ignore_errors=True)
+
+    if x2_complete:
+        _rm_tree(jroot / "checkpoints")
+        _rm_tree(jroot / "result_bundle" / "generations")
+        _rm_file(jroot / "result_bundle" / "checkpoint_full.zip")
+        _rm_file(jroot / "result_bundle" / "checkpoint_full.zip.sha256")
+    if x1_complete:
+        _rm_tree(jroot / "checkpoints")
+        _rm_tree(jroot / "shared_backbones")
+        if jobs_sub.is_dir():
+            for bin_path in list(jobs_sub.rglob("*.bin")):
+                _rm_file(bin_path)
+
+    return {"pruned": True, "files_removed": files_removed, "bytes_freed": bytes_freed}
+
+
 def run_a0_historical_rescore(a0_analysis_zip: Path | str, out_json: Path | str) -> dict[str, Any]:
     """Run curated §0.1 A0 rescorer (`tools/rescore_x1_a0.py`) expecting 31,488 rescored episodes."""
     out_p = Path(out_json)
@@ -808,6 +879,8 @@ class ElendrilX2Campaign:
         deadline_epoch: float | None = None,
         fail_fast_on_empty_wave: bool = True,
         legacy_updates_override: int | None = None,
+        prune_completed_heavy_artifacts: bool = False,
+        on_wave_complete: Callable[[int, Mapping[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         specs_dir = self.work_dir / "specs"
         specs_dir.mkdir(parents=True, exist_ok=True)
@@ -942,6 +1015,20 @@ class ElendrilX2Campaign:
                 )
                 break
 
+            if prune_completed_heavy_artifacts and rec.get("succeeded_workers"):
+                wave_freed = 0
+                for wid in rec["succeeded_workers"]:
+                    p_info = prune_completed_job_heavy_artifacts(self.work_dir / "jobs" / wid)
+                    wave_freed += int(p_info.get("bytes_freed", 0))
+                if wave_freed > 0:
+                    print(
+                        f"Pruned completed weights for wave {w_idx + 1}: freed {wave_freed / (1024 ** 2):.1f} MB",
+                        flush=True,
+                    )
+
+            if on_wave_complete is not None:
+                on_wave_complete(w_idx, rec)
+
         unfinished = [j.job_id for j in jobs if j.job_id not in completed]
         failed_workers = [
             wid
@@ -971,8 +1058,9 @@ class ElendrilX2Campaign:
         *,
         prefix: str = "ELENDRIL_V8_X2",
         status: str = "COMPLETE",
+        results_only: bool = False,
     ) -> dict[str, Any]:
-        """Export verified compact ANALYSIS + FULL ZIPs with external FINAL_STATUS.json & DELIVERY_RECEIPT.json."""
+        """Export verified complete ANALYSIS ZIP (and FULL ZIP unless results_only=True) with SHA-256 receipts."""
         analysis_files: dict[str, Path] = {}
         full_files: dict[str, Path] = {}
         for fname in (
@@ -983,6 +1071,7 @@ class ElendrilX2Campaign:
             "CAMPAIGN_STATUS.json",
             "VERIFIED_RESUME_RECEIPT.json",
             "ADMISSION_RECEIPT.json",
+            "PREFLIGHT_REPLAY_RECEIPT.json",
         ):
             p = self.work_dir / fname
             if p.is_file():
@@ -999,11 +1088,29 @@ class ElendrilX2Campaign:
             ):
                 continue
             if rel.startswith("specs/"):
-                full_files[rel] = p
+                if results_only:
+                    analysis_files[rel] = p
+                else:
+                    full_files[rel] = p
                 continue
             if not rel.startswith("jobs/") or len(parts) < 2:
                 continue
             jid = parts[1]
+            if results_only:
+                if (
+                    rel.startswith(f"jobs/{jid}/checkpoints/")
+                    or rel.startswith(f"jobs/{jid}/result_bundle/generations/")
+                    or rel.startswith(f"jobs/{jid}/shared_backbones/")
+                    or p.suffix == ".bin"
+                    or p.name in ("checkpoint_full.zip", "checkpoint_full.zip.sha256")
+                ):
+                    continue
+                if p.suffix in (".json", ".jsonl", ".md", ".npz") or rel in (
+                    f"jobs/{jid}/result_bundle/result.zip",
+                    f"jobs/{jid}/result_bundle/result.zip.sha256",
+                ):
+                    analysis_files[rel] = p
+                continue
             if jid not in x2_bundle_cache:
                 x2_bundle_cache[jid] = (self.work_dir / "jobs" / jid / "result_bundle" / "CURRENT.json").is_file()
             if x2_bundle_cache[jid] and (
@@ -1024,11 +1131,12 @@ class ElendrilX2Campaign:
             output_dir,
             prefix=prefix,
             analysis_files=analysis_files,
-            full_files=full_files,
+            full_files=None if results_only else full_files,
             status=status,
             source_commit=self.source_commit,
             protocol_sha256=self.registry["registry_sha256"],
             include_v6_manifest=True,
+            write_full_zip=not results_only,
         )
 
 
