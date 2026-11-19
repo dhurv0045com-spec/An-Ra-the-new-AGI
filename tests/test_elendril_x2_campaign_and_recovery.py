@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import zipfile
 
 import pytest
@@ -27,6 +28,7 @@ from experiments.x2.campaign import (
     build_verified_resume_set,
     build_x2_palantiri_command,
     compute_effective_budget_minutes,
+    discover_kaggle_input_receipts,
     materialize_x2_job_spec,
 )
 from experiments.x2.registry import X1_LEGACY_SOURCE_SHA, build_x2_design_registry, evaluate_x2_qualification
@@ -295,6 +297,9 @@ def test_dual_source_routing_and_dual_clock_admission(tmp_path: Path) -> None:
     assert leg_cmd["lane_kind"] == "legacy_x1_worker"
     assert leg_cmd["source_commit"] == X1_LEGACY_SOURCE_SHA
     assert "tools.elendril_v8x_worker" in leg_cmd["command"]
+    assert "run-job" in leg_cmd["command"]
+    assert "--source" in leg_cmd["command"]
+    assert "--session" not in leg_cmd["command"]
 
     x2_row = next(r for r in camp.registry["jobs"] if r["session"] == "IIIb-DM")
     spec_info = materialize_x2_job_spec(x2_row, tmp_path / "x2.json", source_commit=commit, canary=True)
@@ -338,3 +343,198 @@ def test_x2_kaggle_notebook_ast_zero_edit_default_and_disabled_dry_run() -> None
         sys.stdout = old_stdout
     out = buf.getvalue()
     assert "NOT LAUNCHED:" in out
+
+
+def test_paired_x2_deduplication_and_double_update_billing(tmp_path: Path) -> None:
+    """Paired elendril_x2 sessions schedule 1 unit per (session, seed) billed at 2x updates for both arms."""
+    commit = _head_commit()
+    camp = ElendrilX2Campaign(source_commit=commit, work_dir=tmp_path / "work")
+
+    dedup_rows = camp.select_session_rows(["IIIb-DM"], deduplicate_paired_x2=True)
+    raw_rows = camp.select_session_rows(["IIIb-DM"], deduplicate_paired_x2=False)
+    assert len(raw_rows) == 6
+    assert len(dedup_rows) == 3
+    assert all(r["architecture"] == "DM" and r["control_architecture"] == "DM-add" for r in dedup_rows)
+
+    sjobs = camp.to_session_jobs(dedup_rows)
+    assert all(j.updates == 2 * 2368 for j in sjobs)
+    assert all(j.extra["single_arm_updates"] == 2368 for j in sjobs)
+
+
+def test_discover_kaggle_input_receipts_and_fail_fast_diagnostics(tmp_path: Path) -> None:
+    """Verify mounted Kaggle input archive discovery and all-failing-wave fail-fast diagnostics."""
+    commit = _head_commit()
+    camp_src = ElendrilX2Campaign(source_commit=commit, work_dir=tmp_path / "src_camp")
+    legacy_row = next(r for r in camp_src.registry["jobs"] if r["session"] == "A1")
+    x2_row = next(r for r in camp_src.registry["jobs"] if r["session"] == "IIIb-DM")
+
+    leg_jid = legacy_row["job_id"]
+    leg_dir = tmp_path / "src_camp" / "jobs" / leg_jid / "jobs" / leg_jid
+    (leg_dir / "u2368").mkdir(parents=True, exist_ok=True)
+    (leg_dir / "job.json").write_text(
+        json.dumps(
+            {
+                "job_id": leg_jid,
+                "status": "COMPLETE",
+                "source_commit": X1_LEGACY_SOURCE_SHA,
+                "completed_updates": 2368,
+                "model_spec_sha256": legacy_row["extra"]["legacy_model_spec_sha256"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (leg_dir / "u2368" / "episodes.jsonl").write_text('{"ok": true}\n' * 8, encoding="utf-8")
+
+    x2_jid = x2_row["job_id"]
+    x2_dir = tmp_path / "src_camp" / "jobs" / x2_jid
+    (x2_dir / "evidence_bundles" / "TRT" / "tier1_summary").mkdir(parents=True, exist_ok=True)
+    (x2_dir / "RUN_STATUS.json").write_text(
+        json.dumps({"status": "COMPLETE", "campaign_id": x2_jid, "source_commit": commit, "completed_updates": 2368}) + "\n",
+        encoding="utf-8",
+    )
+    (x2_dir / "evidence_bundles" / "TRT" / "tier1_summary" / "SCIENTIFIC_SUMMARY.json").write_text(
+        json.dumps({"process_funnel": {"total_worlds": 12}}) + "\n",
+        encoding="utf-8",
+    )
+
+    k_in = tmp_path / "kaggle_input" / "prev_session"
+    camp_src.export_archives(k_in, prefix="ELENDRIL_V8_X2", status="PARTIAL")
+
+    camp_dst = ElendrilX2Campaign(source_commit=commit, work_dir=tmp_path / "dst_camp")
+    discovered = discover_kaggle_input_receipts(k_in, tmp_path / "ext", camp_dst.registry)
+    res_rec = build_verified_resume_set(registry=camp_dst.registry, work_dir=tmp_path / "dst_camp", imported_receipts=discovered)
+    assert set(res_rec["verified_completed_ids"]) == {leg_jid, x2_jid}
+
+    # All-failing wave must abort remaining waves immediately and surface diagnostics
+    def _fail_runner(spec: Any) -> dict[str, Any]:
+        spec.work_root.mkdir(parents=True, exist_ok=True)
+        return {"exit_code": 2, "stderr": "argparse: unrecognized arguments: --bogus"}
+
+    fail_camp = ElendrilX2Campaign(source_commit=commit, work_dir=tmp_path / "fail_camp", in_process_runner=_fail_runner)
+    rows_4 = fail_camp.select_session_rows(["A1"])[:4]
+    summary = fail_camp.run_admitted_waves(
+        fail_camp.to_session_jobs(rows_4),
+        devices=("cuda:0", "cuda:1"),
+        canary=True,
+        fail_fast_on_empty_wave=True,
+    )
+    assert summary["completed_count"] == 0
+    assert summary["stopped_reason"] == "FAIL_FAST_ALL_WORKERS_IN_WAVE_FAILED"
+    assert len(summary["waves"]) == 1
+    assert len(summary["failed_worker_diagnostics"]) == 2
+    assert "unrecognized arguments" in summary["failed_worker_diagnostics"][0]["stderr_tail"]
+
+
+def test_real_subprocess_legacy_x1_worker_8e62ca0f_runs_cleanly() -> None:
+    """Execute the REAL pinned 8e62ca0f legacy X1 worker subprocess (no mock!) with isolated cwd/PYTHONPATH."""
+    with tempfile.TemporaryDirectory(prefix="x2leg_") as td:
+        root_tmp = Path(td)
+        legacy_dir = root_tmp / "legacy_x1"
+        subprocess.run(["git", "clone", "--no-checkout", str(REPO_ROOT), str(legacy_dir)], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(legacy_dir), "checkout", "--detach", X1_LEGACY_SOURCE_SHA], check=True, capture_output=True)
+
+        commit = _head_commit()
+        work_dir = root_tmp / "work"
+        camp = ElendrilX2Campaign(
+            source_commit=commit,
+            work_dir=work_dir,
+            legacy_x1_repo_dir=legacy_dir,
+        )
+        row = next(r for r in camp.registry["jobs"] if r["job_id"] == "X1-A1-S20-F-standard-s7")
+        summary = camp.run_admitted_waves(
+            camp.to_session_jobs([row]),
+            devices=("cpu",),
+            canary=True,
+            legacy_updates_override=2,
+        )
+        assert summary["failed_job_ids"] == [], summary.get("failed_worker_diagnostics")
+        assert summary["completed_jobs"] == ["X1-A1-S20-F-standard-s7"]
+        job_json = work_dir / "jobs" / "X1-A1-S20-F-standard-s7" / "jobs" / "X1-A1-S20-F-standard-s7" / "job.json"
+        assert job_json.is_file()
+        doc = json.loads(job_json.read_text(encoding="utf-8"))
+        assert doc["completed_updates"] == 2
+        assert doc["source_commit"] == X1_LEGACY_SOURCE_SHA
+
+        exp_dir = root_tmp / "out"
+        camp.export_archives(exp_dir, prefix="ELENDRIL_V8_X2", status="PARTIAL")
+        discovered = discover_kaggle_input_receipts(exp_dir, root_tmp / "ext", camp.registry)
+        by_id = {r["job_id"]: r for r in discovered}
+        assert "X1-A1-S20-F-standard-s7" in by_id
+        assert by_id["X1-A1-S20-F-standard-s7"]["completed_updates"] == 2
+        assert by_id["X1-A1-S20-F-standard-s7"]["eval_rows"] > 0
+
+        res_rec = build_verified_resume_set(
+            registry=camp.registry,
+            work_dir=root_tmp / "check_resume",
+            imported_receipts=discovered,
+        )
+        assert res_rec["verified_count"] == 0
+        assert "LEGACY_MODEL_SPEC_MISMATCH" in [r["reason"] for r in res_rec["rejected"]]
+
+
+def test_real_subprocess_elendril_x2_worker_and_resume_discovery() -> None:
+    """Execute a REAL elendril_x2 canary subprocess, verify anti-bloat ZIP export and FINAL_RECEIPT resume discovery."""
+    with tempfile.TemporaryDirectory(prefix="x2run_") as td:
+        root_tmp = Path(td)
+        commit = _head_commit()
+        work_dir = root_tmp / "work"
+        camp = ElendrilX2Campaign(source_commit=commit, work_dir=work_dir)
+        row = next(
+            r for r in camp.select_session_rows(["IIIb-DM"]) if r["job_id"] == "X2-IIIb-DM-S20-DM-s7"
+        )
+        summary = camp.run_admitted_waves(
+            camp.to_session_jobs([row]),
+            devices=("cpu",),
+            canary=True,
+        )
+        assert summary["failed_job_ids"] == [], summary.get("failed_worker_diagnostics")
+        assert summary["completed_jobs"] == ["X2-IIIb-DM-S20-DM-s7"]
+        jdir = work_dir / "jobs" / "X2-IIIb-DM-S20-DM-s7"
+        assert (jdir / "FINAL_RECEIPT.json").is_file()
+        assert (jdir / "ARM_RESULTS.json").is_file()
+
+        exp_dir = root_tmp / "out"
+        delivery = camp.export_archives(exp_dir, prefix="ELENDRIL_V8_X2", status="PARTIAL")
+        full_zip = Path(delivery["archives"]["full"])
+        with zipfile.ZipFile(full_zip, "r") as zf:
+            names = set(zf.namelist())
+        assert "jobs/X2-IIIb-DM-S20-DM-s7/result_bundle/checkpoint_full.zip" in names
+        assert not any("/result_bundle/generations/" in n for n in names)
+        assert not any("/checkpoints/" in n for n in names)
+
+        discovered = discover_kaggle_input_receipts(exp_dir, root_tmp / "ext", camp.registry)
+        by_id = {r["job_id"]: r for r in discovered}
+        assert "X2-IIIb-DM-S20-DM-s7" in by_id
+        assert by_id["X2-IIIb-DM-S20-DM-s7"]["completed_updates"] == 2
+        assert by_id["X2-IIIb-DM-S20-DM-s7"]["eval_rows"] > 0
+
+
+def test_dual_gpu_cuda_visible_devices_and_backend_env_isolation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ensure dual-GPU workers receive disjoint CUDA_VISIBLE_DEVICES and x2 workers get PLANTHIR_BACKEND_MODULES."""
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "0,1")
+    seen_env: dict[str, dict[str, str]] = {}
+
+    def _rec_runner(spec: Any, env: dict[str, str], cmd: list[str]) -> int:
+        seen_env[spec.worker_id] = {
+            "CUDA_VISIBLE_DEVICES": env.get("CUDA_VISIBLE_DEVICES", ""),
+            "PLANTHIR_BACKEND_MODULES": env.get("PLANTHIR_BACKEND_MODULES", ""),
+        }
+        return 0
+
+    commit = _head_commit()
+    camp = ElendrilX2Campaign(source_commit=commit, work_dir=tmp_path / "gpu_env", in_process_runner=_rec_runner)
+    rows = camp.select_session_rows(["IIIb-DM"])[:2]
+    summary = camp.run_admitted_waves(
+        camp.to_session_jobs(rows),
+        devices=("cuda:0", "cuda:1"),
+        canary=True,
+    )
+    assert summary["failed_job_ids"] == []
+    assert seen_env[rows[0]["job_id"]]["CUDA_VISIBLE_DEVICES"] == "0"
+    assert seen_env[rows[1]["job_id"]]["CUDA_VISIBLE_DEVICES"] == "1"
+    assert seen_env[rows[0]["job_id"]]["PLANTHIR_BACKEND_MODULES"] == "experiments.elendril_x2"
+    assert seen_env[rows[1]["job_id"]]["PLANTHIR_BACKEND_MODULES"] == "experiments.elendril_x2"
+

@@ -92,7 +92,7 @@ def run_session(work: str | Path, identity: dict[str, Any], resume: bool = False
         else:
             if resume:
                 raise ValueError("cannot resume without a run identity")
-            if any(p.name != ".planthir-run-writer" for p in root.iterdir()):
+            if any(p.name not in {".planthir-run-writer", ".planthir_worker.lock"} for p in root.iterdir()):
                 raise ValueError("nonempty work directory has no run identity")
             _atomic_write(identity_path, _json_bytes({"sha256": digest, "identity": identity}) + b"\n")
         if resume and status_path.exists():
