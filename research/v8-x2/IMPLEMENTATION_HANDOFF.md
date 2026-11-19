@@ -17,7 +17,7 @@
   - `tools/build_elendril_x2_notebook.py`: deterministic zero-edit Kaggle 2xT4 notebook generator (`notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`).
 
 ## 3. Source Pins & Kaggle 2xT4 Launch Workflow
-- **Pinned X2 Runtime Commit (`SOURCE_SHA`, Commit A):** `PENDING_COMMIT_A`
+- **Pinned X2 Runtime Commit (`SOURCE_SHA`, Commit A):** `bfc3d9563fa91713888163c334301fe6e15ade78`
 - **Pinned Legacy X1 Worker Commit (`LEGACY_X1_SHA`):** `8e62ca0f2046c0f07910fdd20abee40508631227`
-- **Generated Notebook (`notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`) SHA-256:** `PENDING_COMMIT_B`
+- **Generated Notebook (`notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`) SHA-256:** `1f73d18de1bbd8ee1de6bc1cb81fa702767d083feaf291a043a5d9657eb9b951`
 - **Owner Kaggle Run (Zero Edits):** upload `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`, select **GPU T4 x2**, enable **Internet**, click **Run All**. The notebook automatically runs the mandatory 2xT4 canary + `replay-bundle` gate before launching admitted waves, discovers prior `/kaggle/input/**` receipts, exports compact & full ZIPs to `/kaggle/working`, and prints the exact next resumable job ID.

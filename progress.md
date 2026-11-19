@@ -336,3 +336,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Repaired §0 independent replay (`REPLAY_REFERENCE.json`, backend-before-world resolution, strict `MISSING_BACKEND_PLUGIN` & `INSUFFICIENT_REPLAY_EVIDENCE` receipts, multi-step history checks) with fresh-subprocess CLI regression tests.
 - Implemented `experiments.elendril_x2` Palantiri plugin (5 S20 `<=5%`-overhead model pairs, Generator B, D1-H selective-edit, T13 FST + 512-law solver, T14 price-crossover + DP, 126-equivalent registry, 4-axis qualification).
 - Built `experiments/x2/campaign.py` (`CampaignOrchestrator` dual-source routing, verified resume, dual-clock admission) and `tools/build_elendril_x2_notebook.py` with all 6 failure-injection recovery tests; CPU-qualified, owner 2xT4 canary pending.
+
+### 2026-11-19 | Antigravity | Publish zero-edit Elendril V8-X2 Kaggle 2xT4 notebook pinned to Commit A
+- Generated `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` (`1f73d18de1bbd8ee1de6bc1cb81fa702767d083feaf291a043a5d9657eb9b951`) pinned to Commit A (`bfc3d9563fa91713888163c334301fe6e15ade78`) and legacy X1 worker (`8e62ca0f2046c0f07910fdd20abee40508631227`).
+- Verified byte-identical rebuild from `git archive bfc3d9563fa91713888163c334301fe6e15ade78`, zero-edit `OWNER_AUTHORIZED = True` with mandatory 2xT4 canary + `replay-bundle` gate, and disabled dry-run guard.
+- Status: `CPU_QUALIFIED_READY_FOR_OWNER_CANARY`; live 2xT4 GPU canary and S20 waves await owner Kaggle Run All.
