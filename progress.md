@@ -322,3 +322,8 @@ Recorded position and abstention findings, full-sequence replay limits and the n
 Published a 50-study, 54-job executable preregistration with 44 Palantiri uses, all 25 prior discoveries and a resumable owner-run contract.
 Verified the plan, lookup cube, rule bank and public-belief solver with five Y3 CPU tests. Platform doctor, six-fault calibration and four platform regressions passed.
 Y3 learned models, plugin acceptance, target profiling and notebook execution remain pending.
+
+### 2026-11-20 | Antigravity | Sync Avendi V8-Y3 post-mortem Palantiri upgrades onto hitchhiker
+- Synced `a0e75532` Planthir updates (`CampaignOrchestrator.run_registered_plan`, `verify_full_mode_dispatch`, `verify_session_archive`, streamed SHA-256/`write_full_zip`, `execution.py` `.planthir_worker.lock`, upgraded `build_pinned_kaggle_notebook`, 3-way `agent.md` mirror & contracts).
+- Preserved all Avendi V8-Y3 modules, plans, tasks, tests, frozen audits, and curated results on `hitchhiker`.
+- Verified on CPU inside `hitchhiker` worktree: `test_avendi_y3_postmortem` (`1 passed`), `tests/test_planthir_declarative_cli_and_usability.py` (`6 passed`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
