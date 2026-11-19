@@ -135,7 +135,7 @@ def eval_byte_model_on_families(model: nn.Module, families: Sequence[dict[str, A
             raw_ok = bool(dec["raw"]["exact_eos"] and pred_sym == gold_cmp)
             ap_ok = bool(dec["ap_constrained"]["first_char"] == c[gold_key])
             sign_mult = 1.0 if ci in (0, 3, 4, 7) else -1.0
-            case_preds[c["world_id"]] = {"raw_exact_correct": raw_ok, "ap_constrained_correct": ap_ok, "signed_margin": dec["signed_margin"], "endpoint_margin": sign_mult * dec["signed_margin"], "ap_rank": dec["ap_gold_rank"], "p_answer_mass": dec["p_answer_mass"], "first_char": raw_char, "generated_ids": dec["raw"]["generated_ids"]}
+            case_preds[c["world_id"]] = {"raw_exact_correct": raw_ok, "ap_constrained_correct": ap_ok, "signed_margin": dec["signed_margin"], "endpoint_margin": sign_mult * dec["signed_margin"], "ap_rank": dec["ap_gold_rank"], "p_answer_mass": dec["p_answer_mass"], "first_char": raw_char, "generated_ids": dec["raw"]["generated_ids"], "first_logits": dec["first_logits_260"]}
             episodes.append({"world_id": c["world_id"], "base_world_id": c["family_id"], "family": "Y3", "form": c.get("cell_key", "c"), "correct": raw_ok, "steps": [{"executed_op": "ANSWER" if dec["raw"]["first_char"] in SYMBOLS else "OTHER", "executed_arg": pred_sym}]})
             if not raw_ok:
                 cat = dec["raw"]["first_failure"]
@@ -289,10 +289,16 @@ def select_p4_matched_widths(base_width: int = 32) -> dict[str, Any]:
 
 
 def p4_transition_loss(model: _P4Base, batch: Sequence[dict[str, Any]], *, intermediate_weight: float = 0.1) -> torch.Tensor:
-    rk, rv, q, gold, inter = encode_p4_batch(batch, next(model.enc.parameters()).device)
-    out = model.forward_trace(rk, rv, q, steps=max(1, int(batch[0].get("depth", 2))))
-    loss = F.cross_entropy(out["final_logits"], gold)
-    return loss + float(intermediate_weight) * F.cross_entropy(out["step_logits"][0], inter) if (intermediate_weight > 0 and out["step_logits"]) else loss
+    dev, total, n = next(model.enc.parameters()).device, 0.0, len(batch)
+    for d in sorted({int(x.get("depth", 2)) for x in batch}):
+        sub = [x for x in batch if int(x.get("depth", 2)) == d]
+        rk, rv, q, gold, inter = encode_p4_batch(sub, dev)
+        out = model.forward_trace(rk, rv, q, steps=max(1, d))
+        loss = F.cross_entropy(out["final_logits"], gold)
+        if intermediate_weight > 0 and out["step_logits"]:
+            loss = loss + float(intermediate_weight) * F.cross_entropy(out["step_logits"][0], inter)
+        total = total + loss * len(sub) / n
+    return total
 
 
 @torch.no_grad()
@@ -326,18 +332,20 @@ def run_p4_causal_suite(model: _P4Base, pairs: Sequence[dict[str, Any]], *, ridg
 
 
 class P6AdaptivePolicy(nn.Module):
-    """Stateful P6 policy with context buffer and 4-entry gated persistent strategy memory (U41-U46)."""
+    """Stateful P6 policy: context buffer + 4-slot persistent strategy memory; pair_feat is the public 2-law version space (U41-U46)."""
 
     def __init__(self, width: int = 32, seed: int = 7) -> None:
         super().__init__()
         torch.manual_seed(seed)
         self.register_buffer("mem_keys", torch.zeros(4, width)); self.register_buffer("mem_vals", torch.zeros(4, 4)); self.register_buffer("mem_used", torch.zeros(4, dtype=torch.bool))
-        self.inp_emb, self.policy_head = nn.Embedding(4, width), nn.Linear(width + 4, 6)
+        self.inp_emb = nn.Embedding(4, width)
+        self.policy_head = nn.Sequential(nn.Linear(width + 16 + 32, 64), nn.ReLU(), nn.Linear(64, 6))
         self.context_buffer: list[tuple[int, int]] = []
         self.writer_frozen = False
 
     def reset_episode(self) -> None:
         self.context_buffer.clear(); self.mem_keys.zero_(); self.mem_vals.zero_(); self.mem_used.zero_()
+        self.writer_frozen = False
 
     def clear_context(self) -> None:
         self.context_buffer.clear()
@@ -354,18 +362,25 @@ class P6AdaptivePolicy(nn.Module):
         elif mode == "shuffle": self.mem_vals.copy_(torch.roll(self.mem_vals, 1, 0))
         elif mode == "freeze_writer": self.writer_frozen = True
 
-    def forward(self, query_sym: torch.Tensor) -> torch.Tensor:
-        q = self.inp_emb(query_sym)
-        mem = F.softmax((q @ self.mem_keys.T).masked_fill(~self.mem_used, -1e9), dim=-1) @ self.mem_vals if self.mem_used.any() else torch.zeros(query_sym.shape[0], 4, device=q.device)
-        return self.policy_head(torch.cat([q, mem], dim=-1))
+    def _ctx_vals(self) -> torch.Tensor:
+        v = torch.zeros(4, 4, device=self.mem_vals.device)
+        for i, o in self.context_buffer[-4:]: v[int(i) % 4, int(o)] = 1.0
+        return v
+
+    def forward(self, query_sym: torch.Tensor, pair_feat: torch.Tensor | None = None, route: str = "memory") -> torch.Tensor:
+        q, B = self.inp_emb(query_sym), query_sym.shape[0]
+        feed = (self.mem_vals * self.mem_used.unsqueeze(-1).float()) if route == "memory" else (self._ctx_vals() if route == "context" else torch.zeros(4, 4, device=q.device))
+        pf = torch.zeros(B, 32, device=q.device) if pair_feat is None else pair_feat.reshape(B, 32).to(q.device)
+        return self.policy_head(torch.cat([q, feed.reshape(1, 16).expand(B, 16), pf], dim=-1))
 
 
-def apply_bounded_weight_update(model: nn.Module, x_sym: int, target_sym: int, *, lr: float = 1e-4, max_rel_norm: float = 0.001, sham: bool = False) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
+def apply_bounded_weight_update(model: nn.Module, x_sym: int, target_sym: int, *, lr: float = 1e-4, max_rel_norm: float = 0.001, sham: bool = False, pair_feat: torch.Tensor | None = None) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
     """Run <=1 public-feedback CE step, cap L2 update <= 0.001*||theta_0||_2 on float params, and verify rollback (U43)."""
     p_orig, state_orig = {k: p.detach().clone() for k, p in model.named_parameters()}, {k: v.detach().clone() for k, v in model.state_dict().items()}
     parent_norm = math.sqrt(sum(float(v.float().pow(2).sum()) for v in p_orig.values()))
     if not sham:
-        model.zero_grad(); F.cross_entropy(model(torch.tensor([x_sym]))[:, :4], torch.tensor([target_sym])).backward()
+        with torch.enable_grad():
+            model.zero_grad(); F.cross_entropy((model(torch.tensor([x_sym])) if pair_feat is None else model(torch.tensor([x_sym]), pair_feat))[:, :4], torch.tensor([target_sym])).backward()
         with torch.no_grad():
             for p in model.parameters():
                 if p.grad is not None: p.sub_(lr * p.grad)

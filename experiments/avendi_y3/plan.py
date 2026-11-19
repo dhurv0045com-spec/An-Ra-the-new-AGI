@@ -83,11 +83,11 @@ def build_plan(source_commit: str = BASE_REVISION, *, mode: str = "FULL") -> dic
         for st, arms in ARMS.items() for arm in arms for seed in SEEDS
     ]
     short_forks = (
-        [{"job_id": f"U19-{arm}-s{s}", "stage": "P2", "arm": f"u19_{arm}", "init_seed": s, "order_seed": s, "updates": 128, "model_identity": f"y3-U19-{arm}-s{s}", "status": "PLANNED"} for arm in ("ce", "margin") for s in SEEDS]
-        + [{"job_id": f"P4-{a}_endonly-s{s}", "stage": "P4", "arm": f"{a}_endpoint_only", "init_seed": s, "order_seed": s, "updates": 256, "model_identity": f"y3-P4-{a}_endonly-s{s}", "status": "PLANNED"} for a in ARMS["P4"] for s in SEEDS]
-        + [{"job_id": f"P7-{c}-s{s}", "stage": "P7", "arm": c, "init_seed": s, "order_seed": s, "updates": 256, "model_identity": f"y3-P7-{c}-s{s}", "status": "PLANNED"} for c in ("ark_capped", "ark_uncapped", "ark_expaug") for s in SEEDS]
+        [{"job_id": f"U19-{arm}-s{s}", "stage": "P2", "arm": f"u19_{arm}", "init_seed": s, "order_seed": s, "updates": 128, "model_identity": f"y3-U19-{arm}-s{s}", "spec_sha256": _canon_sha({"stage": "P2", "arm": f"u19_{arm}", "seed": s, "updates": 128}), "status": "PLANNED"} for arm in ("ce", "margin") for s in SEEDS]
+        + [{"job_id": f"P4-{a}_endonly-s{s}", "stage": "P4", "arm": f"{a}_endpoint_only", "init_seed": s, "order_seed": s, "updates": 256, "model_identity": f"y3-P4-{a}_endonly-s{s}", "spec_sha256": _canon_sha({"stage": "P4", "arm": f"{a}_endpoint_only", "seed": s, "updates": 256}), "status": "PLANNED"} for a in ARMS["P4"] for s in SEEDS]
+        + [{"job_id": f"P7-{c}-s{s}", "stage": "P7", "arm": c, "init_seed": s, "order_seed": s, "updates": 256, "model_identity": f"y3-P7-{c}-s{s}", "spec_sha256": _canon_sha({"stage": "P7", "arm": c, "seed": s, "updates": 256}), "status": "PLANNED"} for c in ("ark_capped", "ark_uncapped", "ark_expaug") for s in SEEDS]
     )
-    p6_adapt = [{"job_id": f"P6-adapt-{r}-s{s}", "stage": "P6", "arm": r, "init_seed": s, "updates": 256, "model_identity": f"y3-P6-diagnostic_policy-s{s}", "status": "PLANNED"} for s in SEEDS for r in ("context", "memory", "weight_update")]
+    p6_adapt = [{"job_id": f"P6-adapt-{r}-s{s}", "stage": "P6", "arm": r, "init_seed": s, "order_seed": s, "updates": 256, "model_identity": f"y3-P6-diagnostic_policy-s{s}", "spec_sha256": _canon_sha({"stage": "P6", "arm": r, "seed": s, "updates": 256}), "status": "PLANNED"} for s in SEEDS for r in ("context", "memory", "weight_update")]
     child_jobs = [{"job_id": f"{sid}-eval-cpu" if st in ("P0", "P1") else f"{sid}-eval", "study_id": sid, "stage": st, "model_identity": "sentinel:model_free" if st == "P0" else f"stage:{st}", "status": "PLANNED"} for sid, st in STUDY_STAGES.items()]
     expanded_rows = [{"study_id": c["study_id"], "job_id": c["job_id"], "model_identity": c["model_identity"], "seed": STREAM_SEEDS["dev"], "split": "dev", "cohort": f"y3-{c['stage'].lower()}", "intervention": c["study_id"]} for c in child_jobs]
     studies = [{"study_id": f"U{n:02}", "home_stage": STUDY_STAGES[f"U{n:02}"], "status": "PLANNED", "receipt_pattern": f"studies/U{n:02}/<job>/<split>/receipt.json"} for n in range(1, 51)]
@@ -108,10 +108,10 @@ def build_y3_notebook(source_commit: str) -> dict[str, Any]:
     """Generate the source-pinned Kaggle 2xT4 notebook via anra_v5.palantiri."""
     from anra_v5.palantiri import build_pinned_kaggle_notebook
 
-    nb = build_pinned_kaggle_notebook(source_commit=source_commit, title="Avendi V8-Y3 · Full Campaign (Kaggle 2×T4)", launch_command="python -m experiments.avendi_y3.module --mode FULL --session-minutes 300", owner_authorized=False, discover_kaggle_inputs=("ELENDRIL_V8_Y1_FULL.zip", "ELENDRIL_V8_Y1_EVIDENCE.zip", "AVENDI_V8_Y2_EVIDENCE.zip"), mirror_outputs_to_working=True, preflight_canary_backend="avendi_y3", require_dual_gpu=True, emit_file_links=True, working_export_globs=("*.zip", "*.sha256", "FINAL_STATUS.json", "RESULTS.md", "METRICS.json"), backend_modules=("experiments.avendi_y3.module",))
+    nb = build_pinned_kaggle_notebook(source_commit=source_commit, title="Avendi V8-Y3 · Full Campaign (Kaggle 2×T4)", launch_command="python -m experiments.avendi_y3.module --mode FULL --session-minutes 300", owner_authorized=False, discover_kaggle_inputs=("ELENDRIL_V8_Y1_FULL.zip", "ELENDRIL_V8_Y1_EVIDENCE.zip", "AVENDI_V8_Y2_EVIDENCE.zip"), mirror_outputs_to_working=True, preflight_canary_backend="avendi_y3", require_dual_gpu=True, emit_file_links=True, working_export_globs=("*.zip", "*.sha256", "FINAL_STATUS.json", "PENDING_QUEUE.json", "RESULTS.md", "METRICS.json"), backend_modules=("experiments.avendi_y3.module",))
     nb["cells"][1]["source"] = [ln + "\n" for ln in [
         f"SOURCE_SHA = {source_commit!r}", "OWNER_AUTHORIZED = False", "CAMPAIGN_MODE = 'FULL'", "SESSION_MINUTES = 300", "RESUME_INPUT = None", f"REPO_URL = {REPO_URL!r}",
-        "DISCOVER_INPUTS = ['ELENDRIL_V8_Y1_FULL.zip', 'ELENDRIL_V8_Y1_EVIDENCE.zip', 'AVENDI_V8_Y2_EVIDENCE.zip']", "MIRROR_WORKING = True", "EXPORT_GLOBS = ['*.zip', '*.sha256', 'FINAL_STATUS.json', 'RESULTS.md', 'METRICS.json']",
+        "DISCOVER_INPUTS = ['ELENDRIL_V8_Y1_FULL.zip', 'ELENDRIL_V8_Y1_EVIDENCE.zip', 'AVENDI_V8_Y2_EVIDENCE.zip']", "MIRROR_WORKING = True", "EXPORT_GLOBS = ['*.zip', '*.sha256', 'FINAL_STATUS.json', 'PENDING_QUEUE.json', 'RESULTS.md', 'METRICS.json']",
         "import os, shutil, subprocess, sys", "from pathlib import Path",
         "repo = Path('/kaggle/working/anra_avendi_y3_src') if Path('/kaggle/working').is_dir() else Path('.')",
         "if repo != Path('.') and not (repo / 'experiments' / 'avendi_y3' / 'module.py').is_file():",

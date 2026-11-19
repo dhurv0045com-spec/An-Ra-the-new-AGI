@@ -30,8 +30,12 @@ from experiments.avendi_y3.models import (
     verify_u19_gradient_reversal,
 )
 from experiments.avendi_y3.module import (
+    TINY_S,
+    aggregate_full,
     evaluate_with_confirmation_lock,
     run_avendi_y3_campaign,
+    run_full_campaign,
+    run_job,
     write_confirmation_lock,
 )
 from experiments.avendi_y3.plan import build_plan
@@ -235,3 +239,32 @@ def test_recovery_3_failed_worker_preserves_peer_and_partial_export(tmp_path: Pa
     assert peer_out.is_file() and wres["completed_count"] == 1 and wres["status"] != "COMPLETE"
     part = export_session_archives(tmp_path, tmp_path / "partial_arch", prefix="Y3P", summary_files={"peer_ok.json": peer_out}, analysis_files={"peer_ok.json": peer_out}, status="PARTIAL", source_commit="a" * 40)
     assert part["verified"] and part["final_status"]["status"] == "PARTIAL"
+
+
+def test_full_mode_dual_gpu_waves_deferral_and_cross_session_resume(tmp_path: Path):
+    wr1, wr2 = tmp_path / "s1", tmp_path / "s2"
+    seen1, seen2 = [], []
+    def _mk_runner(root: Path, log: list):
+        def _run(job, env, cmd):
+            log.append((job.worker_id, env.get("CUDA_VISIBLE_DEVICES"), list(cmd)))
+            run_job(job.worker_id, TINY_S, "cpu", root)
+            return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+        return _run
+
+    # Session 1: tight clock forces partial admission after parent Tier-0 jobs finish
+    d1 = run_full_campaign(wr=wr1, S=TINY_S, session_minutes=17.5, devices=("cuda:0", "cuda:1"), in_process_runner=_mk_runner(wr1, seen1), measured_sec_per_update=20.0)
+    a1 = aggregate_full(wr1, TINY_S, d1)
+    assert len(seen1) >= 6 and {"0", "1"} <= {vis for _, vis, _ in seen1}
+    assert all(cmd[cmd.index("--device") + 1] == "cuda:0" for _, _, cmd in seen1)
+    assert a1["status"] == "PARTIAL" and len(a1["pending_jobs"]) > 0
+    assert (wr1 / "PENDING_QUEUE.json").is_file() and Path(a1["archives"]["full"]).is_file()
+
+    # Session 2: fresh work root resumes verified jobs + parent checkpoints from AVENDI_Y3_FULL.zip
+    d2 = run_full_campaign(wr=wr2, S=TINY_S, session_minutes=360.0, resume_input=a1["archives"]["full"], devices=("cuda:0", "cuda:1"), in_process_runner=_mk_runner(wr2, seen2), measured_sec_per_update=0.001)
+    a2 = aggregate_full(wr2, TINY_S, d2)
+    s1_ids = {jid for jid, _, _ in seen1}
+    assert s1_ids <= set(d2["already_verified"])
+    assert not (s1_ids & {jid for jid, _, _ in seen2})
+    assert a2["status"] == "COMPLETE" and a2["studies_complete"] == 50
+    assert a2["main_jobs_complete"] == 54 and a2["short_jobs_complete"] == 24 and a2["p6_adapt_complete"] == 9
+    assert a2["confirm"] == "LOCKED_AND_OPENED_ONCE" and a2["summary_bytes"] <= 5 * 1024 * 1024

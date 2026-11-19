@@ -328,3 +328,9 @@ Y3 learned models, plugin acceptance, target profiling and notebook execution re
 - Verified engineering controls on CPU: `doctor` (`GREEN_SIGNAL`), `calibrate` (6/6), `tests/test_avendi_y3.py` (12 passed incl. 3 recovery tests), full repo pytest (560 passed, 1 skipped, 14 subtests passed), and `avendi_y3` CANARY campaign (50/50 studies, 44/44 uses, `AVENDI_Y3_SUMMARY.zip` = 5,411 B).
 - Verified fresh-subprocess CLI acceptance chains (`init -> validate --canary -> run --canary -> verify-bundle -> replay-bundle`) for both `x1_s20` and `avendi_y3` (`GATES=True`, `VER=True`, `REP=MATCHED`).
 - Pending owner GPU execution: Kaggle 2xT4 `FULL` campaign profiling, 54 main jobs + 24 short forks, mounted Y1 checkpoint restoration, and scientific confirmation outcomes.
+
+### 2026-11-20 | Antigravity | Avendi V8-Y3 dual-T4 per-job FULL runner and cross-session resume
+- Replaced single-process FULL compression with per-job CLI worker execution (`54` main + `24` short forks + `9` P6 adapt + `P1` = `88` jobs), Tier-0/Tier-1 dependency waves over `cuda:0`/`cuda:1`, real `1,024`/`256`/`256` denominators, `PENDING_QUEUE.json` deferral, and `AVENDI_Y3_FULL.zip` cross-session checkpoint/receipt restore.
+- Fixed Windows `MAX_PATH` unpacking, `SessionJob` frozen-device assignment, `apply_bounded_weight_update` `enable_grad()`, `_p4_job` empty-prototype guard, `P4` endonly IDs, `U06`/`U41-U46` denominators, and `_confirm_one` S20 microbatch matching.
+- Verified on CPU: `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py -n auto -q` (`24 passed`, incl. mocked dual-GPU 2-session `PARTIAL -> COMPLETE` all-88-job test), `doctor`, `calibrate`, and fresh `avendi_y3` CLI chain (`MATCHED`).
+- Pending owner GPU execution: Kaggle 2xT4 `FULL` campaign run via updated pinned `AVENDI_V8_Y3_T4X2.ipynb`.
