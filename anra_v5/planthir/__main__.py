@@ -149,6 +149,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_rep = sub.add_parser("replay-bundle", help="Extract bundle in isolation and independently replay checkpoints.")
     p_rep.add_argument("--bundle-dir", required=True)
     p_rep.add_argument("--expected-source-commit", default=None)
+    p_rep.add_argument("--expected-backend", default=None)
+    p_rep.add_argument("--require-reference", action="store_true", default=False)
+    p_rep.add_argument("--worlds-json", default=None)
     p_rep.add_argument("--raw-evidence-dir", default=None)
     p_rep.add_argument("--device", default="cpu")
     p_rep.add_argument("--max-result-zip-bytes", type=int, default=DEFAULT_RESULT_ZIP_MAX_BYTES)
@@ -255,19 +258,43 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "replay-bundle":
         try:
+            loaded_worlds = (
+                json.loads(Path(args.worlds_json).read_text(encoding="utf-8"))
+                if args.worlds_json
+                else None
+            )
             receipt = independent_replay_bundle(
                 args.bundle_dir,
                 expected_source_commit=args.expected_source_commit,
+                worlds=loaded_worlds,
                 raw_evidence_dir=args.raw_evidence_dir,
                 device=str(args.device),
                 max_result_zip_bytes=int(args.max_result_zip_bytes),
                 output_path=args.output,
                 independent_environment=True,
+                expected_backend_id=args.expected_backend,
+                require_reference=bool(args.require_reference),
+                use_archived_reference=bool(loaded_worlds is not None),
             )
             _emit(receipt)
             return 0 if receipt["verified"] else 1
         except Exception as exc:
-            _emit({"verified": False, "status": "REPLAY_FAILED", "error": type(exc).__name__, "detail": str(exc)})
+            msg = str(exc)
+            if "INSUFFICIENT_REPLAY_EVIDENCE" in msg:
+                _emit(
+                    {
+                        "verified": False,
+                        "status": "INSUFFICIENT_REPLAY_EVIDENCE",
+                        "error": type(exc).__name__,
+                        "detail": msg,
+                        "supported_recovery_path": (
+                            "Re-export bundle with current Planthir (embedding REPLAY_COHORT.json) "
+                            "or supply --worlds-json / explicit reference_predictions."
+                        ),
+                    }
+                )
+            else:
+                _emit({"verified": False, "status": "REPLAY_FAILED", "error": type(exc).__name__, "detail": msg})
             return 1
 
     if args.command == "explain-error":

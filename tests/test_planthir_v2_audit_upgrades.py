@@ -70,6 +70,7 @@ from anra_v5.planthir import (
     synthesize_scientific_interpretation,
     validate_spec_document,
     verify_crossover_fixture,
+    verify_shared_backbone_and_head_overhead,
 )
 from anra_v5.planthir.backend import _BACKENDS
 from anra_v5.planthir.cartridge import CartridgeRunner
@@ -1103,3 +1104,278 @@ def test_codex_x1_a0_review_feedback_coverage_pairing_preflight_first_page_and_r
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["verified"] is True
     assert (cli_out / "RESULTS.md").is_file() and (cli_out / "METRICS.json").is_file()
+
+
+def test_replay_release_blocker_x1_s20_and_stateful_plugin_cli_and_tamper(tmp_path: Path) -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(REPO_ROOT)
+
+    def _run_cli(args: list[str], *, extra_env: dict[str, str] | None = None, expect_ok: bool = True) -> dict:
+        run_env = {**env, **(extra_env or {})}
+        proc = subprocess.run(
+            [sys.executable, "-m", "anra_v5.palantiri", *args],
+            cwd=str(REPO_ROOT),
+            env=run_env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if expect_ok:
+            assert proc.returncode == 0, f"cmd={args}\nstdout={proc.stdout}\nstderr={proc.stderr}"
+        else:
+            assert proc.returncode != 0, f"expected failure for {args}, got exit 0: {proc.stdout}"
+        return json.loads(proc.stdout)
+
+    # A. Stock x1_s20 CLI chain: init -> validate -> run -> verify-bundle -> replay-bundle
+    x1_dir = tmp_path / "x1_s20_cli"
+    x1_spec = x1_dir / "spec.json"
+    _run_cli(["init", "--backend", "x1_s20", "--out", str(x1_spec)])
+    val = _run_cli(["validate", "--spec", str(x1_spec), "--canary"])
+    assert val["valid"] is True
+    run_res = _run_cli(["run", "--spec", str(x1_spec), "--work-root", str(x1_dir / "cpu"), "--canary", "--device", "cpu"])
+    assert run_res["gates_passed"] is True
+    bdir_x1 = x1_dir / "cpu" / "result_bundle"
+    ver_x1 = _run_cli(["verify-bundle", "--bundle-dir", str(bdir_x1)])
+    assert ver_x1["verified"] is True
+    rep_x1 = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_x1), "--output", str(x1_dir / "REPLAY_X1.json")])
+    assert rep_x1["verified"] is True and rep_x1["prediction_agreement_status"] == "MATCHED"
+    assert all(r["backend_id"] == "x1_s20" for r in rep_x1["restored_lineages"])
+
+    # B. Stateful 2-step plugin (step-2 observation depends on step-1 QUERY action + reset_episode + hidden["expected_answer"])
+    plug_dir = tmp_path / "plug_pkg"
+    plug_dir.mkdir(parents=True, exist_ok=True)
+    (plug_dir / "stateful_p.py").write_text(
+        "\n".join(
+            [
+                "from __future__ import annotations",
+                "import torch, torch.nn as nn, torch.nn.functional as F",
+                "from anra_v5.planthir import ExperimentModule, GenericDatasetBundle, UniversalAction, UniversalObservation",
+                "",
+                "class StatefulModel(nn.Module):",
+                "    def __init__(self, width: int = 8, seed: int = 7) -> None:",
+                "        super().__init__()",
+                "        torch.manual_seed(seed)",
+                "        self.net = nn.Sequential(nn.Linear(4, width), nn.Tanh(), nn.Linear(width, 3))",
+                "    def forward(self, x: torch.Tensor):",
+                "        logits = self.net(x)",
+                "        return logits, x",
+                "",
+                "class StatefulKernel:",
+                "    kernel_id = 'stateful-t14-test-v1'",
+                "    max_actions = 3",
+                "    def structural_signature(self, w): return f\"st:{w['sig']}\"",
+                "    def inject_distractor(self, w): return {**w, 'world_id': w['world_id'] + '::dist', 'sig': w['sig'] + '::dist'}",
+                "    def permute_world(self, w, shift=1): return {**w, 'world_id': w['world_id'] + f'::p{shift}', 'sig': w['sig'] + f'::p{shift}'}",
+                "    def reverse_world(self, w): return {**w, 'world_id': w['world_id'] + '::rev', 'sig': w['sig'] + '::rev'}",
+                "    def initial_state(self, w):",
+                "        return {'w': w, 'queried': False, 'step': 0, 'terminal': False}",
+                "    def observe(self, st):",
+                "        w = st['w']",
+                "        qa = not st['queried']",
+                "        txt = f\"WORLD {w['sig']} queried={st['queried']} hint={w['hidden']['cue'] if st['queried'] else 'NONE'}\"",
+                "        return UniversalObservation(",
+                "            obs_id=f\"{w['world_id']}:s{st['step']}:q{int(qa)}\",",
+                "            rendered_text=txt,",
+                "            available_tools={'query': qa, 'memory': False},",
+                "            consumed_tools=frozenset({'query'}) if st['queried'] else frozenset(),",
+                "            decision_index=st['step'],",
+                "            budget_remaining=max(1, 3 - st['step']),",
+                "            metadata={'queried': st['queried'], 'feat': w['feat']},",
+                "        )",
+                "    def ideal_action(self, st):",
+                "        return ('QUERY', None) if not st['queried'] else ('ANSWER', st['w']['hidden']['expected_answer'])",
+                "    def step(self, st, op, arg):",
+                "        if op == 'QUERY' and not st['queried']:",
+                "            return {'w': st['w'], 'queried': True, 'step': st['step'] + 1, 'terminal': False}",
+                "        return {'w': st['w'], 'queried': st['queried'], 'step': st['step'] + 1, 'terminal': True}",
+                "    def verify(self, w, actions):",
+                "        op, arg = actions[-1] if actions else ('INVALID', None)",
+                "        return {'correct': op == 'ANSWER' and arg == w['hidden']['expected_answer'], 'terminal_status': 'answered'}",
+                "    def decompose_subgoals(self, w): return ()",
+                "",
+                "class StatefulPolicy:",
+                "    def __init__(self, model, model_spec, *, model_identity='sp', mode='raw', copy_enabled_override=None):",
+                "        self.model = model",
+                "        self.model_spec = model_spec",
+                "        self.model_identity = model_identity",
+                "        self.mode = mode",
+                "        self.step_count = 0",
+                "    def reset_episode(self): self.step_count = 0",
+                "    def propose_with_telemetry(self, obs):",
+                "        x = torch.tensor([obs.metadata['feat']], dtype=torch.float32)",
+                "        with torch.no_grad(): logits, _ = self.model(x)",
+                "        probs = F.softmax(logits[0], dim=-1)",
+                "        if obs.available_tools.get('query') and self.step_count == 0:",
+                "            self.step_count += 1",
+                "            return UniversalAction('QUERY', None, float(torch.log(probs[2].clamp_min(1e-6))), {'QUERY:QUERY': float(probs[2]), 'ANSWER:A': float(probs[0]), 'ANSWER:B': float(probs[1])}, self.mode, 'QUERY', None)",
+                "        idx = int(torch.argmax(probs[:2]).item())",
+                "        lbl = 'A' if idx == 0 else 'B'",
+                "        self.step_count += 1",
+                "        return UniversalAction('ANSWER', lbl, float(torch.log(probs[idx].clamp_min(1e-6))), {'ANSWER:A': float(probs[0]), 'ANSWER:B': float(probs[1]), 'QUERY:QUERY': float(probs[2])}, self.mode, 'ANSWER', lbl)",
+                "    def extract_representations(self, obs_batch):",
+                "        x = torch.tensor([o.metadata['feat'] for o in obs_batch], dtype=torch.float32)",
+                "        with torch.no_grad(): _, h = self.model(x)",
+                "        return {'decision_hidden': h}",
+                "",
+                "def _ds(cfg, cpu_canary):",
+                "    def _mk(pfx, n):",
+                "        return [{'world_id': f'{pfx}_{i}', 'sig': f'{pfx}_{i}', 'hops': 2, 'feat': [1.0 if i % 2 == 0 else -1.0, 0.2, 0.1, -0.3], 'label': i % 2, 'hidden': {'expected_answer': 'A' if i % 2 == 0 else 'B', 'cue': f'C{i}'}} for i in range(n)]",
+                "    tr, ev, mh, pr = _mk('tr', 8), _mk('ev', 4), _mk('mh', 3), _mk('pr', 4)",
+                "    return {'train_data': GenericDatasetBundle(dataset_name='sp', items=tuple(tr), data_identity='sp-v1', manifest={'n': len(tr)}), 'train_worlds': tr, 'eval_worlds': ev, 'multihop_worlds': mh, 'probe_train_worlds': pr}",
+                "",
+                "def _loss(m, chunk, recipe):",
+                "    x = torch.tensor([c['feat'] for c in chunk], dtype=torch.float32)",
+                "    y = torch.tensor([c['label'] for c in chunk], dtype=torch.int64)",
+                "    return F.cross_entropy(m(x)[0], y)",
+                "",
+                "def register_planthir_backends():",
+                "    ExperimentModule(",
+                "        backend_id='stateful_p', architectures=('base', 'trt'), objectives=('ce',),",
+                "        model_factory=lambda a, c, s: StatefulModel(int(c.get('width', 8)), s),",
+                "        dataset_factory=_ds, loss_fn=_loss, kernel_factory=StatefulKernel, policy_factory=StatefulPolicy,",
+                "        default_model_config={'width': 8}, treatment_model_config={'width': 8}, extra_model_keys=('width',),",
+                "    ).register()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    plug_env = {"PYTHONPATH": f"{REPO_ROOT}{os.pathsep}{plug_dir}", "PLANTHIR_BACKEND_MODULES": "stateful_p"}
+    sp_dir = tmp_path / "sp_cli"
+    sp_spec = sp_dir / "spec.json"
+    _run_cli(["init", "--backend", "stateful_p", "--out", str(sp_spec)], extra_env=plug_env)
+    _run_cli(["run", "--spec", str(sp_spec), "--work-root", str(sp_dir / "cpu"), "--canary", "--device", "cpu"], extra_env=plug_env)
+    bdir_sp = sp_dir / "cpu" / "result_bundle"
+    rep_sp = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp)], extra_env=plug_env)
+    assert rep_sp["verified"] is True and rep_sp["prediction_agreement_status"] == "MATCHED"
+
+    # Missing plugin fails loudly with MISSING_BACKEND_PLUGIN (no Windows PermissionError masking)
+    miss_rep = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp)], expect_ok=False)
+    assert "MISSING_BACKEND_PLUGIN" in miss_rep["detail"]
+
+    # Wrong expected backend rejected
+    bad_be = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp), "--expected-backend", "wrong_id"], extra_env=plug_env, expect_ok=False)
+    assert "BACKEND_MISMATCH" in bad_be["detail"]
+
+    # Deliberate input change fails with offending world identity
+    import importlib
+    sys.path.insert(0, str(plug_dir))
+    try:
+        sp_mod = importlib.import_module("stateful_p")
+        sp_mod.register_planthir_backends()
+        ev_worlds = json.loads((bdir_sp / "REPLAY_COHORT.json").read_text(encoding="utf-8"))["worlds"]
+        bad_worlds = json.loads(json.dumps(ev_worlds))
+        bad_worlds[0]["sig"] = "TAMPERED_INPUT"
+        bad_worlds_path = sp_dir / "bad_worlds.json"
+        bad_worlds_path.write_text(json.dumps(bad_worlds), encoding="utf-8")
+        bad_inp = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp), "--worlds-json", str(bad_worlds_path)], extra_env=plug_env, expect_ok=False)
+        assert "ORIGINAL_PREDICTION_MISMATCH" in bad_inp["detail"]
+
+        # Action / observation history mismatch check
+        arch_refs = json.loads((bdir_sp / "REPLAY_COHORT.json").read_text(encoding="utf-8"))["reference_predictions"]
+        lin_0 = sorted(arch_refs)[0]
+        tampered_hist = json.loads(json.dumps(arch_refs))
+        tampered_hist[lin_0][0]["observation_sha256_history"][-1] = "f" * 64
+        with pytest.raises(ValueError, match="ORIGINAL_PREDICTION_MISMATCH"):
+            independent_replay_bundle(bdir_sp, worlds=ev_worlds, reference_predictions=tampered_hist)
+
+        # Require reference on unreferenced call returns INSUFFICIENT_REPLAY_EVIDENCE
+        with pytest.raises(ValueError, match="INSUFFICIENT_REPLAY_EVIDENCE"):
+            independent_replay_bundle(bdir_sp, worlds=ev_worlds, require_reference=True)
+    finally:
+        sys.path.remove(str(plug_dir))
+        _BACKENDS.pop("stateful_p", None)
+
+
+def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tmp_path: Path) -> None:
+    from hashlib import sha256 as _sha
+
+    # 1. Dual-clock admit_slice + PENDING_QUEUE.json preservation
+    orch = CampaignOrchestrator(
+        campaign_id="X2-DUAL-CLOCK",
+        source_commit="a" * 40,
+        work_dir=tmp_path / "camp_dual",
+        max_minutes=330.0,
+        reserve_minutes=45.0,
+        min_disk_bytes=1024,
+    )
+    jobs = [SessionJob(f"j{i}", "DELTA", 7 + i, 7 + i, 100, device="cuda:0") for i in range(6)]
+    plan = orch.admit_slice(
+        jobs,
+        measured_seconds_per_update=24.0,
+        per_job_disk_bytes=1024,
+        parallel_workers=2,
+        available_disk_bytes=10**8,
+        outer_remaining_minutes=130.0,
+    )
+    assert plan["admitted_job_ids"] == ["j0", "j1", "j2", "j3"]
+    assert plan["deferred_pending_job_ids"] == ["j4", "j5"]
+    assert plan["next_resumable_job_id"] == "j4"
+    assert (tmp_path / "camp_dual" / "PENDING_QUEUE.json").is_file()
+
+    # 2. Verified resume reconciliation (swapped spec & missing archive member rejected)
+    good_zip = tmp_path / "j0.zip"
+    with zipfile.ZipFile(good_zip, "w") as zf:
+        zf.writestr("FINAL_STATUS.json", '{"status": "COMPLETE"}\n')
+    good_sha = _sha(good_zip.read_bytes()).hexdigest()
+    reg_rows = [
+        {"job_id": "j0", "source_commit": "a" * 40, "spec_sha256": "s0", "updates": 100},
+        {"job_id": "j1", "source_commit": "a" * 40, "spec_sha256": "s1", "updates": 100},
+        {"job_id": "j2", "source_commit": "a" * 40, "spec_sha256": "s2", "updates": 100},
+    ]
+    rec_res = orch.reconcile_verified_resume(
+        [
+            {"job_id": "j0", "source_commit": "a" * 40, "spec_sha256": "s0", "completed_updates": 100, "eval_rows": 64, "archive_path": str(good_zip), "archive_sha256": good_sha},
+            {"job_id": "j1", "source_commit": "a" * 40, "spec_sha256": "SWAPPED", "completed_updates": 100, "eval_rows": 64, "archive_path": str(good_zip), "archive_sha256": good_sha},
+            {"job_id": "j2", "source_commit": "a" * 40, "spec_sha256": "s2", "completed_updates": 100, "eval_rows": 64, "archive_path": str(good_zip), "archive_sha256": good_sha, "required_archive_members": ["MISSING.json"]},
+        ],
+        reg_rows,
+        required_archive_members=("FINAL_STATUS.json",),
+    )
+    assert rec_res["verified_completed_jobs"] == ["j0"]
+    assert rec_res["next_resumable_job_id"] == "j1"
+    rej_by_id = {r["job_id"]: r["reasons"] for r in rec_res["rejected_jobs"]}
+    assert "SWAPPED_SPEC_SHA256" in rej_by_id["j1"]
+    assert "MISSING_ARCHIVE_MEMBER:MISSING.json" in rej_by_id["j2"]
+
+    # 3. verify_shared_backbone_and_head_overhead
+    class _Wrap(nn.Module):
+        def __init__(self, seed: int, head_out: int) -> None:
+            super().__init__()
+            torch.manual_seed(seed)
+            self.core = nn.Linear(10, 10)
+            self.head = nn.Linear(10, head_out)
+    ok_bb = verify_shared_backbone_and_head_overhead(_Wrap(7, 1), _Wrap(7, 1), backbone_prefix="core.", max_head_overhead_ratio=0.15, max_control_parity_ratio=0.02)
+    assert ok_bb["passed"] is True and ok_bb["backbone_digest_match"] is True
+    bad_bb = verify_shared_backbone_and_head_overhead(_Wrap(7, 1), _Wrap(8, 1), backbone_prefix="core.")
+    assert bad_bb["passed"] is False and "BACKBONE_DIGEST_MISMATCH" in bad_bb["defects"]
+
+    # 4. Upgraded build_pinned_kaggle_notebook
+    nb = build_pinned_kaggle_notebook(
+        source_commit="a" * 40,
+        title="V8-X2 Kaggle",
+        launch_command="python -m experiments.elendril_x2.module",
+        extra_pinned_repos={"x1_worker": {"repo_url": "https://example.invalid/repo.git", "commit": "b" * 40}},
+        preflight_canary_backend="x1_s20",
+        require_dual_gpu=True,
+        emit_file_links=True,
+    )
+    assert len(nb["cells"]) == 5
+    nb_src = "\n".join("".join(c["source"]) for c in nb["cells"])
+    for tok in ("OWNER_AUTHORIZED = False", "device_count() >= 2", "replay-bundle", "FileLink"):
+        assert tok in nb_src
+
+    # 5. Root agent.md == anra_v5/planthir/agent.md with Two-Agent Framework Protocol
+    root_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
+    pkg_doc = (REPO_ROOT / "anra_v5" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    assert root_doc == pkg_doc
+    for needle in (
+        "Two-Agent Framework Protocol",
+        "6-Rule Zero-Degradation Specification",
+        "MANDATORY PALANTIRI BUILDER CONTRACT",
+        "policy.reset_episode()",
+        "in_process_runner",
+        "admit_slice",
+        "reconcile_verified_resume",
+        "verify_shared_backbone_and_head_overhead",
+    ):
+        assert needle in root_doc

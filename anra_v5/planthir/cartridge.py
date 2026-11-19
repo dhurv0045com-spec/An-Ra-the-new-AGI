@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from hashlib import sha256
 import json
 import math
 import os
@@ -204,6 +205,94 @@ def audit_experimental_design(
             "control_arm": control.arm_id, "arms_checked": len(treatments),
             "comparisons": comparisons, "violations": violations,
             "scope": "Declared recipe/spec equality and explicit factor, not proof of equal FLOPs or causal identification."}
+
+
+def _to_jsonable_cohort(obj: Any) -> Any:
+    """Convert nested cohort structures to strict finite JSON-safe values."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, Mapping):
+        return {str(k): _to_jsonable_cohort(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set, frozenset)):
+        return [_to_jsonable_cohort(v) for v in obj]
+    if hasattr(obj, "item") and callable(getattr(obj, "item")):
+        return _to_jsonable_cohort(obj.item())
+    return obj
+
+
+def _capture_replay_reference_rows(
+    *,
+    policy: Any,
+    kernel: EnvironmentKernel,
+    eval_worlds: Sequence[Mapping[str, Any]],
+    checkpoint_sha256: str,
+    backend_id: str,
+    decoder_mode: str,
+) -> list[dict[str, Any]]:
+    """Record full initial observation hashes, step observations, and actions for independent replay verification."""
+    max_steps = int(getattr(kernel, "max_actions", 8) or 8)
+    rows: list[dict[str, Any]] = []
+    for idx, world in enumerate(eval_worlds):
+        if callable(getattr(policy, "reset_episode", None)):
+            policy.reset_episode()
+        wid = str(world.get("world_id", idx))
+        st = kernel.initial_state(world)
+        init_obs = kernel.observe(st)
+        init_sha = sha256(init_obs.rendered_text.encode("utf-8")).hexdigest()
+        actions: list[tuple[str, str | None]] = []
+        obs_sha_history: list[str] = []
+        for _ in range(max_steps):
+            terminal = bool(st.get("terminal", False)) if isinstance(st, Mapping) else bool(getattr(st, "terminal", False))
+            if terminal:
+                break
+            obs = kernel.observe(st)
+            obs_sha_history.append(sha256(obs.rendered_text.encode("utf-8")).hexdigest())
+            act = policy.propose_with_telemetry(obs)
+            actions.append((str(act.operation), act.argument))
+            st = kernel.step(st, act.operation, act.argument)
+        ver = kernel.verify(world, actions)
+        first_op, first_arg = actions[0] if actions else ("INVALID", None)
+        rows.append(
+            {
+                "world_id": wid,
+                "checkpoint_sha256": checkpoint_sha256,
+                "backend_id": backend_id,
+                "renderer_template": int(world.get("renderer_template", 0)) if isinstance(world, Mapping) else 0,
+                "decoder": decoder_mode,
+                "rendered_input_sha256": init_sha,
+                "operation": first_op,
+                "argument": first_arg,
+                "actions": [[op, arg] for op, arg in actions],
+                "observation_sha256_history": obs_sha_history,
+                "history": [
+                    {
+                        "step_index": i,
+                        "rendered_input_sha256": obs_sha_history[i],
+                        "operation": actions[i][0],
+                        "argument": actions[i][1],
+                    }
+                    for i in range(len(actions))
+                ],
+                "correct": bool(ver.get("correct", False)),
+            }
+        )
+    return rows
+
+
+def _probe_initial_actions_and_hidden(policy: Any, parity_obs: Sequence[Any]) -> tuple[list[tuple[str, str | None]], torch.Tensor]:
+    """Probe single-step initial predictions and hidden states with explicit per-world episode resets."""
+    actions: list[tuple[str, str | None]] = []
+    for obs in parity_obs:
+        if callable(getattr(policy, "reset_episode", None)):
+            policy.reset_episode()
+        act = policy.propose_with_telemetry(obs)
+        actions.append((act.operation, act.argument))
+    if callable(getattr(policy, "reset_episode", None)):
+        policy.reset_episode()
+    hidden = policy.extract_representations(parity_obs)["decision_hidden"].cpu()
+    return actions, hidden
 
 
 def estimate_token_fuel_savings(
@@ -760,11 +849,7 @@ class CartridgeRunner:
                 policy=live_policy,
                 probe_observations=telemetry_probe_obs,
             )
-            live_actions = [
-                (a.operation, a.argument)
-                for a in (live_policy.propose_with_telemetry(obs) for obs in parity_obs)
-            ]
-            live_hidden = live_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
+            live_actions, live_hidden = _probe_initial_actions_and_hidden(live_policy, parity_obs)
 
             arm_training_records[arm.arm_id] = {
                 "exp_id": exp_id,
@@ -806,6 +891,7 @@ class CartridgeRunner:
         arm_results: dict[str, Any] = {}
         arm_bundles: dict[str, dict[str, Any]] = {}
         latest_recs: dict[str, Any] = {}
+        replay_reference_by_lineage: dict[str, list[dict[str, Any]]] = {}
 
         for arm in all_arms:
             tr_info = arm_training_records[arm.arm_id]
@@ -842,6 +928,14 @@ class CartridgeRunner:
                 latest_rec, mode=arm.policy_mode, device=device
             )
             policy_raw = restored_raw["policy"]
+            replay_reference_by_lineage[lineage_id] = _capture_replay_reference_rows(
+                policy=policy_raw,
+                kernel=cartridge.kernel,
+                eval_worlds=eval_worlds,
+                checkpoint_sha256=latest_sha,
+                backend_id=arm.backend_id or active_backend.backend_id,
+                decoder_mode=arm.policy_mode,
+            )
             policy_masked = active_backend.create_policy(
                 policy_raw.model,
                 arm_spec,
@@ -989,7 +1083,22 @@ class CartridgeRunner:
                 has_committed_complete = json.loads(existing_pointer.read_text(encoding="utf-8")).get("status") == "COMPLETE"
             except Exception:
                 has_committed_complete = False
-        with tempfile.TemporaryDirectory(prefix="planthir-verify-") as restore_tmp:
+        sanitized_eval_worlds = [_to_jsonable_cohort(dict(w)) for w in eval_worlds]
+        ordered_eval_ids = [str(w.get("world_id", i)) for i, w in enumerate(sanitized_eval_worlds)]
+        replay_cohort_doc = {
+            "schema": "anra-planthir-replay-cohort-v1",
+            "campaign_id": cartridge.campaign_id,
+            "source_commit": cartridge.source_commit,
+            "backend_id": active_backend.backend_id,
+            "kernel_id": cartridge.kernel.kernel_id,
+            "ordered_world_ids": ordered_eval_ids,
+            "cohort_sha256": digest(sanitized_eval_worlds),
+            "worlds": sanitized_eval_worlds,
+            "reference_predictions": _to_jsonable_cohort(replay_reference_by_lineage),
+        }
+        replay_cohort_bytes = (json.dumps(replay_cohort_doc, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+
+        with tempfile.TemporaryDirectory(prefix="planthir-verify-", ignore_cleanup_errors=True) as restore_tmp:
             if has_committed_complete:
                 gate5_stage_dir = Path(restore_tmp) / "gate5_stage"
                 initial_receipt = export_result_bundle(
@@ -1000,6 +1109,7 @@ class CartridgeRunner:
                     experiment_bundles=arm_bundles,
                     checkpoint_root=ckpt_root,
                     max_result_zip_bytes=max_result_zip_bytes,
+                    extra_root_files={"REPLAY_COHORT.json": replay_cohort_bytes},
                 )
             else:
                 initial_receipt = publish_bundle_generation(
@@ -1010,6 +1120,7 @@ class CartridgeRunner:
                     experiment_bundles=arm_bundles,
                     checkpoint_root=ckpt_root,
                     max_result_zip_bytes=max_result_zip_bytes,
+                    extra_root_files={"REPLAY_COHORT.json": replay_cohort_bytes},
                     export_fn=export_result_bundle,
                     verify_fn=None,
                     enable_fault_injection=False,
@@ -1032,11 +1143,7 @@ class CartridgeRunner:
                     candidates[0], mode=arm.policy_mode, device=device)
                 loaded_zip["source_archive"] = "checkpoint_full.zip (exact weights)"
                 z_policy = loaded_zip["policy"]
-                zip_actions = [
-                    (a.operation, a.argument)
-                    for a in (z_policy.propose_with_telemetry(obs) for obs in parity_obs)
-                ]
-                zip_hidden = z_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
+                zip_actions, zip_hidden = _probe_initial_actions_and_hidden(z_policy, parity_obs)
 
                 live_actions = tr_info["live_actions"]
                 live_hidden = tr_info["live_hidden"]
@@ -1183,6 +1290,7 @@ class CartridgeRunner:
             extra_root_files={
                 "AI_HANDOFF_BRIEF.json": brief_bytes,
                 "LAUNCH_GATE_CERTIFICATE.json": cert_bytes,
+                "REPLAY_COHORT.json": replay_cohort_bytes,
             },
             export_fn=export_result_bundle,
             verify_fn=verify_result_bundle,
