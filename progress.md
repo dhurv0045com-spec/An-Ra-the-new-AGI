@@ -312,3 +312,8 @@ Documented all failed screens, the C seed 7 row-order shortcut, archive size, an
 ### 2026-11-19 Codex — Avendi frozen checkpoint results
 Published the owner P0–P2 audit for avendi-frozen-63c10bbd2f. Reproduced P0, checked six parent manifests and rescored 13,824 first-logit rows. Every checkpoint failed both family gates.
 Recorded position and abstention findings, full-sequence replay limits and the next matched row-permutation diagnostic. P3–P6 remain unexecuted.
+
+### 2026-11-19 | Antigravity | Sync Palantiri replay fix, orchestrator upgrades, and Two-Agent agent.md onto hitchhiker
+- Synced `f437b5a3` Planthir updates (`REPLAY_COHORT.json` multi-step replay, `(KeyError, ValueError)` + `MISSING_BACKEND_PLUGIN` + `INSUFFICIENT_REPLAY_EVIDENCE`, per-world `policy.reset_episode()`, `ignore_cleanup_errors=True`, `causal.py`/`observatory.py` target-symbol guard, `admit_slice()`, `reconcile_verified_resume()`, `verify_shared_backbone_and_head_overhead()`, multi-cell `build_pinned_kaggle_notebook()`, and Two-Agent `agent.md` + `anra_v5/planthir/agent.md` & `research/planthir/agent.md`).
+- Preserved all Avendi V8-Y2 modules, frozen checkpoint audits, tools, notebooks, and curated results on `hitchhiker`.
+- Verified on CPU via `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`) and `tests/test_planthir_v2_audit_upgrades.py` + `tests/test_elendril_tree.py`; GPU pending.

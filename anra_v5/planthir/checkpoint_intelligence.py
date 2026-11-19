@@ -123,6 +123,9 @@ def _reconstruct_x1_spec(raw: Mapping[str, Any]):
     return X1RD2Spec(**filtered)
 
 
+_BUILTIN_BACKEND_IDS = ("v8", "x1_rd2", "x1_s20", "byte_prompt")
+
+
 def _extract_arch_and_params(
     scheduler_payload: Mapping[str, Any],
 ) -> tuple[str, str, int | None, Any, ModelSpec | None]:
@@ -130,17 +133,24 @@ def _extract_arch_and_params(
     if not isinstance(meta, Mapping):
         meta = {}
 
-    if isinstance(meta.get("backend_id"), str):
-        try:
-            from .backend import get_backend
+    if isinstance(meta.get("backend_id"), str) and meta["backend_id"]:
+        bid = str(meta["backend_id"])
+        from .backend import get_backend
 
-            be = get_backend(meta["backend_id"])
-            if callable(getattr(be, "extract_checkpoint_metadata", None)):
-                extracted = be.extract_checkpoint_metadata(meta)  # type: ignore[attr-defined]
-                if extracted is not None:
-                    return extracted
-        except Exception:
-            pass
+        be = None
+        try:
+            be = get_backend(bid)
+        except (KeyError, ValueError):
+            be = None
+        if be is not None and callable(getattr(be, "extract_checkpoint_metadata", None)):
+            extracted = be.extract_checkpoint_metadata(meta)  # type: ignore[attr-defined]
+            if extracted is not None:
+                return extracted
+        if be is None and bid not in _BUILTIN_BACKEND_IDS:
+            arch = str(meta.get("architecture", meta.get("method", "unknown")))
+            pcount_raw = meta.get("parameter_count")
+            pcount_val = int(pcount_raw) if isinstance(pcount_raw, (int, float)) else None
+            return bid, arch, pcount_val, None, None
 
     if isinstance(meta.get("x1_model_spec"), Mapping):
         raw_x1 = meta["x1_model_spec"]
@@ -302,29 +312,33 @@ def _instantiate_checkpoint_bundle(
     from .adapters.x1_rd2_adapter import X1ObservablePolicy, X1RD2Spec, build_x1_model
 
     meta = sched.get("metadata", sched)
-    if isinstance(meta, Mapping) and isinstance(meta.get("backend_id"), str):
-        try:
-            from .backend import get_backend
+    if isinstance(meta, Mapping) and isinstance(meta.get("backend_id"), str) and meta["backend_id"]:
+        bid = str(meta["backend_id"])
+        from .backend import get_backend
 
-            be = get_backend(meta["backend_id"])
-            if callable(getattr(be, "restore_checkpoint_bundle", None)):
-                custom_res = be.restore_checkpoint_bundle(  # type: ignore[attr-defined]
-                    state=state,
-                    sched=sched,
-                    weights=weights,
-                    sha=sha,
-                    mode=mode,
-                    device=device,
-                    copy_enabled_override=copy_enabled_override,
-                )
-                if custom_res is not None:
-                    return custom_res
-        except Exception:
-            pass
+        try:
+            be = get_backend(bid)
+        except (KeyError, ValueError) as exc:
+            if bid not in _BUILTIN_BACKEND_IDS:
+                raise ValueError(f"MISSING_BACKEND_PLUGIN:{bid}: set PLANTHIR_BACKEND_MODULES to register plugin") from exc
+            be = None
+        if be is not None and callable(getattr(be, "restore_checkpoint_bundle", None)):
+            custom_res = be.restore_checkpoint_bundle(  # type: ignore[attr-defined]
+                state=state,
+                sched=sched,
+                weights=weights,
+                sha=sha,
+                mode=mode,
+                device=device,
+                copy_enabled_override=copy_enabled_override,
+            )
+            if custom_res is not None:
+                return custom_res
 
     prog, arch, pcount, backend_spec, base_spec = _extract_arch_and_params(sched)
     if isinstance(backend_spec, X1ModelSpec):
         v8_spec = None
+        resolved_backend_id = "x1_s20"
         model = build_x1_s20_model(backend_spec, 0, torch_module=torch).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
@@ -336,6 +350,7 @@ def _instantiate_checkpoint_bundle(
             copy_enabled_override=copy_enabled_override,
         )
     elif isinstance(backend_spec, X1RD2Spec):
+        resolved_backend_id = "x1_rd2"
         model = build_x1_model(backend_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
@@ -348,6 +363,7 @@ def _instantiate_checkpoint_bundle(
         v8_spec = None
     elif isinstance(backend_spec, V8ModelSpec) and backend_spec.architecture in ARCHITECTURES:
         v8_spec = backend_spec
+        resolved_backend_id = "v8"
         model = build_v8_model(v8_spec, 0, torch_module=torch).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
@@ -360,6 +376,7 @@ def _instantiate_checkpoint_bundle(
         )
     elif base_spec is not None:
         v8_spec = None
+        resolved_backend_id = str(meta.get("backend_id") or "v8") if isinstance(meta, Mapping) else "v8"
         model = initialize(base_spec, 0).to(torch.device(device))
         model.load_state_dict(weights, strict=True)
         model.eval()
@@ -380,6 +397,7 @@ def _instantiate_checkpoint_bundle(
         "global_update": state.global_update,
         "cumulative_tokens": state.cumulative_tokens,
         "curriculum_phase": state.curriculum_phase,
+        "backend_id": resolved_backend_id,
         "program_family": prog,
         "architecture": arch,
         "parameter_count": pcount,
@@ -387,7 +405,7 @@ def _instantiate_checkpoint_bundle(
         "model": model,
         "policy": policy,
         "v8_spec": v8_spec,
-        "x1_spec": backend_spec if isinstance(backend_spec, X1RD2Spec) else None,
+        "x1_spec": backend_spec if isinstance(backend_spec, (X1RD2Spec, X1ModelSpec)) else None,
         "model_spec": base_spec or (backend_spec if isinstance(backend_spec, X1RD2Spec) else None),
         "scheduler": dict(sched),
         "payload_keys": sorted(payload_keys),
@@ -737,7 +755,7 @@ class CheckpointCatalog:
         sel_lineage = str(selected["lineage_id"])
         sel_sha = str(selected["latest_checkpoint_sha256"])
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             tmp_root = Path(tmp)
             with zipfile.ZipFile(result_zip, "r") as zf:
                 ckpt_members = [
@@ -840,7 +858,7 @@ class CheckpointCatalog:
         if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
             raise ValueError(f"restore destination must be absent or empty: {dest}")
         dest.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
+        with tempfile.TemporaryDirectory(dir=dest.parent, ignore_cleanup_errors=True) as tmp:
             staged = Path(tmp) / "restore"
             with zipfile.ZipFile(full_zip, "r") as zf:
                 members = [m for m in zf.namelist() if not m.endswith("/")]
@@ -1024,6 +1042,10 @@ class LegacyByteObservablePolicy:
             },
         )
 
+    def reset_episode(self) -> None:
+        """Reset episode state between worlds (stateless byte prompt wrapper)."""
+        return None
+
     def propose_batch(self, obs_batch: Sequence[UniversalObservation]) -> list[UniversalAction]:
         return [self.propose_with_telemetry(obs) for obs in obs_batch]
 
@@ -1106,7 +1128,7 @@ def load_legacy_byte_checkpoint(
     device: str = "cpu",
 ) -> dict[str, Any]:
     """One-call loader restoring a verified legacy V6/Y1/byte checkpoint wrapped with LegacyByteObservablePolicy."""
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         store_root = locate_checkpoint_store_root(
             checkpoint_root_or_zip,
             temp_extract_dir=Path(tmp),

@@ -166,6 +166,8 @@ class InternalTelemetryCollector:
         rep_metrics: dict[str, Any] = {}
         mech_telemetry: dict[str, float] = {}
         if policy is not None and probe_observations:
+            if callable(getattr(policy, "reset_episode", None)):
+                policy.reset_episode()
             reps = policy.extract_representations(probe_observations)
             if "decision_hidden" in reps:
                 h = reps["decision_hidden"]
@@ -184,6 +186,8 @@ class InternalTelemetryCollector:
             rec_means: list[float] = []
             rec_finals: list[float] = []
             for obs in sample_obs:
+                if callable(getattr(policy, "reset_episode", None)):
+                    policy.reset_episode()
                 act = policy.propose_with_telemetry(obs)
                 if "recurrent_mean_delta" in act.telemetry:
                     rec_means.append(act.telemetry["recurrent_mean_delta"])
@@ -316,6 +320,8 @@ class ProcessFunnelAnalyzer:
         subgoal_hop1_correct = 0
 
         for world in worlds:
+            if callable(getattr(policy, "reset_episode", None)):
+                policy.reset_episode()
             state = kernel.initial_state(world)
             executed: list[tuple[str, str | None]] = []
             first_div = "NONE"
@@ -357,7 +363,7 @@ class ProcessFunnelAnalyzer:
 
                 executed.append((action.operation, action.argument))
                 state = kernel.step(state, action.operation, action.argument)
-                if getattr(state, "terminal", False):
+                if bool(state.get("terminal", False)) if isinstance(state, Mapping) else bool(getattr(state, "terminal", False)):
                     break
 
             outcome = kernel.verify(world, executed)
@@ -426,7 +432,7 @@ class ProcessFunnelAnalyzer:
 
         return {
             "schema": "anra-planthir-process-funnel-v1",
-            "policy_id": policy.policy_id,
+            "policy_id": str(getattr(policy, "policy_id", getattr(policy, "model_identity", type(policy).__name__))),
             "kernel_id": kernel.kernel_id,
             "episodes": n,
             "overall_accuracy": sum(1 for t in traces if t.correct) / n,
