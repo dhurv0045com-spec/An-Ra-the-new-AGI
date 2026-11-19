@@ -1,5 +1,7 @@
 # Avendi V8-Y2, AN-RA V8-Y1 & Hitchhiker — Elendril mechanism investigation
 
+**Next owner campaign.** [Avendi V8-Y3 executable Gemini handoff](research/avendi/GEMINI_AVENDI_V8_Y3.md) specifies 50 scientific studies and 54 main training jobs. The plan generator and exact reference fixtures are implemented and CPU-tested. The Y3 learned plugin and owner notebook are pending.
+
 **Latest owner results (2026-11-19).** [Avendi V8-Y2 frozen audit](Experiment%20Result/Avendi-V8-Y2/avendi-frozen-63c10bbd2f/RESULTS.md). All six Y1 S3 checkpoints were restored in the owner run. Every checkpoint solved 0/256 complete one-hop and 0/256 complete three-hop families. F00 seed 7 chose the last rendered value on 1,020/1,024 one-hop cases. The next diagnostic permutes row order on the same facts before P3 acquisition.
 
 **Original protocol and CPU intake (2026-11-18, branch `hitchhiker`).** [Avendi V8-Y2 registry](research/avendi/REGISTRY.json) (`design_sha256: 13f8f46c9065115b9bbdecb2884edba2ff88a3bf9e01cba2afd613739c344fbd`), [CPU P0 & frozen intake report](Experiment%20Result/Avendi-V8-Y2/avendi-frozen-0acbe87814/RESULTS.md), Planthir `ExperimentModule` adapter (`anra_v5.elendril.avendi.module`), and [AVENDI_V8_Y2_T4X2.ipynb](notebooks/AVENDI_V8_Y2_T4X2.ipynb) are implemented and CPU-qualified. P0 instrument (independent tokenized-input oracle, 10,920-family canonical 1-hop pool, destructive goal/bridge erasure, planted collision control, and 8 reference policies) is `QUALIFIED`; the November 19 audit records the subsequent P1/P2 owner run. P3–P6 remain pending.

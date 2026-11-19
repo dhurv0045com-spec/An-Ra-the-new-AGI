@@ -317,3 +317,8 @@ Recorded position and abstention findings, full-sequence replay limits and the n
 - Synced `f437b5a3` Planthir updates (`REPLAY_COHORT.json` multi-step replay, `(KeyError, ValueError)` + `MISSING_BACKEND_PLUGIN` + `INSUFFICIENT_REPLAY_EVIDENCE`, per-world `policy.reset_episode()`, `ignore_cleanup_errors=True`, `causal.py`/`observatory.py` target-symbol guard, `admit_slice()`, `reconcile_verified_resume()`, `verify_shared_backbone_and_head_overhead()`, multi-cell `build_pinned_kaggle_notebook()`, and Two-Agent `agent.md` + `anra_v5/planthir/agent.md` & `research/planthir/agent.md`).
 - Preserved all Avendi V8-Y2 modules, frozen checkpoint audits, tools, notebooks, and curated results on `hitchhiker`.
 - Verified on CPU via `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`) and `tests/test_planthir_v2_audit_upgrades.py` + `tests/test_elendril_tree.py`; GPU pending.
+
+### 2026-11-19 | Codex | Avendi V8-Y3 full-campaign handoff
+Published a 50-study, 54-job executable preregistration with 44 Palantiri uses, all 25 prior discoveries and a resumable owner-run contract.
+Verified the plan, lookup cube, rule bank and public-belief solver with five Y3 CPU tests. Platform doctor, six-fault calibration and four platform regressions passed.
+Y3 learned models, plugin acceptance, target profiling and notebook execution remain pending.
