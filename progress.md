@@ -351,3 +351,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Fixed `build_legacy_x1_worker_command()` to match `8e62ca0f` (`--source`, no `--session`, isolated `legacy-exec` `cwd`/`PYTHONPATH`), and fixed `anra_v5/planthir/execution.py` `run_session()` to accept `.planthir_worker.lock` alongside `.planthir-run-writer`.
 - Fixed dual-GPU `CUDA_VISIBLE_DEVICES` isolation, `PLANTHIR_BACKEND_MODULES` worker env, paired X2 deduplication + 2x update billing, Session 2+ `discover_kaggle_input_receipts()` (`milestones/u*/episodes.jsonl` + `FINAL_RECEIPT.json`/`ARM_RESULTS.json`) with `LEGACY_MODEL_SPEC_MISMATCH`, anti-bloat `export_archives()`, and fail-fast wave diagnostics in `experiments/x2/campaign.py` and `tools/build_elendril_x2_notebook.py`.
 - Verified with real unmocked `8e62ca0f` legacy X1 and `elendril_x2` subprocess tests plus campaign recovery, science plugin, tree, resource/scheduler, and v2 audit suites.
+
+### 2026-11-19 | Antigravity | Publish repaired V8-X2 Kaggle 2xT4 notebook (Commit B2)
+- Regenerated `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` pinned to Runtime Commit A2 (`df084bdca3417ba9892c8f5c726a5f405f6187d3`), verified byte-identical vs clean `git archive` export (13,969 bytes, SHA-256 `7d8c50e8ef12afb80d24345128ad1d45c407740ed9dd0037608e202366681b8d`).
+- Updated `Experiment Result/V8-X2/TEMPLATE_METRICS.json` and `research/v8-x2/IMPLEMENTATION_HANDOFF.md` with Commit A2 pin and Session 1 (no `/kaggle/input`) / Session 2+ workflow.

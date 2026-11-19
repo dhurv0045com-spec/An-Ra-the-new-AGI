@@ -17,7 +17,7 @@
   - `tools/build_elendril_x2_notebook.py`: deterministic zero-edit Kaggle 2xT4 notebook generator (`notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`).
 
 ## 3. Source Pins & Kaggle 2xT4 Launch Workflow
-- **Pinned X2 Runtime Commit (`SOURCE_SHA`, Commit A):** `bfc3d9563fa91713888163c334301fe6e15ade78`
+- **Pinned X2 Runtime Commit (`SOURCE_SHA`, Commit A2):** `df084bdca3417ba9892c8f5c726a5f405f6187d3`
 - **Pinned Legacy X1 Worker Commit (`LEGACY_X1_SHA`):** `8e62ca0f2046c0f07910fdd20abee40508631227`
-- **Generated Notebook (`notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`) SHA-256:** `1f73d18de1bbd8ee1de6bc1cb81fa702767d083feaf291a043a5d9657eb9b951`
-- **Owner Kaggle Run (Zero Edits):** upload `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`, select **GPU T4 x2**, enable **Internet**, click **Run All**. The notebook automatically runs the mandatory 2xT4 canary + `replay-bundle` gate before launching admitted waves, discovers prior `/kaggle/input/**` receipts, exports compact & full ZIPs to `/kaggle/working`, and prints the exact next resumable job ID.
+- **Generated Notebook (`notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`) SHA-256:** `7d8c50e8ef12afb80d24345128ad1d45c407740ed9dd0037608e202366681b8d`
+- **Owner Kaggle Run (Zero Edits):** upload `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb`, select **GPU T4 x2**, enable **Internet**, click **Run All**. **Session 1 requires NO `/kaggle/input` attachment** (A0 is already committed at `Experiment Result/V8-X1/A0/`); **Session 2+** attaches Session 1's output dataset as `/kaggle/input` to auto-resume from verified SHA/step/spec receipts. The notebook runs the mandatory 2xT4 canary + `replay-bundle` gate before launching admitted waves, exports compact & full ZIPs to `/kaggle/working`, fails loudly if all workers in Wave 1 fail (`completed_jobs == 0`), and prints the exact next resumable job ID.
