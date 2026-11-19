@@ -322,3 +322,9 @@ Recorded position and abstention findings, full-sequence replay limits and the n
 Published a 50-study, 54-job executable preregistration with 44 Palantiri uses, all 25 prior discoveries and a resumable owner-run contract.
 Verified the plan, lookup cube, rule bank and public-belief solver with five Y3 CPU tests. Platform doctor, six-fault calibration and four platform regressions passed.
 Y3 learned models, plugin acceptance, target profiling and notebook execution remain pending.
+
+### 2026-11-19 | Antigravity | Avendi V8-Y3 full implementation and CPU qualification
+- Implemented zero-stub P0–P7 models, tasks, sealed confirm lock, campaign DAG, 50 study receipts, and 44 platform witnesses across `experiments/avendi_y3/{plan,tasks,models,module}.py` and `tests/test_avendi_y3.py` (1,715 total lines <= 1,900).
+- Verified engineering controls on CPU: `doctor` (`GREEN_SIGNAL`), `calibrate` (6/6), `tests/test_avendi_y3.py` (12 passed incl. 3 recovery tests), full repo pytest (560 passed, 1 skipped, 14 subtests passed), and `avendi_y3` CANARY campaign (50/50 studies, 44/44 uses, `AVENDI_Y3_SUMMARY.zip` = 5,411 B).
+- Verified fresh-subprocess CLI acceptance chains (`init -> validate --canary -> run --canary -> verify-bundle -> replay-bundle`) for both `x1_s20` and `avendi_y3` (`GATES=True`, `VER=True`, `REP=MATCHED`).
+- Pending owner GPU execution: Kaggle 2xT4 `FULL` campaign profiling, 54 main jobs + 24 short forks, mounted Y1 checkpoint restoration, and scientific confirmation outcomes.
