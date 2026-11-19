@@ -183,6 +183,8 @@ from .runtime import (
     render_campaign_results_markdown,
     rescore_compact_analysis_archive,
     safe_extract_planthir_archive,
+    verify_full_mode_dispatch,
+    verify_session_archive,
     verify_shared_backbone_and_head_overhead,
 )
 from .validation_study import (
@@ -350,9 +352,11 @@ __all__ = [
     "validate_nonanticipating_teacher",
     "validate_spec_document",
     "verify_crossover_fixture",
+    "verify_full_mode_dispatch",
     "verify_provenance_identity",
     "verify_raw_evidence_chunks",
     "verify_result_bundle",
+    "verify_session_archive",
     "verify_shared_backbone_and_head_overhead",
     "verify_single_planthir_zip",
     "verify_tier2_capsule",

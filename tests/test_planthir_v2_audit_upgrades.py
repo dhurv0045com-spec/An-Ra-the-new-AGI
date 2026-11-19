@@ -70,6 +70,8 @@ from anra_v5.planthir import (
     synthesize_scientific_interpretation,
     validate_spec_document,
     verify_crossover_fixture,
+    verify_full_mode_dispatch,
+    verify_session_archive,
     verify_shared_backbone_and_head_overhead,
 )
 from anra_v5.planthir.backend import _BACKENDS
@@ -511,10 +513,7 @@ def test_hitchhiker_audit_fixes_registry_replay_stats_strata_and_docs(tmp_path: 
         CartridgeRunner().run(cart, work_root=work, **run_kwargs)
         lin = f"{cart.campaign_id.lower()}-{cart.control_arm.arm_id}-s{cart.control_arm.order_seed}"
         bdir = work / "result_bundle"
-        matched_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
-        assert matched_rec["prediction_agreement_status"] == "MATCHED"
-        assert matched_rec["original_prediction_agreement"]["matched"] is True
-        probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds, use_archived_reference=False)
+        probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
         assert probe_rec["prediction_agreement_status"] == "PROBE_ONLY_NO_REFERENCE"
         lineages = {row["lineage_id"]: row for row in probe_rec["restored_lineages"]}
         assert lin in lineages
@@ -1109,9 +1108,190 @@ def test_codex_x1_a0_review_feedback_coverage_pairing_preflight_first_page_and_r
     assert (cli_out / "RESULTS.md").is_file() and (cli_out / "METRICS.json").is_file()
 
 
+def test_replay_release_blocker_x1_s20_and_stateful_plugin_cli_and_tamper(tmp_path: Path) -> None:
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(REPO_ROOT)
+
+    def _run_cli(args: list[str], *, extra_env: dict[str, str] | None = None, expect_ok: bool = True) -> dict:
+        run_env = {**env, **(extra_env or {})}
+        proc = subprocess.run(
+            [sys.executable, "-m", "anra_v5.palantiri", *args],
+            cwd=str(REPO_ROOT),
+            env=run_env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if expect_ok:
+            assert proc.returncode == 0, f"cmd={args}\nstdout={proc.stdout}\nstderr={proc.stderr}"
+        else:
+            assert proc.returncode != 0, f"expected failure for {args}, got exit 0: {proc.stdout}"
+        return json.loads(proc.stdout)
+
+    # A. Stock x1_s20 CLI chain: init -> validate -> run -> verify-bundle -> replay-bundle
+    x1_dir = tmp_path / "x1_s20_cli"
+    x1_spec = x1_dir / "spec.json"
+    _run_cli(["init", "--backend", "x1_s20", "--out", str(x1_spec)])
+    val = _run_cli(["validate", "--spec", str(x1_spec), "--canary"])
+    assert val["valid"] is True
+    run_res = _run_cli(["run", "--spec", str(x1_spec), "--work-root", str(x1_dir / "cpu"), "--canary", "--device", "cpu"])
+    assert run_res["gates_passed"] is True
+    bdir_x1 = x1_dir / "cpu" / "result_bundle"
+    ver_x1 = _run_cli(["verify-bundle", "--bundle-dir", str(bdir_x1)])
+    assert ver_x1["verified"] is True
+    rep_x1 = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_x1), "--output", str(x1_dir / "REPLAY_X1.json")])
+    assert rep_x1["verified"] is True and rep_x1["prediction_agreement_status"] == "MATCHED"
+    assert all(r["backend_id"] == "x1_s20" for r in rep_x1["restored_lineages"])
+
+    # B. Stateful 2-step plugin (step-2 observation depends on step-1 QUERY action + reset_episode + hidden["expected_answer"])
+    plug_dir = tmp_path / "plug_pkg"
+    plug_dir.mkdir(parents=True, exist_ok=True)
+    (plug_dir / "stateful_p.py").write_text(
+        "\n".join(
+            [
+                "from __future__ import annotations",
+                "import torch, torch.nn as nn, torch.nn.functional as F",
+                "from anra_v5.planthir import ExperimentModule, GenericDatasetBundle, UniversalAction, UniversalObservation",
+                "",
+                "class StatefulModel(nn.Module):",
+                "    def __init__(self, width: int = 8, seed: int = 7) -> None:",
+                "        super().__init__()",
+                "        torch.manual_seed(seed)",
+                "        self.net = nn.Sequential(nn.Linear(4, width), nn.Tanh(), nn.Linear(width, 3))",
+                "    def forward(self, x: torch.Tensor):",
+                "        logits = self.net(x)",
+                "        return logits, x",
+                "",
+                "class StatefulKernel:",
+                "    kernel_id = 'stateful-t14-test-v1'",
+                "    max_actions = 3",
+                "    def structural_signature(self, w): return f\"st:{w['sig']}\"",
+                "    def inject_distractor(self, w): return {**w, 'world_id': w['world_id'] + '::dist', 'sig': w['sig'] + '::dist'}",
+                "    def permute_world(self, w, shift=1): return {**w, 'world_id': w['world_id'] + f'::p{shift}', 'sig': w['sig'] + f'::p{shift}'}",
+                "    def reverse_world(self, w): return {**w, 'world_id': w['world_id'] + '::rev', 'sig': w['sig'] + '::rev'}",
+                "    def initial_state(self, w):",
+                "        return {'w': w, 'queried': False, 'step': 0, 'terminal': False}",
+                "    def observe(self, st):",
+                "        w = st['w']",
+                "        qa = not st['queried']",
+                "        txt = f\"WORLD {w['sig']} queried={st['queried']} hint={w['hidden']['cue'] if st['queried'] else 'NONE'}\"",
+                "        return UniversalObservation(",
+                "            obs_id=f\"{w['world_id']}:s{st['step']}:q{int(qa)}\",",
+                "            rendered_text=txt,",
+                "            available_tools={'query': qa, 'memory': False},",
+                "            consumed_tools=frozenset({'query'}) if st['queried'] else frozenset(),",
+                "            decision_index=st['step'],",
+                "            budget_remaining=max(1, 3 - st['step']),",
+                "            metadata={'queried': st['queried'], 'feat': w['feat']},",
+                "        )",
+                "    def ideal_action(self, st):",
+                "        return ('QUERY', None) if not st['queried'] else ('ANSWER', st['w']['hidden']['expected_answer'])",
+                "    def step(self, st, op, arg):",
+                "        if op == 'QUERY' and not st['queried']:",
+                "            return {'w': st['w'], 'queried': True, 'step': st['step'] + 1, 'terminal': False}",
+                "        return {'w': st['w'], 'queried': st['queried'], 'step': st['step'] + 1, 'terminal': True}",
+                "    def verify(self, w, actions):",
+                "        op, arg = actions[-1] if actions else ('INVALID', None)",
+                "        return {'correct': op == 'ANSWER' and arg == w['hidden']['expected_answer'], 'terminal_status': 'answered'}",
+                "    def decompose_subgoals(self, w): return ()",
+                "",
+                "class StatefulPolicy:",
+                "    def __init__(self, model, model_spec, *, model_identity='sp', mode='raw', copy_enabled_override=None):",
+                "        self.model = model",
+                "        self.model_spec = model_spec",
+                "        self.model_identity = model_identity",
+                "        self.mode = mode",
+                "        self.step_count = 0",
+                "    def reset_episode(self): self.step_count = 0",
+                "    def propose_with_telemetry(self, obs):",
+                "        x = torch.tensor([obs.metadata['feat']], dtype=torch.float32)",
+                "        with torch.no_grad(): logits, _ = self.model(x)",
+                "        probs = F.softmax(logits[0], dim=-1)",
+                "        if obs.available_tools.get('query') and self.step_count == 0:",
+                "            self.step_count += 1",
+                "            return UniversalAction('QUERY', None, float(torch.log(probs[2].clamp_min(1e-6))), {'QUERY:QUERY': float(probs[2]), 'ANSWER:A': float(probs[0]), 'ANSWER:B': float(probs[1])}, self.mode, 'QUERY', None)",
+                "        idx = int(torch.argmax(probs[:2]).item())",
+                "        lbl = 'A' if idx == 0 else 'B'",
+                "        self.step_count += 1",
+                "        return UniversalAction('ANSWER', lbl, float(torch.log(probs[idx].clamp_min(1e-6))), {'ANSWER:A': float(probs[0]), 'ANSWER:B': float(probs[1]), 'QUERY:QUERY': float(probs[2])}, self.mode, 'ANSWER', lbl)",
+                "    def extract_representations(self, obs_batch):",
+                "        x = torch.tensor([o.metadata['feat'] for o in obs_batch], dtype=torch.float32)",
+                "        with torch.no_grad(): _, h = self.model(x)",
+                "        return {'decision_hidden': h}",
+                "",
+                "def _ds(cfg, cpu_canary):",
+                "    def _mk(pfx, n):",
+                "        return [{'world_id': f'{pfx}_{i}', 'sig': f'{pfx}_{i}', 'hops': 2, 'feat': [1.0 if i % 2 == 0 else -1.0, 0.2, 0.1, -0.3], 'label': i % 2, 'hidden': {'expected_answer': 'A' if i % 2 == 0 else 'B', 'cue': f'C{i}'}} for i in range(n)]",
+                "    tr, ev, mh, pr = _mk('tr', 8), _mk('ev', 4), _mk('mh', 3), _mk('pr', 4)",
+                "    return {'train_data': GenericDatasetBundle(dataset_name='sp', items=tuple(tr), data_identity='sp-v1', manifest={'n': len(tr)}), 'train_worlds': tr, 'eval_worlds': ev, 'multihop_worlds': mh, 'probe_train_worlds': pr}",
+                "",
+                "def _loss(m, chunk, recipe):",
+                "    x = torch.tensor([c['feat'] for c in chunk], dtype=torch.float32)",
+                "    y = torch.tensor([c['label'] for c in chunk], dtype=torch.int64)",
+                "    return F.cross_entropy(m(x)[0], y)",
+                "",
+                "def register_planthir_backends():",
+                "    ExperimentModule(",
+                "        backend_id='stateful_p', architectures=('base', 'trt'), objectives=('ce',),",
+                "        model_factory=lambda a, c, s: StatefulModel(int(c.get('width', 8)), s),",
+                "        dataset_factory=_ds, loss_fn=_loss, kernel_factory=StatefulKernel, policy_factory=StatefulPolicy,",
+                "        default_model_config={'width': 8}, treatment_model_config={'width': 8}, extra_model_keys=('width',),",
+                "    ).register()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    plug_env = {"PYTHONPATH": f"{REPO_ROOT}{os.pathsep}{plug_dir}", "PLANTHIR_BACKEND_MODULES": "stateful_p"}
+    sp_dir = tmp_path / "sp_cli"
+    sp_spec = sp_dir / "spec.json"
+    _run_cli(["init", "--backend", "stateful_p", "--out", str(sp_spec)], extra_env=plug_env)
+    _run_cli(["run", "--spec", str(sp_spec), "--work-root", str(sp_dir / "cpu"), "--canary", "--device", "cpu"], extra_env=plug_env)
+    bdir_sp = sp_dir / "cpu" / "result_bundle"
+    rep_sp = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp)], extra_env=plug_env)
+    assert rep_sp["verified"] is True and rep_sp["prediction_agreement_status"] == "MATCHED"
+
+    # Missing plugin fails loudly with MISSING_BACKEND_PLUGIN (no Windows PermissionError masking)
+    miss_rep = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp)], expect_ok=False)
+    assert "MISSING_BACKEND_PLUGIN" in miss_rep["detail"]
+
+    # Wrong expected backend rejected
+    bad_be = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp), "--expected-backend", "wrong_id"], extra_env=plug_env, expect_ok=False)
+    assert "BACKEND_MISMATCH" in bad_be["detail"]
+
+    # Deliberate input change fails with offending world identity
+    import importlib
+    sys.path.insert(0, str(plug_dir))
+    try:
+        sp_mod = importlib.import_module("stateful_p")
+        sp_mod.register_planthir_backends()
+        ev_worlds = json.loads((bdir_sp / "REPLAY_COHORT.json").read_text(encoding="utf-8"))["worlds"]
+        bad_worlds = json.loads(json.dumps(ev_worlds))
+        bad_worlds[0]["sig"] = "TAMPERED_INPUT"
+        bad_worlds_path = sp_dir / "bad_worlds.json"
+        bad_worlds_path.write_text(json.dumps(bad_worlds), encoding="utf-8")
+        bad_inp = _run_cli(["replay-bundle", "--bundle-dir", str(bdir_sp), "--worlds-json", str(bad_worlds_path)], extra_env=plug_env, expect_ok=False)
+        assert "ORIGINAL_PREDICTION_MISMATCH" in bad_inp["detail"]
+
+        # Action / observation history mismatch check
+        arch_refs = json.loads((bdir_sp / "REPLAY_COHORT.json").read_text(encoding="utf-8"))["reference_predictions"]
+        lin_0 = sorted(arch_refs)[0]
+        tampered_hist = json.loads(json.dumps(arch_refs))
+        tampered_hist[lin_0][0]["observation_sha256_history"][-1] = "f" * 64
+        with pytest.raises(ValueError, match="ORIGINAL_PREDICTION_MISMATCH"):
+            independent_replay_bundle(bdir_sp, worlds=ev_worlds, reference_predictions=tampered_hist)
+
+        # Require reference on unreferenced call returns INSUFFICIENT_REPLAY_EVIDENCE
+        with pytest.raises(ValueError, match="INSUFFICIENT_REPLAY_EVIDENCE"):
+            independent_replay_bundle(bdir_sp, worlds=ev_worlds, require_reference=True)
+    finally:
+        sys.path.remove(str(plug_dir))
+        _BACKENDS.pop("stateful_p", None)
+
+
 def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tmp_path: Path) -> None:
     from hashlib import sha256 as _sha
 
+    # 1. Dual-clock admit_slice + PENDING_QUEUE.json preservation
     orch = CampaignOrchestrator(
         campaign_id="X2-DUAL-CLOCK",
         source_commit="a" * 40,
@@ -1134,6 +1314,7 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
     assert plan["next_resumable_job_id"] == "j4"
     assert (tmp_path / "camp_dual" / "PENDING_QUEUE.json").is_file()
 
+    # 2. Verified resume reconciliation (swapped spec & missing archive member rejected)
     good_zip = tmp_path / "j0.zip"
     with zipfile.ZipFile(good_zip, "w") as zf:
         zf.writestr("FINAL_STATUS.json", '{"status": "COMPLETE"}\n')
@@ -1158,6 +1339,7 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
     assert "SWAPPED_SPEC_SHA256" in rej_by_id["j1"]
     assert "MISSING_ARCHIVE_MEMBER:MISSING.json" in rej_by_id["j2"]
 
+    # 3. verify_shared_backbone_and_head_overhead
     class _Wrap(nn.Module):
         def __init__(self, seed: int, head_out: int) -> None:
             super().__init__()
@@ -1169,6 +1351,7 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
     bad_bb = verify_shared_backbone_and_head_overhead(_Wrap(7, 1), _Wrap(8, 1), backbone_prefix="core.")
     assert bad_bb["passed"] is False and "BACKBONE_DIGEST_MISMATCH" in bad_bb["defects"]
 
+    # 4. Upgraded build_pinned_kaggle_notebook
     nb = build_pinned_kaggle_notebook(
         source_commit="a" * 40,
         title="V8-X2 Kaggle",
@@ -1183,6 +1366,7 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
     for tok in ("OWNER_AUTHORIZED = False", "device_count() >= 2", "replay-bundle", "FileLink"):
         assert tok in nb_src
 
+    # 5. Root agent.md == anra_v5/planthir/agent.md with Two-Agent Framework Protocol
     root_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
     pkg_doc = (REPO_ROOT / "anra_v5" / "planthir" / "agent.md").read_text(encoding="utf-8")
     assert root_doc == pkg_doc
@@ -1197,3 +1381,333 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
         "verify_shared_backbone_and_head_overhead",
     ):
         assert needle in root_doc
+
+
+def test_avendi_y3_postmortem_run_registered_plan_full_dispatch_session_verify_notebook_and_docs(tmp_path: Path) -> None:
+    import anra_v5.palantiri as pal
+    import anra_v5.planter as plt
+    import anra_v5.planthir as pla
+
+    commit_sha = "c" * 40
+    ds_counts = {"train_families": 1024, "val_families": 256, "test_families": 256}
+    jobs = [
+        SessionJob(
+            job_id=f"j_{arch}_s{seed}",
+            architecture=arch,
+            init_seed=seed,
+            order_seed=seed,
+            updates=100,
+            session="S1",
+            device="cuda:0",
+            extra={"eval_rows": 256, "dataset_counts": ds_counts},
+        )
+        for seed in (7, 19, 41)
+        for arch in ("CTRL", "TRT")
+    ]
+
+    def _runner(job: SessionJob, wroot: Path, device: str) -> dict:
+        ckpt = wroot / "ckpt.json"
+        ckpt.write_text(json.dumps({"job_id": job.job_id, "device": device}), encoding="utf-8")
+        return {
+            "exit_code": 0,
+            "completed_updates": job.updates,
+            "eval_rows": 256,
+            "dataset_counts": ds_counts,
+        }
+
+    # 1. CampaignOrchestrator.run_registered_plan: inventory_only + disposable profile + full run + no-full export
+    prof_seen_dirs: list[Path] = []
+
+    def _profile(sample_job: SessionJob, prof_dir: Path) -> float:
+        prof_seen_dirs.append(prof_dir)
+        (prof_dir / "prof_marker.txt").write_text(sample_job.job_id, encoding="utf-8")
+        return 24.0
+
+    inv_dir = tmp_path / "inv_run"
+    orch_inv = CampaignOrchestrator(
+        campaign_id="Y3-INV",
+        source_commit=commit_sha,
+        work_dir=inv_dir,
+        max_minutes=330.0,
+        reserve_minutes=45.0,
+        min_disk_bytes=1024,
+    )
+    inv_res = orch_inv.run_registered_plan(
+        jobs,
+        profile_fn=_profile,
+        per_job_disk_bytes=1024,
+        available_disk_bytes=10**8,
+        inventory_only=True,
+    )
+    assert inv_res["status"] == "INVENTORY_ONLY"
+    assert inv_res["dispatched_job_ids"] == []
+    assert prof_seen_dirs and not (inv_dir in prof_seen_dirs[0].parents or prof_seen_dirs[0] == inv_dir)
+    assert (inv_dir / "PREPARED_MANIFEST.json").is_file()
+    assert (inv_dir / "PENDING_QUEUE.json").is_file()
+    assert (inv_dir / "INVENTORY_PLAN.json").is_file()
+
+    # Full run with write_full_zip=False AND then default full run with all 4 archives
+    no_full_dir = tmp_path / "no_full_run"
+    res_no_full = CampaignOrchestrator(
+        campaign_id="Y3-NOFULL",
+        source_commit=commit_sha,
+        work_dir=no_full_dir,
+        max_minutes=330.0,
+        reserve_minutes=45.0,
+        min_disk_bytes=1024,
+    ).run_registered_plan(
+        jobs,
+        job_runner=_runner,
+        measured_seconds_per_update=24.0,
+        per_job_disk_bytes=1024,
+        available_disk_bytes=10**8,
+        export_prefix="NOFULL",
+        write_full_zip=False,
+    )
+    assert res_no_full["status"] == "COMPLETE"
+    assert "full" not in res_no_full["export_receipt"]["archives"]
+    assert set(res_no_full["archive_verifications"]) == {"summary", "evidence", "analysis"}
+
+    # 2. verify_full_mode_dispatch passing on healthy multi-session dual-GPU run_registered_plan wrapper
+    def _healthy_dispatch(work_dir: Path, *, session_minutes: float, resume_input=None) -> dict:
+        orch = CampaignOrchestrator(
+            campaign_id="Y3-DISPATCH",
+            source_commit=commit_sha,
+            work_dir=work_dir,
+            max_minutes=330.0,
+            reserve_minutes=45.0,
+            min_disk_bytes=1024,
+        )
+        return orch.run_registered_plan(
+            jobs,
+            job_runner=_runner,
+            devices=("cuda:0", "cuda:1"),
+            resume_input=resume_input,
+            profile_fn=_profile,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            outer_remaining_minutes=float(session_minutes),
+            export_prefix="Y3",
+        )
+
+    ok_disp = verify_full_mode_dispatch(
+        _healthy_dispatch,
+        expected_job_ids=[j.job_id for j in jobs],
+        expected_seeds=(7, 19, 41),
+        required_devices=("cuda:0", "cuda:1"),
+        min_dataset_counts=ds_counts,
+        tight_session_minutes=130.0,
+        full_session_minutes=300.0,
+        work_root=tmp_path / "verify_ok",
+    )
+    assert ok_disp["passed"] is True and ok_disp["defects"] == []
+    assert ok_disp["full_pass"]["dispatched_count"] == 6
+    assert set(ok_disp["full_pass"]["dispatched_devices"]) == {"cuda:0", "cuda:1"}
+    assert len(ok_disp["multi_session_resume"]["session_1_deferred"]) == 2
+    assert set(ok_disp["multi_session_resume"]["session_2_dispatched"]) == set(
+        ok_disp["multi_session_resume"]["session_1_deferred"]
+    )
+    assert json.loads((tmp_path / "verify_ok" / "session_2" / "PENDING_QUEUE.json").read_text(encoding="utf-8"))[
+        "pending_job_ids"
+    ] == []
+
+    # 3. Tampered spec_sha256 inside resume archive fails closed in run_registered_plan
+    s1_zip = Path(tmp_path / "verify_ok" / "session_1" / "exports" / "Y3_ANALYSIS.zip")
+    tamper_zip = tmp_path / "tampered_resume.zip"
+    ext_tamp = tmp_path / "ext_tamp"
+    safe_extract_planthir_archive(s1_zip, ext_tamp)
+    jr_doc = json.loads((ext_tamp / "JOB_RECEIPTS.json").read_text(encoding="utf-8"))
+    jr_doc["receipts"][0]["spec_sha256"] = "0" * 64
+    (ext_tamp / "JOB_RECEIPTS.json").write_text(json.dumps(jr_doc), encoding="utf-8")
+    with zipfile.ZipFile(tamper_zip, "w") as zf:
+        for f in sorted(ext_tamp.rglob("*")):
+            if f.is_file() and f.name not in ("BUNDLE_MANIFEST.json", "README_RESULTS.md", "SHA256SUMS"):
+                zf.write(f, arcname=f.relative_to(ext_tamp).as_posix())
+    with pytest.raises(ValueError, match="verified resume rejected jobs"):
+        CampaignOrchestrator(
+            campaign_id="Y3-TAMPER",
+            source_commit=commit_sha,
+            work_dir=tmp_path / "tamper_work",
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            jobs,
+            job_runner=_runner,
+            resume_input=tamper_zip,
+            measured_seconds_per_update=24.0,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+        )
+
+    # 4. verify_full_mode_dispatch fails closed on every FULL-mode compression/dispatch defect
+    def _bad_missing_and_serial(work_dir: Path, *, session_minutes: float, resume_input=None) -> dict:
+        return CampaignOrchestrator(
+            campaign_id="Y3-BAD1",
+            source_commit=commit_sha,
+            work_dir=work_dir,
+            max_minutes=330.0,
+            reserve_minutes=45.0,
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            [j for j in jobs if j.init_seed == 7],
+            job_runner=lambda job, wroot, dev: {
+                "exit_code": 0,
+                "completed_updates": job.updates,
+                "eval_rows": 32,
+                "dataset_counts": {"train_families": 32, "val_families": 8, "test_families": 8},
+            },
+            devices=("cuda:0",),
+            measured_seconds_per_update=1.0,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            outer_remaining_minutes=float(session_minutes),
+        )
+
+    with pytest.raises(ValueError, match="FULL-mode dispatch verification failed"):
+        verify_full_mode_dispatch(
+            _bad_missing_and_serial,
+            expected_job_ids=[j.job_id for j in jobs],
+            expected_seeds=(7, 19, 41),
+            required_devices=("cuda:0", "cuda:1"),
+            min_dataset_counts=ds_counts,
+            tight_session_minutes=60.0,
+        )
+    bad1_res = verify_full_mode_dispatch(
+        _bad_missing_and_serial,
+        expected_job_ids=[j.job_id for j in jobs],
+        expected_seeds=(7, 19, 41),
+        required_devices=("cuda:0", "cuda:1"),
+        min_dataset_counts=ds_counts,
+        tight_session_minutes=60.0,
+        raise_on_failure=False,
+    )
+    defect_text_1 = "\n".join(bad1_res["defects"])
+    for code in (
+        "MISSING_REGISTERED_JOBS",
+        "MISSING_GPU_LANES",
+        "SERIAL_DISPATCH_DETECTED",
+        "MISSING_REQUIRED_SEEDS",
+        "COMPRESSED_DATASET_DENOMINATOR:train_families:32<1024",
+        "TIGHT_SESSION_DID_NOT_DEFER_OVERFLOW",
+    ):
+        assert code in defect_text_1
+
+    def _bad_reexec_resume(work_dir: Path, *, session_minutes: float, resume_input=None) -> dict:
+        return CampaignOrchestrator(
+            campaign_id="Y3-BAD2",
+            source_commit=commit_sha,
+            work_dir=work_dir,
+            max_minutes=330.0,
+            reserve_minutes=45.0,
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            jobs,
+            job_runner=_runner,
+            devices=("cuda:0", "cuda:1"),
+            resume_input=None,  # Bug: ignores resume_input and re-runs all Session-1 jobs
+            measured_seconds_per_update=24.0,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            outer_remaining_minutes=float(session_minutes),
+        )
+
+    bad2_res = verify_full_mode_dispatch(
+        _bad_reexec_resume,
+        expected_job_ids=[j.job_id for j in jobs],
+        expected_seeds=(7, 19, 41),
+        required_devices=("cuda:0", "cuda:1"),
+        tight_session_minutes=130.0,
+        raise_on_failure=False,
+    )
+    assert any(d.startswith("RESUME_REEXECUTED_COMPLETED_JOBS") for d in bad2_res["defects"])
+
+    # 5. verify_session_archive checks v6 manifest, .sha256 sidecar, max_bytes, source commit & rejects plain ZIPs
+    ok_sum = Path(tmp_path / "verify_ok" / "full_pass" / "exports" / "Y3_SUMMARY.zip")
+    ver_ok = verify_session_archive(ok_sum, max_bytes=5 * 1024 * 1024, expected_source_commit=commit_sha)
+    assert ver_ok["verified"] is True and ver_ok["v6_manifest_verified"] is True and ver_ok["sidecar_verified"] is True
+
+    with pytest.raises(ValueError, match="exceeds cap"):
+        verify_session_archive(ok_sum, max_bytes=10)
+    with pytest.raises(ValueError, match="SOURCE_COMMIT_MISMATCH"):
+        verify_session_archive(ok_sum, expected_source_commit="d" * 40)
+    with pytest.raises(ValueError, match="MISSING_ARCHIVE_MEMBER"):
+        verify_session_archive(ok_sum, required_members=("DOES_NOT_EXIST.json",))
+
+    (ok_sum.parent / f"{ok_sum.name}.sha256").write_text("0" * 64 + f"  {ok_sum.name}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="SIDECAR_SHA256_MISMATCH"):
+        verify_session_archive(ok_sum)
+
+    plain_zip = tmp_path / "plain_cartridge_style.zip"
+    with zipfile.ZipFile(plain_zip, "w") as zf:
+        zf.writestr("ARCHIVE_MANIFEST.json", "{}")
+    with pytest.raises(ValueError, match="MISSING_SIDECAR_SHA256"):
+        verify_session_archive(plain_zip, require_sidecar_sha256=True)
+    with pytest.raises(ValueError, match="MISSING_V6_BUNDLE_MANIFEST"):
+        verify_session_archive(plain_zip, require_sidecar_sha256=False, require_v6_manifest=True)
+
+    # 6. Upgraded build_pinned_kaggle_notebook handles repo_url, FULL controls, and OWNER_AUTHORIZED=False dry-run
+    nb = build_pinned_kaggle_notebook(
+        source_commit=commit_sha,
+        title="Avendi V8-Y3 Kaggle",
+        launch_command="python -m experiments.avendi_y3.module --mode FULL",
+        owner_authorized=False,
+        repo_url="https://example.invalid/anra.git",
+        repo_dir="anra_repo",
+        campaign_mode="FULL",
+        session_minutes=300,
+        resume_input="/kaggle/input/s1/Y3_FULL.zip",
+        inventory_command="python -m experiments.avendi_y3.module --inventory-only",
+        preflight_canary_backend="x1_s20",
+        require_dual_gpu=True,
+        emit_file_links=True,
+    )
+    assert len(nb["cells"]) == 4
+    c1_src = "".join(nb["cells"][1]["source"])
+    gate_src = "".join(nb["cells"][2]["source"])
+    for needle in (
+        "'clone', '--no-checkout'",
+        "CAMPAIGN_MODE = 'FULL'",
+        "SESSION_MINUTES = 300",
+        "RESUME_INPUT = '/kaggle/input/s1/Y3_FULL.zip'",
+        "--inventory-only",
+    ):
+        assert needle in c1_src
+    assert "if REQUIRE_DUAL_GPU and globals().get('OWNER_AUTHORIZED', False):" in gate_src
+
+    # Executing the gate cell's dual-GPU guard under OWNER_AUTHORIZED=False with 0 visible GPUs does not raise
+    class _FakeCuda:
+        @staticmethod
+        def device_count() -> int:
+            return 0
+
+    class _FakeTorch:
+        cuda = _FakeCuda()
+
+    guard_only_src = gate_src.split("subprocess.check_call", 1)[0]
+    guard_only_src = "\n".join(ln for ln in guard_only_src.splitlines() if "import os," not in ln)
+    exec_ns = {"OWNER_AUTHORIZED": False, "torch": _FakeTorch()}
+    exec(guard_only_src, exec_ns)
+
+    # 7. Three-way agent.md parity + new Avendi Y3 post-mortem contract needles + alias parity
+    root_doc = (REPO_ROOT / "agent.md").read_text(encoding="utf-8")
+    pkg_doc = (REPO_ROOT / "anra_v5" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    res_doc = (REPO_ROOT / "research" / "planthir" / "agent.md").read_text(encoding="utf-8")
+    assert root_doc == pkg_doc == res_doc
+    for needle in (
+        "run_registered_plan",
+        "verify_full_mode_dispatch",
+        "verify_session_archive",
+        "SubgoalProbeSpec",
+        "forbidden_metadata_key",
+        "archive_sha256",
+        "job.worker_id",
+        "v5_model.core.initialize",
+        "UTF8.decode",
+        "pytest -n auto",
+        "2,500–3,200",
+    ):
+        assert needle in root_doc
+
+    assert pal.verify_full_mode_dispatch is pla.verify_full_mode_dispatch
+    assert plt.verify_full_mode_dispatch is pla.verify_full_mode_dispatch
+    assert pal.verify_session_archive is pla.verify_session_archive
+    assert plt.verify_session_archive is pla.verify_session_archive

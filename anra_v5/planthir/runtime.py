@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 import random
 import shutil
 import stat
+import tempfile
 from typing import Any, Callable, Mapping, Sequence
 import zipfile
 
@@ -37,6 +38,16 @@ from .scheduler import IndependentWorkerScheduler, WorkerJobSpec
 
 _SAFE_ARCHIVE_MEMBER_MAX_BYTES = 512 * 1024 * 1024
 _SAFE_ARCHIVE_MAX_FILES = 10_000
+
+
+def _stream_file_sha256(path: Path) -> str:
+    """Compute SHA-256 hex digest in 1 MiB chunks without loading full archives into memory."""
+
+    h = sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1024 * 1024):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1899,6 +1910,705 @@ class CampaignOrchestrator:
         )
         return receipt
 
+    def run_registered_plan(
+        self,
+        jobs: Sequence[SessionJob],
+        *,
+        command_builder: Callable[[SessionJob, Path], Sequence[str]] | None = None,
+        job_runner: Callable[[SessionJob, Path, str], Mapping[str, Any] | int] | None = None,
+        devices: Sequence[str] = ("cuda:0", "cuda:1"),
+        resume_input: Path | str | Sequence[Path | str] | None = None,
+        measured_seconds_per_update: float | None = None,
+        profile_fn: Callable[[SessionJob, Path], float] | None = None,
+        per_job_disk_bytes: int = 128 * 1024 * 1024,
+        available_disk_bytes: int | None = None,
+        outer_remaining_minutes: float | None = None,
+        startup_overhead_seconds: float = 0.0,
+        export_reserve_bytes: int = 0,
+        inventory_only: bool = False,
+        required_archive_members: Sequence[str] = (),
+        fail_on_resume_rejection: bool = True,
+        export_prefix: str | None = None,
+        export_dir: Path | str | None = None,
+        extra_summary_files: Mapping[str, Path | str] | None = None,
+        extra_evidence_files: Mapping[str, Path | str] | None = None,
+        extra_analysis_files: Mapping[str, Path | str] | None = None,
+        extra_full_files: Mapping[str, Path | str] | None = None,
+        summary_max_bytes: int = 5 * 1024 * 1024,
+        write_full_zip: bool = True,
+        run_rescore: bool = False,
+    ) -> dict[str, Any]:
+        """Execute a full registered multi-job campaign: prepare, verify resume, profile, admit slice, 2-GPU run, and export."""
+
+        job_list = list(jobs)
+        if not job_list:
+            raise ValueError("run_registered_plan requires at least one SessionJob")
+        job_by_id: dict[str, SessionJob] = {}
+        for job in job_list:
+            if job.job_id in job_by_id:
+                raise ValueError(f"duplicate job_id in run_registered_plan: {job.job_id!r}")
+            job_by_id[job.job_id] = job
+        device_list = tuple(str(d) for d in devices)
+        if not device_list:
+            raise ValueError("run_registered_plan requires at least one device")
+        if not inventory_only and command_builder is None and job_runner is None and self.in_process_runner is None:
+            raise ValueError("run_registered_plan requires command_builder, job_runner, or in_process_runner")
+
+        prepared = self.prepare(job_list)
+        registry_rows: list[dict[str, Any]] = []
+        for job in job_list:
+            spec_sha = job.extra.get("spec_sha256")
+            if not spec_sha:
+                spec_sha = digest(
+                    {
+                        "job_id": job.job_id,
+                        "architecture": job.architecture,
+                        "init_seed": int(job.init_seed),
+                        "order_seed": int(job.order_seed),
+                        "updates": int(job.updates),
+                        "session": job.session,
+                        "extra": {k: v for k, v in job.extra.items() if k != "spec_sha256"},
+                    }
+                )
+            registry_rows.append(
+                {
+                    "job_id": job.job_id,
+                    "source_commit": str(job.extra.get("source_commit") or self.source_commit),
+                    "spec_sha256": str(spec_sha),
+                    "updates": int(job.updates),
+                    "architecture": job.architecture,
+                    "init_seed": int(job.init_seed),
+                    "order_seed": int(job.order_seed),
+                }
+            )
+        reg_by_id = {r["job_id"]: r for r in registry_rows}
+
+        raw_inputs: tuple[Path | str, ...]
+        if resume_input is None:
+            raw_inputs = ()
+        elif isinstance(resume_input, (str, Path)):
+            raw_inputs = (resume_input,) if str(resume_input).strip() else ()
+        else:
+            raw_inputs = tuple(x for x in resume_input if x is not None and str(x).strip())
+
+        imported_receipts: list[dict[str, Any]] = []
+        seen_receipt_keys: set[tuple[Any, ...]] = set()
+
+        def _append_receipt(rec: Mapping[str, Any], *, base_dir: Path | None = None) -> None:
+            row = dict(rec)
+            arch_raw = row.get("archive_path")
+            if arch_raw and base_dir is not None and not Path(str(arch_raw)).is_file():
+                rel_candidate = base_dir / str(arch_raw)
+                if rel_candidate.is_file():
+                    row["archive_path"] = str(rel_candidate)
+            key = (
+                str(row.get("job_id", "")),
+                str(row.get("source_commit", "")),
+                str(row.get("spec_sha256", "")),
+                row.get("completed_updates"),
+                row.get("eval_rows"),
+                str(row.get("archive_path", "")),
+                str(row.get("archive_sha256", "")),
+            )
+            if key not in seen_receipt_keys:
+                seen_receipt_keys.add(key)
+                imported_receipts.append(row)
+
+        def _collect_dir_receipts(root_dir: Path) -> None:
+            jr_file = root_dir / "JOB_RECEIPTS.json"
+            if jr_file.is_file():
+                doc = json.loads(jr_file.read_text(encoding="utf-8"))
+                rows = doc if isinstance(doc, list) else doc.get("receipts", [])
+                for item in rows:
+                    if isinstance(item, Mapping):
+                        _append_receipt(item, base_dir=root_dir)
+            jobs_root = root_dir / "jobs"
+            if jobs_root.is_dir():
+                for per_job in sorted(jobs_root.glob("*/JOB_RECEIPT.json")):
+                    item = json.loads(per_job.read_text(encoding="utf-8"))
+                    if isinstance(item, Mapping):
+                        _append_receipt(item, base_dir=root_dir)
+
+        _collect_dir_receipts(self.work_dir)
+        staging_root = self.work_dir / "_resume_staging"
+        for idx, inp in enumerate(raw_inputs):
+            ip = Path(inp)
+            if ip.is_file() and ip.suffix.lower() == ".zip":
+                verify_session_archive(ip, require_sidecar_sha256=False, require_v6_manifest=False)
+                ext_dir = staging_root / f"zip_{idx}"
+                shutil.rmtree(ext_dir, ignore_errors=True)
+                safe_extract_planthir_archive(ip, ext_dir)
+                _collect_dir_receipts(ext_dir)
+            elif ip.is_dir():
+                _collect_dir_receipts(ip)
+                zip_cands: list[Path] = []
+                for scan_dir in (ip, ip / "exports"):
+                    if scan_dir.is_dir():
+                        zip_cands.extend(sorted(scan_dir.glob("*.zip")))
+                zip_cands.sort(
+                    key=lambda z: (
+                        0 if "_FULL" in z.name else (1 if "_EVIDENCE" in z.name else (2 if "_ANALYSIS" in z.name else 3)),
+                        z.name,
+                    )
+                )
+                for zidx, zp in enumerate(zip_cands):
+                    verify_session_archive(zp, require_sidecar_sha256=False, require_v6_manifest=False)
+                    ext_dir = staging_root / f"dir_{idx}_{zidx}"
+                    shutil.rmtree(ext_dir, ignore_errors=True)
+                    safe_extract_planthir_archive(zp, ext_dir)
+                    _collect_dir_receipts(ext_dir)
+            else:
+                raise FileNotFoundError(f"resume_input not found: {ip}")
+
+        resume_receipt = self.reconcile_verified_resume(
+            imported_receipts,
+            registry_rows,
+            required_archive_members=required_archive_members,
+            fail_on_rejection=fail_on_resume_rejection,
+        )
+        verified_completed = set(resume_receipt["verified_completed_jobs"])
+        remaining_jobs = [j for j in job_list if j.job_id not in verified_completed]
+
+        if measured_seconds_per_update is None:
+            if remaining_jobs and profile_fn is not None:
+                with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as prof_tmp:
+                    prof_dir = Path(prof_tmp) / "profile_clone"
+                    prof_dir.mkdir(parents=True, exist_ok=True)
+                    sec_per_upd = float(profile_fn(remaining_jobs[0], prof_dir))
+                    if not math.isfinite(sec_per_upd) or sec_per_upd <= 0.0:
+                        raise ValueError(f"profile_fn must return positive seconds per update, got {sec_per_upd!r}")
+            elif not remaining_jobs:
+                sec_per_upd = 1e-6
+            else:
+                raise ValueError("run_registered_plan requires positive measured_seconds_per_update or profile_fn")
+        else:
+            sec_per_upd = float(measured_seconds_per_update)
+
+        admission_plan = self.admit_slice(
+            remaining_jobs,
+            measured_seconds_per_update=sec_per_upd,
+            per_job_disk_bytes=per_job_disk_bytes,
+            parallel_workers=len(device_list),
+            available_disk_bytes=available_disk_bytes,
+            outer_remaining_minutes=outer_remaining_minutes,
+            startup_overhead_seconds=startup_overhead_seconds,
+            export_reserve_bytes=export_reserve_bytes,
+        )
+        admitted_ids = list(admission_plan["admitted_job_ids"])
+        admitted_set = set(admitted_ids)
+        admitted_jobs = [j for j in remaining_jobs if j.job_id in admitted_set]
+        deferred_ids = list(admission_plan["deferred_pending_job_ids"])
+
+        if inventory_only:
+            inv_doc = {
+                "schema": "anra-planthir-registered-plan-status-v1",
+                "status": "INVENTORY_ONLY",
+                "campaign_id": self.campaign_id,
+                "source_commit": self.source_commit,
+                "work_dir": str(self.work_dir),
+                "prepared": prepared,
+                "resume_receipt": resume_receipt,
+                "admission_plan": admission_plan,
+                "admitted_job_ids": admitted_ids,
+                "deferred_pending_job_ids": deferred_ids,
+                "dispatched_job_ids": [],
+                "newly_executed_job_ids": [],
+                "failed_job_ids": [],
+                "completed_jobs": sorted(verified_completed),
+                "dispatched_devices": [],
+                "observed_seeds": sorted({int(j.init_seed) for j in job_list}),
+                "dataset_counts": {},
+                "pending_queue_path": str(self.work_dir / "PENDING_QUEUE.json"),
+                "waves": [],
+                "export_receipt": None,
+                "archive_verifications": {},
+                "rescore_receipt": None,
+            }
+            (self.work_dir / "INVENTORY_PLAN.json").write_text(
+                json.dumps(inv_doc, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            return inv_doc
+
+        cmd_builder = command_builder or (
+            lambda j, wroot: ("planthir-registered-job", j.job_id, "--work-root", str(wroot), "--device", j.device)
+        )
+        prev_runner = self.in_process_runner
+        try:
+            if job_runner is not None:
+                def _inproc_adapter(wspec: WorkerJobSpec, env: Mapping[str, str], _cmd: Sequence[str]) -> dict[str, Any]:
+                    job = job_by_id[wspec.worker_id]
+                    assigned_dev = str(env.get("PLANTHIR_ASSIGNED_DEVICE", wspec.device))
+                    res = job_runner(job, Path(wspec.work_root), assigned_dev)
+                    if isinstance(res, Mapping):
+                        exit_code = int(res.get("exit_code", 0))
+                        payload = dict(res)
+                    else:
+                        exit_code = int(res)
+                        payload = {}
+                    receipt_file = Path(wspec.work_root) / "JOB_RECEIPT.json"
+                    if exit_code == 0 and not receipt_file.is_file():
+                        reg_row = reg_by_id[job.job_id]
+                        j_rec = {
+                            **payload,
+                            "job_id": job.job_id,
+                            "source_commit": reg_row["source_commit"],
+                            "spec_sha256": reg_row["spec_sha256"],
+                            "architecture": job.architecture,
+                            "init_seed": int(job.init_seed),
+                            "order_seed": int(job.order_seed),
+                            "device": assigned_dev,
+                            "completed_updates": int(payload.get("completed_updates", job.updates)),
+                            "eval_rows": int(payload.get("eval_rows", max(1, int(job.extra.get("eval_rows", 1))))),
+                            "dataset_counts": dict(payload.get("dataset_counts") or job.extra.get("dataset_counts", {})),
+                        }
+                        j_rec.pop("exit_code", None)
+                        receipt_file.write_text(
+                            json.dumps(j_rec, indent=2, sort_keys=True) + "\n",
+                            encoding="utf-8",
+                        )
+                    return {"exit_code": exit_code}
+
+                self.in_process_runner = _inproc_adapter
+
+            if admitted_jobs:
+                wave_summary = self.run_waves(admitted_jobs, command_builder=cmd_builder, devices=device_list, resume=True)
+            else:
+                wave_summary = {
+                    "schema": "anra-planthir-campaign-status-v1",
+                    "campaign_id": self.campaign_id,
+                    "status": "COMPLETE" if not deferred_ids else "PARTIAL",
+                    "total_jobs": 0,
+                    "completed_count": 0,
+                    "completed_jobs": [],
+                    "waves": [],
+                }
+        finally:
+            self.in_process_runner = prev_runner
+
+        dispatched_job_ids: list[str] = []
+        dispatched_devices_set: set[str] = set()
+        succeeded_this_session: list[str] = []
+        failed_job_ids: list[str] = []
+        worker_by_id: dict[str, dict[str, Any]] = {}
+        waves = list(wave_summary.get("waves", []))
+        for wave in waves:
+            raw_workers = wave.get("workers", [])
+            w_iter = raw_workers.values() if isinstance(raw_workers, Mapping) else raw_workers
+            for w in w_iter:
+                wid = str(w["worker_id"])
+                dispatched_job_ids.append(wid)
+                dispatched_devices_set.add(str(w.get("device", "")))
+                worker_by_id[wid] = dict(w)
+                if w.get("status") == "SUCCEEDED":
+                    if wid not in succeeded_this_session:
+                        succeeded_this_session.append(wid)
+                else:
+                    if wid not in failed_job_ids:
+                        failed_job_ids.append(wid)
+
+        receipts_by_id: dict[str, dict[str, Any]] = {}
+        imported_by_id = {str(r.get("job_id", "")): dict(r) for r in imported_receipts}
+        for jid in sorted(verified_completed):
+            if jid in imported_by_id:
+                receipts_by_id[jid] = imported_by_id[jid]
+
+        for jid in succeeded_this_session:
+            job = job_by_id[jid]
+            reg_row = reg_by_id[jid]
+            per_job_path = self.work_dir / "jobs" / jid / "JOB_RECEIPT.json"
+            if per_job_path.is_file():
+                j_rec = dict(json.loads(per_job_path.read_text(encoding="utf-8")))
+            else:
+                w_rec = worker_by_id.get(jid, {})
+                j_rec = {
+                    "job_id": jid,
+                    "source_commit": reg_row["source_commit"],
+                    "spec_sha256": reg_row["spec_sha256"],
+                    "architecture": job.architecture,
+                    "init_seed": int(job.init_seed),
+                    "order_seed": int(job.order_seed),
+                    "device": str(w_rec.get("device", job.device)),
+                    "completed_updates": int(job.updates),
+                    "eval_rows": max(1, int(job.extra.get("eval_rows", 1))),
+                    "dataset_counts": dict(job.extra.get("dataset_counts", {})),
+                }
+                per_job_path.parent.mkdir(parents=True, exist_ok=True)
+                per_job_path.write_text(json.dumps(j_rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            receipts_by_id[jid] = j_rec
+
+        (self.work_dir / "JOB_RECEIPTS.json").write_text(
+            json.dumps(
+                {
+                    "schema": "anra-planthir-job-receipts-v1",
+                    "campaign_id": self.campaign_id,
+                    "source_commit": self.source_commit,
+                    "receipts": [receipts_by_id[k] for k in sorted(receipts_by_id)],
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        completed_set = verified_completed | set(succeeded_this_session)
+        completed_jobs = sorted(completed_set)
+        all_pending = [j.job_id for j in job_list if j.job_id not in completed_set]
+        (self.work_dir / "COMPLETED_JOBS.json").write_text(
+            json.dumps({"completed_jobs": completed_jobs}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        pending_queue_path = self.work_dir / "PENDING_QUEUE.json"
+        pending_queue_path.write_text(
+            json.dumps(
+                {
+                    "schema": "anra-planthir-pending-queue-v1",
+                    "campaign_id": self.campaign_id,
+                    "pending_job_ids": all_pending,
+                    "next_resumable_job_id": all_pending[0] if all_pending else None,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        observed_seeds = sorted({int(job_by_id[jid].init_seed) for jid in completed_jobs if jid in job_by_id})
+        dataset_counts: dict[str, int] = {}
+        for jid in completed_jobs:
+            r_counts = (
+                receipts_by_id[jid].get("dataset_counts")
+                if jid in receipts_by_id and isinstance(receipts_by_id[jid].get("dataset_counts"), Mapping)
+                else None
+            )
+            e_counts = (
+                job_by_id[jid].extra.get("dataset_counts")
+                if jid in job_by_id and isinstance(job_by_id[jid].extra.get("dataset_counts"), Mapping)
+                else None
+            )
+            # Runtime receipts take precedence so declared job metadata cannot mask compressed execution denominators.
+            src = r_counts if r_counts else e_counts
+            if isinstance(src, Mapping):
+                for dk, dv in src.items():
+                    iv = int(dv)
+                    prev_v = dataset_counts.get(str(dk))
+                    dataset_counts[str(dk)] = iv if prev_v is None else max(prev_v, iv)
+
+        campaign_status = "COMPLETE" if (len(completed_jobs) == len(job_list) and not failed_job_ids and not all_pending) else "PARTIAL"
+        status_doc: dict[str, Any] = {
+            "schema": "anra-planthir-registered-plan-status-v1",
+            "status": campaign_status,
+            "campaign_id": self.campaign_id,
+            "source_commit": self.source_commit,
+            "work_dir": str(self.work_dir),
+            "total_jobs": len(job_list),
+            "prepared": prepared,
+            "resume_receipt": resume_receipt,
+            "admission_plan": admission_plan,
+            "admitted_job_ids": admitted_ids,
+            "deferred_pending_job_ids": all_pending,
+            "dispatched_job_ids": dispatched_job_ids,
+            "newly_executed_job_ids": succeeded_this_session,
+            "failed_job_ids": failed_job_ids,
+            "completed_jobs": completed_jobs,
+            "dispatched_devices": sorted(d for d in dispatched_devices_set if d),
+            "observed_seeds": observed_seeds,
+            "dataset_counts": dataset_counts,
+            "pending_queue_path": str(pending_queue_path),
+            "waves": waves,
+            "export_receipt": None,
+            "archive_verifications": {},
+            "rescore_receipt": None,
+        }
+        reg_status_path = self.work_dir / "REGISTERED_PLAN_STATUS.json"
+        reg_status_path.write_text(json.dumps(status_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        if export_prefix is not None:
+            out_dir = Path(export_dir) if export_dir is not None else (self.work_dir / "exports")
+            core_names = (
+                "PREPARED_MANIFEST.json",
+                "SESSION_ADMISSION_PLAN.json",
+                "PENDING_QUEUE.json",
+                "VERIFIED_RESUME_RECEIPT.json",
+                "COMPLETED_JOBS.json",
+                "JOB_RECEIPTS.json",
+                "CAMPAIGN_STATUS.json",
+                "REGISTERED_PLAN_STATUS.json",
+            )
+            core_files = {name: self.work_dir / name for name in core_names if (self.work_dir / name).is_file()}
+            job_receipt_files: dict[str, Path] = {}
+            all_job_files: dict[str, Path] = {}
+            jobs_dir = self.work_dir / "jobs"
+            if jobs_dir.is_dir():
+                for p in sorted(jobs_dir.rglob("*")):
+                    if not p.is_file() or p.name in (".planthir_worker.lock", ".planthir-run-writer"):
+                        continue
+                    rel_arc = p.relative_to(self.work_dir).as_posix()
+                    all_job_files[rel_arc] = p
+                    if p.name == "JOB_RECEIPT.json":
+                        job_receipt_files[rel_arc] = p
+            summary_files = {**core_files, **{str(k): Path(v) for k, v in (extra_summary_files or {}).items()}}
+            evidence_files = {
+                **core_files,
+                **job_receipt_files,
+                **{str(k): Path(v) for k, v in (extra_evidence_files or {}).items()},
+            }
+            analysis_files = {**core_files, **{str(k): Path(v) for k, v in (extra_analysis_files or {}).items()}}
+            full_files = {
+                **core_files,
+                **all_job_files,
+                **{str(k): Path(v) for k, v in (extra_full_files or {}).items()},
+            }
+            export_receipt = export_session_archives(
+                self.work_dir,
+                out_dir,
+                prefix=str(export_prefix),
+                summary_files=summary_files,
+                evidence_files=evidence_files,
+                analysis_files=analysis_files,
+                full_files=full_files,
+                status=campaign_status,
+                source_commit=self.source_commit,
+                summary_max_bytes=summary_max_bytes,
+                include_v6_manifest=True,
+                write_full_zip=write_full_zip,
+            )
+            expected_export_commit = export_receipt["final_status"]["source_commit"]
+            archive_verifications = {
+                kind: verify_session_archive(
+                    arch_p,
+                    max_bytes=(summary_max_bytes if kind == "summary" else None),
+                    expected_source_commit=expected_export_commit,
+                    require_sidecar_sha256=True,
+                    require_v6_manifest=True,
+                )
+                for kind, arch_p in sorted(export_receipt["archives"].items())
+            }
+            rescore_receipt = None
+            if run_rescore and "METRICS.json" in analysis_files and "analysis" in export_receipt["archives"]:
+                rescore_receipt = rescore_compact_analysis_archive(
+                    export_receipt["archives"]["analysis"],
+                    out_dir / "rescored_report",
+                )
+            status_doc["export_receipt"] = export_receipt
+            status_doc["archive_verifications"] = archive_verifications
+            status_doc["rescore_receipt"] = rescore_receipt
+            reg_status_path.write_text(json.dumps(status_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        return status_doc
+
+
+def _extract_dispatch_telemetry(res: Mapping[str, Any], work_dir: Path) -> dict[str, Any]:
+    """Normalize dispatch, GPU lane, seed, dataset denominator, and queue telemetry from a dispatch call."""
+
+    waves = list(res.get("waves", []))
+    if not waves and (work_dir / "CAMPAIGN_STATUS.json").is_file():
+        waves = list(json.loads((work_dir / "CAMPAIGN_STATUS.json").read_text(encoding="utf-8")).get("waves", []))
+
+    wave_workers: list[dict[str, Any]] = []
+    for wave in waves:
+        raw_workers = wave.get("workers", [])
+        w_iter = raw_workers.values() if isinstance(raw_workers, Mapping) else raw_workers
+        for w in w_iter:
+            if isinstance(w, Mapping):
+                wave_workers.append(dict(w))
+
+    if "dispatched_job_ids" in res and res["dispatched_job_ids"] is not None:
+        dispatched_job_ids = [str(x) for x in res["dispatched_job_ids"]]
+    elif "newly_executed_job_ids" in res and res["newly_executed_job_ids"] is not None:
+        dispatched_job_ids = [str(x) for x in res["newly_executed_job_ids"]]
+    else:
+        dispatched_job_ids = [str(w["worker_id"]) for w in wave_workers if "worker_id" in w]
+
+    if "dispatched_devices" in res and res["dispatched_devices"] is not None:
+        dispatched_devices = {str(x) for x in res["dispatched_devices"] if str(x)}
+    else:
+        dispatched_devices = {str(w["device"]) for w in wave_workers if w.get("device")}
+
+    receipts: list[dict[str, Any]] = []
+    jr_file = work_dir / "JOB_RECEIPTS.json"
+    if jr_file.is_file():
+        jr_doc = json.loads(jr_file.read_text(encoding="utf-8"))
+        raw_rows = jr_doc if isinstance(jr_doc, list) else jr_doc.get("receipts", [])
+        receipts = [dict(r) for r in raw_rows if isinstance(r, Mapping)]
+
+    if "completed_jobs" in res and res["completed_jobs"] is not None:
+        completed_jobs = [str(x) for x in res["completed_jobs"]]
+    else:
+        completed_jobs = [str(r["job_id"]) for r in receipts if "job_id" in r]
+
+    if "observed_seeds" in res and res["observed_seeds"] is not None:
+        observed_seeds = {int(s) for s in res["observed_seeds"]}
+    else:
+        observed_seeds = {int(r["init_seed"]) for r in receipts if r.get("init_seed") is not None}
+
+    dataset_counts: dict[str, int] = {}
+    if isinstance(res.get("dataset_counts"), Mapping):
+        for k, v in res["dataset_counts"].items():
+            dataset_counts[str(k)] = int(v)
+    else:
+        for r in receipts:
+            d_map = r.get("dataset_counts")
+            if isinstance(d_map, Mapping):
+                for k, v in d_map.items():
+                    iv = int(v)
+                    prev = dataset_counts.get(str(k))
+                    dataset_counts[str(k)] = iv if prev is None else max(prev, iv)
+
+    if "deferred_pending_job_ids" in res and res["deferred_pending_job_ids"] is not None:
+        deferred_ids = [str(x) for x in res["deferred_pending_job_ids"]]
+    elif (work_dir / "PENDING_QUEUE.json").is_file():
+        pq = json.loads((work_dir / "PENDING_QUEUE.json").read_text(encoding="utf-8"))
+        deferred_ids = [str(x) for x in pq.get("pending_job_ids", [])]
+    else:
+        deferred_ids = []
+
+    return {
+        "dispatched_job_ids": dispatched_job_ids,
+        "dispatched_devices": dispatched_devices,
+        "completed_jobs": completed_jobs,
+        "observed_seeds": observed_seeds,
+        "dataset_counts": dataset_counts,
+        "deferred_pending_job_ids": deferred_ids,
+        "waves": waves,
+    }
+
+
+def verify_full_mode_dispatch(
+    dispatch_fn: Callable[..., Mapping[str, Any]],
+    *,
+    expected_job_ids: Sequence[str],
+    expected_seeds: Sequence[int] = (7, 19, 41),
+    required_devices: Sequence[str] = ("cuda:0", "cuda:1"),
+    min_dataset_counts: Mapping[str, int] | None = None,
+    tight_session_minutes: float | None = None,
+    full_session_minutes: float = 300.0,
+    work_root: Path | str | None = None,
+    require_multi_session_resume: bool = True,
+    raise_on_failure: bool = True,
+) -> dict[str, Any]:
+    """Verify FULL-mode multi-GPU job dispatch, uncompressed dataset denominators, and tight-session overflow/resume."""
+
+    exp_jobs = [str(x) for x in expected_job_ids]
+    exp_seeds = [int(s) for s in expected_seeds]
+    req_devs = [str(d) for d in required_devices]
+    min_counts = {str(k): int(v) for k, v in dict(min_dataset_counts or {}).items()}
+    defects: list[str] = []
+
+    def _run_suite(root_path: Path) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        full_dir = root_path / "full_pass"
+        full_dir.mkdir(parents=True, exist_ok=True)
+        res_full = dispatch_fn(full_dir, session_minutes=float(full_session_minutes), resume_input=None)
+        fp = _extract_dispatch_telemetry(res_full, full_dir)
+
+        missing_jobs = [jid for jid in exp_jobs if jid not in set(fp["dispatched_job_ids"])]
+        if missing_jobs:
+            defects.append(f"MISSING_REGISTERED_JOBS:{missing_jobs}")
+
+        missing_devs = [d for d in req_devs if d not in fp["dispatched_devices"]]
+        if missing_devs:
+            defects.append(f"MISSING_GPU_LANES:{missing_devs}")
+
+        max_wave_workers = max(
+            (
+                len(w.get("workers", []))
+                for w in fp["waves"]
+                if isinstance(w, Mapping)
+            ),
+            default=0,
+        )
+        if len(req_devs) >= 2 and len(exp_jobs) >= 2 and fp["waves"] and max_wave_workers < 2:
+            defects.append("SERIAL_DISPATCH_DETECTED")
+
+        missing_seeds = [s for s in exp_seeds if s not in fp["observed_seeds"]]
+        if missing_seeds:
+            defects.append(f"MISSING_REQUIRED_SEEDS:{missing_seeds}")
+
+        for k, min_v in min_counts.items():
+            obs_v = int(fp["dataset_counts"].get(k, -1))
+            if obs_v < min_v:
+                defects.append(f"COMPRESSED_DATASET_DENOMINATOR:{k}:{obs_v}<{min_v}")
+
+        full_summary = {
+            "dispatched_count": len(fp["dispatched_job_ids"]),
+            "dispatched_devices": sorted(fp["dispatched_devices"]),
+            "observed_seeds": sorted(fp["observed_seeds"]),
+            "dataset_counts": fp["dataset_counts"],
+            "max_wave_workers": max_wave_workers,
+        }
+
+        resume_summary: dict[str, Any] | None = None
+        if require_multi_session_resume and tight_session_minutes is not None:
+            s1_dir = root_path / "session_1"
+            s1_dir.mkdir(parents=True, exist_ok=True)
+            res_s1 = dispatch_fn(s1_dir, session_minutes=float(tight_session_minutes), resume_input=None)
+            s1 = _extract_dispatch_telemetry(res_s1, s1_dir)
+            if not s1["dispatched_job_ids"]:
+                defects.append("TIGHT_SESSION_ADMITTED_ZERO_JOBS")
+            if not s1["deferred_pending_job_ids"]:
+                defects.append("TIGHT_SESSION_DID_NOT_DEFER_OVERFLOW")
+
+            pq_path = s1_dir / "PENDING_QUEUE.json"
+            if not pq_path.is_file():
+                defects.append("MISSING_OR_MISMATCHED_PENDING_QUEUE")
+            else:
+                pq_ids = set(json.loads(pq_path.read_text(encoding="utf-8")).get("pending_job_ids", []))
+                if not pq_ids or not set(s1["deferred_pending_job_ids"]).issubset(pq_ids):
+                    defects.append("MISSING_OR_MISMATCHED_PENDING_QUEUE")
+
+            exp_archives = (res_s1.get("export_receipt") or {}).get("archives") or {}
+            resume_src: Path | str = s1_dir
+            for key in ("full", "evidence", "analysis", "summary"):
+                cand = exp_archives.get(key)
+                if cand and Path(cand).is_file():
+                    resume_src = cand
+                    break
+
+            s2_dir = root_path / "session_2"
+            s2_dir.mkdir(parents=True, exist_ok=True)
+            res_s2 = dispatch_fn(s2_dir, session_minutes=float(full_session_minutes), resume_input=resume_src)
+            s2 = _extract_dispatch_telemetry(res_s2, s2_dir)
+
+            overlap = sorted(set(s1["dispatched_job_ids"]) & set(s2["dispatched_job_ids"]))
+            if overlap:
+                defects.append(f"RESUME_REEXECUTED_COMPLETED_JOBS:{overlap}")
+            missing_after = [jid for jid in exp_jobs if jid not in set(s2["completed_jobs"])]
+            if missing_after:
+                defects.append(f"RESUME_INCOMPLETE_CAMPAIGN:{missing_after}")
+            if s2["deferred_pending_job_ids"]:
+                defects.append(f"RESUME_LEFT_PENDING_JOBS:{s2['deferred_pending_job_ids']}")
+
+            resume_summary = {
+                "session_1_dispatched": s1["dispatched_job_ids"],
+                "session_1_deferred": s1["deferred_pending_job_ids"],
+                "session_2_dispatched": s2["dispatched_job_ids"],
+                "session_2_completed": s2["completed_jobs"],
+                "resume_source": str(resume_src),
+            }
+
+        return full_summary, resume_summary
+
+    if work_root is not None:
+        rp = Path(work_root)
+        rp.mkdir(parents=True, exist_ok=True)
+        full_summary, resume_summary = _run_suite(rp)
+    else:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            full_summary, resume_summary = _run_suite(Path(tmp))
+
+    passed = len(defects) == 0
+    if not passed and raise_on_failure:
+        raise ValueError(f"FULL-mode dispatch verification failed: {defects}")
+    return {
+        "schema": "anra-planthir-full-mode-dispatch-verify-v1",
+        "passed": passed,
+        "defects": defects,
+        "full_pass": full_summary,
+        "multi_session_resume": resume_summary,
+    }
+
 
 @dataclass(frozen=True, slots=True)
 class CampaignStageSpec:
@@ -2145,7 +2855,7 @@ def rescore_compact_analysis_archive(
         raise FileNotFoundError(f"compact analysis archive not found: {zp}")
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    archive_sha = sha256(zp.read_bytes()).hexdigest()
+    archive_sha = _stream_file_sha256(zp)
 
     v6_verified = False
     with zipfile.ZipFile(zp, "r") as zf:
@@ -2382,11 +3092,7 @@ def export_session_archives(
             zip_size = tmp_zip.stat().st_size
             if max_bytes is not None and zip_size > int(max_bytes):
                 raise ValueError(f"{zpath.name} size {zip_size} exceeds cap {max_bytes}")
-            h = sha256()
-            with tmp_zip.open("rb") as fh:
-                while chunk := fh.read(1024 * 1024):
-                    h.update(chunk)
-            raw_sha = h.hexdigest()
+            raw_sha = _stream_file_sha256(tmp_zip)
             _atomic_replace(tmp_zip, zpath)
             (zpath.parent / f"{zpath.name}.sha256").write_text(f"{raw_sha}  {zpath.name}\n", encoding="utf-8")
             return raw_sha
@@ -2456,6 +3162,105 @@ def export_session_archives(
     return receipt
 
 
+def verify_session_archive(
+    archive_path: Path | str,
+    *,
+    max_bytes: int | None = None,
+    expected_source_commit: str | None = None,
+    require_sidecar_sha256: bool = True,
+    require_v6_manifest: bool = True,
+    required_members: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Fail-closed verifier for `export_session_archives` ZIPs (`SUMMARY`/`EVIDENCE`/`ANALYSIS`/`FULL`)."""
+
+    zp = Path(archive_path)
+    if zp.is_symlink():
+        raise ValueError("refuse symbolic-link session archive")
+    if not zp.is_file():
+        raise FileNotFoundError(f"session archive not found: {zp}")
+
+    zip_size = zp.stat().st_size
+    if max_bytes is not None and zip_size > int(max_bytes):
+        raise ValueError(f"{zp.name} size {zip_size} exceeds cap {max_bytes}")
+
+    actual_sha = _stream_file_sha256(zp)
+    sidecar = zp.parent / f"{zp.name}.sha256"
+    if sidecar.is_file():
+        lines = [ln.strip() for ln in sidecar.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        if not lines:
+            raise ValueError("SESSION_ARCHIVE_SIDECAR_SHA256_MISMATCH")
+        parts = lines[0].split()
+        digest_val = parts[0]
+        fname = parts[1] if len(parts) > 1 else ""
+        if digest_val != actual_sha or (fname and fname != zp.name):
+            raise ValueError("SESSION_ARCHIVE_SIDECAR_SHA256_MISMATCH")
+    elif require_sidecar_sha256:
+        raise ValueError(f"MISSING_SIDECAR_SHA256:{sidecar.name}")
+
+    names: set[str] = set()
+    seen_fold: set[str] = set()
+    with zipfile.ZipFile(zp, "r") as zf:
+        infos = zf.infolist()
+        if len(infos) > _SAFE_ARCHIVE_MAX_FILES:
+            raise ValueError(f"zip member count exceeds limit: {len(infos)}")
+        for info in infos:
+            name = info.filename
+            fold = name.casefold()
+            if fold in seen_fold:
+                raise ValueError(f"duplicate archive member: {name!r}")
+            seen_fold.add(fold)
+            if (info.external_attr >> 16) & stat.S_IFLNK == stat.S_IFLNK:
+                raise ValueError(f"symlink rejected in archive: {name!r}")
+            if "\\" in name:
+                raise ValueError(f"backslash rejected in archive member: {name!r}")
+            p = PurePosixPath(name)
+            if p.is_absolute() or ".." in p.parts or any(part == "" for part in p.parts if not name.endswith("/")):
+                raise ValueError(f"unsafe archive path rejected: {name!r}")
+            if info.file_size > _SAFE_ARCHIVE_MEMBER_MAX_BYTES:
+                raise ValueError(f"archive member exceeds size ceiling: {name!r}")
+            names.add(name)
+
+        for mem in required_members:
+            if str(mem) not in names:
+                raise ValueError(f"MISSING_ARCHIVE_MEMBER:{mem}")
+
+        has_v6 = "BUNDLE_MANIFEST.json" in names
+        if require_v6_manifest and not has_v6:
+            raise ValueError(
+                "MISSING_V6_BUNDLE_MANIFEST: use export_session_archives(..., include_v6_manifest=True) "
+                "or verify_single_planthir_zip for Cartridge result.zip"
+            )
+        if not has_v6:
+            bad_member = zf.testzip()
+            if bad_member is not None:
+                raise ValueError(f"CORRUPT_ZIP_MEMBER:{bad_member}")
+
+    v6_info: dict[str, Any] | None = None
+    if has_v6:
+        from tools.elendril_v6_export import verify_zip as v6_verify_zip
+
+        v6_info = v6_verify_zip(zp)
+        if expected_source_commit is not None and str(v6_info.get("source", "")) != str(expected_source_commit):
+            raise ValueError(
+                f"SESSION_ARCHIVE_SOURCE_COMMIT_MISMATCH: expected {expected_source_commit}, got {v6_info.get('source')}"
+            )
+
+    return {
+        "schema": "anra-planthir-session-archive-verify-v1",
+        "verified": True,
+        "archive_path": str(zp),
+        "archive_name": zp.name,
+        "byte_size": int(zip_size),
+        "archive_sha256": actual_sha,
+        "sidecar_verified": sidecar.is_file(),
+        "v6_manifest_verified": has_v6,
+        "source_commit": v6_info.get("source") if v6_info else None,
+        "campaign_status": v6_info.get("campaign_status") if v6_info else None,
+        "member_count": len(names),
+        "members": sorted(names),
+    }
+
+
 def verify_shared_backbone_and_head_overhead(
     control_model: nn.Module,
     treatment_model: nn.Module,
@@ -2521,6 +3326,12 @@ def build_pinned_kaggle_notebook(
     title: str,
     launch_command: Sequence[str] | str,
     owner_authorized: bool = False,
+    repo_url: str | None = None,
+    repo_dir: str = "repo",
+    campaign_mode: str = "FULL",
+    session_minutes: int = 300,
+    resume_input: str | None = None,
+    inventory_command: Sequence[str] | str | None = None,
     discover_kaggle_inputs: Sequence[str] = (),
     mirror_outputs_to_working: bool = False,
     extra_pinned_repos: Mapping[str, Mapping[str, str]] | None = None,
@@ -2535,6 +3346,11 @@ def build_pinned_kaggle_notebook(
     import shlex
 
     cmd_args = list(shlex.split(launch_command)) if isinstance(launch_command, str) else [str(x) for x in launch_command]
+    inv_args = (
+        list(shlex.split(inventory_command))
+        if isinstance(inventory_command, str)
+        else ([str(x) for x in inventory_command] if inventory_command is not None else None)
+    )
     auth_val = "True" if owner_authorized else "False"
     input_names = [str(x) for x in discover_kaggle_inputs]
     export_globs = [str(x) for x in working_export_globs]
@@ -2542,20 +3358,46 @@ def build_pinned_kaggle_notebook(
     code_lines = [
         f"SOURCE_SHA = {source_commit!r}\n",
         f"OWNER_AUTHORIZED = {auth_val}\n",
+        f"REPO_URL = {repo_url!r}\n",
+        f"REPO_DIR = {str(repo_dir)!r}\n",
+        f"CAMPAIGN_MODE = {str(campaign_mode)!r}\n",
+        f"SESSION_MINUTES = {int(session_minutes)!r}\n",
+        f"RESUME_INPUT = {resume_input!r}\n",
         f"DISCOVER_INPUTS = {input_names!r}\n",
         f"MIRROR_WORKING = {bool(mirror_outputs_to_working)!r}\n",
         f"EXPORT_GLOBS = {export_globs!r}\n",
+        f"INVENTORY_CMD = {inv_args!r}\n",
+        "from pathlib import Path\n",
+        "import os, shutil, subprocess, sys\n",
+        "if REPO_URL:\n",
+        "    rp = Path(REPO_DIR)\n",
+        "    if not (rp / '.git').exists():\n",
+        "        subprocess.check_call(['git', 'clone', '--no-checkout', REPO_URL, str(rp)])\n",
+        "    if subprocess.run(['git', 'fetch', '--depth', '1', 'origin', SOURCE_SHA], cwd=str(rp)).returncode != 0:\n",
+        "        subprocess.check_call(['git', 'fetch', 'origin'], cwd=str(rp))\n",
+        "    subprocess.check_call(['git', 'checkout', '--detach', SOURCE_SHA], cwd=str(rp))\n",
+        "    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=str(rp), text=True).strip()\n",
+        "    assert head == SOURCE_SHA, f'HEAD mismatch: {head} != {SOURCE_SHA}'\n",
+        "    os.chdir(str(rp))\n",
+        "    if str(Path.cwd()) not in sys.path:\n",
+        "        sys.path.insert(0, str(Path.cwd()))\n",
+        "run_env = dict(os.environ)\n",
+        "run_env['PLANTHIR_CAMPAIGN_MODE'] = str(CAMPAIGN_MODE)\n",
+        "run_env['PLANTHIR_SESSION_MINUTES'] = str(SESSION_MINUTES)\n",
+        "if RESUME_INPUT is not None:\n",
+        "    run_env['PLANTHIR_RESUME_INPUT'] = str(RESUME_INPUT)\n",
         "if not OWNER_AUTHORIZED:\n",
         "    print('NOT LAUNCHED: set OWNER_AUTHORIZED = True before running GPU launch.')\n",
+        "    if INVENTORY_CMD:\n",
+        "        subprocess.check_call(INVENTORY_CMD, env=run_env)\n",
         "else:\n",
-        "    from pathlib import Path\n",
-        "    import shutil, subprocess\n",
-        "    subprocess.check_call(['git', 'checkout', SOURCE_SHA])\n",
+        "    if not REPO_URL:\n",
+        "        subprocess.check_call(['git', 'checkout', SOURCE_SHA])\n",
         "    if DISCOVER_INPUTS and Path('/kaggle/input').is_dir():\n",
         "        for name in DISCOVER_INPUTS:\n",
         "            found = sorted(Path('/kaggle/input').rglob(name))\n",
         "            print('KAGGLE_INPUT', name, [str(p) for p in found])\n",
-        f"    subprocess.check_call({cmd_args!r})\n",
+        f"    subprocess.check_call({cmd_args!r}, env=run_env)\n",
         "    if MIRROR_WORKING and Path('/kaggle/working').is_dir():\n",
         "        for pat in EXPORT_GLOBS:\n",
         "            for p in sorted(Path('.').glob(pat)):\n",
@@ -2590,8 +3432,10 @@ def build_pinned_kaggle_notebook(
             "from pathlib import Path\n",
             "if BACKEND_MODULES:\n",
             "    os.environ['PLANTHIR_BACKEND_MODULES'] = ','.join(BACKEND_MODULES)\n",
-            "if REQUIRE_DUAL_GPU:\n",
+            "if REQUIRE_DUAL_GPU and globals().get('OWNER_AUTHORIZED', False):\n",
             "    assert torch.cuda.device_count() >= 2, f'Expected >=2 GPUs, found {torch.cuda.device_count()}'\n",
+            "elif REQUIRE_DUAL_GPU:\n",
+            "    print(f'DRY-RUN (OWNER_AUTHORIZED=False): skipping dual-GPU assertion (visible GPUs={torch.cuda.device_count()})')\n",
             "subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'doctor'])\n",
             "if PREFLIGHT_BACKEND:\n",
             "    cdir = Path('work/preflight_canary')\n",
@@ -2657,5 +3501,7 @@ __all__ = [
     "render_campaign_results_markdown",
     "rescore_compact_analysis_archive",
     "safe_extract_planthir_archive",
+    "verify_full_mode_dispatch",
+    "verify_session_archive",
     "verify_shared_backbone_and_head_overhead",
 ]

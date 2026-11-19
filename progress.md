@@ -363,3 +363,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-19 | Antigravity | Publish 10h combined single-results-ZIP V8-X2 Kaggle notebook (Commit B3)
 - Regenerated `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` pinned to Commit A3 (`596c5e3dd07cb30bd636b68250d11d960adf67ae`), verified byte-identical vs clean `git archive` export (15,161 bytes, SHA-256 `2b7b4953c50b245c97679fb411e33ff1896890bf03413d1c8bc6683f2972e5a9`).
 - Updated `Experiment Result/V8-X2/TEMPLATE_METRICS.json` and `research/v8-x2/IMPLEMENTATION_HANDOFF.md` with Commit A3 pin and 10h combined results-only workflow.
+
+### 2026-11-20 | Antigravity | Sync Avendi V8-Y3 post-mortem Palantiri upgrades onto Elendril
+- Synced `a0e75532` Planthir updates (`CampaignOrchestrator.run_registered_plan`, `verify_full_mode_dispatch`, `verify_session_archive`, upgraded `build_pinned_kaggle_notebook`, and 3-way `agent.md` mirror & contracts) while preserving Commit B3 `execution.py` `.planthir_worker.lock`, streamed SHA-256, and `write_full_zip: bool = True`.
+- Preserved all existing Elendril V8-X2 modules (`experiments/x2/*`), Commit B3 notebook (`5e77fbc5`), tools, and curated A0 results untouched.
+- Verified on CPU inside `Elendril` worktree: `test_avendi_y3_postmortem` (`1 passed`), `tests/test_planthir_declarative_cli_and_usability.py` (`6 passed`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
