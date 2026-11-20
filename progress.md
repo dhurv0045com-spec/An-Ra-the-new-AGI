@@ -344,3 +344,9 @@ Y3 learned models, plugin acceptance, target profiling and notebook execution re
 - Merged `exp/avendi-v8-y3` (`06a250b5`) onto `hitchhiker` (`19a8e1b8e06854cf8a68a012ee6f8b7355476130`) alongside `9235ac1d` Palantiri upgrades and re-pinned `notebooks/AVENDI_V8_Y3_T4X2.ipynb` (`--check-notebook` `match=true`).
 - Verified on CPU: `anra_v5.palantiri doctor` (`GREEN_SIGNAL`), clean `git archive` plan (`training_jobs=54`, `short_fork_jobs=24`, `p6_adaptation_jobs=9`, `studies=50`, `platform_uses=44`), and `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py -n auto -q` (`25 passed in 269.26s`).
 - Pending owner GPU execution: Kaggle 2xT4 `FULL` campaign run from `notebooks/AVENDI_V8_Y3_T4X2.ipynb` on `hitchhiker`.
+
+### 2026-11-20 | Antigravity | Avendi V8-Y3 one-go 11h FULL upgrade and OWNER_AUTHORIZED=True notebook
+- Implemented causal-padded batched evaluation in `experiments/avendi_y3/models.py`, blended S3/S20 profiling, `ckpt_every=512` pruning, adaptive one-go `session_minutes=660` 88-job loop, and `LATEST`-only full archive packing in `module.py` (`531a5aebdf33e5076b781ee6fad07e99e68066c5`).
+- Upgraded `experiments/avendi_y3/plan.py` and pinned `notebooks/AVENDI_V8_Y3_T4X2.ipynb` with `OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`, `ONE_GO = True`, preflight-before-launch gate, and zero-copy `os.link` archive mirroring (`--check-notebook` `match=true`).
+- Verified on CPU: `anra_v5.palantiri doctor` (`GREEN_SIGNAL`), clean `git archive 531a5aeb` (`54` main, `24` short, `9` P6 adapt, `50` studies, `44` uses), and `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py -n auto -q` (`27 passed in 136.05s`).
+- Pending owner GPU execution: click Run All in `notebooks/AVENDI_V8_Y3_T4X2.ipynb` on Kaggle 2xT4 (`OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`).
