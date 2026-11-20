@@ -177,7 +177,7 @@ def _rollout_case(
     actions: list[tuple[str, str | None]] = []
     history: list[dict[str, Any]] = []
     for step_idx in range(steps_limit):
-        if getattr(st, "terminal", False):
+        if (st.get("terminal", False) if isinstance(st, Mapping) else getattr(st, "terminal", False)):
             break
         obs = kernel.observe(st)
         obs_sha = sha256(obs.rendered_text.encode("utf-8")).hexdigest()
@@ -212,6 +212,7 @@ def independent_replay_bundle(
     bundle_dir: Path | str,
     *,
     expected_source_commit: str | None = None,
+    expected_backend: str | None = None,
     worlds: Sequence[Mapping[str, Any]] | None = None,
     raw_evidence_dir: Path | str | None = None,
     device: str = "cpu",
@@ -222,6 +223,7 @@ def independent_replay_bundle(
     reference_predictions: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
     use_archived_reference: bool = True,
     require_archived_reference: bool = False,
+    require_reference: bool = False,
 ) -> dict[str, Any]:
     """Restore an exported bundle into an isolated temp workspace and independently replay checkpoints & checks."""
 
@@ -343,7 +345,9 @@ def independent_replay_bundle(
                     else:
                         backend_id = prog_fam
 
-                # Validate backend consistency against archived REPLAY_REFERENCE.json BEFORE running worlds
+                # Validate backend consistency against expected_backend and archived REPLAY_REFERENCE.json BEFORE running worlds
+                if expected_backend is not None and str(expected_backend) != backend_id:
+                    defects.append(f"BACKEND_MISMATCH:{lineage_id}:expected={expected_backend}:ckpt={backend_id}")
                 if archived_ref is not None:
                     ref_bid = str(archived_ref.get("backend_id") or "")
                     if ref_bid and ref_bid != backend_id:
@@ -627,6 +631,21 @@ def independent_replay_bundle(
                         agreement_statuses.append("MISMATCH")
                     else:
                         agreement_statuses.append("MATCHED")
+                elif require_reference:
+                    insufficient_evidence = True
+                    supported_recovery_path = (
+                        f"Replay for backend {backend_id!r} required reference predictions but none were available. "
+                        "Supply reference_predictions or enable use_archived_reference=True with REPLAY_REFERENCE.json."
+                    )
+                    defects.append(f"INSUFFICIENT_REPLAY_REFERENCE:{lineage_id}:{backend_id}")
+                    orig_agree = {
+                        "status": "INSUFFICIENT_REPLAY_EVIDENCE",
+                        "matched": False,
+                        "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
+                        "checked_cases": 0,
+                        "mismatches": [{"backend_id": backend_id, "reason": "INSUFFICIENT_REPLAY_REFERENCE"}],
+                    }
+                    agreement_statuses.append("INSUFFICIENT_REPLAY_EVIDENCE")
                 else:
                     orig_agree = {
                         "status": "PROBE_ONLY_NO_REFERENCE",

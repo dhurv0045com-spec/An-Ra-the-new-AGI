@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Collection, Mapping, Sequence
 import zipfile
 
 from anra_v5.elendril.codec import digest
@@ -27,9 +27,19 @@ from anra_v5.planthir.backend import get_backend
 from anra_v5.planthir.scheduler import IndependentWorkerScheduler, WorkerJobSpec
 
 from .registry import (
+    X1_LEGACY_ACCEPTED_IMPORT_SHAS,
+    X1_LEGACY_COMPAT_DISCLOSURE,
+    X1_LEGACY_COMPAT_SHA,
+    X1_LEGACY_ORIGINAL_SHA,
     X1_LEGACY_SOURCE_SHA,
     X2_BASE_JOB_EQUIVALENT_CEILING,
+    _infer_execution_route,
+    _legacy_scientific_identity,
     build_x2_design_registry,
+    build_x2_obligation_ledger,
+    evaluate_confirmation_trigger,
+    evaluate_x2_completion_audit,
+    is_paired_cartridge_row,
     validate_x2_registry,
 )
 
@@ -37,6 +47,19 @@ DEFAULT_OUTER_MAX_MINUTES = 480.0
 DEFAULT_SESSION_MAX_MINUTES = 330.0
 DEFAULT_EXPORT_RESERVE_MINUTES = 45.0
 DEFAULT_MIN_DISK_BYTES = 2 * 1024**3
+X3_FROZEN_PARENT_IDS: tuple[str, ...] = tuple(
+    f"X1-{sess}-S20-{arch}-standard-s{seed}"
+    for sess, arch in (("A0", "P"), ("A0", "R"), ("A1", "F-cap"), ("A2", "R-noedge"))
+    for seed in (7, 19, 41)
+)
+
+
+def _all_registry_rows(registry: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return [
+        *list(registry.get("jobs", ())),
+        *list(registry.get("separate_ledgers", {}).get("t14_routing_prep", {}).get("jobs", ())),
+        *list(registry.get("separate_ledgers", {}).get("t13_transfer_parents", {}).get("jobs", ())),
+    ]
 
 
 def _sha256_file(path: Path) -> str:
@@ -199,6 +222,15 @@ def build_legacy_x1_worker_command(
     }
 
 
+def _dataset_split_for_name(ds_name: str) -> str:
+    low = str(ds_name).lower()
+    if "confirmation" in low:
+        return "confirmation"
+    if "t14" in low or "frozen" in low:
+        return "dev"
+    return "train"
+
+
 def materialize_x2_job_spec(
     job: Mapping[str, Any],
     spec_path: Path | str,
@@ -206,23 +238,41 @@ def materialize_x2_job_spec(
     source_commit: str,
     canary: bool = False,
 ) -> dict[str, Any]:
-    """Materialize an immutable `anra-planthir-spec-v1` JSON for an `elendril_x2` job."""
+    """Materialize an immutable `anra-planthir-spec-v1` JSON for a paired `elendril_x2` scratch job."""
     sp = Path(spec_path)
     sp.parent.mkdir(parents=True, exist_ok=True)
     arch = str(job["architecture"])
-    ctrl = str(job.get("control_architecture") or ("P" if arch != "P" else "DM-add"))
+    obj = str(job.get("objective", "standard"))
+    explicit_route = job.get("execution_route")
+    inferred_route = str(
+        explicit_route
+        or _infer_execution_route(
+            backend_id=str(job.get("backend_id", "elendril_x2")),
+            block=str(job.get("block", "")),
+            objective=obj,
+            resource_class=str(job.get("resource_class", "")),
+            parent_job_id=job.get("parent_job_id"),
+            status=str(job.get("status", "PENDING")),
+        )
+    )
+    if obj == "frozen_probe" or inferred_route == "x2_frozen_probe" or str(job.get("resource_class", "")) == "frozen_inference":
+        raise ValueError("FROZEN_PROBE_MUST_USE_FROZEN_ROUTE")
+    if inferred_route != "x2_scratch_train":
+        raise ValueError(f"NON_SCRATCH_ROUTE_MUST_USE_LINEAGE_RUNNER:{inferred_route}")
+    raw_ctrl = job.get("control_architecture")
+    if not raw_ctrl:
+        raise ValueError(f"PAIRED_CARTRIDGE_REQUIRES_REGISTERED_CONTROL_ARM:{job.get('job_id')}")
+    ctrl = str(raw_ctrl)
     updates = 2 if canary else int(job.get("updates", 2368))
     milestones = [1, 2] if canary else list(job.get("milestones", [0, 592, 1184, 1472, 2368]))
     model_cfg = (
-        {"width": 16, "layers": 1, "query_heads": 2, "kv_heads": 1, "head_dimension": 8, "ffn_width": 32, "context_length": 256, "mem_dim": 16}
+        {"width": 16, "layers": 1, "query_heads": 2, "kv_heads": 1, "head_dimension": 8, "ffn_width": 32, "context_length": 640, "mem_dim": 16}
         if canary
         else {"s20_backbone": True, "context_length": 640, "mem_dim": 64}
     )
     seed = int(job.get("init_seed", 7))
     order_seed = int(job.get("order_seed", seed))
-    obj = str(job.get("objective", "standard"))
-    if obj == "frozen_probe":
-        obj = "standard"
+    ds_name = str(job.get("dataset", "x2_canary_fixture" if canary else "x2_production_stream"))
 
     spec = {
         "schema": "anra-planthir-spec-v1",
@@ -231,7 +281,8 @@ def materialize_x2_job_spec(
         "source_commit": str(source_commit),
         "backend_id": "elendril_x2",
         "dataset": {
-            "dataset_name": str(job.get("dataset", "x2_canary_fixture" if canary else "x2_production_stream")),
+            "dataset_name": ds_name,
+            "split": _dataset_split_for_name(ds_name),
             "seed": seed,
         },
         "control_arm": {
@@ -320,6 +371,271 @@ def build_x2_palantiri_command(
     }
 
 
+def _ledger_parent_worker_map(registry: Mapping[str, Any]) -> dict[str, str]:
+    ledger = build_x2_obligation_ledger(registry)
+    return {str(e["logical_id"]): str(e["worker_unit_id"]) for e in ledger.get("entries", ())}
+
+
+def resolve_parent_checkpoint_path(
+    registry: Mapping[str, Any],
+    parent_job_id: str | None,
+    *,
+    work_dir: Path | str,
+    input_roots: Sequence[Path | str] = (),
+) -> Path | None:
+    """Resolve an immutable parent checkpoint dir from work_dir/jobs or mounted input dirs."""
+    if not parent_job_id:
+        return None
+    wdir = Path(work_dir)
+    pmap = _ledger_parent_worker_map(registry)
+    candidates_ids = [str(parent_job_id)]
+    wuid = pmap.get(str(parent_job_id))
+    if wuid and wuid not in candidates_ids:
+        candidates_ids.append(wuid)
+
+    search_bases = [wdir / "jobs", wdir / "parent_checkpoints", wdir / "imported_inputs", *[Path(p) for p in input_roots]]
+
+    def _has_ckpt(d: Path) -> bool:
+        if not d.is_dir():
+            return False
+        if (d / "LATEST").is_file():
+            return True
+        ck = d / "checkpoints"
+        if ck.is_dir() and any(p.is_file() for p in ck.rglob("LATEST")):
+            return True
+        if any(p.is_file() for p in d.rglob("LATEST")):
+            return True
+        if any(p.is_file() for p in d.glob("*.bin")):
+            return True
+        return False
+
+    for cid in candidates_ids:
+        for base in search_bases:
+            direct = base / cid
+            if _has_ckpt(direct):
+                return direct
+            if base.is_dir():
+                for sub in sorted(base.rglob(cid)):
+                    if _has_ckpt(sub):
+                        return sub
+    return None
+
+
+def compute_protected_parent_ids(
+    registry: Mapping[str, Any],
+    completed_ids: Collection[str] = (),
+) -> dict[str, tuple[str, ...]]:
+    """Return protected parent job/worker IDs needed by incomplete descendants or frozen X3 evaluation."""
+    done = set(str(x) for x in completed_ids)
+    wmap = _ledger_parent_worker_map(registry)
+    protected: set[str] = set()
+    retain_opt: set[str] = set()
+
+    for r in _all_registry_rows(registry):
+        lid = str(r["job_id"])
+        pid = r.get("parent_job_id")
+        if pid and lid not in done:
+            pid_s = str(pid)
+            protected.add(pid_s)
+            if pid_s in wmap:
+                protected.add(wmap[pid_s])
+            if str(r.get("execution_route", "")) == "x2_horizon_continuation" or str(r.get("block", "")) == "V_HORIZON_4736":
+                retain_opt.add(pid_s)
+                if pid_s in wmap:
+                    retain_opt.add(wmap[pid_s])
+
+    for x3_pid in X3_FROZEN_PARENT_IDS:
+        protected.add(x3_pid)
+        if x3_pid in wmap:
+            protected.add(wmap[x3_pid])
+
+    return {
+        "protected_job_ids": tuple(sorted(protected)),
+        "retain_optimizer_for_ids": tuple(sorted(retain_opt)),
+    }
+
+
+def build_lineage_runner_command(
+    job: Mapping[str, Any],
+    *,
+    work_root: Path | str,
+    source_commit: str,
+    parent_checkpoint: Path | str | None = None,
+    missing_original_receipt: Path | str | None = None,
+    reproduced_checkpoint: Path | str | None = None,
+    device: str = "cpu",
+    canary: bool = False,
+) -> dict[str, Any]:
+    """Build exact explicit CLI command for `frozen-probe`, `task-adapt`, `horizon-continue`, or `scratch-single`."""
+    route = str(
+        job.get("execution_route")
+        or _infer_execution_route(
+            backend_id=str(job.get("backend_id", "elendril_x2")),
+            block=str(job.get("block", "")),
+            objective=str(job.get("objective", "standard")),
+            resource_class=str(job.get("resource_class", "full_job")),
+            parent_job_id=job.get("parent_job_id"),
+            status=str(job.get("status", "PENDING")),
+        )
+    )
+    wroot = str(Path(work_root).resolve())
+    arch = str(job["architecture"])
+    seed = int(job.get("init_seed", 7))
+    oseed = int(job.get("order_seed", seed))
+    updates = 2 if canary else int(job.get("updates", 2368))
+    milestones = "1,2" if canary else ",".join(str(int(m)) for m in job.get("milestones", (0, 592, 1184, 1472, 2368)))
+
+    if route == "x2_frozen_probe":
+        if not parent_checkpoint and not (missing_original_receipt and reproduced_checkpoint):
+            raise FileNotFoundError(f"MISSING_PARENT_CHECKPOINT: frozen probe {job['job_id']} requires parent={job.get('parent_job_id')}")
+        cmd: list[str] = [
+            sys.executable,
+            "-m",
+            "experiments.x2.lineage_runner",
+            "frozen-probe",
+            "--job-id",
+            str(job["job_id"]),
+            "--architecture",
+            arch,
+            "--work-root",
+            wroot,
+            "--source",
+            str(source_commit),
+            "--seed",
+            str(seed),
+            "--dataset",
+            str(job.get("dataset", "x1-a0-frozen-dev2304-depth640-v1")),
+            "--device",
+            str(device),
+        ]
+        if job.get("parent_job_id"):
+            cmd.extend(["--parent-job-id", str(job["parent_job_id"])])
+        if parent_checkpoint:
+            cmd.extend(["--parent-checkpoint", str(Path(parent_checkpoint).resolve())])
+        if missing_original_receipt:
+            cmd.extend(["--missing-original-receipt", str(Path(missing_original_receipt).resolve())])
+        if reproduced_checkpoint:
+            cmd.extend(["--reproduced-checkpoint", str(Path(reproduced_checkpoint).resolve())])
+    elif route == "x2_task_adaptation":
+        if not parent_checkpoint:
+            raise FileNotFoundError(f"MISSING_PARENT_CHECKPOINT: task adaptation {job['job_id']} requires parent={job.get('parent_job_id')}")
+        cmd = [
+            sys.executable,
+            "-m",
+            "experiments.x2.lineage_runner",
+            "task-adapt",
+            "--job-id",
+            str(job["job_id"]),
+            "--architecture",
+            arch,
+            "--parent-checkpoint",
+            str(Path(parent_checkpoint).resolve()),
+            "--dataset",
+            str(job["dataset"]),
+            "--objective",
+            str(job.get("objective", "T13_ADAPT")),
+            "--work-root",
+            wroot,
+            "--source",
+            str(source_commit),
+            "--seed",
+            str(seed),
+            "--order-seed",
+            str(oseed),
+            "--updates",
+            str(updates),
+            "--milestones",
+            milestones,
+            "--device",
+            str(device),
+        ]
+        if job.get("parent_job_id"):
+            cmd.extend(["--parent-job-id", str(job["parent_job_id"])])
+    elif route == "x2_horizon_continuation":
+        if not parent_checkpoint:
+            raise FileNotFoundError(f"MISSING_PARENT_CHECKPOINT: horizon job {job['job_id']} requires parent={job.get('parent_job_id')}")
+        ms_list = [int(m) for m in job.get("milestones", (2368, 3552, 4736))]
+        p_u = 2 if canary else int(ms_list[0] if ms_list else 2368)
+        m_u = 3 if canary else int(ms_list[1] if len(ms_list) > 1 else 3552)
+        e_u = 4 if canary else int(ms_list[-1] if len(ms_list) > 1 else p_u + updates)
+        cmd = [
+            sys.executable,
+            "-m",
+            "experiments.x2.lineage_runner",
+            "horizon-continue",
+            "--job-id",
+            str(job["job_id"]),
+            "--architecture",
+            arch,
+            "--parent-checkpoint",
+            str(Path(parent_checkpoint).resolve()),
+            "--dataset",
+            str(job.get("dataset", "x2-d1h-selective-edit-v1")),
+            "--objective",
+            str(job.get("objective", "standard")),
+            "--work-root",
+            wroot,
+            "--source",
+            str(source_commit),
+            "--seed",
+            str(seed),
+            "--order-seed",
+            str(oseed),
+            "--parent-updates",
+            str(p_u),
+            "--updates",
+            str(updates),
+            "--mid-milestone",
+            str(m_u),
+            "--end-milestone",
+            str(e_u),
+            "--device",
+            str(device),
+        ]
+        if job.get("parent_job_id"):
+            cmd.extend(["--parent-job-id", str(job["parent_job_id"])])
+    elif route == "x2_scratch_train":
+        cmd = [
+            sys.executable,
+            "-m",
+            "experiments.x2.lineage_runner",
+            "scratch-single",
+            "--job-id",
+            str(job["job_id"]),
+            "--architecture",
+            arch,
+            "--dataset",
+            str(job["dataset"]),
+            "--objective",
+            str(job.get("objective", "standard")),
+            "--work-root",
+            wroot,
+            "--source",
+            str(source_commit),
+            "--seed",
+            str(seed),
+            "--order-seed",
+            str(oseed),
+            "--updates",
+            str(updates),
+            "--milestones",
+            milestones,
+            "--device",
+            str(device),
+        ]
+    else:
+        raise ValueError(f"UNSUPPORTED_LINEAGE_RUNNER_ROUTE:{route}")
+
+    if canary:
+        cmd.append("--canary")
+    return {
+        "lane_kind": f"elendril_x2_lineage_{route}",
+        "source_commit": str(source_commit),
+        "env_overrides": {"PLANTHIR_BACKEND_MODULES": "experiments.elendril_x2"},
+        "command": tuple(cmd),
+    }
+
+
 def build_verified_resume_set(
     *,
     registry: Mapping[str, Any],
@@ -327,8 +643,9 @@ def build_verified_resume_set(
     imported_receipts: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Rebuild verified skip list strictly from retrieved hashes/steps/specs, NEVER blindly trusting COMPLETED_JOBS.json (§0.4.4)."""
-    reg_by_id = {str(r["job_id"]): r for r in registry.get("jobs", ())}
+    reg_by_id = {str(r["job_id"]): r for r in _all_registry_rows(registry)}
     verified_completed: dict[str, dict[str, Any]] = {}
+    compatibility_mapped_imports: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
 
     for rec in imported_receipts:
@@ -337,22 +654,39 @@ def build_verified_resume_set(
         if reg_row is None:
             rejected.append({"job_id": jid, "reason": "UNKNOWN_JOB_ID"})
             continue
-        if str(rec.get("source_commit", "")) != str(reg_row["source_commit"]):
+        if rec.get("job_id_dir_mismatch"):
+            rejected.append({"job_id": jid, "reason": "JOB_ID_PATH_MISMATCH"})
+            continue
+        rec_src = str(rec.get("source_commit", ""))
+        exp_src = str(reg_row["source_commit"])
+        is_legacy_compat = bool(
+            reg_row.get("backend_id") == "x1_s20_legacy"
+            and rec_src in X1_LEGACY_ACCEPTED_IMPORT_SHAS
+            and exp_src in X1_LEGACY_ACCEPTED_IMPORT_SHAS
+            and rec_src != exp_src
+        )
+        if rec_src != exp_src and not is_legacy_compat:
             rejected.append(
                 {
                     "job_id": jid,
                     "reason": "SOURCE_COMMIT_MISMATCH",
-                    "expected": reg_row["source_commit"],
+                    "expected": exp_src,
                     "observed": rec.get("source_commit"),
                 }
             )
             continue
-        if rec.get("spec_sha256") and str(rec["spec_sha256"]) != str(reg_row["spec_sha256"]):
+
+        expected_spec = (
+            str(reg_row.get("extra", {}).get("original_legacy_spec_sha256") or reg_row["spec_sha256"])
+            if is_legacy_compat and rec_src == X1_LEGACY_ORIGINAL_SHA
+            else str(reg_row["spec_sha256"])
+        )
+        if rec.get("spec_sha256") and str(rec["spec_sha256"]) != expected_spec:
             rejected.append(
                 {
                     "job_id": jid,
                     "reason": "SWAPPED_SPEC_MISMATCH",
-                    "expected": reg_row["spec_sha256"],
+                    "expected": expected_spec,
                     "observed": rec.get("spec_sha256"),
                 }
             )
@@ -368,17 +702,43 @@ def build_verified_resume_set(
                 }
             )
             continue
-        min_updates = int(reg_row["updates"])
-        if int(rec.get("completed_updates", -1)) < min_updates:
+        expected_sci_id = str(reg_row.get("extra", {}).get("legacy_scientific_identity_sha256", ""))
+        if expected_sci_id and rec.get("legacy_scientific_identity_sha256") and str(rec["legacy_scientific_identity_sha256"]) != expected_sci_id:
             rejected.append(
                 {
                     "job_id": jid,
-                    "reason": "INCOMPLETE_UPDATES",
-                    "expected": min_updates,
-                    "observed": rec.get("completed_updates"),
+                    "reason": "LEGACY_SCIENTIFIC_IDENTITY_MISMATCH",
+                    "expected": expected_sci_id,
+                    "observed": rec.get("legacy_scientific_identity_sha256"),
                 }
             )
             continue
+
+        route = str(reg_row.get("execution_route") or "")
+        min_updates = int(reg_row["updates"])
+        if route == "x2_frozen_probe" or min_updates == 0:
+            opt_steps = rec.get("optimizer_steps_executed", -1)
+            if int(opt_steps) != 0:
+                rejected.append(
+                    {
+                        "job_id": jid,
+                        "reason": "FROZEN_PROBE_EXECUTED_OPTIMIZER_STEPS",
+                        "expected": 0,
+                        "observed": opt_steps,
+                    }
+                )
+                continue
+        else:
+            if int(rec.get("completed_updates", -1)) < min_updates:
+                rejected.append(
+                    {
+                        "job_id": jid,
+                        "reason": "INCOMPLETE_UPDATES",
+                        "expected": min_updates,
+                        "observed": rec.get("completed_updates"),
+                    }
+                )
+                continue
         if int(rec.get("eval_rows", 0)) <= 0:
             rejected.append({"job_id": jid, "reason": "MISSING_EVAL_ROWS"})
             continue
@@ -397,7 +757,6 @@ def build_verified_resume_set(
                 {"job_id": jid, "reason": "ARCHIVE_HASH_MISMATCH", "expected": expected_sha, "observed": actual_sha}
             )
             continue
-        # Verify mandatory ZIP members when specified
         req_members = list(rec.get("required_members", ()))
         if req_members:
             try:
@@ -413,12 +772,27 @@ def build_verified_resume_set(
 
         verified_completed[jid] = {
             "job_id": jid,
-            "source_commit": reg_row["source_commit"],
-            "spec_sha256": reg_row["spec_sha256"],
-            "completed_updates": int(rec["completed_updates"]),
+            "source_commit": exp_src,
+            "original_source_commit": rec_src,
+            "imported_via_compatibility_map": is_legacy_compat,
+            "spec_sha256": expected_spec,
+            "completed_updates": int(rec.get("completed_updates", 0)),
+            "optimizer_steps_executed": int(rec.get("optimizer_steps_executed", rec.get("completed_updates", 0))),
             "eval_rows": int(rec["eval_rows"]),
             "archive_sha256": actual_sha,
+            "evidence_source": rec.get("evidence_source"),
+            "extracted_job_dir": rec.get("extracted_job_dir"),
         }
+        if is_legacy_compat:
+            compatibility_mapped_imports.append(
+                {
+                    "job_id": jid,
+                    "original_source_commit": rec_src,
+                    "repaired_source_commit": exp_src,
+                    "original_legacy_spec_sha256": expected_spec,
+                    "scientific_identity_sha256": expected_sci_id,
+                }
+            )
 
     # Write fresh verified skip list for CampaignOrchestrator
     wdir = Path(work_dir)
@@ -429,6 +803,9 @@ def build_verified_resume_set(
         "schema": "elendril-x2-verified-resume-v1",
         "verified_completed_ids": completed_ids,
         "verified_count": len(completed_ids),
+        "verified_receipts_by_id": verified_completed,
+        "compatibility_mapped_imports": compatibility_mapped_imports,
+        "legacy_compatibility_disclosure": dict(X1_LEGACY_COMPAT_DISCLOSURE),
         "rejected": rejected,
     }
     _atomic_write_json(wdir / "VERIFIED_RESUME_RECEIPT.json", receipt)
@@ -482,6 +859,21 @@ def _count_eval_rows_x2(job_dir: Path) -> int:
     return 0
 
 
+def _parse_int_milestones(raw: Any) -> list[int]:
+    out: list[int] = []
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        return out
+    for item in raw:
+        s = str(item).strip()
+        if s.startswith("u"):
+            s = s[1:]
+        try:
+            out.append(int(s))
+        except ValueError:
+            return []
+    return out
+
+
 def discover_kaggle_input_receipts(
     input_root: Path | str,
     extract_dir: Path | str,
@@ -492,36 +884,41 @@ def discover_kaggle_input_receipts(
     if not in_root.is_dir():
         return []
 
-    reg_by_id = {str(r["job_id"]): r for r in registry.get("jobs", ())}
+    reg_by_id = {str(r["job_id"]): r for r in _all_registry_rows(registry)}
     ext_root = Path(extract_dir)
     ext_root.mkdir(parents=True, exist_ok=True)
 
     receipts_by_job: dict[str, dict[str, Any]] = {}
-    scanned_roots: list[tuple[Path, Path]] = []  # (search_root, backing_archive_path)
+    scanned_roots: list[tuple[Path, Path, str | None]] = []  # (search_root, backing_archive_path, sidecar_expected_sha)
 
     # Prefer lightweight ANALYSIS archives first; only inspect FULL if directory lacks ANALYSIS
     analysis_zips = sorted(in_root.rglob("*ELENDRIL*ANALYSIS*.zip"))
     analysis_dirs = {z.parent for z in analysis_zips}
     full_zips = [z for z in sorted(in_root.rglob("*ELENDRIL*FULL*.zip")) if z.parent not in analysis_dirs]
+    parent_zips = sorted(in_root.rglob("*ELENDRIL*PARENT_CHECKPOINTS*.zip"))
 
-    for idx, zpath in enumerate([*analysis_zips, *full_zips]):
+    for idx, zpath in enumerate([*analysis_zips, *full_zips, *parent_zips]):
+        sidecar_sha: str | None = None
+        sidecar = zpath.with_name(zpath.name + ".sha256")
+        if sidecar.is_file():
+            tokens = sidecar.read_text(encoding="utf-8", errors="replace").strip().split()
+            if tokens:
+                sidecar_sha = tokens[0].lower()
         dest = ext_root / f"arc_{idx:03d}_{zpath.stem}"
         try:
             safe_extract_planthir_archive(zpath, dest)
-            scanned_roots.append((dest, zpath))
+            scanned_roots.append((dest, zpath, sidecar_sha))
         except Exception:
             continue
 
-    # Also support directly mounted unpacked job folders
-    scanned_roots.append((in_root, in_root))
+    scanned_roots.append((in_root, in_root, None))
 
-    for sroot, backing_zip in scanned_roots:
-        # Optional registry snapshot inside extracted archive (lets swapped specs still be detected downstream!)
+    for sroot, backing_zip, sidecar_sha in scanned_roots:
         arc_spec_sha_by_id: dict[str, str] = {}
         for reg_p in sorted(sroot.rglob("X2_DESIGN_REGISTRY.json")):
             try:
                 arc_reg = json.loads(reg_p.read_text(encoding="utf-8"))
-                for row in arc_reg.get("jobs", ()):
+                for row in _all_registry_rows(arc_reg):
                     arc_spec_sha_by_id[str(row["job_id"])] = str(row.get("spec_sha256", ""))
             except Exception:
                 continue
@@ -538,21 +935,46 @@ def discover_kaggle_input_receipts(
             reg_row = reg_by_id[jid]
             eval_rows = _count_eval_rows_legacy(jpath.parent)
             arc_file = backing_zip if backing_zip.is_file() else jpath
-            rec = {
+            rec_sha = sidecar_sha if sidecar_sha is not None else _sha256_file(arc_file)
+
+            has_full_sci = all(k in doc for k in ("architecture", "dataset", "objective", "init_seed", "order_seed"))
+            sci_id = None
+            if has_full_sci:
+                ms_list = _parse_int_milestones(doc.get("milestones_recorded", reg_row["milestones"]))
+                if not ms_list:
+                    ms_list = list(reg_row["milestones"])
+                sci_id = _legacy_scientific_identity(
+                    job_id=jid,
+                    architecture=str(doc["architecture"]),
+                    dataset=str(doc["dataset"]),
+                    objective=str(doc["objective"]),
+                    init_seed=int(doc["init_seed"]),
+                    order_seed=int(doc["order_seed"]),
+                    updates=int(doc.get("target_updates", doc.get("completed_updates", 0))),
+                    milestones=ms_list,
+                    legacy_model_spec_sha256=str(doc.get("model_spec_sha256", "")),
+                )
+
+            rec: dict[str, Any] = {
                 "job_id": jid,
+                "job_id_dir_mismatch": jpath.parent.name != jid,
                 "source_commit": str(doc.get("source_commit", "")),
-                "spec_sha256": arc_spec_sha_by_id.get(jid, str(reg_row["spec_sha256"])),
                 "model_spec_sha256": str(doc.get("model_spec_sha256", "")),
                 "completed_updates": int(doc.get("completed_updates", 0)),
                 "eval_rows": int(eval_rows),
                 "archive_path": str(arc_file),
-                "archive_sha256": _sha256_file(arc_file),
+                "archive_sha256": rec_sha,
+                "extracted_job_dir": str(jpath.parent),
             }
+            if jid in arc_spec_sha_by_id:
+                rec["spec_sha256"] = arc_spec_sha_by_id[jid]
+            if sci_id is not None:
+                rec["legacy_scientific_identity_sha256"] = sci_id
             prev = receipts_by_job.get(jid)
             if prev is None or rec["completed_updates"] >= prev["completed_updates"]:
                 receipts_by_job[jid] = rec
 
-        # 2. Primary X2 Palantiri FINAL_RECEIPT.json + ARM_RESULTS.json receipts
+        # 2. Primary X2 Palantiri FINAL_RECEIPT.json (+ FROZEN_PROBE_RECEIPT / ARM_TO_LOGICAL_ROW_MAP)
         for rpath in sorted(sroot.rglob("FINAL_RECEIPT.json")):
             try:
                 doc = json.loads(rpath.read_text(encoding="utf-8"))
@@ -560,12 +982,68 @@ def discover_kaggle_input_receipts(
                 continue
             if doc.get("status") != "COMPLETE":
                 continue
-            jid = str(doc.get("campaign_id", rpath.parent.name))
+            jdir = rpath.parent
+            jid = str(doc.get("campaign_id", jdir.name))
+            arc_file = backing_zip if backing_zip.is_file() else rpath
+            rec_sha = sidecar_sha if sidecar_sha is not None else _sha256_file(arc_file)
+
+            frozen_p = jdir / "FROZEN_PROBE_RECEIPT.json"
+            if frozen_p.is_file() and jid in reg_by_id:
+                try:
+                    fdoc = json.loads(frozen_p.read_text(encoding="utf-8"))
+                    frec = {
+                        "job_id": jid,
+                        "source_commit": str(doc.get("source_commit", "")),
+                        "spec_sha256": arc_spec_sha_by_id.get(jid, str(reg_by_id[jid]["spec_sha256"])),
+                        "completed_updates": 0,
+                        "optimizer_steps_executed": int(fdoc.get("optimizer_steps_executed", -1)),
+                        "eval_rows": int(fdoc.get("eval_rows", 0)),
+                        "evidence_source": fdoc.get("evidence_source"),
+                        "archive_path": str(arc_file),
+                        "archive_sha256": rec_sha,
+                        "extracted_job_dir": str(jdir),
+                    }
+                    receipts_by_job[jid] = frec
+                    continue
+                except Exception:
+                    pass
+
+            arm_map_p = jdir / "ARM_TO_LOGICAL_ROW_MAP.json"
+            arm_results_path = jdir / "ARM_RESULTS.json"
+            if arm_map_p.is_file() and arm_results_path.is_file():
+                try:
+                    mdoc = json.loads(arm_map_p.read_text(encoding="utf-8"))
+                    arm_doc = json.loads(arm_results_path.read_text(encoding="utf-8"))
+                    mappings = list(mdoc.get("mappings", ()))
+                    if mappings and all(
+                        m.get("logical_id") in reg_by_id
+                        and m.get("arm_id") in arm_doc
+                        and int(arm_doc[m["arm_id"]].get("process_funnel", {}).get("episodes", 0) or 0) > 0
+                        for m in mappings
+                    ):
+                        for m in mappings:
+                            lid = str(m["logical_id"])
+                            ainfo = arm_doc[m["arm_id"]]
+                            max_u = max((int(ms.get("global_update", 0)) for ms in ainfo.get("milestones", ())), default=0)
+                            ep_c = int(ainfo.get("process_funnel", {}).get("episodes", 0) or 0)
+                            receipts_by_job[lid] = {
+                                "job_id": lid,
+                                "source_commit": str(doc.get("source_commit", "")),
+                                "spec_sha256": arc_spec_sha_by_id.get(lid, str(reg_by_id[lid]["spec_sha256"])),
+                                "completed_updates": int(max_u),
+                                "eval_rows": int(ep_c),
+                                "archive_path": str(arc_file),
+                                "archive_sha256": rec_sha,
+                                "extracted_job_dir": str(jdir),
+                            }
+                        continue
+                except Exception:
+                    pass
+
             if jid not in reg_by_id:
                 continue
             reg_row = reg_by_id[jid]
             completed_updates = 0
-            arm_results_path = rpath.parent / "ARM_RESULTS.json"
             if arm_results_path.is_file():
                 try:
                     arm_doc = json.loads(arm_results_path.read_text(encoding="utf-8"))
@@ -581,8 +1059,9 @@ def discover_kaggle_input_receipts(
                         completed_updates = min(arm_max_updates) if arm_max_updates else 0
                 except Exception:
                     completed_updates = 0
-            eval_rows = _count_eval_rows_x2(rpath.parent)
-            arc_file = backing_zip if backing_zip.is_file() else rpath
+            if completed_updates <= 0 and "completed_updates" in doc:
+                completed_updates = int(doc.get("completed_updates", 0))
+            eval_rows = _count_eval_rows_x2(jdir) or int(doc.get("eval_rows", 0))
             rec = {
                 "job_id": jid,
                 "source_commit": str(doc.get("source_commit", "")),
@@ -590,7 +1069,8 @@ def discover_kaggle_input_receipts(
                 "completed_updates": int(completed_updates),
                 "eval_rows": int(eval_rows),
                 "archive_path": str(arc_file),
-                "archive_sha256": _sha256_file(arc_file),
+                "archive_sha256": rec_sha,
+                "extracted_job_dir": str(jdir),
             }
             prev = receipts_by_job.get(jid)
             if prev is None or rec["completed_updates"] >= prev["completed_updates"]:
@@ -614,6 +1094,7 @@ def discover_kaggle_input_receipts(
             if eval_rows <= 0 and doc.get("completed_updates"):
                 eval_rows = 1
             arc_file = backing_zip if backing_zip.is_file() else rpath
+            rec_sha = sidecar_sha if sidecar_sha is not None else _sha256_file(arc_file)
             rec = {
                 "job_id": jid,
                 "source_commit": str(doc.get("source_commit", "")),
@@ -621,18 +1102,32 @@ def discover_kaggle_input_receipts(
                 "completed_updates": int(doc["completed_updates"]),
                 "eval_rows": int(eval_rows),
                 "archive_path": str(arc_file),
-                "archive_sha256": _sha256_file(arc_file),
+                "archive_sha256": rec_sha,
+                "extracted_job_dir": str(rpath.parent),
             }
             receipts_by_job[jid] = rec
 
     return [receipts_by_job[k] for k in sorted(receipts_by_job)]
 
 
-def prune_completed_job_heavy_artifacts(job_work_dir: Path | str) -> dict[str, Any]:
-    """Prune heavy weight/optimizer binaries for VERIFIED COMPLETE jobs while preserving all results/episodes/probes."""
+def prune_completed_job_heavy_artifacts(
+    job_work_dir: Path | str,
+    *,
+    protected_job_ids: Collection[str] = (),
+    retain_optimizer_for_ids: Collection[str] = (),
+) -> dict[str, Any]:
+    """Prune heavy weight/optimizer binaries for VERIFIED COMPLETE jobs unless protected for descendants/X3."""
     jroot = Path(job_work_dir)
     if not jroot.is_dir():
-        return {"pruned": False, "files_removed": 0, "bytes_freed": 0}
+        return {"pruned": False, "protected": False, "files_removed": 0, "bytes_freed": 0}
+    if jroot.name in set(protected_job_ids) or jroot.name in set(retain_optimizer_for_ids):
+        return {
+            "pruned": False,
+            "protected": True,
+            "reason": "PROTECTED_PARENT_CHECKPOINT",
+            "files_removed": 0,
+            "bytes_freed": 0,
+        }
 
     x2_complete = False
     final_rec = jroot / "FINAL_RECEIPT.json"
@@ -754,22 +1249,34 @@ class ElendrilX2Campaign:
         sessions: Sequence[str] | None = None,
         *,
         deduplicate_paired_x2: bool = True,
+        include_extra_ledgers: bool = False,
     ) -> list[dict[str, Any]]:
-        rows = [r for r in self.registry["jobs"] if r["status"] != "EVIDENCED_ACTION_REPLAYED"]
-        if sessions:
-            wanted = set(sessions)
+        wanted = set(sessions) if sessions else None
+        extra_rows = [
+            *self.registry.get("separate_ledgers", {}).get("t14_routing_prep", {}).get("jobs", ()),
+            *self.registry.get("separate_ledgers", {}).get("t13_transfer_parents", {}).get("jobs", ()),
+        ]
+        wants_extra = bool(
+            include_extra_ledgers
+            or (wanted and any(r["session"] in wanted or r["block"] in wanted for r in extra_rows))
+        )
+        base_rows = [*self.registry["jobs"], *(extra_rows if wants_extra else ())]
+        rows = [r for r in base_rows if r["status"] != "EVIDENCED_ACTION_REPLAYED"]
+        if wanted:
             rows = [r for r in rows if r["session"] in wanted or r["block"] in wanted]
         if deduplicate_paired_x2:
-            # Paired elendril_x2 treatment rows run BOTH control_arm and treatment_arms in one CartridgeRunner job
+            # ONLY IIIb_NEW_MECHANISMS & CONF_SOURCE paired CartridgeRunner jobs bundle treatment + control in 1 worker
             covered_controls = {
                 (str(r["session"]), int(r["init_seed"]), str(r["control_architecture"]))
                 for r in rows
-                if r.get("backend_id") == "elendril_x2" and r.get("control_architecture")
+                if is_paired_cartridge_row(r)
             }
             filtered: list[dict[str, Any]] = []
             for r in rows:
                 if (
                     r.get("backend_id") == "elendril_x2"
+                    and r.get("execution_route") == "x2_scratch_train"
+                    and r.get("block") in ("IIIb_NEW_MECHANISMS", "CONF_SOURCE")
                     and not r.get("control_architecture")
                     and (str(r["session"]), int(r["init_seed"]), str(r["architecture"])) in covered_controls
                 ):
@@ -781,7 +1288,7 @@ class ElendrilX2Campaign:
     def to_session_jobs(self, rows: Sequence[Mapping[str, Any]]) -> list[SessionJob]:
         jobs: list[SessionJob] = []
         for r in rows:
-            is_paired_x2 = bool(r.get("backend_id") == "elendril_x2" and r.get("control_architecture") and int(r["updates"]) > 0)
+            is_paired_x2 = bool(is_paired_cartridge_row(r) and int(r["updates"]) > 0)
             single_u = int(r["updates"])
             billed_u = 2 * single_u if is_paired_x2 else single_u
             jobs.append(
@@ -794,6 +1301,9 @@ class ElendrilX2Campaign:
                     session=str(r["session"]),
                     extra={
                         "backend_id": str(r["backend_id"]),
+                        "execution_route": str(r.get("execution_route", "")),
+                        "block": str(r.get("block", "")),
+                        "parent_job_id": r.get("parent_job_id"),
                         "source_commit": str(r["source_commit"]),
                         "spec_sha256": str(r["spec_sha256"]),
                         "dataset": str(r["dataset"]),
@@ -807,9 +1317,11 @@ class ElendrilX2Campaign:
             )
         return jobs
 
-    def prepare(self, sessions: Sequence[str] | None = None) -> dict[str, Any]:
+    def prepare(self, sessions: Sequence[str] | None = None, *, include_extra_ledgers: bool = False) -> dict[str, Any]:
         _atomic_write_json(self.work_dir / "X2_DESIGN_REGISTRY.json", self.registry)
-        rows = self.select_session_rows(sessions)
+        ledger = build_x2_obligation_ledger(self.registry)
+        _atomic_write_json(self.work_dir / "X2_OBLIGATION_LEDGER.json", ledger)
+        rows = self.select_session_rows(sessions, include_extra_ledgers=include_extra_ledgers)
         sjobs = self.to_session_jobs(rows)
         manifest = self.orchestrator.prepare(sjobs)
         queue_doc = {
@@ -831,10 +1343,11 @@ class ElendrilX2Campaign:
         parallel_workers: int = 2,
         available_disk_bytes: int | None = None,
         completed_ids: Sequence[str] = (),
+        include_extra_ledgers: bool = False,
     ) -> dict[str, Any]:
         """Pack whole jobs fitting the governing dual-clock & disk budget without deleting pending rows (§0.4.3)."""
         done_set = set(completed_ids)
-        all_rows = self.select_session_rows(sessions)
+        all_rows = self.select_session_rows(sessions, include_extra_ledgers=include_extra_ledgers)
         pending_rows = [r for r in all_rows if r["job_id"] not in done_set]
         pending_jobs = self.to_session_jobs(pending_rows)
 
@@ -881,15 +1394,53 @@ class ElendrilX2Campaign:
         legacy_updates_override: int | None = None,
         prune_completed_heavy_artifacts: bool = False,
         on_wave_complete: Callable[[int, Mapping[str, Any]], None] | None = None,
+        frozen_probe_overrides: Mapping[str, Mapping[str, Any]] | None = None,
+        input_roots: Sequence[Path | str] = (),
     ) -> dict[str, Any]:
         specs_dir = self.work_dir / "specs"
         specs_dir.mkdir(parents=True, exist_ok=True)
-        reg_by_id = {str(r["job_id"]): r for r in self.registry["jobs"]}
+        all_rows = _all_registry_rows(self.registry)
+        reg_by_id = {str(r["job_id"]): r for r in all_rows}
+        ledger = build_x2_obligation_ledger(self.registry)
+        worker_to_entries: dict[str, list[Mapping[str, Any]]] = {}
+        for ent in ledger.get("entries", ()):
+            worker_to_entries.setdefault(str(ent["worker_unit_id"]), []).append(ent)
 
         done_file = self.work_dir / "COMPLETED_JOBS.json"
         completed: set[str] = set()
         if resume and done_file.is_file():
             completed = set(json.loads(done_file.read_text(encoding="utf-8")).get("completed_jobs", []))
+
+        def _maybe_write_arm_map(wid: str) -> None:
+            jdir = self.work_dir / "jobs" / wid
+            arm_p = jdir / "ARM_RESULTS.json"
+            map_p = jdir / "ARM_TO_LOGICAL_ROW_MAP.json"
+            entries = worker_to_entries.get(wid, ())
+            row = reg_by_id.get(wid)
+            if not row or not is_paired_cartridge_row(row) or not arm_p.is_file():
+                return
+            try:
+                arm_doc = json.loads(arm_p.read_text(encoding="utf-8"))
+            except Exception:
+                return
+            seed = int(row["init_seed"])
+            ctrl_arch = str(row["control_architecture"])
+            trt_arch = str(row["architecture"])
+            ctrl_arm_id = f"CTRL_{ctrl_arch}_s{seed}".replace("-", "_")
+            trt_arm_id = f"TRT_{trt_arch}_s{seed}".replace("-", "_")
+            mappings = []
+            for ent in entries:
+                lid = str(ent["logical_id"])
+                aid = trt_arm_id if ent.get("arm_role") == "treatment" else ctrl_arm_id
+                if aid not in arm_doc:
+                    for cand_id in sorted(arm_doc):
+                        if (ent.get("arm_role") == "treatment" and cand_id.startswith("TRT")) or (
+                            ent.get("arm_role") == "control" and cand_id.startswith("CTRL")
+                        ):
+                            aid = cand_id
+                            break
+                mappings.append({"logical_id": lid, "arm_id": aid, "arm_role": ent.get("arm_role")})
+            _atomic_write_json(map_p, {"schema": "elendril-x2-arm-logical-map-v1", "worker_unit_id": wid, "mappings": mappings})
 
         def _cmd_builder(job: SessionJob, wroot: Path, dev: str) -> tuple[tuple[str, ...], dict[str, str]]:
             row = reg_by_id.get(
@@ -917,7 +1468,19 @@ class ElendrilX2Campaign:
                     worker_env["CUDA_VISIBLE_DEVICES"] = visible_tokens[idx]
                 else:
                     worker_env["CUDA_VISIBLE_DEVICES"] = str(idx)
-            if row.get("backend_id") == "x1_s20_legacy":
+            route = str(
+                row.get("execution_route")
+                or _infer_execution_route(
+                    backend_id=str(row.get("backend_id", "elendril_x2")),
+                    block=str(row.get("block", "")),
+                    objective=str(row.get("objective", "standard")),
+                    resource_class=str(row.get("resource_class", "full_job")),
+                    parent_job_id=row.get("parent_job_id"),
+                    status=str(row.get("status", "PENDING")),
+                )
+            )
+            target_dev = "cpu" if (canary or dev == "cpu") else "cuda:0"
+            if route == "legacy_x1_train" or row.get("backend_id") == "x1_s20_legacy":
                 legacy_dir = self.legacy_x1_repo_dir or Path.cwd()
                 routed = build_legacy_x1_worker_command(
                     row,
@@ -931,18 +1494,37 @@ class ElendrilX2Campaign:
                 )
                 return tuple(routed["command"]), worker_env
             worker_env["PLANTHIR_BACKEND_MODULES"] = "experiments.elendril_x2"
-            spec_info = materialize_x2_job_spec(
+            if is_paired_cartridge_row(row):
+                spec_info = materialize_x2_job_spec(
+                    row,
+                    specs_dir / f"{job.job_id}.json",
+                    source_commit=self.source_commit,
+                    canary=canary,
+                )
+                routed = build_x2_palantiri_command(
+                    row,
+                    spec_path=spec_info["spec_path"],
+                    work_root=wroot,
+                    device=target_dev,
+                    resume=resume and (wroot / "checkpoints").is_dir(),
+                    canary=canary,
+                )
+                return tuple(routed["command"]), worker_env
+
+            f_ovr = dict((frozen_probe_overrides or {}).get(job.job_id, ()))
+            parent_ckpt = f_ovr.get("parent_checkpoint")
+            if not parent_ckpt and row.get("parent_job_id"):
+                parent_ckpt = resolve_parent_checkpoint_path(
+                    self.registry, str(row["parent_job_id"]), work_dir=self.work_dir, input_roots=input_roots
+                )
+            routed = build_lineage_runner_command(
                 row,
-                specs_dir / f"{job.job_id}.json",
-                source_commit=self.source_commit,
-                canary=canary,
-            )
-            routed = build_x2_palantiri_command(
-                row,
-                spec_path=spec_info["spec_path"],
                 work_root=wroot,
-                device="cpu" if (canary or dev == "cpu") else "cuda:0",
-                resume=resume and (wroot / "checkpoints").is_dir(),
+                source_commit=self.source_commit,
+                parent_checkpoint=parent_ckpt,
+                missing_original_receipt=f_ovr.get("missing_original_receipt"),
+                reproduced_checkpoint=f_ovr.get("reproduced_checkpoint"),
+                device=target_dev,
                 canary=canary,
             )
             return tuple(routed["command"]), worker_env
@@ -981,6 +1563,8 @@ class ElendrilX2Campaign:
             )
             rec = sched.run(worker_specs)
             wave_receipts.append(rec)
+            for wid in rec["succeeded_workers"]:
+                _maybe_write_arm_map(wid)
             completed.update(rec["succeeded_workers"])
             _atomic_write_json(self.work_dir / "COMPLETED_JOBS.json", {"completed_jobs": sorted(completed)})
 
@@ -1016,9 +1600,14 @@ class ElendrilX2Campaign:
                 break
 
             if prune_completed_heavy_artifacts and rec.get("succeeded_workers"):
+                prot = compute_protected_parent_ids(self.registry, completed_ids=completed)
                 wave_freed = 0
                 for wid in rec["succeeded_workers"]:
-                    p_info = prune_completed_job_heavy_artifacts(self.work_dir / "jobs" / wid)
+                    p_info = prune_completed_job_heavy_artifacts(
+                        self.work_dir / "jobs" / wid,
+                        protected_job_ids=prot["protected_job_ids"],
+                        retain_optimizer_for_ids=prot["retain_optimizer_for_ids"],
+                    )
                     wave_freed += int(p_info.get("bytes_freed", 0))
                 if wave_freed > 0:
                     print(
@@ -1052,6 +1641,208 @@ class ElendrilX2Campaign:
         _atomic_write_json(self.work_dir / "CAMPAIGN_STATUS.json", summary)
         return summary
 
+    def export_parent_checkpoints(
+        self,
+        output_dir: Path | str,
+        *,
+        prefix: str = "ELENDRIL_V8_X2_PARENT_CHECKPOINTS",
+        protected_job_ids: Collection[str] | None = None,
+    ) -> dict[str, Any]:
+        """Export retained parent checkpoints to a compact verified archive + SHA-256 sidecar for next session/X3."""
+        out_dir = Path(output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        prot = set(
+            protected_job_ids
+            if protected_job_ids is not None
+            else compute_protected_parent_ids(self.registry)["protected_job_ids"]
+        )
+        zip_path = out_dir / f"{prefix}.zip"
+        tmp_zip = out_dir / f".{prefix}.zip.tmp"
+        exported: list[str] = []
+        file_count = 0
+        with zipfile.ZipFile(tmp_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            reg_p = self.work_dir / "X2_DESIGN_REGISTRY.json"
+            if reg_p.is_file():
+                zf.write(reg_p, "X2_DESIGN_REGISTRY.json")
+                file_count += 1
+            jobs_root = self.work_dir / "jobs"
+            seen_arcs: set[str] = set()
+            for pid in sorted(prot):
+                cand_dir = jobs_root / pid
+                has_local_ckpt = cand_dir.is_dir() and (
+                    (cand_dir / "LATEST").is_file()
+                    or ((cand_dir / "checkpoints").is_dir() and any((cand_dir / "checkpoints").rglob("LATEST")))
+                    or any(cand_dir.rglob("LATEST"))
+                    or any(cand_dir.glob("*.bin"))
+                )
+                pdir = cand_dir if has_local_ckpt else resolve_parent_checkpoint_path(
+                    self.registry, pid, work_dir=self.work_dir
+                )
+                if pdir is None or not pdir.is_dir():
+                    continue
+                has_ckpt = False
+                for fp in sorted(pdir.rglob("*")):
+                    if not fp.is_file():
+                        continue
+                    sub_rel = fp.relative_to(pdir).as_posix()
+                    is_ckpt_member = (
+                        "/checkpoints/" in f"/{sub_rel}"
+                        or fp.suffix in (".bin", ".pt")
+                        or fp.name == "LATEST"
+                    )
+                    if is_ckpt_member or fp.name in ("FINAL_RECEIPT.json", "ARM_RESULTS.json", "ARM_TO_LOGICAL_ROW_MAP.json", "job.json"):
+                        arc_rel = f"jobs/{pid}/{sub_rel}"
+                        if arc_rel not in seen_arcs:
+                            zf.write(fp, arc_rel)
+                            seen_arcs.add(arc_rel)
+                            file_count += 1
+                        if is_ckpt_member:
+                            has_ckpt = True
+                if has_ckpt:
+                    exported.append(pid)
+        os.replace(tmp_zip, zip_path)
+        sha = _sha256_file(zip_path)
+        (out_dir / f"{prefix}.zip.sha256").write_text(f"{sha}  {zip_path.name}\n", encoding="utf-8")
+
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            bad = zf.testzip()
+            if bad is not None:
+                raise RuntimeError(f"PARENT_CHECKPOINT_ZIP_CORRUPT:{bad}")
+            names = set(zf.namelist())
+        return {
+            "archive_path": str(zip_path),
+            "sha256": sha,
+            "exported_parent_ids": exported,
+            "file_count": file_count,
+            "verified_readable": True,
+            "member_count": len(names),
+        }
+
+    def build_global_completion_audit(
+        self,
+        output_dir: Path | str | None = None,
+        *,
+        confirmation_decision: Mapping[str, Any] | None = None,
+        case_recomputation_receipts: Mapping[str, Mapping[str, Any]] | None = None,
+        session_queue_empty: bool | None = None,
+    ) -> dict[str, Any]:
+        """Reconcile all 192 logical rows globally across sessions and emit X2_COMPLETION_AUDIT.json & X2_REPORT.md."""
+        ledger = build_x2_obligation_ledger(self.registry)
+        all_rows = _all_registry_rows(self.registry)
+        reg_by_id = {str(r["job_id"]): r for r in all_rows}
+        completed_receipts: dict[str, dict[str, Any]] = {}
+        recomp: dict[str, dict[str, Any]] = {str(k): dict(v) for k, v in (case_recomputation_receipts or {}).items()}
+
+        res_p = self.work_dir / "VERIFIED_RESUME_RECEIPT.json"
+        if res_p.is_file():
+            try:
+                rdoc = json.loads(res_p.read_text(encoding="utf-8"))
+                for lid, info in rdoc.get("verified_receipts_by_id", {}).items():
+                    if isinstance(info, Mapping):
+                        completed_receipts[str(lid)] = {
+                            "status": "COMPLETE",
+                            "eval_rows": int(info.get("eval_rows", 0)),
+                            "completed_updates": int(info.get("completed_updates", 0)),
+                            "source": "imported_verified_resume",
+                        }
+                        if str(lid) not in recomp and int(info.get("eval_rows", 0)) > 0:
+                            recomp[str(lid)] = {"verified": True, "source": "verified_resume_archive"}
+            except Exception:
+                pass
+
+        jobs_dir = self.work_dir / "jobs"
+        if jobs_dir.is_dir():
+            for fpath in sorted(jobs_dir.glob("*/FINAL_RECEIPT.json")):
+                jdir = fpath.parent
+                wid = jdir.name
+                try:
+                    fdoc = json.loads(fpath.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if fdoc.get("status") != "COMPLETE":
+                    continue
+                map_p = jdir / "ARM_TO_LOGICAL_ROW_MAP.json"
+                if map_p.is_file():
+                    try:
+                        mdoc = json.loads(map_p.read_text(encoding="utf-8"))
+                        arm_doc = json.loads((jdir / "ARM_RESULTS.json").read_text(encoding="utf-8"))
+                        for m in mdoc.get("mappings", ()):
+                            lid = str(m["logical_id"])
+                            aid = str(m["arm_id"])
+                            if lid in reg_by_id and aid in arm_doc:
+                                ep_n = int(arm_doc[aid].get("process_funnel", {}).get("episodes", 0) or 0)
+                                completed_receipts[lid] = {"status": "COMPLETE", "eval_rows": ep_n}
+                                if lid not in recomp and ep_n > 0:
+                                    recomp[lid] = {"verified": True, "checked_rows": ep_n, "source": "local_arm_results"}
+                        continue
+                    except Exception:
+                        pass
+                if wid in reg_by_id:
+                    ep_n = _count_eval_rows_x2(jdir) or int(fdoc.get("eval_rows", 0))
+                    completed_receipts[wid] = {"status": "COMPLETE", "eval_rows": ep_n}
+                    if wid not in recomp and ep_n > 0:
+                        recomp[wid] = {"verified": True, "checked_rows": ep_n, "source": "local_final_receipt"}
+
+            for jpath in sorted(jobs_dir.glob("*/*/*/job.json")) + sorted(jobs_dir.glob("*/job.json")):
+                try:
+                    jdoc = json.loads(jpath.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                lid = str(jdoc.get("job_id", ""))
+                if lid in reg_by_id and jdoc.get("status") == "COMPLETE":
+                    ep_n = _count_eval_rows_legacy(jpath.parent)
+                    completed_receipts[lid] = {"status": "COMPLETE", "eval_rows": ep_n}
+                    if lid not in recomp and ep_n > 0:
+                        recomp[lid] = {"verified": True, "checked_rows": ep_n, "source": "local_legacy_job"}
+
+        if session_queue_empty is None:
+            cs_p = self.work_dir / "CAMPAIGN_STATUS.json"
+            if cs_p.is_file():
+                try:
+                    cs = json.loads(cs_p.read_text(encoding="utf-8"))
+                    session_queue_empty = not bool(cs.get("unfinished_job_ids"))
+                except Exception:
+                    session_queue_empty = None
+
+        audit = evaluate_x2_completion_audit(
+            ledger,
+            completed_receipts,
+            confirmation_decision=confirmation_decision,
+            case_recomputation_receipts=recomp,
+            session_queue_empty=session_queue_empty,
+        )
+        lines = [
+            "# ELENDRIL V8-X2 Global Completion Audit",
+            "",
+            f"- **Global Status:** `{audit['global_x2_status']}` (`x2_complete={audit['x2_complete']}`, `x3_unlocked={audit['x3_unlocked']}`)",
+            f"- **Session Queue Empty:** `{audit['session_queue_empty']}`",
+            f"- **Totals:** eligible={audit['totals']['eligible']}, completed={audit['totals']['completed']}, "
+            f"negative={audit['totals']['negative']}, invalid={audit['totals']['invalid']}, "
+            f"pending={audit['totals']['pending']}, not_triggered={audit['totals']['not_triggered']}",
+            f"- **Legacy Compatibility Map:** original `{X1_LEGACY_ORIGINAL_SHA[:12]}` -> repaired `{X1_LEGACY_COMPAT_SHA[:12]}`",
+            "",
+            "## Counts by Block",
+        ]
+        for bname, bc in sorted(audit["counts_by_block"].items()):
+            lines.append(
+                f"- `{bname}`: eligible={bc['eligible']}, completed={bc['completed']}, "
+                f"negative={bc['negative']}, invalid={bc['invalid']}, pending={bc['pending']}, not_triggered={bc['not_triggered']}"
+            )
+        if audit["unresolved_mandatory_ids"]:
+            lines.extend(["", f"## Unresolved Mandatory IDs ({len(audit['unresolved_mandatory_ids'])})", ", ".join(audit["unresolved_mandatory_ids"][:20])])
+        if audit["unresolved_conditional_ids"]:
+            lines.extend(["", f"## Unresolved Conditional IDs ({len(audit['unresolved_conditional_ids'])})", ", ".join(audit["unresolved_conditional_ids"][:20])])
+        md = "\n".join(lines) + "\n"
+
+        _atomic_write_json(self.work_dir / "X2_COMPLETION_AUDIT.json", audit)
+        (self.work_dir / "X2_REPORT.md").write_text(md, encoding="utf-8")
+        if output_dir is not None:
+            odir = Path(output_dir)
+            odir.mkdir(parents=True, exist_ok=True)
+            _atomic_write_json(odir / "X2_COMPLETION_AUDIT.json", audit)
+            (odir / "X2_REPORT.md").write_text(md, encoding="utf-8")
+        return audit
+
     def export_archives(
         self,
         output_dir: Path | str,
@@ -1065,6 +1856,9 @@ class ElendrilX2Campaign:
         full_files: dict[str, Path] = {}
         for fname in (
             "X2_DESIGN_REGISTRY.json",
+            "X2_OBLIGATION_LEDGER.json",
+            "X2_COMPLETION_AUDIT.json",
+            "X2_REPORT.md",
             "PREPARED_MANIFEST.json",
             "PENDING_QUEUE.json",
             "SESSION_ADMISSION_PLAN.json",

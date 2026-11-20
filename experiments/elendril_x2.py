@@ -9,6 +9,8 @@ import torch.nn.functional as F
 
 from anra_v5.elendril.codec import digest
 from anra_v5.elendril.v8.contracts import SYMBOLS
+from anra_v5.elendril.v8x.contracts import DEFAULT_X1_SOURCE_RANKS
+from anra_v5.elendril.v8x.data import build_x1_d1h_training_dataset, x1_teacher_decide
 from anra_v5.planthir.runtime import ExperimentModule, GenericDatasetBundle
 
 from .x2.models import (
@@ -21,20 +23,88 @@ from .x2.models import (
     build_x2_model_spec,
 )
 from .x2.tasks import (
+    T13_DOSES,
     T13VersionSpaceSolver,
     X2EnvironmentKernel,
     X2ObservablePolicy,
     build_generator_b_multihop_panel,
     build_selective_edit_panel,
     build_t13_decisive_fixture,
+    build_t13_episode_stream,
     build_t14_panel,
     build_t14_price_crossover_fixture,
+    build_t14_transition_stream,
     encode_x2_text,
+    select_balanced_matched_cohort,
     solve_t14_public_dp,
+    validate_x2_dataset_coverage,
 )
 
 X2_BACKEND_ID = "elendril_x2"
 X2_OBJECTIVES = ("standard", "PAIR-CE", "PAIR-EQ", "PAIR-EQ-CF", "T13_ADAPT", "T14_BELIEF")
+
+REGISTERED_X2_DATASETS: dict[str, dict[str, str]] = {
+    "x2_canary_fixture": {"kind": "canary_fixture"},
+    "grad_check": {"kind": "canary_fixture"},
+    "resume_parity": {"kind": "canary_fixture"},
+    "trunc_ckpt": {"kind": "canary_fixture"},
+    "x2_ds": {"kind": "canary_fixture"},
+    "x2_production_stream": {"kind": "combined_stream"},
+    "x2-d1h-selective-edit-v1": {"kind": "d1h_selective_edit", "default_split": "train"},
+    "x2-d1h-public-transitions-v1": {"kind": "d1h_public_transitions", "default_split": "train"},
+    "x2-d1h-confirmation-locked-v1": {"kind": "d1h_selective_edit", "default_split": "confirmation"},
+    "x2-t13-fst-train32-v1": {"kind": "t13_stream", "history_kind": "standard", "default_split": "train"},
+    "x2-t13-fst-confirmation12-locked-v1": {"kind": "t13_stream", "history_kind": "standard", "default_split": "confirmation"},
+    "x2-t13-history-hist_a-v1": {"kind": "t13_stream", "history_kind": "hist_a", "default_split": "train"},
+    "x2-t13-history-hist_aprime-v1": {"kind": "t13_stream", "history_kind": "hist_aprime", "default_split": "train"},
+    "x2-t13-history-hist_disjoint_pretrain-v1": {"kind": "t13_stream", "history_kind": "hist_disjoint_pretrain", "default_split": "train"},
+    "x2-t13-history-hist_fresh_ctrl-v1": {"kind": "t13_stream", "history_kind": "hist_fresh_ctrl", "default_split": "train"},
+    "x2-t14-costly-6strata-v1": {"kind": "t14_stream", "default_split": "dev"},
+    "x2-t14-costly-confirmation-locked-v1": {"kind": "t14_stream", "default_split": "confirmation"},
+    "x1-a0-frozen-dev2304-depth640-v1": {"kind": "frozen_a0_probe", "default_split": "dev"},
+}
+
+
+def _x1_world_to_x2_world(world: Mapping[str, Any]) -> dict[str, Any]:
+    tools = world.get("allowed_public_tools", {})
+    qa = bool(tools.get("query_available", False))
+    ma = bool(tools.get("memory_available", False))
+    op, arg = x1_teacher_decide(
+        world["initial_facts"],
+        str(world["goal_subject"]),
+        int(world["hops"]),
+        int(world.get("min_epoch", 1)),
+        qa,
+        ma,
+    )
+    facts = [
+        {
+            "subj": str(r["subject"]),
+            "val": str(r["value"]),
+            "epoch": int(r.get("epoch", 1)),
+            "authority": int(DEFAULT_X1_SOURCE_RANKS.get(str(r.get("source", "S0")), 1)),
+        }
+        for r in world.get("initial_facts", ())
+        if r.get("value") is not None
+    ]
+    return {
+        "world_id": str(world["world_id"]),
+        "sig": str(world.get("world_id", "x1")),
+        "task_type": "d1h_x1",
+        "family_id": str(world.get("family", "X01")),
+        "fact_style": str(world.get("form", "canonical")) if world.get("form") in ("canonical", "narrative") else "canonical",
+        "variant": str(world.get("form", "x1")),
+        "hops": int(world.get("hops", 1)),
+        "goal_subject": str(world["goal_subject"]),
+        "min_epoch": int(world.get("min_epoch", 1)),
+        "facts": facts,
+        "hidden": {
+            "expected_operation": op,
+            "expected_answer": arg if arg is not None else "A",
+            "expected": arg,
+            "supported": op == "ANSWER",
+        },
+    }
 
 
 def _encode_batch_samples(samples: Sequence[Mapping[str, Any]], device: torch.device, max_ctx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -260,54 +330,186 @@ def x2_model_factory(architecture: str, model_config: Mapping[str, Any], seed: i
 
 
 def x2_dataset_factory(dataset_config: Mapping[str, Any], cpu_canary: bool) -> dict[str, Any]:
-    """Registered §0.2 dataset_factory with complete §0.3 CPU fixture and distinct canary vs production hashes."""
+    """Registered §0.2 dataset_factory dispatching strictly by exact dataset & split with post-encoding checks."""
     kernel = X2EnvironmentKernel()
     t13_solver = T13VersionSpaceSolver(max_laws=512)
     seed = int(dataset_config.get("seed", 7))
-    ds_name = str(dataset_config.get("dataset_name", "x2_canary_fixture" if cpu_canary else "x2_production_stream"))
+    ds_name = str(dataset_config.get("dataset_name", "x2_canary_fixture" if cpu_canary else "x2-d1h-selective-edit-v1"))
+    if ds_name not in REGISTERED_X2_DATASETS:
+        raise ValueError(f"UNKNOWN_X2_DATASET:{ds_name}")
 
-    if cpu_canary:
-        # Complete §0.3 fixture: binding + correction + dependent + untouched sibling + T13 witness + T14 crossover
-        sel_train = build_selective_edit_panel(num_histories=4, seed=seed + 11, split="train")
-        t13_fix = build_t13_decisive_fixture(witness_position="late")
-        t14_fix = build_t14_price_crossover_fixture()
+    spec_meta = REGISTERED_X2_DATASETS[ds_name]
+    kind = spec_meta["kind"]
+    default_split = spec_meta.get("default_split", "train")
+    split = str(dataset_config.get("split", default_split))
+    if split not in ("train", "dev", "confirmation", "fixture"):
+        raise ValueError(f"UNKNOWN_X2_SPLIT:{split}")
+    max_ctx = int(dataset_config.get("max_context_length", 640))
 
-        train_worlds = [
-            *sel_train[:6],
-            {**t13_fix["worlds"]["id_disc"], "world_id": "tr_t13_id", "sig": "tr_t13_id"},
-            {**t13_fix["worlds"]["swap_disc"], "world_id": "tr_t13_swap", "sig": "tr_t13_swap"},
-            {**t13_fix["worlds"]["ambiguous_disc_a"], "world_id": "tr_t13_ambig", "sig": "tr_t13_ambig"},
-            {**t14_fix["cheap_cert"], "world_id": "tr_t14_cheap", "sig": "tr_t14_cheap"},
-            {**t14_fix["expensive_nocert"], "world_id": "tr_t14_exp", "sig": "tr_t14_exp"},
-            {**t14_fix["cheap_nocert"], "world_id": "tr_t14_cheap_nc", "sig": "tr_t14_cheap_nc"},
-        ]
-        sel_eval = build_selective_edit_panel(num_histories=2, seed=seed + 509, split="dev")
-        eval_worlds = [
-            sel_eval[0],  # edited dependent
-            sel_eval[1],  # untouched sibling
-            t13_fix["worlds"]["id_inv"],
-            t14_fix["cheap_cert"],
-            t14_fix["expensive_cert"],
-        ]
-        gen_b = build_generator_b_multihop_panel(split="dev", num_skeletons=1, seed=seed + 907, depths=(3, 4), include_exhaustive_perm=False)
-        multihop_worlds = gen_b["episodes"][:4]
-        probe_train_worlds = build_selective_edit_panel(num_histories=2, seed=seed + 313, split="probe")
-        samples = tuple(_world_to_supervised_sample(kernel, w, t13_solver=t13_solver) for w in train_worlds)
-        data_id = digest(["elendril-x2-cpu-canary-v1", ds_name, seed, [w["world_id"] for w in train_worlds]])
+    if cpu_canary or kind == "canary_fixture":
+        if cpu_canary:
+            sel_train = build_selective_edit_panel(num_histories=4, seed=seed + 11, split="train")
+            t13_fix = build_t13_decisive_fixture(witness_position="late")
+            t14_fix = build_t14_price_crossover_fixture()
+
+            train_worlds = [
+                *sel_train[:6],
+                {**t13_fix["worlds"]["id_disc"], "world_id": "tr_t13_id", "sig": "tr_t13_id", "compact_render": True},
+                {**t13_fix["worlds"]["swap_disc"], "world_id": "tr_t13_swap", "sig": "tr_t13_swap", "compact_render": True},
+                {**t13_fix["worlds"]["ambiguous_disc_a"], "world_id": "tr_t13_ambig", "sig": "tr_t13_ambig", "compact_render": True},
+                {**t14_fix["cheap_cert"], "world_id": "tr_t14_cheap", "sig": "tr_t14_cheap"},
+                {**t14_fix["expensive_nocert"], "world_id": "tr_t14_exp", "sig": "tr_t14_exp"},
+                {**t14_fix["cheap_nocert"], "world_id": "tr_t14_cheap_nc", "sig": "tr_t14_cheap_nc"},
+            ]
+            sel_eval = build_selective_edit_panel(num_histories=2, seed=seed + 509, split="dev")
+            eval_worlds = [
+                sel_eval[0],
+                sel_eval[1],
+                t13_fix["worlds"]["id_inv"],
+                t14_fix["cheap_cert"],
+                t14_fix["expensive_cert"],
+            ]
+            gen_b = build_generator_b_multihop_panel(
+                split="dev", num_skeletons=2, seed=seed + 907, depths=(3, 4), include_exhaustive_perm=False
+            )
+            multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=8)
+            probe_train_worlds = build_selective_edit_panel(num_histories=2, seed=seed + 313, split="probe")
+        else:
+            n_sel = int(dataset_config.get("num_selective_histories", 16))
+            n_t14 = int(dataset_config.get("t14_per_stratum", 4))
+            sel_train = build_selective_edit_panel(num_histories=n_sel, seed=seed + 1001, split="train")
+            t14_train = build_t14_panel(split="train", histories_per_stratum=n_t14, seed=seed + 2001)
+            train_worlds = [*sel_train, *t14_train]
+            sel_eval = build_selective_edit_panel(num_histories=8, seed=seed + 5001, split="dev")
+            t14_eval = build_t14_panel(split="dev", histories_per_stratum=2, seed=seed + 6001)
+            eval_worlds = [*sel_eval, *t14_eval]
+            gen_b = build_generator_b_multihop_panel(
+                split="dev", num_skeletons=4, seed=seed + 7001, depths=(3, 4, 5), include_exhaustive_perm=False
+            )
+            multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
+            probe_train_worlds = build_selective_edit_panel(num_histories=8, seed=seed + 3001, split="probe")
+    elif kind == "t13_stream":
+        hkind = str(spec_meta["history_kind"])
+        t13_split = "confirmation" if "confirmation" in ds_name or split == "confirmation" else ("dev" if split == "dev" else "train")
+        n_laws = int(dataset_config.get("t13_laws_per_dose", 2))
+        train_worlds = build_t13_episode_stream(
+            split=t13_split,
+            doses=T13_DOSES,
+            history_kind=hkind,
+            laws_per_dose=n_laws,
+            seed=seed + 4100,
+            max_context_length=max_ctx,
+        )
+        eval_split = "confirmation" if t13_split == "confirmation" else "dev"
+        eval_worlds = build_t13_episode_stream(
+            split=eval_split,
+            doses=T13_DOSES,
+            history_kind=hkind,
+            laws_per_dose=1,
+            seed=seed + 4500,
+            max_context_length=max_ctx,
+        )
+        gen_b = build_generator_b_multihop_panel(
+            split=eval_split, num_skeletons=4, seed=seed + 4700, depths=(3, 4, 5), include_exhaustive_perm=False
+        )
+        multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
+        probe_train_worlds = build_t13_episode_stream(
+            split="train" if t13_split != "confirmation" else "confirmation",
+            doses=(0, 4, 16),
+            history_kind=hkind,
+            laws_per_dose=1,
+            seed=seed + 4900,
+            max_context_length=max_ctx,
+        )
+    elif kind == "t14_stream":
+        t14_split = "confirmation" if "confirmation" in ds_name or split == "confirmation" else split
+        n_t14 = int(dataset_config.get("t14_per_stratum", 4))
+        train_worlds = build_t14_transition_stream(split=t14_split, histories_per_stratum=n_t14, seed=seed + 2201)
+        eval_split = "confirmation" if t14_split == "confirmation" else "dev"
+        eval_worlds = build_t14_transition_stream(split=eval_split, histories_per_stratum=2, seed=seed + 2601)
+        gen_b = build_generator_b_multihop_panel(
+            split=eval_split, num_skeletons=4, seed=seed + 2801, depths=(3, 4, 5), include_exhaustive_perm=False
+        )
+        multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
+        probe_train_worlds = build_t14_panel(split=t14_split, histories_per_stratum=2, seed=seed + 2901)
+    elif kind == "d1h_public_transitions":
+        n_sel = int(dataset_config.get("num_selective_histories", 24))
+        n_t14 = int(dataset_config.get("t14_per_stratum", 4))
+        sel_train = build_selective_edit_panel(num_histories=n_sel, seed=seed + 1301, split=split)
+        t14_tr = build_t14_transition_stream(split=split, histories_per_stratum=n_t14, seed=seed + 2301)
+        train_worlds = [*sel_train, *t14_tr]
+        sel_ev = build_selective_edit_panel(num_histories=8, seed=seed + 5301, split="dev")
+        t14_ev = build_t14_transition_stream(split="dev", histories_per_stratum=2, seed=seed + 6301)
+        eval_worlds = [*sel_ev, *t14_ev]
+        gen_b = build_generator_b_multihop_panel(
+            split="dev", num_skeletons=4, seed=seed + 7301, depths=(3, 4, 5), include_exhaustive_perm=False
+        )
+        multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
+        probe_train_worlds = build_selective_edit_panel(num_histories=8, seed=seed + 3301, split="probe")
+    elif kind == "frozen_a0_probe":
+        d1h = build_x1_d1h_training_dataset(quota_per_family=2)
+        d1h_x2 = [_x1_world_to_x2_world(w) for w in d1h.worlds[:24]]
+        train_worlds = d1h_x2
+        eval_worlds = [_x1_world_to_x2_world(w) for w in d1h.worlds[24:]] or d1h_x2[:12]
+        gen_b = build_generator_b_multihop_panel(
+            split="dev", num_skeletons=4, seed=seed + 8701, depths=(3, 4, 5), include_exhaustive_perm=False
+        )
+        multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
+        probe_train_worlds = d1h_x2[:12]
+    elif kind == "d1h_selective_edit":
+        d1h_split = "confirmation" if "confirmation" in ds_name or split == "confirmation" else split
+        d1h = build_x1_d1h_training_dataset(quota_per_family=1 if d1h_split == "confirmation" else 2)
+        d1h_x2 = [_x1_world_to_x2_world(w) for w in d1h.worlds[:12]]
+        n_sel = int(dataset_config.get("num_selective_histories", 32))
+        sel_train = build_selective_edit_panel(num_histories=n_sel, seed=seed + (9101 if d1h_split == "confirmation" else 1101), split=d1h_split)
+        train_worlds = [*d1h_x2, *sel_train]
+        sel_ev = build_selective_edit_panel(num_histories=12, seed=seed + (9501 if d1h_split == "confirmation" else 5101), split="dev" if d1h_split != "confirmation" else "confirmation")
+        eval_worlds = [*sel_ev]
+        gen_b = build_generator_b_multihop_panel(
+            split="dev" if d1h_split != "confirmation" else "confirmation",
+            num_skeletons=4,
+            seed=seed + 7101,
+            depths=(3, 4, 5),
+            include_exhaustive_perm=False,
+        )
+        multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
+        probe_train_worlds = build_selective_edit_panel(num_histories=8, seed=seed + 3101, split="probe")
     else:
-        n_sel = int(dataset_config.get("num_selective_histories", 64))
-        n_t14 = int(dataset_config.get("t14_per_stratum", 8))
-        sel_train = build_selective_edit_panel(num_histories=n_sel, seed=seed + 1001, split="train")
-        t14_train = build_t14_panel(split="train", histories_per_stratum=n_t14, seed=seed + 2001)
-        train_worlds = [*sel_train, *t14_train]
-        sel_eval = build_selective_edit_panel(num_histories=16, seed=seed + 5001, split="dev")
-        t14_eval = build_t14_panel(split="dev", histories_per_stratum=4, seed=seed + 6001)
-        eval_worlds = [*sel_eval, *t14_eval]
+        # combined_stream
+        n_sel = int(dataset_config.get("num_selective_histories", 32))
+        n_t14 = int(dataset_config.get("t14_per_stratum", 4))
+        sel_train = build_selective_edit_panel(num_histories=n_sel, seed=seed + 1001, split=split)
+        t13_tr = build_t13_episode_stream(split="train", doses=(0, 4, 16), laws_per_dose=1, seed=seed + 1501, max_context_length=max_ctx)
+        t14_tr = build_t14_transition_stream(split=split, histories_per_stratum=n_t14, seed=seed + 2001)
+        train_worlds = [*sel_train, *t13_tr, *t14_tr]
+        sel_ev = build_selective_edit_panel(num_histories=8, seed=seed + 5001, split="dev")
+        t14_ev = build_t14_transition_stream(split="dev", histories_per_stratum=2, seed=seed + 6001)
+        eval_worlds = [*sel_ev, *t14_ev]
         gen_b = build_generator_b_multihop_panel(split="dev", num_skeletons=4, seed=seed + 7001, depths=(3, 4, 5), include_exhaustive_perm=False)
-        multihop_worlds = gen_b["episodes"][:16]
+        multihop_worlds = select_balanced_matched_cohort(gen_b["episodes"], max_total=18)
         probe_train_worlds = build_selective_edit_panel(num_histories=8, seed=seed + 3001, split="probe")
-        samples = tuple(_world_to_supervised_sample(kernel, w, t13_solver=t13_solver) for w in train_worlds)
-        data_id = digest(["elendril-x2-production-v1", ds_name, seed, len(train_worlds), len(eval_worlds)])
+
+    samples = tuple(_world_to_supervised_sample(kernel, w, t13_solver=t13_solver) for w in train_worlds)
+    split_cfg = {"dataset_name": ds_name, "kind": kind, "split": split, "seed": seed, "cpu_canary": bool(cpu_canary), "max_context_length": max_ctx}
+    cov = validate_x2_dataset_coverage(
+        train_worlds,
+        samples,
+        expected_dataset=ds_name,
+        split_config=split_cfg,
+        max_context_length=max_ctx,
+    )
+    data_id = digest(
+        [
+            "elendril-x2-dataset-v2",
+            ds_name,
+            split,
+            seed,
+            bool(cpu_canary),
+            cov["ordered_examples_sha256"],
+            cov["targets_sha256"],
+            cov["split_config_sha256"],
+        ]
+    )
 
     return {
         "train_data": GenericDatasetBundle(
@@ -315,10 +517,16 @@ def x2_dataset_factory(dataset_config: Mapping[str, Any], cpu_canary: bool) -> d
             dataset_name=ds_name,
             data_identity=data_id,
             manifest={
-                "schema": "elendril-x2-dataset-v1",
+                "schema": "elendril-x2-dataset-v2",
                 "dataset_name": ds_name,
+                "dataset_kind": kind,
+                "split": split,
                 "cpu_canary": bool(cpu_canary),
                 "data_identity": data_id,
+                "ordered_examples_sha256": cov["ordered_examples_sha256"],
+                "targets_sha256": cov["targets_sha256"],
+                "split_config_sha256": cov["split_config_sha256"],
+                "coverage_audit": cov,
                 "num_train_samples": len(samples),
                 "num_eval_worlds": len(eval_worlds),
                 "license": "internal-research",
@@ -425,9 +633,9 @@ def build_elendril_x2_module() -> ExperimentModule:
         kernel_factory=x2_kernel_factory,
         policy_factory=x2_policy_factory,
         default_dataset_config={"dataset_name": "x2_canary_fixture", "seed": 7},
-        default_model_config={"width": 16, "layers": 1, "query_heads": 2, "kv_heads": 1, "head_dimension": 8, "ffn_width": 32, "context_length": 256, "mem_dim": 16},
+        default_model_config={"width": 16, "layers": 1, "query_heads": 2, "kv_heads": 1, "head_dimension": 8, "ffn_width": 32, "context_length": 640, "mem_dim": 16},
         treatment_architecture="DM",
-        treatment_model_config={"width": 16, "layers": 1, "query_heads": 2, "kv_heads": 1, "head_dimension": 8, "ffn_width": 32, "context_length": 256, "mem_dim": 16},
+        treatment_model_config={"width": 16, "layers": 1, "query_heads": 2, "kv_heads": 1, "head_dimension": 8, "ffn_width": 32, "context_length": 640, "mem_dim": 16},
         extra_model_keys=(
             "s20_backbone",
             "context_length",
@@ -452,7 +660,7 @@ def build_elendril_x2_module() -> ExperimentModule:
             "forecast_branches",
             "forecast_classes",
         ),
-        extra_dataset_keys=("dataset_name", "seed", "num_selective_histories", "t14_per_stratum"),
+        extra_dataset_keys=("dataset_name", "seed", "split", "num_selective_histories", "t14_per_stratum", "t13_laws_per_dose", "max_context_length"),
         extra_recipe_keys=("eq_weight", "cf_weight", "cf_margin"),
         supports_grouped_loss=True,
     )
@@ -466,6 +674,7 @@ def register_planthir_backends() -> ExperimentModule:
 
 
 __all__ = [
+    "REGISTERED_X2_DATASETS",
     "X2_BACKEND_ID",
     "X2_OBJECTIVES",
     "build_elendril_x2_module",

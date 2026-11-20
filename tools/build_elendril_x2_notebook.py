@@ -1,13 +1,12 @@
-"""Generate and verify the owner-armed Kaggle 2xT4 notebook for ELENDRIL V8-X2."""
+"""Generate and verify the owner-armed Kaggle 2xT4 notebook for ELENDRIL V8-X2 (with gated X3 follow-up)."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-import subprocess
 
-from experiments.x2.registry import X1_LEGACY_SOURCE_SHA
+from experiments.x2.registry import X1_LEGACY_ORIGINAL_SHA, X1_LEGACY_SOURCE_SHA
 
 REPO_HTTP_URL = "https://github.com/dhurv0045com-spec/An-Ra-the-new-AGI.git"
 DEFAULT_NOTEBOOK_PATH = Path("notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb")
@@ -28,6 +27,18 @@ DEFAULT_X2_SESSIONS = (
     "BIV-T13",
     "BIV-T14",
     "BV-H4736",
+)
+FULL_X2_SESSIONS = (
+    *DEFAULT_X2_SESSIONS,
+    "BII-FROZEN",
+    "EXTRA-T14-PS",
+    "EXTRA-T13-HIST_A",
+    "EXTRA-T13-HIST_APRIME",
+    "EXTRA-T13-HIST_DISJOINT_PRETRAIN",
+    "EXTRA-T13-HIST_FRESH_CTRL",
+    "CONF-SRC",
+    "CONF-T13",
+    "CONF-T14",
 )
 
 
@@ -55,28 +66,31 @@ def build_notebook_dict(
     *,
     source_commit: str,
     legacy_x1_commit: str = X1_LEGACY_SOURCE_SHA,
+    legacy_x1_original_commit: str = X1_LEGACY_ORIGINAL_SHA,
     repo_url: str = REPO_HTTP_URL,
     owner_authorized_default: bool = True,
 ) -> dict[str, object]:
-    """Build deterministic nbformat v4.5 JSON for ELENDRIL V8-X2 on Kaggle 2xT4."""
-    for label, sha in (("source_commit", source_commit), ("legacy_x1_commit", legacy_x1_commit)):
+    """Build deterministic nbformat v4.5 JSON for ELENDRIL V8-X2 -> gated X3 on Kaggle 2xT4."""
+    for label, sha in (
+        ("source_commit", source_commit),
+        ("legacy_x1_commit", legacy_x1_commit),
+        ("legacy_x1_original_commit", legacy_x1_original_commit),
+    ):
         if len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
             raise ValueError(f"{label} must be a 40-character lowercase hex SHA, got {sha!r}")
 
     auth_literal = "True" if owner_authorized_default else "False"
-    sessions_literal = json.dumps(list(DEFAULT_X2_SESSIONS))
+    sessions_literal = json.dumps(list(FULL_X2_SESSIONS))
     cells = [
         _cell_md(
             [
-                "# ELENDRIL V8-X2 — Palantiri 2xT4 Coordinated Research Campaign",
+                "# ELENDRIL V8-X2 (Repaired Continuation) & Gated X3 — Kaggle 2xT4",
                 "",
                 "Zero-edit owner-armed Kaggle 2xT4 notebook pinned to immutable commits:",
-                f"- **X2 Runtime (`SOURCE_SHA`):** `{source_commit}` (`PLANTHIR_BACKEND_MODULES=experiments.elendril_x2`)",
-                f"- **Legacy X1 Compatibility Lane (`LEGACY_X1_SHA`):** `{legacy_x1_commit}`",
-                "- Select **Accelerator: GPU T4 x2**, enable **Internet**, and click **Run All** (no code edits required).",
-                "- **Combined 10-hour 2xT4 session (`600m` session / `660m` outer / `45m` reserve):** Run 1 covers Sessions 1 + 2 combined (up to 43 jobs across `A1..U1`); Run 2+ attaches Run 1's output ZIP to auto-resume the rest.",
-                "- **Run 1 requires NO `/kaggle/input` attachment** (X1 A0 evidence is already committed in `Experiment Result/V8-X1/A0/`).",
-                "- Enforces mandatory 2xT4 canary + independent `replay-bundle` verification gate before launching waves, stops cleanly at `9.25h` or on all-failing waves, prunes completed heavy `.bin` / optimizer / `checkpoint_full.zip` weight blobs after each wave, and refreshes a **single complete result archive** (`ELENDRIL_V8_X2_ANALYSIS.zip`) containing 100% of episodes, mistakes, trajectories, summaries, probes, Tier-2 `.npz` capsules, specs, and `result.zip`.",
+                f"- **X2/X3 Runtime (`SOURCE_SHA`):** `{source_commit}` (`PLANTHIR_BACKEND_MODULES=experiments.elendril_x2`)",
+                f"- **Repaired Legacy X1 Worker (`LEGACY_X1_SHA`):** `{legacy_x1_commit}` (compatibility-mapped from Run 1 `{legacy_x1_original_commit[:12]}`)",
+                "- Select **Accelerator: GPU T4 x2**, enable **Internet**, attach Run 1 `ELENDRIL_V8_X2_ANALYSIS.zip` (optional, resumes at `X1-A3-S20-B0-standard-s7`), and click **Run All**.",
+                "- **Combined 10h 2xT4 session (`600m` session / `660m` outer / `45m` reserve):** runs preflight (`doctor` + dataset dispatch + X2 canary/replay + repaired `B0`/`J` smoke check), admits whole jobs, uses descendant-safe pruning + exports retained parent checkpoints (`ELENDRIL_V8_X2_PARENT_CHECKPOINTS.zip`), computes the 192-row `X2_COMPLETION_AUDIT.json`, and keeps **X3 strictly gated (`0.0` GPU seconds)** until `X2_COMPLETE` passes.",
             ],
             "x2-title",
         ),
@@ -96,6 +110,7 @@ def build_notebook_dict(
                 "AUTO_RESUME_FROM_KAGGLE_INPUT = True",
                 f'SOURCE_SHA = "{source_commit}"',
                 f'LEGACY_X1_SHA = "{legacy_x1_commit}"',
+                f'LEGACY_X1_ORIGINAL_SHA = "{legacy_x1_original_commit}"',
                 f'REPO_URL = "{repo_url}"',
             ],
             "x2-config",
@@ -145,8 +160,8 @@ def build_notebook_dict(
                 "    parts = [p for p in prev_pp.split(os.pathsep) if p] if prev_pp else []",
                 "    if str(REPO_X2_DIR) not in parts:",
                 '        os.environ["PYTHONPATH"] = os.pathsep.join([str(REPO_X2_DIR), *parts]) if parts else str(REPO_X2_DIR)',
-                '    print("Checked out X2 runtime:", SOURCE_SHA)',
-                '    print("Checked out legacy X1 worker:", LEGACY_X1_SHA)',
+                '    print("Checked out X2/X3 runtime:", SOURCE_SHA)',
+                '    print("Checked out repaired legacy X1 worker:", LEGACY_X1_SHA)',
             ],
             "x2-checkout",
         ),
@@ -154,6 +169,8 @@ def build_notebook_dict(
             [
                 "import json, shutil, subprocess, sys, torch",
                 "from pathlib import Path",
+                "from experiments.elendril_x2 import REGISTERED_X2_DATASETS, x2_dataset_factory",
+                "from experiments.x2.tasks import verify_x2_dataset_dispatch_preflight",
                 "",
                 "if not OWNER_AUTHORIZED:",
                 '    print("NOT LAUNCHED: owner switch is false")',
@@ -164,10 +181,15 @@ def build_notebook_dict(
                 '        print(f"  cuda:{idx} -> {torch.cuda.get_device_name(idx)}")',
                 '    assert torch.cuda.is_available() and gpu_count >= 2, f"2xT4 CUDA GPUs required, found {gpu_count}"',
                 "",
-                "    # Mandatory pre-flight gate: Palantiri doctor + 2-device X2 canary + independent replay-bundle",
+                "    # 1. Palantiri environment doctor + full dataset dispatch preflight",
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "doctor"], check=True)',
+                '    prod_ds = [k for k in sorted(REGISTERED_X2_DATASETS) if k not in ("grad_check", "resume_parity", "trunc_ckpt", "x2_ds", "x2_canary_fixture")]',
+                "    ds_preflight = verify_x2_dataset_dispatch_preflight(x2_dataset_factory, prod_ds, seed=7)",
+                '    print("Dataset dispatch preflight PASSED:", ds_preflight["datasets_checked"], "distinct datasets verified.")',
+                "",
+                "    # 2. Mandatory X2 2-device canary + independent replay-bundle gate",
                 '    canary_dir = WORK_ROOT / "preflight_canary"',
-                '    canary_dir.mkdir(parents=True, exist_ok=True)',
+                "    canary_dir.mkdir(parents=True, exist_ok=True)",
                 '    canary_spec = canary_dir / "x2_canary_spec.json"',
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "init", "--backend", "elendril_x2", "--out", str(canary_spec)], check=True)',
                 '    doc = json.loads(canary_spec.read_text(encoding="utf-8"))',
@@ -178,29 +200,50 @@ def build_notebook_dict(
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "run", "--spec", str(canary_spec), "--work-root", str(canary_dir / "run"), "--canary", "--device", "cuda:0"], check=True)',
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "verify-bundle", "--bundle-dir", str(canary_dir / "run" / "result_bundle"), "--expected-source-commit", SOURCE_SHA], check=True)',
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "replay-bundle", "--bundle-dir", str(canary_dir / "run" / "result_bundle"), "--expected-source-commit", SOURCE_SHA, "--device", "cuda:0", "--output", str(canary_dir / "REPLAY_RECEIPT.json")], check=True)',
+                "",
+                "    # 3. Repaired legacy X1 B0 & J subprocess smoke check against pinned REPO_X1_DIR",
+                '    b0_smoke = WORK_ROOT / "b0_j_smoke"',
+                "    shutil.rmtree(b0_smoke, ignore_errors=True)",
+                "    b0_smoke.mkdir(parents=True, exist_ok=True)",
+                '    for smoke_jid, smoke_dev in (("X1-A3-S20-B0-standard-s7", "cuda:0"), ("X1-A3-S20-J-standard-s7", "cuda:1")):',
+                '        sdir = b0_smoke / smoke_jid',
+                "        subprocess.run([",
+                '            sys.executable, "-m", "experiments.x2.campaign", "legacy-exec",',
+                '            "--legacy-repo", str(REPO_X1_DIR), "--expected-sha", LEGACY_X1_SHA, "--",',
+                '            "tools.elendril_v8x_worker", "prepare-splits", "--work-dir", str(sdir), "--cpu-fixtures",',
+                "        ], check=True)",
+                "        subprocess.run([",
+                '            sys.executable, "-m", "experiments.x2.campaign", "legacy-exec",',
+                '            "--legacy-repo", str(REPO_X1_DIR), "--expected-sha", LEGACY_X1_SHA, "--",',
+                '            "tools.elendril_v8x_worker", "run-job", "--job-id", smoke_jid, "--work-dir", str(sdir),',
+                '            "--source", LEGACY_X1_SHA, "--device", smoke_dev, "--cpu-fixtures", "--updates-override", "1",',
+                "        ], check=True)",
+                '    shutil.rmtree(b0_smoke, ignore_errors=True)',
                 '    camp_work = WORK_ROOT / "campaign_work"',
                 "    camp_work.mkdir(parents=True, exist_ok=True)",
                 '    shutil.copy2(canary_dir / "REPLAY_RECEIPT.json", camp_work / "PREFLIGHT_REPLAY_RECEIPT.json")',
                 '    shutil.rmtree(canary_dir / "run", ignore_errors=True)',
-                '    print("PREFLIGHT CANARY + INDEPENDENT REPLAY PASSED:", camp_work / "PREFLIGHT_REPLAY_RECEIPT.json")',
+                '    print("PREFLIGHT CANARY, REPLAY-BUNDLE & REPAIRED B0/J SMOKE GATE PASSED.")',
             ],
             "x2-gpu-canary-gate",
         ),
         _cell_code(
             [
-                "import json, shutil, time",
+                "import json, time",
                 "from pathlib import Path",
                 "from experiments.x2.campaign import (",
                 "    ElendrilX2Campaign,",
+                "    X3_FROZEN_PARENT_IDS,",
                 "    build_verified_resume_set,",
                 "    discover_kaggle_input_receipts,",
+                "    resolve_parent_checkpoint_path,",
                 "    run_a0_historical_rescore,",
                 ")",
+                "from experiments.x3.runner import run_gated_x3_campaign",
                 "",
                 "if not OWNER_AUTHORIZED:",
                 '    print("NOT LAUNCHED: owner switch is false")',
                 "else:",
-                "    t_start = time.monotonic()",
                 '    camp_work = WORK_ROOT / "campaign_work"',
                 "    camp = ElendrilX2Campaign(",
                 "        source_commit=SOURCE_SHA,",
@@ -210,9 +253,8 @@ def build_notebook_dict(
                 "        session_max_minutes=SESSION_MAX_MINUTES,",
                 "        export_reserve_minutes=EXPORT_RESERVE_MINUTES,",
                 "    )",
-                "    camp.prepare(SESSIONS)",
+                "    camp.prepare(SESSIONS, include_extra_ledgers=True)",
                 "",
-                "    # Auto-discover mounted /kaggle/input prior receipts (only needed for Session 2+ or A0 archive re-check)",
                 "    imported_receipts = []",
                 '    k_in = Path("/kaggle/input")',
                 "    if AUTO_RESUME_FROM_KAGGLE_INPUT and k_in.is_dir():",
@@ -222,19 +264,19 @@ def build_notebook_dict(
                 '        imported_receipts = discover_kaggle_input_receipts(k_in, camp_work / "imported_inputs", camp.registry)',
                 '        print("Discovered mounted resume receipts:", len(imported_receipts))',
                 "    resume_rec = build_verified_resume_set(registry=camp.registry, work_dir=camp_work, imported_receipts=imported_receipts)",
-                '    print("Verified completed jobs imported:", resume_rec["verified_count"])',
+                '    print("Verified completed jobs imported:", resume_rec["verified_count"], "| compat_mapped:", len(resume_rec["compatibility_mapped_imports"]))',
                 "",
-                "    # Admit whole jobs fitting the governing dual-clock & disk budget and run on 2xT4",
                 "    plan = camp.admit_slice(",
                 "        SESSIONS,",
                 "        measured_seconds_per_update=MEASURED_SEC_PER_UPDATE,",
                 "        measured_per_job_disk_bytes=PER_JOB_DISK_MB * 1024 * 1024,",
                 "        parallel_workers=2,",
                 '        completed_ids=resume_rec["verified_completed_ids"],',
+                "        include_extra_ledgers=True,",
                 "    )",
-                '    print("Admitted jobs for this session:", len(plan["admitted_job_ids"]), "->", plan["admitted_job_ids"])',
+                '    print("Admitted jobs for this session:", len(plan["admitted_job_ids"]), "->", plan["admitted_job_ids"][:10], "...")',
                 '    admitted_set = set(plan["admitted_job_ids"])',
-                '    rows = [r for r in camp.select_session_rows(SESSIONS) if r["job_id"] in admitted_set]',
+                '    rows = [r for r in camp.select_session_rows(SESSIONS, include_extra_ledgers=True) if r["job_id"] in admitted_set]',
                 '    dev_list = [f"cuda:{d.strip()}" for d in DEVICES.split(",") if d.strip()]',
                 '    deadline_epoch = time.time() + camp.budget["usable_train_minutes"] * 60.0',
                 "    def _on_wave_complete(wave_idx: int, wave_rec: dict) -> None:",
@@ -249,23 +291,35 @@ def build_notebook_dict(
                 "        fail_fast_on_empty_wave=True,",
                 "        prune_completed_heavy_artifacts=PRUNE_COMPLETED_WEIGHTS,",
                 "        on_wave_complete=_on_wave_complete,",
+                '        input_roots=[k_in] if k_in.is_dir() else [],',
                 "    )",
-                '    print(',
-                '        "CAMPAIGN STATUS:",',
-                '        json.dumps({',
-                '            "completed_count": summary["completed_count"],',
-                '            "failed_job_ids": summary["failed_job_ids"],',
-                '            "unfinished_job_ids": summary["unfinished_job_ids"],',
-                '            "stopped_reason": summary.get("stopped_reason"),',
-                '            "next_resumable_job_id": summary.get("next_resumable_job_id") or plan.get("next_resumable_job_id"),',
-                '        }, indent=2, sort_keys=True),',
-                '    )',
-                '    for diag in summary.get("failed_worker_diagnostics", ()):',
-                '        print(f"FAILED WORKER {diag[\'worker_id\']} exit={diag[\'exit_code\']} stderr_tail:\\n{diag[\'stderr_tail\']}")',
-                '    final_status = "COMPLETE" if (not summary["unfinished_job_ids"] and not plan["deferred_pending_job_ids"]) else "PARTIAL"',
+                "    x2_audit = camp.build_global_completion_audit(OUTPUT_DIR)",
+                '    print("GLOBAL X2 AUDIT:", json.dumps({"status": x2_audit["global_x2_status"], "x2_complete": x2_audit["x2_complete"], "totals": x2_audit["totals"]}, indent=2))',
+                "    parent_arc = camp.export_parent_checkpoints(OUTPUT_DIR)",
+                '    print("Exported protected parent checkpoints:", parent_arc["exported_parent_ids"])',
+                '    final_status = "COMPLETE" if x2_audit["x2_complete"] else "PARTIAL"',
                 "    delivery = camp.export_archives(OUTPUT_DIR, prefix='ELENDRIL_V8_X2', status=final_status, results_only=RESULTS_ONLY_EXPORT)",
-                '    print("DELIVERY RECEIPT:", json.dumps(delivery["final_status"], indent=2, sort_keys=True))',
-                '    print("NEXT RESUMABLE JOB ID:", summary.get("next_resumable_job_id") or plan.get("next_resumable_job_id"))',
+                '    print("X2 DELIVERY RECEIPT:", json.dumps(delivery["final_status"], indent=2, sort_keys=True))',
+                "",
+                "    # Strictly gated X3 execution: runs ONLY if global X2_COMPLETE == True; otherwise 0.0 GPU seconds spent",
+                "    x3_ckpts = {}",
+                '    if x2_audit["x2_complete"]:',
+                "        for x3_pid in X3_FROZEN_PARENT_IDS:",
+                '            p_ckpt = resolve_parent_checkpoint_path(camp.registry, x3_pid, work_dir=camp_work, input_roots=[k_in] if k_in.is_dir() else [])',
+                "            if p_ckpt is not None:",
+                '                parts = x3_pid.split("-")',
+                '                arch = "F-cap" if "F-cap" in x3_pid else ("R-noedge" if "R-noedge" in x3_pid else parts[3])',
+                '                seed_v = int(parts[-1].lstrip("s"))',
+                "                x3_ckpts.setdefault(arch, {})[seed_v] = str(p_ckpt)",
+                "    x3_res = run_gated_x3_campaign(",
+                "        x2_completion_audit=x2_audit,",
+                "        output_dir=OUTPUT_DIR,",
+                "        source_commit=SOURCE_SHA,",
+                "        checkpoint_map=x3_ckpts,",
+                '        device="cuda:0",',
+                "        run_confirmation=True,",
+                "    )",
+                '    print("X3 GATE / STATUS:", json.dumps({"status": x3_res.get("status"), "x3_executed": x3_res.get("x3_executed"), "gpu_seconds_spent": x3_res.get("gpu_seconds_spent")}, indent=2))',
                 '    if len(summary["completed_jobs"]) == 0 and summary["failed_job_ids"]:',
                 '        raise RuntimeError(f"Campaign had failed jobs with 0 completions: {summary[\'failed_job_ids\']}")',
             ],
@@ -280,7 +334,16 @@ def build_notebook_dict(
                 '    print("NOT LAUNCHED: owner switch is false")',
                 "else:",
                 '    out = Path("/kaggle/working")',
-                '    for p in sorted(out.glob("ELENDRIL_V8_X2*.zip")) + sorted(out.glob("*.sha256")) + [out / "FINAL_STATUS.json", out / "DELIVERY_RECEIPT.json"]:',
+                '    targets = sorted(out.glob("ELENDRIL_V8_*.zip")) + sorted(out.glob("*.sha256")) + [',
+                '        out / "X2_COMPLETION_AUDIT.json",',
+                '        out / "X2_REPORT.md",',
+                '        out / "X3_GATE_STATUS.json",',
+                '        out / "X3_METRICS.json",',
+                '        out / "X3_REPORT.md",',
+                '        out / "FINAL_STATUS.json",',
+                '        out / "DELIVERY_RECEIPT.json",',
+                "    ]",
+                "    for p in targets:",
                 "        if p.is_file():",
                 '            print(f"{p.name} ({p.stat().st_size:,} bytes)")',
                 "            display(FileLink(str(p)))",
@@ -295,6 +358,7 @@ def build_notebook_dict(
             "language_info": {"name": "python", "version": "3.11"},
             "elendril_x2_source_commit": source_commit,
             "elendril_x1_legacy_commit": legacy_x1_commit,
+            "elendril_x1_legacy_original_commit": legacy_x1_original_commit,
         },
         "nbformat": 4,
         "nbformat_minor": 5,
@@ -305,12 +369,14 @@ def render_notebook_bytes(
     *,
     source_commit: str,
     legacy_x1_commit: str = X1_LEGACY_SOURCE_SHA,
+    legacy_x1_original_commit: str = X1_LEGACY_ORIGINAL_SHA,
     repo_url: str = REPO_HTTP_URL,
     owner_authorized_default: bool = True,
 ) -> bytes:
     doc = build_notebook_dict(
         source_commit=source_commit,
         legacy_x1_commit=legacy_x1_commit,
+        legacy_x1_original_commit=legacy_x1_original_commit,
         repo_url=repo_url,
         owner_authorized_default=owner_authorized_default,
     )
@@ -318,9 +384,10 @@ def render_notebook_bytes(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build or check the pinned ELENDRIL V8-X2 Kaggle 2xT4 notebook.")
-    parser.add_argument("--source", required=True, help="40-char immutable X2 runtime commit SHA (Commit A)")
-    parser.add_argument("--legacy-x1", default=X1_LEGACY_SOURCE_SHA, help="40-char legacy X1 worker commit SHA")
+    parser = argparse.ArgumentParser(description="Build or check the pinned ELENDRIL V8-X2/X3 Kaggle 2xT4 notebook.")
+    parser.add_argument("--source", required=True, help="40-char immutable X2/X3 runtime commit SHA (Commit A)")
+    parser.add_argument("--legacy-x1", default=X1_LEGACY_SOURCE_SHA, help="40-char repaired legacy X1 worker commit SHA")
+    parser.add_argument("--legacy-x1-original", default=X1_LEGACY_ORIGINAL_SHA, help="40-char original Run 1 X1 commit SHA")
     parser.add_argument("--output", default=str(DEFAULT_NOTEBOOK_PATH))
     parser.add_argument("--disabled", action="store_true", help="Emit OWNER_AUTHORIZED = False instead of True")
     parser.add_argument("--check", action="store_true", help="Verify existing file matches generated bytes exactly")
@@ -329,6 +396,7 @@ def main(argv: list[str] | None = None) -> int:
     raw = render_notebook_bytes(
         source_commit=args.source,
         legacy_x1_commit=args.legacy_x1,
+        legacy_x1_original_commit=args.legacy_x1_original,
         owner_authorized_default=not args.disabled,
     )
     out = Path(args.output)

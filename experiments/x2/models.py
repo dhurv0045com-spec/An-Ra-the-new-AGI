@@ -81,7 +81,7 @@ def build_tiny_canary_base_spec(
     kv_heads: int = 1,
     head_dimension: int = 8,
     ffn_width: int = 32,
-    context_length: int = 256,
+    context_length: int = X2_MAX_SEQUENCE,
 ) -> ModelSpec:
     """Return a tiny CPU-canary backbone (<=100k params) sharing exact V5 core architecture."""
     return ModelSpec(

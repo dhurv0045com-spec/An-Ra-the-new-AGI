@@ -149,6 +149,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_rep = sub.add_parser("replay-bundle", help="Extract bundle in isolation and independently replay checkpoints.")
     p_rep.add_argument("--bundle-dir", required=True)
     p_rep.add_argument("--expected-source-commit", default=None)
+    p_rep.add_argument("--expected-backend", default=None)
+    p_rep.add_argument("--worlds-json", default=None)
     p_rep.add_argument("--raw-evidence-dir", default=None)
     p_rep.add_argument("--device", default="cpu")
     p_rep.add_argument("--max-result-zip-bytes", type=int, default=DEFAULT_RESULT_ZIP_MAX_BYTES)
@@ -255,9 +257,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "replay-bundle":
         try:
+            explicit_worlds = None
+            if args.worlds_json:
+                loaded_worlds = json.loads(Path(args.worlds_json).read_text(encoding="utf-8"))
+                if isinstance(loaded_worlds, dict):
+                    explicit_worlds = loaded_worlds.get("worlds", loaded_worlds.get("eval_worlds"))
+                elif isinstance(loaded_worlds, list):
+                    explicit_worlds = loaded_worlds
+                else:
+                    raise ValueError("--worlds-json must contain a JSON list or an object with 'worlds'/'eval_worlds'")
             receipt = independent_replay_bundle(
                 args.bundle_dir,
                 expected_source_commit=args.expected_source_commit,
+                expected_backend=args.expected_backend,
+                worlds=explicit_worlds,
                 raw_evidence_dir=args.raw_evidence_dir,
                 device=str(args.device),
                 max_result_zip_bytes=int(args.max_result_zip_bytes),

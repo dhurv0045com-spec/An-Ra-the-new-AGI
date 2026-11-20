@@ -513,7 +513,10 @@ def test_hitchhiker_audit_fixes_registry_replay_stats_strata_and_docs(tmp_path: 
         CartridgeRunner().run(cart, work_root=work, **run_kwargs)
         lin = f"{cart.campaign_id.lower()}-{cart.control_arm.arm_id}-s{cart.control_arm.order_seed}"
         bdir = work / "result_bundle"
-        probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
+        matched_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds)
+        assert matched_rec["prediction_agreement_status"] == "MATCHED"
+        assert matched_rec["original_prediction_agreement"]["matched"] is True
+        probe_rec = independent_replay_bundle(bdir, worlds=cart.eval_worlds, use_archived_reference=False)
         assert probe_rec["prediction_agreement_status"] == "PROBE_ONLY_NO_REFERENCE"
         lineages = {row["lineage_id"]: row for row in probe_rec["restored_lineages"]}
         assert lin in lineages
@@ -1262,9 +1265,14 @@ def test_replay_release_blocker_x1_s20_and_stateful_plugin_cli_and_tamper(tmp_pa
     import importlib
     sys.path.insert(0, str(plug_dir))
     try:
+        from anra_v5.planthir.evidence import RESULT_ZIP_NAME, resolve_published_generation
+
         sp_mod = importlib.import_module("stateful_p")
         sp_mod.register_planthir_backends()
-        ev_worlds = json.loads((bdir_sp / "REPLAY_COHORT.json").read_text(encoding="utf-8"))["worlds"]
+        gen_dir_sp = Path(resolve_published_generation(bdir_sp, verify=False)["generation_dir"])
+        with zipfile.ZipFile(gen_dir_sp / RESULT_ZIP_NAME, "r") as zf:
+            ref_doc_sp = json.loads(zf.read("REPLAY_REFERENCE.json").decode("utf-8"))
+        ev_worlds = ref_doc_sp["eval_worlds"]
         bad_worlds = json.loads(json.dumps(ev_worlds))
         bad_worlds[0]["sig"] = "TAMPERED_INPUT"
         bad_worlds_path = sp_dir / "bad_worlds.json"
@@ -1273,16 +1281,16 @@ def test_replay_release_blocker_x1_s20_and_stateful_plugin_cli_and_tamper(tmp_pa
         assert "ORIGINAL_PREDICTION_MISMATCH" in bad_inp["detail"]
 
         # Action / observation history mismatch check
-        arch_refs = json.loads((bdir_sp / "REPLAY_COHORT.json").read_text(encoding="utf-8"))["reference_predictions"]
+        arch_refs = {lid: ldoc["reference_predictions"] for lid, ldoc in ref_doc_sp["lineages"].items()}
         lin_0 = sorted(arch_refs)[0]
         tampered_hist = json.loads(json.dumps(arch_refs))
-        tampered_hist[lin_0][0]["observation_sha256_history"][-1] = "f" * 64
+        tampered_hist[lin_0][0]["history"][-1]["rendered_input_sha256"] = "f" * 64
         with pytest.raises(ValueError, match="ORIGINAL_PREDICTION_MISMATCH"):
             independent_replay_bundle(bdir_sp, worlds=ev_worlds, reference_predictions=tampered_hist)
 
         # Require reference on unreferenced call returns INSUFFICIENT_REPLAY_EVIDENCE
         with pytest.raises(ValueError, match="INSUFFICIENT_REPLAY_EVIDENCE"):
-            independent_replay_bundle(bdir_sp, worlds=ev_worlds, require_reference=True)
+            independent_replay_bundle(bdir_sp, worlds=ev_worlds, use_archived_reference=False, require_reference=True)
     finally:
         sys.path.remove(str(plug_dir))
         _BACKENDS.pop("stateful_p", None)

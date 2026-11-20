@@ -21,7 +21,17 @@ from .models import X2_ARCHITECTURES, X2_NEW_PAIRS, build_x2_model_spec
 from .tasks import T13_DOSES, T14_STRATA, build_t13_family_bank
 
 X2_REGISTRY_SCHEMA = "elendril-x2-design-registry-v2"
-X1_LEGACY_SOURCE_SHA = "8e62ca0f2046c0f07910fdd20abee40508631227"
+X1_LEGACY_ORIGINAL_SHA = "8e62ca0f2046c0f07910fdd20abee40508631227"
+X1_LEGACY_COMPAT_SHA = "98b9e3318bfa3c02024685bd8668323065f62811"
+X1_LEGACY_SOURCE_SHA = X1_LEGACY_COMPAT_SHA
+X1_LEGACY_ACCEPTED_IMPORT_SHAS = (X1_LEGACY_ORIGINAL_SHA, X1_LEGACY_COMPAT_SHA)
+X1_LEGACY_COMPAT_DISCLOSURE = {
+    "original_sha": X1_LEGACY_ORIGINAL_SHA,
+    "repaired_sha": X1_LEGACY_COMPAT_SHA,
+    "module_path": "anra_v5/elendril/v8x/evaluation.py",
+    "b0_model_spec_sha256": "2cee32519711622a17188bdb22b994dba60fdb980a184daad455d4368cf140b2",
+    "change_summary": "Pass real V8ModelSpec(base_spec, vocabulary_size, max_sequence_length) to V8BytePolicy in X1S20ObservablePolicy; scientific settings unchanged.",
+}
 X2_DEV_SEEDS = ((7, 7), (19, 19), (41, 41))
 X2_CONF_SEEDS = ((101, 101), (211, 211), (307, 307))
 X2_MILESTONES_2368 = (0, 592, 1184, 1472, 2368)
@@ -85,6 +95,76 @@ def verify_x1_core_inventory() -> dict[str, Any]:
     }
 
 
+def _infer_execution_route(
+    *,
+    backend_id: str,
+    block: str,
+    objective: str,
+    resource_class: str,
+    parent_job_id: str | None,
+    status: str,
+) -> str:
+    if status == "EVIDENCED_ACTION_REPLAYED" or resource_class == "evidenced_a0":
+        return "evidenced_historical"
+    if backend_id == "x1_s20_legacy":
+        return "legacy_x1_train"
+    if objective == "frozen_probe" or resource_class == "frozen_inference":
+        return "x2_frozen_probe"
+    if block == "V_HORIZON_4736":
+        return "x2_horizon_continuation"
+    if parent_job_id is not None:
+        return "x2_task_adaptation"
+    return "x2_scratch_train"
+
+
+def is_paired_cartridge_row(row: Mapping[str, Any]) -> bool:
+    """Return True iff `row` is the treatment half of a paired CartridgeRunner (`IIIb_NEW_MECHANISMS` or `CONF_SOURCE`) job."""
+    route = str(
+        row.get("execution_route")
+        or _infer_execution_route(
+            backend_id=str(row.get("backend_id", "")),
+            block=str(row.get("block", "")),
+            objective=str(row.get("objective", "")),
+            resource_class=str(row.get("resource_class", "")),
+            parent_job_id=row.get("parent_job_id"),
+            status=str(row.get("status", "PENDING")),
+        )
+    )
+    return bool(
+        row.get("backend_id") == "elendril_x2"
+        and route == "x2_scratch_train"
+        and row.get("control_architecture")
+        and row.get("block") in ("IIIb_NEW_MECHANISMS", "CONF_SOURCE")
+    )
+
+
+def _legacy_scientific_identity(
+    *,
+    job_id: str,
+    architecture: str,
+    dataset: str,
+    objective: str,
+    init_seed: int,
+    order_seed: int,
+    updates: int,
+    milestones: Sequence[int],
+    legacy_model_spec_sha256: str,
+) -> str:
+    return digest(
+        {
+            "job_id": str(job_id),
+            "architecture": str(architecture),
+            "dataset": str(dataset),
+            "objective": str(objective),
+            "init_seed": int(init_seed),
+            "order_seed": int(order_seed),
+            "updates": int(updates),
+            "milestones": [int(m) for m in milestones],
+            "legacy_model_spec_sha256": str(legacy_model_spec_sha256),
+        }
+    )
+
+
 def _x2_row(
     *,
     job_id: str,
@@ -108,6 +188,57 @@ def _x2_row(
     status: str = "PENDING",
     extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    extra_dict = dict(extra or {})
+    route = _infer_execution_route(
+        backend_id=str(backend_id),
+        block=str(block),
+        objective=str(objective),
+        resource_class=str(resource_class),
+        parent_job_id=parent_job_id,
+        status=str(status),
+    )
+    if backend_id == "x1_s20_legacy" and "legacy_scientific_identity_sha256" not in extra_dict:
+        extra_dict["legacy_scientific_identity_sha256"] = _legacy_scientific_identity(
+            job_id=str(job_id),
+            architecture=str(architecture),
+            dataset=str(dataset),
+            objective=str(objective),
+            init_seed=int(init_seed),
+            order_seed=int(order_seed),
+            updates=int(updates),
+            milestones=milestones,
+            legacy_model_spec_sha256=str(extra_dict.get("legacy_model_spec_sha256", "")),
+        )
+    est_hours = 0.40 if resource_class == "full_job" else 0.15
+    if backend_id == "x1_s20_legacy" and "original_legacy_spec_sha256" not in extra_dict:
+        # Exact Run 1 legacy schema (source_commit=8e62ca0f, no execution_route, Run 1 extra keys)
+        strip_keys = {"legacy_scientific_identity_sha256", "original_legacy_spec_sha256"}
+        if str(block) == "IIIa_ORIGINAL_U":
+            strip_keys.add("legacy_model_spec_sha256")
+        compat_extra = {k: v for k, v in extra_dict.items() if k not in strip_keys}
+        compat_row = {
+            "job_id": str(job_id),
+            "block": str(block),
+            "session": str(session),
+            "architecture": str(architecture),
+            "control_architecture": control_architecture,
+            "source_commit": X1_LEGACY_ORIGINAL_SHA,
+            "backend_id": str(backend_id),
+            "dataset": str(dataset),
+            "objective": str(objective),
+            "init_seed": int(init_seed),
+            "order_seed": int(order_seed),
+            "updates": int(updates),
+            "milestones": [int(m) for m in milestones],
+            "resource_class": str(resource_class),
+            "counts_toward_126_base": bool(counts_toward_126_base),
+            "primary_endpoint": str(primary_endpoint),
+            "parent_job_id": parent_job_id,
+            "schedule_note": str(schedule_note),
+            "estimated_worker_hours": est_hours,
+            "extra": compat_extra,
+        }
+        extra_dict["original_legacy_spec_sha256"] = digest(compat_row)
     row = {
         "job_id": str(job_id),
         "block": str(block),
@@ -116,6 +247,7 @@ def _x2_row(
         "control_architecture": control_architecture,
         "source_commit": str(source_commit),
         "backend_id": str(backend_id),
+        "execution_route": route,
         "dataset": str(dataset),
         "objective": str(objective),
         "init_seed": int(init_seed),
@@ -132,8 +264,8 @@ def _x2_row(
         "delivery_status": "PARTIAL" if status == "EVIDENCED_ACTION_REPLAYED" else "PENDING",
         "scientific_status": "UNRUN",
         "causal_status": "UNRESOLVED",
-        "estimated_worker_hours": 0.40 if resource_class == "full_job" else 0.15,
-        "extra": dict(extra or {}),
+        "estimated_worker_hours": est_hours,
+        "extra": extra_dict,
     }
     row["spec_sha256"] = digest({k: v for k, v in row.items() if k not in ("status", "execution_status", "delivery_status", "scientific_status", "causal_status")})
     return row
@@ -142,7 +274,7 @@ def _x2_row(
 def build_x2_design_registry(
     *,
     source_commit: str,
-    legacy_x1_source_sha: str = X1_LEGACY_SOURCE_SHA,
+    legacy_x1_source_sha: str = X1_LEGACY_COMPAT_SHA,
     selected_candidate: str = "DM",
     selected_control: str = "DM-add",
     a0_evidenced: bool = True,
@@ -225,6 +357,7 @@ def build_x2_design_registry(
                 resource_class="full_job",
                 counts_toward_126_base=True,
                 primary_endpoint="u_recurrent_multihop_accuracy",
+                extra={"legacy_model_spec_sha256": j["model_spec_sha256"]} if "model_spec_sha256" in j else None,
             )
         )
 
@@ -426,6 +559,8 @@ def build_x2_design_registry(
         "schema": X2_REGISTRY_SCHEMA,
         "source_commit": str(source_commit),
         "legacy_x1_source_sha": str(legacy_x1_source_sha),
+        "legacy_x1_original_sha": X1_LEGACY_ORIGINAL_SHA,
+        "legacy_compatibility_disclosure": dict(X1_LEGACY_COMPAT_DISCLOSURE),
         "x1_core_inventory": inv,
         "selected_candidate": selected_candidate,
         "selected_control": selected_control,
@@ -651,6 +786,299 @@ def holm_bonferroni_adjust(p_values: Mapping[str, float]) -> dict[str, float]:
     return adjusted
 
 
+def _expected_artifacts_for_route(route: str, *, is_paired: bool) -> tuple[str, ...]:
+    if route == "evidenced_historical":
+        return ("Experiment Result/V8-X1/A0/METRICS.json",)
+    if route == "legacy_x1_train":
+        return ("job.json", "updates.jsonl", "episodes.jsonl", "summary.json")
+    if route == "x2_frozen_probe":
+        return ("FROZEN_PROBE_RECEIPT.json",)
+    if route == "x2_task_adaptation":
+        return ("PARENT_LINEAGE_RECEIPT.json", "FINAL_RECEIPT.json", "ARM_RESULTS.json")
+    if route == "x2_horizon_continuation":
+        return ("HORIZON_CONTINUATION_RECEIPT.json", "FINAL_RECEIPT.json", "ARM_RESULTS.json")
+    if route == "x2_scratch_train" and is_paired:
+        return ("FINAL_RECEIPT.json", "ARM_RESULTS.json", "ARM_TO_LOGICAL_ROW_MAP.json")
+    return ("FINAL_RECEIPT.json", "ARM_RESULTS.json")
+
+
+def build_x2_obligation_ledger(registry: Mapping[str, Any]) -> dict[str, Any]:
+    """Derive a cross-session global obligation ledger linking all 192 logical rows, workers, parents & artifacts."""
+    all_rows: list[Mapping[str, Any]] = [
+        *registry.get("jobs", ()),
+        *registry.get("separate_ledgers", {}).get("t14_routing_prep", {}).get("jobs", ()),
+        *registry.get("separate_ledgers", {}).get("t13_transfer_parents", {}).get("jobs", ()),
+    ]
+    # Paired CartridgeRunner jobs (`IIIb_NEW_MECHANISMS` & `CONF_SOURCE`) run both arms in one worker unit
+    paired_ctrl_to_worker: dict[tuple[str, int, str], str] = {}
+    paired_workers: set[str] = set()
+    for r in all_rows:
+        if is_paired_cartridge_row(r):
+            paired_ctrl_to_worker[(str(r["session"]), int(r["init_seed"]), str(r["control_architecture"]))] = str(r["job_id"])
+            paired_workers.add(str(r["job_id"]))
+
+    entries: list[dict[str, Any]] = []
+    for r in all_rows:
+        jid = str(r["job_id"])
+        block = str(r["block"])
+        route = str(r.get("execution_route") or _infer_execution_route(
+            backend_id=str(r.get("backend_id", "")),
+            block=block,
+            objective=str(r.get("objective", "")),
+            resource_class=str(r.get("resource_class", "")),
+            parent_job_id=r.get("parent_job_id"),
+            status=str(r.get("status", "PENDING")),
+        ))
+        ctrl_worker = paired_ctrl_to_worker.get((str(r["session"]), int(r["init_seed"]), str(r["architecture"])))
+        if ctrl_worker and route == "x2_scratch_train" and block in ("IIIb_NEW_MECHANISMS", "CONF_SOURCE") and not r.get("control_architecture"):
+            worker_id = ctrl_worker
+            arm_role = "control"
+            is_paired = True
+        elif jid in paired_workers:
+            worker_id = jid
+            arm_role = "treatment"
+            is_paired = True
+        else:
+            worker_id = jid
+            arm_role = "frozen_probe" if route == "x2_frozen_probe" else ("standalone" if not r.get("control_architecture") else "treatment")
+            is_paired = False
+
+        is_conf = block.startswith("CONF_")
+        initial_status = "COMPLETE" if route == "evidenced_historical" else "PENDING"
+        entries.append(
+            {
+                "logical_id": jid,
+                "block": block,
+                "session": str(r["session"]),
+                "architecture": str(r["architecture"]),
+                "control_architecture": r.get("control_architecture"),
+                "worker_unit_id": worker_id,
+                "arm_role": arm_role,
+                "is_paired_worker_half": is_paired,
+                "execution_route": route,
+                "parent_job_id": r.get("parent_job_id"),
+                "dataset": str(r["dataset"]),
+                "objective": str(r["objective"]),
+                "updates": int(r["updates"]),
+                "counts_toward_126_base": bool(r.get("counts_toward_126_base", False)),
+                "mandatory": not is_conf,
+                "obligation_scope": "conditional_on_trigger" if is_conf else "mandatory",
+                "expected_artifacts": list(_expected_artifacts_for_route(route, is_paired=is_paired)),
+                "status": initial_status,
+            }
+        )
+
+    return {
+        "schema": "elendril-x2-obligation-ledger-v1",
+        "registry_sha256": registry.get("registry_sha256"),
+        "total_logical_rows": len(entries),
+        "mandatory_rows": sum(1 for e in entries if e["mandatory"]),
+        "conditional_confirmation_rows": sum(1 for e in entries if not e["mandatory"]),
+        "entries": entries,
+    }
+
+
+def evaluate_confirmation_trigger(
+    candidate_screen_results: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Evaluate preregistered IIIb selection trigger without treating DM/DM-add as an automatic winner (§3, §8)."""
+    if not candidate_screen_results:
+        return {
+            "schema": "elendril-x2-confirmation-trigger-v1",
+            "triggered": False,
+            "decision": "NOT_TRIGGERED_SIGNED_OFF",
+            "selected_candidate": None,
+            "selected_control": None,
+            "reason": "NO_SCREEN_RESULTS_SUPPLIED",
+            "failed_criteria_by_candidate": {},
+        }
+
+    p_map: dict[str, float] = {}
+    parsed: dict[str, dict[str, Any]] = {}
+    for cand, info in sorted(candidate_screen_results.items()):
+        scores = list(info.get("paired_seed_scores", ()))
+        deltas = [float(r["treatment_score"]) - float(r["control_score"]) for r in scores]
+        n_pos = sum(1 for d in deltas if d > 0.0)
+        mean_gain = float(sum(deltas) / len(deltas)) if deltas else 0.0
+        min_delta = min(deltas) if deltas else 0.0
+        ret_delta = float(info.get("old_macro_retention_delta", 0.0))
+        all_delivered = bool(info.get("complete_and_verified", True))
+        # Exact paired sign-flip p-value bound (2**(-n) when all positive, else conservative >0.25)
+        raw_p = float(info.get("p_value", (2.0 ** (-len(deltas)) if (deltas and n_pos == len(deltas)) else 0.5)))
+        p_map[str(cand)] = raw_p
+        parsed[str(cand)] = {
+            "control": str(info.get("control", X2_PRIMARY_ENDPOINTS.get(str(cand), {}).get("control", "control"))),
+            "mean_gain": round(mean_gain, 6),
+            "positive_seeds": int(n_pos),
+            "total_seeds": len(deltas),
+            "min_seed_delta": round(min_delta, 6),
+            "old_macro_retention_delta": round(ret_delta, 6),
+            "complete_and_verified": all_delivered,
+            "raw_p_value": raw_p,
+        }
+
+    holm = holm_bonferroni_adjust(p_map)
+    failed: dict[str, list[str]] = {}
+    passing: list[tuple[float, str]] = []
+    for cand, stats in parsed.items():
+        errs: list[str] = []
+        if not stats["complete_and_verified"]:
+            errs.append("INCOMPLETE_OR_UNVERIFIED_DELIVERY")
+        if stats["total_seeds"] < 3:
+            errs.append(f"INSUFFICIENT_SEEDS:{stats['total_seeds']}<3")
+        if stats["mean_gain"] < 0.05:
+            errs.append(f"MEAN_GAIN_BELOW_0.05:{stats['mean_gain']:+.4f}")
+        if stats["positive_seeds"] < 2:
+            errs.append(f"POSITIVE_SEEDS_BELOW_2:{stats['positive_seeds']}/{stats['total_seeds']}")
+        if stats["min_seed_delta"] < -0.05:
+            errs.append(f"SEED_REGRESSION_BELOW_-0.05:{stats['min_seed_delta']:+.4f}")
+        if stats["old_macro_retention_delta"] < -0.03:
+            errs.append(f"RETENTION_DROP_BELOW_-0.03:{stats['old_macro_retention_delta']:+.4f}")
+        if errs:
+            failed[cand] = errs
+        else:
+            passing.append((stats["mean_gain"], cand))
+
+    if not passing:
+        return {
+            "schema": "elendril-x2-confirmation-trigger-v1",
+            "triggered": False,
+            "decision": "NOT_TRIGGERED_SIGNED_OFF",
+            "selected_candidate": None,
+            "selected_control": None,
+            "reason": "NO_CANDIDATE_MET_PREREGISTERED_DEV_GATE",
+            "holm_adjusted_p_values": holm,
+            "candidate_summaries": parsed,
+            "failed_criteria_by_candidate": failed,
+        }
+
+    passing.sort(reverse=True)
+    winner = passing[0][1]
+    return {
+        "schema": "elendril-x2-confirmation-trigger-v1",
+        "triggered": True,
+        "decision": "TRIGGERED",
+        "selected_candidate": winner,
+        "selected_control": parsed[winner]["control"],
+        "holm_adjusted_p_values": holm,
+        "candidate_summaries": parsed,
+        "failed_criteria_by_candidate": failed,
+    }
+
+
+def evaluate_x2_completion_audit(
+    ledger: Mapping[str, Any],
+    completed_receipts: Mapping[str, Mapping[str, Any]],
+    *,
+    confirmation_decision: Mapping[str, Any] | None = None,
+    case_recomputation_receipts: Mapping[str, Mapping[str, Any]] | None = None,
+    session_queue_empty: bool | None = None,
+) -> dict[str, Any]:
+    """Global X2 completion audit separating session queue emptiness from 192-row protocol coverage (§2, §3)."""
+    recomp = dict(case_recomputation_receipts or {})
+    conf_untriggered = bool(
+        confirmation_decision is not None and confirmation_decision.get("decision") == "NOT_TRIGGERED_SIGNED_OFF"
+    )
+    rows_out: list[dict[str, Any]] = []
+    by_block: dict[str, dict[str, int]] = {}
+    unresolved_mandatory: list[str] = []
+    unresolved_conditional: list[str] = []
+    missing_artifacts_list: list[dict[str, Any]] = []
+    unverified_recomp_ids: list[str] = []
+
+    for entry in ledger.get("entries", ()):
+        lid = str(entry["logical_id"])
+        block = str(entry["block"])
+        b_counts = by_block.setdefault(
+            block,
+            {"eligible": 0, "completed": 0, "negative": 0, "invalid": 0, "pending": 0, "not_triggered": 0},
+        )
+        b_counts["eligible"] += 1
+
+        rec = completed_receipts.get(lid)
+        if entry["execution_route"] == "evidenced_historical":
+            row_status = "COMPLETE"
+            rec_present = rec or {"verified": True, "outcome": "complete"}
+        elif not entry["mandatory"] and conf_untriggered and rec is None:
+            row_status = "NOT_TRIGGERED_SIGNED_OFF"
+            b_counts["not_triggered"] += 1
+            rows_out.append({"logical_id": lid, "block": block, "status": row_status})
+            continue
+        elif rec is None:
+            row_status = "PENDING"
+        else:
+            missing_art = list(rec.get("missing_artifacts", ()))
+            expected = set(entry.get("expected_artifacts", ()))
+            present = set(rec.get("present_artifacts", expected if not missing_art else ()))
+            req_missing = sorted(set(missing_art) | (expected - present)) if "present_artifacts" in rec or missing_art else []
+            if req_missing:
+                missing_artifacts_list.append({"logical_id": lid, "missing": req_missing})
+                row_status = "INVALID"
+            elif rec.get("status") in ("INVALID", "FAILED"):
+                row_status = "INVALID"
+            elif rec.get("status") not in ("COMPLETE", "NEGATIVE_DELIVERED", "VERIFIED", None):
+                row_status = "PENDING"
+            else:
+                if entry["execution_route"] != "evidenced_historical":
+                    rc = recomp.get(lid)
+                    if rc is None or not rc.get("verified", False):
+                        unverified_recomp_ids.append(lid)
+                        row_status = "INVALID"
+                    elif rec.get("outcome") == "negative" or rec.get("status") == "NEGATIVE_DELIVERED":
+                        row_status = "NEGATIVE_DELIVERED"
+                    else:
+                        row_status = "COMPLETE"
+                else:
+                    row_status = "COMPLETE"
+
+        if row_status == "COMPLETE":
+            b_counts["completed"] += 1
+        elif row_status == "NEGATIVE_DELIVERED":
+            b_counts["completed"] += 1
+            b_counts["negative"] += 1
+        elif row_status == "INVALID":
+            b_counts["invalid"] += 1
+        else:
+            b_counts["pending"] += 1
+
+        if row_status in ("PENDING", "INVALID"):
+            if entry["mandatory"]:
+                unresolved_mandatory.append(lid)
+            else:
+                unresolved_conditional.append(lid)
+
+        rows_out.append({"logical_id": lid, "block": block, "worker_unit_id": entry["worker_unit_id"], "status": row_status})
+
+    x2_complete = bool(
+        not unresolved_mandatory
+        and not unresolved_conditional
+        and not missing_artifacts_list
+        and not unverified_recomp_ids
+    )
+    totals = {
+        "eligible": sum(v["eligible"] for v in by_block.values()),
+        "completed": sum(v["completed"] for v in by_block.values()),
+        "negative": sum(v["negative"] for v in by_block.values()),
+        "invalid": sum(v["invalid"] for v in by_block.values()),
+        "pending": sum(v["pending"] for v in by_block.values()),
+        "not_triggered": sum(v["not_triggered"] for v in by_block.values()),
+    }
+    return {
+        "schema": "elendril-x2-completion-audit-v1",
+        "global_x2_status": "X2_COMPLETE" if x2_complete else "PARTIAL",
+        "x2_complete": x2_complete,
+        "x3_unlocked": x2_complete,
+        "session_queue_empty": session_queue_empty,
+        "totals": totals,
+        "counts_by_block": by_block,
+        "unresolved_mandatory_ids": unresolved_mandatory,
+        "unresolved_conditional_ids": unresolved_conditional,
+        "missing_artifacts": missing_artifacts_list,
+        "unverified_case_recomputations": unverified_recomp_ids,
+        "rows": rows_out,
+    }
+
+
 def evaluate_x2_qualification(
     *,
     campaign_id: str,
@@ -665,8 +1093,10 @@ def evaluate_x2_qualification(
     causal_evidence_present: bool = False,
     missing_artifacts: Sequence[str] = (),
     all_candidate_pvalues: Mapping[str, float] | None = None,
+    paired_world_or_family_scores: Mapping[str, tuple[float, float]] | None = None,
+    verification_receipts: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate X2 qualification reusing Planthir paired-seed inference & 4 separate status axes (§8, §9)."""
+    """Evaluate X2 qualification reusing Planthir paired-seed inference & strict anti-drift verification (§8, §9)."""
     if execution_status not in EXECUTION_STATUSES:
         raise ValueError(f"invalid execution_status {execution_status!r}")
     if delivery_status not in DELIVERY_STATUSES:
@@ -693,11 +1123,37 @@ def evaluate_x2_qualification(
     n_pos = sum(1 for d in deltas if d > 0.0)
     mean_gain = float(sum(deltas) / max(1, len(deltas)))
     min_delta = min(deltas) if deltas else 0.0
+    seed_variance = sum((d - mean_gain) ** 2 for d in deltas) / max(1, len(deltas) - 1) if len(deltas) > 1 else 0.0
+    seed_uncertainty = {
+        "n_seeds": len(deltas),
+        "mean_gain": round(mean_gain, 6),
+        "std_dev": round(seed_variance ** 0.5, 6),
+        "min_seed_delta": round(min_delta, 6),
+        "max_seed_delta": round(max(deltas) if deltas else 0.0, 6),
+        "per_seed_deltas": {str(r.get("seed_id", i)): round(d, 6) for i, (r, d) in enumerate(zip(paired_seed_scores, deltas))},
+    }
 
-    # Family-level bootstrap via Palantiri helper
-    ctrl_map = {str(r.get("seed_id", i)): float(r["control_score"]) for i, r in enumerate(paired_seed_scores)}
-    trt_map = {str(r.get("seed_id", i)): float(r["treatment_score"]) for i, r in enumerate(paired_seed_scores)}
-    fam_boot = bootstrap_paired_families(ctrl_map, trt_map, resamples=1000, seed=17)
+    # Bootstrap ONLY base worlds or rule families (NEVER training-seed scalars!)
+    if paired_world_or_family_scores and len(paired_world_or_family_scores) >= 2:
+        if isinstance(paired_world_or_family_scores, Mapping):
+            ctrl_map = {str(k): float(v[0]) for k, v in paired_world_or_family_scores.items()}
+            trt_map = {str(k): float(v[1]) for k, v in paired_world_or_family_scores.items()}
+        else:
+            ctrl_map = {
+                str(r.get("family_id", r.get("world_id", i))): float(r["control_score"])
+                for i, r in enumerate(paired_world_or_family_scores)
+            }
+            trt_map = {
+                str(r.get("family_id", r.get("world_id", i))): float(r["treatment_score"])
+                for i, r in enumerate(paired_world_or_family_scores)
+            }
+        fam_boot: dict[str, Any] = {
+            **bootstrap_paired_families(ctrl_map, trt_map, resamples=1000, seed=17),
+            "unit": "base_world_or_rule_family",
+            "n_units": len(ctrl_map),
+        }
+    else:
+        fam_boot = {"status": "UNAVAILABLE_NO_WORLD_OR_FAMILY_SCORES", "unit": "none", "n_units": 0}
 
     effective_delivery = "PARTIAL" if missing_artifacts else delivery_status
     if stage == "development":
@@ -724,7 +1180,15 @@ def evaluate_x2_qualification(
     raw_p = float(paired_report.get("sign_flip_p_value", paired_report.get("exact_sign_flip_p_value", 1.0)))
     holm = holm_bonferroni_adjust(all_candidate_pvalues or {candidate_name: raw_p})
 
-    # Reuse Palantiri's analyst-first-page report, verification matrix & markdown renderer
+    vrec = dict(verification_receipts or {})
+
+    def _receipt_label(key: str, *, fail_if_missing_artifact: bool = False) -> str:
+        if fail_if_missing_artifact and missing_artifacts:
+            return f"MISSING:{','.join(missing_artifacts)}"
+        if key not in vrec or vrec[key] is None:
+            return "UNKNOWN_MISSING_RECEIPT"
+        return "PASS" if bool(vrec[key]) else "FAIL_VERIFICATION"
+
     first_page = build_analyst_first_page_report(
         title=f"Elendril V8-X2: {candidate_name} vs {control_name}",
         campaign_id=campaign_id,
@@ -740,16 +1204,16 @@ def evaluate_x2_qualification(
         retrospective_findings=[
             f"Missing mandatory artifacts: {', '.join(missing_artifacts)}"
             if missing_artifacts
-            else "All mandatory archives accounted for."
+            else "All declared archives present; verify explicit replay/restore receipts."
         ],
     )
     ver_matrix = build_verification_matrix(
-        byte_integrity="PASS" if effective_delivery == "VERIFIED" else "PARTIAL_MISSING_ARTIFACT",
-        oracle_fixture_correctness="PASS",
-        recorded_action_replay="PASS" if execution_status == "COMPLETE" else "PENDING",
-        checkpoint_restore="PASS" if not missing_artifacts else f"MISSING:{','.join(missing_artifacts)}",
-        regenerated_per_case_agreement="PASS" if not missing_artifacts else "BLOCKED_BY_MISSING_ARTIFACT",
-        training_reproduction="COMPLETE" if execution_status == "COMPLETE" else execution_status,
+        byte_integrity=_receipt_label("byte_integrity_verified"),
+        oracle_fixture_correctness=_receipt_label("oracle_fixture_verified"),
+        recorded_action_replay=_receipt_label("recorded_action_replay_verified"),
+        checkpoint_restore=_receipt_label("checkpoint_restore_verified", fail_if_missing_artifact=True),
+        regenerated_per_case_agreement=_receipt_label("regenerated_per_case_verified", fail_if_missing_artifact=True),
+        training_reproduction="COMPLETE" if (execution_status == "COMPLETE" and vrec.get("neural_replay_verified")) else (execution_status if vrec.get("neural_replay_verified") else "UNKNOWN_MISSING_RECEIPT"),
     )
     md = render_campaign_results_markdown(
         title=f"Elendril V8-X2 Qualification: {candidate_name} vs {control_name}",
@@ -761,6 +1225,7 @@ def evaluate_x2_qualification(
             "qualification": {
                 "mean_gain": round(mean_gain, 6),
                 "positive_seeds": int(n_pos),
+                "seed_uncertainty": seed_uncertainty,
                 "missing_artifacts": list(missing_artifacts),
             }
         },
@@ -776,6 +1241,7 @@ def evaluate_x2_qualification(
         "positive_seeds": int(n_pos),
         "total_seeds": len(deltas),
         "min_seed_delta": round(min_delta, 6),
+        "seed_uncertainty": seed_uncertainty,
         "old_macro_retention_delta": round(float(old_macro_retention_delta), 6),
         "execution_status": execution_status,
         "delivery_status": effective_delivery,
@@ -797,6 +1263,10 @@ __all__ = [
     "EXECUTION_STATUSES",
     "REQUIRED_TEST_CARD_SLUGS",
     "SCIENTIFIC_STATUSES",
+    "X1_LEGACY_ACCEPTED_IMPORT_SHAS",
+    "X1_LEGACY_COMPAT_DISCLOSURE",
+    "X1_LEGACY_COMPAT_SHA",
+    "X1_LEGACY_ORIGINAL_SHA",
     "X1_LEGACY_SOURCE_SHA",
     "X2_BASE_JOB_EQUIVALENT_CEILING",
     "X2_CONF_SEEDS",
@@ -805,9 +1275,13 @@ __all__ = [
     "X2_REGISTRY_SCHEMA",
     "build_x2_design_registry",
     "build_x2_first_discriminating_report",
+    "build_x2_obligation_ledger",
     "build_x2_test_cards",
+    "evaluate_confirmation_trigger",
+    "evaluate_x2_completion_audit",
     "evaluate_x2_qualification",
     "holm_bonferroni_adjust",
+    "is_paired_cartridge_row",
     "validate_x2_registry",
     "verify_x1_core_inventory",
 ]

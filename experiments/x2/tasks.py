@@ -1046,9 +1046,34 @@ class X2EnvironmentKernel:
                 terminal=False,
             )
         if tt == "t13_fst":
-            lines = ["TASK=T13 FST_RULE_INDUCTION"]
-            for idx, ex in enumerate(w.get("support", ())):
-                lines.append(f"SUP{idx:02d} {format_t13_expr(ex['expr'])}={T13_STATE_LABELS[int(ex['output'])]}")
+            support = list(w.get("support", ()))
+            compact = bool(w.get("compact_render", len(support) > 24))
+            op_codes = {"f": "f", "r_f": "p", "f_r": "q", "g": "g", "r_g": "r", "g_f": "h"}
+            lines = ["TASK=T13" if compact else "TASK=T13 FST_RULE_INDUCTION"]
+            if compact:
+                chunks: list[str] = []
+                cur_parts: list[str] = []
+                for ex in support:
+                    e = ex["expr"]
+                    k = str(e["kind"])
+                    code = op_codes.get(k, k)
+                    x_s = T13_STATE_LABELS[int(e["x"]) % 4]
+                    if "e" in e:
+                        ev_i = int(e["e"]) % 4
+                        lhs = f"{code}{x_s}{ev_i}"
+                    else:
+                        lhs = f"{code}{x_s}"
+                    out_s = T13_STATE_LABELS[int(ex["output"])]
+                    cur_parts.append(f"{lhs}={out_s}")
+                    if len(cur_parts) >= 8:
+                        chunks.append(";".join(cur_parts))
+                        cur_parts = []
+                if cur_parts:
+                    chunks.append(";".join(cur_parts))
+                lines.extend(chunks)
+            else:
+                for idx, ex in enumerate(support):
+                    lines.append(f"SUP{idx:02d} {format_t13_expr(ex['expr'])}={T13_STATE_LABELS[int(ex['output'])]}")
             lines.append(f"QUERY {format_t13_expr(w['query'])}")
             return X2KernelState(
                 world=w,
@@ -1315,11 +1340,32 @@ class X2EnvironmentKernel:
         }
 
 
-def encode_x2_text(text: str, *, max_length: int = 256) -> tuple[list[int], int]:
-    """Encode public observation text into UTF-8 framed token IDs with explicit action position."""
+def check_x2_encoding_eligibility(text: str, *, max_length: int = 256) -> dict[str, Any]:
+    """Check encoded UTF-8 byte length after serialization so dropped teaching evidence is never silent."""
     raw = UTF8.encode(text)
-    if len(raw) > max_length - 2:
-        raw = raw[-(max_length - 2) :]
+    max_payload = max(0, int(max_length) - 2)
+    overflow = max(0, len(raw) - max_payload)
+    return {
+        "eligible": overflow == 0,
+        "byte_len": len(raw),
+        "max_payload_bytes": max_payload,
+        "overflow_bytes": overflow,
+        "dropped_evidence": overflow > 0,
+    }
+
+
+def encode_x2_text(text: str, *, max_length: int = 256, allow_truncate: bool = False) -> tuple[list[int], int]:
+    """Encode public observation text into UTF-8 framed token IDs; fail closed on overflow unless allow_truncate=True."""
+    raw = UTF8.encode(text)
+    max_payload = int(max_length) - 2
+    if max_payload < 1:
+        raise ValueError(f"max_length must be >= 3, got {max_length}")
+    if len(raw) > max_payload:
+        if not allow_truncate:
+            raise ValueError(
+                f"X2_CONTEXT_OVERFLOW_DROPPED_EVIDENCE: encoded {len(raw)} bytes > payload limit {max_payload}"
+            )
+        raw = raw[-max_payload:]
     toks = [UTF8.special(SpecialToken.BOS), *raw, UTF8.special(SpecialToken.ANSWER)]
     return toks, len(toks) - 1
 
@@ -1455,6 +1501,297 @@ class X2ObservablePolicy:
         }
 
 
+# =============================================================================
+# 6. Exact T13 Stream, T14 Transition Stream, Balanced Cohorts & Preflight (Priorities 2 & 5)
+# =============================================================================
+
+_ALL_T13_EXPRS: tuple[dict[str, Any], ...] = tuple(
+    [{"kind": k, "x": x} for k in ("f", "r_f", "f_r") for x in range(4)]
+    + [{"kind": k, "x": x, "e": e} for k in ("g", "r_g", "g_f") for x in range(4) for e in range(4)]
+)
+
+
+def _t13_law_from_instance(ins: Mapping[str, Any]) -> T13Law:
+    return T13Law(
+        law_id=str(ins["law_id"]),
+        family=str(ins.get("schema_kind", "fst")),
+        schema_kind=str(ins.get("schema_kind", "fst")),
+        unary_table=tuple(int(v) for v in ins["unary_table"]),
+        binary_table=tuple(tuple(int(v) for v in row) for row in ins["binary_table"]),
+    )
+
+
+def build_t13_episode_stream(
+    *,
+    split: str = "train",
+    doses: Sequence[int] = T13_DOSES,
+    history_kind: str = "standard",
+    laws_per_dose: int = 2,
+    seed: int = 9301,
+    max_context_length: int = 640,
+) -> list[dict[str, Any]]:
+    """Build real T13 finite-state rule-induction episodes across 0/4/16/64 doses without silent truncation."""
+    bank = build_t13_family_bank(seed=9301)
+    if split not in ("train", "dev", "confirmation"):
+        raise ValueError(f"unsupported T13 split {split!r}")
+    valid_histories = ("standard", "hist_a", "hist_aprime", "hist_disjoint_pretrain", "hist_fresh_ctrl")
+    if history_kind not in valid_histories:
+        raise ValueError(f"unsupported T13 history_kind {history_kind!r}")
+
+    fams = bank[split]
+    # Rotate / partition families by history_kind so forward-transfer histories stay distinct
+    if history_kind == "hist_a":
+        fams = fams[::2] or fams
+    elif history_kind == "hist_aprime":
+        fams = fams[1::2] or fams
+    elif history_kind == "hist_disjoint_pretrain":
+        # Disjoint pretrain uses train held-apart tail or reversed confirmation/dev slice with permuted labels
+        fams = list(reversed(fams))
+    elif history_kind == "hist_fresh_ctrl":
+        fams = fams[: max(2, len(fams) // 2)]
+
+    stream_seed = int(digest(["t13-stream", split, history_kind, int(seed)])[:8], 16)
+    rng = random.Random(stream_seed)
+    solver = T13VersionSpaceSolver(max_laws=512)
+    kernel = X2EnvironmentKernel()
+    worlds: list[dict[str, Any]] = []
+
+    for d_idx, dose in enumerate(doses):
+        k_dose = int(dose)
+        for l_idx in range(int(laws_per_dose)):
+            fam = fams[(d_idx * int(laws_per_dose) + l_idx) % len(fams)]
+            inst = fam["instances"][l_idx % len(fam["instances"])]
+            law = _t13_law_from_instance(inst)
+            expr_pool = list(_ALL_T13_EXPRS)
+            rng.shuffle(expr_pool)
+            q_expr = dict(expr_pool[-1])
+            support_pool = expr_pool[:-1]
+            # Sample k_dose support examples strictly from support_pool so q_expr never leaks into support
+            support: list[dict[str, Any]] = []
+            for s_pos in range(k_dose):
+                ex = dict(support_pool[s_pos % len(support_pool)])
+                if history_kind == "hist_fresh_ctrl":
+                    out_idx = rng.randrange(4)
+                elif history_kind == "hist_aprime":
+                    out_idx = (_eval_t13_expr(law, ex) + 1) % 4
+                else:
+                    out_idx = _eval_t13_expr(law, ex)
+                support.append({"expr": ex, "output": int(out_idx)})
+            q_out = (_eval_t13_expr(law, q_expr) + 1) % 4 if history_kind == "hist_aprime" else _eval_t13_expr(law, q_expr)
+            post = solver.posterior(support, q_expr)
+            wid = f"t13_{split}_{history_kind}_k{k_dose:02d}_n{l_idx:03d}"
+            w = {
+                "world_id": wid,
+                "task_type": "t13_fst",
+                "split": split,
+                "history_kind": history_kind,
+                "family_id": str(fam["family_id"]),
+                "law_id": law.law_id,
+                "truth_table_sha256": str(inst["truth_table_sha256"]),
+                "support_dose": k_dose,
+                "compact_render": k_dose > 16,
+                "sig": f"{wid}_{law.law_id}",
+                "support": support,
+                "query": q_expr,
+                "hops": 2,
+                "identifiable": bool(post["identifiable"]),
+                "bayes_ceiling": float(post["bayes_ceiling"]),
+                "hidden": {
+                    "expected_operation": "ANSWER",
+                    "expected_answer": T13_STATE_LABELS[int(q_out)],
+                    "expected": T13_STATE_LABELS[int(q_out)],
+                    "expected_state_idx": int(q_out),
+                    "supported": True,
+                },
+            }
+            rendered = kernel.observe(kernel.initial_state(w)).rendered_text
+            elig_chk = check_x2_encoding_eligibility(rendered, max_length=max_context_length)
+            if not elig_chk["eligible"]:
+                # Try compact format before marking condition explicitly ineligible (never truncate!)
+                w["compact_render"] = True
+                rendered = kernel.observe(kernel.initial_state(w)).rendered_text
+                elig_chk = check_x2_encoding_eligibility(rendered, max_length=max_context_length)
+            w["eligible"] = bool(elig_chk["eligible"])
+            w["encoding_bytes"] = int(elig_chk["byte_len"])
+            if not elig_chk["eligible"]:
+                w["ineligible_reason"] = "CONTEXT_OVERFLOW_DROPPED_EVIDENCE"
+            worlds.append(w)
+    return worlds
+
+
+def build_t14_transition_stream(
+    *,
+    split: str = "dev",
+    histories_per_stratum: int = 4,
+    seed: int = 9401,
+) -> list[dict[str, Any]]:
+    """Build T14 step-0 states plus post-tool (`QUERY`/`RETRIEVE`) & forced-revision transition states."""
+    base = build_t14_panel(split=split, histories_per_stratum=histories_per_stratum, seed=seed)
+    stream: list[dict[str, Any]] = []
+    for w in base:
+        w0 = deepcopy(w)
+        w0["transition_stage"] = "initial"
+        w0["eligible"] = True
+        stream.append(w0)
+        # Emit an explicit post-tool state where tool output changed public belief certification
+        h = w["hidden"]
+        if h.get("query_certifies") or h.get("retrieve_certifies"):
+            w1 = deepcopy(w)
+            w1["world_id"] = f"{w['world_id']}::post_tool"
+            w1["sig"] = f"{w['sig']}::post_tool"
+            w1["transition_stage"] = "post_tool_certified"
+            w1["eligible"] = True
+            pb1 = dict(w1["public_belief"])
+            pb1["certified"] = True
+            pb1["query_available"] = False if h.get("query_certifies") else pb1["query_available"]
+            pb1["retrieve_available"] = False if (not h.get("query_certifies") and h.get("retrieve_certifies")) else pb1["retrieve_available"]
+            pb1["prior_probs"] = [1.0, 0.0]
+            w1["public_belief"] = pb1
+            ans = str(h["true_answer"])
+            w1["initial_facts"] = [{"subj": "X", "val": ans, "epoch": 2, "authority": 3}]
+            stream.append(w1)
+    return stream
+
+
+def select_balanced_matched_cohort(
+    worlds: Sequence[Mapping[str, Any]],
+    *,
+    max_total: int,
+    stratum_keys: Sequence[str] = ("hops", "fact_style", "variant"),
+) -> list[dict[str, Any]]:
+    """Deterministically select a balanced cohort across primary & fine strata by stable ID (never slices prefix)."""
+    if not stratum_keys:
+        return [dict(w) for w in sorted(worlds, key=lambda r: str(r.get("world_id", "")))[: int(max_total)]]
+
+    # Group hierarchically by coarse keys (up to 2) then round-robin inner sub-strata so coarse axes stay balanced even for small budgets
+    coarse_keys = tuple(stratum_keys[: min(2, len(stratum_keys))])
+    fine_keys = tuple(stratum_keys[min(2, len(stratum_keys)) :])
+    coarse_buckets: dict[tuple[Any, ...], dict[tuple[Any, ...], list[Mapping[str, Any]]]] = {}
+    for w in sorted(worlds, key=lambda r: str(r.get("world_id", ""))):
+        ck = tuple(w.get(k, "none") for k in coarse_keys)
+        fk = tuple(w.get(k, "none") for k in fine_keys)
+        coarse_buckets.setdefault(ck, {}).setdefault(fk, []).append(w)
+
+    ordered_coarse = sorted(coarse_buckets, key=lambda k: tuple(str(x) for x in k))
+    flattened_buckets: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for ck in ordered_coarse:
+        inner = coarse_buckets[ck]
+        inner_keys = sorted(inner, key=lambda k: tuple(str(x) for x in k))
+        flat: list[dict[str, Any]] = []
+        idx = 0
+        while True:
+            progressed = False
+            for fk in inner_keys:
+                lst = inner[fk]
+                if idx < len(lst):
+                    flat.append(dict(lst[idx]))
+                    progressed = True
+            if not progressed:
+                break
+            idx += 1
+        flattened_buckets[ck] = flat
+
+    selected: list[dict[str, Any]] = []
+    idx = 0
+    while len(selected) < int(max_total) and ordered_coarse:
+        progressed = False
+        for ck in ordered_coarse:
+            b = flattened_buckets[ck]
+            if idx < len(b):
+                selected.append(b[idx])
+                progressed = True
+                if len(selected) >= int(max_total):
+                    break
+        if not progressed:
+            break
+        idx += 1
+    return selected
+
+
+def validate_x2_dataset_coverage(
+    worlds: Sequence[Mapping[str, Any]],
+    samples: Sequence[Mapping[str, Any]],
+    *,
+    expected_dataset: str,
+    split_config: Mapping[str, Any],
+    max_context_length: int = 640,
+) -> dict[str, Any]:
+    """Audit ordered examples, targets, encoding safety, family/dose/action/renderer/depth coverage from consumed batch."""
+    ordered_world_ids = [str(s.get("world_id", "")) for s in samples]
+    ordered_examples_sha = digest(
+        [{"world_id": s.get("world_id"), "rendered_text": s.get("rendered_text")} for s in samples]
+    )
+    targets_sha = digest(
+        [{"gold_op": s.get("gold_op"), "gold_arg": s.get("gold_arg"), "soft_val_probs": s.get("soft_val_probs")} for s in samples]
+    )
+    split_config_sha = digest(dict(split_config))
+
+    overflows = [
+        str(s.get("world_id", ""))
+        for s in samples
+        if not check_x2_encoding_eligibility(str(s.get("rendered_text", "")), max_length=max_context_length)["eligible"]
+    ]
+    if overflows:
+        raise ValueError(f"X2_DATASET_CONTEXT_OVERFLOW:{expected_dataset}:first={overflows[0]}")
+
+    task_counts = Counter(str(w.get("task_type", "")) for w in worlds)
+    dose_counts = Counter(int(w["support_dose"]) for w in worlds if "support_dose" in w)
+    action_counts = Counter(int(s.get("gold_op", 0)) for s in samples)
+    renderer_counts = Counter(str(w.get("fact_style", "canonical")) for w in worlds)
+    depth_counts = Counter(int(w.get("hops", 1)) for w in worlds)
+    family_counts = Counter(str(w.get("family_id", w.get("stratum", w.get("task_type", "")))) for w in worlds)
+
+    if "t13" in expected_dataset.lower() and int(task_counts.get("t13_fst", 0)) <= 0:
+        raise ValueError(f"T13_DATASET_HAS_ZERO_T13_ROWS:{expected_dataset}")
+    if "t14" in expected_dataset.lower() and int(task_counts.get("t14_costly", 0)) <= 0:
+        raise ValueError(f"T14_DATASET_HAS_ZERO_T14_ROWS:{expected_dataset}")
+
+    return {
+        "schema": "elendril-x2-dataset-coverage-v1",
+        "dataset_name": str(expected_dataset),
+        "num_samples": len(samples),
+        "ordered_examples_sha256": ordered_examples_sha,
+        "targets_sha256": targets_sha,
+        "split_config_sha256": split_config_sha,
+        "ordered_world_ids": ordered_world_ids,
+        "task_counts": dict(task_counts),
+        "dose_counts": {str(k): v for k, v in sorted(dose_counts.items())},
+        "action_counts": {str(k): v for k, v in sorted(action_counts.items())},
+        "renderer_counts": dict(renderer_counts),
+        "depth_counts": {str(k): v for k, v in sorted(depth_counts.items())},
+        "family_count": len(family_counts),
+        "overflow_count": 0,
+    }
+
+
+def verify_x2_dataset_dispatch_preflight(
+    dataset_factory: Any,
+    dataset_names: Sequence[str],
+    *,
+    seed: int = 7,
+) -> dict[str, Any]:
+    """Verify distinct datasets dispatch to genuinely distinct ordered examples/targets and fail on equal cohorts."""
+    seen_example_hashes: dict[str, str] = {}
+    audits: dict[str, Any] = {}
+    for ds_name in dataset_names:
+        ds = dataset_factory({"dataset_name": ds_name, "seed": int(seed), "split": "train"}, cpu_canary=False)
+        man = ds["train_data"].manifest
+        cov = man.get("coverage_audit", {})
+        ex_sha = str(cov.get("ordered_examples_sha256", man.get("data_identity", "")))
+        if ex_sha in seen_example_hashes:
+            raise ValueError(
+                f"INCOMPATIBLE_DATASETS_EQUAL_COHORT:{ds_name}=={seen_example_hashes[ex_sha]}:{ex_sha}"
+            )
+        seen_example_hashes[ex_sha] = ds_name
+        audits[ds_name] = {
+            "ordered_examples_sha256": ex_sha,
+            "targets_sha256": cov.get("targets_sha256"),
+            "task_counts": cov.get("task_counts"),
+            "dose_counts": cov.get("dose_counts"),
+        }
+    return {"passed": True, "datasets_checked": len(audits), "audits": audits}
+
+
 __all__ = [
     "T13Law",
     "T13VersionSpaceSolver",
@@ -1472,9 +1809,12 @@ __all__ = [
     "build_generator_b_multihop_panel",
     "build_selective_edit_panel",
     "build_t13_decisive_fixture",
+    "build_t13_episode_stream",
     "build_t13_family_bank",
     "build_t14_panel",
     "build_t14_price_crossover_fixture",
+    "build_t14_transition_stream",
+    "check_x2_encoding_eligibility",
     "encode_x2_text",
     "enumerate_t13_candidate_prior",
     "eval_shortcut_baselines",
@@ -1483,5 +1823,8 @@ __all__ = [
     "format_t13_expr",
     "interpret_facts_reference",
     "render_x2_factorial",
+    "select_balanced_matched_cohort",
     "solve_t14_public_dp",
+    "validate_x2_dataset_coverage",
+    "verify_x2_dataset_dispatch_preflight",
 ]

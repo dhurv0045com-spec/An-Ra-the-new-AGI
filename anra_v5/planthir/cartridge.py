@@ -760,10 +760,12 @@ class CartridgeRunner:
                 policy=live_policy,
                 probe_observations=telemetry_probe_obs,
             )
-            live_actions = [
-                (a.operation, a.argument)
-                for a in (live_policy.propose_with_telemetry(obs) for obs in parity_obs)
-            ]
+            live_actions = []
+            for obs in parity_obs:
+                if callable(getattr(live_policy, "reset_episode", None)):
+                    live_policy.reset_episode()
+                a = live_policy.propose_with_telemetry(obs)
+                live_actions.append((a.operation, a.argument))
             live_hidden = live_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
 
             arm_training_records[arm.arm_id] = {
@@ -866,7 +868,7 @@ class CartridgeRunner:
                 r_actions: list[tuple[str, str | None]] = []
                 r_history: list[dict[str, Any]] = []
                 for r_step_idx in range(ref_steps_cap):
-                    if getattr(r_st, "terminal", False):
+                    if (r_st.get("terminal", False) if isinstance(r_st, Mapping) else getattr(r_st, "terminal", False)):
                         break
                     r_obs = cartridge.kernel.observe(r_st)
                     r_obs_sha = _ref_sha256(r_obs.rendered_text.encode("utf-8")).hexdigest()
@@ -1093,10 +1095,12 @@ class CartridgeRunner:
                     candidates[0], mode=arm.policy_mode, device=device)
                 loaded_zip["source_archive"] = "checkpoint_full.zip (exact weights)"
                 z_policy = loaded_zip["policy"]
-                zip_actions = [
-                    (a.operation, a.argument)
-                    for a in (z_policy.propose_with_telemetry(obs) for obs in parity_obs)
-                ]
+                zip_actions = []
+                for obs in parity_obs:
+                    if callable(getattr(z_policy, "reset_episode", None)):
+                        z_policy.reset_episode()
+                    a = z_policy.propose_with_telemetry(obs)
+                    zip_actions.append((a.operation, a.argument))
                 zip_hidden = z_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
 
                 live_actions = tr_info["live_actions"]
