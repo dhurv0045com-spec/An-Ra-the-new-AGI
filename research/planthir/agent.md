@@ -3,9 +3,9 @@
 > **Canonical Manual:** Guide for any AI agent installing, verifying, or running controlled experiments with the **Planthir** experiment system (aliases: `planthir`, `palantiri`, `planter`; Python modules `anra_v5.planthir`, `anra_v5.palantiri`, `anra_v5.planter`). Kept identically at root `agent.md`, `anra_v5/planthir/agent.md`, and `research/planthir/agent.md`. Follow root [AGENTS.md](AGENTS.md) at all times.
 >
 > **Dedicated Two-Agent Manuals (Use These Directly for Highest Quality):**
-> - **Expensive Research Architect / Planner Agent:** Read [`orchestrator_agent.md`](orchestrator_agent.md) to design the falsifiable experiment plan, hardware/disk budget, and execution handoff.
+> - **Expensive Research Architect / Planner Agent:** Read [`orchestrator_agent.md`](orchestrator_agent.md) to design the falsifiable experiment plan, hardware/disk/wall-clock budget, and execution handoff.
 > - **Fast Execution / Builder Agent:** Read [`execution_agent.md`](execution_agent.md) to implement, verify, and ship the plan on top of `anra_v5.palantiri`.
-> - **Quality-First Override Law:** Planthir is in a starting condition. Both dedicated manuals explicitly authorize overriding soft engineering defaults or incomplete/buggy Planthir helpers whenever doing so increases scientific rigor or production GPU reliability (while keeping hard scientific custody laws unbreakable and logging gaps in `PALANTIRI_FEEDBACK`).
+> - **Quality-First Override Law:** Planthir is in an early starting condition. Both standalone manuals explicitly authorize overriding soft engineering defaults or wrapping/bypassing incomplete or buggy Planthir helpers whenever doing so increases scientific rigor or production GPU reliability (while keeping Hard Scientific Laws unbreakable and logging gaps in `PALANTIRI_FEEDBACK`).
 >
 > Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity studies.
 
@@ -43,7 +43,7 @@ Execute these steps immediately without asking redundant questions:
 
 ## 0.1 Two-Agent Framework Protocol (Expensive Prompt Architect + Fast Execution Builder)
 
-> **Primary Entry Points:** Point the expensive planning agent directly to [`orchestrator_agent.md`](orchestrator_agent.md) and the fast builder agent directly to [`execution_agent.md`](execution_agent.md). Both standalone manuals include the **Quality-First Override Law** (soft defaults and buggy/incomplete Planthir helpers may be overridden to maximize scientific & production quality, with overrides logged in `PALANTIRI_FEEDBACK`).
+> **Primary Entry Points:** Point the expensive Research Architect agent directly to [`orchestrator_agent.md`](orchestrator_agent.md) and the fast Execution Builder agent directly to [`execution_agent.md`](execution_agent.md). Both standalone manuals enforce the **Quality-First Override Law** (soft defaults and incomplete/buggy Planthir helpers may be overridden to maximize scientific & production quality, with overrides logged in `PALANTIRI_FEEDBACK`).
 
 This workflow pairs **(1) a higher-capability Research Architect model** that authors the experiment prompt with **(2) a faster, cheaper Builder model** that implements and tests it on top of `anra_v5.palantiri`. The goal is **minimum tokens & lines (`~70%` smaller, `~3x` faster) with ZERO loss of scientific quality (`9.8/10`)**.
 

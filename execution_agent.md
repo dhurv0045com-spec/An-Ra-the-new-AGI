@@ -7,132 +7,79 @@
 
 ---
 
-## 1. Mission & Immediate Operating Rules
+## 1. Mission, Branch-Neutral Policy, & Repository Hygiene
 
-When the user or Orchestrator says:
+When the user or Orchestrator instructs you:
 > *"Read `execution_agent.md` and execute `<spec_path>`."*
 
-Your job is to turn that research specification into **10/10 genuine, verified, production-ready code, tests, CPU qualification evidence, and (when requested) a source-pinned Kaggle/Colab notebook** — using **`anra_v5.palantiri`** (`anra_v5.planthir` / `anra_v5.planter`) so you spend your time on **real science and production reliability**, not reinventing training loops, checkpoints, stats, or archive exporters.
+Your job is to convert that research specification into **10/10 genuine, verified, production-grade code, tests, CPU qualification receipts, and (when requested) a source-pinned Kaggle/Colab notebook** — using **`anra_v5.palantiri`** (`anra_v5.planthir` / `anra_v5.planter`) for custody, trainers, stats, and archives so you invest compute in **real science and crash-free GPU execution**, not boilerplate reinvention.
 
-- **Git Branch Policy:** Work, commit, and push directly on **`hitchhiker`** (the active main branch in this repo) unless the user or spec explicitly names another branch. Never silently create and push to a random branch.
-- **Repository Hygiene (`AGENTS.md`):** Never commit `.zip`, `.npz`, `.bin`, `.pt`, or raw `runs/` folders. Commit only focused Markdown + curated JSON under `Experiment Result/<Program>/`. Append a `<= 5`-nonempty-line entry (including heading) to root [`progress.md`](progress.md) before your final commit/handoff.
+- **Branch-Neutral Policy:** Commit and push on the `<target-branch>` specified by the user or spec — or otherwise on your currently checked-out active branch (`git branch --show-current`, such as `hitchhiker`, `Elendril`, or `palantiri`). Never invent an unrequested branch name. *(Only if `anra_v5/planthir` is absent or older on the current branch, pull it from `origin/<source-branch>` using [`agent.md`](agent.md) Section 0.)*
+- **Repository Hygiene (`AGENTS.md`):** Never commit `.zip`, `.npz`, `.bin`, `.pt`, or raw `runs/` folders. Commit only focused Markdown reports and curated JSON under `Experiment Result/<Program>/`. Append a `<= 5`-nonempty-line entry (including heading) to root [`progress.md`](progress.md) before your final commit/handoff.
 
 ---
 
 ## 2. Quality-First Override Law (CRITICAL — Read First!)
 
-**Planthir / Palantiri is in a starting condition.** It accelerates 80–90% of experiment engineering, **but it may have missing features, rough edges, or bugs.**
+**Planthir / Palantiri is in an early starting condition.** It accelerates 80–90% of experiment infrastructure, **but it may have missing features, rough edges, or upstream bugs.**
 
-**Your #1 priority is 10/10 scientific & production quality — NOT blind obedience to a soft rule or a misbehaving helper.**
+**Your #1 priority is 10/10 scientific & production quality — NEVER degrade science or GPU reliability just to obey a soft rule or force an incomplete Planthir helper.**
 
 | Category | Status | Rules |
 |---|---|---|
-| **HARD SCIENTIFIC LAWS** | **NEVER BREAK** | 1. **Zero stubs / zero fake numbers:** Every requested model, control, sham, oracle, DP solver, and causal intervention must run real math. Never let an engineered pass satisfy a learned row.<br>2. **Zero split leakage & sealed confirmation:** Disjoint `train` / `dev` / `confirm` / `transfer` splits; never select on `confirm`; write a SHA-256 lock and open `confirm` once; never put truth keys (`gold`, `expected`, `truth`, `hidden`) in `UniversalObservation.metadata`.<br>3. **Uncompressed `FULL` mode:** Never shrink seeds, dataset denominators, updates, or job counts inside `FULL` mode to fit a line cap or make a test faster.<br>4. **Honest provenance & reporting:** Separate CPU engineering qualification from GPU scientific outcomes. Report negative, failed, or blocked rows honestly.<br>5. **Real custody & verification:** Never claim a test, replay, restore, or archive check passed unless you actually ran and verified it. |
-| **SOFT ENGINEERING DEFAULTS** | **BREAK FREELY IF IT INCREASES QUALITY** | 1. **Soft line/file budgets:** If real `FULL`-mode worker dispatch, batched GPU evaluation, or complete scientific controls need more lines than a soft target, **write the extra clean code** instead of compressing `FULL` mode.<br>2. **"Don't read internal `.py` files":** Start from Sections 3–5 below without browsing the whole repo — **BUT** if you hit a traceback, schema error, or subtle bug in `anra_v5/planthir/`, **immediately read the exact internal function** to solve it cleanly instead of guessing.<br>3. **Forcing an incomplete/buggy Planthir helper:** If a helper (e.g. `run_registered_plan`, `StaticPromptKernel`, `build_pinned_kaggle_notebook`, `admit_slice`) lacks multi-tier DAG ordering, adaptive one-go wall-clock loops, `LATEST`-only checkpoint packing, or hits a bug, **wrap, extend, or bypass that helper cleanly inside `experiments/<name>/`** while keeping all Hard Scientific Laws intact.<br>4. **Default notebook flags:** Override `OWNER_AUTHORIZED=False` / `SESSION_MINUTES=300` whenever the owner asks for one-click full execution (e.g. `OWNER_AUTHORIZED=True`, `SESSION_MINUTES=660`, `ONE_GO=True`). |
+| **HARD SCIENTIFIC LAWS** | **NEVER BREAKABLE** | 1. **Zero stubs / zero fake numbers:** Every requested model, control, sham, oracle, DP solver, and causal lesion must compute real outputs. Never let an engineered check satisfy a learned metric.<br>2. **Zero leakage & complete-cohort sealed confirmation:** Disjoint `train` / `dev` / `confirm` / `transfer` splits; never select on `confirm`; write a SHA-256 lock and **NEVER open sealed `confirm` during a `PARTIAL`/deferred session** (`pending_confirm_jobs == []` required); never place truth keys (`gold`, `expected`, `truth`, `hidden`) inside `UniversalObservation.metadata`.<br>3. **Uncompressed `FULL` mode:** Never shrink seeds, dataset denominators, updates, or registered jobs inside `FULL` mode to meet a line limit or speed up a test.<br>4. **Honest provenance & reporting:** Separate CPU engineering checks from GPU scientific findings. Report negative, blocked, or failed rows honestly. Pin non-self-referential Git commit SHAs.<br>5. **Real custody & verification:** Never report replay, restore, or archive verification as passing unless you executed it after final edits. |
+| **SOFT ENGINEERING DEFAULTS** | **BREAK FREELY IF IT INCREASES QUALITY** | 1. **Soft line/file budgets:** If genuine `FULL`-mode worker dispatch, batched GPU evaluation, or complete scientific controls need more lines than a soft guideline, **write the clean code needed** instead of compressing `FULL` mode.<br>2. **"Don't read internal `.py` files":** Start from Sections 4–5 below without browsing unrelated history — **BUT** whenever you hit a traceback, schema surprise, or subtle Planthir edge case, **immediately inspect the exact function in `anra_v5/planthir/*.py`** rather than guessing.<br>3. **Forcing an incomplete/buggy Planthir helper:** If `run_registered_plan`, `StaticPromptKernel`, `build_pinned_kaggle_notebook`, `admit_slice`, or a legacy evaluator bridge lacks parent-child DAG ordering, adaptive one-go wall-clock loops, `LATEST`-only checkpoint packing, mixed subprocess routing, or hits a bug, **wrap, extend, or bypass that helper cleanly inside `experiments/<name>/`** while keeping all Hard Scientific Laws intact.<br>4. **Default notebook/session flags:** Override `OWNER_AUTHORIZED=False` / `SESSION_MINUTES=300` whenever the owner or spec requests one-click full execution (`OWNER_AUTHORIZED=True`, `SESSION_MINUTES=660`, `ONE_GO=True`). |
 
-**Mandatory Transparency Rule:** Whenever you break a soft default or work around a Planthir limitation/bug, include a concise **`PALANTIRI_FEEDBACK`** block in your final handoff stating: (1) what failed or was missing, (2) why you overrode it, (3) your workaround, and (4) the exact upgrade Planthir needs next.
+**Mandatory Transparency Rule (`PALANTIRI_FEEDBACK`):** Whenever you break a soft rule or bypass/wrap a Planthir gap or bug, include a short **`PALANTIRI_FEEDBACK`** block in your final handoff specifying: (1) `gap_or_bug`, (2) `rule_overridden`, (3) `local_workaround`, and (4) `suggested_upstream_fix`.
 
 ---
 
 ## 3. Fast 6-Step Execution Playbook
 
 ### Step 1 — Preflight (`<30s`, Zero Wasted Turns)
-1. Check branch and status: `git status -sb` (confirm you are on `hitchhiker` or the user-specified branch).
-2. Read the Orchestrator's specification completely. Do **not** browse unrelated legacy directories (`v8x/`, `avendi/` sprawl).
+1. Confirm branch and clean tree (`git branch --show-current`, `git status -sb`).
+2. Read the Orchestrator specification completely. Do **not** waste turns reading unrelated historical campaigns.
 3. Run platform self-checks:
    ```bash
    python -m anra_v5.palantiri doctor
    python -m anra_v5.palantiri calibrate
    ```
-   Expect `GREEN_SIGNAL` and `6/6` fault detection.
+   Confirm `GREEN_SIGNAL` and `6/6` faults detected (plus `SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED`).
 
 ### Step 2 — Choose Your Integration Path
+- **Path A — Declarative `spec.json` (`<50` lines):** Use when varying hyperparameters/arms on already-registered backends (`v8`, `x1_rd2`, `x1_s20`):
+  ```bash
+  python -m anra_v5.palantiri init --backend x1_rd2 --out spec.json
+  python -m anra_v5.palantiri validate --spec spec.json --canary
+  python -m anra_v5.palantiri run --spec spec.json --work-root runs/exp1 --canary
+  python -m anra_v5.palantiri verify-bundle --bundle-dir runs/exp1/result_bundle
+  python -m anra_v5.palantiri replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json
+  ```
+- **Path B — Plugin Package (`experiments/<name>/`, Recommended):** Put all new experiment code under one clean package (`plan.py`, `tasks.py`, `models.py`, `module.py` — or one single `experiments/<name>.py` file for single-stage work) plus `tests/test_<name>.py`. Register via `ExperimentModule(...).register()` + `register_planthir_backends()` and set `PLANTHIR_BACKEND_MODULES=experiments.<name>.module` (ensure `"experiments*"` is included if packaged in `pyproject.toml`).
+- **Path C — Hybrid / Quality-First Override:** Keep `anra_v5.palantiri` for custody, Launch Gates, stats (`bootstrap_paired_families`, `build_paired_seed_observations`), and verified archives (`export_session_archives`, `verify_session_archive`), and add clean local PyTorch/NumPy/DAG orchestration inside `experiments/<name>/` wherever a Planthir helper cannot express your pipeline cleanly.
 
-#### Path A — Declarative `spec.json` Only (Existing Backends `v8`, `x1_rd2`, `x1_s20`)
-Use when varying hyperparameters/arms on an existing backend without new models/tasks/losses:
-```bash
-python -m anra_v5.palantiri init --backend x1_rd2 --out spec.json
-# Edit only your delta in spec.json
-python -m anra_v5.palantiri validate --spec spec.json --canary
-python -m anra_v5.palantiri run --spec spec.json --work-root runs/exp1 --canary
-python -m anra_v5.palantiri verify-bundle --bundle-dir runs/exp1/result_bundle
-python -m anra_v5.palantiri replay-bundle --bundle-dir runs/exp1/result_bundle --output runs/exp1/REPLAY_RECEIPT.json
-```
+### Step 3 — Production `FULL`-Mode & Kaggle 2×T4 Checklist (8 Battle-Tested Rules)
+Follow every item here so live Kaggle 2×T4 runs never stall, overflow `/kaggle/working`, or crash mid-wave:
 
-#### Path B — New Science Package (`experiments/<name>/`, Recommended for New Tasks/Models/Campaigns)
-Keep everything cleanly isolated under `experiments/<name>/` (`plan.py`, `tasks.py`, `models.py`, `module.py` — or a single `experiments/<name>.py` for small single-stage tests) plus `tests/test_<name>.py`. Never edit 10+ legacy files.
-
-Minimal plugin registration (`experiments/<name>/module.py`):
-```python
-from anra_v5.palantiri import (
-    CampaignOrchestrator,
-    ExperimentModule,
-    GenericDatasetBundle,
-    GenericExperimentTrainer,
-    GenericTrainRecipe,
-    SessionJob,
-    build_pinned_kaggle_notebook,
-    export_session_archives,
-    verify_full_mode_dispatch,
-    verify_session_archive,
-)
-
-module = ExperimentModule(
-    backend_id="my_exp",
-    backend_version="my-exp-1.0",
-    program="MY-EXP",
-    architectures=("baseline", "treatment"),
-    objectives=("ce", "custom_loss"),
-    model_factory=build_my_model,          # (arch, model_config, seed) -> nn.Module
-    dataset_factory=build_my_dataset,      # (dataset_config, cpu_canary) -> dict with train_data + worlds
-    loss_fn=my_loss_fn,                    # (model, batch, recipe) -> torch.Tensor
-    kernel_factory=MyKernel,               # optional; defaults to StaticPromptKernel
-    policy_factory=build_my_policy,        # optional; defaults to LogitsPolicy
-    extra_model_keys=("width", "cpu_canary"),
-    extra_dataset_keys=("num_families", "seed"),
-    supports_grouped_loss=True,
-).register()
-
-def register_planthir_backends() -> ExperimentModule:
-    return module
-```
-- Subprocess CLIs auto-discover your plugin via `PLANTHIR_BACKEND_MODULES=experiments.<name>.module` (make sure `"experiments*"` is in `pyproject.toml`).
-
-### Step 3 — Production-Grade `FULL` Mode & Kaggle 2×T4 Checklist
-Apply these battle-tested rules so your experiment succeeds on **real Kaggle 2×T4 GPUs** on the very first run:
-
-1. **Wrap Frozen Baselines Directly (Zero Baseline Confound):**
-   - Import `X1TypedModel`, `solve_x1_capacity_controls`, `core_x1_jobs`, `compute_x1_d2_grouped_loss`, or `v5_model.core.initialize` directly.
-   - Assert `verify_shared_backbone_and_head_overhead(ctrl, trt, backbone_prefix="core.", max_head_overhead_ratio=0.05, max_control_parity_ratio=0.02)`.
+1. **Wrap Frozen Baselines Directly (Zero Confound):** Import `X1TypedModel`, `solve_x1_capacity_controls`, `core_x1_jobs`, `compute_x1_d2_grouped_loss`, or `v5_model.core.initialize` directly; assert `verify_shared_backbone_and_head_overhead(ctrl, trt, backbone_prefix="core.", max_head_overhead_ratio=0.05, max_control_parity_ratio=0.02)`.
 2. **Real Per-Job Multi-GPU Dispatch (`FULL` != Scaled-Up `CANARY`):**
-   - For flat job lists, use `CampaignOrchestrator.run_registered_plan(...)`.
-   - For multi-tier parent-child DAGs or adaptive one-go 11h runs (`session_minutes=660`), compose `reconcile_verified_resume(..., fail_on_rejection=True)` + `admit_slice(...)` + wave-by-wave `run_waves(...)` over `("cuda:0", "cuda:1")` with a real wall-clock check (`rem_min > 15.0`) before every wave.
-   - Always emit `PENDING_QUEUE.json` + resumable `*_FULL.zip` if interrupted or time-guarded.
-3. **Batch ALL Multi-Case Evaluation Loops (50–100× Speedup!):**
-   - Never run unbatched `batch_size=1` forward loops over thousands of dev/confirm/milestone cells.
-   - Right-pad causal byte prompts with `UTF8.pad_id` in chunks of `batch_size=32–64`, read logits at `lens - 1` (step 0) and `lens` (step 1), and respect `max_ctx - max_new`. Verify exact numerical parity (`atol=1e-4`) against the serial single-item decoder in a unit test!
-4. **Bound Kaggle Disk Usage (`<= 19.5 GiB` `/kaggle/working` Cap!):**
-   - `FP32 model + AdamW ≈ 12 bytes/param`. Saving every 128 updates across 50+ jobs without pruning will fill `/kaggle/working` and crash with `ENOSPC`.
-   - Save at coarse intervals (e.g. `ckpt_every=512`), call `tr.store.prune(keep=set())` after each save, and when packaging `*_FULL.zip`, include only each lineage's `LATEST`, `MILESTONES` (if present), and `objects/<latest_sha>/*` (skipping redundant `PREVIOUS` generations).
-5. **Honest Multi-Backbone GPU Profiling:**
-   - Call `torch.cuda.synchronize(dev)` before and after timed updates, profile both small and large backbones (do NOT apply a 20M-param `p90` blindly to 3M-param or tiny MLP jobs), and free temporary profiling models (`del m, opt, x; torch.cuda.empty_cache()`).
-6. **Clean Kaggle Notebook Generation (`build_pinned_kaggle_notebook`):**
-   - Put **Config + Source Checkout + Preflight Gate (`assert torch.cuda.device_count() >= 2`, `doctor`, fast CPU canary)** in **Cell 1** BEFORE the multi-hour GPU launch in **Cell 2** so a wrong accelerator fails in 10 seconds.
-   - Auto-discover mounted `/kaggle/input/**` `.zip` archives **and** auto-unpacked Kaggle Dataset folders (e.g., `checkpoints/` containing expected lineage dirs).
-   - Mirror ONLY `work/archives/*` and top-level reports (`FINAL_STATUS.json`, `PENDING_QUEUE.json`, `RESULTS.md`, `METRICS.json`) to `/kaggle/working/` using zero-copy `os.link` (fallback `shutil.copy2`) — never `rglob("*.zip")` over 80 per-job archives!
-   - Honor the owner's requested defaults (`OWNER_AUTHORIZED`, `SESSION_MINUTES`, `ONE_GO`).
+   - For flat job plans, call `CampaignOrchestrator.run_registered_plan(...)`.
+   - For parent-child DAG stages, mixed legacy/fresh worker CLIs, or adaptive one-go 11h runs (`session_minutes=660`), compose `reconcile_verified_resume(..., fail_on_rejection=True)` + `admit_slice(...)` + wave-by-wave `run_waves(...)` on `("cuda:0", "cuda:1")` with an explicit remaining-wall-clock check (`rem_min > 15.0`) before launching each wave.
+   - Always persist `JOB_RECEIPTS.json`, `PENDING_QUEUE.json`, and resumable session archives on interrupt/deferral.
+3. **Smoke-Test EVERY Distinct Architecture & Legacy Worker Adapter at `u0000` (CRITICAL):**
+   - Before trusting a GPU run, execute a CPU `u0000` smoke check (init -> 1 train step -> 1 eval step -> checkpoint save/load) for **EVERY** distinct architecture class (e.g., `B0`, `P`, `F`, `R`, `U`, and every new treatment/control) AND every legacy subprocess worker path. Do not assume testing one model family covers all of them (`AttributeError: '_S' object has no attribute 'base_spec'` on `B0` stops live waves at step `u0000`!).
+4. **Complete-Cohort Confirmation Lock Guard:** Never open sealed `confirm` during a `PARTIAL` or deferred session (`pending_confirm_jobs == []` and 100% of confirmation-eligible jobs verified complete required before unsealing `confirm`).
+5. **Batch ALL Multi-Case Evaluation Loops (50–100× Speedup):** Right-pad causal byte prompts with `UTF8.pad_id` in chunks of `batch_size=32–64`, read logits at `lens - 1` (step 0) and `lens` (step 1), respect `max_ctx - max_new`, and verify numerical parity (`atol=1e-4`) vs. single-item decoding in a unit test.
+6. **Bound Kaggle `/kaggle/working` Disk (`<= 19.5 GiB`):** `FP32 model + AdamW ≈ 12 bytes/param`. Set coarse `ckpt_every` (e.g. `512`), call `tr.store.prune(keep=set())`, pack only `LATEST`/`MILESTONES` + referenced `objects/<sha>/*` into `*_FULL.zip` (skipping redundant `PREVIOUS` generations), and mirror only top-level archives/reports to `/kaggle/working/` via zero-copy `os.link` (fallback `shutil.copy2`).
+7. **Honest Multi-Backbone GPU Profiling:** Call `torch.cuda.synchronize(dev)` around timed updates, profile both small and large backbones separately, and delete temporary profiling models (`del m, opt, x; torch.cuda.empty_cache()`).
+8. **Fail-Fast Pinned Kaggle Notebook:** Run config + source checkout + preflight checks (`assert torch.cuda.device_count() >= 2` when `OWNER_AUTHORIZED=True`, `doctor`, fast CPU canary) BEFORE launching multi-hour training; auto-discover both `.zip` archives and auto-unpacked folders under `/kaggle/input/**`.
 
-### Step 4 — Fast, Decisive Verification Suite (Always Use `-n auto`!)
-**NEVER run 560+ legacy tests single-threaded.** Follow this fast tiered chain:
-
-1. **Experiment Unit & Full-Dispatch Tests (`pytest tests/test_<name>.py -n auto -q`):**
-   - Exact math invariants: tokenized oracle parser, split custody + planted-leak catch, shortcut baselines, destructive masks, batched-vs-serial eval parity, causal/DP/stateful reset checks.
-   - **`FULL`-mode dual-GPU dispatch test** (`verify_full_mode_dispatch(...)` or mocked `in_process_runner` test): verifies ALL registered job IDs, both `CUDA_VISIBLE_DEVICES="0"` & `"1"`, `--device cuda:0` remap, tight-clock `PARTIAL` deferral -> `PENDING_QUEUE.json` -> Session-2 verified resume from `*_FULL.zip` -> `COMPLETE` + `LOCKED_AND_OPENED_ONCE`, plus one-go completion if enabled.
-   - **3 targeted recovery tests (~90 lines, using `in_process_runner` instead of spawning 6 cold Python subprocesses):**
-     1. Mid-update `InjectedCrash` (`after_publish_before_pointer`) -> resume matches uninterrupted losses, weights, and RNG bytes.
-     2. `reconcile_verified_resume(..., fail_on_rejection=True)` rejects swapped `spec_sha256` and missing archive member.
-     3. One failed worker lane preserves its peer's output and emits a valid `PARTIAL` archive.
-2. **Fresh-Subprocess Palantiri Plugin CLI Chain:**
+### Step 4 — Fast Tiered Verification Suite
+**NEVER run 560+ legacy tests single-threaded.** Run this fast tiered suite:
+1. **Unit, `u0000` All-Architecture Smoke, & `FULL`-Dispatch Suite:**
+   - Run `python -m pytest tests/test_<name>.py -q` (or `-n auto` if `pytest-xdist` is installed).
+   - Must test: tokenized oracle, split custody + planted leak, shortcut panel, destructive masks, batched-vs-serial eval parity (`atol=1e-4`), **CPU `u0000` init+train+eval smoke on EVERY architecture/worker adapter**, mocked 2-GPU `FULL` dispatch + deferral/resume (`verify_full_mode_dispatch` or `in_process_runner` test), complete-cohort confirmation lock guard, and 3 targeted recovery tests (~90 lines using `in_process_runner`: mid-update crash/resume parity, swapped `spec_sha256`/missing member rejection via `reconcile_verified_resume(..., fail_on_rejection=True)`, and 1-lane failure preserving peer work + `PARTIAL` export).
+2. **Fresh-Subprocess Plugin CLI Chain:**
    ```bash
    PLANTHIR_BACKEND_MODULES=experiments.<name>.module python -m anra_v5.palantiri init --backend <id> --out <tmp>/spec.json
    PLANTHIR_BACKEND_MODULES=experiments.<name>.module python -m anra_v5.palantiri validate --spec <tmp>/spec.json --canary
@@ -140,32 +87,27 @@ Apply these battle-tested rules so your experiment succeeds on **real Kaggle 2×
    PLANTHIR_BACKEND_MODULES=experiments.<name>.module python -m anra_v5.palantiri verify-bundle --bundle-dir <tmp>/run/result_bundle
    PLANTHIR_BACKEND_MODULES=experiments.<name>.module python -m anra_v5.palantiri replay-bundle --bundle-dir <tmp>/run/result_bundle --output <tmp>/REPLAY.json
    ```
-   *(Verify `verified=true` and `MATCHED`.)*
-3. **Final Pre-Push Regression Sweep:**
-   ```bash
-   python -m anra_v5.palantiri doctor
-   python -m anra_v5.palantiri calibrate
-   python -m pytest tests/test_<name>.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py tests/test_planthir_declarative_cli_and_usability.py -n auto -q
-   ```
+   Confirm `verified: true` and `MATCHED`.
+3. **Final Pre-Push Regression Check:**
+   - Run `python -m anra_v5.palantiri doctor`, `python -m anra_v5.palantiri calibrate`, and `python -m pytest tests/test_<name>.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py tests/test_planthir_declarative_cli_and_usability.py -q` (add `-n auto` when `pytest-xdist` is available).
 
-### Step 5 — Two-Commit Source Pinning & Push (Zero Self-Referential SHAs!)
-1. **Commit 1 (Code + Tests):** Stage `experiments/<name>/...` and `tests/test_<name>.py` on `hitchhiker`, commit, and record `CODE_SHA = git rev-parse HEAD`.
-2. **Generate & Verify Notebook:**
-   - Generate notebook pinned to `CODE_SHA`, run `ast.parse` on every Python code cell, verify `--check-notebook` returns `"match": true`, and run a clean `git archive <CODE_SHA>` extraction in a temp directory outside the repo to verify the archived source imports and expands the exact job/study counts cleanly.
-3. **Commit 2 (Notebook + Curated Receipt + `progress.md`) & Push:**
-   - Append a `<= 5`-nonempty-line entry to root `progress.md` (`YYYY-MM-DD | Agent | Title`, distinguishing implemented controls vs. pending GPU execution).
-   - Commit on `hitchhiker`, push `git push origin hitchhiker`, and verify `git ls-remote origin refs/heads/hitchhiker` equals `git rev-parse HEAD`.
+### Step 5 — Two-Commit Source Pinning & Push (Zero Self-Referential SHAs)
+1. **Commit 1 (Implementation + Tests):** Stage code + tests cleanly on `<target-branch>`, commit, and record `CODE_SHA = git rev-parse HEAD`.
+2. **Generate & Verify Notebook:** Pin the notebook to `CODE_SHA`, run `ast.parse` on every Python code cell, assert `--check-notebook` (`match=true`), and extract `git archive <CODE_SHA>` to a temp directory outside the repo to confirm the clean source snapshot imports and expands the full job ledger cleanly.
+3. **Commit 2 (Notebook + Curated Pre-Run Receipt + `progress.md`) & Push:**
+   - Append a `<= 5`-nonempty-line entry (`YYYY-MM-DD | Agent | Title`) to root [`progress.md`](progress.md) distinguishing verified CPU engineering checks from pending GPU runs.
+   - Commit, verify `git status -sb` is clean (`doctor` reports `tracked_clean: true`), push to `origin <target-branch>`, and confirm `git ls-remote origin refs/heads/<target-branch>` matches `git rev-parse HEAD`.
 
 ### Step 6 — Honest Handoff Report
-Report concisely:
-- Exact `CODE_SHA`, final `HEAD` SHA, branch (`hitchhiker`), and clickable GitHub notebook URL.
-- Exact observed CPU verification counts & runtimes (never invent or extrapolate numbers).
-- What remains pending owner GPU execution.
-- **`PALANTIRI_FEEDBACK` block:** every Planthir gap, bug, or soft default you overrode so the platform keeps getting stronger.
+State concisely:
+- Branch name, exact `CODE_SHA`, final `HEAD` SHA, and any clickable repository notebook path.
+- Exact commands run and observed pass counts/timings (never extrapolate unprinted metrics).
+- Explicit pending GPU / owner execution items.
+- **`PALANTIRI_FEEDBACK` block** documenting every overridden soft rule or Planthir gap/workaround encountered.
 
 ---
 
-## 4. Verified `anra_v5.palantiri` API Cheat-Sheet (Live Signatures)
+## 4. Verified `anra_v5.palantiri` Live API Cheat-Sheet
 
 ```python
 # 1. Plugin Registration (NO register_experiment_module() function — call .register()!)
@@ -197,27 +139,36 @@ export_session_archives(source_root, output_dir, *, prefix, analysis_files=None,
 verify_session_archive(archive_path, *, max_bytes=None, expected_source_commit=None, require_sidecar_sha256=True, require_v6_manifest=True, required_members=())
 build_pinned_kaggle_notebook(*, source_commit, title, launch_command, owner_authorized=False, repo_url=None, campaign_mode="FULL", session_minutes=300, resume_input=None, inventory_command=None, discover_kaggle_inputs=(), mirror_outputs_to_working=False, preflight_canary_backend=None, require_dual_gpu=False, emit_file_links=False, backend_modules=())
 verify_shared_backbone_and_head_overhead(control_model, treatment_model, *, backbone_prefix="core.", max_head_overhead_ratio=0.05, max_control_parity_ratio=None)
+
+# 5. Paired Stats & Reporting
+bootstrap_paired_families(control_scores, treatment_scores, *, resamples=2000, seed=1801)
+build_paired_seed_observations(arm_records, *, contrast_id="PRIMARY", control_arm=..., treatment_arm=..., metric_key="value")
+compare_paired_episode_records(control_episodes, treatment_episodes)
+summarize_diagnostic_coverage(worlds, *, target_families, seed_ids=(7, 19, 41))
+build_analyst_first_page_report(*, title, campaign_id, source_commit, decision_summary, control_arm, treatment_arm, paired_seed_bundle, ...)
 ```
 
 ---
 
-## 5. Battle-Tested Gotchas (Avoid Every Known Trap!)
+## 5. Battle-Tested Gotchas (Avoid Every Known Trap)
 
 | Trap / Error | Exact Fix |
 |---|---|
-| `forbidden_metadata_key:gold` in Gate 1 | `UniversalObservation.metadata` forbids keys `{"expected", "gold", "gold_answer", "hidden", "truth", "ground_truth"}` recursively **even if the value is `None`**. Never include placeholder truth keys. |
+| `forbidden_metadata_key:gold` in Gate 1 | `UniversalObservation.metadata` forbids `{"expected", "gold", "gold_answer", "hidden", "truth", "ground_truth"}` recursively **even when the value is `None`**. Never put placeholder truth keys in metadata. |
 | `AttributeError: 'str' object has no attribute 'modified_world'` | `EnvironmentKernel.decompose_subgoals(world)` MUST return `Sequence[SubgoalProbeSpec]` (or `()`), NEVER strings. |
 | Gate 4 fails on `ablate_mechanism` or stateful policy | `model.ablate_mechanism(self, mode="...")` MUST accept zero required arguments. Custom policies MUST expose `self.policy_id: str` and implement `reset_episode(self) -> None`. |
 | `FrozenInstanceError` on `SessionJob` | `SessionJob` is `@dataclass(frozen=True)`. Always use `dataclasses.replace(s, device=...)`. |
-| `AttributeError: 'WorkerJobSpec' object has no attribute 'job_id'` | Inside `in_process_runner(job, env, cmd)`, the worker ID attribute is **`job.worker_id`** (NOT `job.job_id`). Return `int` or `{"exit_code": int}`. |
+| `AttributeError: 'WorkerJobSpec' object has no attribute 'job_id'` | Inside `in_process_runner(job, env, cmd)`, the ID attribute is **`job.worker_id`** (NOT `job.job_id`). Return `int` or `{"exit_code": int}`. |
 | `KeyError: 'status'` on `reconcile_verified_resume` | Returns `verified_completed_jobs`, `rejected_jobs`, `pending_job_ids`, `next_resumable_job_id` — **no `"status"` key**. Checks `completed_updates >= target_updates`. |
 | `KeyError: 'hashes'` on `export_session_archives` | Digest dict key is **`"archive_sha256"`** (NOT `"hashes"`). |
 | `ValueError` calling `verify_single_planthir_zip` on session ZIPs | Use **`verify_session_archive(...)`** and **`rescore_compact_analysis_archive(...)`** for `export_session_archives` ZIPs (`*_SUMMARY/EVIDENCE/ANALYSIS/FULL.zip`). Use `verify_result_bundle` / `verify_single_planthir_zip` ONLY for Cartridge `result.zip`. |
-| `v5_model.core.Core` `ImportError` | Construct via **`v5_model.core.initialize(spec, seed, torch_module=torch)`** + `packed_layout(segments, torch_module=torch)`. Exposes `.forward_hidden(...)` and `.blocks`. |
+| `v5_model.core.Core` `ImportError` | Construct via **`v5_model.core.initialize(spec, seed, torch_module=torch)`** with `ModelSpec(vocabulary=...)` (not `vocab_size`) + `packed_layout(segments, torch_module=torch)`. Exposes `.forward_hidden(...)` and `.blocks` (NO `.logits()`). |
 | `UTF8.decode` `ValueError("expected content tokens only")` | `UTF8.decode(ids)` rejects tokens `< 4` (`pad=0, bos=1, eos=2, ANSWER=3`). Filter `[t for t in ids if t >= 4]`. `SpecialToken` is an `Enum`, use `UTF8.special(SpecialToken.ANSWER)`. |
-| `RuntimeError: element 0 of tensors does not require grad` | Any bounded weight-update helper called from an `@torch.no_grad()` evaluator MUST wrap its forward/backward step in `with torch.enable_grad():`. |
-| `NotImplementedError` subtracting `bool` buffers in weight-norm caps | Iterate over `model.named_parameters()` (floating params only), NOT `state_dict()` (which includes `bool`/int buffers). |
+| `RuntimeError: element 0 of tensors does not require grad` | Any bounded weight-update step invoked from `@torch.no_grad()` evaluation MUST wrap forward/backward in `with torch.enable_grad():`. |
+| `NotImplementedError` subtracting `bool` buffers in weight caps | Iterate over `model.named_parameters()` (floating params only), NEVER `state_dict()` (which includes `bool`/int buffers). |
 | `CUDA_VISIBLE_DEVICES` double-indexing on lane 1 | `IndependentWorkerScheduler` sets `CUDA_VISIBLE_DEVICES="1"` and remaps `--device cuda:1` -> `--device cuda:0`. Child workers should always use the `--device` passed to them (`cuda:0`). |
-| Windows `MAX_PATH` (`FileNotFoundError`) unpacking nested ZIPs under `pytest-xdist` | Unpack directly into `wr` (avoid deep intermediate `resume_extract/` nesting) and prefix paths `>= 240` chars with `\\?\` on Windows. |
-| PowerShell 5.1 syntax (`&&`, `||`, `<<'EOF'`, `>`) | Use `; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }` instead of `&&`, use `edit_file`/`write_file` instead of heredocs, and avoid PowerShell `>` for UTF-8 JSON (it writes UTF-16LE BOM). |
-| CLI `--dir` error | Always use **`--bundle-dir`** for `verify-bundle` and `replay-bundle`, and use `python -m anra_v5.palantiri explain-error --code <CODE>` for instant error lookup. |
+| Legacy `V8BytePolicy` `AttributeError` (`'_S' object has no attribute 'base_spec'`) | Stand-in specs must supply a real `base_spec` (or wrap the native model/spec directly) AND **test EVERY architecture/worker adapter (`B0`, `P`, `F`, `R`, `U`) on CPU at `u0000` before GPU launch**. |
+| Kernel `state` mapping vs object in custom kernels | `cartridge.py` / `replay.py` handle dict-like (`Mapping`) or attribute-based `state.terminal`; return consistent state objects cleanly in custom kernels. |
+| Windows `MAX_PATH` (`FileNotFoundError`) unpacking nested ZIPs | Extract directly into clean short staging roots and prefix Windows paths `>= 240` chars with `\\?\` when unpacking deep trees. |
+| PowerShell 5.1 syntax (`&&`, `||`, `<<'EOF'`, `>`) | Use `; if ($LASTEXITCODE -eq 0) { exit $LASTEXITCODE }` instead of `&&`, use file editing tools instead of heredocs, and avoid PowerShell `>` for UTF-8 JSON (it writes UTF-16LE BOM). |
+| CLI `--dir` error & bare `pytest` | Always pass **`--bundle-dir`** for `verify-bundle`/`replay-bundle`, run **`python -m pytest`** (so repo root is on `sys.path`), and use `python -m anra_v5.palantiri explain-error --code <CODE>` for instant diagnostics. |

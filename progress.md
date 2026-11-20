@@ -358,3 +358,8 @@ Y3 learned models, plugin acceptance, target profiling and notebook execution re
 
 ### 2026-11-21 | Codex | Avendi Y3 partial GPU audit
 Published per-seed acquisition, confirmation and intervention results for 57 completed jobs, with evidence hashes and the 31 pending job IDs.
+
+### 2026-11-21 | Antigravity | Sync branch-neutral orchestrator_agent.md, execution_agent.md & agent.md onto hitchhiker
+- Synced `c42097ea` updated `orchestrator_agent.md`, `execution_agent.md`, `agent.md` (all 3 mirrors byte-identical), and `tests/test_planthir_two_agent_manuals.py` onto `hitchhiker`, adding branch-neutral targeting, `pending_confirm_jobs == []` lock guard, and `u0000` every-architecture smoke mandates.
+- Preserved all Avendi V8-Y3 code, tests, notebooks, and published partial GPU audit results (`7c6ee08a`) untouched.
+- Verified inside `hitchhiker` worktree: `tests/test_planthir_two_agent_manuals.py` (`1 passed`), `test_planthir_declarative_cli_and_usability.py -k "cli_docs or alias"` (`2 passed`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
