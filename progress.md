@@ -339,3 +339,8 @@ Y3 learned models, plugin acceptance, target profiling and notebook execution re
 - Synced `a0e75532` Planthir updates (`CampaignOrchestrator.run_registered_plan`, `verify_full_mode_dispatch`, `verify_session_archive`, streamed SHA-256/`write_full_zip`, `execution.py` `.planthir_worker.lock`, upgraded `build_pinned_kaggle_notebook`, 3-way `agent.md` mirror & contracts).
 - Preserved all Avendi V8-Y3 modules, plans, tasks, tests, frozen audits, and curated results on `hitchhiker`.
 - Verified on CPU inside `hitchhiker` worktree: `test_avendi_y3_postmortem` (`1 passed`), `tests/test_planthir_declarative_cli_and_usability.py` (`6 passed`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
+
+### 2026-11-20 | Antigravity | Merge Avendi V8-Y3 and re-pin T4x2 notebook on hitchhiker
+- Merged `exp/avendi-v8-y3` (`06a250b5`) onto `hitchhiker` (`19a8e1b8e06854cf8a68a012ee6f8b7355476130`) alongside `9235ac1d` Palantiri upgrades and re-pinned `notebooks/AVENDI_V8_Y3_T4X2.ipynb` (`--check-notebook` `match=true`).
+- Verified on CPU: `anra_v5.palantiri doctor` (`GREEN_SIGNAL`), clean `git archive` plan (`training_jobs=54`, `short_fork_jobs=24`, `p6_adaptation_jobs=9`, `studies=50`, `platform_uses=44`), and `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py -n auto -q` (`25 passed in 269.26s`).
+- Pending owner GPU execution: Kaggle 2xT4 `FULL` campaign run from `notebooks/AVENDI_V8_Y3_T4X2.ipynb` on `hitchhiker`.
