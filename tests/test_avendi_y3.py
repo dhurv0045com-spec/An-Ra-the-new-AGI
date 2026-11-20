@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from anra_v5.elendril.representation import UTF8
+from anra_v5.elendril.representation import SpecialToken, UTF8
 from anra_v5.planthir import (
     BytePromptTrainer,
     CampaignOrchestrator,
@@ -22,6 +22,8 @@ from experiments.avendi_y3.models import (
     P6AdaptivePolicy,
     _P4Base,
     apply_bounded_weight_update,
+    decode_continuations_any,
+    eval_byte_model_on_families,
     get_byte_model_spec,
     p4_transition_loss,
     run_p4_causal_suite,
@@ -38,7 +40,7 @@ from experiments.avendi_y3.module import (
     run_job,
     write_confirmation_lock,
 )
-from experiments.avendi_y3.plan import build_plan
+from experiments.avendi_y3.plan import build_plan, build_y3_notebook
 from experiments.avendi_y3.tasks import (
     P5_CONDITIONS,
     audit_case_evidence_corruptions,
@@ -268,3 +270,43 @@ def test_full_mode_dual_gpu_waves_deferral_and_cross_session_resume(tmp_path: Pa
     assert a2["status"] == "COMPLETE" and a2["studies_complete"] == 50
     assert a2["main_jobs_complete"] == 54 and a2["short_jobs_complete"] == 24 and a2["p6_adapt_complete"] == 9
     assert a2["confirm"] == "LOCKED_AND_OPENED_ONCE" and a2["summary_bytes"] <= 5 * 1024 * 1024
+
+
+def test_batched_eval_parity_with_serial_decoder():
+    fams = build_one_hop_families("dev", 4, 3302, max_cells_per_family=8)
+    m = AvendiByteModel(get_byte_model_spec("S3", cpu_canary=True), seed=7, use_aux=True)
+    ev = eval_byte_model_on_families(m, fams, batch_size=5)
+    for fam in fams:
+        for c in fam["cells"]:
+            pfx = [UTF8.bos_id, *UTF8.encode(c["public_prompt"]), UTF8.special(SpecialToken.ANSWER)][:126]
+            dec = decode_continuations_any(m, pfx, c["gold"], c["rival"], max_new=2)
+            cp = ev["case_predictions"][c["world_id"]]
+            assert cp["generated_ids"] == dec["raw"]["generated_ids"]
+            assert cp["raw_exact_correct"] == dec["raw"]["exact_eos"]
+            assert cp["ap_rank"] == dec["ap_gold_rank"]
+            assert abs(cp["signed_margin"] - dec["signed_margin"]) < 1e-4
+            assert abs(cp["p_answer_mass"] - dec["p_answer_mass"]) < 1e-4
+            assert np.allclose(cp["first_logits"], dec["first_logits_260"], atol=1e-4)
+
+
+def test_full_mode_one_go_completes_all_88_jobs_and_notebook_defaults(tmp_path: Path):
+    wr, seen = tmp_path / "one_go", []
+
+    def _run(job, env, cmd):
+        seen.append((job.worker_id, env.get("CUDA_VISIBLE_DEVICES")))
+        run_job(job.worker_id, TINY_S, "cpu", wr)
+        return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+    disp = run_full_campaign(wr=wr, S=TINY_S, session_minutes=660.0, one_go=True, measured_sec_per_update=None, devices=("cuda:0", "cuda:1"), in_process_runner=_run)
+    agg = aggregate_full(wr, TINY_S, disp)
+    assert len(seen) == 88 and {"0", "1"} == {vis for _, vis in seen}
+    assert agg["status"] == "COMPLETE" and agg["studies_complete"] == 50
+    assert agg["main_jobs_complete"] == 54 and agg["short_jobs_complete"] == 24 and agg["p6_adapt_complete"] == 9
+    assert agg["confirm"] == "LOCKED_AND_OPENED_ONCE" and not agg["pending_jobs"]
+    with zipfile.ZipFile(agg["archives"]["full"], "r") as zf:
+        assert not any(name.endswith("/PREVIOUS") for name in zf.namelist())
+
+    nb = build_y3_notebook("a" * 40)
+    c1, c2 = "".join(nb["cells"][1]["source"]), "".join(nb["cells"][2]["source"])
+    assert "OWNER_AUTHORIZED = True" in c1 and "SESSION_MINUTES = 660" in c1 and "ONE_GO = True" in c1
+    assert "CAMPAIGN_MODE = 'FULL'" in c1 and "os.link" in c2

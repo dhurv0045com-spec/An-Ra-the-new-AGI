@@ -206,17 +206,35 @@ def _write_study(wr: Path, sid: str, jid: str, split: str, *, payload: Mapping[s
 
 
 def _profile_device(device: str, full: bool, s20: bool | None = None) -> dict[str, Any]:
-    n_upd = 32 if (full and torch.cuda.is_available() and "cuda" in device) else 2
-    spec = get_byte_model_spec("S20" if (full if s20 is None else (s20 and full)) else "S3", cpu_canary=not full)
-    m = AvendiByteModel(spec, seed=7).to(device if torch.cuda.is_available() else "cpu")
-    opt = torch.optim.AdamW(m.parameters(), lr=1e-4)
-    x = torch.randint(4, 30, (2, 16), device=next(m.parameters()).device)
-    times = []
-    for st in range((8 if n_upd == 32 else 1) + n_upd):
-        t0 = time.perf_counter()
-        opt.zero_grad(); F.cross_entropy(m(x)[0][:, -1], torch.zeros(2, dtype=torch.long, device=x.device)).backward(); opt.step()
-        if st >= (8 if n_upd == 32 else 1): times.append(time.perf_counter() - t0)
-    return {"p90_sec_per_update": float(np.percentile(times, 90)), "device": str(x.device), "timed_updates": n_upd}
+    dev = torch.device(device if (torch.cuda.is_available() and "cuda" in str(device)) else "cpu")
+    n_upd = 32 if (full and dev.type == "cuda") else 2
+    warm = 8 if n_upd == 32 else 1
+
+    def _bench(prof: str) -> float:
+        spec = get_byte_model_spec(prof, cpu_canary=not full)
+        m = AvendiByteModel(spec, seed=7).to(dev)
+        opt = torch.optim.AdamW(m.parameters(), lr=1e-4)
+        mb, seq_l, acc = (2, 96, 8) if (full and prof == "S20") else ((4, 96, 4) if full else (2, 16, 1))
+        x = torch.randint(4, 30, (mb, seq_l), device=dev)
+        y = torch.zeros(mb, dtype=torch.long, device=dev)
+        times = []
+        for st in range(warm + n_upd):
+            if dev.type == "cuda": torch.cuda.synchronize(dev)
+            t0 = time.perf_counter()
+            opt.zero_grad()
+            for _ in range(acc):
+                (F.cross_entropy(m(x)[0][:, -1], y) / acc).backward()
+            opt.step()
+            if dev.type == "cuda": torch.cuda.synchronize(dev)
+            if st >= warm: times.append(time.perf_counter() - t0)
+        del m, opt, x, y
+        if dev.type == "cuda": torch.cuda.empty_cache()
+        return float(np.percentile(times, 90))
+
+    if full and s20 is None:
+        p3, p20 = _bench("S3"), _bench("S20")
+        return {"p90_sec_per_update": 0.80 * p3 + 0.12 * p20 + 0.08 * (0.25 * p3), "p90_s3": p3, "p90_s20": p20, "device": str(dev), "timed_updates": n_upd}
+    return {"p90_sec_per_update": _bench("S20" if (s20 and full) else "S3"), "device": str(dev), "timed_updates": n_upd}
 
 
 def run_avendi_y3_campaign(*, mode: str = "CANARY", work_root: Path | str = "runs/avendi_y3", session_minutes: float = 300.0, resume_input: str | None = None, input_roots: Sequence[str] = (), device: str = "cpu", in_process_runner: Callable[..., Any] | None = None) -> dict[str, Any]:
@@ -543,13 +561,15 @@ def _gen_trainer(job: dict[str, Any], S: Any, dev: str, wr: Path, model: nn.Modu
     return tr
 
 
-def _train(tr: GenericExperimentTrainer, upd: int, hook: Callable[[int, Any], None] | None = None, ckpt_every: int = 128) -> dict[str, Any]:
+def _train(tr: GenericExperimentTrainer, upd: int, hook: Callable[[int, Any], None] | None = None, ckpt_every: int = 512) -> dict[str, Any]:
     losses, t0, start = [], time.perf_counter(), tr.state.global_update
     while tr.state.global_update < upd:
         r = tr.step(); losses.append(r["loss"])
         if hook: hook(r["update"], tr)
-        if r["update"] % ckpt_every == 0 and r["update"] < upd: tr.save()
-    if tr.state.global_update > tr.published_update: tr.save()
+        if r["update"] % ckpt_every == 0 and r["update"] < upd:
+            tr.save(); tr.store.prune(keep=set())
+    if tr.state.global_update > tr.published_update:
+        tr.save(); tr.store.prune(keep=set())
     dt = max(1e-9, time.perf_counter() - t0)
     return {"updates": tr.state.global_update, "loss_first": losses[0] if losses else None, "loss_last": losses[-1] if losses else None, "loss_every16": losses[::16], "wall_seconds": dt, "updates_this_session": tr.state.global_update - start, "examples_per_sec": (tr.state.global_update - start) * len(tr.plan[0]) / dt, "checkpoint_sha256": tr.parent, "rss_mb": __import__("psutil").Process().memory_info().rss / 2**20 if __import__("importlib").util.find_spec("psutil") else None, "peak_vram_mb": (torch.cuda.max_memory_allocated() / 2**20) if torch.cuda.is_available() else 0.0}
 
@@ -876,12 +896,12 @@ def _unpack_resume(resume_input: str | None, wr: Path) -> None:
         if not (dest / "receipt.json").is_file(): shutil.copytree(rc.parent, dest, dirs_exist_ok=True)
 
 
-def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 300.0, input_roots: Sequence[str] = (), resume_input: str | None = None, devices: Sequence[str] = ("cuda:0", "cuda:1"), in_process_runner: Callable[..., Any] | None = None, measured_sec_per_update: float | None = None) -> dict[str, Any]:
-    """Real FULL orchestration: reconcile resume ledger, admit_slice on the whole job table, dispatch tiers over both devices."""
+def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660.0, input_roots: Sequence[str] = (), resume_input: str | None = None, devices: Sequence[str] = ("cuda:0", "cuda:1"), in_process_runner: Callable[..., Any] | None = None, measured_sec_per_update: float | None = None, one_go: bool = True) -> dict[str, Any]:
+    """Real FULL orchestration: reconcile resume ledger, adaptively slice & dispatch all tiers in one go over both GPUs."""
     wr, t_start = Path(wr), time.perf_counter()
     wr.mkdir(parents=True, exist_ok=True)
     plan, rows = build_plan(mode="FULL" if S.full else "CANARY"), _plan_rows()
-    orch = CampaignOrchestrator(campaign_id="AVENDI-V8-Y3", source_commit=plan["source_commit"], work_dir=wr, max_minutes=min(360.0, float(session_minutes)), reserve_minutes=15.0, min_disk_bytes=1024 if not S.full else 2 * 2**30, in_process_runner=in_process_runner)
+    orch = CampaignOrchestrator(campaign_id="AVENDI-V8-Y3", source_commit=plan["source_commit"], work_dir=wr, max_minutes=float(session_minutes), reserve_minutes=15.0, min_disk_bytes=1024 if not S.full else 2 * 2**30, in_process_runner=in_process_runner)
     _unpack_resume(resume_input, wr)
     imported = []
     for rc in (wr / "jobs").glob("*/receipt.json"):
@@ -898,19 +918,55 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 300
     sj = [SessionJob(r["job_id"], r["arm"], r["init_seed"], r.get("order_seed", r["init_seed"]), _job_upd(r, S), device=devices[i % len(devices)]) for i, r in enumerate(pending)]
     ran_ids: set[str] = set()
     waves = []
-    for tier in (0, 1):
-        tier_jobs = [s for s in sj if _tier(rows[s.job_id]) == tier]
-        if tier == 1:
-            tier_jobs = [s for s in tier_jobs if (wr / "jobs" / (f"P6-diagnostic_policy-s{s.init_seed}" if "adapt" in s.job_id else f"P2-ce-s{s.init_seed}") / "receipt.json").is_file()]
-        if not tier_jobs: continue
-        tier_jobs = [replace(s, device=devices[i % len(devices)]) for i, s in enumerate(tier_jobs)]
-        rem_min = max(0.0, float(session_minutes) - (time.perf_counter() - t_start) / 60.0)
-        adm = orch.admit_slice(tier_jobs, measured_seconds_per_update=p90, per_job_disk_bytes=64 * 2**20 if S.full else 1024, parallel_workers=len(devices), outer_remaining_minutes=rem_min, startup_overhead_seconds=60.0 if S.full else 0.0)
-        run = [s for s in tier_jobs if s.job_id in adm["admitted_job_ids"]]
-        cmd = lambda j, _d: (sys.executable, "-m", "experiments.avendi_y3.module", "--job", j.job_id, "--work-root", str(wr), "--device", j.device, "--scale", "full" if S.full else "tiny", "--input-roots", ",".join(input_roots))
-        wres = orch.run_waves(run, command_builder=cmd, devices=tuple(devices)) if run else {"status": "NOTHING_ADMITTED"}
-        waves.append({"tier": tier, "admitted": adm["admitted_job_ids"], "deferred": adm.get("deferred_pending_job_ids", []), "ran": [s.job_id for s in run], "status": wres.get("status"), "devices_used": sorted({s.device for s in run})})
-        ran_ids.update(s.job_id for s in run)
+    if measured_sec_per_update is not None or not one_go:
+        for tier in (0, 1):
+            tier_jobs = [s for s in sj if _tier(rows[s.job_id]) == tier]
+            if tier == 1:
+                tier_jobs = [s for s in tier_jobs if (wr / "jobs" / (f"P6-diagnostic_policy-s{s.init_seed}" if "adapt" in s.job_id else f"P2-ce-s{s.init_seed}") / "receipt.json").is_file()]
+            if not tier_jobs: continue
+            tier_jobs = [replace(s, device=devices[i % len(devices)]) for i, s in enumerate(tier_jobs)]
+            rem_min = max(0.0, float(session_minutes) - (time.perf_counter() - t_start) / 60.0)
+            adm = orch.admit_slice(tier_jobs, measured_seconds_per_update=p90, per_job_disk_bytes=64 * 2**20 if S.full else 1024, parallel_workers=len(devices), outer_remaining_minutes=rem_min, startup_overhead_seconds=60.0 if S.full else 0.0)
+            run = [s for s in tier_jobs if s.job_id in adm["admitted_job_ids"]]
+            cmd = lambda j, _d: (sys.executable, "-m", "experiments.avendi_y3.module", "--job", j.job_id, "--work-root", str(wr), "--device", j.device, "--scale", "full" if S.full else "tiny", "--input-roots", ",".join(input_roots))
+            wres = orch.run_waves(run, command_builder=cmd, devices=tuple(devices)) if run else {"status": "NOTHING_ADMITTED"}
+            waves.append({"tier": tier, "admitted": adm["admitted_job_ids"], "deferred": adm.get("deferred_pending_job_ids", []), "ran": [s.job_id for s in run], "status": wres.get("status"), "devices_used": sorted({s.device for s in run})})
+            ran_ids.update(s.job_id for s in run)
+    else:
+        n_devs = max(1, len(devices))
+        while True:
+            rem_min = float(session_minutes) - (time.perf_counter() - t_start) / 60.0
+            if rem_min <= 15.0: break
+            cur_done = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
+            rem = sorted([rows[j] for j in rows if j not in cur_done], key=lambda r: (_tier(r), _t0_prio(r)))
+            if not rem: break
+            t0_rows = [r for r in rem if _tier(r) == 0]
+            if t0_rows: tier, tr_rows = 0, t0_rows
+            else: tier, tr_rows = 1, [r for r in rem if _tier(r) == 1 and (wr / "jobs" / (f"P6-diagnostic_policy-s{r['init_seed']}" if "adapt" in r["job_id"] else f"P2-ce-s{r['init_seed']}") / "receipt.json").is_file()]
+            if not tr_rows: break
+            obs_w, obs_u, obs_n = 0.0, 0, 0
+            for rc in (wr / "jobs").glob("*/receipt.json"):
+                d_r = json.loads(rc.read_text(encoding="utf-8"))
+                if d_r.get("stage") != "P1" and int(d_r.get("completed_updates", 0)) > 0:
+                    obs_w += float(d_r.get("wall_seconds", 0.0)); obs_u += int(d_r["completed_updates"]); obs_n += 1
+            cur_p90 = max(1e-6, obs_w / obs_u) if (obs_n >= 2 and obs_u > 0) else p90
+            tjobs = [SessionJob(r["job_id"], r["arm"], r["init_seed"], r.get("order_seed", r["init_seed"]), _job_upd(r, S), device=devices[i % n_devs]) for i, r in enumerate(tr_rows)]
+            adm = orch.admit_slice(tjobs, measured_seconds_per_update=cur_p90, per_job_disk_bytes=32 * 2**20 if S.full else 1024, parallel_workers=n_devs, outer_remaining_minutes=max(0.0, rem_min), startup_overhead_seconds=10.0 if S.full else 0.0)
+            run_list = [s for s in tjobs if s.job_id in adm["admitted_job_ids"]]
+            if not run_list:
+                if rem_min > 25.0: run_list = tjobs[:n_devs]
+                else: break
+            slice_statuses, slice_ran, before_done = [], [], len(cur_done)
+            for st in range(0, len(run_list), n_devs):
+                if (float(session_minutes) - (time.perf_counter() - t_start) / 60.0) <= 15.0: break
+                chunk = [replace(s, device=devices[i % n_devs]) for i, s in enumerate(run_list[st : st + n_devs])]
+                cmd = lambda j, _d: (sys.executable, "-m", "experiments.avendi_y3.module", "--job", j.job_id, "--work-root", str(wr), "--device", j.device, "--scale", "full" if S.full else "tiny", "--input-roots", ",".join(input_roots))
+                wres = orch.run_waves(chunk, command_builder=cmd, devices=tuple(devices), resume=(wr / "COMPLETED_JOBS.json").is_file())
+                slice_statuses.append(str(wres.get("status", ""))); slice_ran.extend(s.job_id for s in chunk); ran_ids.update(s.job_id for s in chunk)
+            now_after = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
+            deferred = [r["job_id"] for r in rem if r["job_id"] not in now_after]
+            waves.append({"tier": tier, "admitted": [s.job_id for s in run_list], "deferred": deferred, "ran": slice_ran, "status": slice_statuses[-1] if slice_statuses else "TIME_GUARD_STOP", "devices_used": sorted({s.device for s in run_list})})
+            if len(now_after) <= before_done: break
     now_done = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
     still_pending = [r["job_id"] for r in pending if r["job_id"] not in now_done]
     _dump(wr / "PENDING_QUEUE.json", {"pending_job_ids": still_pending, "next_resumable_job_id": still_pending[0] if still_pending else None, "total_pending": len(still_pending)})
@@ -983,7 +1039,22 @@ def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequ
     ev_files = {str(p.relative_to(wr)): p for p in (wr / "jobs").rglob("*") if p.is_file() and p.suffix in (".npz", ".json") and p.name != "receipt_body.json"}
     ev_files.update({str(p.relative_to(wr)): p for p in (wr / "studies").rglob("receipt.json")})
     full_files = {**sum_files, **ev_files, **{str(p.relative_to(wr)): p for p in (wr / "jobs").rglob("job_archive.zip")}}
-    if (wr / "ckpts").is_dir(): full_files.update({str(p.relative_to(wr)): p for p in (wr / "ckpts").rglob("*") if p.is_file()})
+    if (wr / "ckpts").is_dir():
+        for lin_dir in sorted((wr / "ckpts").iterdir()):
+            if not lin_dir.is_dir(): continue
+            keep_shas: set[str] = set()
+            for meta_name in ("LATEST", "MILESTONES"):
+                mp = lin_dir / meta_name
+                if mp.is_file():
+                    full_files[str(mp.relative_to(wr))] = mp
+                    if meta_name == "LATEST":
+                        keep_shas.add(mp.read_text(encoding="ascii").strip())
+                    else:
+                        try: keep_shas.update(str(v) for v in json.loads(mp.read_text(encoding="utf-8")).get("milestones", {}).values())
+                        except Exception: pass
+            for sh in sorted(keep_shas):
+                odir = lin_dir / "objects" / sh
+                if odir.is_dir(): full_files.update({str(p.relative_to(wr)): p for p in odir.rglob("*") if p.is_file()})
     exp = export_session_archives(wr, wr / "archives", prefix="AVENDI_Y3", summary_files=sum_files, evidence_files=ev_files or sum_files, analysis_files=sum_files, full_files=full_files, status=status, source_commit=plan["source_commit"])
     final["archives"], final["archive_sha256"], final["summary_bytes"] = exp["archives"], exp["archive_sha256"], Path(exp["archives"]["summary"]).stat().st_size
     _dump(wr / "FINAL_STATUS.json", final)
@@ -1017,11 +1088,12 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Avendi V8-Y3 Campaign CLI")
     ap.add_argument("--mode", default="CANARY", choices=("CANARY", "FULL"))
     ap.add_argument("--work-root", type=Path, default=Path("runs/avendi_y3"))
-    ap.add_argument("--session-minutes", type=float, default=300.0)
+    ap.add_argument("--session-minutes", type=float, default=660.0)
     ap.add_argument("--resume-input", type=str, default=None)
     ap.add_argument("--input-roots", type=str, default="")
     ap.add_argument("--device", type=str, default="cpu")
     ap.add_argument("--inventory-only", action="store_true")
+    ap.add_argument("--no-one-go", action="store_true")
     ap.add_argument("--job", type=str, default=None)
     ap.add_argument("--scale", default="full", choices=("full", "tiny"))
     args = ap.parse_args(argv)
@@ -1035,7 +1107,7 @@ def main(argv: list[str] | None = None) -> int:
     roots = [r.strip() for r in args.input_roots.split(",") if r.strip()] + ([args.resume_input] if args.resume_input else [])
     if args.mode == "FULL":
         if S.full and torch.cuda.device_count() < 2: raise SystemExit("FULL requires both T4 GPUs (torch.cuda.device_count() >= 2)")
-        disp = run_full_campaign(wr=args.work_root, S=S, session_minutes=args.session_minutes, input_roots=roots, resume_input=args.resume_input)
+        disp = run_full_campaign(wr=args.work_root, S=S, session_minutes=args.session_minutes, input_roots=roots, resume_input=args.resume_input, one_go=not args.no_one_go)
         print(json.dumps(aggregate_full(args.work_root, S, disp, roots), indent=2, default=_jd)); return 0
     print(json.dumps(run_avendi_y3_campaign(mode=args.mode, work_root=args.work_root, session_minutes=args.session_minutes, resume_input=args.resume_input, input_roots=roots, device=args.device), indent=2))
     return 0

@@ -99,7 +99,9 @@ def decode_continuations_any(model: nn.Module, prompt_ids: Sequence[int], gold_c
     ap_t = torch.tensor(AP_IDS, device=dev, dtype=torch.long)
     gold_id, rival_id = UTF8.encode(gold_char)[0], UTF8.encode(rival_char)[0]
     fwd = (lambda x: model.forward_tokens(x)[0]) if hasattr(model, "forward_tokens") else (lambda x: _core_forward(model, x)[0])
-    step0 = fwd(torch.tensor([list(prompt_ids)], device=dev, dtype=torch.long))[0, -1].float()
+    max_ctx = int(getattr(getattr(model, "spec", None), "context_length", 128))
+    pids = list(prompt_ids)[: max(1, max_ctx - max_new)]
+    step0 = fwd(torch.tensor([pids], device=dev, dtype=torch.long))[0, -1].float()
     out: dict[str, Any] = {
         "first_logits_260": step0.cpu().numpy().astype(np.float32),
         "signed_margin": float((step0[gold_id] - step0[rival_id]).item()),
@@ -107,9 +109,9 @@ def decode_continuations_any(model: nn.Module, prompt_ids: Sequence[int], gold_c
         "ap_gold_rank": int((step0[ap_t] > step0[gold_id]).sum().item()) + 1,
     }
     for mode in ("raw", "ap_constrained", "gold_first_byte"):
-        seq, gen = list(prompt_ids), []
+        seq, gen = list(pids), []
         for st in range(max_new):
-            lg = fwd(torch.tensor([seq], device=dev, dtype=torch.long))[0, -1].float()
+            lg = step0 if st == 0 else fwd(torch.tensor([seq], device=dev, dtype=torch.long))[0, -1].float()
             nxt = gold_id if (st == 0 and mode == "gold_first_byte") else (int(ap_t[int(lg[ap_t].argmax())]) if (st == 0 and mode == "ap_constrained") else int(lg.argmax()))
             seq.append(nxt); gen.append(nxt)
             if nxt == UTF8.eos_id: break
@@ -120,28 +122,74 @@ def decode_continuations_any(model: nn.Module, prompt_ids: Sequence[int], gold_c
 
 
 @torch.no_grad()
-def eval_byte_model_on_families(model: nn.Module, families: Sequence[dict[str, Any]], *, prompt_key: str = "public_prompt", gold_key: str = "gold", rival_key: str = "rival", inverse_bij: bool = False) -> dict[str, Any]:
-    """Evaluate a trained/frozen byte model across intact crossover families, returning case predictions, family scores, and hashed failure exemplars."""
+def eval_byte_model_on_families(model: nn.Module, families: Sequence[dict[str, Any]], *, prompt_key: str = "public_prompt", gold_key: str = "gold", rival_key: str = "rival", inverse_bij: bool = False, batch_size: int = 64) -> dict[str, Any]:
+    """Evaluate a trained/frozen byte model across intact crossover families in causal-padded batches."""
     case_preds: dict[str, dict[str, Any]] = {}
     fam4, fam8, episodes, failures = {}, {}, [], {}
+    flat: list[tuple[int, int, dict[str, Any], list[int], int, int]] = []
+    max_ctx = int(getattr(getattr(model, "spec", None), "context_length", 128))
+    ans_tok, pfx_cap = UTF8.special(SpecialToken.ANSWER), max(1, max_ctx - 2)
+    for fi, fam in enumerate(families):
+        for ci, c in enumerate(fam["cells"]):
+            pfx = [UTF8.bos_id, *UTF8.encode(c[prompt_key]), ans_tok][:pfx_cap]
+            flat.append((fi, ci, c, pfx, UTF8.encode(c[gold_key])[0], UTF8.encode(c[rival_key])[0]))
+    batched: list[tuple[np.ndarray, float, float, int, list[int], int]] = []
+    if flat:
+        dev = next(model.parameters()).device
+        ap_t = torch.tensor(AP_IDS, device=dev, dtype=torch.long)
+        fwd = (lambda x: model.forward_tokens(x)[0]) if hasattr(model, "forward_tokens") else (lambda x: _core_forward(model, x)[0])
+        was_training = bool(model.training)
+        model.eval()
+        try:
+            for start in range(0, len(flat), max(1, int(batch_size))):
+                chunk = flat[start : start + max(1, int(batch_size))]
+                B, ml = len(chunk), max(len(x[3]) for x in chunk)
+                x0 = torch.full((B, ml), UTF8.pad_id, device=dev, dtype=torch.long)
+                lens = torch.tensor([len(x[3]) for x in chunk], device=dev, dtype=torch.long)
+                for i, item in enumerate(chunk):
+                    x0[i, : len(item[3])] = torch.tensor(item[3], device=dev, dtype=torch.long)
+                rows = torch.arange(B, device=dev)
+                step0 = fwd(x0)[rows, lens - 1].float()
+                gold_t = torch.tensor([x[4] for x in chunk], device=dev, dtype=torch.long)
+                rival_t = torch.tensor([x[5] for x in chunk], device=dev, dtype=torch.long)
+                ap_logits = step0[:, ap_t]
+                raw_t0 = step0.argmax(-1)
+                ap_t0 = ap_t[ap_logits.argmax(-1)]
+                margins = (step0[rows, gold_t] - step0[rows, rival_t]).cpu().tolist()
+                ap_mass = F.softmax(step0, dim=-1)[:, ap_t].sum(-1).cpu().tolist()
+                ranks = ((ap_logits > step0[rows, gold_t].unsqueeze(-1)).sum(-1) + 1).cpu().tolist()
+                x1 = torch.full((B, ml + 1), UTF8.pad_id, device=dev, dtype=torch.long)
+                x1[:, :ml] = x0
+                x1[rows, lens] = raw_t0
+                raw_t1 = fwd(x1)[rows, lens].argmax(-1).cpu().tolist()
+                raw_t0_l, ap_t0_l, logits_np = raw_t0.cpu().tolist(), ap_t0.cpu().tolist(), step0.cpu().numpy().astype(np.float32)
+                for i in range(B):
+                    t0, t1 = int(raw_t0_l[i]), int(raw_t1[i])
+                    gen = [t0] if t0 == UTF8.eos_id else [t0, t1]
+                    batched.append((logits_np[i], float(margins[i]), float(ap_mass[i]), int(ranks[i]), gen, int(ap_t0_l[i])))
+        finally:
+            model.train(was_training)
+    idx = 0
     for fam in families:
         f_raw4 = f_raw8 = True
         for ci, c in enumerate(fam["cells"]):
-            pfx = [UTF8.bos_id, *UTF8.encode(c[prompt_key]), UTF8.special(SpecialToken.ANSWER)][:128]
-            dec = decode_continuations_any(model, pfx, c[gold_key], c[rival_key], max_new=2)
-            raw_char = dec["raw"]["first_char"]
+            first_logits, signed_margin, p_ans, ap_rank, gen, ap_t0 = batched[idx]; idx += 1
+            gold_id = UTF8.encode(c[gold_key])[0]
+            raw_char = chr(gen[0] - 4) if gen and 4 <= gen[0] < 132 else "?"
+            ap_char = chr(ap_t0 - 4) if 4 <= ap_t0 < 132 else "?"
+            exact_eos = gen == [gold_id, UTF8.eos_id]
+            cat = "none" if exact_eos else ("action_class" if gen and gen[0] not in AP_IDS else ("wrong_letter" if gen and gen[0] != gold_id else "termination"))
             pred_sym = next((k for k, v in c["bijection"].items() if v == raw_char), raw_char) if inverse_bij and "bijection" in c else raw_char
             gold_cmp = c["gold"] if inverse_bij else c[gold_key]
-            raw_ok = bool(dec["raw"]["exact_eos"] and pred_sym == gold_cmp)
-            ap_ok = bool(dec["ap_constrained"]["first_char"] == c[gold_key])
+            raw_ok = bool(exact_eos and pred_sym == gold_cmp)
+            ap_ok = bool(ap_char == c[gold_key])
             sign_mult = 1.0 if ci in (0, 3, 4, 7) else -1.0
-            case_preds[c["world_id"]] = {"raw_exact_correct": raw_ok, "ap_constrained_correct": ap_ok, "signed_margin": dec["signed_margin"], "endpoint_margin": sign_mult * dec["signed_margin"], "ap_rank": dec["ap_gold_rank"], "p_answer_mass": dec["p_answer_mass"], "first_char": raw_char, "generated_ids": dec["raw"]["generated_ids"], "first_logits": dec["first_logits_260"]}
-            episodes.append({"world_id": c["world_id"], "base_world_id": c["family_id"], "family": "Y3", "form": c.get("cell_key", "c"), "correct": raw_ok, "steps": [{"executed_op": "ANSWER" if dec["raw"]["first_char"] in SYMBOLS else "OTHER", "executed_arg": pred_sym}]})
+            case_preds[c["world_id"]] = {"raw_exact_correct": raw_ok, "ap_constrained_correct": ap_ok, "signed_margin": signed_margin, "endpoint_margin": sign_mult * signed_margin, "ap_rank": ap_rank, "p_answer_mass": p_ans, "first_char": raw_char, "generated_ids": gen, "first_logits": first_logits}
+            episodes.append({"world_id": c["world_id"], "base_world_id": c["family_id"], "family": "Y3", "form": c.get("cell_key", "c"), "correct": raw_ok, "steps": [{"executed_op": "ANSWER" if raw_char in SYMBOLS else "OTHER", "executed_arg": pred_sym}]})
             if not raw_ok:
-                cat = dec["raw"]["first_failure"]
                 bucket = failures.setdefault(cat, [])
                 if len(bucket) < 3:
-                    bucket.append({"world_id_hash": sha256(c["world_id"].encode()).hexdigest()[:12], "expected": gold_cmp, "generated_ids": dec["raw"]["generated_ids"], "first_failure": cat, "rival": c.get("rival")})
+                    bucket.append({"world_id_hash": sha256(c["world_id"].encode()).hexdigest()[:12], "expected": gold_cmp, "generated_ids": gen, "first_failure": cat, "rival": c.get("rival")})
             if ci < 4: f_raw4 = f_raw4 and raw_ok
             f_raw8 = f_raw8 and raw_ok
         fam4[fam["family_id"]] = 1.0 if f_raw4 else 0.0
