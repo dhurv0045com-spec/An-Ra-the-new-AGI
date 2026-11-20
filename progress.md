@@ -350,3 +350,8 @@ Y3 learned models, plugin acceptance, target profiling and notebook execution re
 - Upgraded `experiments/avendi_y3/plan.py` and pinned `notebooks/AVENDI_V8_Y3_T4X2.ipynb` with `OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`, `ONE_GO = True`, preflight-before-launch gate, and zero-copy `os.link` archive mirroring (`--check-notebook` `match=true`).
 - Verified on CPU: `anra_v5.palantiri doctor` (`GREEN_SIGNAL`), clean `git archive 531a5aeb` (`54` main, `24` short, `9` P6 adapt, `50` studies, `44` uses), and `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py -n auto -q` (`27 passed in 136.05s`).
 - Pending owner GPU execution: click Run All in `notebooks/AVENDI_V8_Y3_T4X2.ipynb` on Kaggle 2xT4 (`OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`).
+
+### 2026-11-21 | Antigravity | Publish standalone orchestrator_agent.md and execution_agent.md manuals
+- Created dedicated `orchestrator_agent.md` (expensive Research Architect/Planner) and `execution_agent.md` (fast Execution/Builder) manuals encoding the Quality-First Override Law, verified live `anra_v5.palantiri` signatures, Kaggle 2xT4 disk/speed checklists, and battle-tested gotchas.
+- Cross-linked both manuals from `agent.md` and synced byte-identical 3-way mirrors across root, `anra_v5/planthir/`, and `research/planthir/`.
+- Verified on CPU: `pytest tests/test_planthir_declarative_cli_and_usability.py tests/test_planthir_v2_audit_upgrades.py tests/test_elendril_tree.py -n auto -q` (`18 passed in 104.29s`).

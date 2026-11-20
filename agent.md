@@ -1,6 +1,13 @@
 # Planthir / Palantiri (`anra_v5.planthir` / `anra_v5.palantiri` / `anra_v5.planter`) — Agent Guide
 
-> **Canonical Manual:** Guide for any AI agent installing, verifying, or running controlled experiments with the **Planthir** experiment system (aliases: `planthir`, `palantiri`, `planter`; Python modules `anra_v5.planthir`, `anra_v5.palantiri`, `anra_v5.planter`). Kept identically at root `agent.md` and `anra_v5/planthir/agent.md`. Follow root [AGENTS.md](AGENTS.md) at all times. Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity studies.
+> **Canonical Manual:** Guide for any AI agent installing, verifying, or running controlled experiments with the **Planthir** experiment system (aliases: `planthir`, `palantiri`, `planter`; Python modules `anra_v5.planthir`, `anra_v5.palantiri`, `anra_v5.planter`). Kept identically at root `agent.md`, `anra_v5/planthir/agent.md`, and `research/planthir/agent.md`. Follow root [AGENTS.md](AGENTS.md) at all times.
+>
+> **Dedicated Two-Agent Manuals (Use These Directly for Highest Quality):**
+> - **Expensive Research Architect / Planner Agent:** Read [`orchestrator_agent.md`](orchestrator_agent.md) to design the falsifiable experiment plan, hardware/disk budget, and execution handoff.
+> - **Fast Execution / Builder Agent:** Read [`execution_agent.md`](execution_agent.md) to implement, verify, and ship the plan on top of `anra_v5.palantiri`.
+> - **Quality-First Override Law:** Planthir is in a starting condition. Both dedicated manuals explicitly authorize overriding soft engineering defaults or incomplete/buggy Planthir helpers whenever doing so increases scientific rigor or production GPU reliability (while keeping hard scientific custody laws unbreakable and logging gaps in `PALANTIRI_FEEDBACK`).
+>
+> Read [the reliability & upgrade handoff](research/planthir/GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) and [the 6-task productivity protocol](research/planthir/SIX_TASK_PRODUCTIVITY_STUDY_PROTOCOL.md) when planning infrastructure changes or productivity studies.
 
 ---
 
@@ -21,7 +28,7 @@ Execute these steps immediately without asking redundant questions:
 2. **Pull the technology files from `origin/<source-branch>` only if `anra_v5/planthir` is absent (or older) in the current branch:**
    ```bash
    git fetch origin <source-branch>
-   git checkout origin/<source-branch> -- anra_v5/planthir anra_v5/palantiri anra_v5/planter anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md research/planthir
+   git checkout origin/<source-branch> -- anra_v5/planthir anra_v5/palantiri anra_v5/planter anra_v5/elendril/v8 pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json agent.md orchestrator_agent.md execution_agent.md research/planthir
    ```
    *(If you are already on `hitchhiker`, `Elendril`, `palantiri`, or `planthir`, these files are already installed locally.)*
 3. **Run preflight self-checks (`GREEN_SIGNAL` + `6/6` fault calibration):**
@@ -35,6 +42,8 @@ Execute these steps immediately without asking redundant questions:
 ---
 
 ## 0.1 Two-Agent Framework Protocol (Expensive Prompt Architect + Fast Execution Builder)
+
+> **Primary Entry Points:** Point the expensive planning agent directly to [`orchestrator_agent.md`](orchestrator_agent.md) and the fast builder agent directly to [`execution_agent.md`](execution_agent.md). Both standalone manuals include the **Quality-First Override Law** (soft defaults and buggy/incomplete Planthir helpers may be overridden to maximize scientific & production quality, with overrides logged in `PALANTIRI_FEEDBACK`).
 
 This workflow pairs **(1) a higher-capability Research Architect model** that authors the experiment prompt with **(2) a faster, cheaper Builder model** that implements and tests it on top of `anra_v5.palantiri`. The goal is **minimum tokens & lines (`~70%` smaller, `~3x` faster) with ZERO loss of scientific quality (`9.8/10`)**.
 
@@ -254,7 +263,7 @@ All CLI subcommands emit strict JSON (`0` = valid/verified, `1` = error). Deprec
     anra_v5/planthir anra_v5/palantiri anra_v5/planter \
     anra_v5/elendril v5_contracts v5_evaluation v5_model v5_training \
     pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json \
-    agent.md research/planthir tests/test_planthir_*.py
+    agent.md orchestrator_agent.md execution_agent.md research/planthir tests/test_planthir_*.py
   PYTHONPATH=. python -m anra_v5.planthir doctor
   ```
 - **Windows PowerShell:**
@@ -264,7 +273,7 @@ All CLI subcommands emit strict JSON (`0` = valid/verified, `1` = error). Deprec
     anra_v5/planthir anra_v5/palantiri anra_v5/planter `
     anra_v5/elendril v5_contracts v5_evaluation v5_model v5_training `
     pyproject.toml tools/audit_tree.py docs/TREE_INVENTORY.json `
-    agent.md research/planthir tests/test_planthir_*.py
+    agent.md orchestrator_agent.md execution_agent.md research/planthir tests/test_planthir_*.py
   $env:PYTHONPATH = "."
   python -m anra_v5.planthir doctor
   ```
