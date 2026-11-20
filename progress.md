@@ -381,3 +381,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-21 | Antigravity | Publish pinned X2/X3 Kaggle 2xT4 notebook and updated handoff docs
 - Regenerated `notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` (`18,637` bytes, SHA-256 `90b707f165f8252ce11eaae2fffe8465615bde653cb9b498a1e44263faeea7d4`) pinned to Commit 2 `bcde233f213c77342757a4777fd4e0f8730db589` and repaired X1 worker `98b9e3318bfa3c02024685bd8668323065f62811` (`8e62ca0f` compat-mapped), passing `--check`.
 - Updated `Experiment Result/V8-X2/TEMPLATE_METRICS.json` (`192` logical rows: `174` mandatory + `18` conditional, `GATED_PENDING_X2_COMPLETE`) and `research/v8-x2/IMPLEMENTATION_HANDOFF.md` with Commit 1/2/3 workflow (`OWNER_RUN_01.md` untouched).
+
+### 2026-11-21 | Antigravity | Sync branch-neutral orchestrator_agent.md, execution_agent.md & agent.md onto Elendril
+- Synced `c42097ea` `orchestrator_agent.md`, `execution_agent.md`, `agent.md` (all 3 mirrors byte-identical), and `tests/test_planthir_two_agent_manuals.py` onto `Elendril`, adding the Quality-First Override Law, `pending_confirm_jobs == []` lock guard, `u0000` every-architecture smoke checks, and `PALANTIRI_FEEDBACK` logging.
+- Preserved all existing Elendril V8-X2/X3 modules, `bcde233f` replay fixes, B0 worker fix, pinned notebooks (`fa7c58db`), and `OWNER_RUN_01.md` untouched.
+- Verified inside `Elendril` worktree: `tests/test_planthir_two_agent_manuals.py` (`1 passed`), `test_planthir_declarative_cli_and_usability.py -k "cli_docs or alias"` (`2 passed`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
