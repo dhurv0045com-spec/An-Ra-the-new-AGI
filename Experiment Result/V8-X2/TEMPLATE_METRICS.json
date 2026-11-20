@@ -2,11 +2,19 @@
   "schema": "elendril-x2-metrics-template-v1",
   "program": "ELENDRIL-V8-X2",
   "qualification_stage": "CPU_QUALIFIED_READY_FOR_OWNER_CANARY",
-  "runtime_source_commit": "596c5e3dd07cb30bd636b68250d11d960adf67ae",
-  "legacy_x1_source_commit": "8e62ca0f2046c0f07910fdd20abee40508631227",
+  "runtime_source_commit": "bcde233f213c77342757a4777fd4e0f8730db589",
+  "legacy_x1_source_commit": "98b9e3318bfa3c02024685bd8668323065f62811",
+  "legacy_x1_original_source_commit": "8e62ca0f2046c0f07910fdd20abee40508631227",
   "notebook_path": "notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb",
-  "notebook_sha256": "2b7b4953c50b245c97679fb411e33ff1896890bf03413d1c8bc6683f2972e5a9",
+  "notebook_sha256": "90b707f165f8252ce11eaae2fffe8465615bde653cb9b498a1e44263faeea7d4",
   "base_full_job_equivalents": 126,
+  "obligation_ledger": {
+    "logical_rows": 192,
+    "mandatory_rows": 174,
+    "conditional_rows": 18,
+    "unique_worker_units": 174
+  },
+  "x3_gate_policy": "GATED_PENDING_X2_COMPLETE",
   "separate_ledgers": {
     "evidenced_a0_jobs": 6,
     "frozen_a0_diagnosis_jobs": 6,
