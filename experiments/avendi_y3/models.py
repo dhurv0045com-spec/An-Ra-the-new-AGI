@@ -403,7 +403,9 @@ class P6AdaptivePolicy(nn.Module):
         if update_memory and not self.writer_frozen:
             with torch.no_grad():
                 slot = int(inp_sym) % 4
-                self.mem_keys[slot], self.mem_vals[slot], self.mem_used[slot] = self.inp_emb.weight[inp_sym].detach(), F.one_hot(torch.tensor(obs_sym), 4).float(), True
+                self.mem_keys[slot] = self.inp_emb.weight[inp_sym].detach()
+                self.mem_vals[slot] = F.one_hot(torch.tensor(obs_sym, device=self.mem_vals.device), 4).float()
+                self.mem_used[slot] = True
 
     def ablate_memory(self, mode: str) -> None:
         if mode == "erase": self.mem_vals.zero_(); self.mem_used.zero_()
@@ -416,19 +418,25 @@ class P6AdaptivePolicy(nn.Module):
         return v
 
     def forward(self, query_sym: torch.Tensor, pair_feat: torch.Tensor | None = None, route: str = "memory") -> torch.Tensor:
-        q, B = self.inp_emb(query_sym), query_sym.shape[0]
-        feed = (self.mem_vals * self.mem_used.unsqueeze(-1).float()) if route == "memory" else (self._ctx_vals() if route == "context" else torch.zeros(4, 4, device=q.device))
-        pf = torch.zeros(B, 32, device=q.device) if pair_feat is None else pair_feat.reshape(B, 32).to(q.device)
+        dev = self.inp_emb.weight.device
+        q = self.inp_emb(query_sym.to(dev))
+        B = q.shape[0]
+        feed = (self.mem_vals * self.mem_used.unsqueeze(-1).float()) if route == "memory" else (self._ctx_vals() if route == "context" else torch.zeros(4, 4, device=dev))
+        pf = torch.zeros(B, 32, device=dev) if pair_feat is None else pair_feat.reshape(B, 32).to(dev)
         return self.policy_head(torch.cat([q, feed.reshape(1, 16).expand(B, 16), pf], dim=-1))
 
 
 def apply_bounded_weight_update(model: nn.Module, x_sym: int, target_sym: int, *, lr: float = 1e-4, max_rel_norm: float = 0.001, sham: bool = False, pair_feat: torch.Tensor | None = None) -> tuple[dict[str, torch.Tensor], dict[str, Any]]:
     """Run <=1 public-feedback CE step, cap L2 update <= 0.001*||theta_0||_2 on float params, and verify rollback (U43)."""
+    dev = next(model.parameters()).device
     p_orig, state_orig = {k: p.detach().clone() for k, p in model.named_parameters()}, {k: v.detach().clone() for k, v in model.state_dict().items()}
     parent_norm = math.sqrt(sum(float(v.float().pow(2).sum()) for v in p_orig.values()))
     if not sham:
+        x_t = torch.tensor([x_sym], device=dev)
+        y_t = torch.tensor([target_sym], device=dev)
+        pf_t = None if pair_feat is None else pair_feat.to(dev)
         with torch.enable_grad():
-            model.zero_grad(); F.cross_entropy((model(torch.tensor([x_sym])) if pair_feat is None else model(torch.tensor([x_sym]), pair_feat))[:, :4], torch.tensor([target_sym])).backward()
+            model.zero_grad(); F.cross_entropy((model(x_t) if pf_t is None else model(x_t, pf_t))[:, :4], y_t).backward()
         with torch.no_grad():
             for p in model.parameters():
                 if p.grad is not None: p.sub_(lr * p.grad)

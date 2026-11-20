@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import tempfile
 import time
 import zipfile
 from types import SimpleNamespace
@@ -237,6 +238,25 @@ def _profile_device(device: str, full: bool, s20: bool | None = None) -> dict[st
     return {"p90_sec_per_update": _bench("S20" if (s20 and full) else "S3"), "device": str(dev), "timed_updates": n_upd}
 
 
+def _find_y1_ckpt_root(roots: Sequence[str], lineages: Sequence[str], tmp_dir: Path) -> Path | None:
+    existing = [Path(r) for r in roots if r and Path(r).exists()]
+    for idx, p in enumerate(existing):
+        if p.is_dir():
+            try:
+                cand = locate_checkpoint_store_root(p, temp_extract_dir=tmp_dir / f"d{idx}", expected_lineages=lineages)
+                if cand is not None and any((cand / lin).is_dir() for lin in lineages): return cand
+            except Exception:
+                continue
+    for idx, p in enumerate(existing):
+        if p.is_file() and p.suffix.lower() == ".zip":
+            try:
+                cand = locate_checkpoint_store_root(p, temp_extract_dir=tmp_dir / f"z{idx}", expected_lineages=lineages)
+                if cand is not None and any((cand / lin).is_dir() for lin in lineages): return cand
+            except Exception:
+                continue
+    return None
+
+
 def run_avendi_y3_campaign(*, mode: str = "CANARY", work_root: Path | str = "runs/avendi_y3", session_minutes: float = 300.0, resume_input: str | None = None, input_roots: Sequence[str] = (), device: str = "cpu", in_process_runner: Callable[..., Any] | None = None) -> dict[str, Any]:
     """Execute zero-stub P0-P7 Avendi Y3 stages via CampaignOrchestrator, producing 50 study and 44 platform receipts."""
     wr = Path(work_root); wr.mkdir(parents=True, exist_ok=True)
@@ -286,9 +306,11 @@ def run_avendi_y3_campaign(*, mode: str = "CANARY", work_root: Path | str = "run
         return {"status": "COMPLETE", "oracle_ok": tok_ok, "custody_ok": cust["passed"], "shortcuts_ok": sc["all_shortcuts_zero_families"]}
 
     def _p1(_ctx: dict[str, Any]) -> dict[str, Any]:
-        ckpt_root = next((locate_checkpoint_store_root(Path(r), expected_lineages=plan["frozen_lineages"]) for r in input_roots if locate_checkpoint_store_root(Path(r), expected_lineages=plan["frozen_lineages"])), None)
-        froz = orch.evaluate_frozen_checkpoints(ckpt_root, expected_lineages=plan["frozen_lineages"], device=dev)
-        subj = load_legacy_byte_checkpoint(ckpt_root, lineage_id=plan["frozen_lineages"][0], device=dev)["model"] if ckpt_root else AvendiByteModel(get_byte_model_spec("S3", cpu_canary=cpu_canary), seed=7).to(dev)
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            ckpt_root = _find_y1_ckpt_root(input_roots, plan["frozen_lineages"], Path(tmp))
+            froz = orch.evaluate_frozen_checkpoints(ckpt_root, expected_lineages=plan["frozen_lineages"], device=dev)
+            subj = load_legacy_byte_checkpoint(ckpt_root, lineage_id=plan["frozen_lineages"][0], device=dev)["model"] if ckpt_root else AvendiByteModel(get_byte_model_spec("S3", cpu_canary=cpu_canary), seed=7).to(dev)
+            ckpt_root_s = str(ckpt_root) if ckpt_root is not None else "None"
         scope = "frozen_y1_parent" if ckpt_root else "unmounted_y1_reference_subject"
         pol = AvendiY3Policy(subj, get_byte_model_spec("S3", cpu_canary=cpu_canary), model_identity=scope)
         roll = batched_rollout(pol, AvendiY3Kernel(), pools["eval_worlds"][:8], batch_size=4)
@@ -745,32 +767,33 @@ def _fork_job(job: dict[str, Any], S: Any, fams: dict[str, Any], dev: str, wr: P
     return {"train": stats, "parent": ev0, "child": ev, "cap": cap, "slot_composition": {"direct_or_a": n_a, "info_or_b": n_b}}
 
 
-def _pair_feat(b: dict[str, Any]) -> torch.Tensor:
-    return F.one_hot(torch.tensor(b["pair_laws"]), 4).float().reshape(1, 32)
+def _pair_feat(b: dict[str, Any], dev: Any = None) -> torch.Tensor:
+    return F.one_hot(torch.tensor(b["pair_laws"], device=dev), 4).float().reshape(1, 32)
 
 
 def _p6_batch_loss(m: P6AdaptivePolicy, chunk: Sequence[dict[str, Any]], recipe: Any) -> torch.Tensor:
-    tot = 0.0
+    dev = next(m.parameters()).device
+    tot = torch.zeros((), device=dev)
     for i, b in enumerate(chunk):
         m.reset_episode()
         mode = random.Random(int(sha256(b["block_id"].encode()).hexdigest()[:8], 16)).random()
         if mode < 0.6: m.write_feedback(b["diagnostic_input"], b["info_obs"])
         elif mode < 0.8: m.write_feedback(b["shared_input"], b["irrel_obs"])
-        out = m(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b))
-        tot = tot + F.cross_entropy(out[:, :4], torch.tensor([b["eval_gold"]])) + 0.5 * F.cross_entropy(out[:, 4:6], torch.tensor([int(np.argmax(b["menu_values"][3:5]))]))
+        out = m(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev))
+        tot = tot + F.cross_entropy(out[:, :4], torch.tensor([b["eval_gold"]], device=dev)) + 0.5 * F.cross_entropy(out[:, 4:6], torch.tensor([int(np.argmax(b["menu_values"][3:5]))], device=dev))
     m.reset_episode()
     return tot / len(chunk)
 
 
 @torch.no_grad()
 def _p6_eval(pol: P6AdaptivePolicy, blocks: Sequence[dict[str, Any]], seed: int) -> dict[str, Any]:
-    rng = random.Random(seed)
+    dev, rng = next(pol.parameters()).device, random.Random(seed)
     def acc(b, fb, route, state=None):
         pol.reset_episode()
         if fb == "relevant": pol.write_feedback(b["diagnostic_input"], b["info_obs"])
         elif fb == "irrelevant": pol.write_feedback(b["shared_input"], b["irrel_obs"])
         elif fb == "incorrect": pol.write_feedback(b["diagnostic_input"], b["wrong_obs"])
-        return int(pol(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b), route)[:, :4].argmax().item() == b["eval_gold"])
+        return int(pol(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev), route)[:, :4].argmax().item() == b["eval_gold"])
     grid = {f"{fb}/{rt}": float(np.mean([acc(b, fb, rt) for b in blocks])) for fb in ("none", "relevant", "irrelevant", "incorrect") for rt in ("context", "memory")}
     mem_ctl = {}
     for ctl in ("erase", "shuffle", "freeze_writer"):
@@ -779,12 +802,12 @@ def _p6_eval(pol: P6AdaptivePolicy, blocks: Sequence[dict[str, Any]], seed: int)
             pol.reset_episode()
             if ctl != "freeze_writer": pol.write_feedback(b["diagnostic_input"], b["info_obs"]); pol.ablate_memory(ctl)
             else: pol.ablate_memory(ctl); pol.write_feedback(b["diagnostic_input"], b["info_obs"])
-            r.append(int(pol(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b), "memory")[:, :4].argmax().item() == b["eval_gold"]))
+            r.append(int(pol(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev), "memory")[:, :4].argmax().item() == b["eval_gold"]))
         mem_ctl[ctl] = float(np.mean(r))
     persist = []
     for b in blocks:
         pol.reset_episode(); pol.write_feedback(b["diagnostic_input"], b["info_obs"]); pol.clear_context()
-        persist.append(int(pol(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b), "memory")[:, :4].argmax().item() == b["eval_gold"]))
+        persist.append(int(pol(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev), "memory")[:, :4].argmax().item() == b["eval_gold"]))
     wb = {}
     for fb in ("relevant", "irrelevant", "incorrect"):
         r, norms = [], []
@@ -792,21 +815,21 @@ def _p6_eval(pol: P6AdaptivePolicy, blocks: Sequence[dict[str, Any]], seed: int)
             sd = {k: v.clone() for k, v in pol.state_dict().items()}
             obs = {"relevant": b["info_obs"], "incorrect": b["wrong_obs"], "irrelevant": b["irrel_obs"]}[fb]
             xin = b["shared_input"] if fb == "irrelevant" else b["diagnostic_input"]
-            adapted, st = apply_bounded_weight_update(pol, xin, obs, lr=1e-4, max_rel_norm=0.001, pair_feat=_pair_feat(b)); norms.append(st["applied_norm"] / max(st["parent_norm"], 1e-12))
+            adapted, st = apply_bounded_weight_update(pol, xin, obs, lr=1e-4, max_rel_norm=0.001, pair_feat=_pair_feat(b, dev)); norms.append(st["applied_norm"] / max(st["parent_norm"], 1e-12))
             pol.load_state_dict(adapted); pol.reset_episode()
-            r.append(int(pol(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b), "memory")[:, :4].argmax().item() == b["eval_gold"]))
+            r.append(int(pol(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev), "memory")[:, :4].argmax().item() == b["eval_gold"]))
             pol.load_state_dict(sd)
         wb[fb] = {"acc": float(np.mean(r)), "max_rel_update": float(max(norms))}
     util = {"learned": [], "passive": [], "random": [], "forced_informative": [], "dp_optimal": []}
     for b in blocks:
         mv = b["menu_values"]; choice = {"learned": None, "passive": "none", "random": rng.choice(("info", "common")), "forced_informative": "info", "dp_optimal": ("info" if mv[3] >= mv[4] else "common")}
-        pol.reset_episode(); out = pol(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b), "memory")
+        pol.reset_episode(); out = pol(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev), "memory")
         choice["learned"] = "info" if int(out[:, 4:6].argmax()) == 0 else "common"
         for mode, ch in choice.items():
             pol.reset_episode()
             if ch == "info": pol.write_feedback(b["diagnostic_input"], b["info_obs"])
             elif ch == "common": pol.write_feedback(b["shared_input"], b["irrel_obs"])
-            ok = int(pol(torch.tensor([b["unseen_eval_input"]]), _pair_feat(b), "memory")[:, :4].argmax().item() == b["eval_gold"])
+            ok = int(pol(torch.tensor([b["unseen_eval_input"]], device=dev), _pair_feat(b, dev), "memory")[:, :4].argmax().item() == b["eval_gold"])
             util[mode].append((1.0 if ok else -1.0) - (0.05 if ch in ("info", "common") else 0.0))
     return {"grid_acc": grid, "memory_controls": mem_ctl, "persistence_after_context_clear": float(np.mean(persist)), "weight_update": wb, "acquisition_utility": {k: float(np.mean(v)) for k, v in util.items()}, "no_info_ceiling": 0.5, "n_blocks": len(blocks), "writer": "ENGINEERED_NOT_LEARNED"}
 
@@ -817,7 +840,7 @@ def _p6_job(job: dict[str, Any], S: Any, dev: str, wr: Path, jd: Path) -> dict[s
     blocks_tr, blocks_dv = build_p6_blocks("train", S.blocks, STREAM_SEEDS["corpus"]), build_p6_blocks("dev", S.blocks_dev, STREAM_SEEDS["dev"])
     pol = P6AdaptivePolicy(32, seed)
     plan = [tuple(random.Random(seed * 7919 + u).randrange(len(blocks_tr)) for _ in range(S.batch)) for u in range(S.upd)]
-    tr = _gen_trainer(main, S, "cpu", wr, pol, get_byte_model_spec("S3", cpu_canary=True), blocks_tr, plan, lr=3e-3, objective="ce", loss_fn=_p6_batch_loss, upd=S.upd, lineage=f"y3-P6-diagnostic_policy-s{seed}", resume=job["arm"] != "diagnostic_policy")
+    tr = _gen_trainer(main, S, dev, wr, pol, get_byte_model_spec("S3", cpu_canary=True), blocks_tr, plan, lr=3e-3, objective="ce", loss_fn=_p6_batch_loss, upd=S.upd, lineage=f"y3-P6-diagnostic_policy-s{seed}", resume=job["arm"] != "diagnostic_policy")
     stats = _train(tr, S.upd) if job["arm"] == "diagnostic_policy" else {"updates": tr.state.global_update, "restored_parent": True}
     if job["arm"] != "diagnostic_policy" and tr.state.global_update < S.upd: raise RuntimeError("PARENT_MISSING:" + main["job_id"])
     return {"train": stats, "eval_dev": _p6_eval(tr.model, blocks_dv, seed), "arm": job["arm"]}
@@ -825,18 +848,24 @@ def _p6_job(job: dict[str, Any], S: Any, dev: str, wr: Path, jd: Path) -> dict[s
 
 def _p1_job(S: Any, fams: dict[str, Any], dev: str, roots: Sequence[str], jd: Path) -> dict[str, Any]:
     plan = build_plan()
-    ckpt_root = next((locate_checkpoint_store_root(Path(r), expected_lineages=plan["frozen_lineages"]) for r in roots if r and locate_checkpoint_store_root(Path(r), expected_lineages=plan["frozen_lineages"])), None)
-    res: dict[str, Any] = {"checkpoint_root": str(ckpt_root), "lineages": {}, "y2_logit_parity": "NOT_IMPLEMENTED_EVIDENCE_ZIP_FORMAT_NOT_INSPECTED"}
-    for lin in plan["frozen_lineages"]:
-        if ckpt_root is None:
-            res["lineages"][lin] = {"status": "MISSING_PARENT"}; continue
-        try:
-            ld = load_legacy_byte_checkpoint(ckpt_root, lineage_id=lin, checkpoint_sha256=Y1_EXPECTED_CKPT_SHAS[lin], device=dev)
-            m = ld["model"] if "model" in ld else ld["policy"].model
-            res["lineages"][lin] = {"status": "RESTORED", "checkpoint_sha256": Y1_EXPECTED_CKPT_SHAS[lin], **_eval_suite(m, fams, S, jd / lin)}
-        except Exception as exc:  # recorded, not suppressed: rejection becomes a blocked lineage row
-            res["lineages"][lin] = {"status": "REJECTED", "error": f"{type(exc).__name__}: {exc}"}
-    return res
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        ckpt_root = _find_y1_ckpt_root(roots, plan["frozen_lineages"], Path(tmp))
+        res: dict[str, Any] = {"checkpoint_root": str(ckpt_root) if ckpt_root is not None else "None", "lineages": {}, "y2_logit_parity": "NOT_IMPLEMENTED_EVIDENCE_ZIP_FORMAT_NOT_INSPECTED"}
+        for lin in plan["frozen_lineages"]:
+            if ckpt_root is None:
+                res["lineages"][lin] = {"status": "MISSING_PARENT"}; continue
+            ld = m = None
+            try:
+                ld = load_legacy_byte_checkpoint(ckpt_root, lineage_id=lin, checkpoint_sha256=Y1_EXPECTED_CKPT_SHAS[lin], device=dev)
+                m = ld["model"] if "model" in ld else ld["policy"].model
+                res["lineages"][lin] = {"status": "RESTORED", "checkpoint_sha256": Y1_EXPECTED_CKPT_SHAS[lin], **_eval_suite(m, fams, S, jd / lin)}
+            except Exception as exc:  # recorded, not suppressed: rejection becomes a blocked lineage row
+                res["lineages"][lin] = {"status": "REJECTED", "error": f"{type(exc).__name__}: {exc}"}
+            finally:
+                if ld is not None: del ld
+                if m is not None: del m
+                if torch.cuda.is_available(): torch.cuda.empty_cache()
+        return res
 
 
 def run_job(job_id: str, S: Any, dev: str, wr: Path, roots: Sequence[str] = ()) -> dict[str, Any]:
@@ -918,6 +947,17 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
     sj = [SessionJob(r["job_id"], r["arm"], r["init_seed"], r.get("order_seed", r["init_seed"]), _job_upd(r, S), device=devices[i % len(devices)]) for i, r in enumerate(pending)]
     ran_ids: set[str] = set()
     waves = []
+    failed_jobs: dict[str, dict[str, Any]] = {}
+
+    def _collect_failures(wres: Mapping[str, Any]) -> tuple[list[dict[str, Any]], bool]:
+        workers = [w for wr_w in wres.get("waves", []) for w in wr_w.get("workers", [])]
+        ok = True
+        for w in workers:
+            if w.get("status") != "SUCCEEDED":
+                ok = False
+                failed_jobs[str(w["worker_id"])] = {"exit_code": w.get("exit_code"), "device": w.get("device"), "stderr_tail": str(w.get("stderr_tail", ""))[-600:]}
+        return workers, ok
+
     if measured_sec_per_update is not None or not one_go:
         for tier in (0, 1):
             tier_jobs = [s for s in sj if _tier(rows[s.job_id]) == tier]
@@ -930,6 +970,7 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
             run = [s for s in tier_jobs if s.job_id in adm["admitted_job_ids"]]
             cmd = lambda j, _d: (sys.executable, "-m", "experiments.avendi_y3.module", "--job", j.job_id, "--work-root", str(wr), "--device", j.device, "--scale", "full" if S.full else "tiny", "--input-roots", ",".join(input_roots))
             wres = orch.run_waves(run, command_builder=cmd, devices=tuple(devices)) if run else {"status": "NOTHING_ADMITTED"}
+            _collect_failures(wres)
             waves.append({"tier": tier, "admitted": adm["admitted_job_ids"], "deferred": adm.get("deferred_pending_job_ids", []), "ran": [s.job_id for s in run], "status": wres.get("status"), "devices_used": sorted({s.device for s in run})})
             ran_ids.update(s.job_id for s in run)
     else:
@@ -938,7 +979,7 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
             rem_min = float(session_minutes) - (time.perf_counter() - t_start) / 60.0
             if rem_min <= 15.0: break
             cur_done = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
-            rem = sorted([rows[j] for j in rows if j not in cur_done], key=lambda r: (_tier(r), _t0_prio(r)))
+            rem = sorted([rows[j] for j in rows if j not in cur_done and j not in failed_jobs], key=lambda r: (_tier(r), _t0_prio(r)))
             if not rem: break
             t0_rows = [r for r in rem if _tier(r) == 0]
             if t0_rows: tier, tr_rows = 0, t0_rows
@@ -956,21 +997,25 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
             if not run_list:
                 if rem_min > 25.0: run_list = tjobs[:n_devs]
                 else: break
-            slice_statuses, slice_ran, before_done = [], [], len(cur_done)
+            slice_statuses, slice_ran, before_done, newly_failed = [], [], len(cur_done), False
             for st in range(0, len(run_list), n_devs):
                 if (float(session_minutes) - (time.perf_counter() - t_start) / 60.0) <= 15.0: break
                 chunk = [replace(s, device=devices[i % n_devs]) for i, s in enumerate(run_list[st : st + n_devs])]
                 cmd = lambda j, _d: (sys.executable, "-m", "experiments.avendi_y3.module", "--job", j.job_id, "--work-root", str(wr), "--device", j.device, "--scale", "full" if S.full else "tiny", "--input-roots", ",".join(input_roots))
                 wres = orch.run_waves(chunk, command_builder=cmd, devices=tuple(devices), resume=(wr / "COMPLETED_JOBS.json").is_file())
-                slice_statuses.append(str(wres.get("status", ""))); slice_ran.extend(s.job_id for s in chunk); ran_ids.update(s.job_id for s in chunk)
+                workers, chunk_ok = _collect_failures(wres)
+                if not chunk_ok: newly_failed = True
+                slice_statuses.append("COMPLETE" if (workers and chunk_ok) else ("FAILED" if workers else str(wres.get("status", ""))))
+                slice_ran.extend(s.job_id for s in chunk); ran_ids.update(s.job_id for s in chunk)
             now_after = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
             deferred = [r["job_id"] for r in rem if r["job_id"] not in now_after]
-            waves.append({"tier": tier, "admitted": [s.job_id for s in run_list], "deferred": deferred, "ran": slice_ran, "status": slice_statuses[-1] if slice_statuses else "TIME_GUARD_STOP", "devices_used": sorted({s.device for s in run_list})})
-            if len(now_after) <= before_done: break
+            w_st = "PARTIAL_FAILURE" if (slice_statuses and any(x != "COMPLETE" for x in slice_statuses) and any(x == "COMPLETE" for x in slice_statuses)) else (slice_statuses[-1] if slice_statuses else "TIME_GUARD_STOP")
+            waves.append({"tier": tier, "admitted": [s.job_id for s in run_list], "deferred": deferred, "ran": slice_ran, "status": w_st, "devices_used": sorted({s.device for s in run_list})})
+            if len(now_after) <= before_done and not newly_failed: break
     now_done = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
     still_pending = [r["job_id"] for r in pending if r["job_id"] not in now_done]
     _dump(wr / "PENDING_QUEUE.json", {"pending_job_ids": still_pending, "next_resumable_job_id": still_pending[0] if still_pending else None, "total_pending": len(still_pending)})
-    return {"waves": waves, "profile": profile, "p90_sec_per_update": p90, "already_verified": sorted(done), "rejected": rec.get("rejected_jobs", []), "pending_after_session": still_pending}
+    return {"waves": waves, "profile": profile, "p90_sec_per_update": p90, "already_verified": sorted(done), "rejected": rec.get("rejected_jobs", []), "failed_jobs": failed_jobs, "pending_after_session": still_pending}
 
 
 def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequence[str] = ()) -> dict[str, Any]:
@@ -1021,8 +1066,10 @@ def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequ
         lock_sha = write_confirmation_lock(lock_p, {"eligible_jobs": elig, "checkpoint_sha256": {j: recs[j]["result"]["train"]["checkpoint_sha256"] for j in elig}, "comparator": "P2 ce", "ranking": "mean_dev_fam8_then_worst_seed", "decoder": "raw_eos", "cutoffs": plan["qualification_gates"]["P2"], "seeds": list(seeds)})
         confirm = {"status": "LOCKED_AND_OPENED_ONCE", **evaluate_with_confirmation_lock(lock_p, lock_sha, lambda pl: {j: _confirm_one(rows[j], S, fams, wr) for j in pl["eligible_jobs"]})}
     put("U47", ids("P7", "s20_ce") + ids("P7", "s20_low_lr") + p2, lambda g: {"dev": ev(g) if all("eval_dev" in r for r in g.values()) else {}, "confirm": confirm}, "confirm" if not miss_elig else "dev")
-    put("U48", [f"P7-{c}-s{s}" for c in ("ark_capped", "ark_uncapped", "ark_expaug") for s in seeds], lambda g: {"arkenstone": {j: r["child"] | {"cap": r["cap"]} for j, r in g.items()}, "donor_audit": run_p7_donor_audit_and_interventions(cpu_canary=not S.full)})
-    put("U49", p7, lambda g: {"donors": run_p7_donor_audit_and_interventions(cpu_canary=not S.full)})
+    p7_ark = [f"P7-{c}-s{s}" for c in ("ark_capped", "ark_uncapped", "ark_expaug") for s in seeds]
+    p7_donors = run_p7_donor_audit_and_interventions(cpu_canary=not S.full) if any(j in recs for j in (*p7_ark, *p7)) else None
+    put("U48", p7_ark, lambda g: {"arkenstone": {j: r["child"] | {"cap": r["cap"]} for j, r in g.items()}, "donor_audit": p7_donors})
+    put("U49", p7, lambda g: {"donors": p7_donors})
     done_jobs = sorted(recs); total_jobs = len(rows)
     studies["U50"] = _write_study(wr, "U50", "U50-final", "dev", payload={"jobs_complete": len(done_jobs), "jobs_total": total_jobs, "dispatch": dispatch, "confirm": confirm}, status="COMPLETE" if len(done_jobs) == total_jobs else "PARTIAL")
     n_studies_done = sum(1 for s in studies.values() if s["status"] == "COMPLETE")

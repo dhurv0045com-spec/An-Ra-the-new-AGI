@@ -310,3 +310,57 @@ def test_full_mode_one_go_completes_all_88_jobs_and_notebook_defaults(tmp_path: 
     c1, c2 = "".join(nb["cells"][1]["source"]), "".join(nb["cells"][2]["source"])
     assert "OWNER_AUTHORIZED = True" in c1 and "SESSION_MINUTES = 660" in c1 and "ONE_GO = True" in c1
     assert "CAMPAIGN_MODE = 'FULL'" in c1 and "os.link" in c2
+
+
+def test_p1_job_handles_zip_evidence_and_zip_checkpoint_store(tmp_path: Path):
+    import experiments.avendi_y3.module as y3m
+
+    ev_zip = tmp_path / "AVENDI_V8_Y2_EVIDENCE.zip"
+    with zipfile.ZipFile(ev_zip, "w") as zf:
+        zf.writestr("METRICS.json", "{}\n")
+    r_none = run_job("P1-frozen", TINY_S, "cpu", tmp_path / "wr_none", roots=[str(ev_zip)])["result"]
+    assert r_none["checkpoint_root"] == "None"
+    assert all(v["status"] == "MISSING_PARENT" for v in r_none["lineages"].values())
+
+    y1_zip = tmp_path / "ELENDRIL_V8_Y1_FULL.zip"
+    with zipfile.ZipFile(y1_zip, "w") as zf:
+        zf.writestr("checkpoints/Y1-t1_factorial-S3-F00-s7/LATEST", "0" * 64 + "\n")
+    r_zip = y3m._p1_job(TINY_S, y3m._split_fams(TINY_S), "cpu", [str(ev_zip), str(y1_zip)], tmp_path / "jd_zip")
+    assert r_zip["checkpoint_root"].endswith("checkpoints")
+    assert all(v["status"] == "REJECTED" for v in r_zip["lineages"].values())
+
+
+def test_p6_job_uses_assigned_device_not_hardcoded_cpu(tmp_path: Path, monkeypatch):
+    import experiments.avendi_y3.module as y3m
+
+    seen_devs: list[str] = []
+    orig_gt = y3m._gen_trainer
+
+    def _spy_gt(job, S, dev, *args, **kwargs):
+        seen_devs.append(dev)
+        return orig_gt(job, S, "cpu", *args, **kwargs)
+
+    monkeypatch.setattr(y3m, "_gen_trainer", _spy_gt)
+    rows = y3m._plan_rows()
+    wr = tmp_path / "wr_p6"
+    r0 = y3m._p6_job(rows["P6-diagnostic_policy-s7"], TINY_S, "cuda:0", wr, wr / "j0")
+    r1 = y3m._p6_job(rows["P6-adapt-memory-s7"], TINY_S, "cuda:1", wr, wr / "j1")
+    assert seen_devs == ["cuda:0", "cuda:1"]
+    assert r0["train"]["updates"] == TINY_S.upd and r1["eval_dev"]["n_blocks"] == TINY_S.blocks_dev
+
+
+def test_one_go_skips_failed_job_records_stderr_and_runs_tier1(tmp_path: Path):
+    wr = tmp_path / "one_go_fail_isolation"
+
+    def _run(job, env, cmd):
+        if job.worker_id == "P1-frozen":
+            return {"exit_code": 1, "stdout": "", "stderr": "simulated_p1_error"}
+        run_job(job.worker_id, TINY_S, "cpu", wr)
+        return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+    disp = run_full_campaign(wr=wr, S=TINY_S, session_minutes=660.0, one_go=True, measured_sec_per_update=None, devices=("cuda:0", "cuda:1"), in_process_runner=_run)
+    agg = aggregate_full(wr, TINY_S, disp)
+    assert disp["failed_jobs"]["P1-frozen"]["exit_code"] == 1
+    assert "simulated_p1_error" in disp["failed_jobs"]["P1-frozen"]["stderr_tail"]
+    assert agg["main_jobs_complete"] == 54 and agg["short_jobs_complete"] == 24 and agg["p6_adapt_complete"] == 9
+    assert agg["pending_jobs"] == ["P1-frozen"]
