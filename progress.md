@@ -355,3 +355,6 @@ Y3 learned models, plugin acceptance, target profiling and notebook execution re
 - Created dedicated `orchestrator_agent.md` (expensive Research Architect/Planner) and `execution_agent.md` (fast Execution/Builder) manuals encoding the Quality-First Override Law, verified live `anra_v5.palantiri` signatures, Kaggle 2xT4 disk/speed checklists, and battle-tested gotchas.
 - Cross-linked both manuals from `agent.md` and synced byte-identical 3-way mirrors across root, `anra_v5/planthir/`, and `research/planthir/`.
 - Verified on CPU: `pytest tests/test_planthir_declarative_cli_and_usability.py tests/test_planthir_v2_audit_upgrades.py tests/test_elendril_tree.py -n auto -q` (`18 passed in 104.29s`).
+
+### 2026-11-21 | Codex | Avendi Y3 partial GPU audit
+Published per-seed acquisition, confirmation and intervention results for 57 completed jobs, with evidence hashes and the 31 pending job IDs.

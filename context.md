@@ -1,5 +1,7 @@
 # Avendi V8-Y2, AN-RA V8-Y1 & Hitchhiker context
 
+**2026-11-21.** [Avendi Y3 partial GPU audit](Experiment%20Result/Avendi-V8-Y3/y3-partial-57of88/RESULTS.md) covers 57 of 88 jobs. The margin objective improved four-cell development accuracy at all three seeds, but missed the registered improvement and row-order qualification gates.
+
 **Next owner campaign.** [Avendi V8-Y3 executable Gemini handoff](research/avendi/GEMINI_AVENDI_V8_Y3.md) specifies 50 scientific studies and 54 main training jobs. The plan generator and exact reference fixtures are implemented and CPU-tested. The Y3 learned plugin and owner notebook are pending.
 
 **Latest owner results (2026-11-19).** [Avendi V8-Y2 frozen audit](Experiment%20Result/Avendi-V8-Y2/avendi-frozen-63c10bbd2f/RESULTS.md). All six Y1 S3 checkpoints were restored in the owner run. Every checkpoint solved 0/256 complete one-hop and 0/256 complete three-hop families. F00 seed 7 chose the last rendered value on 1,020/1,024 one-hop cases. The next diagnostic permutes row order on the same facts before P3 acquisition.

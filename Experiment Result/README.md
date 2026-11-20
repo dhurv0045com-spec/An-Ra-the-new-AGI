@@ -1,5 +1,7 @@
 # Experiment Result
 
+**2026-11-21.** [Avendi Y3 partial GPU audit](Avendi-V8-Y3/y3-partial-57of88/RESULTS.md) covers 57 of 88 jobs. The margin objective improved four-cell development accuracy at all three seeds, but missed the registered improvement and row-order qualification gates.
+
 Permanent research-results archive for **AN-RA / Elendril** on the `Elendril` branch.
 
 This is a **results folder only**. It is not an instruction to Codex and does not define or commission any new experiments.
