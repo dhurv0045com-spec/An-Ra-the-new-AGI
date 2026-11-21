@@ -357,10 +357,10 @@ def independent_replay_bundle(
 
         verify_raw_evidence_chunks(raw_evidence_dir)
 
-    with tempfile.TemporaryDirectory(prefix="planthir-indep-replay-", ignore_cleanup_errors=True) as iso_tmp:
+    with tempfile.TemporaryDirectory(prefix="prp_", ignore_cleanup_errors=True) as iso_tmp:
         restored = CheckpointCatalog.restore_full_checkpoint_zip(
             full_zip,
-            Path(iso_tmp) / "restored_store",
+            Path(iso_tmp) / "s",
             expected_source_commit=expected_source_commit,
         )
         if not restored.get("verified"):

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any, Sequence
+
+from .backend import load_backend_modules
 
 from .agent_tools import (
     LEGACY_GPU_ERROR,
@@ -108,11 +111,18 @@ def build_parser() -> argparse.ArgumentParser:
         prog="python -m anra_v5.planthir",
         description="Planthir Universal Research Infrastructure CLI (declarative data-only JSON workflows)",
     )
+    parser.add_argument(
+        "--backend-module",
+        dest="backend_modules",
+        action="append",
+        default=[],
+        help="Dotted plugin module(s) exposing custom ExperimentModule / register_planthir_backends() (repeatable).",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("agent-info", help="Print read-only contract derived from dataclasses and registered backends.")
-    sub.add_parser("doctor", help="Run fast read-only binding & installation integrity self-check (`green_signal`).")
-    sub.add_parser("schema", help="Print strict anra-planthir-spec-v1 data-only JSON schema.")
+    p_ai = sub.add_parser("agent-info", help="Print read-only contract derived from dataclasses and registered backends.")
+    p_doc = sub.add_parser("doctor", help="Run fast read-only binding & installation integrity self-check (`green_signal`).")
+    p_sch = sub.add_parser("schema", help="Print strict anra-planthir-spec-v1 data-only JSON schema.")
 
     p_init = sub.add_parser("init", help="Generate a valid canary anra-planthir-spec-v1 JSON template.")
     p_init.add_argument("--backend", default="x1_rd2", help="Registered backend ID (e.g. v8, x1_rd2, x1_s20, or custom).")
@@ -124,6 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_val.add_argument("--canary", dest="canary", action="store_true", default=None)
     p_val.add_argument("--no-canary", dest="canary", action="store_false")
 
+    run_parsers: list[argparse.ArgumentParser] = []
     for cmd_name, help_text in (
         ("run", "Validate and execute a declarative Planthir experiment spec."),
         ("resume", "Resume an interrupted Planthir run cleanly from committed checkpoints."),
@@ -136,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
         p_run.add_argument("--no-canary", dest="canary", action="store_false")
         if cmd_name == "run":
             p_run.add_argument("--resume", action="store_true", default=False)
+        run_parsers.append(p_run)
 
     p_insp = sub.add_parser("inspect-run", help="Inspect a run directory without modifying files.")
     p_insp.add_argument("--work-root", required=True)
@@ -157,6 +169,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_rep.add_argument("--max-result-zip-bytes", type=int, default=DEFAULT_RESULT_ZIP_MAX_BYTES)
     p_rep.add_argument("--output", default=None)
 
+    for sp in (p_ai, p_doc, p_sch, p_init, p_val, *run_parsers, p_rep):
+        sp.add_argument(
+            "--backend-module",
+            dest="sub_backend_modules",
+            action="append",
+            default=[],
+            help="Dotted plugin module(s) exposing custom ExperimentModule / register_planthir_backends() (repeatable).",
+        )
+
     p_exp = sub.add_parser("explain-error", help="Explain a Planthir validation/runtime error code and remediation.")
     p_exp.add_argument("--code", required=True)
 
@@ -177,6 +198,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
+
+    mods = [*getattr(args, "backend_modules", ()), *getattr(args, "sub_backend_modules", ())]
+    if mods:
+        loaded = load_backend_modules(mods)
+        existing = [x.strip() for x in os.environ.get("PLANTHIR_BACKEND_MODULES", "").split(",") if x.strip()]
+        os.environ["PLANTHIR_BACKEND_MODULES"] = ",".join(dict.fromkeys([*existing, *loaded]))
 
     if args.command == "agent-info":
         _emit(agent_info())

@@ -12,6 +12,7 @@ import random
 import shutil
 import stat
 import tempfile
+import time
 from typing import Any, Callable, Mapping, Sequence
 import zipfile
 
@@ -38,6 +39,20 @@ from .scheduler import IndependentWorkerScheduler, WorkerJobSpec
 
 _SAFE_ARCHIVE_MEMBER_MAX_BYTES = 512 * 1024 * 1024
 _SAFE_ARCHIVE_MAX_FILES = 10_000
+
+
+def win_long_path(path: Path | str) -> Path:
+    """Prefix Windows paths >=240 chars with extended-length ``\\\\?\\`` to bypass MAX_PATH failures."""
+
+    s = str(path)
+    if os.name == "nt" and s.startswith("\\\\?\\"):
+        return Path(s)
+    raw = os.path.abspath(s)
+    if os.name == "nt" and not raw.startswith("\\\\?\\") and len(raw) >= 240:
+        if raw.startswith("\\\\"):
+            return Path("\\\\?\\UNC\\" + raw.lstrip("\\"))
+        return Path("\\\\?\\" + raw)
+    return Path(raw)
 
 
 def _stream_file_sha256(path: Path) -> str:
@@ -440,11 +455,16 @@ def batched_rollout(
     *,
     batch_size: int = 64,
     max_actions: int = 4,
+    verify_serial_parity_n: int = 0,
+    parity_atol: float = 1e-4,
 ) -> list[dict[str, Any]]:
-    """Execute episodes in lockstep batches, using `policy.propose_batch` when implemented."""
+    """Execute episodes in lockstep batches (`policy.propose_batch`), with optional serial parity verification."""
 
+    if callable(getattr(policy, "reset_episode", None)):
+        policy.reset_episode()  # type: ignore[attr-defined]
     states = [kernel.initial_state(w) for w in worlds]
     actions_per_world: list[list[tuple[str, str | None]]] = [[] for _ in worlds]
+    batched_trace: list[list[tuple[str, str | None, float]]] = [[] for _ in worlds]
     done = [_state_is_terminal(st) for st in states]
     batch_fn = getattr(policy, "propose_batch", None)
 
@@ -460,9 +480,37 @@ def batched_rollout(
         else:
             props = [policy.propose_with_telemetry(obs) for obs in obs_list]
         for idx, act in zip(active_indices, props):
-            actions_per_world[idx].append((act.operation, act.argument))
+            op_s = str(act.operation)
+            actions_per_world[idx].append((op_s, act.argument))
+            batched_trace[idx].append((op_s, act.argument, float(act.log_probability)))
             states[idx] = kernel.step(states[idx], act.operation, act.argument)
             done[idx] = _state_is_terminal(states[idx])
+
+    if int(verify_serial_parity_n) > 0 and callable(batch_fn) and worlds:
+        n_check = min(int(verify_serial_parity_n), len(worlds))
+        for idx in range(n_check):
+            w = worlds[idx]
+            if callable(getattr(policy, "reset_episode", None)):
+                policy.reset_episode()  # type: ignore[attr-defined]
+            s_state = kernel.initial_state(w)
+            s_trace: list[tuple[str, str | None, float]] = []
+            for _step in range(max_actions):
+                if _state_is_terminal(s_state):
+                    break
+                s_obs = kernel.observe(s_state)
+                s_act = policy.propose_with_telemetry(s_obs)
+                s_trace.append((str(s_act.operation), s_act.argument, float(s_act.log_probability)))
+                s_state = kernel.step(s_state, s_act.operation, s_act.argument)
+            b_trace = batched_trace[idx]
+            if [(op, arg) for op, arg, _ in b_trace] != [(op, arg) for op, arg, _ in s_trace]:
+                raise ValueError(
+                    f"BATCHED_SERIAL_PARITY_MISMATCH:world={w.get('world_id', idx)}:actions_differ"
+                )
+            for step_i, ((_, _, b_lp), (_, _, s_lp)) in enumerate(zip(b_trace, s_trace)):
+                if math.isfinite(b_lp) and math.isfinite(s_lp) and abs(b_lp - s_lp) > float(parity_atol):
+                    raise ValueError(
+                        f"BATCHED_SERIAL_PARITY_MISMATCH:world={w.get('world_id', idx)}:step={step_i}:delta={abs(b_lp - s_lp):.6g}>{parity_atol}"
+                    )
 
     results: list[dict[str, Any]] = []
     for world, acts in zip(worlds, actions_per_world):
@@ -1572,6 +1620,7 @@ class CampaignOrchestrator:
         outer_remaining_minutes: float | None = None,
         startup_overhead_seconds: float = 0.0,
         export_reserve_bytes: int = 0,
+        per_job_seconds_per_update: Mapping[str, float] | None = None,
     ) -> dict[str, Any]:
         """Greedily pack the largest whole-job prefix fitting dual wall clocks and disk reserves."""
         if float(measured_seconds_per_update) <= 0.0:
@@ -1595,9 +1644,16 @@ class CampaignOrchestrator:
             if packing_stopped:
                 deferred_ids.append(job.job_id)
                 continue
+            job_spu = (
+                float(per_job_seconds_per_update[job.job_id])
+                if per_job_seconds_per_update is not None and job.job_id in per_job_seconds_per_update
+                else float(measured_seconds_per_update)
+            )
+            if not math.isfinite(job_spu) or job_spu <= 0.0:
+                raise ValueError(f"per_job_seconds_per_update[{job.job_id!r}] must be positive, got {job_spu!r}")
             cand_lanes = list(lane_secs)
             min_lane = min(range(n_workers), key=lambda idx: cand_lanes[idx])
-            cand_lanes[min_lane] += float(startup_overhead_seconds) + int(job.updates) * float(measured_seconds_per_update)
+            cand_lanes[min_lane] += float(startup_overhead_seconds) + int(job.updates) * job_spu
             cand_minutes = max(cand_lanes) / 60.0
             cand_disk = (len(admitted_ids) + 1) * int(per_job_disk_bytes) + int(export_reserve_bytes)
             if cand_minutes <= usable_minutes and (free_disk - cand_disk) >= self.min_disk_bytes:
@@ -1628,6 +1684,10 @@ class CampaignOrchestrator:
             "estimated_disk_bytes": est_disk,
             "min_disk_reserve_bytes": self.min_disk_bytes,
         }
+        if per_job_seconds_per_update is not None:
+            plan["per_job_seconds_per_update"] = {
+                str(k): float(v) for k, v in sorted(per_job_seconds_per_update.items())
+            }
         queue_doc = {
             "schema": "anra-planthir-pending-queue-v1",
             "campaign_id": self.campaign_id,
@@ -1919,6 +1979,7 @@ class CampaignOrchestrator:
         devices: Sequence[str] = ("cuda:0", "cuda:1"),
         resume_input: Path | str | Sequence[Path | str] | None = None,
         measured_seconds_per_update: float | None = None,
+        measured_seconds_per_update_by_group: Mapping[str, float] | None = None,
         profile_fn: Callable[[SessionJob, Path], float] | None = None,
         per_job_disk_bytes: int = 128 * 1024 * 1024,
         available_disk_bytes: int | None = None,
@@ -1928,6 +1989,11 @@ class CampaignOrchestrator:
         inventory_only: bool = False,
         required_archive_members: Sequence[str] = (),
         fail_on_resume_rejection: bool = True,
+        stage_gates: Mapping[str, Callable[[Mapping[str, Any]], tuple[bool, str]]] | None = None,
+        parent_checker: Callable[[SessionJob, set[str]], tuple[bool, str]] | None = None,
+        live_wall_clock_preemption: bool = True,
+        clock_fn: Callable[[], float] | None = None,
+        u0000_smoke_fn: Callable[[str, SessionJob, Path], Mapping[str, Any] | bool] | None = None,
         export_prefix: str | None = None,
         export_dir: Path | str | None = None,
         extra_summary_files: Mapping[str, Path | str] | None = None,
@@ -1938,7 +2004,15 @@ class CampaignOrchestrator:
         write_full_zip: bool = True,
         run_rescore: bool = False,
     ) -> dict[str, Any]:
-        """Execute a full registered multi-job campaign: prepare, verify resume, profile, admit slice, 2-GPU run, and export."""
+        """Execute a full registered multi-job campaign with resume, profiling, gating, 2-GPU preemption, and export."""
+
+        clock = clock_fn or time.monotonic
+        t_start = float(clock())
+        eff_max_minutes = (
+            min(self.max_minutes, float(outer_remaining_minutes))
+            if outer_remaining_minutes is not None
+            else self.max_minutes
+        )
 
         job_list = list(jobs)
         if not job_list:
@@ -2015,7 +2089,7 @@ class CampaignOrchestrator:
                 imported_receipts.append(row)
 
         def _collect_dir_receipts(root_dir: Path) -> None:
-            jr_file = root_dir / "JOB_RECEIPTS.json"
+            jr_file = win_long_path(root_dir / "JOB_RECEIPTS.json")
             if jr_file.is_file():
                 doc = json.loads(jr_file.read_text(encoding="utf-8"))
                 rows = doc if isinstance(doc, list) else doc.get("receipts", [])
@@ -2025,17 +2099,17 @@ class CampaignOrchestrator:
             jobs_root = root_dir / "jobs"
             if jobs_root.is_dir():
                 for per_job in sorted(jobs_root.glob("*/JOB_RECEIPT.json")):
-                    item = json.loads(per_job.read_text(encoding="utf-8"))
+                    item = json.loads(win_long_path(per_job).read_text(encoding="utf-8"))
                     if isinstance(item, Mapping):
                         _append_receipt(item, base_dir=root_dir)
 
         _collect_dir_receipts(self.work_dir)
-        staging_root = self.work_dir / "_resume_staging"
+        staging_root = self.work_dir / "_rs"
         for idx, inp in enumerate(raw_inputs):
             ip = Path(inp)
             if ip.is_file() and ip.suffix.lower() == ".zip":
                 verify_session_archive(ip, require_sidecar_sha256=False, require_v6_manifest=False)
-                ext_dir = staging_root / f"zip_{idx}"
+                ext_dir = staging_root / f"z{idx:03d}"
                 shutil.rmtree(ext_dir, ignore_errors=True)
                 safe_extract_planthir_archive(ip, ext_dir)
                 _collect_dir_receipts(ext_dir)
@@ -2053,7 +2127,7 @@ class CampaignOrchestrator:
                 )
                 for zidx, zp in enumerate(zip_cands):
                     verify_session_archive(zp, require_sidecar_sha256=False, require_v6_manifest=False)
-                    ext_dir = staging_root / f"dir_{idx}_{zidx}"
+                    ext_dir = staging_root / f"d{idx:03d}_{zidx:03d}"
                     shutil.rmtree(ext_dir, ignore_errors=True)
                     safe_extract_planthir_archive(zp, ext_dir)
                     _collect_dir_receipts(ext_dir)
@@ -2069,14 +2143,60 @@ class CampaignOrchestrator:
         verified_completed = set(resume_receipt["verified_completed_jobs"])
         remaining_jobs = [j for j in job_list if j.job_id not in verified_completed]
 
-        if measured_seconds_per_update is None:
+        per_job_spu: dict[str, float] = {}
+        use_cuda_sync = torch.cuda.is_available() and any(str(d).startswith("cuda") for d in device_list)
+        if measured_seconds_per_update_by_group is not None:
+            for j in remaining_jobs:
+                grp = str(j.extra.get("profile_group") or j.architecture)
+                if grp in measured_seconds_per_update_by_group:
+                    spu = float(measured_seconds_per_update_by_group[grp])
+                elif measured_seconds_per_update is not None:
+                    spu = float(measured_seconds_per_update)
+                else:
+                    raise ValueError(f"missing measured_seconds_per_update for profile_group {grp!r}")
+                if not math.isfinite(spu) or spu <= 0.0:
+                    raise ValueError(f"measured seconds per update for {grp!r} must be positive, got {spu!r}")
+                per_job_spu[j.job_id] = spu
+            sec_per_upd = (
+                float(measured_seconds_per_update)
+                if measured_seconds_per_update is not None
+                else max(per_job_spu.values(), default=1e-6)
+            )
+        elif measured_seconds_per_update is None:
             if remaining_jobs and profile_fn is not None:
-                with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as prof_tmp:
-                    prof_dir = Path(prof_tmp) / "profile_clone"
-                    prof_dir.mkdir(parents=True, exist_ok=True)
-                    sec_per_upd = float(profile_fn(remaining_jobs[0], prof_dir))
-                    if not math.isfinite(sec_per_upd) or sec_per_upd <= 0.0:
-                        raise ValueError(f"profile_fn must return positive seconds per update, got {sec_per_upd!r}")
+                explicit_groups = [j for j in remaining_jobs if j.extra.get("profile_group") not in (None, "")]
+                with tempfile.TemporaryDirectory(prefix="prof_", ignore_cleanup_errors=True) as prof_tmp:
+                    if explicit_groups:
+                        reps_by_group: dict[str, SessionJob] = {}
+                        for j in remaining_jobs:
+                            grp = str(j.extra.get("profile_group") or j.architecture)
+                            reps_by_group.setdefault(grp, j)
+                        group_spu: dict[str, float] = {}
+                        for g_idx, (grp, rep_job) in enumerate(reps_by_group.items()):
+                            g_dir = Path(prof_tmp) / f"g{g_idx:02d}"
+                            g_dir.mkdir(parents=True, exist_ok=True)
+                            if use_cuda_sync:
+                                torch.cuda.synchronize()
+                            spu = float(profile_fn(rep_job, g_dir))
+                            if use_cuda_sync:
+                                torch.cuda.synchronize()
+                            if not math.isfinite(spu) or spu <= 0.0:
+                                raise ValueError(f"profile_fn must return positive seconds per update for {grp!r}, got {spu!r}")
+                            group_spu[grp] = spu
+                        for j in remaining_jobs:
+                            grp = str(j.extra.get("profile_group") or j.architecture)
+                            per_job_spu[j.job_id] = group_spu[grp]
+                        sec_per_upd = max(group_spu.values())
+                    else:
+                        prof_dir = Path(prof_tmp) / "profile_clone"
+                        prof_dir.mkdir(parents=True, exist_ok=True)
+                        if use_cuda_sync:
+                            torch.cuda.synchronize()
+                        sec_per_upd = float(profile_fn(remaining_jobs[0], prof_dir))
+                        if use_cuda_sync:
+                            torch.cuda.synchronize()
+                        if not math.isfinite(sec_per_upd) or sec_per_upd <= 0.0:
+                            raise ValueError(f"profile_fn must return positive seconds per update, got {sec_per_upd!r}")
             elif not remaining_jobs:
                 sec_per_upd = 1e-6
             else:
@@ -2093,6 +2213,7 @@ class CampaignOrchestrator:
             outer_remaining_minutes=outer_remaining_minutes,
             startup_overhead_seconds=startup_overhead_seconds,
             export_reserve_bytes=export_reserve_bytes,
+            per_job_seconds_per_update=(per_job_spu or None),
         )
         admitted_ids = list(admission_plan["admitted_job_ids"])
         admitted_set = set(admitted_ids)
@@ -2114,6 +2235,13 @@ class CampaignOrchestrator:
                 "dispatched_job_ids": [],
                 "newly_executed_job_ids": [],
                 "failed_job_ids": [],
+                "blocked_jobs": [],
+                "blocked_job_ids": [],
+                "stage_gate_results": {},
+                "gated_locked_job_ids": [],
+                "wall_clock_preempted": False,
+                "preemption_reason": None,
+                "u0000_smoke_receipt": None,
                 "completed_jobs": sorted(verified_completed),
                 "dispatched_devices": [],
                 "observed_seeds": sorted({int(j.init_seed) for j in job_list}),
@@ -2130,9 +2258,91 @@ class CampaignOrchestrator:
             )
             return inv_doc
 
+        u0000_smoke_receipt: dict[str, Any] | None = None
+        if u0000_smoke_fn is not None and admitted_jobs:
+            arch_reps: dict[str, SessionJob] = {}
+            for j in admitted_jobs:
+                arch_reps.setdefault(j.architecture, j)
+            arch_results: dict[str, Any] = {}
+            with tempfile.TemporaryDirectory(prefix="u0_", ignore_cleanup_errors=True) as u0_tmp:
+                for a_idx, (arch, rep_job) in enumerate(arch_reps.items()):
+                    s_dir = Path(u0_tmp) / f"a{a_idx:02d}"
+                    s_dir.mkdir(parents=True, exist_ok=True)
+                    raw_smoke = u0000_smoke_fn(arch, rep_job, s_dir)
+                    if isinstance(raw_smoke, Mapping):
+                        passed = bool(raw_smoke.get("passed", True))
+                        detail = dict(raw_smoke)
+                    else:
+                        passed = bool(raw_smoke)
+                        detail = {"passed": passed}
+                    arch_results[arch] = {
+                        "architecture": arch,
+                        "sample_job_id": rep_job.job_id,
+                        **detail,
+                        "passed": passed,
+                    }
+                    u0000_smoke_receipt = {
+                        "schema": "anra-planthir-u0000-smoke-v1",
+                        "campaign_id": self.campaign_id,
+                        "passed": all(r["passed"] for r in arch_results.values()),
+                        "architectures": arch_results,
+                    }
+                    (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
+                        json.dumps(u0000_smoke_receipt, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    if not passed:
+                        raise RuntimeError(f"U0000_SMOKE_FAILED:{arch}:{detail}")
+
+        def _job_deps(j: SessionJob) -> tuple[str, ...]:
+            raw: list[str] = []
+            p_id = j.extra.get("parent_job_id")
+            if p_id is not None and str(p_id).strip():
+                raw.append(str(p_id).strip())
+            d_val = j.extra.get("depends_on")
+            if isinstance(d_val, str) and d_val.strip():
+                raw.append(d_val.strip())
+            elif isinstance(d_val, Sequence) and not isinstance(d_val, (str, bytes)):
+                for item in d_val:
+                    if item is not None and str(item).strip():
+                        raw.append(str(item).strip())
+            return tuple(dict.fromkeys(raw))
+
+        def _job_req_paths(j: SessionJob) -> tuple[str, ...]:
+            rp_val = j.extra.get("required_parent_paths")
+            if isinstance(rp_val, (str, Path)) and str(rp_val).strip():
+                return (str(rp_val),)
+            if isinstance(rp_val, Sequence) and not isinstance(rp_val, (str, bytes)):
+                return tuple(str(x) for x in rp_val if x is not None and str(x).strip())
+            return ()
+
         cmd_builder = command_builder or (
             lambda j, wroot: ("planthir-registered-job", j.job_id, "--work-root", str(wroot), "--device", j.device)
         )
+
+        receipts_by_id: dict[str, dict[str, Any]] = {}
+        imported_by_id = {str(r.get("job_id", "")): dict(r) for r in imported_receipts}
+        for jid in sorted(verified_completed):
+            if jid in imported_by_id:
+                receipts_by_id[jid] = imported_by_id[jid]
+
+        done_file = self.work_dir / "COMPLETED_JOBS.json"
+        completed_set: set[str] = set(verified_completed)
+        dispatched_job_ids: list[str] = []
+        dispatched_devices_set: set[str] = set()
+        succeeded_this_session: list[str] = []
+        failed_job_ids: list[str] = []
+        worker_by_id: dict[str, dict[str, Any]] = {}
+        waves: list[dict[str, Any]] = []
+        blocked_jobs: list[dict[str, Any]] = []
+        blocked_ids: set[str] = set()
+        stage_gate_results: dict[str, dict[str, Any]] = {}
+        gated_locked_job_ids: list[str] = []
+        locked_ids: set[str] = set()
+        unlocked_stages: set[str] = set()
+        wall_clock_preempted = False
+        preemption_reason: str | None = None
+
         prev_runner = self.in_process_runner
         try:
             if job_runner is not None:
@@ -2171,71 +2381,192 @@ class CampaignOrchestrator:
 
                 self.in_process_runner = _inproc_adapter
 
-            if admitted_jobs:
-                wave_summary = self.run_waves(admitted_jobs, command_builder=cmd_builder, devices=device_list, resume=True)
-            else:
-                wave_summary = {
-                    "schema": "anra-planthir-campaign-status-v1",
-                    "campaign_id": self.campaign_id,
-                    "status": "COMPLETE" if not deferred_ids else "PARTIAL",
-                    "total_jobs": 0,
-                    "completed_count": 0,
-                    "completed_jobs": [],
-                    "waves": [],
-                }
+            pending_admitted = list(admitted_jobs)
+            wave_idx = 0
+            n_devs = max(1, len(device_list))
+            while pending_admitted:
+                # 1. Fixed-point check: quarantine any job whose upstream parent is missing, failed, or blocked.
+                while True:
+                    newly_blocked = False
+                    still_pending: list[SessionJob] = []
+                    pending_id_set = {pj.job_id for pj in pending_admitted}
+                    for pj in pending_admitted:
+                        deps = _job_deps(pj)
+                        req_paths = _job_req_paths(pj)
+                        missing_deps = [d for d in deps if d not in completed_set]
+                        missing_paths = [rp for rp in req_paths if not Path(rp).exists()]
+                        unresolvable = [d for d in missing_deps if d not in pending_id_set]
+                        block_reason: str | None = None
+                        if unresolvable:
+                            block_reason = f"MISSING_PARENT_DEPENDENCY:{unresolvable}"
+                        elif missing_paths and not missing_deps:
+                            block_reason = f"MISSING_PARENT_ARTIFACT:{missing_paths}"
+                        elif parent_checker is not None and not missing_deps:
+                            p_ok, p_reason = parent_checker(pj, completed_set)
+                            if not p_ok:
+                                block_reason = str(p_reason or "PARENT_CHECK_FAILED")
+                        if block_reason is not None:
+                            blocked_jobs.append(
+                                {
+                                    "job_id": pj.job_id,
+                                    "architecture": pj.architecture,
+                                    "status": "BLOCKED_MISSING_PARENT",
+                                    "reason": block_reason,
+                                }
+                            )
+                            blocked_ids.add(pj.job_id)
+                            newly_blocked = True
+                        else:
+                            still_pending.append(pj)
+                    pending_admitted = still_pending
+                    if not newly_blocked:
+                        break
+
+                if not pending_admitted:
+                    break
+
+                # 2. Separate ready ungated vs stage-gated jobs.
+                ungated_ready: list[SessionJob] = []
+                gated_ready: list[SessionJob] = []
+                for pj in pending_admitted:
+                    deps = _job_deps(pj)
+                    if not all(d in completed_set for d in deps):
+                        continue
+                    s_key = str(pj.extra.get("stage") or pj.session)
+                    if stage_gates is not None and s_key in stage_gates and s_key not in unlocked_stages:
+                        gated_ready.append(pj)
+                    else:
+                        ungated_ready.append(pj)
+
+                selected_jobs: list[SessionJob] = []
+                if ungated_ready:
+                    selected_jobs = ungated_ready[:n_devs]
+                elif gated_ready and stage_gates is not None:
+                    target_stage = str(gated_ready[0].extra.get("stage") or gated_ready[0].session)
+                    live_ctx = {
+                        "campaign_id": self.campaign_id,
+                        "source_commit": self.source_commit,
+                        "work_dir": str(self.work_dir),
+                        "completed_jobs": sorted(completed_set),
+                        "receipts_by_id": dict(receipts_by_id),
+                        "failed_job_ids": list(failed_job_ids),
+                        "blocked_jobs": list(blocked_jobs),
+                        "stage": target_stage,
+                    }
+                    g_ok, g_reason = stage_gates[target_stage](live_ctx)
+                    if bool(g_ok):
+                        unlocked_stages.add(target_stage)
+                        stage_gate_results[target_stage] = {"status": "UNLOCKED", "reason": str(g_reason)}
+                        stage_jobs = [pj for pj in gated_ready if str(pj.extra.get("stage") or pj.session) == target_stage]
+                        selected_jobs = stage_jobs[:n_devs]
+                    else:
+                        stage_gate_results[target_stage] = {"status": "GATED_LOCKED", "reason": str(g_reason)}
+                        next_pending: list[SessionJob] = []
+                        for pj in pending_admitted:
+                            if str(pj.extra.get("stage") or pj.session) == target_stage:
+                                gated_locked_job_ids.append(pj.job_id)
+                                locked_ids.add(pj.job_id)
+                            else:
+                                next_pending.append(pj)
+                        pending_admitted = next_pending
+                        continue
+                else:
+                    for pj in pending_admitted:
+                        blocked_jobs.append(
+                            {
+                                "job_id": pj.job_id,
+                                "architecture": pj.architecture,
+                                "status": "BLOCKED_MISSING_PARENT",
+                                "reason": "UNSATISFIED_DEPENDENCY_AFTER_UPSTREAM_COMPLETION",
+                            }
+                        )
+                        blocked_ids.add(pj.job_id)
+                    pending_admitted = []
+                    break
+
+                # 3. Live inter-wave wall-clock reserve preemption check before dispatching the next wave.
+                if live_wall_clock_preemption:
+                    elapsed_min = max(0.0, (float(clock()) - t_start) / 60.0)
+                    rem_min = eff_max_minutes - elapsed_min
+                    if rem_min <= self.reserve_minutes:
+                        wall_clock_preempted = True
+                        preemption_reason = (
+                            f"WALL_CLOCK_RESERVE_REACHED:rem={rem_min:.2f}m<=reserve={self.reserve_minutes:.2f}m"
+                        )
+                        break
+
+                selected_ids = {sj.job_id for sj in selected_jobs}
+                worker_specs = []
+                for lane, job in enumerate(selected_jobs):
+                    dev = str(device_list[lane])
+                    wroot = self.work_dir / "jobs" / job.job_id
+                    worker_specs.append(
+                        WorkerJobSpec(
+                            worker_id=job.job_id,
+                            work_root=wroot,
+                            command=tuple(cmd_builder(job, wroot)),
+                            device=dev,
+                        )
+                    )
+                sched = IndependentWorkerScheduler(
+                    coordinator_root=self.work_dir / f"wave_{wave_idx:03d}",
+                    max_parallel=len(worker_specs),
+                    in_process_runner=self.in_process_runner,
+                )
+                rec = sched.run(worker_specs)
+                waves.append(rec)
+                wave_idx += 1
+
+                raw_workers = rec.get("workers", [])
+                w_iter = raw_workers.values() if isinstance(raw_workers, Mapping) else raw_workers
+                for w in w_iter:
+                    wid = str(w["worker_id"])
+                    dispatched_job_ids.append(wid)
+                    dispatched_devices_set.add(str(w.get("device", "")))
+                    worker_by_id[wid] = dict(w)
+                    if w.get("status") == "SUCCEEDED":
+                        completed_set.add(wid)
+                        if wid not in succeeded_this_session:
+                            succeeded_this_session.append(wid)
+                        job = job_by_id[wid]
+                        reg_row = reg_by_id[wid]
+                        per_job_path = self.work_dir / "jobs" / wid / "JOB_RECEIPT.json"
+                        if per_job_path.is_file():
+                            j_rec = dict(json.loads(per_job_path.read_text(encoding="utf-8")))
+                        else:
+                            j_rec = {
+                                "job_id": wid,
+                                "source_commit": reg_row["source_commit"],
+                                "spec_sha256": reg_row["spec_sha256"],
+                                "architecture": job.architecture,
+                                "init_seed": int(job.init_seed),
+                                "order_seed": int(job.order_seed),
+                                "device": str(w.get("device", job.device)),
+                                "completed_updates": int(job.updates),
+                                "eval_rows": max(1, int(job.extra.get("eval_rows", 1))),
+                                "dataset_counts": dict(job.extra.get("dataset_counts", {})),
+                            }
+                            per_job_path.parent.mkdir(parents=True, exist_ok=True)
+                            per_job_path.write_text(json.dumps(j_rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                        receipts_by_id[wid] = j_rec
+                    else:
+                        if wid not in failed_job_ids:
+                            failed_job_ids.append(wid)
+
+                done_file.write_text(
+                    json.dumps({"completed_jobs": sorted(completed_set)}, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                pending_admitted = [pj for pj in pending_admitted if pj.job_id not in selected_ids]
         finally:
             self.in_process_runner = prev_runner
 
-        dispatched_job_ids: list[str] = []
-        dispatched_devices_set: set[str] = set()
-        succeeded_this_session: list[str] = []
-        failed_job_ids: list[str] = []
-        worker_by_id: dict[str, dict[str, Any]] = {}
-        waves = list(wave_summary.get("waves", []))
-        for wave in waves:
-            raw_workers = wave.get("workers", [])
-            w_iter = raw_workers.values() if isinstance(raw_workers, Mapping) else raw_workers
-            for w in w_iter:
-                wid = str(w["worker_id"])
-                dispatched_job_ids.append(wid)
-                dispatched_devices_set.add(str(w.get("device", "")))
-                worker_by_id[wid] = dict(w)
-                if w.get("status") == "SUCCEEDED":
-                    if wid not in succeeded_this_session:
-                        succeeded_this_session.append(wid)
-                else:
-                    if wid not in failed_job_ids:
-                        failed_job_ids.append(wid)
-
-        receipts_by_id: dict[str, dict[str, Any]] = {}
-        imported_by_id = {str(r.get("job_id", "")): dict(r) for r in imported_receipts}
-        for jid in sorted(verified_completed):
-            if jid in imported_by_id:
-                receipts_by_id[jid] = imported_by_id[jid]
-
-        for jid in succeeded_this_session:
-            job = job_by_id[jid]
-            reg_row = reg_by_id[jid]
-            per_job_path = self.work_dir / "jobs" / jid / "JOB_RECEIPT.json"
-            if per_job_path.is_file():
-                j_rec = dict(json.loads(per_job_path.read_text(encoding="utf-8")))
-            else:
-                w_rec = worker_by_id.get(jid, {})
-                j_rec = {
-                    "job_id": jid,
-                    "source_commit": reg_row["source_commit"],
-                    "spec_sha256": reg_row["spec_sha256"],
-                    "architecture": job.architecture,
-                    "init_seed": int(job.init_seed),
-                    "order_seed": int(job.order_seed),
-                    "device": str(w_rec.get("device", job.device)),
-                    "completed_updates": int(job.updates),
-                    "eval_rows": max(1, int(job.extra.get("eval_rows", 1))),
-                    "dataset_counts": dict(job.extra.get("dataset_counts", {})),
-                }
-                per_job_path.parent.mkdir(parents=True, exist_ok=True)
-                per_job_path.write_text(json.dumps(j_rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            receipts_by_id[jid] = j_rec
+        completed_jobs = sorted(completed_set)
+        all_pending = [
+            j.job_id
+            for j in job_list
+            if j.job_id not in completed_set and j.job_id not in blocked_ids and j.job_id not in locked_ids
+        ]
 
         (self.work_dir / "JOB_RECEIPTS.json").write_text(
             json.dumps(
@@ -2251,11 +2582,7 @@ class CampaignOrchestrator:
             + "\n",
             encoding="utf-8",
         )
-
-        completed_set = verified_completed | set(succeeded_this_session)
-        completed_jobs = sorted(completed_set)
-        all_pending = [j.job_id for j in job_list if j.job_id not in completed_set]
-        (self.work_dir / "COMPLETED_JOBS.json").write_text(
+        done_file.write_text(
             json.dumps({"completed_jobs": completed_jobs}, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
@@ -2267,6 +2594,34 @@ class CampaignOrchestrator:
                     "campaign_id": self.campaign_id,
                     "pending_job_ids": all_pending,
                     "next_resumable_job_id": all_pending[0] if all_pending else None,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (self.work_dir / "BLOCKED_JOBS.json").write_text(
+            json.dumps(
+                {
+                    "schema": "anra-planthir-blocked-jobs-v1",
+                    "campaign_id": self.campaign_id,
+                    "blocked_job_ids": sorted(blocked_ids),
+                    "blocked_jobs": blocked_jobs,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (self.work_dir / "STAGE_GATES.json").write_text(
+            json.dumps(
+                {
+                    "schema": "anra-planthir-stage-gates-v1",
+                    "campaign_id": self.campaign_id,
+                    "stage_gate_results": stage_gate_results,
+                    "gated_locked_job_ids": sorted(locked_ids),
                 },
                 indent=2,
                 sort_keys=True,
@@ -2296,7 +2651,28 @@ class CampaignOrchestrator:
                     prev_v = dataset_counts.get(str(dk))
                     dataset_counts[str(dk)] = iv if prev_v is None else max(prev_v, iv)
 
-        campaign_status = "COMPLETE" if (len(completed_jobs) == len(job_list) and not failed_job_ids and not all_pending) else "PARTIAL"
+        campaign_status = (
+            "COMPLETE"
+            if (not all_pending and not failed_job_ids and not blocked_jobs and not wall_clock_preempted)
+            else "PARTIAL"
+        )
+        (self.work_dir / "CAMPAIGN_STATUS.json").write_text(
+            json.dumps(
+                {
+                    "schema": "anra-planthir-campaign-status-v1",
+                    "campaign_id": self.campaign_id,
+                    "status": campaign_status,
+                    "total_jobs": len(job_list),
+                    "completed_count": len(completed_jobs),
+                    "completed_jobs": completed_jobs,
+                    "waves": waves,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         status_doc: dict[str, Any] = {
             "schema": "anra-planthir-registered-plan-status-v1",
             "status": campaign_status,
@@ -2312,6 +2688,13 @@ class CampaignOrchestrator:
             "dispatched_job_ids": dispatched_job_ids,
             "newly_executed_job_ids": succeeded_this_session,
             "failed_job_ids": failed_job_ids,
+            "blocked_jobs": blocked_jobs,
+            "blocked_job_ids": sorted(blocked_ids),
+            "stage_gate_results": stage_gate_results,
+            "gated_locked_job_ids": sorted(locked_ids),
+            "wall_clock_preempted": wall_clock_preempted,
+            "preemption_reason": preemption_reason,
+            "u0000_smoke_receipt": u0000_smoke_receipt,
             "completed_jobs": completed_jobs,
             "dispatched_devices": sorted(d for d in dispatched_devices_set if d),
             "observed_seeds": observed_seeds,
@@ -2335,6 +2718,9 @@ class CampaignOrchestrator:
                 "COMPLETED_JOBS.json",
                 "JOB_RECEIPTS.json",
                 "CAMPAIGN_STATUS.json",
+                "BLOCKED_JOBS.json",
+                "STAGE_GATES.json",
+                "U0000_SMOKE_RECEIPT.json",
                 "REGISTERED_PLAN_STATUS.json",
             )
             core_files = {name: self.work_dir / name for name in core_names if (self.work_dir / name).is_file()}
@@ -2955,9 +3341,9 @@ def rescore_compact_analysis_archive(
 def safe_extract_planthir_archive(zip_path: Path | str, dest_dir: Path | str) -> list[str]:
     """Safely inspect and extract a Planthir session ZIP rejecting traversal, symlinks, duplicates, and bombs."""
 
-    zp = Path(zip_path)
-    dest_root = Path(dest_dir).resolve()
-    dest_root.mkdir(parents=True, exist_ok=True)
+    zp = win_long_path(zip_path)
+    dest_root = Path(dest_dir).resolve() if len(str(dest_dir)) < 240 else Path(os.path.abspath(str(dest_dir)))
+    win_long_path(dest_root).mkdir(parents=True, exist_ok=True)
     extracted: list[str] = []
     seen_names: set[str] = set()
     with zipfile.ZipFile(zp, "r") as zf:
@@ -2980,11 +3366,12 @@ def safe_extract_planthir_archive(zip_path: Path | str, dest_dir: Path | str) ->
                 raise ValueError(f"archive member exceeds size ceiling: {name!r}")
             if name.endswith("/"):
                 continue
-            target = (dest_root / Path(*p.parts)).resolve()
+            target = Path(os.path.abspath(os.path.join(str(dest_root), *p.parts)))
             if target != dest_root and dest_root not in target.parents:
                 raise ValueError(f"archive member escapes destination: {name!r}")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(info, "r") as src, target.open("wb") as dst:
+            w_target = win_long_path(target)
+            w_target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(info, "r") as src, w_target.open("wb") as dst:
                 shutil.copyfileobj(src, dst)
             extracted.append(name)
     return extracted
@@ -3336,6 +3723,7 @@ def build_pinned_kaggle_notebook(
     mirror_outputs_to_working: bool = False,
     extra_pinned_repos: Mapping[str, Mapping[str, str]] | None = None,
     preflight_canary_backend: str | None = None,
+    preflight_commands: Sequence[Sequence[str] | str] = (),
     require_dual_gpu: bool = False,
     working_export_globs: Sequence[str] = ("*.zip", "*.sha256", "FINAL_STATUS.json"),
     emit_file_links: bool = False,
@@ -3351,6 +3739,10 @@ def build_pinned_kaggle_notebook(
         if isinstance(inventory_command, str)
         else ([str(x) for x in inventory_command] if inventory_command is not None else None)
     )
+    preflight_cmds = [
+        list(shlex.split(cmd)) if isinstance(cmd, str) else [str(x) for x in cmd]
+        for cmd in preflight_commands
+    ]
     auth_val = "True" if owner_authorized else "False"
     input_names = [str(x) for x in discover_kaggle_inputs]
     export_globs = [str(x) for x in working_export_globs]
@@ -3423,11 +3815,12 @@ def build_pinned_kaggle_notebook(
             "    assert head == cfg['commit'], f'{name} HEAD mismatch: {head}'\n",
         ]
         cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": extra_lines})
-    if require_dual_gpu or preflight_canary_backend or backend_mods:
+    if require_dual_gpu or preflight_canary_backend or backend_mods or preflight_cmds:
         gate_lines = [
             f"REQUIRE_DUAL_GPU = {bool(require_dual_gpu)!r}\n",
             f"PREFLIGHT_BACKEND = {preflight_canary_backend!r}\n",
             f"BACKEND_MODULES = {backend_mods!r}\n",
+            f"PREFLIGHT_COMMANDS = {preflight_cmds!r}\n",
             "import os, subprocess, sys, torch\n",
             "from pathlib import Path\n",
             "if BACKEND_MODULES:\n",
@@ -3437,6 +3830,8 @@ def build_pinned_kaggle_notebook(
             "elif REQUIRE_DUAL_GPU:\n",
             "    print(f'DRY-RUN (OWNER_AUTHORIZED=False): skipping dual-GPU assertion (visible GPUs={torch.cuda.device_count()})')\n",
             "subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'doctor'])\n",
+            "for pf_cmd in PREFLIGHT_COMMANDS:\n",
+            "    subprocess.check_call(pf_cmd)\n",
             "if PREFLIGHT_BACKEND:\n",
             "    cdir = Path('work/preflight_canary')\n",
             "    cdir.mkdir(parents=True, exist_ok=True)\n",
@@ -3504,4 +3899,5 @@ __all__ = [
     "verify_full_mode_dispatch",
     "verify_session_archive",
     "verify_shared_backbone_and_head_overhead",
+    "win_long_path",
 ]
