@@ -386,3 +386,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced `c42097ea` `orchestrator_agent.md`, `execution_agent.md`, `agent.md` (all 3 mirrors byte-identical), and `tests/test_planthir_two_agent_manuals.py` onto `Elendril`, adding the Quality-First Override Law, `pending_confirm_jobs == []` lock guard, `u0000` every-architecture smoke checks, and `PALANTIRI_FEEDBACK` logging.
 - Preserved all existing Elendril V8-X2/X3 modules, `bcde233f` replay fixes, B0 worker fix, pinned notebooks (`fa7c58db`), and `OWNER_RUN_01.md` untouched.
 - Verified inside `Elendril` worktree: `tests/test_planthir_two_agent_manuals.py` (`1 passed`), `test_planthir_declarative_cli_and_usability.py -k "cli_docs or alias"` (`2 passed`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
+
+### 2026-11-21 | Codex | Audit X2 owner run 2
+- Verified 24 new jobs and rescored 125,952 recorded episodes. All 42 original X1 core runs now have evidence.
+- Published paired objective results and verified that mounting both owner ZIPs restores 36 completed IDs. The wider X2 campaign remains partial.
