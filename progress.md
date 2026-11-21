@@ -400,3 +400,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced `192a4399` (`anra_v5/planthir/{runtime,backend,__init__}.py`, 3-way `agent.md`/`orchestrator_agent.md`/`execution_agent.md`, and `tests/test_planthir_feedback_upgrades.py`) and patched `--backend-module` + `prp_`/`s` MAX_PATH staging into `__main__.py` and `replay.py`.
 - Preserved `bcde233f` replay/`REPLAY_REFERENCE.json` fixes, `agent_tools.py`/`cartridge.py`/`checkpoint_intelligence.py`, and all V8-X2/X3 modules, pinned notebooks (`ceb2a247`), and owner results untouched.
 - Verified inside `Elendril` worktree on CPU: `test_planthir_feedback_upgrades.py` + `test_planthir_two_agent_manuals.py` (`5 passed`), `test_planthir_declarative_cli_and_usability.py -k "cli_docs or alias"` (`2 passed, 4 deselected`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
+
+### 2026-11-21 | Antigravity | Upgrade V8-X3 to single-session one-go execution + auto Stage 5 & MAX_PATH fixes
+- Added CUDA FP16 AMP + `prepack_d3_batches`, `X3_DEFAULT_UPDATES=1024` (400 train cases), completed-job optimizer stripping (`<=6.1 GB`), `gated_s50_job_ids`, Stage 5 auto confirm/OOD/5-modes + `dev_mistakes`, and Windows `MAX_PATH` fixes (`48 passed in 90.20s` across 8 suites `-n auto`).
+- Pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`15,324` B, SHA-256 `ce99e999...`) and `ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` (`18,637` B, SHA-256 `fedd8441...`) to `9ffc60e3` on top of `a6a3483d`; verified clean `git archive` import.

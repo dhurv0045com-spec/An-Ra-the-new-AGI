@@ -2,15 +2,25 @@
   "schema": "elendril-x3-metrics-template-v1",
   "program": "ELENDRIL-V8-X3",
   "qualification_stage": "CPU_QUALIFIED_READY_FOR_OWNER_GPU",
-  "runtime_source_commit": "d12238b0ec26defa724e2403cfb618caa8ad7048",
+  "runtime_source_commit": "9ffc60e3e16adf9cf68e8f1551b19a5d5d5dbf02",
   "notebook_path": "notebooks/ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb",
-  "notebook_bytes": 14356,
-  "notebook_sha256": "ef7a31ef5ad4b1dfa39ca6d89a0f62cab093a2cb522a71c934cb76a38647059d",
+  "notebook_bytes": 15324,
+  "notebook_sha256": "ce99e999469b07bf3383c75a66e86f045ed6376b455bf7764ee18f51d24d88c0",
+  "one_go_session_profile": {
+    "one_go": true,
+    "session_minutes": 660,
+    "reserve_minutes": 25,
+    "per_job_disk_mb": 95,
+    "cuda_fp16_amp": true,
+    "prepacked_batches": true,
+    "strip_final_optimizer_state": true,
+    "train_cases_per_job": 400
+  },
   "program_ledger": {
     "total_gpu_jobs": 57,
     "s20_jobs": 45,
     "s50_jobs": 12,
-    "updates_per_job": 2368,
+    "updates_per_job": 1024,
     "seeds": [7, 19, 41],
     "stages": {
       "S0_REDGE": 6,
@@ -30,9 +40,8 @@
   },
   "owner_hardware_gates_pending": [
     "kaggle_2xt4_u0000_preflight_and_cuda_canary_replay_bundle",
-    "dual_s20_s50_cuda_synchronize_vram_throughput_profile",
-    "stage_0_to_3_s20_training_45_jobs_and_d3_surgery_audit",
-    "evidence_gated_s50_scaling_stage_4_12_jobs",
-    "complete_cohort_sealed_confirm_and_ood_transfer_unlock"
+    "dual_s20_s50_fp16_amp_vram_throughput_profile",
+    "one_go_stage_0_to_3_s20_45_jobs_and_gated_stage_4_s50_12_jobs",
+    "stage_5_sealed_confirm_ood_5_modes_and_analysis_zip_export"
   ]
 }

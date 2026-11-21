@@ -2,11 +2,11 @@
   "schema": "elendril-x2-metrics-template-v1",
   "program": "ELENDRIL-V8-X2",
   "qualification_stage": "CPU_QUALIFIED_READY_FOR_OWNER_CANARY",
-  "runtime_source_commit": "d12238b0ec26defa724e2403cfb618caa8ad7048",
+  "runtime_source_commit": "9ffc60e3e16adf9cf68e8f1551b19a5d5d5dbf02",
   "legacy_x1_source_commit": "98b9e3318bfa3c02024685bd8668323065f62811",
   "legacy_x1_original_source_commit": "8e62ca0f2046c0f07910fdd20abee40508631227",
   "notebook_path": "notebooks/ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb",
-  "notebook_sha256": "2854b6f98bb7fb4431f321575c040cdd0c2bd6164237ec04689d0d31ac154be6",
+  "notebook_sha256": "fedd8441aa7da4f746f709302b2c0ef7911e8303cf8e5277451785ce8645a728",
   "base_full_job_equivalents": 126,
   "obligation_ledger": {
     "logical_rows": 192,
