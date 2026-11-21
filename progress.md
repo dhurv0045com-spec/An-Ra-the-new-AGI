@@ -369,3 +369,6 @@ Published per-seed acquisition, confirmation and intervention results for 57 com
 - Re-pinned `notebooks/AVENDI_V8_Y3_T4X2.ipynb` to `57bce6bd5a17e96fb9856505c50f2ac2f9e9b123` (`--check-notebook` `match=true`) and deduplicated `U48`/`U49` donor audits in `aggregate_full`.
 - Verified on CPU: `anra_v5.palantiri doctor` (`GREEN_SIGNAL`), clean `git archive 57bce6bd` (`54/24/9/50/44`), and `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py tests/test_planthir_two_agent_manuals.py -n auto -q` (`31 passed in 100.02s`).
 - Pending owner GPU execution: click Run All in `notebooks/AVENDI_V8_Y3_T4X2.ipynb` on Kaggle 2xT4 (`OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`) for full 88/88 completion.
+
+### 2026-11-21 | Codex | Y3 resumed ledger and Gemini handoff
+Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis export. Documented per-case verification gaps and targeted repairs.
