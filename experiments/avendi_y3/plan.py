@@ -108,7 +108,7 @@ def build_y3_notebook(source_commit: str) -> dict[str, Any]:
     """Generate the source-pinned Kaggle 2xT4 notebook via anra_v5.palantiri."""
     from anra_v5.palantiri import build_pinned_kaggle_notebook
 
-    nb = build_pinned_kaggle_notebook(source_commit=source_commit, title="Avendi V8-Y3 · Full Campaign (Kaggle 2×T4)", launch_command="python -m experiments.avendi_y3.module --mode FULL --session-minutes 660", owner_authorized=True, discover_kaggle_inputs=("ELENDRIL_V8_Y1_FULL.zip", "ELENDRIL_V8_Y1_EVIDENCE.zip", "AVENDI_V8_Y2_EVIDENCE.zip"), mirror_outputs_to_working=True, preflight_canary_backend="avendi_y3", require_dual_gpu=True, emit_file_links=True, working_export_globs=("*.zip", "*.sha256", "FINAL_STATUS.json", "PENDING_QUEUE.json", "RESULTS.md", "METRICS.json"), backend_modules=("experiments.avendi_y3.module",))
+    nb = build_pinned_kaggle_notebook(source_commit=source_commit, title="Avendi V8-Y3 · Full Campaign (Kaggle 2×T4)", launch_command="python -m experiments.avendi_y3.module --mode FULL --session-minutes 660", owner_authorized=True, discover_kaggle_inputs=("ELENDRIL_V8_Y1_FULL.zip", "ELENDRIL_V8_Y1_EVIDENCE.zip", "AVENDI_V8_Y2_EVIDENCE.zip"), mirror_outputs_to_working=True, preflight_canary_backend="avendi_y3", require_dual_gpu=True, emit_file_links=True, working_export_globs=("*.zip", "*.sha256", "FINAL_STATUS.json", "PENDING_QUEUE.json", "RESULTS.md", "METRICS.json", "CONFIRM_LOCK.json", "VERIFIED_AUDIT.json", "SESSION_TELEMETRY.json", "P0_REPLAY_RECEIPT.json", "TRAINING_REPLAY_RECEIPT.json"), backend_modules=("experiments.avendi_y3.module", "experiments.avendi_y3.verify"))
     nb["cells"][0]["source"] = [
         "# Avendi V8-Y3 · Full Campaign (Kaggle 2×T4)\n",
         f"- Pinned commit: `{source_commit}`\n",
@@ -116,7 +116,7 @@ def build_y3_notebook(source_commit: str) -> dict[str, Any]:
     ]
     nb["cells"][1]["source"] = [ln + "\n" for ln in [
         f"SOURCE_SHA = {source_commit!r}", "OWNER_AUTHORIZED = True", "CAMPAIGN_MODE = 'FULL'", "SESSION_MINUTES = 660", "ONE_GO = True", "RESUME_INPUT = None", f"REPO_URL = {REPO_URL!r}",
-        "DISCOVER_INPUTS = ['ELENDRIL_V8_Y1_FULL.zip', 'ELENDRIL_V8_Y1_EVIDENCE.zip', 'AVENDI_V8_Y2_EVIDENCE.zip']", "MIRROR_WORKING = True", "EXPORT_GLOBS = ['*.zip', '*.sha256', 'FINAL_STATUS.json', 'PENDING_QUEUE.json', 'RESULTS.md', 'METRICS.json']",
+        "DISCOVER_INPUTS = ['ELENDRIL_V8_Y1_FULL.zip', 'ELENDRIL_V8_Y1_EVIDENCE.zip', 'AVENDI_V8_Y2_EVIDENCE.zip']", "MIRROR_WORKING = True", "EXPORT_GLOBS = ['*.zip', '*.sha256', 'FINAL_STATUS.json', 'PENDING_QUEUE.json', 'RESULTS.md', 'METRICS.json', 'CONFIRM_LOCK.json', 'VERIFIED_AUDIT.json', 'SESSION_TELEMETRY.json', 'P0_REPLAY_RECEIPT.json', 'TRAINING_REPLAY_RECEIPT.json']",
         "import os, shutil, subprocess, sys", "from pathlib import Path",
         "repo = Path('/kaggle/working/anra_avendi_y3_src') if Path('/kaggle/working').is_dir() else Path('.')",
         "if repo != Path('.') and not (repo / '.git').exists():",

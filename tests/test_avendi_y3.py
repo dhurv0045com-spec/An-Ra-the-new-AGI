@@ -364,3 +364,149 @@ def test_one_go_skips_failed_job_records_stderr_and_runs_tier1(tmp_path: Path):
     assert "simulated_p1_error" in disp["failed_jobs"]["P1-frozen"]["stderr_tail"]
     assert agg["main_jobs_complete"] == 54 and agg["short_jobs_complete"] == 24 and agg["p6_adapt_complete"] == 9
     assert agg["pending_jobs"] == ["P1-frozen"]
+
+
+def test_planted_faults_parent_comparison_token_and_training_replay(tmp_path: Path):
+    import shutil
+    from experiments.avendi_y3.verify import verify_saved_campaign_evidence
+
+    base = tmp_path / "base88"
+    def _ok_run(job, env, cmd):
+        run_job(job.worker_id, TINY_S, "cpu", base)
+        return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+    disp = run_full_campaign(wr=base, S=TINY_S, session_minutes=660.0, one_go=True, measured_sec_per_update=None, devices=("cuda:0", "cuda:1"), in_process_runner=_ok_run)
+    agg = aggregate_full(base, TINY_S, disp)
+    assert agg["status"] == "COMPLETE" and agg["verification_status"] == "PARTIAL_UNVERIFIED" and agg["scientific_verified"] is False
+    vmap = {row["check"]: row["status"] for row in agg["verification_matrix"]}
+    assert vmap["byte_integrity"] == "PASS" and vmap["oracle_fixture_correctness"] == "PASS"
+    assert vmap["recorded_action_replay"] == "PASS" and vmap["training_reproduction"] == "PASS"
+    assert vmap["regenerated_per_case_agreement"] == "UNAVAILABLE" and vmap["checkpoint_restore"] != "PASS"
+    assert agg["study_evidence_status"]["U08"] == "BLOCKED_MISSING_PARENT"
+    assert all(agg["study_evidence_status"][f"U{i:02}"] == "VERIFIED" for i in range(15, 51))
+
+    # Fault 1: corrupt one predicted token in dev_native cases
+    wr_tok = tmp_path / "fault_tok"
+    shutil.copytree(base, wr_tok)
+    rc_p2 = wr_tok / "jobs" / "P2-ce-s7" / "receipt.json"
+    d_p2 = json.loads(rc_p2.read_text(encoding="utf-8"))
+    wid = next(iter(d_p2["result"]["eval_dev"]["native"]["cases"]))
+    old_ch = d_p2["result"]["eval_dev"]["native"]["cases"][wid][3]
+    d_p2["result"]["eval_dev"]["native"]["cases"][wid][3] = "~" if old_ch != "~" else "A"
+    rc_p2.write_text(json.dumps(d_p2), encoding="utf-8")
+    au_tok = verify_saved_campaign_evidence(wr_tok, S=TINY_S, confirm_custody=agg["confirm_custody"])
+    vm_tok = {row["check"]: row["status"] for row in au_tok["verification_matrix"]}
+    assert vm_tok["recorded_action_replay"] == "FAILED"
+    assert any("CORRUPTED_PREDICTED_TOKEN" in r for r in au_tok["failed_job_checks"]["P2-ce-s7"])
+
+    # Fault 2: mismatch P5 parent checkpoint sha
+    wr_par = tmp_path / "fault_parent"
+    shutil.copytree(base, wr_par)
+    rc_p5 = wr_par / "jobs" / "P5-direct_plus_info-s7" / "receipt.json"
+    d_p5 = json.loads(rc_p5.read_text(encoding="utf-8"))
+    d_p5["result"]["parent_checkpoint_sha256"] = "0" * 64
+    rc_p5.write_text(json.dumps(d_p5), encoding="utf-8")
+    au_par = verify_saved_campaign_evidence(wr_par, S=TINY_S, confirm_custody=agg["confirm_custody"])
+    assert "P5-direct_plus_info-s7" in au_par["failed_job_checks"]
+    assert au_par["study_checks"]["U36"]["evidence_status"] == "UNVERIFIED"
+
+    # Fault 3: 88 receipts present, remove one expected comparison in U15
+    wr_cmp = tmp_path / "fault_comp"
+    shutil.copytree(base, wr_cmp)
+    u15_p = wr_cmp / "studies" / "U15" / "U15-6jobs" / "dev" / "receipt.json"
+    u15_d = json.loads(u15_p.read_text(encoding="utf-8"))
+    u15_d["measured"].pop("P2-margin-s41", None)
+    u15_p.write_text(json.dumps(u15_d), encoding="utf-8")
+    au_cmp = verify_saved_campaign_evidence(wr_cmp, S=TINY_S, confirm_custody=agg["confirm_custody"])
+    assert au_cmp["jobs_present"] == 88 and au_cmp["scientific_verified"] is False
+    assert "U15_MISSING_COMPARISON_JOB" in au_cmp["unverified_studies"]["U15"]["reasons"]
+
+    # Fault 4: duplicate study payload across U36 and U37
+    wr_dup = tmp_path / "fault_dup"
+    shutil.copytree(base, wr_dup)
+    u36_d = json.loads((wr_dup / "studies" / "U36" / "U36-9jobs" / "dev" / "receipt.json").read_text(encoding="utf-8"))
+    u37_p = wr_dup / "studies" / "U37" / "U37-9jobs" / "dev" / "receipt.json"
+    u37_d = json.loads(u37_p.read_text(encoding="utf-8"))
+    u37_d["measured"] = u36_d["measured"]
+    u37_p.write_text(json.dumps(u37_d), encoding="utf-8")
+    au_dup = verify_saved_campaign_evidence(wr_dup, S=TINY_S, confirm_custody=agg["confirm_custody"])
+    assert au_dup["study_checks"]["U36"]["evidence_status"] == "UNVERIFIED_DUPLICATE_PAYLOAD"
+    assert "DUPLICATE_STUDY_PAYLOAD:p5" in au_dup["study_checks"]["U37"]["reasons"]
+    assert au_dup["study_checks"]["U37"]["evidence_status"].startswith("UNVERIFIED")
+
+    # Fault 5: remove TRAINING_REPLAY_RECEIPT.json
+    wr_tr = tmp_path / "fault_tr"
+    shutil.copytree(base, wr_tr)
+    (wr_tr / "TRAINING_REPLAY_RECEIPT.json").unlink()
+    au_tr = verify_saved_campaign_evidence(wr_tr, S=TINY_S, confirm_custody=agg["confirm_custody"])
+    vm_tr = {row["check"]: row["status"] for row in au_tr["verification_matrix"]}
+    assert vm_tr["training_reproduction"] == "UNAVAILABLE" and au_tr["scientific_verified"] is False
+
+
+def test_cross_session_confirmation_custody_and_prompt_57_plus_31_resume(tmp_path: Path):
+    import time
+    from experiments.avendi_y3.module import ARMS_P3, _plan_rows
+
+    # Build 57 Session-1 jobs including all 33 confirm-eligible jobs + 24 Tier-0 jobs
+    seeds = (7, 19, 41)
+    elig = (
+        [f"P2-{a}-s{s}" for a in ("ce", "margin") for s in seeds]
+        + [f"P3-{a}-s{s}" for a in ARMS_P3 for s in seeds]
+        + [f"P7-{a}-s{s}" for a in ("s20_ce", "s20_low_lr") for s in seeds]
+    )
+    assert len(elig) == 33
+    all_t0_non_elig = [j for j in _plan_rows() if j not in elig and not j.startswith("P5-") and "ark_" not in j and "adapt" not in j]
+    s1_jobs = set(elig + all_t0_non_elig[:24])
+    assert len(s1_jobs) == 57
+
+    wr1 = tmp_path / "s1_57"
+    seen1 = []
+    def _r1(job, env, cmd):
+        if job.worker_id not in s1_jobs:
+            return {"exit_code": 1, "stdout": "", "stderr": "session1_cutoff"}
+        seen1.append(job.worker_id)
+        run_job(job.worker_id, TINY_S, "cpu", wr1)
+        return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+    d1 = run_full_campaign(wr=wr1, S=TINY_S, session_minutes=660.0, one_go=True, measured_sec_per_update=None, devices=("cuda:0", "cuda:1"), in_process_runner=_r1)
+    a1 = aggregate_full(wr1, TINY_S, d1)
+    assert a1["confirm"] == "LOCKED_AND_OPENED_ONCE"
+    orig_lock_sha = a1["confirm_custody"]["lock_sha256"]
+    with zipfile.ZipFile(a1["archives"]["full"], "r") as zf:
+        assert "CONFIRM_LOCK.json" in zf.namelist()
+
+    # Session 2: resumes 57 + runs remaining 31 and reuses prior sealed confirm lock without reopening
+    wr2, seen2 = tmp_path / "s2_31", []
+    def _r2(job, env, cmd):
+        seen2.append(job.worker_id)
+        run_job(job.worker_id, TINY_S, "cpu", wr2)
+        return {"exit_code": 0, "stdout": "ok", "stderr": ""}
+
+    d2 = run_full_campaign(wr=wr2, S=TINY_S, session_minutes=660.0, resume_input=a1["archives"]["full"], one_go=True, devices=("cuda:0", "cuda:1"), in_process_runner=_r2)
+    a2 = aggregate_full(wr2, TINY_S, d2)
+    assert len(d2["reused_job_ids"]) == 57 and len(seen2) == 31 and not (set(d2["reused_job_ids"]) & set(seen2))
+    assert a2["status"] == "COMPLETE" and a2["confirm"] == "REUSED_PRIOR_SEALED_CONFIRMATION"
+    assert a2["confirm_custody"]["custody_valid"] is True and a2["confirm_custody"]["lock_sha256"] == orig_lock_sha
+
+    # Missing original CONFIRM_LOCK.json from Session-1 archive -> explicit custody limitation
+    no_lock_zip = tmp_path / "AVENDI_Y3_FULL_nolock.zip"
+    with zipfile.ZipFile(a1["archives"]["full"], "r") as zin, zipfile.ZipFile(no_lock_zip, "w") as zout:
+        for mem in zin.infolist():
+            if mem.filename != "CONFIRM_LOCK.json":
+                zout.writestr(mem, zin.read(mem.filename))
+    wr3 = tmp_path / "s3_nolock"
+    d3 = run_full_campaign(wr=wr3, S=TINY_S, session_minutes=660.0, resume_input=str(no_lock_zip), one_go=True, devices=("cuda:0", "cuda:1"), in_process_runner=lambda j, e, c: (run_job(j.worker_id, TINY_S, "cpu", wr3), {"exit_code": 0, "stdout": "", "stderr": ""})[1])
+    a3 = aggregate_full(wr3, TINY_S, d3)
+    assert a3["confirm"] == "CUSTODY_LIMITATION_MISSING_ORIGINAL_LOCK"
+    assert a3["confirm_custody"]["custody_valid"] is False and a3["scientific_verified"] is False
+
+    # Forced replay on already-opened confirm holdout is labeled explicitly
+    a_rep = aggregate_full(wr2, TINY_S, d2, allow_confirm_replay=True)
+    assert a_rep["confirm"] == "CONFIRM_COHORT_REPLAY_AFTER_PRIOR_OPENING" and a_rep["confirm_custody"]["custody_valid"] is False
+
+    # Already-verified 88-job resume exits promptly without profiling or retraining
+    t0 = time.perf_counter()
+    d_noop = run_full_campaign(wr=wr2, S=TINY_S, session_minutes=660.0, one_go=True, devices=("cuda:0", "cuda:1"))
+    assert time.perf_counter() - t0 < 5.0
+    assert d_noop["exit_reason"] == "ALREADY_VERIFIED_NO_OP" and len(d_noop["reused_job_ids"]) == 88 and not d_noop["executed_job_ids"]
+    assert d_noop["started_utc"] and d_noop["finished_utc"] and d_noop["elapsed_seconds"] >= 0.0

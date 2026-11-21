@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
+from datetime import datetime, timezone
 from hashlib import sha256
+import io
 import json
 from pathlib import Path
 import shutil
@@ -78,6 +80,7 @@ from experiments.avendi_y3.models import (
     verify_u19_gradient_reversal,
 )
 from experiments.avendi_y3.plan import ARCHIVE_SHAS, BASE_REVISION, SEEDS, STREAM_SEEDS, Y1_EXPECTED_CKPT_SHAS, _canon_sha, build_plan, build_y3_notebook
+from experiments.avendi_y3.verify import verify_saved_campaign_evidence
 from experiments.avendi_y3.tasks import (
     SYMBOLS,
     P5_CONDITIONS,
@@ -236,6 +239,62 @@ def _profile_device(device: str, full: bool, s20: bool | None = None) -> dict[st
         p3, p20 = _bench("S3"), _bench("S20")
         return {"p90_sec_per_update": 0.80 * p3 + 0.12 * p20 + 0.08 * (0.25 * p3), "p90_s3": p3, "p90_s20": p20, "device": str(dev), "timed_updates": n_upd}
     return {"p90_sec_per_update": _bench("S20" if (s20 and full) else "S3"), "device": str(dev), "timed_updates": n_upd}
+
+
+def _find_y1_evidence(roots: Sequence[str]) -> Path | None:
+    for r in roots:
+        if not r: continue
+        p = Path(r)
+        if p.is_file() and p.suffix.lower() == ".zip":
+            try:
+                with zipfile.ZipFile(p, "r") as zf:
+                    if "prepared/development_suite.json" in zf.namelist(): return p
+            except Exception:
+                continue
+        elif p.is_dir():
+            if (p / "prepared" / "development_suite.json").is_file(): return p
+            for cand in sorted(p.rglob("ELENDRIL_V8_Y1_EVIDENCE.zip")):
+                if cand.is_file(): return cand
+    return None
+
+
+def _core_state_sha(model: nn.Module) -> str:
+    h = sha256()
+    sd = model.core.state_dict() if hasattr(model, "core") else model.state_dict()
+    for k in sorted(sd):
+        t = sd[k].detach().float().cpu()
+        h.update(k.encode("utf-8")); h.update(t.numpy().tobytes())
+    return h.hexdigest()
+
+
+def _write_session_replay_receipts(wr: Path, source_commit: str) -> None:
+    p0_p, tr_p = wr / "P0_REPLAY_RECEIPT.json", wr / "TRAINING_REPLAY_RECEIPT.json"
+    with tempfile.TemporaryDirectory(prefix="y3r_") as td:
+        tmp_r = Path(td)
+        if not p0_p.is_file():
+            tpl = init_spec_template(backend_id="avendi_y3", canary=True)
+            cart, rkw = build_cartridge_from_spec(tpl, canary_override=True)
+            pr_dir = tmp_r / "p0"
+            CartridgeRunner().run(cart, work_root=pr_dir, **rkw)
+            rep = independent_replay_bundle(pr_dir / "result_bundle", worlds=cart.eval_worlds)
+            _dump(p0_p, {"schema": "avendi-y3-p0-replay-v1", "verified": bool(rep.get("verified")), "matched": bool(rep.get("verified"))})
+        if not tr_p.is_file():
+            from v5_training.checkpoint import InjectedCrash
+            tr_dir = tmp_r / "tr"
+            spec = get_byte_model_spec("S3", cpu_canary=True)
+            samp = [frame_byte_prompt_sample("ROWS: t=01 A->C ; t=02 B->D || Q:A", "C", rival_answer="D", task_id=f"tr{i}", world_id=f"wr{i}") for i in range(4)]
+            rec = GenericTrainRecipe(seed=7, total_updates=4, batch_size=2, micro_batch_size=2)
+            t_full = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "f", lineage="rf", data_provenance={"s": "t"}, device="cpu", cpu_canary=True)
+            l_full = [float(t_full.step()["loss"]) for _ in range(4)]
+            t_int = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "i", lineage="ri", data_provenance={"s": "t"}, device="cpu", cpu_canary=True)
+            t_int.step(); t_int.step(); t_int.save(); t_int.step()
+            try: t_int.save(inject_crash_at="after_publish_before_pointer")
+            except InjectedCrash: pass
+            t_res = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "i", lineage="ri", data_provenance={"s": "t"}, device="cpu", cpu_canary=True, resume=True)
+            l_res = [float(t_res.step()["loss"]), float(t_res.step()["loss"])]
+            l_ok = all(abs(a - b) <= 1e-6 for a, b in zip(l_full[2:], l_res))
+            w_ok = all(torch.equal(t_res.model.state_dict()[k], t_full.model.state_dict()[k]) for k in t_full.model.state_dict())
+            _dump(tr_p, {"schema": "avendi-y3-training-replay-v1", "passed": bool(l_ok and w_ok), "losses_matched": l_ok, "weights_matched": w_ok, "full_model_sha256": _core_state_sha(t_full.model), "resumed_model_sha256": _core_state_sha(t_res.model)})
 
 
 def _find_y1_ckpt_root(roots: Sequence[str], lineages: Sequence[str], tmp_dir: Path) -> Path | None:
@@ -719,13 +778,13 @@ def _p4_job(job: dict[str, Any], S: Any, dev: str, wr: Path, jd: Path) -> dict[s
     return {"train": stats, "arch": arch, "endpoint_only": endonly, "widths": widths[arch], "rates": rates, "causal": causal, "oracle_prototype_injection_acc": oracle_acc, "prototype_reconstruction_rel_error": recon, "prototype_coverage": len(sel) / max(1, len(pairs)), "multihop_split_note": "16-symbol alphabet: entity-disjointness impossible; splits are instantiation-disjoint by seed"}
 
 
-def _parent_model(S: Any, fams: dict[str, Any], dev: str, wr: Path, seed: int, parent_arm: str = "ce") -> AvendiByteModel:
+def _parent_model(S: Any, fams: dict[str, Any], dev: str, wr: Path, seed: int, parent_arm: str = "ce") -> tuple[AvendiByteModel, str]:
     row = _plan_rows()[f"P2-{parent_arm}-s{seed}"]
     items, groups = _groups(fams["train"]); spec = get_byte_model_spec("S3", cpu_canary=not S.full)
     plan = _epoch_plan(groups, S.upd, S.batch // 4, seed, lambda e: range(len(groups)))
     tr = _gen_trainer(row, S, dev, wr, AvendiByteModel(spec, seed=seed), spec, items, plan, lr=1e-4, objective="ce", loss_fn=lambda m, c, r: compute_avendi_loss(m, c, r), upd=S.upd, resume=True)
     if tr.state.global_update < S.upd: raise RuntimeError(f"PARENT_MISSING:{row['job_id']}")
-    return tr.model
+    return tr.model, str(tr.parent)
 
 
 def _fork_items(S: Any, fams: dict[str, Any]) -> tuple[list[Any], list[int], list[int], list[int]]:
@@ -742,7 +801,8 @@ def _slot_plan(upd: int, seed: int, a: list[int], b: list[int], n_a: int, n_b: i
 
 def _fork_job(job: dict[str, Any], S: Any, fams: dict[str, Any], dev: str, wr: Path, jd: Path) -> dict[str, Any]:
     arm, seed = job["arm"], job["init_seed"]
-    parent = _parent_model(S, fams, dev, wr, seed)
+    parent, parent_sha = _parent_model(S, fams, dev, wr, seed)
+    parent_core_sha = _core_state_sha(parent)
     items, direct_ix, neutral_ix, info_ix = _fork_items(S, fams)
     upd, half = (S.fork if job["stage"] == "P7" else S.upd), S.batch // 2
     kind = {"direct_plus_neutral": (direct_ix, neutral_ix, half, half), "direct_plus_info": (direct_ix, info_ix, half, half), "replace_direct": (neutral_ix, info_ix, half, half), "ark_capped": (direct_ix, info_ix, half, half), "ark_uncapped": (direct_ix, info_ix, half, half), "ark_expaug": (None, info_ix, 0, S.batch)}[arm]
@@ -750,6 +810,7 @@ def _fork_job(job: dict[str, Any], S: Any, fams: dict[str, Any], dev: str, wr: P
     plan = _slot_plan(upd, seed, a or b, b, n_a, n_b)
     spec = get_byte_model_spec("S3", cpu_canary=not S.full)
     model = AvendiByteModel(spec, seed=seed); model.core.load_state_dict(parent.core.state_dict())
+    init_core_sha = _core_state_sha(model)
     ev0 = {"parent_p5": _p5_eval(parent, S), "parent_a": eval_byte_model_on_families(parent, fams["dev"][: S.mon])["fam4_rate"]}
     tr = _gen_trainer(job, S, dev, wr, model, spec, items, plan, lr=1e-4, objective="ce", loss_fn=lambda m, c, r: compute_avendi_loss(m, c, r), upd=upd)
     stats = _train(tr, upd)
@@ -764,7 +825,7 @@ def _fork_job(job: dict[str, Any], S: Any, fams: dict[str, Any], dev: str, wr: P
                 if pa[k].is_floating_point(): ta[k].copy_(pa[k] + sc * (ta[k] - pa[k]))
             cap = {"unclipped_delta": delta, "parent_norm": pn, "scale": sc, "label": "FUNCTIONAL_ANALOGUE_OF_ARKENSTONE_CAP_NOT_DONOR_CODE"}
     ev = {"child_p5": _p5_eval(tr.model, S), "child_a": eval_byte_model_on_families(tr.model, fams["dev"][: S.mon])["fam4_rate"]}
-    return {"train": stats, "parent": ev0, "child": ev, "cap": cap, "slot_composition": {"direct_or_a": n_a, "info_or_b": n_b}}
+    return {"train": stats, "parent": ev0, "child": ev, "cap": cap, "parent_job_id": f"P2-ce-s{seed}", "parent_checkpoint_sha256": parent_sha, "parent_core_sha256": parent_core_sha, "child_initial_core_sha256": init_core_sha, "slot_composition": {"direct_or_a": n_a, "info_or_b": n_b}}
 
 
 def _pair_feat(b: dict[str, Any], dev: Any = None) -> torch.Tensor:
@@ -841,30 +902,80 @@ def _p6_job(job: dict[str, Any], S: Any, dev: str, wr: Path, jd: Path) -> dict[s
     pol = P6AdaptivePolicy(32, seed)
     plan = [tuple(random.Random(seed * 7919 + u).randrange(len(blocks_tr)) for _ in range(S.batch)) for u in range(S.upd)]
     tr = _gen_trainer(main, S, dev, wr, pol, get_byte_model_spec("S3", cpu_canary=True), blocks_tr, plan, lr=3e-3, objective="ce", loss_fn=_p6_batch_loss, upd=S.upd, lineage=f"y3-P6-diagnostic_policy-s{seed}", resume=job["arm"] != "diagnostic_policy")
+    loaded_parent_sha = str(tr.parent) if tr.parent else None
     stats = _train(tr, S.upd) if job["arm"] == "diagnostic_policy" else {"updates": tr.state.global_update, "restored_parent": True}
     if job["arm"] != "diagnostic_policy" and tr.state.global_update < S.upd: raise RuntimeError("PARENT_MISSING:" + main["job_id"])
-    return {"train": stats, "eval_dev": _p6_eval(tr.model, blocks_dv, seed), "arm": job["arm"]}
+    return {"train": stats, "eval_dev": _p6_eval(tr.model, blocks_dv, seed), "arm": job["arm"], "parent_job_id": main["job_id"] if job["arm"] != "diagnostic_policy" else None, "parent_checkpoint_sha256": loaded_parent_sha if job["arm"] != "diagnostic_policy" else None}
+
+
+def _y1_ref_parity(model: Any, lin: str, ckpt_sha: str, y1_ev: Path, base_cases: Sequence[Any], prompt_by_cid: Mapping[str, str], dev: str) -> dict[str, Any]:
+    from anra_v5.elendril.avendi.frozen import _read_evidence_member_bytes, verify_regenerated_y1_case_agreement
+    from experiments.avendi_y3.models import _core_forward
+
+    pred_b = _read_evidence_member_bytes(y1_ev, f"evidence/predictions/{lin}.json")
+    npz_b = _read_evidence_member_bytes(y1_ev, f"evidence/logits/{lin}.npz")
+    if pred_b is None or npz_b is None or not base_cases:
+        return {"parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED", "matched_reference_cases": 0, "reference_cases": 0}
+    pred_doc = json.loads(pred_b.decode("utf-8"))
+    pred_by_cid = {r["case_id"]: r for r in pred_doc.get("predictions", [])}
+    with np.load(io.BytesIO(npz_b), allow_pickle=False) as npz:
+        base_logits, base_ids = npz["base_logits"], [str(x) for x in npz["base_case_ids"].tolist()]
+    logit_by_cid = {cid: base_logits[i] for i, cid in enumerate(base_ids)}
+    ref_rows, regen_rows = [], []
+    td = torch.device(dev if (torch.cuda.is_available() and "cuda" in str(dev)) else "cpu")
+    model.eval()
+    with torch.no_grad():
+        for yc in base_cases:
+            cid = yc.case_id
+            if cid not in pred_by_cid: continue
+            p_rec = pred_by_cid[cid]
+            ref_toks = p_rec["decisions"][0]["raw_tokens"]
+            r_sha = sha256(yc.public_prompt.encode("utf-8")).hexdigest()
+            ref_rows.append({"case_id": cid, "checkpoint_sha256": ckpt_sha, "decoder": "utf8-raw", "rendered_input_sha256": r_sha, "raw_tokens": ref_toks, "first_logits": logit_by_cid.get(cid)})
+            seq = [UTF8.bos_id, *UTF8.encode(yc.public_prompt), UTF8.special(SpecialToken.ANSWER)]
+            g_toks, g_log = [], None
+            for step_i in range(max(1, len(ref_toks) + 1)):
+                lg = (_core_forward(model, torch.tensor([seq], device=td, dtype=torch.long))[0])[0, -1].float().cpu()
+                if step_i == 0: g_log = lg.numpy().astype(np.float32)
+                nxt = int(torch.argmax(lg).item()); g_toks.append(nxt); seq.append(nxt)
+                if nxt in (UTF8.eos_id, UTF8.pad_id, UTF8.bos_id) or len(g_toks) >= len(ref_toks): break
+            regen_rows.append({"case_id": cid, "checkpoint_sha256": ckpt_sha, "decoder": "utf8-raw", "rendered_input_sha256": r_sha, "raw_tokens": g_toks, "first_logits": g_log})
+    rep = verify_regenerated_y1_case_agreement(job_id=lin, checkpoint_sha256=ckpt_sha, regenerated_rows=regen_rows, reference_rows=ref_rows, reference_Prompt_by_case_id=prompt_by_cid)
+    return {"parity_status": rep["status"], "matched_reference_cases": int(rep["tolerance_sensitivity_counts"].get("1e-05", 0)), "reference_cases": int(rep["reference_cases"]), "max_abs_logit_diff": float(rep["max_abs_logit_diff"]), "parity_report": rep}
 
 
 def _p1_job(S: Any, fams: dict[str, Any], dev: str, roots: Sequence[str], jd: Path) -> dict[str, Any]:
     plan = build_plan()
+    y1_ev = _find_y1_evidence(roots)
+    y1_base_cases, y1_prompt_by_cid = [], {}
+    if y1_ev is not None:
+        from anra_v5.elendril.avendi.frozen import _read_evidence_member_bytes, load_y1_suite
+        dev_b = _read_evidence_member_bytes(y1_ev, "prepared/development_suite.json")
+        if dev_b is not None:
+            y1_base_cases = [c for c in load_y1_suite(json.loads(dev_b.decode("utf-8")))["cases"] if c.panel == "main-base"][: (1024 if S.full else 8)]
+            y1_prompt_by_cid = {c.case_id: c.public_prompt for c in y1_base_cases}
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         ckpt_root = _find_y1_ckpt_root(roots, plan["frozen_lineages"], Path(tmp))
-        res: dict[str, Any] = {"checkpoint_root": str(ckpt_root) if ckpt_root is not None else "None", "lineages": {}, "y2_logit_parity": "NOT_IMPLEMENTED_EVIDENCE_ZIP_FORMAT_NOT_INSPECTED"}
+        res: dict[str, Any] = {"checkpoint_root": str(ckpt_root) if ckpt_root is not None else "None", "y1_evidence_root": str(y1_ev) if y1_ev is not None else "None", "lineages": {}, "y2_logit_parity": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED"}
         for lin in plan["frozen_lineages"]:
             if ckpt_root is None:
-                res["lineages"][lin] = {"status": "MISSING_PARENT"}; continue
+                res["lineages"][lin] = {"status": "MISSING_PARENT", "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED", "matched_reference_cases": 0, "reference_cases": 0}; continue
             ld = m = None
             try:
                 ld = load_legacy_byte_checkpoint(ckpt_root, lineage_id=lin, checkpoint_sha256=Y1_EXPECTED_CKPT_SHAS[lin], device=dev)
                 m = ld["model"] if "model" in ld else ld["policy"].model
-                res["lineages"][lin] = {"status": "RESTORED", "checkpoint_sha256": Y1_EXPECTED_CKPT_SHAS[lin], **_eval_suite(m, fams, S, jd / lin)}
+                par = _y1_ref_parity(m, lin, Y1_EXPECTED_CKPT_SHAS[lin], y1_ev, y1_base_cases, y1_prompt_by_cid, dev) if y1_ev is not None else {"parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED", "matched_reference_cases": 0, "reference_cases": 0}
+                res["lineages"][lin] = {"status": "RESTORED", "checkpoint_sha256": Y1_EXPECTED_CKPT_SHAS[lin], **par, **_eval_suite(m, fams, S, jd / lin)}
             except Exception as exc:  # recorded, not suppressed: rejection becomes a blocked lineage row
-                res["lineages"][lin] = {"status": "REJECTED", "error": f"{type(exc).__name__}: {exc}"}
+                res["lineages"][lin] = {"status": "REJECTED", "error": f"{type(exc).__name__}: {exc}", "parity_status": "BLOCKED", "matched_reference_cases": 0, "reference_cases": 0}
             finally:
                 if ld is not None: del ld
                 if m is not None: del m
                 if torch.cuda.is_available(): torch.cuda.empty_cache()
+        p_sts = [str((res["lineages"].get(l) or {}).get("parity_status", "")) for l in plan["frozen_lineages"]]
+        if all(s == "PASS" for s in p_sts): res["y2_logit_parity"] = "PASS"
+        elif any(s == "FAIL" for s in p_sts): res["y2_logit_parity"] = "FAIL"
+        elif any(s == "PASS" for s in p_sts): res["y2_logit_parity"] = "PARTIAL"
         return res
 
 
@@ -901,6 +1012,17 @@ def _t0_prio(job: dict[str, Any]) -> tuple[int, str]:
 
 
 def _unpack_resume(resume_input: str | None, wr: Path) -> None:
+    """Restore verified jobs/checkpoints, replay receipts, and prior confirmation evidence into wr without losing custody."""
+    prior = wr / "prior_confirm"
+    def _preserve_local_confirm(src_lock: Path, src_u47: Path) -> None:
+        if src_lock.is_file() and not (prior / "CONFIRM_LOCK.json").is_file():
+            prior.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_lock, prior / "CONFIRM_LOCK.json")
+        if src_u47.is_file() and not (prior / "studies" / "U47" / "U47-12jobs" / "confirm" / "receipt.json").is_file():
+            dst = prior / "studies" / "U47" / "U47-12jobs" / "confirm" / "receipt.json"
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src_u47, dst)
+    _preserve_local_confirm(wr / "CONFIRM_LOCK.json", wr / "studies" / "U47" / "U47-12jobs" / "confirm" / "receipt.json")
     if not resume_input: return
     rp = Path(resume_input)
     if rp.is_dir() and (rp / "AVENDI_Y3_FULL.zip").is_file(): rp = rp / "AVENDI_Y3_FULL.zip"
@@ -910,7 +1032,20 @@ def _unpack_resume(resume_input: str | None, wr: Path) -> None:
             for mem in zf.infolist():
                 if mem.is_dir(): continue
                 rel = Path(mem.filename)
-                if rel.is_absolute() or ".." in rel.parts: raise ValueError(f"unsafe archive path: {mem.filename}")
+                if not rel.parts or rel.is_absolute() or ".." in rel.parts: raise ValueError(f"unsafe archive path: {mem.filename}")
+                posix = rel.as_posix()
+                if posix in ("P0_REPLAY_RECEIPT.json", "TRAINING_REPLAY_RECEIPT.json"):
+                    dst = wr_res / rel
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(mem) as src, open(dst, "wb") as out: shutil.copyfileobj(src, out)
+                    continue
+                if posix == "CONFIRM_LOCK.json" or posix.startswith("prior_confirm/") or posix.startswith("studies/U47/"):
+                    sub_rel = rel if rel.parts[0] == "prior_confirm" else (Path("prior_confirm") / rel)
+                    dst = wr_res / sub_rel
+                    if not dst.exists():
+                        dst.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(mem) as src, open(dst, "wb") as out: shutil.copyfileobj(src, out)
+                    continue
                 if not any(rel.parts[0] == sub for sub in ("jobs", "ckpts")): continue
                 dst = wr_res / rel
                 dst_s = ("\\\\?\\" + str(dst)) if (len(str(dst)) >= 240 and hasattr(Path, "drive") and str(dst)[1:2] == ":") else str(dst)
@@ -923,15 +1058,23 @@ def _unpack_resume(resume_input: str | None, wr: Path) -> None:
     for rc in rp.rglob("jobs/*/receipt.json"):
         dest = wr / "jobs" / rc.parent.name
         if not (dest / "receipt.json").is_file(): shutil.copytree(rc.parent, dest, dirs_exist_ok=True)
+    for rname in ("P0_REPLAY_RECEIPT.json", "TRAINING_REPLAY_RECEIPT.json"):
+        rsrc = rp / rname
+        if rsrc.is_file() and not (wr / rname).is_file(): shutil.copy2(rsrc, wr / rname)
+    for cand_base in (rp / "prior_confirm", rp):
+        _preserve_local_confirm(cand_base / "CONFIRM_LOCK.json", cand_base / "studies" / "U47" / "U47-12jobs" / "confirm" / "receipt.json")
+    for u47 in rp.rglob("studies/U47/U47-12jobs/confirm/receipt.json"):
+        _preserve_local_confirm(u47.parents[4] / "CONFIRM_LOCK.json", u47)
 
 
 def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660.0, input_roots: Sequence[str] = (), resume_input: str | None = None, devices: Sequence[str] = ("cuda:0", "cuda:1"), in_process_runner: Callable[..., Any] | None = None, measured_sec_per_update: float | None = None, one_go: bool = True) -> dict[str, Any]:
     """Real FULL orchestration: reconcile resume ledger, adaptively slice & dispatch all tiers in one go over both GPUs."""
-    wr, t_start = Path(wr), time.perf_counter()
+    wr, started_utc, t_start = Path(wr), datetime.now(timezone.utc).isoformat(), time.perf_counter()
     wr.mkdir(parents=True, exist_ok=True)
     plan, rows = build_plan(mode="FULL" if S.full else "CANARY"), _plan_rows()
     orch = CampaignOrchestrator(campaign_id="AVENDI-V8-Y3", source_commit=plan["source_commit"], work_dir=wr, max_minutes=float(session_minutes), reserve_minutes=15.0, min_disk_bytes=1024 if not S.full else 2 * 2**30, in_process_runner=in_process_runner)
     _unpack_resume(resume_input, wr)
+    _write_session_replay_receipts(wr, plan["source_commit"])
     imported = []
     for rc in (wr / "jobs").glob("*/receipt.json"):
         d = json.loads(rc.read_text(encoding="utf-8"))
@@ -942,8 +1085,8 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
     rec = orch.reconcile_verified_resume(imported, ledger, required_archive_members=("receipt.json",), fail_on_rejection=True) if imported else {"verified_completed_jobs": [], "rejected_jobs": []}
     done = set(rec["verified_completed_jobs"])
     pending = sorted([rows[j] for j in rows if j not in done], key=lambda r: (_tier(r), _t0_prio(r)))
-    profile = {d: _profile_device(d if torch.cuda.is_available() else "cpu", S.full) for d in devices}
-    p90 = measured_sec_per_update or max(v["p90_sec_per_update"] for v in profile.values())
+    profile = {} if not pending else {d: _profile_device(d if torch.cuda.is_available() else "cpu", S.full) for d in devices}
+    p90 = measured_sec_per_update if measured_sec_per_update is not None else (max(v["p90_sec_per_update"] for v in profile.values()) if profile else 0.0)
     sj = [SessionJob(r["job_id"], r["arm"], r["init_seed"], r.get("order_seed", r["init_seed"]), _job_upd(r, S), device=devices[i % len(devices)]) for i, r in enumerate(pending)]
     ran_ids: set[str] = set()
     waves = []
@@ -958,7 +1101,9 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
                 failed_jobs[str(w["worker_id"])] = {"exit_code": w.get("exit_code"), "device": w.get("device"), "stderr_tail": str(w.get("stderr_tail", ""))[-600:]}
         return workers, ok
 
-    if measured_sec_per_update is not None or not one_go:
+    if not pending:
+        pass
+    elif measured_sec_per_update is not None or not one_go:
         for tier in (0, 1):
             tier_jobs = [s for s in sj if _tier(rows[s.job_id]) == tier]
             if tier == 1:
@@ -1014,12 +1159,109 @@ def run_full_campaign(*, wr: Path, S: Any = FULL_S, session_minutes: float = 660
             if len(now_after) <= before_done and not newly_failed: break
     now_done = {p.parent.name for p in (wr / "jobs").glob("*/receipt.json")}
     still_pending = [r["job_id"] for r in pending if r["job_id"] not in now_done]
+    finished_utc = datetime.now(timezone.utc).isoformat()
+    elapsed_seconds = round(time.perf_counter() - t_start, 3)
+    exit_reason = (
+        "ALREADY_VERIFIED_NO_OP" if (not pending and not still_pending and not failed_jobs) else
+        "ALL_JOBS_COMPLETE" if (not still_pending and not failed_jobs) else
+        "PARTIAL_WITH_FAILURES" if failed_jobs else
+        "TIME_GUARD_STOP"
+    )
     _dump(wr / "PENDING_QUEUE.json", {"pending_job_ids": still_pending, "next_resumable_job_id": still_pending[0] if still_pending else None, "total_pending": len(still_pending)})
-    return {"waves": waves, "profile": profile, "p90_sec_per_update": p90, "already_verified": sorted(done), "rejected": rec.get("rejected_jobs", []), "failed_jobs": failed_jobs, "pending_after_session": still_pending}
+    telemetry = {
+        "started_utc": started_utc, "finished_utc": finished_utc, "elapsed_seconds": elapsed_seconds,
+        "exit_reason": exit_reason, "reused_job_ids": sorted(done), "executed_job_ids": sorted(ran_ids),
+        "failed_job_ids": sorted(failed_jobs), "pending_job_ids": still_pending,
+    }
+    _dump(wr / "SESSION_TELEMETRY.json", telemetry)
+    return {**telemetry, "waves": waves, "profile": profile, "p90_sec_per_update": p90, "already_verified": sorted(done), "rejected": rec.get("rejected_jobs", []), "failed_jobs": failed_jobs, "pending_after_session": still_pending}
 
 
-def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequence[str] = ()) -> dict[str, Any]:
-    """Build 50 study receipts from job receipts (real measured values only), platform coverage, confirm lock/eval, and verified archives."""
+def _resolve_confirmation(
+    wr: Path,
+    recs: Mapping[str, Mapping[str, Any]],
+    elig: Sequence[str],
+    rows: Mapping[str, dict[str, Any]],
+    S: Any,
+    fams: dict[str, Any],
+    plan: Mapping[str, Any],
+    seeds: Sequence[int],
+    *,
+    allow_confirm_replay: bool = False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Resolve confirmation holdout evaluation with strict cross-session lock custody protection."""
+    miss_elig = [j for j in elig if j not in recs]
+    lock_candidates = [wr / "prior_confirm" / "CONFIRM_LOCK.json", wr / "CONFIRM_LOCK.json"]
+    lock_path = next((p for p in lock_candidates if p.is_file()), None)
+    u47_candidates = [
+        wr / "prior_confirm" / "studies" / "U47" / "U47-12jobs" / "confirm" / "receipt.json",
+        wr / "studies" / "U47" / "U47-12jobs" / "confirm" / "receipt.json",
+    ]
+    u47_prior_doc: dict[str, Any] | None = None
+    for cp in u47_candidates:
+        if cp.is_file():
+            try:
+                cand = json.loads(cp.read_text(encoding="utf-8"))
+                c_blk = (cand.get("measured") or {}).get("confirm") or {}
+                if cand.get("split") == "confirm" and isinstance(c_blk.get("result"), Mapping):
+                    u47_prior_doc = cand
+                    break
+            except Exception:
+                pass
+
+    lock_doc: dict[str, Any] | None = None
+    lock_intact = False
+    if lock_path is not None:
+        try:
+            lock_doc = json.loads(lock_path.read_text(encoding="utf-8"))
+            lock_intact = _canon_sha(lock_doc.get("payload")) == lock_doc.get("lock_sha256")
+        except Exception:
+            lock_doc, lock_intact = None, False
+
+    if u47_prior_doc is not None:
+        c_blk = u47_prior_doc["measured"]["confirm"]
+        res_sha_ok = _canon_sha(c_blk["result"]) == c_blk.get("result_sha256")
+        if allow_confirm_replay and not miss_elig:
+            replay_lock = wr / "CONFIRM_LOCK.json"
+            replay_sha = write_confirmation_lock(replay_lock, {"eligible_jobs": list(elig), "checkpoint_sha256": {j: recs[j]["result"]["train"]["checkpoint_sha256"] for j in elig}, "comparator": "P2 ce", "ranking": "mean_dev_fam8_then_worst_seed", "decoder": "raw_eos", "cutoffs": plan["qualification_gates"]["P2"], "seeds": list(seeds), "replay_after_prior_opening": True})
+            confirm = {"status": "CONFIRM_COHORT_REPLAY_AFTER_PRIOR_OPENING", "replay_after_prior_opening": True, **evaluate_with_confirmation_lock(replay_lock, replay_sha, lambda pl: {j: _confirm_one(rows[j], S, fams, wr) for j in pl["eligible_jobs"]})}
+            custody = {"status": "CONFIRM_COHORT_REPLAY_AFTER_PRIOR_OPENING", "custody_valid": False, "lock_sha256_verified": True, "reused_from_prior_session": False, "lock_sha256": replay_sha}
+            return confirm, custody
+        if lock_doc is not None and not lock_intact:
+            confirm = {"status": "CUSTODY_TAMPERED_LOCK", "lock_sha256": lock_doc.get("lock_sha256"), "result_sha256": c_blk.get("result_sha256"), "result": c_blk["result"]}
+            custody = {"status": "CUSTODY_TAMPERED_LOCK", "custody_valid": False, "lock_sha256_verified": False, "reused_from_prior_session": True}
+            return confirm, custody
+        if lock_doc is not None and lock_intact and res_sha_ok and lock_doc.get("opened") and lock_doc.get("lock_sha256") == c_blk.get("lock_sha256") and lock_doc.get("result_sha256") == c_blk.get("result_sha256"):
+            if lock_path != wr / "CONFIRM_LOCK.json" and not (wr / "CONFIRM_LOCK.json").is_file():
+                shutil.copy2(lock_path, wr / "CONFIRM_LOCK.json")
+            confirm = {"status": "REUSED_PRIOR_SEALED_CONFIRMATION", "reused_from_prior_session": True, "lock_sha256": c_blk["lock_sha256"], "result_sha256": c_blk["result_sha256"], "result": c_blk["result"]}
+            custody = {"status": "REUSED_PRIOR_SEALED_CONFIRMATION", "custody_valid": True, "lock_sha256_verified": True, "reused_from_prior_session": True, "lock_sha256": c_blk["lock_sha256"]}
+            return confirm, custody
+        confirm = {"status": "CUSTODY_LIMITATION_MISSING_ORIGINAL_LOCK", "reused_from_prior_session": True, "lock_sha256": c_blk.get("lock_sha256"), "result_sha256": c_blk.get("result_sha256"), "result": c_blk["result"], "note": "Prior opened U47 confirm receipt found without valid matching CONFIRM_LOCK.json; holdout not re-evaluated"}
+        custody = {"status": "CUSTODY_LIMITATION_MISSING_ORIGINAL_LOCK", "custody_valid": False, "lock_sha256_verified": False, "reused_from_prior_session": True, "lock_sha256": c_blk.get("lock_sha256")}
+        return confirm, custody
+
+    if miss_elig:
+        confirm = {"status": "DEFERRED_ELIGIBLE_ARMS_INCOMPLETE", "missing": miss_elig}
+        custody = {"status": "DEFERRED_ELIGIBLE_ARMS_INCOMPLETE", "custody_valid": False, "lock_sha256_verified": True, "reused_from_prior_session": False}
+        return confirm, custody
+
+    lock_p = wr / "CONFIRM_LOCK.json"
+    if lock_p.is_file():
+        try:
+            existing_doc = json.loads(lock_p.read_text(encoding="utf-8"))
+            if _canon_sha(existing_doc.get("payload")) != existing_doc.get("lock_sha256"):
+                return {"status": "CUSTODY_TAMPERED_LOCK", "lock_sha256": existing_doc.get("lock_sha256")}, {"status": "CUSTODY_TAMPERED_LOCK", "custody_valid": False, "lock_sha256_verified": False, "reused_from_prior_session": False}
+        except Exception:
+            return {"status": "CUSTODY_TAMPERED_LOCK"}, {"status": "CUSTODY_TAMPERED_LOCK", "custody_valid": False, "lock_sha256_verified": False, "reused_from_prior_session": False}
+    lock_sha = write_confirmation_lock(lock_p, {"eligible_jobs": list(elig), "checkpoint_sha256": {j: recs[j]["result"]["train"]["checkpoint_sha256"] for j in elig}, "comparator": "P2 ce", "ranking": "mean_dev_fam8_then_worst_seed", "decoder": "raw_eos", "cutoffs": plan["qualification_gates"]["P2"], "seeds": list(seeds)})
+    confirm = {"status": "LOCKED_AND_OPENED_ONCE", **evaluate_with_confirmation_lock(lock_p, lock_sha, lambda pl: {j: _confirm_one(rows[j], S, fams, wr) for j in pl["eligible_jobs"]})}
+    custody = {"status": "LOCKED_AND_OPENED_ONCE", "custody_valid": True, "lock_sha256_verified": True, "reused_from_prior_session": False, "lock_sha256": lock_sha}
+    return confirm, custody
+
+
+def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequence[str] = (), *, allow_confirm_replay: bool = False) -> dict[str, Any]:
+    """Build 50 study receipts from job receipts (real measured values only), independent audit, confirm custody, and archives."""
     wr = Path(wr); plan, rows = build_plan(mode="FULL" if S.full else "CANARY"), _plan_rows()
     recs = {p.parent.name: json.loads(p.read_text(encoding="utf-8")) for p in (wr / "jobs").glob("*/receipt.json")}
     fams = _split_fams(S)
@@ -1040,8 +1282,18 @@ def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequ
     hb = compare_historical_vs_balanced_assignments(len(fams["dev"]), STREAM_SEEDS["dev"])
     cor = audit_case_evidence_corruptions([{"world_id": f["cells"][0]["world_id"], "tokens": list(UTF8.frame(f["cells"][0]["public_prompt"], f["cells"][0]["gold"]).ids), "pred": f["cells"][0]["gold"]} for f in fams["dev"][:8]])
     for sid, pl in (("U01", {"oracle_ok": tok_ok, "n": len(fams["dev"])}), ("U02", cust), ("U03", sc), ("U04", hb), ("U05", cor), ("U06", {"verification_rows": 6, "dispatch_waves": len(dispatch.get("waves", []))})): studies[sid] = _write_study(wr, sid, f"{sid}-cpu", "dev", payload=pl)
-    put("U07", ["P1-frozen"], lambda g: g["P1-frozen"]); 
-    for sid in ("U08", "U09", "U10", "U11", "U12", "U13", "U14"): put(sid, ["P1-frozen"], lambda g: {l: {k: v for k, v in d.items() if k != "native"} if isinstance(d, dict) else d for l, d in g["P1-frozen"]["lineages"].items()})
+    put("U07", ["P1-frozen"], lambda g: g["P1-frozen"])
+    p1_slices = (
+        ("U08", "crossover_4axis", lambda ls: {l: {k: d.get(k) for k in ("status", "native", "renamed", "irrel", "tsperm")} for l, d in ls.items()}),
+        ("U09", "literal_position_wording", lambda ls: {l: {"status": d.get("status"), "literal": d.get("literal"), "native_raw": (d.get("native") or {}).get("raw_exact_rate") if isinstance(d.get("native"), dict) else None} for l, d in ls.items()}),
+        ("U10", "decoder_continuations_eos", lambda ls: {l: {k: {"raw_exact_rate": (d.get(k) or {}).get("raw_exact_rate"), "mean_signed_margin": (d.get(k) or {}).get("mean_signed_margin")} for k in ("native", "renamed", "literal") if isinstance(d.get(k), dict)} for l, d in ls.items()}),
+        ("U11", "changed_query_margin", lambda ls: {l: {k: (d.get(k) or {}).get("mean_signed_margin") for k in ("native", "renamed", "irrel", "tsperm") if isinstance(d.get(k), dict)} for l, d in ls.items()}),
+        ("U12", "irrel_rewire_tsperm", lambda ls: {l: {"irrel": d.get("irrel"), "tsperm": d.get("tsperm")} for l, d in ls.items()}),
+        ("U13", "representation_probe", lambda ls: {l: {"status": d.get("status"), "checkpoint_sha256": d.get("checkpoint_sha256"), "restored_checkpoint_sha256": d.get("restored_checkpoint_sha256"), "regenerated_parity": d.get("regenerated_parity")} for l, d in ls.items()}),
+        ("U14", "legacy_replay_scope", lambda ls: {l: {"status": d.get("status"), "parity_status": d.get("parity_status"), "matched_reference_cases": d.get("matched_reference_cases"), "reference_cases": d.get("reference_cases")} for l, d in ls.items()}),
+    )
+    for sid, axis, fn in p1_slices:
+        put(sid, ["P1-frozen"], lambda g, _ax=axis, _fn=fn: {"study_axis": _ax, "lineages": _fn(g["P1-frozen"]["lineages"])})
     p2 = ids("P2", "ce") + ids("P2", "margin")
     put("U15", p2, lambda g: ev(g)); put("U16", p2, lambda g: {j: r["milestones"] for j, r in g.items()}); put("U17", p2 + ids("P3", "rename") + ids("P3", "rename_sham"), lambda g: {j: ev(g, "renamed")[j] for j in g})
     put("U18", p2, lambda g: {j: {"train_fit_vs_dev": r["milestones"].get(str(max(map(int, r["milestones"]))) if r["milestones"] else "0")} for j, r in g.items()}); put("U19", [f"U19-{a}-s{s}" for a in ("ce", "margin") for s in seeds], lambda g: {j: {"train_fit": r["train_fit_fam4"], "dev": r["eval_dev"]["native"]["fam4_rate"], "grad": r["gradient_sign"]["model_grad_cosine"]} for j, r in g.items()})
@@ -1050,22 +1302,47 @@ def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequ
     put("U26", [j for a in ("direct_plus_neutral", "direct_plus_info", "replace_direct") for j in ids("P5", a)], lambda g: {j: r["child"] for j, r in g.items()})
     put("U27", p2 + [j for a in ARMS_P3 for j in ids("P3", a)], lambda g: ev(g))
     p4 = [j for a in ("categorical", "continuous", "dense") for j in ids("P4", a)]
-    for sid in (f"U{i}" for i in range(28, 36)): put(sid, p4 + [f"P4-{a}_endonly-s{s}" for a in ("categorical", "continuous", "dense") for s in seeds], lambda g: {j: {"rates": {k: {d: v["complete_rate"] for d, v in vv.items()} for k, vv in r["rates"].items()}, "causal": r["causal"], "oracle": r["oracle_prototype_injection_acc"], "widths": r["widths"]} for j, r in g.items()})
+    p4_end = [f"P4-{a}_endonly-s{s}" for a in ("categorical", "continuous", "dense") for s in seeds]
+    p4_slices = (
+        ("U28", "categorical_recurrence", [j for j in p4 if "categorical" in j], lambda g: {j: {"dev": g[j]["rates"].get("dev"), "identity_preserved": g[j]["causal"].get("identity_preserved")} for j in g}),
+        ("U29", "continuous_control_param_match", [j for j in p4 if "continuous" in j or "categorical" in j], lambda g: {j: {"arch": g[j].get("arch"), "widths": g[j].get("widths"), "dev": g[j]["rates"].get("dev")} for j in g}),
+        ("U30", "dense_control_and_oracle", [j for j in p4 if "dense" in j or "categorical" in j], lambda g: {j: {"oracle": g[j].get("oracle_prototype_injection_acc"), "recon_error": g[j].get("prototype_reconstruction_rel_error"), "coverage": g[j].get("prototype_coverage")} for j in g}),
+        ("U31", "length_and_topology_transfer", p4, lambda g: {j: {"dev_topology": g[j]["rates"].get("dev_topology"), "dev_distractor": g[j]["rates"].get("dev_distractor")} for j in g}),
+        ("U32", "donor_interchange_step1", p4, lambda g: {j: {"interchange_accuracy": g[j]["causal"].get("interchange_accuracy"), "distinguishable_pairs": g[j]["causal"].get("distinguishable_pairs")} for j in g}),
+        ("U33", "specificity_and_sham_controls", p4, lambda g: {j: {"specificity_sham": {k: v for k, v in g[j]["causal"].items() if "rewire" not in k and "suffix" not in k}} for j in g}),
+        ("U34", "suffix_rewire_after_patch", p4, lambda g: {j: {"suffix_rewire": {k: v for k, v in g[j]["causal"].items() if "rewire" in k or "suffix" in k or k == "interchange_accuracy"}} for j in g}),
+        ("U35", "soft_vs_hard_argmax_and_endonly", p4 + p4_end, lambda g: {j: {"endpoint_only": g[j].get("endpoint_only"), "dev": g[j]["rates"].get("dev"), "dev_hard_argmax": g[j]["rates"].get("dev_hard_argmax")} for j in g}),
+    )
+    for sid, axis, req_j, fn in p4_slices:
+        put(sid, req_j, lambda g, _ax=axis, _fn=fn: {"study_axis": _ax, "jobs": _fn(g)})
     refs = evaluate_p5_reference_policies(build_p5_executive_worlds("dev", S.p5, STREAM_SEEDS["dev"]))
     p5 = [j for a in ("direct_plus_neutral", "direct_plus_info", "replace_direct") for j in ids("P5", a)]
-    for sid in ("U36", "U37", "U38", "U39", "U40"): put(sid, p5, lambda g: {"forks": {j: r["child"] for j, r in g.items()}, "parents": {j: r["parent"] for j, r in g.items()}, "dp_reference": refs})
+    p5_slices = (
+        ("U36", "seven_condition_executive", lambda g: {"forks": {j: r["child"] for j, r in g.items()}, "parents": {j: r["parent"] for j, r in g.items()}}),
+        ("U37", "relevant_vs_irrelevant_tool", lambda g: {"tool_relevance": {j: {"parent_job_id": r.get("parent_job_id"), "child": r["child"]} for j, r in g.items()}}),
+        ("U38", "stale_contradictory_evidence", lambda g: {"stale_contradictory": {j: {"raw": r["child"].get("raw_exact_rate"), "margin": r["child"].get("mean_signed_margin")} for j, r in g.items()}}),
+        ("U39", "false_abstention_and_dp_regret", lambda g: {"dp_reference": refs, "fork_fam4": {j: r["child"].get("fam4_rate") for j, r in g.items()}}),
+        ("U40", "fork_retention_vs_acquisition", lambda g: {"retention_vs_acquisition": {j: {"fam4_parent": r["parent"].get("fam4_rate"), "fam4_child": r["child"].get("fam4_rate"), "fam8_parent": r["parent"].get("fam8_rate"), "fam8_child": r["child"].get("fam8_rate")} for j, r in g.items()}}),
+    )
+    for sid, axis, fn in p5_slices:
+        put(sid, p5, lambda g, _ax=axis, _fn=fn: {"study_axis": _ax, **_fn(g)})
     p6 = ids("P6", "diagnostic_policy") + [f"P6-adapt-{r}-s{s}" for s in seeds for r in ("context", "memory", "weight_update")]
-    for sid in (f"U{i}" for i in range(41, 47)): put(sid, p6, lambda g: {j: r["eval_dev"] for j, r in g.items()})
+    p6_slices = (
+        ("U41", "feedback_conditions", lambda g: {"all_arms": {j: r["eval_dev"] for j, r in g.items()}}),
+        ("U42", "context_vs_persistent_memory", lambda g: {"context_vs_memory": {j: r["eval_dev"] for j, r in g.items() if "context" in j or "memory" in j or "diagnostic_policy" in j}}),
+        ("U43", "bounded_weight_update", lambda g: {"weight_update": {j: r["eval_dev"] for j, r in g.items() if "weight_update" in j or "diagnostic_policy" in j}}),
+        ("U44", "diagnostic_action_utility", lambda g: {"diagnostic_blocks": {j: {"n_blocks": r["eval_dev"].get("n_blocks"), "fam4": r["eval_dev"].get("fam4_rate")} for j, r in g.items()}}),
+        ("U45", "split_correction_phases", lambda g: {"phase_scores": {j: {k: v for k, v in r["eval_dev"].items() if k != "n_blocks"} for j, r in g.items()}}),
+        ("U46", "version_space_no_info_ceiling", lambda g: {"no_info_ceiling": {j: r["eval_dev"] for j, r in g.items()}, "n_diagnostic_seeds": sum(1 for j in g if "diagnostic_policy" in j)}),
+    )
+    for sid, axis, fn in p6_slices:
+        put(sid, p6, lambda g, _ax=axis, _fn=fn: {"study_axis": _ax, **_fn(g)})
     p7 = ids("P7", "s20_ce") + ids("P7", "s20_low_lr") + [f"P7-{c}-s{s}" for c in ("ark_capped", "ark_uncapped", "ark_expaug") for s in seeds]
-    # sealed confirmation: lock only when every eligible P2/P3/P7-s20 arm has finished
+    # sealed confirmation with cross-session lock custody protection
     elig = p2 + [j for a in ARMS_P3 for j in ids("P3", a)] + ids("P7", "s20_ce") + ids("P7", "s20_low_lr")
-    miss_elig, _ = need(elig)
-    confirm = {"status": "DEFERRED_ELIGIBLE_ARMS_INCOMPLETE", "missing": miss_elig}
-    if not miss_elig:
-        lock_p = wr / "CONFIRM_LOCK.json"
-        lock_sha = write_confirmation_lock(lock_p, {"eligible_jobs": elig, "checkpoint_sha256": {j: recs[j]["result"]["train"]["checkpoint_sha256"] for j in elig}, "comparator": "P2 ce", "ranking": "mean_dev_fam8_then_worst_seed", "decoder": "raw_eos", "cutoffs": plan["qualification_gates"]["P2"], "seeds": list(seeds)})
-        confirm = {"status": "LOCKED_AND_OPENED_ONCE", **evaluate_with_confirmation_lock(lock_p, lock_sha, lambda pl: {j: _confirm_one(rows[j], S, fams, wr) for j in pl["eligible_jobs"]})}
-    put("U47", ids("P7", "s20_ce") + ids("P7", "s20_low_lr") + p2, lambda g: {"dev": ev(g) if all("eval_dev" in r for r in g.values()) else {}, "confirm": confirm}, "confirm" if not miss_elig else "dev")
+    confirm, confirm_custody = _resolve_confirmation(wr, recs, elig, rows, S, fams, plan, seeds, allow_confirm_replay=allow_confirm_replay)
+    u47_split = "confirm" if confirm.get("result") is not None else "dev"
+    put("U47", ids("P7", "s20_ce") + ids("P7", "s20_low_lr") + p2, lambda g: {"dev": ev(g) if all("eval_dev" in r for r in g.values()) else {}, "confirm": confirm}, u47_split)
     p7_ark = [f"P7-{c}-s{s}" for c in ("ark_capped", "ark_uncapped", "ark_expaug") for s in seeds]
     p7_donors = run_p7_donor_audit_and_interventions(cpu_canary=not S.full) if any(j in recs for j in (*p7_ark, *p7)) else None
     put("U48", p7_ark, lambda g: {"arkenstone": {j: r["child"] | {"cap": r["cap"]} for j, r in g.items()}, "donor_audit": p7_donors})
@@ -1074,17 +1351,38 @@ def aggregate_full(wr: Path, S: Any, dispatch: dict[str, Any], input_roots: Sequ
     studies["U50"] = _write_study(wr, "U50", "U50-final", "dev", payload={"jobs_complete": len(done_jobs), "jobs_total": total_jobs, "dispatch": dispatch, "confirm": confirm}, status="COMPLETE" if len(done_jobs) == total_jobs else "PARTIAL")
     n_studies_done = sum(1 for s in studies.values() if s["status"] == "COMPLETE")
     status = "COMPLETE" if len(done_jobs) == total_jobs and n_studies_done == 50 else "PARTIAL"
-    vmat = build_verification_matrix(byte_integrity="PASS", oracle_fixture_correctness="PASS", recorded_action_replay="PASS", checkpoint_restore="UNAVAILABLE_Y1_PARENT" if not input_roots else "PASS", regenerated_per_case_agreement="PASS" if status == "COMPLETE" else "PARTIAL_REF_CHECK", training_reproduction="PASS")
+    audit = verify_saved_campaign_evidence(wr, S=S, confirm_custody=confirm_custody)
+    _dump(wr / "VERIFIED_AUDIT.json", audit)
+    vmat = audit["verification_matrix"]
+    verification_status = "VERIFIED" if audit["scientific_verified"] else "PARTIAL_UNVERIFIED"
     arm_recs = [{"architecture": recs[j]["arm"], "init_seed": recs[j]["init_seed"], "order_seed": recs[j]["init_seed"], "value": recs[j]["result"]["eval_dev"]["native"]["fam4_rate"]} for j in p2 if j in recs]
-    final = {"status": status, "mode": "FULL" if S.full else "TINY", "studies_complete": n_studies_done, "studies_total": 50, "main_jobs_complete": sum(1 for j in done_jobs if j in {r["job_id"] for r in plan["training_jobs"]}), "main_jobs_total": 54, "short_jobs_complete": sum(1 for j in done_jobs if j in {r["job_id"] for r in plan["short_fork_jobs"]}), "short_jobs_total": 24, "p6_adapt_complete": sum(1 for j in done_jobs if "adapt" in j), "pending_jobs": sorted(set(rows) - set(done_jobs)), "dispatch": dispatch, "confirm": confirm["status"], "studies": {k: v["status"] for k, v in studies.items()}, "verification_matrix": vmat, "scientific_note": "COMPLETE requires all jobs; engineered passes never satisfy learned rows"}
-    md = render_campaign_results_markdown(title="Avendi V8-Y3 Campaign Results", campaign_id="AVENDI-V8-Y3", source_commit=plan["source_commit"], status=status, verification_matrix=vmat, stage_summaries={k: v["status"] for k, v in studies.items()})
+    telemetry = {k: dispatch[k] for k in ("started_utc", "finished_utc", "elapsed_seconds", "exit_reason", "reused_job_ids", "executed_job_ids", "failed_job_ids") if k in dispatch}
+    final = {
+        "status": status, "verification_status": verification_status, "scientific_verified": audit["scientific_verified"],
+        "mode": "FULL" if S.full else "TINY", "studies_complete": n_studies_done, "studies_verified": audit["studies_verified"], "studies_total": 50,
+        "jobs_verified": audit["jobs_verified"], "jobs_total": total_jobs,
+        "main_jobs_complete": sum(1 for j in done_jobs if j in {r["job_id"] for r in plan["training_jobs"]}), "main_jobs_total": 54,
+        "short_jobs_complete": sum(1 for j in done_jobs if j in {r["job_id"] for r in plan["short_fork_jobs"]}), "short_jobs_total": 24,
+        "p6_adapt_complete": sum(1 for j in done_jobs if "adapt" in j), "pending_jobs": sorted(set(rows) - set(done_jobs)),
+        "dispatch": dispatch, "telemetry": telemetry, "confirm": confirm["status"], "confirm_custody": confirm_custody,
+        "studies": {k: v["status"] for k, v in studies.items()}, "study_evidence_status": {k: v["evidence_status"] for k, v in audit["study_checks"].items()},
+        "verification_matrix": vmat, "claim_coverage": audit["claim_coverage"],
+        "failed_job_checks": audit["failed_job_checks"], "unverified_studies": list(audit["unverified_studies"]),
+        "scientific_note": "Execution COMPLETE is distinct from verification_status/scientific_verified; engineered passes never satisfy learned rows",
+    }
+    md = render_campaign_results_markdown(title="Avendi V8-Y3 Campaign Results", campaign_id="AVENDI-V8-Y3", source_commit=plan["source_commit"], status=verification_status, verification_matrix=vmat, stage_summaries={k: f"{studies[k]['status']} ({audit['study_checks'][k]['evidence_status']})" for k in studies})
     (wr / "RESULTS.md").write_text(md, encoding="utf-8")
-    _dump(wr / "METRICS.json", {"title": "Avendi V8-Y3 Campaign Results", "campaign_id": "AVENDI-V8-Y3", "source_commit": plan["source_commit"], "control_arm": "ce", "treatment_arm": "margin", "decision_summary": f"Jobs {len(done_jobs)}/{total_jobs}, studies {n_studies_done}/50, confirm={confirm['status']}.", "arm_records": arm_recs, "status": status})
+    _dump(wr / "METRICS.json", {"title": "Avendi V8-Y3 Campaign Results", "campaign_id": "AVENDI-V8-Y3", "source_commit": plan["source_commit"], "control_arm": "ce", "treatment_arm": "margin", "decision_summary": f"Jobs {len(done_jobs)}/{total_jobs} executed ({audit['jobs_verified']}/{total_jobs} verified), studies {n_studies_done}/50 executed ({audit['studies_verified']}/50 verified), confirm={confirm['status']}, verification={verification_status}.", "arm_records": arm_recs, "status": status, "verification_status": verification_status, "scientific_verified": audit["scientific_verified"], "verification_matrix": vmat, "claim_coverage": audit["claim_coverage"], "confirm_custody": confirm_custody, "telemetry": telemetry})
     _dump(wr / "FINAL_STATUS.json", final)
-    sum_files = {"FINAL_STATUS.json": wr / "FINAL_STATUS.json", "RESULTS.md": wr / "RESULTS.md", "METRICS.json": wr / "METRICS.json"}
-    if (wr / "PENDING_QUEUE.json").is_file(): sum_files["PENDING_QUEUE.json"] = wr / "PENDING_QUEUE.json"
+    sum_files = {"FINAL_STATUS.json": wr / "FINAL_STATUS.json", "RESULTS.md": wr / "RESULTS.md", "METRICS.json": wr / "METRICS.json", "VERIFIED_AUDIT.json": wr / "VERIFIED_AUDIT.json"}
+    for opt_name in ("PENDING_QUEUE.json", "CONFIRM_LOCK.json", "P0_REPLAY_RECEIPT.json", "TRAINING_REPLAY_RECEIPT.json", "SESSION_TELEMETRY.json"):
+        if (wr / opt_name).is_file(): sum_files[opt_name] = wr / opt_name
+    if (wr / "prior_confirm" / "CONFIRM_LOCK.json").is_file(): sum_files["prior_confirm/CONFIRM_LOCK.json"] = wr / "prior_confirm" / "CONFIRM_LOCK.json"
     ev_files = {str(p.relative_to(wr)): p for p in (wr / "jobs").rglob("*") if p.is_file() and p.suffix in (".npz", ".json") and p.name != "receipt_body.json"}
     ev_files.update({str(p.relative_to(wr)): p for p in (wr / "studies").rglob("receipt.json")})
+    for opt_name in ("CONFIRM_LOCK.json", "VERIFIED_AUDIT.json", "P0_REPLAY_RECEIPT.json", "TRAINING_REPLAY_RECEIPT.json", "SESSION_TELEMETRY.json"):
+        if (wr / opt_name).is_file(): ev_files[opt_name] = wr / opt_name
+    if (wr / "prior_confirm" / "CONFIRM_LOCK.json").is_file(): ev_files["prior_confirm/CONFIRM_LOCK.json"] = wr / "prior_confirm" / "CONFIRM_LOCK.json"
     full_files = {**sum_files, **ev_files, **{str(p.relative_to(wr)): p for p in (wr / "jobs").rglob("job_archive.zip")}}
     if (wr / "ckpts").is_dir():
         for lin_dir in sorted((wr / "ckpts").iterdir()):
@@ -1141,6 +1439,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--device", type=str, default="cpu")
     ap.add_argument("--inventory-only", action="store_true")
     ap.add_argument("--no-one-go", action="store_true")
+    ap.add_argument("--verify-only", action="store_true")
+    ap.add_argument("--allow-confirm-replay", action="store_true")
     ap.add_argument("--job", type=str, default=None)
     ap.add_argument("--scale", default="full", choices=("full", "tiny"))
     args = ap.parse_args(argv)
@@ -1152,10 +1452,14 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"inventory_only": True, "main_jobs": len(plan["training_jobs"]), "short_forks": len(plan["short_fork_jobs"]), "p6_adapt_jobs": len(plan["p6_adaptation_jobs"]), "studies": len(plan["studies"]), "platform_uses": len(plan["platform_uses"]), "update_totals": plan["update_totals"]}, indent=2))
         return 0
     roots = [r.strip() for r in args.input_roots.split(",") if r.strip()] + ([args.resume_input] if args.resume_input else [])
+    if args.verify_only:
+        _unpack_resume(args.resume_input, args.work_root)
+        disp = json.loads((args.work_root / "SESSION_TELEMETRY.json").read_text(encoding="utf-8")) if (args.work_root / "SESSION_TELEMETRY.json").is_file() else {"waves": [], "already_verified": []}
+        print(json.dumps(aggregate_full(args.work_root, S, disp, roots, allow_confirm_replay=args.allow_confirm_replay), indent=2, default=_jd)); return 0
     if args.mode == "FULL":
         if S.full and torch.cuda.device_count() < 2: raise SystemExit("FULL requires both T4 GPUs (torch.cuda.device_count() >= 2)")
         disp = run_full_campaign(wr=args.work_root, S=S, session_minutes=args.session_minutes, input_roots=roots, resume_input=args.resume_input, one_go=not args.no_one_go)
-        print(json.dumps(aggregate_full(args.work_root, S, disp, roots), indent=2, default=_jd)); return 0
+        print(json.dumps(aggregate_full(args.work_root, S, disp, roots, allow_confirm_replay=args.allow_confirm_replay), indent=2, default=_jd)); return 0
     print(json.dumps(run_avendi_y3_campaign(mode=args.mode, work_root=args.work_root, session_minutes=args.session_minutes, resume_input=args.resume_input, input_roots=roots, device=args.device), indent=2))
     return 0
 
