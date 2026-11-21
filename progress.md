@@ -390,3 +390,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-21 | Codex | Audit X2 owner run 2
 - Verified 24 new jobs and rescored 125,952 recorded episodes. All 42 original X1 core runs now have evidence.
 - Published paired objective results and verified that mounting both owner ZIPs restores 36 completed IDs. The wider X2 campaign remains partial.
+
+### 2026-11-21 | Antigravity | Publish V8-X3 cognitive intelligence program, X2 BII-FROZEN fix, and pinned 2xT4 notebooks
+- Added 10-family cognitive battery (`C01`-`C10`), 5 learning modes, `P-R-Iter` + 4 active controls + `Base`/`P`/`R`/`R-noedge`, `D3-Hybrid`, 57-job X3 ledger (`45` S20 + `12` gated S50), and sealed `confirm` lock (`experiments/x3/`).
+- Fixed X2 Run-2 `select_session_rows` topological ordering (`U0`/`U1` before `BII-FROZEN`) and added `BLOCKED_MISSING_PARENT` graceful deferral in `experiments/x2/campaign.py` (`OWNER_RUN_01.md`, `OWNER_RUN_02.md`, `OWNER_RUN_02_METRICS.json` untouched).
+- Pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`14,356` B, SHA-256 `ef7a31ef...`) and `ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` (`18,637` B, SHA-256 `2854b6f9...`) to `CODE_SHA` `d12238b0`; verified 44/44 tiered pytest (`7` suites) + clean `git archive` import.

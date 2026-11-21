@@ -1,0 +1,38 @@
+{
+  "schema": "elendril-x3-metrics-template-v1",
+  "program": "ELENDRIL-V8-X3",
+  "qualification_stage": "CPU_QUALIFIED_READY_FOR_OWNER_GPU",
+  "runtime_source_commit": "d12238b0ec26defa724e2403cfb618caa8ad7048",
+  "notebook_path": "notebooks/ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb",
+  "notebook_bytes": 14356,
+  "notebook_sha256": "ef7a31ef5ad4b1dfa39ca6d89a0f62cab093a2cb522a71c934cb76a38647059d",
+  "program_ledger": {
+    "total_gpu_jobs": 57,
+    "s20_jobs": 45,
+    "s50_jobs": 12,
+    "updates_per_job": 2368,
+    "seeds": [7, 19, 41],
+    "stages": {
+      "S0_REDGE": 6,
+      "S1_D3": 18,
+      "S2_ARCH": 15,
+      "S3_INTEG": 6,
+      "S4_SCALING_S50": 12
+    }
+  },
+  "s50_gate_policy": "GATED_PENDING_S20_QUALIFICATION",
+  "confirmation_lock_policy": "SEALED_PENDING_FULL_COHORT",
+  "status_axes": {
+    "execution_status": "PENDING",
+    "delivery_status": "PENDING",
+    "scientific_status": "UNRUN",
+    "causal_status": "UNRESOLVED"
+  },
+  "owner_hardware_gates_pending": [
+    "kaggle_2xt4_u0000_preflight_and_cuda_canary_replay_bundle",
+    "dual_s20_s50_cuda_synchronize_vram_throughput_profile",
+    "stage_0_to_3_s20_training_45_jobs_and_d3_surgery_audit",
+    "evidence_gated_s50_scaling_stage_4_12_jobs",
+    "complete_cohort_sealed_confirm_and_ood_transfer_unlock"
+  ]
+}
