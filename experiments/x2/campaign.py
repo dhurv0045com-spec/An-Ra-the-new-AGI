@@ -1264,6 +1264,14 @@ class ElendrilX2Campaign:
         rows = [r for r in base_rows if r["status"] != "EVIDENCED_ACTION_REPLAYED"]
         if wanted:
             rows = [r for r in rows if r["session"] in wanted or r["block"] in wanted]
+        if sessions:
+            order_map = {str(s): idx for idx, s in enumerate(sessions)}
+            rows.sort(
+                key=lambda r: min(
+                    order_map.get(str(r.get("session", "")), 10**6),
+                    order_map.get(str(r.get("block", "")), 10**6),
+                )
+            )
         if deduplicate_paired_x2:
             # ONLY IIIb_NEW_MECHANISMS & CONF_SOURCE paired CartridgeRunner jobs bundle treatment + control in 1 worker
             covered_controls = {
@@ -1532,21 +1540,40 @@ class ElendrilX2Campaign:
         pending = [j for j in jobs if j.job_id not in completed]
         wave_receipts: list[dict[str, Any]] = []
         failed_diagnostics: list[dict[str, Any]] = []
+        blocked_by_job: dict[str, dict[str, Any]] = {}
+        permanently_failed: set[str] = set()
         stopped_reason: str | None = None
         n_devs = max(1, len(devices))
         total_waves = max(1, (len(pending) + n_devs - 1) // n_devs) if pending else 0
 
-        for w_idx, start in enumerate(range(0, len(pending), n_devs)):
+        w_idx = 0
+        while True:
+            remaining = [j for j in jobs if j.job_id not in completed and j.job_id not in permanently_failed]
+            if not remaining:
+                break
             if deadline_epoch is not None and time.time() >= float(deadline_epoch):
                 stopped_reason = "DEADLINE_REACHED"
                 print(f"Stopping before wave {w_idx + 1}/{total_waves}: wall-clock deadline reached.", flush=True)
                 break
-            chunk = pending[start : start + n_devs]
             worker_specs = []
-            for lane, job in enumerate(chunk):
+            for job in remaining:
+                lane = len(worker_specs)
                 dev = str(devices[lane])
                 wroot = self.work_dir / "jobs" / job.job_id
-                cmd, wenv = _cmd_builder(job, wroot, dev)
+                try:
+                    cmd, wenv = _cmd_builder(job, wroot, dev)
+                except FileNotFoundError as exc:
+                    if "MISSING_PARENT_CHECKPOINT" in str(exc):
+                        row_meta = reg_by_id.get(job.job_id, {})
+                        blocked_by_job[job.job_id] = {
+                            "job_id": job.job_id,
+                            "status": "BLOCKED_MISSING_PARENT",
+                            "missing_parent_id": row_meta.get("parent_job_id", job.extra.get("parent_job_id")),
+                            "detail": str(exc),
+                        }
+                        continue
+                    raise
+                blocked_by_job.pop(job.job_id, None)
                 worker_specs.append(
                     WorkerJobSpec(
                         worker_id=job.job_id,
@@ -1556,6 +1583,16 @@ class ElendrilX2Campaign:
                         env=wenv,
                     )
                 )
+                if len(worker_specs) >= n_devs:
+                    break
+            if not worker_specs:
+                if blocked_by_job:
+                    stopped_reason = "ALL_REMAINING_BLOCKED_MISSING_PARENT"
+                    print(
+                        f"Stopping wave scheduling: all {len(blocked_by_job)} remaining jobs are blocked on missing parents.",
+                        flush=True,
+                    )
+                break
             sched = IndependentWorkerScheduler(
                 coordinator_root=self.work_dir / f"wave_{w_idx:03d}",
                 max_parallel=len(worker_specs),
@@ -1566,6 +1603,7 @@ class ElendrilX2Campaign:
             for wid in rec["succeeded_workers"]:
                 _maybe_write_arm_map(wid)
             completed.update(rec["succeeded_workers"])
+            permanently_failed.update(rec["failed_workers"])
             _atomic_write_json(self.work_dir / "COMPLETED_JOBS.json", {"completed_jobs": sorted(completed)})
 
             print(
@@ -1617,8 +1655,14 @@ class ElendrilX2Campaign:
 
             if on_wave_complete is not None:
                 on_wave_complete(w_idx, rec)
+            w_idx += 1
 
         unfinished = [j.job_id for j in jobs if j.job_id not in completed]
+        blocked_missing_parent_jobs = [
+            blocked_by_job[j.job_id]
+            for j in jobs
+            if j.job_id in blocked_by_job and j.job_id not in completed
+        ]
         failed_workers = [
             wid
             for w in wave_receipts
@@ -1632,6 +1676,7 @@ class ElendrilX2Campaign:
             "completed_count": len(completed),
             "completed_jobs": sorted(completed),
             "unfinished_job_ids": unfinished,
+            "blocked_missing_parent_jobs": blocked_missing_parent_jobs,
             "failed_job_ids": sorted(set(failed_workers)),
             "failed_worker_diagnostics": failed_diagnostics,
             "stopped_reason": stopped_reason,
