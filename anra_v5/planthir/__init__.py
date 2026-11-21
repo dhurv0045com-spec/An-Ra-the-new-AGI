@@ -34,6 +34,7 @@ from .backend import (
     build_provenance_identity,
     get_backend,
     list_backends,
+    load_backend_modules,
     register_backend,
     verify_provenance_identity,
 )
@@ -186,6 +187,7 @@ from .runtime import (
     verify_full_mode_dispatch,
     verify_session_archive,
     verify_shared_backbone_and_head_overhead,
+    win_long_path,
 )
 from .validation_study import (
     run_exp_001_fault_calibration,
@@ -308,6 +310,7 @@ __all__ = [
     "inspect_run",
     "LegacyByteObservablePolicy",
     "list_backends",
+    "load_backend_modules",
     "load_legacy_byte_checkpoint",
     "locate_checkpoint_store_root",
     "LogitsPolicy",
@@ -360,6 +363,7 @@ __all__ = [
     "verify_shared_backbone_and_head_overhead",
     "verify_single_planthir_zip",
     "verify_tier2_capsule",
+    "win_long_path",
     "write_tier1_summary",
     "write_tier2_diagnostic_capsule",
 ]

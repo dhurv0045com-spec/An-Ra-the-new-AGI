@@ -561,20 +561,31 @@ def register_backend(backend: PlanthirBackend, *, contract_version: str = BACKEN
     _BACKENDS[backend.backend_id] = backend
 
 
+def load_backend_modules(module_names: Sequence[str]) -> list[str]:
+    """Import dotted plugin modules (comma-separated allowed) and invoke `register_planthir_backends()` if present."""
+
+    loaded: list[str] = []
+    for raw in module_names:
+        for spec in str(raw).split(","):
+            mod_name = spec.strip()
+            if not mod_name:
+                continue
+            mod = importlib.import_module(mod_name)
+            reg_fn = getattr(mod, "register_planthir_backends", None)
+            if callable(reg_fn):
+                reg_fn()
+            if mod_name not in loaded:
+                loaded.append(mod_name)
+    return loaded
+
+
 def _load_env_backend_modules() -> None:
     """Import plugin modules named in PLANTHIR_BACKEND_MODULES so child CLIs discover custom backends."""
 
     raw = os.environ.get("PLANTHIR_BACKEND_MODULES", "").strip()
     if not raw or raw == _LOADED_ENV_MODULES.get("last", ""):
         return
-    for spec in raw.split(","):
-        mod_name = spec.strip()
-        if not mod_name:
-            continue
-        mod = importlib.import_module(mod_name)
-        reg_fn = getattr(mod, "register_planthir_backends", None)
-        if callable(reg_fn):
-            reg_fn()
+    load_backend_modules([raw])
     _LOADED_ENV_MODULES["last"] = raw
 
 
@@ -636,6 +647,7 @@ __all__ = [
     "environment_fingerprint",
     "get_backend",
     "list_backends",
+    "load_backend_modules",
     "register_backend",
     "verify_provenance_identity",
 ]

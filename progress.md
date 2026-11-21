@@ -395,3 +395,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added 10-family cognitive battery (`C01`-`C10`), 5 learning modes, `P-R-Iter` + 4 active controls + `Base`/`P`/`R`/`R-noedge`, `D3-Hybrid`, 57-job X3 ledger (`45` S20 + `12` gated S50), and sealed `confirm` lock (`experiments/x3/`).
 - Fixed X2 Run-2 `select_session_rows` topological ordering (`U0`/`U1` before `BII-FROZEN`) and added `BLOCKED_MISSING_PARENT` graceful deferral in `experiments/x2/campaign.py` (`OWNER_RUN_01.md`, `OWNER_RUN_02.md`, `OWNER_RUN_02_METRICS.json` untouched).
 - Pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`14,356` B, SHA-256 `ef7a31ef...`) and `ELENDRIL_V8_X2_KAGGLE_T4X2.ipynb` (`18,637` B, SHA-256 `2854b6f9...`) to `CODE_SHA` `d12238b0`; verified 44/44 tiered pytest (`7` suites) + clean `git archive` import.
+
+### 2026-11-21 | Antigravity | Sync Palantiri MAX_PATH, --backend-module CLI, gated orchestrator & manual upgrades onto Elendril
+- Synced `192a4399` (`anra_v5/planthir/{runtime,backend,__init__}.py`, 3-way `agent.md`/`orchestrator_agent.md`/`execution_agent.md`, and `tests/test_planthir_feedback_upgrades.py`) and patched `--backend-module` + `prp_`/`s` MAX_PATH staging into `__main__.py` and `replay.py`.
+- Preserved `bcde233f` replay/`REPLAY_REFERENCE.json` fixes, `agent_tools.py`/`cartridge.py`/`checkpoint_intelligence.py`, and all V8-X2/X3 modules, pinned notebooks (`ceb2a247`), and owner results untouched.
+- Verified inside `Elendril` worktree on CPU: `test_planthir_feedback_upgrades.py` + `test_planthir_two_agent_manuals.py` (`5 passed`), `test_planthir_declarative_cli_and_usability.py -k "cli_docs or alias"` (`2 passed, 4 deselected`), and `python -m anra_v5.palantiri doctor` (`GREEN_SIGNAL`).
