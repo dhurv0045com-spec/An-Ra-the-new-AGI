@@ -372,10 +372,11 @@ class X3CognitiveModel(nn.Module):
             segs = torch.zeros_like(toks)
             pos, mask = packed_layout(segs, torch_module=torch)
             apos = torch.tensor([len(seq) - 1], dtype=torch.long, device=dev)
-            out = self.forward(toks, pos, mask, action_positions=apos, use_persistent_state=use_persistent_state)
-            last_uncert = out["uncertainties"][0].detach().cpu().tolist()
+            with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16, enabled=(dev.type == "cuda")):
+                out = self.forward(toks, pos, mask, action_positions=apos, use_persistent_state=use_persistent_state)
+            last_uncert = out["uncertainties"][0].float().detach().cpu().tolist()
             last_ponder = float(out["ponder_cost"][0].item())
-            next_logits = out["logits"][0, -1].clone()
+            next_logits = out["logits"][0, -1].float().clone()
             # Mask control tokens PAD/BOS while allowing EOS & printable bytes
             next_logits[UTF8.pad_id] = -1e9
             next_logits[UTF8.bos_id] = -1e9

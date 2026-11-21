@@ -1,4 +1,4 @@
-"""V8-X3 Palantiri Plugin, Batched Evaluator, 51-Job DAG Ledger, Confirmation Lock, & 2xT4 Campaign (§2-§15)."""
+"""V8-X3 Palantiri Plugin, Batched Evaluator, 57-Job DAG Ledger, Confirmation Lock, & 2xT4 Campaign (§2-§15)."""
 
 from __future__ import annotations
 
@@ -56,6 +56,7 @@ from .d3_objectives import (
     audit_x1_sampler_exposure,
     build_d3_hybrid_batches,
     compute_d3_objective_step,
+    prepack_d3_batches,
 )
 from .models import (
     S50_MODEL_SPEC,
@@ -65,9 +66,11 @@ from .models import (
     X3_CONTROL_PAIRS,
     build_x3_backbone_spec,
     encode_prompt_and_target_pair,
+    evaluate_five_learning_modes,
 )
 
 X3_BACKEND_ID = "elendril_x3"
+X3_DEFAULT_UPDATES = 1024
 X3_SEEDS: tuple[int, ...] = (7, 19, 41)
 X3_CANARY_ARCHITECTURES: tuple[str, ...] = (
     "P-R-Iter-Fixed",
@@ -357,11 +360,12 @@ def evaluate_x3_batched(
             segs[i, : len(ids)] = 0
             apos[i] = len(ids) - 1
         pos, mask = packed_layout(segs, torch_module=torch)
-        out = model(toks, pos, mask, action_positions=apos)
-        act_logits = out["action_logits"].detach().cpu()
+        with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.float16, enabled=(dev.type == "cuda")):
+            out = model(toks, pos, mask, action_positions=apos)
+        act_logits = out["action_logits"].float().detach().cpu()
         probs = F.softmax(act_logits, dim=-1)
-        unc = out["uncertainties"].detach().cpu()
-        ponder = out["ponder_cost"].detach().cpu()
+        unc = out["uncertainties"].float().detach().cpu()
+        ponder = out["ponder_cost"].float().detach().cpu()
 
         for i, c in enumerate(chunk):
             pred_idx = int(torch.argmax(probs[i]).item())
@@ -545,8 +549,8 @@ def register_planthir_backends() -> ExperimentModule:
 # ---------------------------------------------------------------------------
 
 
-def build_x3_program_ledger(*, source_commit: str, updates: int = 2368) -> dict[str, Any]:
-    """Build complete preregistered 51-job multi-stage X3 cognitive research ledger."""
+def build_x3_program_ledger(*, source_commit: str, updates: int = X3_DEFAULT_UPDATES) -> dict[str, Any]:
+    """Build complete preregistered 57-job multi-stage X3 cognitive research ledger."""
     jobs: list[dict[str, Any]] = []
 
     def _add(stage: str, study: str, arch: str, obj: str, scale: str, gated_by: str | None) -> None:
@@ -694,6 +698,7 @@ def _publish_x3_checkpoint(
     objective: str,
     parent_sha: str | None,
     batch_size: int = 16,
+    include_optimizer: bool = True,
 ) -> str:
     """Publish atomic SHA-256 content-addressed checkpoint via v5_training.CheckpointStore & prune old generations."""
     data_sha = digest({"program": "ELENDRIL-V8-X3", "arch": architecture, "obj": objective})
@@ -737,10 +742,12 @@ def _publish_x3_checkpoint(
         "objective": objective,
         "spec_sha256": str(spec_sha256),
         "model_spec_sha256": str(spec.sha256()),
+        "includes_optimizer_state": bool(include_optimizer),
     }
+    opt_bytes = _dump(optimizer.state_dict()) if include_optimizer else _dump({})
     payloads = {
         "model.bin": _dump({k: v.detach().cpu() for k, v in model.state_dict().items()}),
-        "optimizer.bin": _dump(optimizer.state_dict()),
+        "optimizer.bin": opt_bytes,
         "rng.bin": rng_bytes,
         "scheduler.json": canonical({"metadata": meta, "scaler": {}}),
         "cursor.json": canonical(asdict(cursor)),
@@ -773,7 +780,9 @@ def _restore_x3_checkpoint(
     model.load_state_dict(weights)
     model.to(torch.device(device))
     if optimizer is not None and "optimizer.bin" in payloads:
-        optimizer.load_state_dict(_load(payloads["optimizer.bin"]))
+        opt_state = _load(payloads["optimizer.bin"])
+        if isinstance(opt_state, Mapping) and opt_state.get("state"):
+            optimizer.load_state_dict(opt_state)
     return {"state": state, "meta": meta, "global_update": int(state.global_update), "sha": str(sha)}
 
 
@@ -862,7 +871,7 @@ def run_x3_single_job(
     ckpt_every: int = 512,
     updates_override: int | None = None,
 ) -> dict[str, Any]:
-    """Execute or resume a single registered X3 job atomically with `LATEST` pruning & batched dev scoring."""
+    """Execute or resume a single registered X3 job atomically with FP16 AMP, pre-packed batches, `LATEST` pruning & dev mistakes."""
     wroot = Path(work_root)
     wroot.mkdir(parents=True, exist_ok=True)
     jid = str(job["job_id"])
@@ -875,12 +884,13 @@ def run_x3_single_job(
     spec_sha = str(job["spec_sha256"])
 
     target_updates = int(updates_override) if updates_override is not None else (4 if canary else int(job["updates"]))
+    dev = torch.device(device)
     spec = build_x3_backbone_spec(scale)
-    model = X3CognitiveModel(arch, spec, seed=seed).to(torch.device(device))
+    model = X3CognitiveModel(arch, spec, seed=seed).to(dev)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
 
-    # Keep lineage_id="main" inside per-job checkpoints/ so nested Windows paths stay safely < MAX_PATH
-    store = CheckpointStore(wroot / "checkpoints", "main")
+    # Keep short "c"/"m" dirs inside per-job folder so nested Windows paths stay safely < MAX_PATH
+    store = CheckpointStore(wroot / "c", "m")
     start_u = 0
     latest_sha = store.latest_sha256() if resume else None
     if latest_sha is not None:
@@ -889,10 +899,13 @@ def run_x3_single_job(
         )
         start_u = int(restored["global_update"])
 
-    tr_bat = build_x3_cognitive_battery(split="train", seed=SPLIT_SEEDS["train"], per_family=2 if canary else 20)
+    tr_bat = build_x3_cognitive_battery(split="train", seed=SPLIT_SEEDS["train"], per_family=2 if canary else 40)
     dev_bat = build_x3_cognitive_battery(split="dev", seed=SPLIT_SEEDS["dev"], per_family=2 if canary else 12)
     batch_sz = 4 if canary else 16
-    batches = build_d3_hybrid_batches(tr_bat["cases"], seed=oseed, batch_size=batch_sz)
+    raw_batches = build_d3_hybrid_batches(tr_bat["cases"], seed=oseed, batch_size=batch_sz)
+    batches = prepack_d3_batches(raw_batches, max_length=model.max_ctx, device=dev, objective=obj)
+    use_cuda_amp = dev.type == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_cuda_amp)
 
     t0 = time.perf_counter()
     last_stats: dict[str, Any] = {}
@@ -900,17 +913,26 @@ def run_x3_single_job(
     with updates_log.open("a", encoding="utf-8") as fh:
         for u in range(start_u, target_updates):
             step_b = batches[u % len(batches)]
-            last_stats = compute_d3_objective_step(model, optimizer, step_b, objective=obj)
+            last_stats = compute_d3_objective_step(
+                model,
+                optimizer,
+                step_b,
+                objective=obj,
+                use_amp=use_cuda_amp,
+                scaler=scaler if use_cuda_amp else None,
+            )
             cur_u = u + 1
             fh.write(json.dumps({"update": cur_u, **last_stats}, sort_keys=True) + "\n")
             if (cur_u % max(1, int(ckpt_every)) == 0) or (cur_u == target_updates):
+                # Keep full AdamW state mid-run & in canary resume tests; prune optimizer bloat on completed final checkpoints
+                keep_opt = bool(canary) or (cur_u < target_updates)
                 latest_sha = _publish_x3_checkpoint(
                     store,
                     model=model,
                     optimizer=optimizer,
                     spec=spec,
                     spec_sha256=spec_sha,
-                    lineage_id="main",
+                    lineage_id="m",
                     global_update=cur_u,
                     target_updates=target_updates,
                     source_commit=source_commit,
@@ -918,12 +940,26 @@ def run_x3_single_job(
                     objective=obj,
                     parent_sha=latest_sha,
                     batch_size=batch_sz,
+                    include_optimizer=keep_opt,
                 )
     # Keep strictly LATEST checkpoint on disk to bound Kaggle 2xT4 usage
     store.prune(keep=set())
 
     preds = evaluate_x3_batched(model, dev_bat["cases"], batch_size=4 if canary else 32, device=device, use_generative_bytes=False)
     profile = score_cognitive_battery_profile(preds, dev_bat["cases"])
+    pred_by_id = {str(p["case_id"]): p for p in preds}
+    dev_mistakes = [
+        {
+            "case_id": str(c["case_id"]),
+            "family": str(c["family"]),
+            "prompt": str(c["prompt"])[:220],
+            "gold_answer": str(c["gold_text"]),
+            "pred_answer": str(pred_by_id[str(c["case_id"])]["predicted_text"]),
+            "absent_from_input": bool(c.get("absent_from_input")),
+        }
+        for c in dev_bat["cases"]
+        if str(c["case_id"]) in pred_by_id and not bool(pred_by_id[str(c["case_id"])]["correct"])
+    ][:40]
     wall = round(time.perf_counter() - t0, 3)
 
     receipt = {
@@ -944,6 +980,7 @@ def run_x3_single_job(
         "dev_macro_mean": profile["macro_mean"],
         "dev_worst_floor": profile["worst_dimension_floor"],
         "dev_profile": profile,
+        "dev_mistakes": dev_mistakes,
         "last_step_stats": last_stats,
         "wall_seconds": wall,
     }
@@ -989,7 +1026,9 @@ def _link_latest_full_files(work_dir: Path) -> dict[str, Path]:
             fp = jdir / fname
             if fp.is_file():
                 out[f"jobs/{jdir.name}/{fname}"] = fp
-        ck_root = jdir / "checkpoints"
+        ck_root = jdir / "c"
+        if not ck_root.is_dir():
+            ck_root = jdir / "checkpoints"
         if ck_root.is_dir():
             for lat_p in ck_root.rglob("LATEST"):
                 sha = lat_p.read_text(encoding="utf-8").strip().splitlines()[0] if lat_p.is_file() else ""
@@ -1006,6 +1045,180 @@ def _link_latest_full_files(work_dir: Path) -> dict[str, Path]:
     return out
 
 
+X3_PAIRED_CONTRASTS: tuple[tuple[str, str, str, str], ...] = (
+    ("R_vs_Rnoedge_D2", "R-noedge", "D2", "R"),
+    ("D3_Hybrid_vs_NoSurgery_R", "R", "D3-NoSurgery", "R"),
+    ("D3_Hybrid_vs_NoAux_R", "R", "D3-NoAux", "R"),
+    ("P-R-Iter_vs_Fixed", "P-R-Iter-Fixed", "D3-Hybrid", "P-R-Iter"),
+    ("P-R-Iter_vs_NoRel", "P-R-Iter-NoRel", "D3-Hybrid", "P-R-Iter"),
+    ("P-R-Iter_vs_AddMem", "P-R-Iter-AddMem", "D3-Hybrid", "P-R-Iter"),
+    ("P-R-Iter_vs_NoCopy", "P-R-Iter-NoCopy", "D3-Hybrid", "P-R-Iter"),
+    ("P-R-Iter_vs_P_D3", "P", "D3-Hybrid", "P-R-Iter"),
+)
+
+
+def _run_stage5_sealed_evaluations(
+    *,
+    wdir: Path,
+    completed_ids: set[str],
+    job_receipts: Mapping[str, Mapping[str, Any]],
+    jobs_by_id: Mapping[str, Mapping[str, Any]],
+    splits_map: Mapping[str, Sequence[Mapping[str, Any]]],
+    eval_device: str,
+    canary: bool,
+) -> dict[str, Any]:
+    """Run Stage 5 sealed confirm, OOD transfer, and 5 learning modes once the cohort unseals."""
+    confirm_cases = list(splits_map["confirm"])
+    ood_cases = list(splits_map["ood_transfer"])
+    dev_cases = list(splits_map.get("dev", confirm_cases))
+
+    icl_map = {
+        sh: [
+            c
+            for c in confirm_cases
+            if c["family"] in ("C01_NOVEL_OP_INDUCTION", "C02_FST_RULE_COMPOSITION")
+            and int(c.get("n_shots", 0)) == sh
+        ][: (2 if canary else 4)]
+        or [confirm_cases[0]]
+        for sh in (0, 1, 4, 16, 64)
+    }
+    state_seq = [c for c in confirm_cases if c["family"] == "C08_ADAPTIVE_MEMORY_REVISION"][: (2 if canary else 8)] or confirm_cases[:2]
+    grad_demos = [c for c in dev_cases if c["family"] == "C01_NOVEL_OP_INDUCTION"][: (2 if canary else 4)] or dev_cases[:2]
+    grad_queries = [c for c in confirm_cases if c["family"] == "C01_NOVEL_OP_INDUCTION"][: (2 if canary else 8)] or confirm_cases[:2]
+    transfer_sub = [
+        c
+        for c in ood_cases
+        if c["family"] in ("C10_LANGUAGE_MATH_TRANSFER", "C03_GRID_TRANSFORM_ARC")
+    ][: (2 if canary else 10)] or ood_cases[:2]
+
+    conf_by_job: dict[str, Any] = {}
+    ood_by_job: dict[str, Any] = {}
+    modes_by_job: dict[str, Any] = {}
+    rep_archs_seen: set[str] = set()
+    rep_targets = ("P-R-Iter", "P", "R", "P-R-Iter-Fixed", "Base")
+    bsz = 4 if canary else 32
+
+    def _collect_mistakes(preds: Sequence[Mapping[str, Any]], cases: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        p_map = {str(p["case_id"]): p for p in preds}
+        wrong = []
+        for c in cases:
+            cid = str(c["case_id"])
+            pr = p_map.get(cid)
+            if pr is not None and not bool(pr.get("correct")):
+                wrong.append(
+                    {
+                        "case_id": cid,
+                        "family": str(c["family"]),
+                        "prompt": str(c["prompt"])[:200],
+                        "gold_answer": str(c["gold_text"]),
+                        "pred_answer": str(pr.get("predicted_text", "")),
+                        "absent_from_input": bool(c.get("absent_from_input")),
+                    }
+                )
+            if len(wrong) >= 25:
+                break
+        return wrong
+
+    for jid in sorted(completed_ids):
+        meta = dict(job_receipts.get(jid) or jobs_by_id.get(jid) or {})
+        arch = str(meta.get("architecture", ""))
+        obj = str(meta.get("objective", ""))
+        scale_val = "tiny" if canary else str(meta.get("scale", "S20"))
+        ck_root = wdir / "jobs" / jid / "c"
+        lin_id = "m"
+        if not ck_root.is_dir():
+            ck_root = wdir / "jobs" / jid / "checkpoints"
+            lin_id = "main"
+        sha = CheckpointStore(ck_root, lin_id).latest_sha256() if ck_root.is_dir() else None
+        if not sha or not arch:
+            conf_by_job[jid] = {"job_id": jid, "weights_available": False, "architecture": arch, "objective": obj}
+            ood_by_job[jid] = {"job_id": jid, "weights_available": False, "architecture": arch, "objective": obj}
+            continue
+
+        store = CheckpointStore(ck_root, lin_id)
+        spec = build_x3_backbone_spec(scale_val)
+        m = X3CognitiveModel(arch, spec, seed=int(meta.get("init_seed", 7)))
+        _restore_x3_checkpoint(store, sha, model=m, device=eval_device, expected_spec_sha256=str(meta.get("spec_sha256", "")))
+
+        c_preds = evaluate_x3_batched(m, confirm_cases, batch_size=bsz, device=eval_device, use_generative_bytes=False)
+        c_prof = score_cognitive_battery_profile(c_preds, confirm_cases)
+        conf_by_job[jid] = {
+            "job_id": jid,
+            "weights_available": True,
+            "architecture": arch,
+            "objective": obj,
+            "scale": scale_val,
+            "init_seed": int(meta.get("init_seed", 7)),
+            "checkpoint_sha256": sha,
+            "profile": c_prof,
+            "mistakes": _collect_mistakes(c_preds, confirm_cases),
+        }
+
+        o_preds = evaluate_x3_batched(m, ood_cases, batch_size=bsz, device=eval_device, use_generative_bytes=False)
+        o_prof = score_cognitive_battery_profile(o_preds, ood_cases)
+        ood_by_job[jid] = {
+            "job_id": jid,
+            "weights_available": True,
+            "architecture": arch,
+            "objective": obj,
+            "scale": scale_val,
+            "init_seed": int(meta.get("init_seed", 7)),
+            "checkpoint_sha256": sha,
+            "profile": o_prof,
+            "mistakes": _collect_mistakes(o_preds, ood_cases),
+        }
+
+        if arch in rep_targets and arch not in rep_archs_seen:
+            rep_archs_seen.add(arch)
+            modes_by_job[jid] = {
+                "job_id": jid,
+                "architecture": arch,
+                "objective": obj,
+                "scale": scale_val,
+                "modes": evaluate_five_learning_modes(
+                    m,
+                    icl_cases_by_shot=icl_map,
+                    state_adapt_sequence=state_seq,
+                    grad_adapt_demos=grad_demos,
+                    grad_adapt_queries=grad_queries,
+                    transfer_cases=transfer_sub,
+                    oracle_solver=solve_cognitive_case_oracle,
+                ),
+            }
+
+        del m
+        if str(eval_device).startswith("cuda") and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    conf_doc = {
+        "schema": "elendril-x3-sealed-confirm-results-v1",
+        "split": "confirm",
+        "cases": len(confirm_cases),
+        "evaluated_jobs": sum(1 for v in conf_by_job.values() if v.get("weights_available")),
+        "jobs": conf_by_job,
+    }
+    ood_doc = {
+        "schema": "elendril-x3-ood-transfer-results-v1",
+        "split": "ood_transfer",
+        "cases": len(ood_cases),
+        "evaluated_jobs": sum(1 for v in ood_by_job.values() if v.get("weights_available")),
+        "jobs": ood_by_job,
+    }
+    modes_doc = {
+        "schema": "elendril-x3-five-modes-summary-v1",
+        "evaluated_models": len(modes_by_job),
+        "models": modes_by_job,
+    }
+    _atomic_write_json(wdir / "X3_SEALED_CONFIRMATION_RESULTS.json", conf_doc)
+    _atomic_write_json(wdir / "X3_OOD_TRANSFER_RESULTS.json", ood_doc)
+    _atomic_write_json(wdir / "X3_FIVE_LEARNING_MODES.json", modes_doc)
+    return {
+        "sealed_confirm_evaluated_jobs": conf_doc["evaluated_jobs"],
+        "ood_transfer_evaluated_jobs": ood_doc["evaluated_jobs"],
+        "five_learning_modes_evaluated": modes_doc["evaluated_models"],
+    }
+
+
 def run_x3_campaign(
     *,
     work_dir: Path | str,
@@ -1013,9 +1226,9 @@ def run_x3_campaign(
     source_commit: str,
     devices: Sequence[str] = ("cuda:0", "cuda:1"),
     session_minutes: float = 660.0,
-    reserve_minutes: float = 30.0,
-    measured_seconds_per_update: float = 0.55,
-    per_job_disk_bytes: int = 260 * 1024 * 1024,
+    reserve_minutes: float = 25.0,
+    measured_seconds_per_update: float = 0.28,
+    per_job_disk_bytes: int = 95 * 1024 * 1024,
     canary: bool = False,
     resume_receipts: Sequence[Mapping[str, Any]] = (),
     in_process_runner: Callable[..., Any] | None = None,
@@ -1037,8 +1250,9 @@ def run_x3_campaign(
     sampler_audit = audit_x1_sampler_exposure(quota_per_family=24)
     _atomic_write_json(wdir / "X3_SAMPLER_AUDIT.json", sampler_audit)
 
-    ledger = build_x3_program_ledger(source_commit=source_commit, updates=4 if canary else 2368)
+    ledger = build_x3_program_ledger(source_commit=source_commit, updates=4 if canary else X3_DEFAULT_UPDATES)
     raw_jobs = list(jobs_override) if jobs_override is not None else list(ledger["jobs"])
+    jobs_by_id = {str(j["job_id"]): dict(j) for j in raw_jobs}
     _atomic_write_json(wdir / "X3_DESIGN_REGISTRY.json", ledger)
 
     # Disjoint split custody verification across all 4 splits
@@ -1164,6 +1378,7 @@ def run_x3_campaign(
     _atomic_write_json(wdir / "X3_S50_SCALING_GATE.json", s50_gate)
 
     pending_s50 = [j for j in s50_jobs_all if j.job_id not in completed_ids]
+    gated_s50_ids: list[str] = []
     if s50_gate["unlocked"] and not deferred_ids and not failed_ids:
         for w_start in range(0, len(pending_s50), n_devs):
             rem_sec = usable_seconds - (now_fn() - t_start)
@@ -1181,9 +1396,14 @@ def run_x3_campaign(
             for wrec in wave_res.get("waves", ()):
                 failed_ids.extend(wrec.get("failed_workers", ()))
     elif pending_s50:
-        deferred_ids.extend(j.job_id for j in pending_s50 if j.job_id not in deferred_ids)
+        if not s50_gate["unlocked"]:
+            # Scientifically gated Stage 4 S50 jobs stay at 0.0 GPU s cleanly without blocking campaign completion
+            gated_s50_ids = [j.job_id for j in pending_s50]
+        else:
+            deferred_ids.extend(j.job_id for j in pending_s50 if j.job_id not in deferred_ids)
 
-    pending_all = [j.job_id for j in all_sjobs if j.job_id not in completed_ids]
+    gated_s50_set = set(gated_s50_ids)
+    pending_all = [j.job_id for j in all_sjobs if j.job_id not in completed_ids and j.job_id not in gated_s50_set]
     next_id = pending_all[0] if pending_all else None
     _atomic_write_json(
         wdir / "PENDING_QUEUE.json",
@@ -1191,6 +1411,7 @@ def run_x3_campaign(
             "schema": "elendril-x3-pending-queue-v1",
             "pending_job_ids": pending_all,
             "deferred_job_ids": deferred_ids,
+            "gated_s50_job_ids": gated_s50_ids,
             "failed_job_ids": sorted(set(failed_ids)),
             "next_resumable_job_id": next_id,
             "stopped_reason": stopped_reason,
@@ -1207,6 +1428,26 @@ def run_x3_campaign(
         lock_out_path=wdir / "CONFIRMATION_LOCK.json",
     )
 
+    stage5_summary: dict[str, Any] = {"status": "LOCKED_PENDING_COHORT"}
+    if conf_lock["unlocked"] and not failed_ids:
+        eval_dev = (
+            "cuda:0"
+            if (not canary and devices and any(str(d).startswith("cuda") for d in devices) and torch.cuda.is_available())
+            else "cpu"
+        )
+        stage5_summary = {
+            "status": "COMPLETE",
+            **_run_stage5_sealed_evaluations(
+                wdir=wdir,
+                completed_ids=completed_ids,
+                job_receipts=job_receipts,
+                jobs_by_id=jobs_by_id,
+                splits_map=splits_map,
+                eval_device=eval_dev,
+                canary=bool(canary),
+            ),
+        }
+
     # Paired bootstrap summary using Palantiri primitives across completed treatment/control arms
     arm_records = [
         {
@@ -1219,27 +1460,39 @@ def run_x3_campaign(
         if "dev_macro_mean" in r
     ]
     paired_summary: dict[str, Any] = {}
-    ctrl_key = "P-R-Iter-Fixed_D3-Hybrid_S20"
-    trt_key = "P-R-Iter_D3-Hybrid_S20"
-    ctrl_vals = {r["init_seed"]: r["value"] for r in arm_records if r["arm_id"] == ctrl_key}
-    trt_vals = {r["init_seed"]: r["value"] for r in arm_records if r["arm_id"] == trt_key}
-    shared_seeds = sorted(set(ctrl_vals) & set(trt_vals))
-    if shared_seeds:
-        c_vec = [ctrl_vals[s] for s in shared_seeds]
-        t_vec = [trt_vals[s] for s in shared_seeds]
-        paired_summary["P-R-Iter_vs_Fixed"] = bootstrap_paired_families(c_vec, t_vec, resamples=500, seed=1801)
-        obs = build_paired_seed_observations(
-            arm_records, contrast_id="P-R-Iter_vs_Fixed", control_arm=ctrl_key, treatment_arm=trt_key, arm_key="arm_id"
+    s20_scale_tag = "tiny" if canary else "S20"
+    contrast_specs: list[tuple[str, str, str]] = [
+        (cid, f"{ca}_{obj}_{s20_scale_tag}", f"{ta}_{obj}_{s20_scale_tag}")
+        for cid, ca, obj, ta in X3_PAIRED_CONTRASTS
+    ]
+    if not canary:
+        contrast_specs.extend(
+            [
+                ("S50_P-R-Iter_vs_P", "P_D3-Hybrid_S50", "P-R-Iter_D3-Hybrid_S50"),
+                ("S50_P-R-Iter_vs_Base", "Base_D3-Hybrid_S50", "P-R-Iter_D3-Hybrid_S50"),
+            ]
         )
-        paired_summary["first_page_report"] = build_analyst_first_page_report(
-            title="ELENDRIL V8-X3 Cognitive Summary",
-            campaign_id="ELENDRIL-V8-X3",
-            source_commit=source_commit,
-            decision_summary="CPU_OR_PARTIAL" if pending_all else "COHORT_COMPLETE",
-            control_arm=ctrl_key,
-            treatment_arm=trt_key,
-            paired_seed_bundle=obs,
-        )
+    for cid, ctrl_key, trt_key in contrast_specs:
+        ctrl_vals = {r["init_seed"]: r["value"] for r in arm_records if r["arm_id"] == ctrl_key}
+        trt_vals = {r["init_seed"]: r["value"] for r in arm_records if r["arm_id"] == trt_key}
+        shared_seeds = sorted(set(ctrl_vals) & set(trt_vals))
+        if shared_seeds:
+            c_vec = [ctrl_vals[s] for s in shared_seeds]
+            t_vec = [trt_vals[s] for s in shared_seeds]
+            paired_summary[cid] = bootstrap_paired_families(c_vec, t_vec, resamples=500, seed=1801)
+            if cid == "P-R-Iter_vs_Fixed":
+                obs = build_paired_seed_observations(
+                    arm_records, contrast_id=cid, control_arm=ctrl_key, treatment_arm=trt_key, arm_key="arm_id"
+                )
+                paired_summary["first_page_report"] = build_analyst_first_page_report(
+                    title="ELENDRIL V8-X3 Cognitive Summary",
+                    campaign_id="ELENDRIL-V8-X3",
+                    source_commit=source_commit,
+                    decision_summary="CPU_OR_PARTIAL" if pending_all else "COHORT_COMPLETE",
+                    control_arm=ctrl_key,
+                    treatment_arm=trt_key,
+                    paired_seed_bundle=obs,
+                )
 
     campaign_status = "COMPLETE" if (not pending_all and not failed_ids) else "PARTIAL"
     summary_doc = {
@@ -1249,10 +1502,12 @@ def run_x3_campaign(
         "completed_count": len(completed_ids),
         "total_jobs": len(all_sjobs),
         "pending_job_ids": pending_all,
+        "gated_s50_job_ids": gated_s50_ids,
         "failed_job_ids": sorted(set(failed_ids)),
         "next_resumable_job_id": next_id,
         "s50_scaling_gate": s50_gate,
         "confirmation_lock": conf_lock,
+        "stage5_summary": stage5_summary,
         "sampler_audit_ratio": sampler_audit["base_world_diversity_ratio_d1h_over_d2"],
         "paired_summary": paired_summary,
     }
@@ -1262,9 +1517,10 @@ def run_x3_campaign(
             [
                 f"# ELENDRIL V8-X3 Results ({campaign_status})",
                 "",
-                f"- Completed: `{len(completed_ids)}/{len(all_sjobs)}` jobs (`next_resumable={next_id}`)",
+                f"- Completed: `{len(completed_ids)}/{len(all_sjobs)}` jobs (`gated_s50={len(gated_s50_ids)}`, `next_resumable={next_id}`)",
                 f"- S50 Gate: `{s50_gate['status']}` (`unlocked={s50_gate['unlocked']}`)",
                 f"- Confirmation Lock: `{conf_lock['status']}` (`pending={len(conf_lock['pending_confirm_jobs'])}`)",
+                f"- Stage 5 Sealed Confirm / OOD / 5-Modes: `{stage5_summary.get('status')}` (`confirm_jobs={stage5_summary.get('sealed_confirm_evaluated_jobs', 0)}`)",
                 "",
             ]
         ),
@@ -1272,8 +1528,14 @@ def run_x3_campaign(
     )
 
     full_files = _link_latest_full_files(wdir)
-    analysis_files = {k: v for k, v in full_files.items() if "/checkpoints/" not in k}
+    analysis_files = {k: v for k, v in full_files.items() if "/c/" not in k and "/checkpoints/" not in k}
     summary_files = {k: v for k, v in analysis_files.items() if "/" not in k}
+    full_only_bytes = sum(p.stat().st_size for k, p in full_files.items() if k not in analysis_files and p.is_file())
+    try:
+        free_export_bytes = shutil.disk_usage(edir).free
+    except OSError:
+        free_export_bytes = 0
+    can_write_full = free_export_bytes > (full_only_bytes + 2 * 1024**3)
     archives = export_session_archives(
         wdir,
         edir,
@@ -1286,7 +1548,7 @@ def run_x3_campaign(
         source_commit=source_commit,
         protocol_sha256=ledger["ledger_sha256"],
         include_v6_manifest=True,
-        write_full_zip=True,
+        write_full_zip=can_write_full,
     )
     an_path = archives["archives"]["analysis"]
     an_ver = verify_session_archive(an_path, expected_source_commit=source_commit)
@@ -1321,7 +1583,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     p_smk.add_argument("--source", required=True)
     p_smk.add_argument("--include-s50", action="store_true")
 
-    p_inv = sub.add_parser("inventory", help="Print preregistered 51-job X3 multi-stage ledger JSON.")
+    p_inv = sub.add_parser("inventory", help="Print preregistered 57-job X3 multi-stage ledger JSON.")
     p_inv.add_argument("--source", required=True)
 
     p_job = sub.add_parser("run-job", help="Run a single X3 registered job JSON.")
@@ -1384,6 +1646,7 @@ __all__ = [
     "X3CognitivePolicy",
     "X3_BACKEND_ID",
     "X3_CANARY_ARCHITECTURES",
+    "X3_DEFAULT_UPDATES",
     "X3_SEEDS",
     "build_elendril_x3_module",
     "build_x3_program_ledger",

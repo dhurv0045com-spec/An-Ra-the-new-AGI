@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import math
 import random
 from typing import Any, Mapping, Sequence
 
@@ -215,10 +216,68 @@ def _pack_training_batch(
     )
 
 
+def _resolve_batch_order_and_offset(
+    batch: Mapping[str, Sequence[Mapping[str, Any]]],
+    objective: str,
+) -> tuple[list[Mapping[str, Any]], int, bool]:
+    ind_cases = list(batch.get("independent_cases", ()))
+    pair_cases = list(batch.get("paired_cases", ()))
+    if objective in ("D1", "D2") and pair_cases:
+        all_cases = [*pair_cases, *pair_cases] if len(pair_cases) >= 2 else [*pair_cases, *ind_cases]
+        offset = 0
+    else:
+        all_cases = [*ind_cases, *pair_cases]
+        offset = len(ind_cases)
+    if not all_cases:
+        raise ValueError("Empty batch in compute_d3_objective_step")
+    return all_cases, offset, (len(pair_cases) >= 2)
+
+
+def prepack_d3_batches(
+    batches: Sequence[Mapping[str, Any]],
+    *,
+    max_length: int,
+    device: str | torch.device,
+    objective: str,
+) -> list[dict[str, Any]]:
+    """Pre-encode and transfer training batches once to eliminate per-step CPU encoding bottlenecks."""
+    if objective not in D3_OBJECTIVES:
+        raise ValueError(f"Unknown D3 objective: {objective!r}")
+    dev = torch.device(device)
+    packed_list: list[dict[str, Any]] = []
+    for batch in batches:
+        all_cases, offset, has_pair = _resolve_batch_order_and_offset(batch, objective)
+        toks, segs, elig_t, apos, g_cls, t_uncert = _pack_training_batch(
+            all_cases, max_length=int(max_length), device=dev
+        )
+        pos, mask = packed_layout(segs, torch_module=torch)
+        packed_list.append(
+            {
+                **batch,
+                "_packed": {
+                    "objective": str(objective),
+                    "device": str(dev),
+                    "max_length": int(max_length),
+                    "toks": toks,
+                    "segs": segs,
+                    "elig_t": elig_t,
+                    "apos": apos,
+                    "g_cls": g_cls,
+                    "t_uncert": t_uncert,
+                    "pos": pos,
+                    "mask": mask,
+                    "offset": int(offset),
+                    "has_pair": bool(has_pair),
+                },
+            }
+        )
+    return packed_list
+
+
 def compute_d3_objective_step(
     model: X3CognitiveModel,
     optimizer: torch.optim.Optimizer,
-    batch: Mapping[str, Sequence[Mapping[str, Any]]],
+    batch: Mapping[str, Any],
     *,
     objective: str = "D3-Hybrid",
     cf_weight: float = 0.25,
@@ -227,52 +286,68 @@ def compute_d3_objective_step(
     ponder_weight: float = 0.02,
     aux_action_weight: float = 0.25,
     clip: float = 1.0,
+    use_amp: bool | None = None,
+    scaler: torch.amp.GradScaler | None = None,
 ) -> dict[str, Any]:
-    """Run one verified optimization step for CE, D1, D2, D3-Hybrid, D3-NoSurgery, or D3-NoAux."""
+    """Run one verified optimization step (with optional CUDA FP16 AMP & pre-packed batches)."""
     if objective not in D3_OBJECTIVES:
         raise ValueError(f"Unknown D3 objective: {objective!r}")
     dev = next(model.parameters()).device
     model.train()
 
-    ind_cases = list(batch.get("independent_cases", ()))
-    pair_cases = list(batch.get("paired_cases", ()))
-    if objective in ("D1", "D2") and pair_cases:
-        all_cases = [*pair_cases, *pair_cases] if len(pair_cases) >= 2 else [*pair_cases, *ind_cases]
+    packed = batch.get("_packed")
+    if (
+        isinstance(packed, Mapping)
+        and packed.get("objective") == objective
+        and packed.get("max_length") == model.max_ctx
+        and packed["toks"].device == dev
+    ):
+        toks = packed["toks"]
+        elig_t = packed["elig_t"]
+        apos = packed["apos"]
+        g_cls = packed["g_cls"]
+        t_uncert = packed["t_uncert"]
+        pos = packed["pos"]
+        mask = packed["mask"]
+        offset = int(packed["offset"])
+        has_pair = bool(packed["has_pair"])
     else:
-        all_cases = [*ind_cases, *pair_cases]
-    if not all_cases:
-        raise ValueError("Empty batch in compute_d3_objective_step")
+        all_cases, offset, has_pair = _resolve_batch_order_and_offset(batch, objective)
+        toks, segs, elig_t, apos, g_cls, t_uncert = _pack_training_batch(
+            all_cases, max_length=model.max_ctx, device=dev
+        )
+        pos, mask = packed_layout(segs, torch_module=torch)
 
-    toks, segs, elig_t, apos, g_cls, t_uncert = _pack_training_batch(
-        all_cases, max_length=model.max_ctx, device=dev
-    )
-    pos, mask = packed_layout(segs, torch_module=torch)
-    out = model(toks, pos, mask, action_positions=apos)
+    amp_on = bool(use_amp) if use_amp is not None else (dev.type == "cuda")
+    with torch.amp.autocast("cuda", dtype=torch.float16, enabled=amp_on):
+        out = model(toks, pos, mask, action_positions=apos)
+
+    logits_f = out["logits"].float()
+    act_logits_f = out["action_logits"].float()
+    uncert_f = out["uncertainties"].float()
+    ponder_f = out["ponder_cost"].float()
 
     targets = toks[:, 1:].reshape(-1)
-    logits_flat = out["logits"][:, :-1, :].reshape(-1, out["logits"].shape[-1])
+    logits_flat = logits_f[:, :-1, :].reshape(-1, logits_f.shape[-1])
     mask_flat = elig_t[:, 1:].reshape(-1).to(logits_flat.dtype)
     byte_ce = (F.cross_entropy(logits_flat, targets, reduction="none") * mask_flat).sum() / mask_flat.sum().clamp_min(1.0)
-    act_ce = F.nll_loss(out["action_logits"], g_cls)
+    act_ce = F.nll_loss(act_logits_f, g_cls)
     base_loss = byte_ce + float(aux_action_weight) * act_ce
 
-    # Auxiliary losses (ponder, metacognitive uncertainty, and counterfactual separation on paired cases)
-    meta_loss = F.mse_loss(out["uncertainties"], t_uncert)
-    ponder_loss = out["ponder_cost"].mean()
-    cf_loss = torch.zeros((), device=dev, dtype=base_loss.dtype)
+    # Auxiliary losses computed strictly in FP32 (ponder, metacognitive uncertainty, counterfactual separation)
+    meta_loss = F.mse_loss(uncert_f, t_uncert)
+    ponder_loss = ponder_f.mean()
+    cf_loss = torch.zeros((), device=dev, dtype=torch.float32)
 
     use_aux_cf = objective in ("D1", "D2", "D3-Hybrid", "D3-NoSurgery")
-    if use_aux_cf and len(pair_cases) >= 2:
-        offset = 0 if objective in ("D1", "D2") else len(ind_cases)
-        probs = F.softmax(out["action_logits"], dim=-1)
+    if use_aux_cf and has_pair:
+        probs = F.softmax(act_logits_f, dim=-1)
         p_a = probs[offset]
         p_b = probs[offset + 1]
         if int(g_cls[offset].item()) != int(g_cls[offset + 1].item()):
-            # Different gold answers -> encourage probability vector margin separation
             l1 = 0.5 * torch.abs(p_a - p_b).sum()
             cf_loss = F.relu(float(cf_margin) - l1)
         else:
-            # Same gold answer -> encourage representation / action invariance
             m = 0.5 * (p_a + p_b).clamp_min(1e-7)
             cf_loss = 0.5 * (
                 F.kl_div(m.log(), p_a.clamp_min(1e-7), reduction="sum")
@@ -290,45 +365,81 @@ def compute_d3_objective_step(
 
     trainable = [p for p in model.parameters() if p.requires_grad]
     optimizer.zero_grad(set_to_none=True)
+    scaler_on = scaler is not None and scaler.is_enabled()
 
-    surgery_info = {"dot_before": 0.0, "dot_after": 0.0, "cosine_before": 0.0, "conflict_detected": False}
+    surgery_info: dict[str, float | bool] = {
+        "dot_before": 0.0,
+        "dot_after": 0.0,
+        "cosine_before": 0.0,
+        "conflict_detected": False,
+    }
     if objective == "D3-Hybrid":
-        base_g = torch.autograd.grad(base_loss, trainable, retain_graph=True, allow_unused=True)
-        aux_g = torch.autograd.grad(aux_loss, trainable, allow_unused=True)
-        # Apply PCGrad projection across shared parameters where both gradients exist
+        scaled_base = scaler.scale(base_loss) if scaler_on else base_loss
+        scaled_aux = scaler.scale(aux_loss) if scaler_on else aux_loss
+        base_g = torch.autograd.grad(scaled_base, trainable, retain_graph=True, allow_unused=True)
+        aux_g = torch.autograd.grad(scaled_aux, trainable, allow_unused=True)
+
+        grad_finite = all(
+            bool(torch.isfinite(g).all().item())
+            for pair in zip(base_g, aux_g)
+            for g in pair
+            if g is not None
+        )
         shared_idx = [i for i, (bg, ag) in enumerate(zip(base_g, aux_g)) if bg is not None and ag is not None]
-        if shared_idx:
+        if grad_finite and shared_idx:
+            s_val = max(1e-12, float(scaler.get_scale())) if scaler_on else 1.0
+            inv_s = 1.0 / s_val
             comb_shared, surgery_info = apply_pcgrad_conflict_surgery(
-                [base_g[i] for i in shared_idx],
-                [aux_g[i] for i in shared_idx],
+                [base_g[i].detach().float() * inv_s for i in shared_idx],
+                [aux_g[i].detach().float() * inv_s for i in shared_idx],
             )
-            comb_map = {shared_idx[k]: comb_shared[k] for k in range(len(shared_idx))}
+            comb_map = {shared_idx[k]: (comb_shared[k] * s_val) for k in range(len(shared_idx))}
+            for i, p in enumerate(trainable):
+                if i in comb_map:
+                    p.grad = comb_map[i].to(p.dtype)
+                elif base_g[i] is not None:
+                    p.grad = base_g[i].detach()
+                elif aux_g[i] is not None:
+                    p.grad = aux_g[i].detach()
         else:
-            comb_map = {}
-        for i, p in enumerate(trainable):
-            if i in comb_map:
-                p.grad = comb_map[i].detach()
-            elif base_g[i] is not None:
-                p.grad = base_g[i].detach()
-            elif aux_g[i] is not None:
-                p.grad = aux_g[i].detach()
+            for i, p in enumerate(trainable):
+                bg_i, ag_i = base_g[i], aux_g[i]
+                if bg_i is not None and not torch.isfinite(bg_i).all():
+                    p.grad = bg_i.detach()
+                elif ag_i is not None and not torch.isfinite(ag_i).all():
+                    p.grad = ag_i.detach()
+                elif bg_i is not None and ag_i is not None:
+                    p.grad = (bg_i.detach() + ag_i.detach()).to(p.dtype)
+                elif bg_i is not None:
+                    p.grad = bg_i.detach()
+                elif ag_i is not None:
+                    p.grad = ag_i.detach()
         total_loss_val = float((base_loss + aux_loss).item())
     else:
         total_loss = base_loss + aux_loss
-        total_loss.backward()
+        (scaler.scale(total_loss) if scaler_on else total_loss).backward()
         total_loss_val = float(total_loss.item())
 
-    grad_norm = float(torch.nn.utils.clip_grad_norm_(trainable, float(clip)).item())
-    optimizer.step()
+    if scaler_on:
+        scaler.unscale_(optimizer)
+        raw_norm = float(torch.nn.utils.clip_grad_norm_(trainable, float(clip)).item())
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        raw_norm = float(torch.nn.utils.clip_grad_norm_(trainable, float(clip)).item())
+        optimizer.step()
+
+    scaler_skipped = not math.isfinite(raw_norm)
     return {
         "objective": objective,
-        "total_loss": total_loss_val,
+        "total_loss": total_loss_val if math.isfinite(total_loss_val) else -1.0,
         "byte_ce": float(byte_ce.item()),
         "action_ce": float(act_ce.item()),
         "cf_loss": float(cf_loss.item()),
         "meta_loss": float(meta_loss.item()),
         "ponder_loss": float(ponder_loss.item()),
-        "grad_norm": grad_norm,
+        "grad_norm": raw_norm if math.isfinite(raw_norm) else -1.0,
+        "scaler_skipped": scaler_skipped,
         **surgery_info,
     }
 
@@ -339,5 +450,6 @@ __all__ = [
     "audit_x1_sampler_exposure",
     "build_d3_hybrid_batches",
     "compute_d3_objective_step",
+    "prepack_d3_batches",
     "verify_d3_gradient_surgery_fixture",
 ]

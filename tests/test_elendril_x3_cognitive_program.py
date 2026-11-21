@@ -30,6 +30,7 @@ from experiments.x3 import (
     X3_ARCHITECTURES,
     X3_COGNITIVE_FAMILIES,
     X3_CONTROL_PAIRS,
+    X3_DEFAULT_UPDATES,
     audit_x1_sampler_exposure,
     build_d3_hybrid_batches,
     build_x3_backbone_spec,
@@ -42,6 +43,7 @@ from experiments.x3 import (
     evaluate_s50_scaling_gate,
     evaluate_x3_batched,
     load_external_benchmark_jsonl,
+    prepack_d3_batches,
     run_all_architectures_u0000_smoke,
     run_x3_campaign,
     run_x3_single_job,
@@ -191,9 +193,21 @@ def test_x3_d3_sampler_audit_pcgrad_fixture_and_all_objectives() -> None:
         st = compute_d3_objective_step(m, opt, batches[0], objective=obj)
         assert st["objective"] == obj and torch.isfinite(torch.tensor(st["total_loss"]))
 
+        # Verify prepack_d3_batches + enabled GradScaler (exercising PCGrad unscale/surgery/rescale on D3-Hybrid)
+        packed = prepack_d3_batches(batches[:1], max_length=m.max_ctx, device="cpu", objective=obj)
+        scaler = torch.amp.GradScaler("cpu", enabled=True)
+        st_p = compute_d3_objective_step(m, opt, packed[0], objective=obj, use_amp=False, scaler=scaler)
+        assert st_p["objective"] == obj and torch.isfinite(torch.tensor(st_p["total_loss"]))
+
 
 def test_x3_dual_gpu_full_dispatch_gated_s50_confirmation_lock_and_3_recovery_paths(tmp_path: Path) -> None:
     src = "a" * 40
+    default_ledger = build_x3_program_ledger(source_commit=src)
+    assert X3_DEFAULT_UPDATES == 1024
+    assert default_ledger["total_gpu_jobs"] == 57
+    assert default_ledger["s20_jobs"] == 45 and default_ledger["s50_jobs"] == 12
+    assert all(j["updates"] == 1024 for j in default_ledger["jobs"])
+
     ledger = build_x3_program_ledger(source_commit=src, updates=4)
     assert ledger["total_gpu_jobs"] == 57
     assert ledger["s20_jobs"] == 45 and ledger["s50_jobs"] == 12
@@ -279,6 +293,67 @@ def test_x3_dual_gpu_full_dispatch_gated_s50_confirmation_lock_and_3_recovery_pa
     assert res2["completed_count"] == 4
     assert res2["confirmation_lock"]["unlocked"] is True
     assert res2["confirmation_lock"]["pending_confirm_jobs"] == []
+    assert res2["stage5_summary"]["status"] == "COMPLETE"
+    assert (tmp_path / "s2_work" / "X3_SEALED_CONFIRMATION_RESULTS.json").is_file()
+    assert (tmp_path / "s2_work" / "X3_OOD_TRANSFER_RESULTS.json").is_file()
+    assert (tmp_path / "s2_work" / "X3_FIVE_LEARNING_MODES.json").is_file()
+    with zipfile.ZipFile(res2["archives"]["analysis"]) as zf:
+        znames = set(zf.namelist())
+        assert {
+            "X3_SEALED_CONFIRMATION_RESULTS.json",
+            "X3_OOD_TRANSFER_RESULTS.json",
+            "X3_FIVE_LEARNING_MODES.json",
+        }.issubset(znames)
+
+    # 1b. One-go cohort with gated S50 (force_s50_gate=False): all S20 finish -> status=COMPLETE, gated_s50_job_ids recorded, Stage 5 unsealed!
+    res_one_go = run_x3_campaign(
+        work_dir=tmp_path / "og",
+        export_dir=tmp_path / "oge",
+        source_commit=src,
+        devices=("cuda:0", "cuda:1"),
+        session_minutes=660.0,
+        reserve_minutes=25.0,
+        measured_seconds_per_update=0.28,
+        per_job_disk_bytes=95 * 1024 * 1024,
+        canary=True,
+        in_process_runner=_mock_runner_s2,
+        force_s50_gate=False,
+        jobs_override=tiny_jobs,
+    )
+    assert res_one_go["status"] == "COMPLETE"
+    assert len(res_one_go["gated_s50_job_ids"]) == 2
+    assert res_one_go["pending_job_ids"] == []
+    assert res_one_go["confirmation_lock"]["unlocked"] is True
+    assert res_one_go["stage5_summary"]["sealed_confirm_evaluated_jobs"] == 4
+    first_rec = json.loads((tmp_path / "og" / "jobs" / s20_only[0]["job_id"] / "JOB_RECEIPT.json").read_text(encoding="utf-8"))
+    assert "dev_mistakes" in first_rec
+
+    # 1c. Final non-canary checkpoint strips optimizer state bloat (<512 B optimizer.bin) while restoring cleanly
+    from experiments.x3.models import build_x3_backbone_spec as _bspec
+    from experiments.x3.module import _publish_x3_checkpoint, _restore_x3_checkpoint
+    from v5_training.checkpoint import CheckpointStore as _CStore
+    opt_strip_store = _CStore(tmp_path / "opt_strip_ckpt", "main")
+    tiny_sp = _bspec("tiny")
+    tm = X3CognitiveModel("P-R-Iter", tiny_sp, seed=7)
+    topt = torch.optim.AdamW(tm.parameters(), lr=1e-4)
+    csha = _publish_x3_checkpoint(
+        opt_strip_store,
+        model=tm,
+        optimizer=topt,
+        spec=tiny_sp,
+        spec_sha256=tiny_sp.sha256(),
+        lineage_id="main",
+        global_update=4,
+        target_updates=4,
+        source_commit=src,
+        architecture="P-R-Iter",
+        objective="D3-Hybrid",
+        parent_sha=None,
+        include_optimizer=False,
+    )
+    opt_bin_path = tmp_path / "opt_strip_ckpt" / "main" / "objects" / csha / "optimizer.bin"
+    assert opt_bin_path.stat().st_size < 4096
+    _restore_x3_checkpoint(opt_strip_store, csha, model=X3CognitiveModel("P-R-Iter", tiny_sp, seed=19), optimizer=topt, device="cpu", expected_spec_sha256=tiny_sp.sha256())
 
     # 2. Recovery Test A: Mid-update crash & exact resume parity (0..2 -> 2..4 == 0..4)
     j0 = dict(s20_only[0])
@@ -376,4 +451,6 @@ def test_x3_plugin_cli_fresh_subprocess_chain_and_notebook_ast(tmp_path: Path) -
     cfg_src = "".join(nb["cells"][1]["source"])
     assert "OWNER_AUTHORIZED = True" in cfg_src
     assert "SESSION_MINUTES = 660" in cfg_src
+    assert "RESERVE_MINUTES = 25" in cfg_src
+    assert "PER_JOB_DISK_MB = 95" in cfg_src
     assert "ONE_GO = True" in cfg_src

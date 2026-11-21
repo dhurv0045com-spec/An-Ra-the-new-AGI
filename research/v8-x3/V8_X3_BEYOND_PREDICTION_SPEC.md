@@ -71,22 +71,22 @@ Every family provides an independent generator, **strictly tool-free neural prom
 ### 3.1 Preregistered Job Ledger (`57` GPU Jobs Across `5` Evidence-Gated Stages + Stage 5 Sealed Confirmation)
 | Stage | Study | Models × Objectives | Seeds | Updates / Job | Jobs | Parent / Gate |
 |---|---|---|---:|---:|---:|---|
-| **Stage 0** | `S0-SAMPLER` + `S0-REDGE` | Empirical corpus audit + (`R`, `R-noedge`) × `D2` *(crossed w/ existing D1)* | `7,19,41` | `2,368` | `6` | Unconditional (CPU audit `0` GPU s) |
-| **Stage 1** | `D3` Algorithm Study | (`P`, `R`) × (`D3-Hybrid`, `D3-NoSurgery`, `D3-NoAux`) | `7,19,41` | `2,368` | `18` | Unconditional |
-| **Stage 2** | `X3` Cognitive Architecture Screen (`S20`) | `P-R-Iter` + 4 active controls (`-Fixed`, `-NoRel`, `-AddMem`, `-NoCopy`) on `D3-Hybrid` | `7,19,41` | `2,368` | `15` | Starts parallel or right after D3 canary |
-| **Stage 3** | Integration & Dual-Interface Transfer | `P-R-Iter` × (`D3-Full`, `D2-Compat`) on full 10-family curriculum + generative LM loss | `7,19,41` | `2,368` | `6` | Unconditional after Stage 2 base |
-| **Stage 4** | Evidence-Gated `S50` (`50.55M`) Scaling | (`Base-S50`, `P-S50`, `P-R-Iter-S50 [CE]`, `P-R-Iter-S50 [D3]`) | `7,19,41` | `2,368` | `12` | **GATED on S20 Gate (`PASS`)**; `0.0` GPU s if `FAIL` |
-| **Stage 5** | Sealed `confirm` & OOD Transfer | Top qualified checkpoints | `7,19,41` | `0` eval | `1` bundle | **STRICTLY GATED (`pending_confirm_jobs == []`)** |
+| **Stage 0** | `S0-SAMPLER` + `S0-REDGE` | Empirical corpus audit + (`R`, `R-noedge`) × `D2` *(crossed w/ existing D1)* | `7,19,41` | `1,024` | `6` | Unconditional (CPU audit `0` GPU s) |
+| **Stage 1** | `D3` Algorithm Study | (`P`, `R`) × (`D3-Hybrid`, `D3-NoSurgery`, `D3-NoAux`) | `7,19,41` | `1,024` | `18` | Unconditional |
+| **Stage 2** | `X3` Cognitive Architecture Screen (`S20`) | `P-R-Iter` + 4 active controls (`-Fixed`, `-NoRel`, `-AddMem`, `-NoCopy`) on `D3-Hybrid` | `7,19,41` | `1,024` | `15` | Starts parallel or right after D3 canary |
+| **Stage 3** | Integration & Dual-Interface Transfer | `P-R-Iter` × (`D3-Hybrid`, `D2`) on 400-case 10-family curriculum + generative LM loss | `7,19,41` | `1,024` | `6` | Unconditional after Stage 2 base |
+| **Stage 4** | Evidence-Gated `S50` (`50.55M`) Scaling | (`Base-S50`, `P-S50`, `P-R-Iter-S50 [CE]`, `P-R-Iter-S50 [D3]`) | `7,19,41` | `1,024` | `12` | **GATED on S20 Gate (`PASS`)**; `0.0` GPU s if `FAIL` |
+| **Stage 5** | Sealed `confirm`, OOD & 5 Learning Modes | All qualified checkpoints + representative 5-mode panel + mistakes | `7,19,41` | `0` eval | Auto | **STRICTLY GATED (`pending_confirm_jobs == []`)** |
 
-### 3.2 Real Kaggle 2×T4 Hardware, Disk, & Wall-Clock Math
-- **Parameter & Checkpoint Memory:** `FP32 model + AdamW ≈ 12 bytes/param`.
-  - `S20` (`~19.87M–20.6M`): `~245 MB` active checkpoint + optimizer per live model; **`LATEST`-only packing + pruning old checkpoints keeps per-job disk <= `260 MB`**, `39` S20 jobs pruned to `LATEST` weights `<= 9.8 GB`.
-  - `S50` (`~50.55M–52.2M`): `~625 MB` per live checkpoint + optimizer; `12` S50 jobs `<= 7.5 GB` (`tr.store.prune(keep=set())` removes intermediate steps; `*_FULL.zip` packs ONLY `LATEST` + referenced `objects/<sha>/*`, skipping redundant `PREVIOUS` generations).
-  - Mirroring to `/kaggle/working/` uses zero-copy `os.link` (fallback `shutil.copy2`), staying well under Kaggle's `19.5 GiB` disk ceiling (`export_reserve_bytes = 2 GiB`).
-- **Wall-Clock Budget (Kaggle 12h max = `720m`):**
-  - Default one-go session: `OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`, `RESERVE_MINUTES = 30`, `ONE_GO = True`, `DEVICES = "0,1"`.
-  - Dual-lane `2×T4` (`cuda:0`, `cuda:1` concurrent): `S20` ~`0.45–0.65 s/update` (`~18–25 min` per S20 job, `~9–13 min` effective per job across 2 GPUs -> Stages 0–3 `39` jobs `~7.0h`); `S50` profiled separately with `torch.cuda.synchronize()` before admitting Stage 4 waves; remaining wall-clock check `rem_min > RESERVE_MINUTES` defers unfinished jobs cleanly into `PENDING_QUEUE.json` + `ELENDRIL_V8_X3_ANALYSIS.zip` for seamless Session 2 `/kaggle/input/**` resume.
-  - **Batched GPU Evaluation (`batch_size=32–64`):** Mandatory right-padded batched inference across all 10 cognitive families (`50–100×` faster than 1-by-1 serial decode), verified to `atol=1e-4` against serial logits.
+### 3.2 Real Kaggle 2×T4 Hardware, Disk, & Wall-Clock Math (Single-Session One-Go Budget)
+- **Parameter & Checkpoint Memory:**
+  - During an active wave (`2` concurrent workers): `FP32 model + AdamW ≈ 12 bytes/param` (`<= 625 MB` each -> `<= 1.25 GB` active mid-run checkpoints).
+  - Upon job completion, final `LATEST` checkpoints strip redundant finished optimizer states (`optimizer.bin = {}` ~`60` B, preserving valid `CheckpointStore` SHA-256 manifests and mid-run resume compatibility): `S20` finished checkpoint `~80.3 MB` (`45` jobs `~3.61 GB`); `S50` `~204.1 MB` (`12` jobs `~2.45 GB`) -> **all `57` finished jobs total `<= 6.1 GB`**, well inside Kaggle's `19.5 GiB` disk ceiling.
+  - `ELENDRIL_V8_X3_ANALYSIS.zip` (`~15–40 MB`, containing 100% of JSON metrics, Stage 5 confirm/OOD/5-modes, and mistake records) exports unconditionally; `ELENDRIL_V8_X3_FULL.zip` writes whenever `free_bytes > full_weights + 2 GiB`. Mirroring to `/kaggle/working/` uses zero-copy `os.link` (fallback `shutil.copy2`).
+- **One-Go Wall-Clock Budget (Kaggle 12h max = `720m`):**
+  - Default one-go session: `OWNER_AUTHORIZED = True`, `SESSION_MINUTES = 660`, `RESERVE_MINUTES = 25`, `ONE_GO = True`, `PER_JOB_DISK_MB = 95`, `DEVICES = "0,1"`.
+  - CUDA FP16 AMP (`torch.amp.autocast("cuda", dtype=float16)` + `GradScaler("cuda")` with FP32 loss/PCGrad) + pre-packed device batches (`prepack_d3_batches`, `400` train cases = `25` batches/epoch -> `~41` epochs in `1,024` updates) accelerates step throughput `4–6×` (`~0.18–0.32 s/update` on T4 for S20 -> `~4.8 min/job` -> **`45` S20 jobs `~1.8–2.9h`** across `2×T4`; **`12` S50 jobs `~1.1–1.5h`** -> **entire 57-job program + Stage 5 completes in ONE single `~3.0–4.5h` Kaggle session**).
+  - **Batched GPU Evaluation (`batch_size=32–64`, FP16 AMP `no_grad`):** Right-padded batched inference across `dev`/`confirm`/`ood_transfer` (`50–100×` faster than serial decode), verified to `atol=1e-4` on CPU/FP32.
 - **Every-Architecture `u0000` CPU Smoke Mandate:** Before ANY multi-hour GPU wave, execute CPU `u0000` init + 1 train step + 1 eval step + save/restore across **EVERY** registered architecture (`P`, `R`, `R-noedge`, `Base`, `P-R-Iter`, `P-R-Iter-Fixed`, `P-R-Iter-NoRel`, `P-R-Iter-AddMem`, `P-R-Iter-NoCopy`) at both tiny/S20 and S50 specs!
 
 ---

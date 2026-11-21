@@ -19,6 +19,7 @@ from .d3_objectives import (
     audit_x1_sampler_exposure,
     build_d3_hybrid_batches,
     compute_d3_objective_step,
+    prepack_d3_batches,
     verify_d3_gradient_surgery_fixture,
 )
 from .factorial import (
@@ -47,6 +48,7 @@ from .module import (
     X3CognitiveKernel,
     X3CognitivePolicy,
     X3_BACKEND_ID,
+    X3_DEFAULT_UPDATES,
     build_elendril_x3_module,
     build_x3_program_ledger,
     evaluate_confirmation_lock,
@@ -71,6 +73,7 @@ __all__ = [
     "X3_BACKEND_ID",
     "X3_COGNITIVE_FAMILIES",
     "X3_CONTROL_PAIRS",
+    "X3_DEFAULT_UPDATES",
     "X3_SYMBOLS",
     "apply_pcgrad_conflict_surgery",
     "audit_x1_sampler_exposure",
@@ -91,6 +94,7 @@ __all__ = [
     "evaluate_x3_checkpoint_suite",
     "independent_walk_x3_graph",
     "load_external_benchmark_jsonl",
+    "prepack_d3_batches",
     "register_planthir_backends",
     "render_x3_prompt",
     "run_all_architectures_u0000_smoke",

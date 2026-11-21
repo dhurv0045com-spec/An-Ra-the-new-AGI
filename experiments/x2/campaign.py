@@ -904,7 +904,7 @@ def discover_kaggle_input_receipts(
             tokens = sidecar.read_text(encoding="utf-8", errors="replace").strip().split()
             if tokens:
                 sidecar_sha = tokens[0].lower()
-        dest = ext_root / f"arc_{idx:03d}_{zpath.stem}"
+        dest = ext_root / f"a{idx:03d}"
         try:
             safe_extract_planthir_archive(zpath, dest)
             scanned_roots.append((dest, zpath, sidecar_sha))
