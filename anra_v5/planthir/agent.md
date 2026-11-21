@@ -218,8 +218,14 @@ All CLI subcommands emit strict JSON (`0` = valid/verified, `1` = error). Deprec
 | `python -m anra_v5.planthir inspect-run --work-root <dir>` | Read-only status/identity inspection of an existing run directory |
 | `python -m anra_v5.planthir verify-bundle --bundle-dir <dir>` | Verify `.sha256` sidecars, `CURRENT.json`, and ZIP archive integrity |
 | `python -m anra_v5.planthir replay-bundle --bundle-dir <dir> --output <out.json>` | Extract checkpoints into temp store, replay full multi-step cohort, and check per-case agreement (`--expected-backend`, `--require-reference`, `--worlds-json`) |
+| `python -m anra_v5.planthir level` | Print Level-6 subsystem summary, registered backends, capabilities, and CLI quickstart |
+| `python -m anra_v5.planthir scaffold --name <id> --out-dir <dir>` | Generate a runnable Level-6 `ExperimentModule` plugin package + `ConfirmLock` + smoke test |
+| `python -m anra_v5.planthir status --work-root <dir> [--markdown]` | Read-only live campaign dashboard showing jobs, stage gates, `u0000` smoke & `ConfirmLock` status |
+| `python -m anra_v5.planthir verify-archive --archive <zip>` | Fail-closed verification of session `SUMMARY`/`EVIDENCE`/`ANALYSIS`/`FULL` ZIPs & `.sha256` sidecars |
 | `python -m anra_v5.planthir rescore-archive --archive <zip> --out <dir>` | Verify a compact analysis archive and rebuild `RESULTS.md` + `METRICS.json` in a fresh directory |
 | `python -m anra_v5.planthir historical-atlas` | Summarize curated AN-RA historical V6–V8 evidence |
+
+**Level-6 Modular Package (`anra_v5/planthir/`):** Unified `Palantiri` facade (`studio.py`), streaming `export_session_archives` / `collect_minimal_checkpoint_files` / `prune_completed_job_artifacts` / `mirror_to_working_dir` / `win_long_path` (`archives.py`), `ConfirmLock` + `CampaignLedgerVerifier` (`custody.py`), preflight-before-launch `build_pinned_kaggle_notebook` + `verify_pinned_notebook_bytes` (`notebooks.py`), `render_campaign_dashboard` + `rescore_compact_analysis_archive` (`reporting.py`), plus `exact_mcnemar_test`, `holm_bonferroni_adjust`, nonlinear MLP probes (`include_nonlinear_probe=True`), N-hop subgoal decomposition, and `metadata["convergence_guard"]`.
 
 ---
 
