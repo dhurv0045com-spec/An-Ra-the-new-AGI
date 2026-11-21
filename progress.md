@@ -372,3 +372,9 @@ Published per-seed acquisition, confirmation and intervention results for 57 com
 
 ### 2026-11-21 | Codex | Y3 resumed ledger and Gemini handoff
 Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis export. Documented per-case verification gaps and targeted repairs.
+
+### 2026-11-21 | Antigravity | Repair Y3 independent verification, confirm custody, and audit 88/88 ledger
+- Added `experiments/avendi_y3/verify.py` (`verify_job_receipt`, `verify_all_studies`, `verify_saved_campaign_evidence`) and repaired `experiments/avendi_y3/module.py` + `plan.py` (`500d56ff`) with real Y1 parity in `_p1_job`, `P5`/`P6`/`P7-ark` parent checkpoint tracking, unique `U08..U14`/`U28..U46` study axes, session UTC/elapsed/exit telemetry, and cross-session `CONFIRM_LOCK.json` custody protection.
+- Audited Downloads exports in [RESULTS.md](Experiment%20Result/Avendi-V8-Y3/y3-resumed-88of88/RESULTS.md) & [METRICS.json](Experiment%20Result/Avendi-V8-Y3/y3-resumed-88of88/METRICS.json): `57` reused + `31` resumed IDs partition `88/88` (`0` overlap), but without resumed `EVIDENCE`/`FULL`/`CONFIRM_LOCK.json`/`.log`, only `57/88` jobs and `18/50` studies independently verify (`CUSTODY_LIMITATION_MISSING_ORIGINAL_LOCK`).
+- Verified on CPU: `anra_v5.palantiri doctor` (`GREEN_SIGNAL`), `calibrate` (`6/6` faults), clean `git archive 500d56ff` CLI lifecycle (`REPLAY_VERIFIED`), and `pytest tests/test_avendi_y3.py tests/test_elendril_tree.py tests/test_planthir_v2_audit_upgrades.py tests/test_planthir_two_agent_manuals.py -n auto -q` (`33 passed in 102.69s`).
+- Pinned `notebooks/AVENDI_V8_Y3_T4X2.ipynb` to `500d56ff842f54ed34a3c7fcf71937688d6f7acc` (`--check-notebook` `match=true`); pending owner upload of resumed Run-2 FULL/EVIDENCE/log OR targeted resume run with Y1/Y2 inputs mounted.
