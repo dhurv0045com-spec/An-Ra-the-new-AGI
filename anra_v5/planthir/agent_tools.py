@@ -1638,6 +1638,7 @@ def planthir_doctor() -> dict[str, Any]:
 
     return {
         "schema": "anra-planthir-doctor-v1",
+        "platform_level": 6,
         "green_signal": all_ok,
         "status": "GREEN_SIGNAL" if all_ok else "CHECK_FAILED",
         "mutates_files": False,
@@ -1651,6 +1652,7 @@ def agent_info() -> dict[str, Any]:
 
     return {
         "schema": "anra-planthir-agent-info-v1",
+        "platform_level": 6,
         "inputs": {
             "ExperimentCartridge": _fields(ExperimentCartridge),
             "CartridgeArmSpec": _fields(CartridgeArmSpec),
@@ -1666,8 +1668,12 @@ def agent_info() -> dict[str, Any]:
         },
         "declarative_spec": planthir_spec_schema(),
         "cli": {
+            "level": {"mutates_files": False, "trains": False},
             "agent-info": {"mutates_files": False, "trains": False},
             "doctor": {"mutates_files": False, "trains": False},
+            "status": {"mutates_files": False, "trains": False},
+            "verify-archive": {"mutates_files": False, "trains": False},
+            "scaffold": {"mutates_files": True, "trains": False},
             "schema": {"mutates_files": False, "trains": False},
             "init": {"mutates_files": "only with --out", "trains": False},
             "validate": {"mutates_files": False, "trains": False},

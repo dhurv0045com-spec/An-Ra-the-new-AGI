@@ -416,26 +416,42 @@ def run_subgoal_hop_decomposition(
     multi_hop_worlds: Sequence[Mapping[str, Any]],
     *, assume_independent_clusters: bool = False,
 ) -> dict[str, Any]:
-    """Decompose multi-hop reasoning on identical visible facts into Hop-1, Hop-2, and Full Chain."""
+    """Decompose 2-hop or general N-hop reasoning on visible facts into per-stage subgoals and Full Chain."""
 
     evaluated = 0
     hop1_ok = 0
     hop2_ok = 0
     both_ok = 0
     full_ok = 0
+    max_hop_count = 0
+    stage_hits: dict[str, int] = defaultdict(int)
+    stage_totals: dict[str, int] = defaultdict(int)
     gap_diffs: list[float] = []
     evaluated_worlds: list[Mapping[str, Any]] = []
 
     for w in multi_hop_worlds:
-        subgoals = list(kernel.decompose_subgoals(w))
-        by_stage = {sg.stage_name: sg for sg in subgoals}
-        if "hop_1" not in by_stage or "hop_2_given_bridge" not in by_stage:
+        raw_subgoals = list(kernel.decompose_subgoals(w))
+        if len(raw_subgoals) < 2:
             continue
+        ordered_subgoals = [
+            sg
+            for _, sg in sorted(
+                enumerate(raw_subgoals),
+                key=lambda pair: (int(getattr(pair[1], "hop_index", pair[0])), pair[0]),
+            )
+        ]
 
-        sg1 = by_stage["hop_1"]
-        sg2 = by_stage["hop_2_given_bridge"]
-        c1, _, _ = _run_single_episode(policy, kernel, sg1.modified_world)
-        c2, _, _ = _run_single_episode(policy, kernel, sg2.modified_world)
+        step_outcomes: list[bool] = []
+        by_stage_ok: dict[str, bool] = {}
+        for sg in ordered_subgoals:
+            c_sg, _, _ = _run_single_episode(policy, kernel, sg.modified_world)
+            ok_b = bool(c_sg)
+            step_outcomes.append(ok_b)
+            by_stage_ok[sg.stage_name] = ok_b
+            stage_totals[sg.stage_name] += 1
+            if ok_b:
+                stage_hits[sg.stage_name] += 1
+
         visible_full = (
             kernel.inject_oracle_information(w)  # type: ignore[attr-defined]
             if hasattr(kernel, "inject_oracle_information")
@@ -444,9 +460,10 @@ def run_subgoal_hop_decomposition(
         c_full, _, _ = _run_single_episode(policy, kernel, visible_full)
 
         evaluated += 1
-        hop1_ok += 1 if c1 else 0
-        hop2_ok += 1 if c2 else 0
-        joint = 1 if (c1 and c2) else 0
+        max_hop_count = max(max_hop_count, len(ordered_subgoals))
+        hop1_ok += 1 if by_stage_ok.get("hop_1", step_outcomes[0]) else 0
+        hop2_ok += 1 if by_stage_ok.get("hop_2_given_bridge", step_outcomes[1]) else 0
+        joint = 1 if all(step_outcomes) else 0
         both_ok += joint
         full_int = 1 if c_full else 0
         full_ok += full_int
@@ -457,6 +474,8 @@ def run_subgoal_hop_decomposition(
         return {
             "intervention": "subgoal_hop_decomposition",
             "worlds_decomposed": 0,
+            "max_hop_count": 0,
+            "per_stage_accuracy": {},
             "hop1_accuracy": None,
             "hop2_given_bridge_accuracy": None,
             "joint_individual_hops_solvable": None,
@@ -469,10 +488,16 @@ def run_subgoal_hop_decomposition(
     h2 = hop2_ok / evaluated
     joint_acc = both_ok / evaluated
     full_acc = full_ok / evaluated
+    per_stage_acc = {
+        sname: float(stage_hits[sname] / stage_totals[sname])
+        for sname in stage_totals
+    }
     gap_ci, cluster_count = _clustered_bootstrap_ci(gap_diffs, evaluated_worlds, assume_independent_clusters=assume_independent_clusters)
     return {
         "intervention": "subgoal_hop_decomposition",
         "worlds_decomposed": evaluated,
+        "max_hop_count": max_hop_count,
+        "per_stage_accuracy": per_stage_acc,
         "hop1_accuracy": h1,
         "hop2_given_bridge_accuracy": h2,
         "joint_individual_hops_solvable": joint_acc,
@@ -669,6 +694,46 @@ def _eval_ridge_classifier(weights: torch.Tensor, x_eval: torch.Tensor, y_eval: 
     return float((preds == y_eval.long()).float().mean().item())
 
 
+def _fit_and_eval_mlp_probe(
+    x_train: torch.Tensor,
+    y_train: torch.Tensor,
+    x_eval: torch.Tensor,
+    y_eval: torch.Tensor,
+    num_classes: int,
+    *,
+    hidden_dim: int = 32,
+    steps: int = 80,
+    seed: int = 17,
+) -> float:
+    """Fit a deterministic CPU 2-layer ReLU MLP probe to expose nonlinearly encoded manifolds."""
+
+    import torch.nn.functional as F
+
+    x_tr = x_train.detach().cpu().float()
+    y_tr = y_train.detach().cpu().long()
+    x_ev = x_eval.detach().cpu().float()
+    y_ev = y_eval.detach().cpu().long()
+    in_dim = int(x_tr.shape[1])
+    h_dim = max(4, int(hidden_dim))
+    with torch.enable_grad():
+        gen = torch.Generator().manual_seed(int(seed))
+        w1 = (torch.randn((in_dim, h_dim), generator=gen) * (2.0 / max(1, in_dim)) ** 0.5).requires_grad_(True)
+        b1 = torch.zeros(h_dim, requires_grad=True)
+        w2 = (torch.randn((h_dim, num_classes), generator=gen) * (1.0 / max(1, h_dim)) ** 0.5).requires_grad_(True)
+        b2 = torch.zeros(num_classes, requires_grad=True)
+        opt = torch.optim.Adam([w1, b1, w2, b2], lr=1e-2, weight_decay=1e-4)
+        for _ in range(max(1, int(steps))):
+            opt.zero_grad()
+            h = torch.relu(x_tr @ w1 + b1)
+            logits = h @ w2 + b2
+            loss = F.cross_entropy(logits, y_tr)
+            loss.backward()
+            opt.step()
+    with torch.no_grad():
+        logits_ev = torch.relu(x_ev @ w1 + b1) @ w2 + b2
+        return float((logits_ev.argmax(dim=-1) == y_ev).float().mean().item())
+
+
 def run_representation_linear_probe(
     policy: ObservablePolicy,
     kernel: EnvironmentKernel,
@@ -676,6 +741,10 @@ def run_representation_linear_probe(
     eval_worlds: Sequence[Mapping[str, Any]],
     *,
     l2_reg: float = 1.0,
+    include_nonlinear_probe: bool = False,
+    nonlinear_hidden_dim: int = 32,
+    nonlinear_steps: int = 80,
+    nonlinear_seed: int = 17,
 ) -> dict[str, Any]:
     """Fit frozen-backbone linear probes for ideal operation, Hop-1 symbol, and final symbol."""
 
@@ -775,12 +844,24 @@ def run_representation_linear_probe(
     probe_hop1_acc: float | None = None
     probe_final_acc: float | None = None
     head_final_acc: float | None = None
+    nonlinear_final_acc: float | None = None
     if x_tr is not None and x_ev is not None and yh1_tr is not None and yh1_ev is not None and yf_tr is not None and yf_ev is not None:
         w_h1 = _fit_ridge_classifier(x_tr, yh1_tr, len(SYMBOLS), l2_reg=l2_reg)
         w_fin = _fit_ridge_classifier(x_tr, yf_tr, len(SYMBOLS), l2_reg=l2_reg)
         probe_hop1_acc = _eval_ridge_classifier(w_h1, x_ev, yh1_ev)
         probe_final_acc = _eval_ridge_classifier(w_fin, x_ev, yf_ev)
         head_final_acc = sum(1 for ok in head_ev_ok if ok) / len(head_ev_ok)
+        if include_nonlinear_probe:
+            nonlinear_final_acc = _fit_and_eval_mlp_probe(
+                x_tr,
+                yf_tr,
+                x_ev,
+                yf_ev,
+                len(SYMBOLS),
+                hidden_dim=nonlinear_hidden_dim,
+                steps=nonlinear_steps,
+                seed=nonlinear_seed,
+            )
 
     # Multi-hop only linear probe accuracy when multi-hop eval worlds are present
     mh_eval = [w for w in eval_worlds if int(w.get("hops", 1)) >= 2 and _extract_target_symbol(w) is not None]
@@ -796,6 +877,11 @@ def run_representation_linear_probe(
             probe_mh_final = _eval_ridge_classifier(w_fin, xm, ym_fin)
             head_mh_final = sum(1 for ok in hm_ok if ok) / len(hm_ok)
 
+    gap_val = (
+        (probe_final_acc - head_final_acc)
+        if (probe_final_acc is not None and head_final_acc is not None)
+        else None
+    )
     return {
         "intervention": "representation_linear_probe",
         "train_worlds": len(train_worlds),
@@ -804,9 +890,12 @@ def run_representation_linear_probe(
         "probe_hop1_symbol_accuracy": probe_hop1_acc,
         "probe_final_symbol_accuracy": probe_final_acc,
         "model_head_final_accuracy_on_visible": head_final_acc,
-        "head_minus_probe_gap": (
-            (probe_final_acc - head_final_acc)
-            if (probe_final_acc is not None and head_final_acc is not None)
+        "head_minus_probe_gap": gap_val,
+        "probe_minus_head_gap": gap_val,
+        "nonlinear_probe_final_symbol_accuracy": nonlinear_final_acc,
+        "linear_vs_nonlinear_probe_gap": (
+            (nonlinear_final_acc - probe_final_acc)
+            if (nonlinear_final_acc is not None and probe_final_acc is not None)
             else None
         ),
         "multihop_probe_hop1_accuracy": probe_mh_hop1,

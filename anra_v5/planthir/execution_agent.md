@@ -147,9 +147,24 @@ verify_shared_backbone_and_head_overhead(control_model, treatment_model, *, back
 bootstrap_paired_families(control_scores, treatment_scores, *, resamples=2000, seed=1801)
 build_paired_seed_observations(arm_records, *, contrast_id="PRIMARY", control_arm=..., treatment_arm=..., metric_key="value")
 compare_paired_episode_records(control_episodes, treatment_episodes)
+exact_mcnemar_test(baseline_correct, treatment_correct)
+holm_bonferroni_adjust(p_values, *, alpha=0.05)
 summarize_diagnostic_coverage(worlds, *, target_families, seed_ids=(7, 19, 41))
 build_analyst_first_page_report(*, title, campaign_id, source_commit, decision_summary, control_arm, treatment_arm, paired_seed_bundle, ...)
+render_campaign_dashboard(status_payload)
+
+# 6. Level-6 Front Door, Custody & Scaffolding
+from anra_v5.palantiri import Palantiri, ConfirmLock, CampaignLedgerVerifier, verify_campaign_ledger
+from anra_v5.palantiri import collect_minimal_checkpoint_files, prune_completed_job_artifacts, mirror_to_working_dir, verify_pinned_notebook_bytes
+Palantiri.status(work_root) / Palantiri.dashboard(work_root) / Palantiri.scaffold(name, out_dir)
 ```
+
+- **Level-6 CLI Shortcuts:**
+  - `python -m anra_v5.palantiri level` (inspect Level-6 subsystems & registered backends)
+  - `python -m anra_v5.palantiri scaffold --name my_exp --out-dir experiments` (generate a runnable plugin + smoke test + `ConfirmLock`)
+  - `python -m anra_v5.palantiri status --work-root <dir> --markdown` (live read-only campaign dashboard & `pending_confirm_jobs`)
+  - `python -m anra_v5.palantiri verify-archive --archive <zip> --expected-commit <sha>` (standalone v6 manifest + sidecar check)
+  - Note: `build_pinned_kaggle_notebook` runs preflight gates **before** launching `LAUNCH_CMD` and mirrors `/kaggle/working` with zero-copy `os.link`; `export_session_archives` streams files without RAM spikes (`zf.write`); `run_representation_linear_probe(..., include_nonlinear_probe=True)` reports `probe_minus_head_gap` and `linear_vs_nonlinear_probe_gap`.
 
 ---
 

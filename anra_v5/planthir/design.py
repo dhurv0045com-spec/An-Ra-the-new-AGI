@@ -1128,6 +1128,96 @@ def run_paired_comparison_preflight(
     }
 
 
+def exact_mcnemar_test(
+    baseline_correct: Sequence[bool],
+    treatment_correct: Sequence[bool],
+) -> dict[str, Any]:
+    """Compute an exact two-sided McNemar binomial test on paired binary episode outcomes."""
+
+    b_seq = [bool(x) for x in baseline_correct]
+    t_seq = [bool(x) for x in treatment_correct]
+    if not b_seq or len(b_seq) != len(t_seq):
+        raise ValueError("baseline_correct and treatment_correct must be non-empty and equal length")
+
+    both_correct = 0
+    both_wrong = 0
+    b_only = 0
+    t_only = 0
+    for b_ok, t_ok in zip(b_seq, t_seq):
+        if b_ok and t_ok:
+            both_correct += 1
+        elif b_ok and not t_ok:
+            b_only += 1
+        elif not b_ok and t_ok:
+            t_only += 1
+        else:
+            both_wrong += 1
+
+    n = len(b_seq)
+    discordant = b_only + t_only
+    if discordant == 0:
+        p_value = 1.0
+    else:
+        k = min(b_only, t_only)
+        tail = sum(math.comb(discordant, i) for i in range(k + 1)) / float(1 << discordant)
+        p_value = min(1.0, float(2.0 * tail))
+
+    return {
+        "schema": "anra-planthir-mcnemar-v1",
+        "n": n,
+        "both_correct": both_correct,
+        "both_wrong": both_wrong,
+        "b_baseline_only": b_only,
+        "c_treatment_only": t_only,
+        "discordant": discordant,
+        "accuracy_delta": float(t_only - b_only) / float(n),
+        "p_value": p_value,
+        "significant_at_005": p_value < 0.05,
+    }
+
+
+def holm_bonferroni_adjust(
+    p_values: Mapping[str, float] | Sequence[float],
+    *,
+    alpha: float = 0.05,
+) -> dict[str, Any]:
+    """Apply step-down Holm-Bonferroni multiple-comparison adjustment to named or indexed p-values."""
+
+    alpha_f = float(alpha)
+    if not math.isfinite(alpha_f) or not (0.0 < alpha_f < 1.0):
+        raise ValueError("alpha must satisfy 0 < alpha < 1")
+
+    if isinstance(p_values, Mapping):
+        items = [(str(k), float(v)) for k, v in p_values.items()]
+    else:
+        items = [(str(idx), float(v)) for idx, v in enumerate(p_values)]
+    if not items:
+        raise ValueError("p_values must be non-empty")
+    for k, v in items:
+        if not math.isfinite(v) or not (0.0 <= v <= 1.0):
+            raise ValueError(f"invalid p-value for {k!r}: {v!r}")
+
+    m = len(items)
+    ordered = sorted(items, key=lambda kv: (kv[1], kv[0]))
+    adjusted_map: dict[str, float] = {}
+    running_max = 0.0
+    for rank, (key, raw_p) in enumerate(ordered):
+        scaled = min(1.0, (m - rank) * raw_p)
+        running_max = max(running_max, scaled)
+        adjusted_map[key] = running_max
+
+    rejected_map = {k: adjusted_map[k] < alpha_f for k, _ in items}
+    return {
+        "schema": "anra-planthir-holm-bonferroni-v1",
+        "alpha": alpha_f,
+        "m": m,
+        "adjusted_p_values": adjusted_map,
+        "adjusted_list": [adjusted_map[k] for k, _ in items],
+        "rejected": rejected_map,
+        "rejected_keys": [k for k, _ in items if rejected_map[k]],
+    }
+
+
 __all__ = [
     "ALLOWED_FACTOR_TYPES",
     "CohortClusterSpec",
@@ -1140,6 +1230,8 @@ __all__ = [
     "bootstrap_paired_families",
     "build_paired_seed_observations",
     "compare_paired_episode_records",
+    "exact_mcnemar_test",
+    "holm_bonferroni_adjust",
     "run_paired_comparison_preflight",
     "validate_cohort_and_split_transitivity",
 ]

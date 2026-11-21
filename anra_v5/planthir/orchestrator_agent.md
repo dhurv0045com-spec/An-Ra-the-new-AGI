@@ -162,3 +162,13 @@ When the owner returns with run outputs (`RESULTS.md`, `METRICS.json`, `*_SUMMAR
 2. **Separate engineering from science:** Distinguish instrument/infrastructure failures (e.g., an adapter crash, OOM, or missing worker path) from model/hypothesis falsifications on healthy rows.
 3. **Harvest `PALANTIRI_FEEDBACK`:** Review every gap or workaround the Execution Agent logged and decide whether `anra_v5/planthir/` should be upgraded before the next campaign.
 4. **Propose the smallest decisive next step:** Explicitly state what is resolved vs. unresolved and design the minimal next experiment or targeted repair.
+
+---
+
+## 6. Palantiri Level 6 Capabilities & Commands (Use by Default)
+
+Palantiri **Level 6** (`PLANTHIR_LEVEL = 6`) adds modular custody, statistics, and studio tooling so specs stay compact:
+- **CLI discovery & custody checks:** `python -m anra_v5.palantiri level`, `doctor`, `calibrate`, `status --work-root <dir> [--markdown]`, `verify-archive --archive <zip>`, and `scaffold --name <id> --out-dir <dir>` (all accept `--backend-module <dotted.module>`).
+- **Tamper-evident custody & pruning:** Mandate `ConfirmLock` (`confirm_lock_path` / `confirm_required_job_ids` in `run_registered_plan`) + `CampaignLedgerVerifier` (`verify_campaign_ledger`), and `prune_completed_checkpoints=True` + `collect_minimal_checkpoint_files` (`LATEST`/`MILESTONES` only) for tight Kaggle disks.
+- **Preflight-before-launch notebooks:** `build_pinned_kaggle_notebook` executes `doctor`, `REQUIRE_DUAL_GPU`, `PREFLIGHT_COMMANDS`, and `PREFLIGHT_BACKEND` canary **strictly before** launching `LAUNCH_CMD`, mirrors outputs via zero-copy `os.link`, and verifies via `verify_pinned_notebook_bytes`.
+- **Level-6 scientific rigor:** Require `exact_mcnemar_test` + `holm_bonferroni_adjust` on paired binary outcomes, `include_nonlinear_probe=True` (`probe_minus_head_gap`, `linear_vs_nonlinear_probe_gap`) when checking latent encodings, generalized N-hop `run_subgoal_hop_decomposition`, and inspection of `metadata["convergence_guard"]` in interpretation reports.
