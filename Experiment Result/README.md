@@ -1,5 +1,7 @@
 # Experiment Result
 
+**2026-11-22.** [Avendi Y3 full 88/88 GPU results & audit](Avendi-V8-Y3/y3-full-88of88/RESULTS.md). Single-session Kaggle 2×T4 run completed all 88 jobs in `4,132.65 s` with verified `CONFIRM_LOCK.json` (`79/88` jobs and `36/50` studies independently verified; `P4-categorical` passes `1.00` on depths `1..2`, `P5` `info` forks reach `~0.79` macro-optimal, while `P2`/`P3`/`P7-s20` miss the `0.80` qualification gate).
+
 **Resumed Y3 GPU run.** [88-job ledger and Gemini repair brief](Avendi-V8-Y3/y3-resumed-88of88/RESULTS_AND_GEMINI_HANDOFF.md). The second export records all 31 previously pending jobs. Scientific verification is still open.
 
 **2026-11-21.** [Avendi Y3 partial GPU audit](Avendi-V8-Y3/y3-partial-57of88/RESULTS.md) covers 57 of 88 jobs. The margin objective improved four-cell development accuracy at all three seeds, but missed the registered improvement and row-order qualification gates.
