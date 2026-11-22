@@ -269,32 +269,48 @@ def _core_state_sha(model: nn.Module) -> str:
 
 def _write_session_replay_receipts(wr: Path, source_commit: str) -> None:
     p0_p, tr_p = wr / "P0_REPLAY_RECEIPT.json", wr / "TRAINING_REPLAY_RECEIPT.json"
-    with tempfile.TemporaryDirectory(prefix="y3r_") as td:
-        tmp_r = Path(td)
-        if not p0_p.is_file():
-            tpl = init_spec_template(backend_id="avendi_y3", canary=True)
-            cart, rkw = build_cartridge_from_spec(tpl, canary_override=True)
-            pr_dir = tmp_r / "p0"
-            CartridgeRunner().run(cart, work_root=pr_dir, **rkw)
-            rep = independent_replay_bundle(pr_dir / "result_bundle", worlds=cart.eval_worlds)
-            _dump(p0_p, {"schema": "avendi-y3-p0-replay-v1", "verified": bool(rep.get("verified")), "matched": bool(rep.get("verified"))})
-        if not tr_p.is_file():
-            from v5_training.checkpoint import InjectedCrash
-            tr_dir = tmp_r / "tr"
-            spec = get_byte_model_spec("S3", cpu_canary=True)
-            samp = [frame_byte_prompt_sample("ROWS: t=01 A->C ; t=02 B->D || Q:A", "C", rival_answer="D", task_id=f"tr{i}", world_id=f"wr{i}") for i in range(4)]
-            rec = GenericTrainRecipe(seed=7, total_updates=4, batch_size=2, micro_batch_size=2)
-            t_full = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "f", lineage="rf", data_provenance={"s": "t"}, device="cpu", cpu_canary=True)
-            l_full = [float(t_full.step()["loss"]) for _ in range(4)]
-            t_int = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "i", lineage="ri", data_provenance={"s": "t"}, device="cpu", cpu_canary=True)
-            t_int.step(); t_int.step(); t_int.save(); t_int.step()
-            try: t_int.save(inject_crash_at="after_publish_before_pointer")
-            except InjectedCrash: pass
-            t_res = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "i", lineage="ri", data_provenance={"s": "t"}, device="cpu", cpu_canary=True, resume=True)
-            l_res = [float(t_res.step()["loss"]), float(t_res.step()["loss"])]
-            l_ok = all(abs(a - b) <= 1e-6 for a, b in zip(l_full[2:], l_res))
-            w_ok = all(torch.equal(t_res.model.state_dict()[k], t_full.model.state_dict()[k]) for k in t_full.model.state_dict())
-            _dump(tr_p, {"schema": "avendi-y3-training-replay-v1", "passed": bool(l_ok and w_ok), "losses_matched": l_ok, "weights_matched": w_ok, "full_model_sha256": _core_state_sha(t_full.model), "resumed_model_sha256": _core_state_sha(t_res.model)})
+    if p0_p.is_file() and tr_p.is_file():
+        return
+    prev_threads = torch.get_num_threads()
+    prev_det = torch.are_deterministic_algorithms_enabled()
+    prev_dtype = torch.get_default_dtype()
+    prev_tf32_mm = torch.backends.cuda.matmul.allow_tf32
+    prev_tf32_dn = torch.backends.cudnn.allow_tf32
+    try:
+        with tempfile.TemporaryDirectory(prefix="y3r_") as td:
+            tmp_r = Path(td)
+            if not p0_p.is_file():
+                tpl = init_spec_template(backend_id="avendi_y3", canary=True)
+                cart, rkw = build_cartridge_from_spec(tpl, canary_override=True)
+                pr_dir = tmp_r / "p0"
+                CartridgeRunner().run(cart, work_root=pr_dir, **rkw)
+                rep = independent_replay_bundle(pr_dir / "result_bundle", worlds=cart.eval_worlds)
+                _dump(p0_p, {"schema": "avendi-y3-p0-replay-v1", "verified": bool(rep.get("verified")), "matched": bool(rep.get("verified"))})
+            if not tr_p.is_file():
+                from v5_training.checkpoint import InjectedCrash
+                tr_dir = tmp_r / "tr"
+                spec = get_byte_model_spec("S3", cpu_canary=True)
+                samp = [frame_byte_prompt_sample("ROWS: t=01 A->C ; t=02 B->D || Q:A", "C", rival_answer="D", task_id=f"tr{i}", world_id=f"wr{i}") for i in range(4)]
+                rec = GenericTrainRecipe(seed=7, total_updates=4, batch_size=2, micro_batch_size=2)
+                t_full = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "f", lineage="rf", data_provenance={"s": "t"}, device="cpu", cpu_canary=True)
+                l_full = [float(t_full.step()["loss"]) for _ in range(4)]
+                t_int = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "i", lineage="ri", data_provenance={"s": "t"}, device="cpu", cpu_canary=True)
+                t_int.step(); t_int.step(); t_int.save(); t_int.step()
+                try: t_int.save(inject_crash_at="after_publish_before_pointer")
+                except InjectedCrash: pass
+                t_res = BytePromptTrainer(samp, spec=spec, recipe=rec, source_commit=source_commit, root=tr_dir / "i", lineage="ri", data_provenance={"s": "t"}, device="cpu", cpu_canary=True, resume=True)
+                l_res = [float(t_res.step()["loss"]), float(t_res.step()["loss"])]
+                l_ok = all(abs(a - b) <= 1e-6 for a, b in zip(l_full[2:], l_res))
+                w_ok = all(torch.equal(t_res.model.state_dict()[k], t_full.model.state_dict()[k]) for k in t_full.model.state_dict())
+                _dump(tr_p, {"schema": "avendi-y3-training-replay-v1", "passed": bool(l_ok and w_ok), "losses_matched": l_ok, "weights_matched": w_ok, "full_model_sha256": _core_state_sha(t_full.model), "resumed_model_sha256": _core_state_sha(t_res.model)})
+    finally:
+        # CartridgeRunner calls configure_cpu(), which mutates intraop_threads and deterministic mode
+        # and would break checkpoint runtime_identity matching in _confirm_one across subprocesses.
+        torch.set_num_threads(prev_threads)
+        torch.use_deterministic_algorithms(prev_det)
+        torch.set_default_dtype(prev_dtype)
+        torch.backends.cuda.matmul.allow_tf32 = prev_tf32_mm
+        torch.backends.cudnn.allow_tf32 = prev_tf32_dn
 
 
 def _find_y1_ckpt_root(roots: Sequence[str], lineages: Sequence[str], tmp_dir: Path) -> Path | None:
@@ -627,17 +643,15 @@ def _epoch_plan(groups: list[list[int]], upd: int, bf: int, seed: int, epoch_gid
     return plan[:upd]
 
 
-def _gen_trainer(job: dict[str, Any], S: Any, dev: str, wr: Path, model: nn.Module, spec: Any, items: list[Any], plan: list[tuple[int, ...]], *, lr: float, objective: str, loss_fn: Callable[..., Any], micro: int | None = None, upd: int | None = None, seed: int | None = None, lineage: str | None = None, resume: bool = True) -> GenericExperimentTrainer:
+def _gen_trainer(job: dict[str, Any], S: Any, dev: str, wr: Path, model: nn.Module, spec: Any, items: list[Any], plan: list[tuple[int, ...]], *, lr: float, objective: str, loss_fn: Callable[..., Any], micro: int | None = None, upd: int | None = None, seed: int | None = None, lineage: str | None = None, resume: bool = True, require_resume: bool = False) -> GenericExperimentTrainer:
     seed = seed or job["init_seed"]
+    lin = lineage or f"y3-{job['job_id']}"
     rec = GenericTrainRecipe(seed=seed, total_updates=upd or len(plan), batch_size=len(plan[0]), micro_batch_size=micro or S.micro, lr=lr, objective=objective, cf_margin=1.0)
-    kw = dict(backend_id="avendi_y3", model=model, model_spec=spec, recipe=rec, loss_fn=loss_fn, items=items, data_provenance={"split": "train", "job": job["job_id"]}, order_seed=job["order_seed"], source_commit=build_plan()["source_commit"], root=Path(wr) / "ckpts", lineage=lineage or f"y3-{job['job_id']}", device=dev, cpu_canary=not S.full)
+    kw = dict(backend_id="avendi_y3", model=model, model_spec=spec, recipe=rec, loss_fn=loss_fn, items=items, data_provenance={"split": "train", "job": job["job_id"]}, order_seed=job["order_seed"], source_commit=build_plan()["source_commit"], root=Path(wr) / "ckpts", lineage=lin, device=dev, cpu_canary=not S.full)
     if not S.full: kw["max_cpu_samples"] = 10**6
-    tr = None
-    for res in ((True, False) if resume else (False,)):
-        try:
-            tr = GenericExperimentTrainer(**kw, resume=res); break
-        except (ValueError, FileNotFoundError, KeyError, RuntimeError):
-            if not res: raise
+    has_ckpt = (Path(wr) / "ckpts" / lin / "LATEST").is_file()
+    use_resume = True if require_resume else bool(resume and has_ckpt)
+    tr = GenericExperimentTrainer(**kw, resume=use_resume)
     tr.plan = plan
     return tr
 
@@ -782,7 +796,7 @@ def _parent_model(S: Any, fams: dict[str, Any], dev: str, wr: Path, seed: int, p
     row = _plan_rows()[f"P2-{parent_arm}-s{seed}"]
     items, groups = _groups(fams["train"]); spec = get_byte_model_spec("S3", cpu_canary=not S.full)
     plan = _epoch_plan(groups, S.upd, S.batch // 4, seed, lambda e: range(len(groups)))
-    tr = _gen_trainer(row, S, dev, wr, AvendiByteModel(spec, seed=seed), spec, items, plan, lr=1e-4, objective="ce", loss_fn=lambda m, c, r: compute_avendi_loss(m, c, r), upd=S.upd, resume=True)
+    tr = _gen_trainer(row, S, dev, wr, AvendiByteModel(spec, seed=seed), spec, items, plan, lr=1e-4, objective="ce", loss_fn=lambda m, c, r: compute_avendi_loss(m, c, r), upd=S.upd, resume=True, require_resume=True)
     if tr.state.global_update < S.upd: raise RuntimeError(f"PARENT_MISSING:{row['job_id']}")
     return tr.model, str(tr.parent)
 
@@ -901,7 +915,7 @@ def _p6_job(job: dict[str, Any], S: Any, dev: str, wr: Path, jd: Path) -> dict[s
     blocks_tr, blocks_dv = build_p6_blocks("train", S.blocks, STREAM_SEEDS["corpus"]), build_p6_blocks("dev", S.blocks_dev, STREAM_SEEDS["dev"])
     pol = P6AdaptivePolicy(32, seed)
     plan = [tuple(random.Random(seed * 7919 + u).randrange(len(blocks_tr)) for _ in range(S.batch)) for u in range(S.upd)]
-    tr = _gen_trainer(main, S, dev, wr, pol, get_byte_model_spec("S3", cpu_canary=True), blocks_tr, plan, lr=3e-3, objective="ce", loss_fn=_p6_batch_loss, upd=S.upd, lineage=f"y3-P6-diagnostic_policy-s{seed}", resume=job["arm"] != "diagnostic_policy")
+    tr = _gen_trainer(main, S, dev, wr, pol, get_byte_model_spec("S3", cpu_canary=True), blocks_tr, plan, lr=3e-3, objective="ce", loss_fn=_p6_batch_loss, upd=S.upd, lineage=f"y3-P6-diagnostic_policy-s{seed}", resume=job["arm"] != "diagnostic_policy", require_resume=job["arm"] != "diagnostic_policy")
     loaded_parent_sha = str(tr.parent) if tr.parent else None
     stats = _train(tr, S.upd) if job["arm"] == "diagnostic_policy" else {"updates": tr.state.global_update, "restored_parent": True}
     if job["arm"] != "diagnostic_policy" and tr.state.global_update < S.upd: raise RuntimeError("PARENT_MISSING:" + main["job_id"])
@@ -1422,7 +1436,7 @@ def _confirm_one(row: dict[str, Any], S: Any, fams: dict[str, Any], wr: Path) ->
         plan = _epoch_plan(groups, S.upd, S.batch // 4, row["init_seed"], lambda e: range(len(groups)), easy=easy)
     lr = 3e-5 if row["arm"] in ("low_lr", "s20_low_lr") else 1e-4
     obj = {"margin": "margin", "address": "address", "address_sham": "address_sham", "rename": "rename", "rename_sham": "rename_sham"}.get(row["arm"], "ce")
-    tr = _gen_trainer(row, S, "cpu" if not torch.cuda.is_available() else "cuda:0", wr, AvendiByteModel(spec, seed=row["init_seed"]), spec, items, plan, lr=lr, objective=obj, loss_fn=lambda m, c, r: compute_avendi_loss(m, c, r), micro=(2 if row["arm"].startswith("s20") else S.micro), upd=S.upd, resume=True)
+    tr = _gen_trainer(row, S, "cpu" if not torch.cuda.is_available() else "cuda:0", wr, AvendiByteModel(spec, seed=row["init_seed"]), spec, items, plan, lr=lr, objective=obj, loss_fn=lambda m, c, r: compute_avendi_loss(m, c, r), micro=(2 if row["arm"].startswith("s20") else S.micro), upd=S.upd, resume=True, require_resume=True)
     if tr.state.global_update < S.upd: raise RuntimeError("CHECKPOINT_NOT_COMPLETE:" + row["job_id"])
     ev = eval_byte_model_on_families(tr.model, fams["confirm"])
     lit = eval_byte_model_on_families(tr.model, build_literal_probe_families(S.lit_n, STREAM_SEEDS["confirm"]))

@@ -510,3 +510,31 @@ def test_cross_session_confirmation_custody_and_prompt_57_plus_31_resume(tmp_pat
     assert time.perf_counter() - t0 < 5.0
     assert d_noop["exit_reason"] == "ALREADY_VERIFIED_NO_OP" and len(d_noop["reused_job_ids"]) == 88 and not d_noop["executed_job_ids"]
     assert d_noop["started_utc"] and d_noop["finished_utc"] and d_noop["elapsed_seconds"] >= 0.0
+
+
+def test_subprocess_worker_confirm_restore_and_replay_preserves_runtime(tmp_path: Path):
+    import subprocess
+    import sys
+    from anra_v5.elendril.training import runtime_identity
+    from experiments.avendi_y3.module import _confirm_one, _plan_rows, _split_fams, _write_session_replay_receipts
+    from experiments.avendi_y3.plan import BASE_REVISION
+
+    before = runtime_identity(torch.device("cpu"))
+    _write_session_replay_receipts(tmp_path, BASE_REVISION)
+    after = runtime_identity(torch.device("cpu"))
+    assert before == after
+
+    rows, fams = _plan_rows(), _split_fams(TINY_S)
+    for jid in ("P2-ce-s7", "P3-refresh-s7", "P7-s20_ce-s7"):
+        subprocess.check_call([sys.executable, "-m", "experiments.avendi_y3.module", "--job", jid, "--work-root", str(tmp_path), "--device", "cpu", "--scale", "tiny"])
+        res = _confirm_one(rows[jid], TINY_S, fams, tmp_path)
+        assert 0.0 <= res["fam4"] <= 1.0
+
+    # Tampered metadata/threads must surface the true restore mismatch error instead of masking with resume=False
+    orig_threads = torch.get_num_threads()
+    try:
+        torch.set_num_threads(orig_threads + 1)
+        with pytest.raises(ValueError, match="identity mismatch|metadata mismatch"):
+            _confirm_one(rows["P2-ce-s7"], TINY_S, fams, tmp_path)
+    finally:
+        torch.set_num_threads(orig_threads)
