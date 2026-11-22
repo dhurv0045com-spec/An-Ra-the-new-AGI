@@ -7,10 +7,9 @@ from hashlib import sha256
 import json
 import math
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import random
 import shutil
-import stat
 import tempfile
 import time
 from typing import Any, Callable, Mapping, Sequence
@@ -31,38 +30,29 @@ from v5_training.checkpoint import CheckpointStore
 from v5_training.optimizer import build_adamw_optimizer, optimizer_group_receipt, validate_parameter_ownership
 from v5_training.state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
+from .archives import (
+    _stream_file_sha256,
+    collect_minimal_checkpoint_files,
+    export_session_archives,
+    mirror_to_working_dir,
+    prune_completed_job_artifacts,
+    safe_extract_planthir_archive,
+    verify_session_archive,
+    win_long_path,
+)
 from .backend import BACKEND_CONTRACT_VERSION, BackendCapabilities, register_backend
 from .contracts import EnvironmentKernel, ObservablePolicy, UniversalAction, UniversalObservation
-from .execution import _atomic_replace
+from .custody import CampaignLedgerVerifier, ConfirmLock, verify_campaign_ledger
+from .notebooks import build_pinned_kaggle_notebook, serialize_pinned_notebook, verify_pinned_notebook_bytes
+from .reporting import (
+    build_analyst_first_page_report,
+    build_verification_matrix,
+    render_campaign_dashboard,
+    render_campaign_results_markdown,
+    rescore_compact_analysis_archive,
+)
 from .resources import measure_free_disk_bytes
 from .scheduler import IndependentWorkerScheduler, WorkerJobSpec
-
-_SAFE_ARCHIVE_MEMBER_MAX_BYTES = 512 * 1024 * 1024
-_SAFE_ARCHIVE_MAX_FILES = 10_000
-
-
-def win_long_path(path: Path | str) -> Path:
-    """Prefix Windows paths >=240 chars with extended-length ``\\\\?\\`` to bypass MAX_PATH failures."""
-
-    s = str(path)
-    if os.name == "nt" and s.startswith("\\\\?\\"):
-        return Path(s)
-    raw = os.path.abspath(s)
-    if os.name == "nt" and not raw.startswith("\\\\?\\") and len(raw) >= 240:
-        if raw.startswith("\\\\"):
-            return Path("\\\\?\\UNC\\" + raw.lstrip("\\"))
-        return Path("\\\\?\\" + raw)
-    return Path(raw)
-
-
-def _stream_file_sha256(path: Path) -> str:
-    """Compute SHA-256 hex digest in 1 MiB chunks without loading full archives into memory."""
-
-    h = sha256()
-    with path.open("rb") as fh:
-        while chunk := fh.read(1024 * 1024):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -2003,6 +1993,9 @@ class CampaignOrchestrator:
         summary_max_bytes: int = 5 * 1024 * 1024,
         write_full_zip: bool = True,
         run_rescore: bool = False,
+        confirm_lock_path: Path | str | None = None,
+        confirm_required_job_ids: Sequence[str] = (),
+        prune_completed_checkpoints: bool = False,
     ) -> dict[str, Any]:
         """Execute a full registered multi-job campaign with resume, profiling, gating, 2-GPU preemption, and export."""
 
@@ -2248,6 +2241,12 @@ class CampaignOrchestrator:
                 "dataset_counts": {},
                 "pending_queue_path": str(self.work_dir / "PENDING_QUEUE.json"),
                 "waves": [],
+                "confirm_lock": (
+                    ConfirmLock(confirm_lock_path).inspect(sorted(verified_completed))
+                    if confirm_lock_path is not None
+                    else None
+                ),
+                "pruned_artifacts": None,
                 "export_receipt": None,
                 "archive_verifications": {},
                 "rescore_receipt": None,
@@ -2257,6 +2256,16 @@ class CampaignOrchestrator:
                 encoding="utf-8",
             )
             return inv_doc
+
+        confirm_lock_obj: ConfirmLock | None = None
+        if confirm_lock_path is not None:
+            confirm_lock_obj = ConfirmLock(confirm_lock_path)
+            req_lock_ids = [str(x) for x in confirm_required_job_ids] if confirm_required_job_ids else [j.job_id for j in job_list]
+            confirm_lock_obj.seal(
+                req_lock_ids,
+                source_commit=self.source_commit,
+                metadata={"campaign_id": self.campaign_id},
+            )
 
         u0000_smoke_receipt: dict[str, Any] | None = None
         if u0000_smoke_fn is not None and admitted_jobs:
@@ -2651,6 +2660,28 @@ class CampaignOrchestrator:
                     prev_v = dataset_counts.get(str(dk))
                     dataset_counts[str(dk)] = iv if prev_v is None else max(prev_v, iv)
 
+        pruned_summary: dict[str, Any] | None = None
+        if prune_completed_checkpoints:
+            total_removed = 0
+            total_freed = 0
+            pruned_jobs = 0
+            for jid in completed_jobs:
+                jdir = self.work_dir / "jobs" / jid
+                if jdir.is_dir():
+                    pr = prune_completed_job_artifacts(jdir, keep_latest=True, keep_milestones=True)
+                    total_removed += int(pr["removed_files"])
+                    total_freed += int(pr["freed_bytes"])
+                    pruned_jobs += 1
+            pruned_summary = {
+                "pruned_jobs": pruned_jobs,
+                "removed_files": total_removed,
+                "freed_bytes": total_freed,
+            }
+
+        confirm_lock_report: dict[str, Any] | None = None
+        if confirm_lock_obj is not None:
+            confirm_lock_report = confirm_lock_obj.unlock_if_ready(completed_jobs)
+
         campaign_status = (
             "COMPLETE"
             if (not all_pending and not failed_job_ids and not blocked_jobs and not wall_clock_preempted)
@@ -2666,6 +2697,8 @@ class CampaignOrchestrator:
                     "completed_count": len(completed_jobs),
                     "completed_jobs": completed_jobs,
                     "waves": waves,
+                    "confirm_lock": confirm_lock_report,
+                    "pruned_artifacts": pruned_summary,
                 },
                 indent=2,
                 sort_keys=True,
@@ -2701,6 +2734,8 @@ class CampaignOrchestrator:
             "dataset_counts": dataset_counts,
             "pending_queue_path": str(pending_queue_path),
             "waves": waves,
+            "confirm_lock": confirm_lock_report,
+            "pruned_artifacts": pruned_summary,
             "export_receipt": None,
             "archive_verifications": {},
             "rescore_receipt": None,
@@ -2721,9 +2756,12 @@ class CampaignOrchestrator:
                 "BLOCKED_JOBS.json",
                 "STAGE_GATES.json",
                 "U0000_SMOKE_RECEIPT.json",
+                "CONFIRM_LOCK.json",
                 "REGISTERED_PLAN_STATUS.json",
             )
             core_files = {name: self.work_dir / name for name in core_names if (self.work_dir / name).is_file()}
+            if confirm_lock_obj is not None and confirm_lock_obj.lock_path.is_file():
+                core_files.setdefault(confirm_lock_obj.lock_path.name, confirm_lock_obj.lock_path)
             job_receipt_files: dict[str, Path] = {}
             all_job_files: dict[str, Path] = {}
             jobs_dir = self.work_dir / "jobs"
@@ -3008,646 +3046,6 @@ class CampaignStageSpec:
     description: str = ""
 
 
-def build_verification_matrix(
-    *,
-    byte_integrity: str = "PASS",
-    oracle_fixture_correctness: str = "PASS",
-    recorded_action_replay: str = "PASS",
-    checkpoint_restore: str = "MISSING_CHECKPOINT_ARTIFACT",
-    regenerated_per_case_agreement: str = "BLOCKED_BY_MISSING_CHECKPOINT",
-    training_reproduction: str = "NOT_RUN",
-) -> list[dict[str, str]]:
-    """Return the canonical 6-row Planthir verification matrix."""
-    return [
-        {"check": "byte_integrity", "status": str(byte_integrity)},
-        {"check": "oracle_fixture_correctness", "status": str(oracle_fixture_correctness)},
-        {"check": "recorded_action_replay", "status": str(recorded_action_replay)},
-        {"check": "checkpoint_restore", "status": str(checkpoint_restore)},
-        {"check": "regenerated_per_case_agreement", "status": str(regenerated_per_case_agreement)},
-        {"check": "training_reproduction", "status": str(training_reproduction)},
-    ]
-
-
-def render_campaign_results_markdown(
-    *,
-    title: str,
-    campaign_id: str,
-    source_commit: str,
-    status: str,
-    verification_matrix: Sequence[Mapping[str, Any]],
-    stage_summaries: Mapping[str, Any] | None = None,
-    first_page_report: Mapping[str, Any] | None = None,
-) -> str:
-    """Render a standardized `RESULTS.md` report with verification matrix and optional analyst first page."""
-    if first_page_report is not None and isinstance(first_page_report.get("markdown"), str):
-        base_md = str(first_page_report["markdown"]).rstrip()
-        lines = [base_md, "", "## Verification Matrix", "", "| Check | Status |", "|---|---|"]
-    else:
-        lines = [
-            f"# {title}",
-            "",
-            f"- **Campaign ID:** `{campaign_id}`",
-            f"- **Source commit:** `{source_commit}`",
-            f"- **Status:** `{status}`",
-            "",
-            "## Verification Matrix",
-            "",
-            "| Check | Status |",
-            "|---|---|",
-        ]
-    for row in verification_matrix:
-        lines.append(f"| `{row.get('check', '')}` | `{row.get('status', '')}` |")
-    if stage_summaries:
-        lines.extend(["", "## Stage Summaries", ""])
-        for sid, info in sorted(stage_summaries.items()):
-            lines.append(f"- `{sid}`: `{json.dumps(info, sort_keys=True)}`")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def build_analyst_first_page_report(
-    *,
-    title: str,
-    campaign_id: str,
-    source_commit: str,
-    decision_summary: str,
-    control_arm: str,
-    treatment_arm: str,
-    paired_seed_bundle: Mapping[str, Any],
-    paired_episodes_by_seed: Mapping[int | str, Mapping[str, Any]] | None = None,
-    predeclared_slices: Sequence[Mapping[str, Any]] = (),
-    interventions: Mapping[str, Mapping[str, Any]] | None = None,
-    retrospective_findings: Sequence[str] = (),
-    next_experiment: Mapping[str, Any] | None = None,
-    analysis_archive: Mapping[str, Any] | None = None,
-    full_archive: Mapping[str, Any] | None = None,
-    reproduction_command: str = "",
-) -> dict[str, Any]:
-    """Build an analyst-first report & JSON summary with artifact routing, per-seed pairing, coverage, slices, and trace exemplars."""
-
-    ep_map = {str(k): dict(v) for k, v in dict(paired_episodes_by_seed or {}).items()}
-    aa = dict(analysis_archive or {})
-    fa = dict(full_archive or {})
-    repro = str(reproduction_command or f"python -m anra_v5.planthir rescore-archive --archive {aa.get('name', 'ANALYSIS.zip')} --out rebuilt_report")
-
-    lines = [
-        f"# {title}",
-        "",
-        "## Artifacts, Verification & One-Command Rebuild",
-        "",
-        f"- **Campaign ID:** `{campaign_id}` · **Source commit:** `{source_commit}`",
-        f"- **Answers episode, slice & disagreement questions (compact analysis archive):** `{aa.get('name', 'ANALYSIS.zip')}` (SHA-256 `{aa.get('sha256', 'N/A')}`, verified=`{aa.get('verified', False)}`)",
-        f"- **Required for neural probabilities, linear probes & new lesions (full checkpoint archive):** `{fa.get('name', 'FULL.zip')}` (SHA-256 `{fa.get('sha256', 'N/A')}`, verified=`{fa.get('verified', False)}`)",
-        f"- **Rebuild report & curated metrics from compact archive in a fresh directory:** `{repro}`",
-        "",
-        "## Registered Decision & Per-Seed Comparison",
-        "",
-        f"**Decision.** {decision_summary}",
-        "",
-        f"| Seed | {control_arm} | {treatment_arm} | {treatment_arm} - {control_arm} | {treatment_arm}-only solved | {control_arm}-only solved | First-op disagreements |",
-        "|---|---:|---:|---:|---:|---:|---:|",
-    ]
-    for obs in paired_seed_bundle.get("observations", ()):
-        seed_s = str(obs.get("init_seed", ""))
-        c_val = float(obs["control_value"])
-        t_val = float(obs["treatment_value"])
-        ep = ep_map.get(seed_s, {})
-        t_only = ep.get("treatment_only_solved", "N/A")
-        c_only = ep.get("control_only_solved", "N/A")
-        op_dis = ep.get("first_operation_disagreement_count", "N/A")
-        lines.append(
-            f"| `{obs.get('pair_id', seed_s)}` | {c_val:.4f} | {t_val:.4f} | {t_val - c_val:+.4f} | {t_only} | {c_only} | {op_dis} |"
-        )
-    missing_pairs = list(paired_seed_bundle.get("missing_pairs", ()))
-    if missing_pairs:
-        lines.append("")
-        lines.append(
-            f"- **Missing matched pairs ({paired_seed_bundle.get('status', 'INCOMPLETE_PAIRS_REPORTED')}):** "
-            f"completed job records preserved (`{len(paired_seed_bundle.get('preserved_arm_records', ()))}`)."
-        )
-        for mp in missing_pairs:
-            lines.append(f"  - {mp.get('explanation', mp)}")
-
-    if predeclared_slices:
-        sorted_slices = sorted(
-            predeclared_slices,
-            key=lambda s: abs(float(s.get("drop", float(s.get("control_accuracy", 0.0)) - float(s.get("treatment_accuracy", 0.0))))),
-            reverse=True,
-        )
-        lines.extend(
-            [
-                "",
-                "## Predeclared Slice Differences & Contrasting Trace IDs",
-                "",
-                "| Slice | Tag | Baseline / Control | Target / Treatment | Diff / Drop | Control 1st-op disagree | Treatment 1st-op disagree |",
-                "|---|---|---:|---:|---:|---:|---:|",
-            ]
-        )
-        for sl in sorted_slices:
-            c_acc = sl.get("baseline_accuracy", sl.get("control_accuracy", 0.0))
-            t_acc = sl.get("slice_accuracy", sl.get("treatment_accuracy", 0.0))
-            drop = sl.get("drop", float(c_acc) - float(t_acc))
-            c_op = sl.get("control_first_op_disagree_rate", sl.get("baseline_first_op_disagree_rate", "N/A"))
-            t_op = sl.get("treatment_first_op_disagree_rate", sl.get("slice_first_op_disagree_rate", "N/A"))
-            c_op_s = f"{float(c_op):.4f}" if isinstance(c_op, (int, float)) else str(c_op)
-            t_op_s = f"{float(t_op):.4f}" if isinstance(t_op, (int, float)) else str(t_op)
-            lines.append(
-                f"| `{sl.get('slice_name', 'slice')}` | `[PREDECLARED]` | {float(c_acc):.4f} | {float(t_acc):.4f} | {float(drop):+.4f} | {c_op_s} | {t_op_s} |"
-            )
-
-    if ep_map:
-        lines.extend(["", "### Contrasting Trace IDs", ""])
-        for seed_s, ep in sorted(ep_map.items()):
-            ex = ep.get("contrasting_trace_ids", {})
-            lines.append(
-                f"- Seed `{seed_s}` (rule `{ex.get('selection_rule', 'deterministic')}`): "
-                f"`{treatment_arm}`-only=`{ex.get('treatment_only_example_id')}`, "
-                f"`{control_arm}`-only=`{ex.get('control_only_example_id')}`"
-            )
-
-    if interventions:
-        lines.extend(["", "## Diagnostic Interventions & Coverage", ""])
-        for name, iv in sorted(interventions.items()):
-            cov = iv.get("coverage", {})
-            pc = iv.get("paired_changes", {})
-            delta = iv.get("accuracy_delta", iv.get("delta_vs_baseline", 0.0))
-            cov_line = (
-                f"worlds={cov.get('distinct_base_world_count', 'N/A')}, "
-                f"families={cov.get('distinct_family_count', 'N/A')} ({cov.get('distinct_families', [])}), "
-                f"views={cov.get('distinct_view_count', 'N/A')}, "
-                f"seeds={cov.get('distinct_seed_count', 'N/A')}, "
-                f"target_coverage={cov.get('target_family_coverage_ratio', 'N/A')}"
-            )
-            pc_line = (
-                f"+{pc.get('gained_correct_count', 0)} / -{pc.get('lost_correct_count', 0)}, "
-                f"first_op_changed={pc.get('first_operation_changed_count', 0)}"
-                if pc
-                else "paired_changes=N/A"
-            )
-            status_note = iv.get("headline") or iv.get("mechanism_status") or cov.get("coverage_summary") or ""
-            lines.append(f"- `{name}`: delta={float(delta):+.4f}; {cov_line}; {pc_line}. {status_note}")
-
-    if retrospective_findings:
-        lines.extend(["", "## Retrospective Findings", ""])
-        for item in retrospective_findings:
-            lines.append(f"- `[RETROSPECTIVE]` {item}")
-
-    if next_experiment:
-        lines.extend(
-            [
-                "",
-                "## Smallest Discriminating Next Experiment",
-                "",
-                f"- **Title:** {next_experiment.get('title', '')}",
-                f"- **Requires artifact:** `{next_experiment.get('requires_artifact', fa.get('name', 'FULL.zip'))}`",
-                f"- **Discriminates between:** `{next_experiment.get('discriminates_between', ())}`",
-                f"- **Protocol:** {next_experiment.get('protocol', '')}",
-            ]
-        )
-
-    lines.append("")
-    md_text = "\n".join(lines)
-    return {
-        "schema": "anra-planthir-analyst-first-page-v1",
-        "title": title,
-        "campaign_id": campaign_id,
-        "source_commit": source_commit,
-        "decision_summary": decision_summary,
-        "control_arm": control_arm,
-        "treatment_arm": treatment_arm,
-        "analysis_archive": aa,
-        "full_archive": fa,
-        "reproduction_command": repro,
-        "paired_seed_bundle": dict(paired_seed_bundle),
-        "paired_episodes_by_seed": ep_map,
-        "predeclared_slices": [dict(s) for s in predeclared_slices],
-        "interventions": {str(k): dict(v) for k, v in dict(interventions or {}).items()},
-        "retrospective_findings": [str(x) for x in retrospective_findings],
-        "next_experiment": dict(next_experiment or {}),
-        "markdown": md_text,
-    }
-
-
-def rescore_compact_analysis_archive(
-    archive_path: Path | str,
-    output_dir: Path | str,
-) -> dict[str, Any]:
-    """Verify a compact analysis ZIP, recompute paired-seed & paired-episode comparisons in a fresh dir, and write RESULTS.md + METRICS.json."""
-    import tempfile
-    from .design import build_paired_seed_observations, compare_paired_episode_records
-
-    zp = Path(archive_path)
-    if not zp.is_file():
-        raise FileNotFoundError(f"compact analysis archive not found: {zp}")
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    archive_sha = _stream_file_sha256(zp)
-
-    v6_verified = False
-    with zipfile.ZipFile(zp, "r") as zf:
-        has_v6 = "BUNDLE_MANIFEST.json" in zf.namelist()
-    if has_v6:
-        from tools.elendril_v6_export import verify_zip as v6_verify_zip
-
-        v6_verify_zip(zp)
-        v6_verified = True
-
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-        ext = Path(tmp) / "extracted"
-        safe_extract_planthir_archive(zp, ext)
-        metrics_path = ext / "METRICS.json"
-        if not metrics_path.is_file():
-            cands = sorted(ext.rglob("METRICS.json"))
-            if not cands:
-                raise ValueError(f"METRICS.json not found inside {zp}")
-            metrics_path = cands[0]
-        raw_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-
-    ctrl_arm = str(raw_metrics.get("control_arm", "P"))
-    trt_arm = str(raw_metrics.get("treatment_arm", "R"))
-    raw_arm_records = (
-        raw_metrics.get("arm_records")
-        or raw_metrics.get("paired_seed_bundle", {}).get("preserved_arm_records")
-        or []
-    )
-    if raw_arm_records:
-        rebuilt_bundle = build_paired_seed_observations(
-            raw_arm_records,
-            contrast_id=str(raw_metrics.get("paired_seed_bundle", {}).get("contrast_id", "PRIMARY")),
-            control_arm=ctrl_arm,
-            treatment_arm=trt_arm,
-        )
-    else:
-        rebuilt_bundle = dict(raw_metrics.get("paired_seed_bundle", {}))
-
-    rebuilt_eps: dict[str, Any] = {}
-    ep_by_arm_seed = raw_metrics.get("episodes_by_arm_seed")
-    if isinstance(ep_by_arm_seed, Mapping) and ctrl_arm in ep_by_arm_seed and trt_arm in ep_by_arm_seed:
-        c_seeds = ep_by_arm_seed[ctrl_arm]
-        t_seeds = ep_by_arm_seed[trt_arm]
-        for s_key in sorted(set(c_seeds) & set(t_seeds)):
-            rebuilt_eps[str(s_key)] = compare_paired_episode_records(c_seeds[s_key], t_seeds[s_key])
-    else:
-        rebuilt_eps = dict(raw_metrics.get("paired_episodes_by_seed", {}))
-
-    aa_info = dict(raw_metrics.get("analysis_archive") or {})
-    aa_info.setdefault("name", zp.name)
-    aa_info["sha256"] = archive_sha
-    aa_info["verified"] = True
-
-    first_page = build_analyst_first_page_report(
-        title=str(raw_metrics.get("title", zp.stem)),
-        campaign_id=str(raw_metrics.get("campaign_id", "RESCORED")),
-        source_commit=str(raw_metrics.get("source_commit", "0" * 40)),
-        decision_summary=str(raw_metrics.get("decision_summary", "")),
-        control_arm=ctrl_arm,
-        treatment_arm=trt_arm,
-        paired_seed_bundle=rebuilt_bundle,
-        paired_episodes_by_seed=rebuilt_eps,
-        predeclared_slices=raw_metrics.get("predeclared_slices", ()),
-        interventions=raw_metrics.get("interventions"),
-        retrospective_findings=raw_metrics.get("retrospective_findings", ()),
-        next_experiment=raw_metrics.get("next_experiment"),
-        analysis_archive=aa_info,
-        full_archive=raw_metrics.get("full_archive"),
-        reproduction_command=f"python -m anra_v5.planthir rescore-archive --archive {zp.name} --out {out.name}",
-    )
-
-    rebuilt_metrics = {
-        **{k: v for k, v in raw_metrics.items() if k != "markdown"},
-        "paired_seed_bundle": rebuilt_bundle,
-        "paired_episodes_by_seed": rebuilt_eps,
-        "analysis_archive": aa_info,
-        "rebuilt_from_archive_sha256": archive_sha,
-    }
-    res_md_path = out / "RESULTS.md"
-    metrics_out_path = out / "METRICS.json"
-    res_md_path.write_text(first_page["markdown"], encoding="utf-8")
-    metrics_out_path.write_text(json.dumps(rebuilt_metrics, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return {
-        "schema": "anra-planthir-rescore-receipt-v1",
-        "verified": True,
-        "v6_zip_verified": v6_verified,
-        "archive_path": str(zp),
-        "archive_sha256": archive_sha,
-        "output_dir": str(out),
-        "results_md": str(res_md_path),
-        "metrics_json": str(metrics_out_path),
-        "complete_pair_count": rebuilt_bundle.get("complete_pair_count", 0),
-        "rescored_seed_count": len(rebuilt_eps),
-    }
-
-
-def safe_extract_planthir_archive(zip_path: Path | str, dest_dir: Path | str) -> list[str]:
-    """Safely inspect and extract a Planthir session ZIP rejecting traversal, symlinks, duplicates, and bombs."""
-
-    zp = win_long_path(zip_path)
-    dest_root = Path(dest_dir).resolve() if len(str(dest_dir)) < 240 else Path(os.path.abspath(str(dest_dir)))
-    win_long_path(dest_root).mkdir(parents=True, exist_ok=True)
-    extracted: list[str] = []
-    seen_names: set[str] = set()
-    with zipfile.ZipFile(zp, "r") as zf:
-        infos = zf.infolist()
-        if len(infos) > _SAFE_ARCHIVE_MAX_FILES:
-            raise ValueError(f"zip member count exceeds limit: {len(infos)}")
-        for info in infos:
-            name = info.filename
-            if name in seen_names:
-                raise ValueError(f"duplicate archive member: {name!r}")
-            seen_names.add(name)
-            if (info.external_attr >> 16) & stat.S_IFLNK == stat.S_IFLNK:
-                raise ValueError(f"symlink rejected in archive: {name!r}")
-            if "\\" in name:
-                raise ValueError(f"backslash rejected in archive member: {name!r}")
-            p = PurePosixPath(name)
-            if p.is_absolute() or ".." in p.parts or any(part == "" for part in p.parts if not name.endswith("/")):
-                raise ValueError(f"unsafe archive path rejected: {name!r}")
-            if info.file_size > _SAFE_ARCHIVE_MEMBER_MAX_BYTES:
-                raise ValueError(f"archive member exceeds size ceiling: {name!r}")
-            if name.endswith("/"):
-                continue
-            target = Path(os.path.abspath(os.path.join(str(dest_root), *p.parts)))
-            if target != dest_root and dest_root not in target.parents:
-                raise ValueError(f"archive member escapes destination: {name!r}")
-            w_target = win_long_path(target)
-            w_target.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(info, "r") as src, w_target.open("wb") as dst:
-                shutil.copyfileobj(src, dst)
-            extracted.append(name)
-    return extracted
-
-
-def export_session_archives(
-    source_root: Path | str,
-    output_dir: Path | str,
-    *,
-    prefix: str,
-    analysis_files: Mapping[str, Path | str] | None = None,
-    full_files: Mapping[str, Path | str] | None = None,
-    summary_files: Mapping[str, Path | str] | None = None,
-    evidence_files: Mapping[str, Path | str] | None = None,
-    status: str = "COMPLETE",
-    source_commit: str | None = None,
-    protocol_sha256: str | None = None,
-    rescore: Mapping[str, Any] | None = None,
-    summary_max_bytes: int = 5 * 1024 * 1024,
-    include_v6_manifest: bool | None = None,
-    write_full_zip: bool = True,
-) -> dict[str, Any]:
-    """Export hardened session bundles (and optional v6-verified SUMMARY/EVIDENCE/FULL ZIPs) with SHA-256 sidecars."""
-
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    use_v6 = (
-        bool(include_v6_manifest)
-        if include_v6_manifest is not None
-        else (summary_files is not None or evidence_files is not None)
-    )
-    resolved_commit = str(source_commit) if (source_commit and len(str(source_commit)) == 40) else "0" * 40
-    resolved_proto = (
-        str(protocol_sha256)
-        if (protocol_sha256 and len(str(protocol_sha256)) == 64)
-        else sha256(f"{prefix}:{resolved_commit}".encode("utf-8")).hexdigest()
-    )
-    rescore_doc = dict(rescore) if rescore is not None else {"status": "PASS"}
-
-    def _validate_arc_name(arc_name: str) -> str:
-        norm_arc = str(arc_name).replace("\\", "/").lstrip("/")
-        parts = PurePosixPath(norm_arc).parts
-        if (
-            not norm_arc
-            or "\\" in norm_arc
-            or ":" in norm_arc
-            or ".." in parts
-            or any(p in ("", ".", "..") or p.endswith((".", " ")) for p in parts)
-        ):
-            raise ValueError(f"unsafe archive path: {arc_name!r}")
-        return norm_arc
-
-    def _write_zip(zpath: Path, mapping: Mapping[str, Path | str], *, max_bytes: int | None = None) -> str:
-        tmp_zip = zpath.parent / f".tmp-{zpath.name}-{os.getpid()}.zip"
-        try:
-            with zipfile.ZipFile(tmp_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                if use_v6:
-                    file_records: list[dict[str, Any]] = []
-                    seen_arc: set[str] = set()
-                    for arc_name, src_path in sorted(mapping.items()):
-                        norm_arc = _validate_arc_name(arc_name)
-                        if norm_arc in ("BUNDLE_MANIFEST.json", "README_RESULTS.md", "SHA256SUMS") or norm_arc.casefold() in seen_arc:
-                            continue
-                        seen_arc.add(norm_arc.casefold())
-                        data = Path(src_path).read_bytes()
-                        zf.writestr(norm_arc, data)
-                        file_records.append(
-                            {"name": norm_arc, "byte_size": len(data), "sha256": sha256(data).hexdigest()}
-                        )
-                    readme_bytes = (
-                        f"# Elendril / Planthir Results ({prefix})\n\n"
-                        f"- Campaign status: `{status}`\n"
-                        f"- Independent rescore status: `{rescore_doc.get('status', 'PASS')}`\n"
-                        f"- Source commit: `{resolved_commit}`\n"
-                        f"- Protocol SHA-256: `{resolved_proto}`\n"
-                    ).encode("utf-8")
-                    zf.writestr("README_RESULTS.md", readme_bytes)
-                    file_records.append(
-                        {"name": "README_RESULTS.md", "byte_size": len(readme_bytes), "sha256": sha256(readme_bytes).hexdigest()}
-                    )
-                    file_records.sort(key=lambda r: r["name"])
-                    sums_bytes = "".join(
-                        f"{r['sha256']}  {r['name']}\n" for r in file_records
-                    ).encode("utf-8")
-                    zf.writestr("SHA256SUMS", sums_bytes)
-                    all_records = sorted(
-                        [*file_records, {"name": "SHA256SUMS", "byte_size": len(sums_bytes), "sha256": sha256(sums_bytes).hexdigest()}],
-                        key=lambda r: r["name"],
-                    )
-                    manifest_bytes = canonical(
-                        {
-                            "schema": "elendril-v6-evidence-bundle-v1",
-                            "source": resolved_commit,
-                            "protocol_sha256": resolved_proto,
-                            "campaign_status": status,
-                            "rescore": rescore_doc,
-                            "files": all_records,
-                        }
-                    )
-                    zf.writestr("BUNDLE_MANIFEST.json", manifest_bytes)
-                else:
-                    for arc_name, src_path in sorted(mapping.items()):
-                        norm_arc = _validate_arc_name(arc_name)
-                        zf.write(Path(src_path), arcname=norm_arc)
-            zip_size = tmp_zip.stat().st_size
-            if max_bytes is not None and zip_size > int(max_bytes):
-                raise ValueError(f"{zpath.name} size {zip_size} exceeds cap {max_bytes}")
-            raw_sha = _stream_file_sha256(tmp_zip)
-            _atomic_replace(tmp_zip, zpath)
-            (zpath.parent / f"{zpath.name}.sha256").write_text(f"{raw_sha}  {zpath.name}\n", encoding="utf-8")
-            return raw_sha
-        finally:
-            tmp_zip.unlink(missing_ok=True)
-
-    a_map = dict(analysis_files or summary_files or {})
-    f_map = dict(full_files) if full_files is not None else dict(a_map)
-
-    archive_paths: dict[str, str] = {}
-    archive_hashes: dict[str, str] = {}
-    final_status: dict[str, Any] = {
-        "schema": "anra-planthir-session-final-status-v1",
-        "prefix": prefix,
-        "status": status,
-        "source_root": str(source_root),
-        "source_commit": resolved_commit,
-        "protocol_sha256": resolved_proto,
-    }
-
-    if analysis_files is not None or summary_files is None:
-        a_zip = out / f"{prefix}_ANALYSIS.zip"
-        a_sha = _write_zip(a_zip, a_map)
-        final_status["analysis_zip"] = a_zip.name
-        final_status["analysis_zip_sha256"] = a_sha
-        archive_paths["analysis"] = str(a_zip)
-        archive_hashes["analysis"] = a_sha
-
-    if summary_files is not None:
-        s_zip = out / f"{prefix}_SUMMARY.zip"
-        s_sha = _write_zip(s_zip, summary_files, max_bytes=summary_max_bytes)
-        final_status["summary_zip"] = s_zip.name
-        final_status["summary_zip_sha256"] = s_sha
-        archive_paths["summary"] = str(s_zip)
-        archive_hashes["summary"] = s_sha
-
-    if evidence_files is not None:
-        e_zip = out / f"{prefix}_EVIDENCE.zip"
-        e_sha = _write_zip(e_zip, evidence_files)
-        final_status["evidence_zip"] = e_zip.name
-        final_status["evidence_zip_sha256"] = e_sha
-        archive_paths["evidence"] = str(e_zip)
-        archive_hashes["evidence"] = e_sha
-
-    if write_full_zip:
-        f_zip = out / f"{prefix}_FULL.zip"
-        f_sha = _write_zip(f_zip, f_map)
-        final_status["full_zip"] = f_zip.name
-        final_status["full_zip_sha256"] = f_sha
-        archive_paths["full"] = str(f_zip)
-        archive_hashes["full"] = f_sha
-
-    (out / "FINAL_STATUS.json").write_text(json.dumps(final_status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    receipt = {
-        "schema": "anra-planthir-delivery-receipt-v1",
-        "verified": True,
-        "v6_manifest_embedded": bool(use_v6),
-        "final_status": final_status,
-        "archives": archive_paths,
-        "archive_sha256": archive_hashes,
-        "analysis_entries": sorted(a_map),
-        "summary_entries": sorted(summary_files) if summary_files is not None else [],
-        "evidence_entries": sorted(evidence_files) if evidence_files is not None else [],
-        "full_entries": sorted(f_map) if write_full_zip else [],
-    }
-    (out / "DELIVERY_RECEIPT.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return receipt
-
-
-def verify_session_archive(
-    archive_path: Path | str,
-    *,
-    max_bytes: int | None = None,
-    expected_source_commit: str | None = None,
-    require_sidecar_sha256: bool = True,
-    require_v6_manifest: bool = True,
-    required_members: Sequence[str] = (),
-) -> dict[str, Any]:
-    """Fail-closed verifier for `export_session_archives` ZIPs (`SUMMARY`/`EVIDENCE`/`ANALYSIS`/`FULL`)."""
-
-    zp = Path(archive_path)
-    if zp.is_symlink():
-        raise ValueError("refuse symbolic-link session archive")
-    if not zp.is_file():
-        raise FileNotFoundError(f"session archive not found: {zp}")
-
-    zip_size = zp.stat().st_size
-    if max_bytes is not None and zip_size > int(max_bytes):
-        raise ValueError(f"{zp.name} size {zip_size} exceeds cap {max_bytes}")
-
-    actual_sha = _stream_file_sha256(zp)
-    sidecar = zp.parent / f"{zp.name}.sha256"
-    if sidecar.is_file():
-        lines = [ln.strip() for ln in sidecar.read_text(encoding="utf-8").splitlines() if ln.strip()]
-        if not lines:
-            raise ValueError("SESSION_ARCHIVE_SIDECAR_SHA256_MISMATCH")
-        parts = lines[0].split()
-        digest_val = parts[0]
-        fname = parts[1] if len(parts) > 1 else ""
-        if digest_val != actual_sha or (fname and fname != zp.name):
-            raise ValueError("SESSION_ARCHIVE_SIDECAR_SHA256_MISMATCH")
-    elif require_sidecar_sha256:
-        raise ValueError(f"MISSING_SIDECAR_SHA256:{sidecar.name}")
-
-    names: set[str] = set()
-    seen_fold: set[str] = set()
-    with zipfile.ZipFile(zp, "r") as zf:
-        infos = zf.infolist()
-        if len(infos) > _SAFE_ARCHIVE_MAX_FILES:
-            raise ValueError(f"zip member count exceeds limit: {len(infos)}")
-        for info in infos:
-            name = info.filename
-            fold = name.casefold()
-            if fold in seen_fold:
-                raise ValueError(f"duplicate archive member: {name!r}")
-            seen_fold.add(fold)
-            if (info.external_attr >> 16) & stat.S_IFLNK == stat.S_IFLNK:
-                raise ValueError(f"symlink rejected in archive: {name!r}")
-            if "\\" in name:
-                raise ValueError(f"backslash rejected in archive member: {name!r}")
-            p = PurePosixPath(name)
-            if p.is_absolute() or ".." in p.parts or any(part == "" for part in p.parts if not name.endswith("/")):
-                raise ValueError(f"unsafe archive path rejected: {name!r}")
-            if info.file_size > _SAFE_ARCHIVE_MEMBER_MAX_BYTES:
-                raise ValueError(f"archive member exceeds size ceiling: {name!r}")
-            names.add(name)
-
-        for mem in required_members:
-            if str(mem) not in names:
-                raise ValueError(f"MISSING_ARCHIVE_MEMBER:{mem}")
-
-        has_v6 = "BUNDLE_MANIFEST.json" in names
-        if require_v6_manifest and not has_v6:
-            raise ValueError(
-                "MISSING_V6_BUNDLE_MANIFEST: use export_session_archives(..., include_v6_manifest=True) "
-                "or verify_single_planthir_zip for Cartridge result.zip"
-            )
-        if not has_v6:
-            bad_member = zf.testzip()
-            if bad_member is not None:
-                raise ValueError(f"CORRUPT_ZIP_MEMBER:{bad_member}")
-
-    v6_info: dict[str, Any] | None = None
-    if has_v6:
-        from tools.elendril_v6_export import verify_zip as v6_verify_zip
-
-        v6_info = v6_verify_zip(zp)
-        if expected_source_commit is not None and str(v6_info.get("source", "")) != str(expected_source_commit):
-            raise ValueError(
-                f"SESSION_ARCHIVE_SOURCE_COMMIT_MISMATCH: expected {expected_source_commit}, got {v6_info.get('source')}"
-            )
-
-    return {
-        "schema": "anra-planthir-session-archive-verify-v1",
-        "verified": True,
-        "archive_path": str(zp),
-        "archive_name": zp.name,
-        "byte_size": int(zip_size),
-        "archive_sha256": actual_sha,
-        "sidecar_verified": sidecar.is_file(),
-        "v6_manifest_verified": has_v6,
-        "source_commit": v6_info.get("source") if v6_info else None,
-        "campaign_status": v6_info.get("campaign_status") if v6_info else None,
-        "member_count": len(names),
-        "members": sorted(names),
-    }
-
-
 def verify_shared_backbone_and_head_overhead(
     control_model: nn.Module,
     treatment_model: nn.Module,
@@ -3707,176 +3105,13 @@ def verify_shared_backbone_and_head_overhead(
     }
 
 
-def build_pinned_kaggle_notebook(
-    *,
-    source_commit: str,
-    title: str,
-    launch_command: Sequence[str] | str,
-    owner_authorized: bool = False,
-    repo_url: str | None = None,
-    repo_dir: str = "repo",
-    campaign_mode: str = "FULL",
-    session_minutes: int = 300,
-    resume_input: str | None = None,
-    inventory_command: Sequence[str] | str | None = None,
-    discover_kaggle_inputs: Sequence[str] = (),
-    mirror_outputs_to_working: bool = False,
-    extra_pinned_repos: Mapping[str, Mapping[str, str]] | None = None,
-    preflight_canary_backend: str | None = None,
-    preflight_commands: Sequence[Sequence[str] | str] = (),
-    require_dual_gpu: bool = False,
-    working_export_globs: Sequence[str] = ("*.zip", "*.sha256", "FINAL_STATUS.json"),
-    emit_file_links: bool = False,
-    backend_modules: Sequence[str] = (),
-) -> dict[str, Any]:
-    """Generate a deterministic, pinned Kaggle 2xT4 `.ipynb` notebook with explicit authorization guard."""
-
-    import shlex
-
-    cmd_args = list(shlex.split(launch_command)) if isinstance(launch_command, str) else [str(x) for x in launch_command]
-    inv_args = (
-        list(shlex.split(inventory_command))
-        if isinstance(inventory_command, str)
-        else ([str(x) for x in inventory_command] if inventory_command is not None else None)
-    )
-    preflight_cmds = [
-        list(shlex.split(cmd)) if isinstance(cmd, str) else [str(x) for x in cmd]
-        for cmd in preflight_commands
-    ]
-    auth_val = "True" if owner_authorized else "False"
-    input_names = [str(x) for x in discover_kaggle_inputs]
-    export_globs = [str(x) for x in working_export_globs]
-    backend_mods = [str(x) for x in backend_modules]
-    code_lines = [
-        f"SOURCE_SHA = {source_commit!r}\n",
-        f"OWNER_AUTHORIZED = {auth_val}\n",
-        f"REPO_URL = {repo_url!r}\n",
-        f"REPO_DIR = {str(repo_dir)!r}\n",
-        f"CAMPAIGN_MODE = {str(campaign_mode)!r}\n",
-        f"SESSION_MINUTES = {int(session_minutes)!r}\n",
-        f"RESUME_INPUT = {resume_input!r}\n",
-        f"DISCOVER_INPUTS = {input_names!r}\n",
-        f"MIRROR_WORKING = {bool(mirror_outputs_to_working)!r}\n",
-        f"EXPORT_GLOBS = {export_globs!r}\n",
-        f"INVENTORY_CMD = {inv_args!r}\n",
-        "from pathlib import Path\n",
-        "import os, shutil, subprocess, sys\n",
-        "if REPO_URL:\n",
-        "    rp = Path(REPO_DIR)\n",
-        "    if not (rp / '.git').exists():\n",
-        "        subprocess.check_call(['git', 'clone', '--no-checkout', REPO_URL, str(rp)])\n",
-        "    if subprocess.run(['git', 'fetch', '--depth', '1', 'origin', SOURCE_SHA], cwd=str(rp)).returncode != 0:\n",
-        "        subprocess.check_call(['git', 'fetch', 'origin'], cwd=str(rp))\n",
-        "    subprocess.check_call(['git', 'checkout', '--detach', SOURCE_SHA], cwd=str(rp))\n",
-        "    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=str(rp), text=True).strip()\n",
-        "    assert head == SOURCE_SHA, f'HEAD mismatch: {head} != {SOURCE_SHA}'\n",
-        "    os.chdir(str(rp))\n",
-        "    if str(Path.cwd()) not in sys.path:\n",
-        "        sys.path.insert(0, str(Path.cwd()))\n",
-        "run_env = dict(os.environ)\n",
-        "run_env['PLANTHIR_CAMPAIGN_MODE'] = str(CAMPAIGN_MODE)\n",
-        "run_env['PLANTHIR_SESSION_MINUTES'] = str(SESSION_MINUTES)\n",
-        "if RESUME_INPUT is not None:\n",
-        "    run_env['PLANTHIR_RESUME_INPUT'] = str(RESUME_INPUT)\n",
-        "if not OWNER_AUTHORIZED:\n",
-        "    print('NOT LAUNCHED: set OWNER_AUTHORIZED = True before running GPU launch.')\n",
-        "    if INVENTORY_CMD:\n",
-        "        subprocess.check_call(INVENTORY_CMD, env=run_env)\n",
-        "else:\n",
-        "    if not REPO_URL:\n",
-        "        subprocess.check_call(['git', 'checkout', SOURCE_SHA])\n",
-        "    if DISCOVER_INPUTS and Path('/kaggle/input').is_dir():\n",
-        "        for name in DISCOVER_INPUTS:\n",
-        "            found = sorted(Path('/kaggle/input').rglob(name))\n",
-        "            print('KAGGLE_INPUT', name, [str(p) for p in found])\n",
-        f"    subprocess.check_call({cmd_args!r}, env=run_env)\n",
-        "    if MIRROR_WORKING and Path('/kaggle/working').is_dir():\n",
-        "        for pat in EXPORT_GLOBS:\n",
-        "            for p in sorted(Path('.').glob(pat)):\n",
-        "                if p.is_file():\n",
-        "                    shutil.copy2(p, Path('/kaggle/working') / p.name)\n",
-    ]
-    cells: list[dict[str, Any]] = [
-        {"cell_type": "markdown", "metadata": {}, "source": [f"# {title}\n", f"Pinned commit: `{source_commit}`\n"]},
-        {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": code_lines},
-    ]
-    if extra_pinned_repos:
-        repo_items = sorted((str(k), dict(v)) for k, v in extra_pinned_repos.items())
-        extra_lines = [
-            f"EXTRA_PINNED_REPOS = {repo_items!r}\n",
-            "import subprocess\n",
-            "from pathlib import Path\n",
-            "for name, cfg in EXTRA_PINNED_REPOS:\n",
-            "    dest = Path(cfg.get('dest', f'./pinned_{name}'))\n",
-            "    if not dest.exists():\n",
-            "        subprocess.check_call(['git', 'clone', cfg['repo_url'], str(dest)])\n",
-            "    subprocess.check_call(['git', 'checkout', cfg['commit']], cwd=str(dest))\n",
-            "    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=str(dest), text=True).strip()\n",
-            "    assert head == cfg['commit'], f'{name} HEAD mismatch: {head}'\n",
-        ]
-        cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": extra_lines})
-    if require_dual_gpu or preflight_canary_backend or backend_mods or preflight_cmds:
-        gate_lines = [
-            f"REQUIRE_DUAL_GPU = {bool(require_dual_gpu)!r}\n",
-            f"PREFLIGHT_BACKEND = {preflight_canary_backend!r}\n",
-            f"BACKEND_MODULES = {backend_mods!r}\n",
-            f"PREFLIGHT_COMMANDS = {preflight_cmds!r}\n",
-            "import os, subprocess, sys, torch\n",
-            "from pathlib import Path\n",
-            "if BACKEND_MODULES:\n",
-            "    os.environ['PLANTHIR_BACKEND_MODULES'] = ','.join(BACKEND_MODULES)\n",
-            "if REQUIRE_DUAL_GPU and globals().get('OWNER_AUTHORIZED', False):\n",
-            "    assert torch.cuda.device_count() >= 2, f'Expected >=2 GPUs, found {torch.cuda.device_count()}'\n",
-            "elif REQUIRE_DUAL_GPU:\n",
-            "    print(f'DRY-RUN (OWNER_AUTHORIZED=False): skipping dual-GPU assertion (visible GPUs={torch.cuda.device_count()})')\n",
-            "subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'doctor'])\n",
-            "for pf_cmd in PREFLIGHT_COMMANDS:\n",
-            "    subprocess.check_call(pf_cmd)\n",
-            "if PREFLIGHT_BACKEND:\n",
-            "    cdir = Path('work/preflight_canary')\n",
-            "    cdir.mkdir(parents=True, exist_ok=True)\n",
-            "    spec_p = cdir / 'spec.json'\n",
-            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'init', '--backend', PREFLIGHT_BACKEND, '--out', str(spec_p)])\n",
-            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'validate', '--spec', str(spec_p), '--canary'])\n",
-            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'run', '--spec', str(spec_p), '--work-root', str(cdir / 'cpu'), '--canary', '--device', 'cpu'])\n",
-            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'verify-bundle', '--bundle-dir', str(cdir / 'cpu' / 'result_bundle')])\n",
-            "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'replay-bundle', '--bundle-dir', str(cdir / 'cpu' / 'result_bundle'), '--output', str(cdir / 'REPLAY_RECEIPT.json')])\n",
-        ]
-        cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": gate_lines})
-    if emit_file_links:
-        link_lines = [
-            f"LINK_GLOBS = {export_globs!r}\n",
-            "from pathlib import Path\n",
-            "try:\n",
-            "    from IPython.display import FileLink, display\n",
-            "except Exception:\n",
-            "    FileLink = None\n",
-            "wdir = Path('/kaggle/working') if Path('/kaggle/working').is_dir() else Path('.')\n",
-            "for pat in LINK_GLOBS:\n",
-            "    for f in sorted(wdir.glob(pat)):\n",
-            "        if FileLink is not None:\n",
-            "            display(FileLink(str(f)))\n",
-            "        else:\n",
-            "            print('ARTIFACT:', f)\n",
-        ]
-        cells.append({"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": link_lines})
-    return {
-        "nbformat": 4,
-        "nbformat_minor": 5,
-        "metadata": {
-            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
-            "language_info": {"name": "python", "version": "3.11"},
-            "planthir_source_commit": source_commit,
-        },
-        "cells": cells,
-    }
-
-
 __all__ = [
     "BytePromptSample",
     "BytePromptTrainer",
+    "CampaignLedgerVerifier",
     "CampaignOrchestrator",
     "CampaignStageSpec",
+    "ConfirmLock",
     "ExperimentModule",
     "GenericDatasetBundle",
     "GenericExperimentTrainer",
@@ -3890,13 +3125,20 @@ __all__ = [
     "build_analyst_first_page_report",
     "build_pinned_kaggle_notebook",
     "build_verification_matrix",
+    "collect_minimal_checkpoint_files",
     "compute_ce_and_pair_margin_terms",
     "export_session_archives",
     "frame_byte_prompt_sample",
+    "mirror_to_working_dir",
+    "prune_completed_job_artifacts",
+    "render_campaign_dashboard",
     "render_campaign_results_markdown",
     "rescore_compact_analysis_archive",
     "safe_extract_planthir_archive",
+    "serialize_pinned_notebook",
+    "verify_campaign_ledger",
     "verify_full_mode_dispatch",
+    "verify_pinned_notebook_bytes",
     "verify_session_archive",
     "verify_shared_backbone_and_head_overhead",
     "win_long_path",

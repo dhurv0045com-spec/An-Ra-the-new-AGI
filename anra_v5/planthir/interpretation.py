@@ -588,6 +588,29 @@ def synthesize_scientific_interpretation(
         for idx, r in enumerate(sorted(recs, key=lambda x: x.expected_info_gain_per_gpu_hour, reverse=True))
     )
 
+    obs_accs: list[float] = []
+    if process_funnel:
+        ov = process_funnel.get("overall_accuracy")
+        if isinstance(ov, (int, float)):
+            obs_accs.append(float(ov))
+        funnel = process_funnel.get("funnel")
+        if isinstance(funnel, Mapping):
+            for k in ("stage3_single_hop_grounding", "stage4_multi_hop_composition"):
+                fv = funnel.get(k)
+                if isinstance(fv, (int, float)):
+                    obs_accs.append(float(fv))
+    if oracle_intervention:
+        for k in ("baseline_accuracy", "observed_baseline_accuracy"):
+            ov = oracle_intervention.get(k)
+            if isinstance(ov, (int, float)):
+                obs_accs.append(float(ov))
+    if linear_probe:
+        hv = linear_probe.get("model_head_final_accuracy_on_visible")
+        if isinstance(hv, (int, float)):
+            obs_accs.append(float(hv))
+    max_obs_acc = max(obs_accs) if obs_accs else None
+    low_unconverged = bool(max_obs_acc is not None and max_obs_acc < 0.05)
+
     body = {
         "schema": "anra-planthir-interpretation-v1",
         "experiment_id": experiment_id,
@@ -605,7 +628,16 @@ def synthesize_scientific_interpretation(
                 "suspected": len(suspected),
                 "falsified": len(falsified),
                 "unresolved": len(unresolved),
-            }
+            },
+            "convergence_guard": {
+                "low_accuracy_unconverged": low_unconverged,
+                "max_observed_baseline_accuracy": max_obs_acc,
+                "note": (
+                    "Observed baseline accuracy is near zero (<0.05); capability conclusions may reflect unconverged training."
+                    if low_unconverged
+                    else "Observed baseline accuracy meets convergence guard floor or was not supplied."
+                ),
+            },
         },
     }
     digest_val = digest([asdict(c) for c in confirmed + suspected + falsified + unresolved])

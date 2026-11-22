@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 from typing import Any, Sequence
 
+from .archives import verify_session_archive
 from .backend import load_backend_modules
 
 from .agent_tools import (
@@ -29,7 +30,8 @@ from .evidence import DEFAULT_RESULT_ZIP_MAX_BYTES, resolve_published_generation
 from .instrument import run_fault_injection_suite
 from .registry import build_historical_atlas
 from .replay import build_custody_receipt, independent_replay_bundle
-from .runtime import rescore_compact_analysis_archive
+from .reporting import rescore_compact_analysis_archive
+from .studio import inspect_campaign_status, level_info, scaffold_experiment_module
 from .validation_study import (
     run_exp_004_live_gpu_cartridge_validation,
     run_validation_study,
@@ -120,9 +122,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    p_lvl = sub.add_parser("level", help="Print Level-6 platform architecture, subsystems, backends, and quickstart CLI.")
     p_ai = sub.add_parser("agent-info", help="Print read-only contract derived from dataclasses and registered backends.")
     p_doc = sub.add_parser("doctor", help="Run fast read-only binding & installation integrity self-check (`green_signal`).")
     p_sch = sub.add_parser("schema", help="Print strict anra-planthir-spec-v1 data-only JSON schema.")
+
+    p_stat = sub.add_parser("status", help="Inspect a campaign work directory read-only and print JSON or Markdown dashboard.")
+    p_stat.add_argument("--work-root", required=True)
+    p_stat.add_argument("--markdown", action="store_true", default=False)
+
+    p_var = sub.add_parser("verify-archive", help="Verify a session ZIP archive and optional SHA-256 sidecar / v6 manifest.")
+    p_var.add_argument("--archive", required=True)
+    p_var.add_argument("--expected-commit", default=None)
+    p_var.add_argument("--max-bytes", type=int, default=None)
+    p_var.add_argument("--no-sidecar", action="store_true", default=False)
+    p_var.add_argument("--no-v6-manifest", action="store_true", default=False)
+
+    p_scaf = sub.add_parser("scaffold", help="Generate a runnable Level-6 ExperimentModule plugin package and smoke test.")
+    p_scaf.add_argument("--name", required=True)
+    p_scaf.add_argument("--out-dir", required=True)
+    p_scaf.add_argument("--overwrite", action="store_true", default=False)
 
     p_init = sub.add_parser("init", help="Generate a valid canary anra-planthir-spec-v1 JSON template.")
     p_init.add_argument("--backend", default="x1_rd2", help="Registered backend ID (e.g. v8, x1_rd2, x1_s20, or custom).")
@@ -168,7 +187,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rep.add_argument("--max-result-zip-bytes", type=int, default=DEFAULT_RESULT_ZIP_MAX_BYTES)
     p_rep.add_argument("--output", default=None)
 
-    for sp in (p_ai, p_doc, p_sch, p_init, p_val, *run_parsers, p_rep):
+    for sp in (p_lvl, p_ai, p_doc, p_sch, p_init, p_val, *run_parsers, p_rep):
         sp.add_argument(
             "--backend-module",
             dest="sub_backend_modules",
@@ -203,6 +222,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         loaded = load_backend_modules(mods)
         existing = [x.strip() for x in os.environ.get("PLANTHIR_BACKEND_MODULES", "").split(",") if x.strip()]
         os.environ["PLANTHIR_BACKEND_MODULES"] = ",".join(dict.fromkeys([*existing, *loaded]))
+
+    if args.command == "level":
+        _emit(level_info())
+        return 0
+
+    if args.command == "status":
+        rep = inspect_campaign_status(args.work_root)
+        if args.markdown:
+            print(rep["dashboard_markdown"])
+        else:
+            _emit(rep)
+        return 0
+
+    if args.command == "verify-archive":
+        try:
+            res = verify_session_archive(
+                args.archive,
+                max_bytes=args.max_bytes,
+                expected_source_commit=args.expected_commit,
+                require_sidecar_sha256=not bool(args.no_sidecar),
+                require_v6_manifest=not bool(args.no_v6_manifest),
+            )
+            _emit(res)
+            return 0
+        except (ValueError, FileNotFoundError, OSError) as exc:
+            _emit({"verified": False, "error": type(exc).__name__, "detail": str(exc)})
+            return 2
+
+    if args.command == "scaffold":
+        try:
+            res = scaffold_experiment_module(args.name, args.out_dir, overwrite=bool(args.overwrite))
+            _emit(res)
+            return 0
+        except (ValueError, FileExistsError) as exc:
+            _emit({"created": False, "error": type(exc).__name__, "detail": str(exc)})
+            return 2
 
     if args.command == "agent-info":
         _emit(agent_info())
