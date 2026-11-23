@@ -1,4 +1,4 @@
-"""Deterministic Kaggle 2xT4 / T4 notebook generator for V8-X3 Beyond Prediction (§14)."""
+"""Deterministic Kaggle 2xT4 / T4 notebook generator for AN-RA V8-X3 (24 Nov 2026 Spec)."""
 
 from __future__ import annotations
 
@@ -36,31 +36,34 @@ def build_x3_notebook_dict(
     *,
     source_commit: str,
     repo_url: str = REPO_HTTP_URL,
-    owner_authorized_default: bool = True,
+    owner_authorized_default: bool = False,
+    reserve_minutes: int = 45,
 ) -> dict[str, object]:
-    """Build deterministic nbformat v4.5 JSON for V8-X3 on Kaggle 2xT4 / T4."""
+    """Build deterministic nbformat v4.5 JSON for V8-X3 (R0-R7 ledger, exact-output scorer, S20/S50 profile)."""
     if len(source_commit) != 40 or any(c not in "0123456789abcdef" for c in source_commit):
         raise ValueError(f"source_commit must be a 40-char lowercase hex SHA, got {source_commit!r}")
+    if int(reserve_minutes) < 45:
+        reserve_minutes = 45
     auth_literal = "True" if owner_authorized_default else "False"
     cells = [
         _cell_md(
             [
-                "# ELENDRIL V8-X3 — Beyond Prediction: Cognitive Intelligence Program (Kaggle 2xT4)",
+                "# ELENDRIL V8-X3 — Recover Evidence, Compute an Answer, Know When to Stop (Kaggle 2xT4)",
                 "",
-                "Zero-edit owner-armed Kaggle GPU notebook pinned to immutable runtime commit:",
+                "Pinned Kaggle 2xT4 / T4 notebook built to the **24 November 2026 Execution Specification**:",
                 f"- **Pinned X3 Source (`SOURCE_SHA`):** `{source_commit}` (`PLANTHIR_BACKEND_MODULES=experiments.x3.module`)",
-                "- **Accelerator:** Select **GPU T4 x2** (auto-uses `cuda:0, cuda:1`; also runs safely on single **GPU T4**), enable **Internet**, and click **Run All**.",
-                "- **Stages:** Preflight (`doctor`, `calibrate`, CLI `replay-bundle`, 9-arch `u0000` smoke, honest FP16 AMP S20/S50 GPU profiling) -> One-Go Stage 0–3 S20 (45 jobs x 1,024 FP16 AMP updates) -> Evidence-Gated Stage 4 S50 `50.55M` (12 jobs, unlocked ONLY if S20 passes) -> Stage 5 Complete-Cohort Sealed Confirmation + OOD Transfer + 5 Learning Modes -> Verified Archives (`_ANALYSIS.zip`, `_FULL.zip`, `_SUMMARY.zip`, `_EVIDENCE.zip`).",
+                "- **Accelerator:** Select **GPU T4 x2** (auto-uses `cuda:0, cuda:1`; also runs safely on single **GPU T4**), enable **Internet**, toggle `OWNER_AUTHORIZED = True` when launching substantial GPU runs, and click **Run All**.",
+                "- **Workflow:** R0 Run-3 Reconciliation (`49/192` credited, next X2 job `X1-U1-S20-U-4-standard-s19`, `x3_unlocked=False`) & R0-R7 Obligation / 57-Job Migration Printout -> Exact-Output `PublicOracleTypedDecoder` Scorer Preflight (`1.0` through `evaluate_x3_batched`) + All-Architecture `u0000` Smoke + Separate S20/S50 & Native/Byte-Decode Profiling -> Verified Waves & Archives.",
             ],
             "x3-title",
         ),
         _cell_code(
             [
-                "# Owner-armed zero-edit defaults: ONE-GO full completion inside a single 11h Kaggle T4x2 session.",
+                "# Default owner switch is OFF per §5; set OWNER_AUTHORIZED = True before owner GPU launch.",
                 f"OWNER_AUTHORIZED = {auth_literal}",
                 "ONE_GO = True",
                 "SESSION_MINUTES = 660",
-                "RESERVE_MINUTES = 25",
+                f"RESERVE_MINUTES = {int(reserve_minutes)}",
                 "PER_JOB_DISK_MB = 95",
                 "USE_ALL_VISIBLE_GPUS = True",
                 "AUTO_RESUME_FROM_KAGGLE_INPUT = True",
@@ -117,16 +120,21 @@ def build_x3_notebook_dict(
             "x3-checkout",
         ),
         _cell_code(
-                [
+            [
                 "import gc, json, shutil, subprocess, sys, time, torch",
                 "from pathlib import Path",
                 "from experiments.x3.models import X3CognitiveModel, build_x3_backbone_spec",
                 "from experiments.x3.d3_objectives import build_d3_hybrid_batches, compute_d3_objective_step, prepack_d3_batches",
-                "from experiments.x3.cognitive_battery import build_x3_cognitive_battery",
-                "from experiments.x3.module import X3_DEFAULT_UPDATES",
+                "from experiments.x3.cognitive_battery import audit_legacy_class_collisions, build_x3_cognitive_battery, verify_c09_budget_reversal_oracle",
+                "from experiments.x3.module import (",
+                "    X3_DEFAULT_UPDATES,",
+                "    build_r0_r7_program_ledger,",
+                "    reconcile_r0_run3_obligations,",
+                "    verify_perfect_public_decoder_through_evaluator,",
+                ")",
                 "",
                 "if not OWNER_AUTHORIZED:",
-                '    print("NOT LAUNCHED: owner switch false")',
+                '    print("NOT LAUNCHED: owner switch false (OWNER_AUTHORIZED = False)")',
                 "else:",
                 "    gpu_count = torch.cuda.device_count()",
                 '    print("Torch:", torch.__version__, "CUDA GPUs:", gpu_count)',
@@ -135,11 +143,33 @@ def build_x3_notebook_dict(
                 '    assert torch.cuda.is_available() and gpu_count >= 1, f"CUDA GPU required, found {gpu_count}"',
                 '    ACTIVE_DEVICES = tuple(f"cuda:{i}" for i in range(gpu_count)) if (USE_ALL_VISIBLE_GPUS and gpu_count >= 2) else ("cuda:0",)',
                 "",
+                "    # 0. R0 Run-3 reconciliation, Unified R0-R7 ledger, Exact-output scorer & collision self-checks",
+                '    input_zips = sorted(Path("/kaggle/input").rglob("*ELENDRIL*X2*ANALYSIS*.zip")) if Path("/kaggle/input").is_dir() else []',
+                "    r0_state = reconcile_r0_run3_obligations(source_commit=SOURCE_SHA, archive_paths=input_zips)",
+                "    r0_r7 = build_r0_r7_program_ledger(source_commit=SOURCE_SHA, r0_audit=r0_state)",
+                '    dev_sample = build_x3_cognitive_battery(split="dev", per_family=20, shot_counts=(0, 1, 4, 16, 64))["cases"]',
+                "    perf_check = verify_perfect_public_decoder_through_evaluator(dev_sample, batch_size=32)",
+                '    assert perf_check["passed"], f"Exact-output evaluator gate failed: {perf_check}"',
+                "    coll_check = audit_legacy_class_collisions(dev_sample)",
+                '    assert coll_check["zero_false_acceptances"], f"Legacy collision false acceptance: {coll_check}"',
+                "    c09_bellman = verify_c09_budget_reversal_oracle()",
+                '    assert c09_bellman["reversal_verified"]',
+                '    print("R0-R7 LEDGER & EXACT SCORER STATUS:", json.dumps({',
+                '        "credited_x2": f"{r0_state[\'credited_x2_obligations\']}/{r0_state[\'total_x2_obligations\']}",',
+                '        "pending_mandatory": r0_state["pending_mandatory"],',
+                '        "pending_conditional": r0_state["pending_conditional"],',
+                '        "next_runnable_gpu_job": r0_state["next_runnable_gpu_job"],',
+                '        "x3_unlocked": r0_state["x3_unlocked"],',
+                '        "migration_57_counts": r0_r7["legacy_x3_migration_counts"],',
+                '        "r1_r7_total_jobs": len(r0_r7["r1_r7_jobs"]),',
+                '        "perfect_public_decoder_micro": perf_check["micro_mean"],',
+                '    }, indent=2))',
+                "",
                 "    # 1. Palantiri platform self-checks",
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "doctor"], check=True)',
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "calibrate"], check=True)',
                 "",
-                "    # 2. All 9-architecture u0000 init+train+eval+restore smoke test",
+                "    # 2. All-architecture u0000 init+train+eval+restore + legacy B0 smoke test",
                 '    smk_dir = WORK_ROOT / "preflight_u0000"',
                 '    subprocess.run([sys.executable, "-m", "experiments.x3.module", "u0000-smoke", "--work-dir", str(smk_dir), "--source", SOURCE_SHA], check=True)',
                 "    shutil.rmtree(smk_dir, ignore_errors=True)",
@@ -158,7 +188,7 @@ def build_x3_notebook_dict(
                 '    subprocess.run([sys.executable, "-m", "anra_v5.palantiri", "replay-bundle", "--bundle-dir", str(can_dir / "run" / "result_bundle"), "--expected-source-commit", SOURCE_SHA, "--device", "cuda:0", "--output", str(can_dir / "REPLAY_RECEIPT.json")], check=True)',
                 "    shutil.rmtree(can_dir, ignore_errors=True)",
                 "",
-                "    # 4. Honest Dual-Backbone FP16 AMP GPU Timing Profile (S20 + S50 separately at production batch_size=16 with cuda.synchronize)",
+                "    # 4. Separate S20/S50 & native-forward vs autoregressive byte-decode FP16 AMP GPU Timing Profile",
                 '    prof_bat = build_x3_cognitive_battery(split="train", per_family=4)["cases"]',
                 "    prof_raw = build_d3_hybrid_batches(prof_bat, seed=7, batch_size=16)",
                 "    TIMINGS = {}",
@@ -176,17 +206,20 @@ def build_x3_notebook_dict(
                 '            compute_d3_objective_step(pm, popt, pbatches[(u_i + 1) % len(pbatches)], objective="D3-Hybrid", use_amp=True, scaler=pscaler)',
                 "        torch.cuda.synchronize(dev)",
                 "        sec_u = (time.perf_counter() - t0) / 3.0",
+                "        t_dec = time.perf_counter()",
+                "        pm.eval()",
+                '        _ = pm.generate_bytes(prof_bat[0]["prompt"])',
+                "        torch.cuda.synchronize(dev)",
+                "        byte_decode_s = time.perf_counter() - t_dec",
                 "        vram_mb = torch.cuda.max_memory_allocated(dev) / (1024 ** 2)",
-                '        TIMINGS[sc_name] = {"sec_per_update": round(sec_u, 4), "peak_vram_mb": round(vram_mb, 1)}',
+                '        TIMINGS[sc_name] = {"sec_per_update": round(sec_u, 4), "byte_decode_sec_per_case": round(byte_decode_s, 4), "peak_vram_mb": round(vram_mb, 1)}',
                 "        del pm, popt, pscaler, pbatches",
                 "        gc.collect()",
                 "        torch.cuda.empty_cache()",
                 "        torch.cuda.reset_peak_memory_stats(dev)",
                 '    MEASURED_SEC_PER_UPDATE = max(0.05, float(TIMINGS["S20"]["sec_per_update"]))',
                 "    n_lanes = max(1, len(ACTIVE_DEVICES))",
-                '    est_s20_min = (45 * X3_DEFAULT_UPDATES * TIMINGS["S20"]["sec_per_update"]) / (60.0 * n_lanes)',
-                '    est_s50_min = (12 * X3_DEFAULT_UPDATES * TIMINGS["S50"]["sec_per_update"]) / (60.0 * n_lanes)',
-                '    TIMINGS["one_go_estimate_minutes"] = {"s20_45_jobs": round(est_s20_min, 1), "s50_12_jobs": round(est_s50_min, 1), "total_if_s50_unlocked": round(est_s20_min + est_s50_min, 1)}',
+                '    TIMINGS["free_disk_gb"] = round(shutil.disk_usage(OUTPUT_DIR).free / (1024 ** 3), 2)',
                 '    print("PREFLIGHT & DUAL-BACKBONE FP16 AMP PROFILE PASSED:", json.dumps({"devices": ACTIVE_DEVICES, "updates_per_job": X3_DEFAULT_UPDATES, "timings": TIMINGS}, indent=2))',
             ],
             "x3-preflight",
@@ -221,7 +254,6 @@ def build_x3_notebook_dict(
                 "                doc.setdefault('archive_path', str(zp))",
                 "                doc.setdefault('archive_sha256', z_sha)",
                 "                by_id[jid] = doc",
-                "    # Scan auto-unpacked /kaggle/input folders outside extracted stage_dir",
                 "    for rp in sorted(input_root.rglob('JOB_RECEIPT.json')):",
                 "        try:",
                 "            doc = json.loads(rp.read_text(encoding='utf-8'))",
@@ -274,7 +306,6 @@ def build_x3_notebook_dict(
         ),
     ]
 
-    # Validate every code cell syntactically with ast.parse before returning!
     for cell in cells:
         if cell["cell_type"] == "code":
             ast.parse("".join(cell["source"]))
@@ -295,12 +326,14 @@ def render_x3_notebook_bytes(
     *,
     source_commit: str,
     repo_url: str = REPO_HTTP_URL,
-    owner_authorized_default: bool = True,
+    owner_authorized_default: bool = False,
+    reserve_minutes: int = 45,
 ) -> bytes:
     doc = build_x3_notebook_dict(
         source_commit=source_commit,
         repo_url=repo_url,
         owner_authorized_default=owner_authorized_default,
+        reserve_minutes=reserve_minutes,
     )
     return (json.dumps(doc, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
@@ -309,11 +342,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build or check pinned V8-X3 Kaggle 2xT4 notebook.")
     parser.add_argument("--source", required=True, help="40-char immutable CODE_SHA commit")
     parser.add_argument("--output", default=str(DEFAULT_X3_NOTEBOOK_PATH))
-    parser.add_argument("--disabled", action="store_true")
+    parser.add_argument("--owner-authorized", action="store_true", help="Default OWNER_AUTHORIZED = False unless passed")
+    parser.add_argument("--disabled", action="store_true", help="Explicit alias keeping OWNER_AUTHORIZED = False")
+    parser.add_argument("--reserve-minutes", type=int, default=45)
     parser.add_argument("--check", "--check-notebook", dest="check", action="store_true")
     args = parser.parse_args(argv)
 
-    raw = render_x3_notebook_bytes(source_commit=args.source, owner_authorized_default=not args.disabled)
+    auth = bool(args.owner_authorized) and (not bool(args.disabled))
+    raw = render_x3_notebook_bytes(
+        source_commit=args.source,
+        owner_authorized_default=auth,
+        reserve_minutes=int(args.reserve_minutes),
+    )
     out = Path(args.output)
     if args.check:
         if not out.is_file() or out.read_bytes() != raw:

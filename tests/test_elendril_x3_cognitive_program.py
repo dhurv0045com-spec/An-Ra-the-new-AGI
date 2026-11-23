@@ -451,6 +451,6 @@ def test_x3_plugin_cli_fresh_subprocess_chain_and_notebook_ast(tmp_path: Path) -
     cfg_src = "".join(nb["cells"][1]["source"])
     assert "OWNER_AUTHORIZED = True" in cfg_src
     assert "SESSION_MINUTES = 660" in cfg_src
-    assert "RESERVE_MINUTES = 25" in cfg_src
+    assert "RESERVE_MINUTES = 45" in cfg_src
     assert "PER_JOB_DISK_MB = 95" in cfg_src
     assert "ONE_GO = True" in cfg_src

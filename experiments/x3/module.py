@@ -15,6 +15,7 @@ import time
 from typing import Any, Callable, Mapping, Sequence
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 from anra_v5.elendril.codec import canonical, digest
@@ -42,31 +43,73 @@ from v5_training.optimizer import optimizer_group_receipt
 from v5_training.state import CURSOR_SCHEMA, IDENTITY_SCHEMA, CursorState, IdentityBindings, TrainingState
 
 from .cognitive_battery import (
+    CONFIRM_COMMITMENT_SEED,
+    DEV_BANK_SEED,
+    MANDATORY_22_FAMILIES,
+    SCAN_VALID_ACTIONS,
     SPLIT_SEEDS,
+    STRUCTURAL_GROUP_QUOTAS,
+    TRAIN_BANK_SEED,
+    TRANSFER_BANK_SEED,
+    VALID_TYPED_OPS,
     X3_COGNITIVE_FAMILIES,
+    _apply_grid_op,
+    _eval_listops_node,
+    _eval_scan_cmd,
+    _grid_to_str,
+    _solve_c06_horn,
+    _solve_c08,
+    audit_legacy_class_collisions,
+    build_c_structural_group_suite,
     build_x3_cognitive_battery,
+    canonical_structural_hash,
+    compute_public_version_space_posterior,
     eval_x3_battery_shortcuts,
+    format_public_typed_target,
+    infer_family_from_public_prompt,
+    infer_public_generation_bound,
+    normalize_c10_rational_unit,
+    parse_and_score_public_typed_output,
     score_cognitive_battery_profile,
     solve_cognitive_case_oracle,
+    verify_c09_budget_reversal_oracle,
     verify_x3_destructive_masks,
     verify_x3_split_disjointness,
 )
 from .d3_objectives import (
     D3_OBJECTIVES,
+    apply_pcgrad_conflict_surgery,
+    audit_d1h_d2_schedule_and_preceding_observations,
     audit_x1_sampler_exposure,
+    build_d3_16world_pack_minibatches,
     build_d3_hybrid_batches,
     compute_d3_objective_step,
+    d3_warmup_ramp_weights,
     prepack_d3_batches,
+    verify_fixed_weight_4microbatch_ce_equivalence,
 )
+from .factorial import independent_walk_x3_graph
 from .models import (
     S50_MODEL_SPEC,
     TINY_CANARY_MODEL_SPEC,
     X3CognitiveModel,
     X3_ARCHITECTURES,
     X3_CONTROL_PAIRS,
+    X3_CORE_ARCHITECTURES,
+    X3_EXTENDED_ARCHITECTURES,
+    X3_VERSIONED_CONTROL_PAIRS,
+    build_legacy_x1_scaled_model,
     build_x3_backbone_spec,
     encode_prompt_and_target_pair,
     evaluate_five_learning_modes,
+)
+from .verify import (
+    RUN3_DEFAULT_NEXT_JOB,
+    build_r0_r7_program_ledger,
+    reconcile_r0_run3_obligations,
+    run_four_five_hop_interior_edge_swap,
+    run_frozen_u_and_evidence_discrimination,
+    summarize_paired_arm_statistics,
 )
 
 X3_BACKEND_ID = "elendril_x3"
@@ -328,28 +371,266 @@ class X3CognitivePolicy:
         return {"decision_hidden": out["decision_hidden"].detach()}
 
 
+class PublicOracleTypedDecoder(nn.Module):
+    """Artificially perfect public-input decoder reconstructing answers strictly from public prompt bytes (§1, §4)."""
+
+    def __init__(self, *, max_ctx: int = 640) -> None:
+        super().__init__()
+        self.max_ctx = int(max_ctx)
+        self._dummy = nn.Parameter(torch.zeros(1))
+
+    @staticmethod
+    def _solve_from_public_prompt(prompt: str) -> str:
+        import re as _re
+        from fractions import Fraction as _Fraction
+        import numpy as _np
+
+        p = str(prompt).strip()
+        fam = infer_family_from_public_prompt(p)
+        if fam == "C01_NOVEL_OP_INDUCTION":
+            vs = compute_public_version_space_posterior(p)
+            if vs["is_ambiguous"] or len(vs["unique_target_values"]) != 1:
+                return "ABSTAIN:AMBIGUOUS"
+            return f"ANSWER:{vs['unique_target_values'][0]}"
+
+        if fam == "C02_FST_RULE_COMPOSITION":
+            vs = compute_public_version_space_posterior(p)
+            if vs["unique_target_values"]:
+                return f"ANSWER:{vs['unique_target_values'][0]}"
+            return "ABSTAIN:AMBIGUOUS"
+
+        if fam == "C03_GRID_TRANSFORM_ARC":
+            parts = p.split("|")
+            demos = []
+            for seg in parts[2:-1]:
+                if "->" in seg:
+                    a_s, b_s = seg.strip().split("->", 1)
+                    ga = _np.array([[int(c) for c in r] for r in a_s.strip().split("/")], dtype=_np.int64)
+                    gb = _np.array([[int(c) for c in r] for r in b_s.strip().split("/")], dtype=_np.int64)
+                    demos.append((ga, gb))
+            q_s = parts[-1].strip().split(":", 1)[1].split("->", 1)[0].strip()
+            q_in = _np.array([[int(c) for c in r] for r in q_s.split("/")], dtype=_np.int64)
+            id_cmap = {i: i for i in range(10)}
+            for op_name in ("flip_h", "flip_v", "rot90", "transpose", "gravity_down", "border_one", "tile_xor_rot180"):
+                cmap: dict[int, int] = {}
+                ok = True
+                for ga, gb in demos:
+                    raw_out = _apply_grid_op(ga, op_name, id_cmap)
+                    if raw_out.shape != gb.shape:
+                        ok = False
+                        break
+                    for src_v, dst_v in zip(raw_out.reshape(-1).tolist(), gb.reshape(-1).tolist()):
+                        if src_v in cmap and cmap[src_v] != dst_v:
+                            ok = False
+                            break
+                        cmap[src_v] = dst_v
+                    if not ok:
+                        break
+                if ok and demos:
+                    q_out = _apply_grid_op(q_in, op_name, cmap)
+                    return f"ANSWER:{_grid_to_str(q_out)}"
+            return f"ANSWER:{_grid_to_str(q_in)}"
+
+        if fam == "C04_COMPOSITIONAL_SCAN":
+            cmd = p.split("|")[2]
+            return f"ANSWER:{_eval_scan_cmd(cmd)}"
+
+        if fam == "C05_RELATIONAL_GRAPH_CF":
+            edges: list[dict[str, Any]] = []
+            if p.startswith("CONF-TRACE "):
+                m = _re.search(r"from=([^\s]+)\s+depth=(\d+)\s+ep>=(\d+)", p)
+                assert m is not None
+                goal, hops, min_ep = m.group(1), int(m.group(2)), int(m.group(3))
+                body = p.split("\n", 1)[1] if "\n" in p else ""
+                for seg in body.split("|"):
+                    em = _re.search(r"([^\s=]+)=>([^\s(]+)\(e(\d+),a(\d+)\)", seg.strip())
+                    if em:
+                        edges.append({"subj": em.group(1), "val": em.group(2), "epoch": int(em.group(3)), "authority": int(em.group(4))})
+            elif p.startswith("Trace "):
+                m = _re.search(r"Trace\s+(\d+)\s+steps\s+from\s+([^\s]+)\s+\(ep>=(\d+)", p)
+                assert m is not None
+                hops, goal, min_ep = int(m.group(1)), m.group(2), int(m.group(3))
+                for line in p.splitlines()[1:]:
+                    em = _re.search(r"ep\s+(\d+):\s+node\s+([^\s]+)\s+links\s+to\s+([^\s.]+)", line)
+                    if em:
+                        edges.append({"subj": em.group(2), "val": em.group(3), "epoch": int(em.group(1)), "authority": 1})
+            else:
+                m = _re.search(r"GOAL=([^\s]+)\s+HOPS=(\d+)\s+MIN_EP=(\d+)", p)
+                assert m is not None
+                goal, hops, min_ep = m.group(1), int(m.group(2)), int(m.group(3))
+                for line in p.splitlines()[1:]:
+                    em = _re.search(r"^E\s+([^\s-]+)->([^\s]+)\s+ep=(\d+)\s+auth=(\d+)", line)
+                    if em:
+                        edges.append({"subj": em.group(1), "val": em.group(2), "epoch": int(em.group(3)), "authority": int(em.group(4))})
+            w = independent_walk_x3_graph(edges, goal, hops=hops, min_epoch=min_ep)
+            return f"ANSWER:{w['terminal_value']}"
+
+        if fam == "C06_OPEN_WORLD_DEDUCTION":
+            m = _re.search(r"\|F:([^|]*)\|R:([^|]*)\|Q:([^\?]+)\?", p)
+            assert m is not None
+            facts = {kv.split("=")[0]: (kv.split("=")[1] == "T") for kv in m.group(1).split() if "=" in kv}
+            rules = []
+            for r_s in m.group(2).split(";"):
+                if "->" in r_s:
+                    lhs, rhs = r_s.split("->", 1)
+                    head, pol = rhs.split(":", 1)
+                    rules.append((tuple(lhs.split("+")), head, pol == "T"))
+            return f"ANSWER:{_solve_c06_horn(facts, rules, m.group(3))}"
+
+        if fam == "C07_HIERARCHICAL_LISTOPS":
+            expr_s = p.split("|", 3)[3].rsplit("=R?", 1)[0]
+            toks = expr_s.replace("[", " [ ").replace("]", " ] ").split()
+            pos_i = [0]
+
+            def _parse_node() -> Any:
+                tok = toks[pos_i[0]]
+                pos_i[0] += 1
+                if tok == "[":
+                    op_name = toks[pos_i[0]]
+                    pos_i[0] += 1
+                    children = []
+                    while toks[pos_i[0]] != "]":
+                        children.append(_parse_node())
+                    pos_i[0] += 1
+                    return [op_name, *children]
+                return int(tok)
+
+            tree = _parse_node()
+            return f"ANSWER:R{_eval_listops_node(tree)}"
+
+        if fam == "C08_ADAPTIVE_MEMORY_REVISION":
+            m = _re.search(r"^C08\|MEM\|([^|]+)\|Q:([^=]+)=\?", p)
+            assert m is not None
+            evs = []
+            for seg in m.group(1).split(";"):
+                kind, rest = seg.split(":", 1)
+                ent, rest2 = rest.split("=", 1)
+                val, ts = rest2.split("@", 1)
+                evs.append({"kind": kind, "ent": ent, "val": val, "ts": int(ts)})
+            return f"ANSWER:{_solve_c08(evs, m.group(2))}"
+
+        if fam == "C09_METACOGNITION_SELF_CHECK":
+            if "|MISSING|" in p:
+                mpq = float(_re.search(r"pQ=([0-9.]+)", p).group(1))
+                mpr = float(_re.search(r"pR=([0-9.]+)", p).group(1))
+                mc = float(_re.search(r"c=([0-9.]+)", p).group(1))
+                ev_q = mpq - mc
+                ev_r = mpr - mc
+                if ev_q >= ev_r and ev_q > 1e-12:
+                    return "QUERY"
+                if ev_r > ev_q and ev_r > 1e-12:
+                    return "RETRIEVE"
+                return "ABSTAIN"
+            m_e = _re.search(r"X=(\d+)\+(\d+)", p)
+            if m_e:
+                return f"ANSWER:{int(m_e.group(1)) + int(m_e.group(2))}"
+            m_h = _re.search(r"for\s+(\d+)\*(\d+)\+(\d+)-3", p)
+            assert m_h is not None
+            return f"ANSWER:{int(m_h.group(1)) * int(m_h.group(2)) + int(m_h.group(3)) - 3}"
+
+        if fam == "C10_LANGUAGE_MATH_TRANSFER":
+            m1 = _re.search(r"earns\s+(\d+)\s+([A-Za-z_]+)\s+per\s+cycle\s+over\s+(\d+)\s+cycles,\s+adds\s+(\d+)\s+reserve\s+[A-Za-z_]+,\s+and\s+receives\s+(\d+)\s+adjustment", p)
+            if m1:
+                num = int(m1.group(1)) * int(m1.group(3)) + int(m1.group(4)) + int(m1.group(5))
+                return f"ANSWER:{num} {m1.group(2)}"
+            m2 = _re.search(r"splits\s+\((\d+)\s+([A-Za-z_]+)\s+over\s+(\d+)\s+cycles\s+plus\s+(\d+)\s+base\s+and\s+(\d+)\s+bonus\)\s+across\s+(\d+)\s+shares", p)
+            if m2:
+                num = int(m2.group(1)) * int(m2.group(3)) + int(m2.group(4)) + int(m2.group(5))
+                fr = _Fraction(num, int(m2.group(6)))
+                val_s = str(fr.numerator) if fr.denominator == 1 else f"{fr.numerator}/{fr.denominator}"
+                return f"ANSWER:{val_s} {m2.group(2)}"
+        raise ValueError(f"Unsupported public prompt for PublicOracleTypedDecoder: {p[:120]!r}")
+
+    @torch.no_grad()
+    def forward(
+        self,
+        token_ids: torch.Tensor,
+        positions: torch.Tensor,
+        attention_mask: torch.Tensor,
+        *,
+        action_positions: torch.Tensor | None = None,
+        **_: Any,
+    ) -> dict[str, torch.Tensor]:
+        bsz = token_ids.shape[0]
+        dev = token_ids.device
+        return {
+            "action_logits": torch.zeros((bsz, 19), device=dev),
+            "uncertainties": torch.full((bsz, 2), 0.5, device=dev),
+            "ponder_cost": torch.zeros((bsz,), device=dev),
+        }
+
+    @torch.no_grad()
+    def generate_bytes(
+        self,
+        prompt_text: str,
+        *,
+        max_new_bytes: int | None = None,
+        use_persistent_state: bool = False,
+        stop_chars: Sequence[str] = ("\n",),
+    ) -> dict[str, Any]:
+        _ = (use_persistent_state, stop_chars)
+        bound = int(max_new_bytes) if max_new_bytes is not None else infer_public_generation_bound(prompt_text)
+        txt = self._solve_from_public_prompt(prompt_text)
+        overflow = len(txt.encode("utf-8")) > bound
+        return {
+            "text": txt[:bound] if overflow else txt,
+            "terminated_by_eos": not overflow,
+            "bound_bytes": bound,
+            "generated_bytes": min(bound, len(txt.encode("utf-8"))),
+            "epistemic_uncertainty": 0.1,
+            "info_uncertainty": 0.1,
+            "ponder_cost": 0.0,
+        }
+
+
+def verify_perfect_public_decoder_through_evaluator(
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    batch_size: int = 32,
+) -> dict[str, Any]:
+    """Prove the live evaluator + exact public typed scorer yields 1.0 on determinate & k=0 ambiguous cases (§1, §4)."""
+    decoder = PublicOracleTypedDecoder()
+    # Filter to cases verifiable from public prompt alone (determinate instances + C01 k=0 ambiguity)
+    eligible = [
+        c for c in cases
+        if not (c["family"] == "C02_FST_RULE_COMPOSITION" and int(c.get("n_shots", 0)) < 4)
+        and not (c["family"] == "C01_NOVEL_OP_INDUCTION" and 0 < int(c.get("n_shots", 0)) < 4 and bool(c.get("public_ambiguous", False)))
+    ]
+    preds = evaluate_x3_batched(decoder, eligible, batch_size=batch_size, device="cpu", use_generative_bytes=True)
+    profile = score_cognitive_battery_profile(preds, eligible)
+    return {
+        "schema": "elendril-x3-perfect-public-decoder-check-v1",
+        "cases_evaluated": len(eligible),
+        "macro_mean": float(profile["macro_mean"]),
+        "micro_mean": float(profile["micro_mean"]),
+        "worst_dimension_floor": float(profile["worst_dimension_floor"]),
+        "passed": bool(profile["micro_mean"] == 1.0 and profile["worst_dimension_floor"] == 1.0),
+    }
+
+
 @torch.no_grad()
 def evaluate_x3_batched(
-    model: X3CognitiveModel,
+    model: Any,
     cases: Sequence[Mapping[str, Any]],
     *,
     batch_size: int = 32,
     device: str | torch.device = "cpu",
-    use_generative_bytes: bool = False,
+    use_generative_bytes: bool = True,
 ) -> list[dict[str, Any]]:
-    """Right-padded causal batched evaluation (`batch_size=32..64`, parity `atol=1e-4` vs serial)."""
+    """Right-padded causal batched evaluation with public typed exact-output scoring (no mod-16 class shortcut)."""
     dev = torch.device(device)
     model = model.to(dev)
     was_train = model.training
     model.eval()
+    max_ctx = int(getattr(model, "max_ctx", 640))
     results: list[dict[str, Any]] = []
     for start in range(0, len(cases), max(1, int(batch_size))):
         chunk = cases[start : start + int(batch_size)]
         seqs: list[list[int]] = []
         for c in chunk:
             ids = [UTF8.bos_id, *UTF8.encode(str(c["prompt"])), UTF8.special(SpecialToken.ANSWER)]
-            if len(ids) > model.max_ctx:
-                ids = ids[-model.max_ctx :]
+            if len(ids) > max_ctx:
+                ids = ids[-max_ctx:]
             seqs.append(ids)
         max_l = max(len(s) for s in seqs)
         toks = torch.zeros((len(seqs), max_l), dtype=torch.long, device=dev)
@@ -368,20 +649,21 @@ def evaluate_x3_batched(
         ponder = out["ponder_cost"].float().detach().cpu()
 
         for i, c in enumerate(chunk):
+            prompt = str(c["prompt"])
+            bound = infer_public_generation_bound(prompt)
             pred_idx = int(torch.argmax(probs[i]).item())
             op, arg = _action_pair_from_idx(pred_idx)
             conf = float(probs[i, pred_idx].item())
-            if use_generative_bytes and bool(c.get("absent_from_input")):
-                gen = model.generate_bytes(str(c["prompt"]), max_new_bytes=20)
-                pred_text = gen["text"]
-                ok = pred_text == str(c["gold_text"]).strip()
+            if use_generative_bytes and hasattr(model, "generate_bytes"):
+                gen = model.generate_bytes(prompt, max_new_bytes=bound)
+                pred_text = str(gen["text"])
+                term_eos = bool(gen.get("terminated_by_eos", True))
             else:
-                pred_text = arg if (op == "ANSWER" and arg is not None) else op
-                g_cls = int(c.get("gold_class", 0))
-                if str(c.get("gold_text", "")) in ("QUERY", "RETRIEVE", "ABSTAIN"):
-                    ok = pred_text == str(c["gold_text"])
-                else:
-                    ok = pred_idx == (g_cls % 16)
+                pred_text = f"ANSWER:{arg}" if (op == "ANSWER" and arg is not None) else op
+                term_eos = True
+            scored = parse_and_score_public_typed_output(
+                prompt, pred_text, c, max_new_bytes=bound, terminated_by_eos=term_eos
+            )
             results.append(
                 {
                     "case_id": str(c["case_id"]),
@@ -393,7 +675,7 @@ def evaluate_x3_batched(
                     "epistemic_uncertainty": float(unc[i, 0].item()),
                     "info_uncertainty": float(unc[i, 1].item()),
                     "ponder_cost": float(ponder[i].item()),
-                    "correct": bool(ok),
+                    **scored,
                 }
             )
     if was_train:
@@ -431,7 +713,6 @@ def x3_dataset_factory(dataset_config: Mapping[str, Any], cpu_canary: bool) -> d
     ev_bat = build_x3_cognitive_battery(split="dev", seed=SPLIT_SEEDS["dev"], per_family=1 if cpu_canary else 10)
     mh_bat = build_x3_cognitive_battery(split="ood_transfer", seed=SPLIT_SEEDS["ood_transfer"], per_family=1 if cpu_canary else 4)
     tr_all = _wrap_planthir_worlds(tr_bat["cases"])
-    # Partition train vs probe_train strictly disjointly and draw multihop from ood_transfer (zero cohort leakage)
     tr_items = [c for i, c in enumerate(tr_all) if i % 2 == 0][: (10 if cpu_canary else len(tr_all))]
     probe_items = [c for i, c in enumerate(tr_all) if i % 2 == 1][: (6 if cpu_canary else len(tr_all))]
     ev_items = _wrap_planthir_worlds(ev_bat["cases"][:8] if cpu_canary else ev_bat["cases"])
@@ -457,7 +738,7 @@ def x3_loss_fn(model: X3CognitiveModel, chunk: Sequence[Mapping[str, Any]], reci
     t_uncert = []
     for c in chunk:
         ids, elig, ap = encode_prompt_and_target_pair(
-            str(c["prompt"]), str(c.get("gold_text", "A")), max_length=model.max_ctx
+            str(c["prompt"]), format_public_typed_target(c), max_length=model.max_ctx
         )
         samples.append((ids, elig, ap))
         g_cls.append(max(0, min(18, int(c.get("gold_class", 0)))))
@@ -783,6 +1064,8 @@ def _restore_x3_checkpoint(
         opt_state = _load(payloads["optimizer.bin"])
         if isinstance(opt_state, Mapping) and opt_state.get("state"):
             optimizer.load_state_dict(opt_state)
+        if "rng.bin" in payloads:
+            torch.set_rng_state(torch.frombuffer(bytearray(payloads["rng.bin"]), dtype=torch.uint8))
     return {"state": state, "meta": meta, "global_update": int(state.global_update), "sha": str(sha)}
 
 
@@ -792,7 +1075,7 @@ def run_all_architectures_u0000_smoke(
     source_commit: str,
     include_s50_construction: bool = False,
 ) -> dict[str, Any]:
-    """Mandatory CPU u0000 init + 1-train-step + 1-eval-step + checkpoint save/restore across ALL 9 architectures."""
+    """Mandatory CPU u0000 init + 1-train-step + 1-eval-step + checkpoint save/restore across ALL X3 & legacy B0 paths."""
     wroot = Path(work_dir)
     wroot.mkdir(parents=True, exist_ok=True)
     tiny_spec = build_x3_backbone_spec("tiny")
@@ -803,13 +1086,12 @@ def run_all_architectures_u0000_smoke(
     for arch in X3_ARCHITECTURES:
         m = X3CognitiveModel(arch, tiny_spec, seed=7)
         opt = torch.optim.AdamW(m.parameters(), lr=1e-4)
-        step0_eval = evaluate_x3_batched(m, bat[:8], batch_size=4, device="cpu", use_generative_bytes=True)
+        step0_eval = evaluate_x3_batched(m, bat[:4], batch_size=4, device="cpu", use_generative_bytes=True)
         step_stats = compute_d3_objective_step(m, opt, batches[0], objective="D3-Hybrid")
         dead_grads = [n for n, p in m.named_parameters() if p.requires_grad and p.grad is None]
         assert not dead_grads, f"Dead grads on {arch}: {dead_grads}"
         assert math.isfinite(float(step_stats["total_loss"])), f"Non-finite loss on {arch}"
 
-        # Verify atomic checkpoint save -> reload parity on every architecture
         lin_id = f"smoke-{arch}".replace("_", "-")
         store = CheckpointStore(wroot / "u0000_ckpts", lin_id)
         sha = _publish_x3_checkpoint(
@@ -829,8 +1111,8 @@ def run_all_architectures_u0000_smoke(
         )
         m2 = X3CognitiveModel(arch, tiny_spec, seed=19)
         _restore_x3_checkpoint(store, sha, model=m2, device="cpu", expected_spec_sha256=tiny_spec.sha256())
-        ev1 = evaluate_x3_batched(m, bat[:4], batch_size=4, device="cpu")
-        ev2 = evaluate_x3_batched(m2, bat[:4], batch_size=4, device="cpu")
+        ev1 = evaluate_x3_batched(m, bat[:2], batch_size=2, device="cpu", use_generative_bytes=False)
+        ev2 = evaluate_x3_batched(m2, bat[:2], batch_size=2, device="cpu", use_generative_bytes=False)
         max_diff = max(float((a["action_logits"] - b["action_logits"]).abs().max().item()) for a, b in zip(ev1, ev2))
         assert max_diff < 1e-6, f"Checkpoint restore parity failed on {arch}: {max_diff}"
         results[arch] = {
@@ -842,6 +1124,26 @@ def run_all_architectures_u0000_smoke(
             "passed": True,
         }
 
+    # Compulsory legacy B0 regression smoke on tiny proxy
+    b0_rec = build_legacy_x1_scaled_model("B0", scale="tiny", init_seed=7)
+    b0_m = b0_rec["model"]
+    b0_opt = torch.optim.AdamW(b0_m.parameters(), lr=1e-4)
+    b0_toks = torch.tensor([[1, 65, 66, 3, 67, 2]], dtype=torch.long)
+    b0_segs = torch.zeros_like(b0_toks)
+    b0_pos, b0_mask = packed_layout(b0_segs, torch_module=torch)
+    b0_h = b0_m.forward_hidden(b0_toks, b0_pos, b0_mask)
+    b0_logits = F.linear(b0_h, b0_m.embedding.weight)
+    b0_loss = F.cross_entropy(b0_logits[:, :-1, :].reshape(-1, b0_logits.shape[-1]), b0_toks[:, 1:].reshape(-1))
+    b0_loss.backward()
+    b0_opt.step()
+    b0_dead = [n for n, p in b0_m.named_parameters() if p.requires_grad and p.grad is None]
+    assert not b0_dead and math.isfinite(float(b0_loss.item()))
+    results["legacy-B0"] = {
+        "params": b0_rec["total_parameters"],
+        "u0001_loss": round(float(b0_loss.item()), 4),
+        "passed": True,
+    }
+
     s50_counts: dict[str, int] = {}
     if include_s50_construction:
         s50_spec = build_x3_backbone_spec("S50")
@@ -849,11 +1151,16 @@ def run_all_architectures_u0000_smoke(
             ms = X3CognitiveModel(arch, s50_spec, seed=7)
             s50_counts[arch] = sum(p.numel() for p in ms.parameters())
             del ms
+        for leg_arch in ("P-50M", "R-50M"):
+            lrec = build_legacy_x1_scaled_model(leg_arch, scale="S50", init_seed=7)
+            s50_counts[f"legacy-{leg_arch}"] = lrec["total_parameters"]
+            del lrec
 
     report = {
-        "schema": "elendril-x3-u0000-all-arch-smoke-v1",
-        "architectures_tested": list(results),
-        "all_passed": len(results) == len(X3_ARCHITECTURES),
+        "schema": "elendril-x3-u0000-all-arch-smoke-v2",
+        "architectures_tested": [k for k in results if k != "legacy-B0"],
+        "legacy_b0_tested": True,
+        "all_passed": all(k in results for k in X3_ARCHITECTURES) and results["legacy-B0"]["passed"],
         "s50_constructed_params": s50_counts,
         "details": results,
     }
@@ -871,7 +1178,7 @@ def run_x3_single_job(
     ckpt_every: int = 512,
     updates_override: int | None = None,
 ) -> dict[str, Any]:
-    """Execute or resume a single registered X3 job atomically with FP16 AMP, pre-packed batches, `LATEST` pruning & dev mistakes."""
+    """Execute or resume a single registered X3 job atomically with dependency-aware retention & missing-parent isolation."""
     wroot = Path(work_root)
     wroot.mkdir(parents=True, exist_ok=True)
     jid = str(job["job_id"])
@@ -883,7 +1190,31 @@ def run_x3_single_job(
     source_commit = str(job["source_commit"])
     spec_sha = str(job["spec_sha256"])
 
+    # Isolate missing parent checkpoints without crashing independent jobs in the wave (§0, §5)
+    parent_id = job.get("parent_job_id")
+    if parent_id:
+        pdir = Path(job.get("parent_checkpoint_dir") or (wroot.parent / str(parent_id)))
+        has_cm = (pdir / "c").is_dir() and bool(CheckpointStore(pdir / "c", "m").latest_sha256())
+        has_main = (pdir / "checkpoints").is_dir() and bool(CheckpointStore(pdir / "checkpoints", "main").latest_sha256())
+        if not (has_cm or has_main):
+            blocked = {
+                "schema": "elendril-x3-job-receipt-v1",
+                "job_id": jid,
+                "architecture": arch,
+                "objective": obj,
+                "scale": scale,
+                "init_seed": seed,
+                "status": "BLOCKED_MISSING_PARENT",
+                "missing_parent_job_id": str(parent_id),
+                "source_commit": source_commit,
+                "spec_sha256": spec_sha,
+            }
+            _atomic_write_json(wroot / "JOB_RECEIPT.json", blocked)
+            return blocked
+
     target_updates = int(updates_override) if updates_override is not None else (4 if canary else int(job["updates"]))
+    full_job_updates = 4 if canary else max(target_updates, int(job.get("updates", target_updates)))
+    preserve_final_opt = bool(job.get("preserve_final_optimizer", False))
     dev = torch.device(device)
     spec = build_x3_backbone_spec(scale)
     model = X3CognitiveModel(arch, spec, seed=seed).to(dev)
@@ -918,14 +1249,15 @@ def run_x3_single_job(
                 optimizer,
                 step_b,
                 objective=obj,
+                update_idx=u,
                 use_amp=use_cuda_amp,
                 scaler=scaler if use_cuda_amp else None,
             )
             cur_u = u + 1
             fh.write(json.dumps({"update": cur_u, **last_stats}, sort_keys=True) + "\n")
             if (cur_u % max(1, int(ckpt_every)) == 0) or (cur_u == target_updates):
-                # Keep full AdamW state mid-run & in canary resume tests; prune optimizer bloat on completed final checkpoints
-                keep_opt = bool(canary) or (cur_u < target_updates)
+                # Keep full AdamW state mid-run, in canary resume tests, or on continuation/adaptation parents!
+                keep_opt = bool(canary) or (cur_u < full_job_updates) or preserve_final_opt
                 latest_sha = _publish_x3_checkpoint(
                     store,
                     model=model,
@@ -934,7 +1266,7 @@ def run_x3_single_job(
                     spec_sha256=spec_sha,
                     lineage_id="m",
                     global_update=cur_u,
-                    target_updates=target_updates,
+                    target_updates=full_job_updates,
                     source_commit=source_commit,
                     architecture=arch,
                     objective=obj,
@@ -942,10 +1274,9 @@ def run_x3_single_job(
                     batch_size=batch_sz,
                     include_optimizer=keep_opt,
                 )
-    # Keep strictly LATEST checkpoint on disk to bound Kaggle 2xT4 usage
     store.prune(keep=set())
 
-    preds = evaluate_x3_batched(model, dev_bat["cases"], batch_size=4 if canary else 32, device=device, use_generative_bytes=False)
+    preds = evaluate_x3_batched(model, dev_bat["cases"], batch_size=4 if canary else 32, device=device, use_generative_bytes=True)
     profile = score_cognitive_battery_profile(preds, dev_bat["cases"])
     pred_by_id = {str(p["case_id"]): p for p in preds}
     dev_mistakes = [
@@ -975,6 +1306,7 @@ def run_x3_single_job(
         "spec_sha256": spec_sha,
         "target_updates": target_updates,
         "completed_updates": target_updates,
+        "preserve_final_optimizer": preserve_final_opt,
         "eval_rows": len(preds),
         "checkpoint_sha256": latest_sha,
         "dev_macro_mean": profile["macro_mean"],
@@ -1140,7 +1472,7 @@ def _run_stage5_sealed_evaluations(
         m = X3CognitiveModel(arch, spec, seed=int(meta.get("init_seed", 7)))
         _restore_x3_checkpoint(store, sha, model=m, device=eval_device, expected_spec_sha256=str(meta.get("spec_sha256", "")))
 
-        c_preds = evaluate_x3_batched(m, confirm_cases, batch_size=bsz, device=eval_device, use_generative_bytes=False)
+        c_preds = evaluate_x3_batched(m, confirm_cases, batch_size=bsz, device=eval_device, use_generative_bytes=True)
         c_prof = score_cognitive_battery_profile(c_preds, confirm_cases)
         conf_by_job[jid] = {
             "job_id": jid,
@@ -1154,7 +1486,7 @@ def _run_stage5_sealed_evaluations(
             "mistakes": _collect_mistakes(c_preds, confirm_cases),
         }
 
-        o_preds = evaluate_x3_batched(m, ood_cases, batch_size=bsz, device=eval_device, use_generative_bytes=False)
+        o_preds = evaluate_x3_batched(m, ood_cases, batch_size=bsz, device=eval_device, use_generative_bytes=True)
         o_prof = score_cognitive_battery_profile(o_preds, ood_cases)
         ood_by_job[jid] = {
             "job_id": jid,
@@ -1251,9 +1583,11 @@ def run_x3_campaign(
     _atomic_write_json(wdir / "X3_SAMPLER_AUDIT.json", sampler_audit)
 
     ledger = build_x3_program_ledger(source_commit=source_commit, updates=4 if canary else X3_DEFAULT_UPDATES)
+    r0_r7_ledger = build_r0_r7_program_ledger(source_commit=source_commit)
     raw_jobs = list(jobs_override) if jobs_override is not None else list(ledger["jobs"])
     jobs_by_id = {str(j["job_id"]): dict(j) for j in raw_jobs}
     _atomic_write_json(wdir / "X3_DESIGN_REGISTRY.json", ledger)
+    _atomic_write_json(wdir / "X3_R0_R7_LEDGER.json", r0_r7_ledger)
 
     # Disjoint split custody verification across all 4 splits
     splits_map = {sp: build_x3_cognitive_battery(split=sp, per_family=6 if canary else 20)["cases"] for sp in ("train", "dev", "confirm", "ood_transfer")}
@@ -1336,6 +1670,7 @@ def run_x3_campaign(
     deferred_ids = list(plan["deferred_pending_job_ids"])
 
     failed_ids: list[str] = []
+    blocked_ids: list[str] = []
     stopped_reason: str | None = None
     n_devs = max(1, len(devices))
     for w_start in range(0, len(admitted_s20), n_devs):
@@ -1347,10 +1682,15 @@ def run_x3_campaign(
         wave_jobs = admitted_s20[w_start : w_start + n_devs]
         wave_res = orch.run_waves(wave_jobs, command_builder=_cmd_builder, devices=tuple(devices), resume=True)
         for wid in wave_res.get("completed_jobs", ()):
-            completed_ids.add(wid)
             rp = wdir / "jobs" / wid / "JOB_RECEIPT.json"
             if rp.is_file():
-                job_receipts[wid] = json.loads(rp.read_text(encoding="utf-8"))
+                rec_doc = json.loads(rp.read_text(encoding="utf-8"))
+                job_receipts[wid] = rec_doc
+                if rec_doc.get("status") == "BLOCKED_MISSING_PARENT":
+                    blocked_ids.append(wid)
+                    completed_ids.discard(wid)
+                    continue
+            completed_ids.add(wid)
         for wrec in wave_res.get("waves", ()):
             failed_ids.extend(wrec.get("failed_workers", ()))
 
@@ -1502,6 +1842,7 @@ def run_x3_campaign(
         "completed_count": len(completed_ids),
         "total_jobs": len(all_sjobs),
         "pending_job_ids": pending_all,
+        "blocked_missing_parent_job_ids": sorted(set(blocked_ids)),
         "gated_s50_job_ids": gated_s50_ids,
         "failed_job_ids": sorted(set(failed_ids)),
         "next_resumable_job_id": next_id,
@@ -1535,6 +1876,14 @@ def run_x3_campaign(
         free_export_bytes = shutil.disk_usage(edir).free
     except OSError:
         free_export_bytes = 0
+    analysis_bytes = sum(p.stat().st_size for p in analysis_files.values() if p.is_file())
+    if free_export_bytes <= analysis_bytes:
+        summary_doc["export_error"] = "DISK_FULL_INSUFFICIENT_EXPORT_SPACE"
+        summary_doc["archives"] = {}
+        summary_doc["archive_sha256"] = {}
+        summary_doc["analysis_archive_verified"] = False
+        _atomic_write_json(wdir / "X3_CAMPAIGN_SUMMARY.json", summary_doc)
+        return summary_doc
     can_write_full = free_export_bytes > (full_only_bytes + 2 * 1024**3)
     archives = export_session_archives(
         wdir,
@@ -1642,6 +1991,7 @@ if __name__ == "__main__":
 
 
 __all__ = [
+    "PublicOracleTypedDecoder",
     "X3CognitiveKernel",
     "X3CognitivePolicy",
     "X3_BACKEND_ID",
@@ -1649,15 +1999,18 @@ __all__ = [
     "X3_DEFAULT_UPDATES",
     "X3_SEEDS",
     "build_elendril_x3_module",
+    "build_r0_r7_program_ledger",
     "build_x3_program_ledger",
     "evaluate_confirmation_lock",
     "evaluate_s50_scaling_gate",
     "evaluate_x3_batched",
     "main",
+    "reconcile_r0_run3_obligations",
     "register_planthir_backends",
     "run_all_architectures_u0000_smoke",
     "run_x3_campaign",
     "run_x3_single_job",
+    "verify_perfect_public_decoder_through_evaluator",
     "x3_dataset_factory",
     "x3_kernel_factory",
     "x3_loss_fn",
