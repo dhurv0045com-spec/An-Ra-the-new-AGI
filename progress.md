@@ -413,3 +413,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-22 | Antigravity | Audit V8-X2 owner run 3 (U-1, U-2, U-4 s7 + 36/36 core reproducibility)
 - Audited `ELENDRIL_V8_X2_ANALYSIS (2).zip` (`70,185,498` B, SHA-256 `84b73494...`): replayed `225,664` episodes (`916` manifested members, `101,824` updates, `max_loss_err=1.629e-07`), verifying `43/43` jobs completed (`49/192` obligations done; `x3_unlocked=False`).
 - Published `OWNER_RUN_03.md` and `OWNER_RUN_03_METRICS.json`: `U-1` (`19.66%`), `U-2` (`17.14%`), and `U-4 s7` (`14.11%`) fell below `F` (`27.65%`) with `0.00%` `k=4/8` sweeps and `ABSTAIN`/single-symbol collapse, while all `36/36` X1 core runs reproduced to `0.0000` pts (`24/24` identical Run-2 checkpoints).
+
+### 2026-11-24 | Antigravity | V8-X3 Recover Evidence, Compute Answer, Stop (R0-R7, public typed exact-output protocol & 29-arch repair)
+- Reconciled Run 3 (`84b73494...`: `43` non-A0 + `6` A0 = `49/192` credited, `143` pending, next `X1-U1-S20-U-4-standard-s19`, `x3_unlocked=False`) and unified R0-R7 ledger (`147` R1-R7 jobs, `57`-row migration table).
+- Implemented public typed exact-output protocol (`OP:ANSWER<EOS>`, `max_new_bytes>=48`, `PublicOracleTypedDecoder` `1.0`, C01 posterior, C09 Bellman `0.02` vs `0.35`, isomorphic leak guard) and `29` X3/`S20`/`S50` archs.
+- Added frozen-`U` & `4`-donor interchanges, certified `4/5`-hop swap, interleaved `D1-H`/`D2` audit, `16`-world CE equivalence, `592`-update warmup+ramp, `preserve_final_optimizer`, `BLOCKED_MISSING_PARENT`, and disk guard.
+- Verified CPU Gates 1-5 (`palantiri doctor` GREEN_SIGNAL L6, `calibrate` `6/6`, `56 passed in 164.33s` `-n auto`, `git archive` smoke) on CODE_SHA `19c9926978d66602dab5b9eba05e5a53bb0ed3e7`; pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,424` B, `6fd449c0...`; `OWNER_AUTHORIZED=False`).
