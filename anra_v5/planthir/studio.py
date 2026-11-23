@@ -15,9 +15,16 @@ from .archives import (
     win_long_path,
 )
 from .backend import get_backend, list_backends, load_backend_modules
-from .custody import CampaignLedgerVerifier, ConfirmLock, verify_campaign_ledger
+from .custody import (
+    CampaignLedgerVerifier,
+    ConfirmLock,
+    canonical_structural_hash,
+    verify_campaign_ledger,
+    verify_split_disjointness,
+)
 from .notebooks import build_pinned_kaggle_notebook, verify_pinned_notebook_bytes
 from .reporting import render_campaign_dashboard, rescore_compact_analysis_archive
+from .scoring import infer_public_byte_bound, score_typed_output
 
 PLANTHIR_LEVEL = 6
 PLANTHIR_LEVEL_NAME = "Level 6 — Unified Modular Observatory, Custody & Multi-Session Studio"
@@ -32,11 +39,12 @@ def level_info() -> dict[str, Any]:
         "level": PLANTHIR_LEVEL,
         "name": PLANTHIR_LEVEL_NAME,
         "subsystems": {
-            "archives": "Streaming v6 archives, minimal CheckpointStore collection/pruning, zero-copy hardlinks & win_long_path",
-            "custody": "ConfirmLock tamper-evident cross-session gate & CampaignLedgerVerifier ledger audit",
+            "archives": "Streaming v6 archives, dependency-aware CheckpointStore collection/pruning, zero-copy hardlinks & win_long_path",
+            "custody": "ConfirmLock tamper-evident cross-session gate, CampaignLedgerVerifier & structural AST/graph/Horn split disjointness",
             "notebooks": "Preflight-before-launch Kaggle 2xT4 notebook generator & byte verifier",
             "reporting": "Analyst-first campaign reports, archive rescoring & live Markdown dashboard",
             "runtime": "ExperimentModule, GenericExperimentTrainer, BytePromptTrainer, CampaignOrchestrator",
+            "scoring": "Exact typed grammar/byte-sequence scoring, public shape bounds & TypedByteSequenceKernel",
             "causal_science": "McNemar + Holm-Bonferroni statistics, linear+MLP probe manifolds, N-hop decomposition, convergence guard",
             "studio": "Unified Palantiri facade, read-only status dashboard & runnable plugin scaffolder",
         },
@@ -55,6 +63,9 @@ def level_info() -> dict[str, Any]:
             "nonlinear_mlp_probe_comparison",
             "n_hop_subgoal_decomposition",
             "cli_level_status_verify_archive_scaffold",
+            "exact_typed_byte_sequence_scoring",
+            "canonical_ast_graph_horn_split_disjointness",
+            "dependency_aware_leaf_optimizer_compaction",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
@@ -484,6 +495,22 @@ class Palantiri:
     @staticmethod
     def scaffold(name: str, out_dir: Path | str, *, overwrite: bool = False) -> dict[str, Any]:
         return scaffold_experiment_module(name, out_dir, overwrite=overwrite)
+
+    @staticmethod
+    def score_typed_output(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return score_typed_output(*args, **kwargs)
+
+    @staticmethod
+    def infer_public_byte_bound(*args: Any, **kwargs: Any) -> int:
+        return infer_public_byte_bound(*args, **kwargs)
+
+    @staticmethod
+    def structural_hash(record: Mapping[str, Any], *, custom_hash_fn: Any = None) -> str | None:
+        return canonical_structural_hash(record, custom_hash_fn=custom_hash_fn)
+
+    @staticmethod
+    def verify_splits(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return verify_split_disjointness(*args, **kwargs)
 
 
 __all__ = [

@@ -419,3 +419,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Implemented public typed exact-output protocol (`OP:ANSWER<EOS>`, `max_new_bytes>=48`, `PublicOracleTypedDecoder` `1.0`, C01 posterior, C09 Bellman `0.02` vs `0.35`, isomorphic leak guard) and `29` X3/`S20`/`S50` archs.
 - Added frozen-`U` & `4`-donor interchanges, certified `4/5`-hop swap, interleaved `D1-H`/`D2` audit, `16`-world CE equivalence, `592`-update warmup+ramp, `preserve_final_optimizer`, `BLOCKED_MISSING_PARENT`, and disk guard.
 - Verified CPU Gates 1-5 (`palantiri doctor` GREEN_SIGNAL L6, `calibrate` `6/6`, `56 passed in 164.33s` `-n auto`, `git archive` smoke) on CODE_SHA `19c9926978d66602dab5b9eba05e5a53bb0ed3e7`; pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,424` B, `6fd449c0...`; `OWNER_AUTHORIZED=False`).
+
+### 2026-11-24 | Antigravity | Sync V8-X3 Level-6 Palantiri upgrades from palantiri (9c1a6407)
+- Synced \scoring.py\, structural split hashing (\design.py\, \custody.py\), dependency-aware leaf-only optimizer compaction (\rchives.py\, untime.py\), \studio.py\, \__init__.py\, 3-way manuals, and \	ests/test_planthir_x3_feedback_upgrades.py\.
+- Preserved all existing \Elendril\ V8-X2/X3 experiment modules, results, and non-Palantiri paths untouched.
+- Verified on CPU (\cuda_available=false\): 	 passed\ +  passed, 4 deselected\, and \doctor\ \GREEN_SIGNAL\; live GPU runs pending.

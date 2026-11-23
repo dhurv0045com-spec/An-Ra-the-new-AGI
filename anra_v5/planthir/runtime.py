@@ -42,7 +42,13 @@ from .archives import (
 )
 from .backend import BACKEND_CONTRACT_VERSION, BackendCapabilities, register_backend
 from .contracts import EnvironmentKernel, ObservablePolicy, UniversalAction, UniversalObservation
-from .custody import CampaignLedgerVerifier, ConfirmLock, verify_campaign_ledger
+from .custody import (
+    CampaignLedgerVerifier,
+    ConfirmLock,
+    canonical_structural_hash,
+    verify_campaign_ledger,
+    verify_split_disjointness,
+)
 from .notebooks import build_pinned_kaggle_notebook, serialize_pinned_notebook, verify_pinned_notebook_bytes
 from .reporting import (
     build_analyst_first_page_report,
@@ -53,6 +59,13 @@ from .reporting import (
 )
 from .resources import measure_free_disk_bytes
 from .scheduler import IndependentWorkerScheduler, WorkerJobSpec
+from .scoring import (
+    TypedByteSequenceKernel,
+    infer_public_byte_bound,
+    normalize_typed_value,
+    parse_typed_output_envelope,
+    score_typed_output,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1996,6 +2009,7 @@ class CampaignOrchestrator:
         confirm_lock_path: Path | str | None = None,
         confirm_required_job_ids: Sequence[str] = (),
         prune_completed_checkpoints: bool = False,
+        strip_leaf_optimizers: bool = False,
     ) -> dict[str, Any]:
         """Execute a full registered multi-job campaign with resume, profiling, gating, 2-GPU preemption, and export."""
 
@@ -2305,9 +2319,10 @@ class CampaignOrchestrator:
 
         def _job_deps(j: SessionJob) -> tuple[str, ...]:
             raw: list[str] = []
-            p_id = j.extra.get("parent_job_id")
-            if p_id is not None and str(p_id).strip():
-                raw.append(str(p_id).strip())
+            for p_key in ("parent_job_id", "adaptation_parent_id"):
+                p_val = j.extra.get(p_key)
+                if p_val is not None and str(p_val).strip():
+                    raw.append(str(p_val).strip())
             d_val = j.extra.get("depends_on")
             if isinstance(d_val, str) and d_val.strip():
                 raw.append(d_val.strip())
@@ -2316,6 +2331,11 @@ class CampaignOrchestrator:
                     if item is not None and str(item).strip():
                         raw.append(str(item).strip())
             return tuple(dict.fromkeys(raw))
+
+        children_by_parent: dict[str, list[str]] = {}
+        for j in job_list:
+            for dep_id in _job_deps(j):
+                children_by_parent.setdefault(dep_id, []).append(j.job_id)
 
         def _job_req_paths(j: SessionJob) -> tuple[str, ...]:
             rp_val = j.extra.get("required_parent_paths")
@@ -2403,7 +2423,7 @@ class CampaignOrchestrator:
                         deps = _job_deps(pj)
                         req_paths = _job_req_paths(pj)
                         missing_deps = [d for d in deps if d not in completed_set]
-                        missing_paths = [rp for rp in req_paths if not Path(rp).exists()]
+                        missing_paths = [rp for rp in req_paths if not win_long_path(rp).exists()]
                         unresolvable = [d for d in missing_deps if d not in pending_id_set]
                         block_reason: str | None = None
                         if unresolvable:
@@ -2665,17 +2685,45 @@ class CampaignOrchestrator:
             total_removed = 0
             total_freed = 0
             pruned_jobs = 0
+            preserved_optimizer_jobs: list[str] = []
+            compacted_leaf_jobs: list[str] = []
             for jid in completed_jobs:
                 jdir = self.work_dir / "jobs" / jid
                 if jdir.is_dir():
-                    pr = prune_completed_job_artifacts(jdir, keep_latest=True, keep_milestones=True)
+                    job_obj = job_by_id.get(jid)
+                    child_ids = children_by_parent.get(jid, [])
+                    rec_u = receipts_by_id.get(jid, {}).get("completed_updates")
+                    completed_u = int(rec_u) if rec_u is not None else None
+                    raw_full_u = job_obj.extra.get("full_job_updates", job_obj.updates) if job_obj is not None else None
+                    target_full_u = int(raw_full_u) if raw_full_u is not None else None
+                    must_preserve = (
+                        bool(job_obj.extra.get("preserve_final_optimizer", False)) if job_obj is not None else False
+                    ) or bool(child_ids) or (
+                        completed_u is not None and target_full_u is not None and completed_u < target_full_u
+                    )
+                    pr = prune_completed_job_artifacts(
+                        jdir,
+                        keep_latest=True,
+                        keep_milestones=True,
+                        strip_final_optimizer=bool(strip_leaf_optimizers),
+                        preserve_final_optimizer=must_preserve,
+                        child_job_ids=child_ids,
+                        completed_updates=completed_u,
+                        full_job_updates=target_full_u,
+                    )
                     total_removed += int(pr["removed_files"])
                     total_freed += int(pr["freed_bytes"])
                     pruned_jobs += 1
+                    if pr.get("optimizer_preserved"):
+                        preserved_optimizer_jobs.append(jid)
+                    if pr.get("optimizer_stripped"):
+                        compacted_leaf_jobs.append(jid)
             pruned_summary = {
                 "pruned_jobs": pruned_jobs,
                 "removed_files": total_removed,
                 "freed_bytes": total_freed,
+                "preserved_optimizer_jobs": preserved_optimizer_jobs,
+                "compacted_leaf_jobs": compacted_leaf_jobs,
             }
 
         confirm_lock_report: dict[str, Any] | None = None
@@ -3120,26 +3168,33 @@ __all__ = [
     "LogitsPolicy",
     "SessionJob",
     "StaticPromptKernel",
+    "TypedByteSequenceKernel",
     "audit_pair_margin_gradient_sign_reversal",
     "batched_rollout",
     "build_analyst_first_page_report",
     "build_pinned_kaggle_notebook",
     "build_verification_matrix",
+    "canonical_structural_hash",
     "collect_minimal_checkpoint_files",
     "compute_ce_and_pair_margin_terms",
     "export_session_archives",
     "frame_byte_prompt_sample",
+    "infer_public_byte_bound",
     "mirror_to_working_dir",
+    "normalize_typed_value",
+    "parse_typed_output_envelope",
     "prune_completed_job_artifacts",
     "render_campaign_dashboard",
     "render_campaign_results_markdown",
     "rescore_compact_analysis_archive",
     "safe_extract_planthir_archive",
+    "score_typed_output",
     "serialize_pinned_notebook",
     "verify_campaign_ledger",
     "verify_full_mode_dispatch",
     "verify_pinned_notebook_bytes",
     "verify_session_archive",
     "verify_shared_backbone_and_head_overhead",
+    "verify_split_disjointness",
     "win_long_path",
 ]
