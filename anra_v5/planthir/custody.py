@@ -13,6 +13,7 @@ from typing import Any, Mapping, Sequence
 from anra_v5.elendril.codec import canonical
 
 from .archives import verify_session_archive, win_long_path
+from .design import canonical_structural_hash, verify_split_disjointness
 from .execution import _atomic_replace
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -315,5 +316,7 @@ class CampaignLedgerVerifier:
 __all__ = [
     "CampaignLedgerVerifier",
     "ConfirmLock",
+    "canonical_structural_hash",
     "verify_campaign_ledger",
+    "verify_split_disjointness",
 ]

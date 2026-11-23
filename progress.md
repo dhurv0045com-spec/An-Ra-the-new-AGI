@@ -403,3 +403,8 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 ### 2026-11-24 | Codex | Y3 fixture audit and Y4 execution plan
 - Reproduced the P4 oracle failure, P5 public-prefix shortcut and P4/P6 batch sampling defect. Verified both supplied archive manifests.
 - Wrote the Gemini Y4 protocol for 126 jobs, 50 studies and 44 platform uses. CPU fixture checks completed. Y4 implementation and owner GPU execution are pending.
+
+### 2026-11-24 | Antigravity | Sync V8-X3 Level-6 Palantiri upgrades from palantiri (9c1a6407)
+- Synced \scoring.py\, structural split hashing (\design.py\, \custody.py\), dependency-aware leaf-only optimizer compaction (\rchives.py\, untime.py\), \studio.py\, \__init__.py\, 3-way manuals, and \	ests/test_planthir_x3_feedback_upgrades.py\.
+- Preserved all existing \hitchhiker\ Avendi Y3/Y4 experiment files, results, and non-Palantiri paths untouched.
+- Verified on CPU (\cuda_available=false\): 	 passed\ +  passed, 4 deselected\, and \doctor\ \GREEN_SIGNAL\; live GPU runs pending.

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from hashlib import sha256
+import json
 import math
 import random
+import re
 from typing import Any, Callable, Mapping, Sequence
 
 ALLOWED_FACTOR_TYPES = (
@@ -391,15 +394,266 @@ def _record_identifiers(rec: Mapping[str, Any]) -> list[str]:
     return nodes
 
 
+def _canon_bytes(obj: Any) -> bytes:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode("utf-8")
+
+
+def canonical_graph_isomorphism_hash(
+    edges: Sequence[tuple[Any, Any] | Mapping[str, Any]],
+    *,
+    directed: bool = True,
+    node_labels: Mapping[Any, Any] | None = None,
+) -> str:
+    """Compute a 1-WL color-refinement graph hash invariant under arbitrary vertex renaming and edge order."""
+
+    nodes_set: set[str] = set()
+    edge_tuples: list[tuple[str, str, str]] = []
+    for e in edges:
+        if isinstance(e, Mapping):
+            u = str(e.get("src", e.get("u", e.get("from", ""))))
+            v = str(e.get("dst", e.get("v", e.get("to", ""))))
+            lbl = str(e.get("label", e.get("rel", e.get("edge_type", ""))))
+        elif isinstance(e, (tuple, list)) and len(e) >= 2:
+            u = str(e[0])
+            v = str(e[1])
+            lbl = str(e[2]) if len(e) >= 3 and e[2] is not None else ""
+        else:
+            continue
+        nodes_set.add(u)
+        nodes_set.add(v)
+        edge_tuples.append((u, v, lbl))
+
+    lbl_map: dict[str, Any] = {}
+    if node_labels is not None:
+        for k, val in node_labels.items():
+            ks = str(k)
+            nodes_set.add(ks)
+            lbl_map[ks] = val
+
+    if not nodes_set:
+        return sha256(b"empty-graph").hexdigest()
+
+    out_adj: dict[str, list[tuple[str, str]]] = {n: [] for n in nodes_set}
+    in_adj: dict[str, list[tuple[str, str]]] = {n: [] for n in nodes_set}
+    for u, v, lbl in edge_tuples:
+        out_adj[u].append((v, lbl))
+        in_adj[v].append((u, lbl))
+        if not directed and u != v:
+            out_adj[v].append((u, lbl))
+            in_adj[u].append((v, lbl))
+
+    colors: dict[str, str] = {
+        n: sha256(_canon_bytes([lbl_map.get(n, None), len(out_adj[n]), len(in_adj[n]) if directed else 0])).hexdigest()[:16]
+        for n in nodes_set
+    }
+    for _ in range(4):
+        next_colors: dict[str, str] = {}
+        for n in nodes_set:
+            out_sigs = sorted((lbl, colors[nbr]) for nbr, lbl in out_adj[n])
+            if directed:
+                in_sigs = sorted((lbl, colors[nbr]) for nbr, lbl in in_adj[n])
+                sig_obj = [colors[n], out_sigs, in_sigs]
+            else:
+                sig_obj = [colors[n], out_sigs]
+            next_colors[n] = sha256(_canon_bytes(sig_obj)).hexdigest()[:16]
+        colors = next_colors
+
+    edge_color_sigs = sorted(
+        (lbl, colors[u], colors[v]) if directed else (lbl, *sorted((colors[u], colors[v])))
+        for u, v, lbl in edge_tuples
+    )
+    return sha256(
+        _canon_bytes(
+            {
+                "directed": bool(directed),
+                "n_nodes": len(nodes_set),
+                "n_edges": len(edge_tuples),
+                "node_colors": sorted(colors.values()),
+                "edge_colors": edge_color_sigs,
+            }
+        )
+    ).hexdigest()
+
+
+_ATOM_STR_RE = re.compile(r"^\s*([^\s(]+)\s*\((.*)\)\s*$")
+
+
+def _parse_horn_atom(atom: Any) -> tuple[str, tuple[str, ...]]:
+    if isinstance(atom, Mapping):
+        pred = str(atom.get("pred", atom.get("predicate", atom.get("rel", "rel")))).strip()
+        raw_args = atom.get("args", atom.get("terms", ()))
+        args = tuple(str(a).strip() for a in raw_args) if isinstance(raw_args, (list, tuple)) else (str(raw_args),)
+        return pred, args
+    if isinstance(atom, (tuple, list)) and atom:
+        pred = str(atom[0]).strip()
+        if len(atom) == 2 and isinstance(atom[1], (tuple, list)):
+            args = tuple(str(a).strip() for a in atom[1])
+        else:
+            args = tuple(str(a).strip() for a in atom[1:])
+        return pred, args
+    if isinstance(atom, str):
+        m = _ATOM_STR_RE.match(atom.strip())
+        if m:
+            pred = m.group(1).strip()
+            args_raw = m.group(2).strip()
+            args = tuple(a.strip() for a in args_raw.split(",") if a.strip()) if args_raw else ()
+            return pred, args
+        return atom.strip(), ()
+    return str(atom), ()
+
+
+def canonical_horn_clause_hash(
+    clauses: Sequence[Any],
+    *,
+    query: Any = None,
+    normalize_predicates: bool = True,
+) -> str:
+    """Compute canonical structural hash over Horn clauses & optional query via typed 1-WL bipartite refinement."""
+
+    wl_edges: list[tuple[str, str, str]] = []
+    wl_labels: dict[str, Any] = {}
+
+    def _add_atom(atom_id: str, atom_obj: Any, *, kind: str) -> None:
+        pred, args = _parse_horn_atom(atom_obj)
+        wl_labels[atom_id] = f"{kind}:{len(args)}" if normalize_predicates else f"{kind}:{pred}:{len(args)}"
+        for idx, arg in enumerate(args):
+            ent_id = f"E:{arg}"
+            wl_labels.setdefault(ent_id, "ENT")
+            wl_edges.append((atom_id, ent_id, f"ARG:{idx}"))
+
+    for c_idx, clause in enumerate(clauses):
+        rule_id = f"R:{c_idx}"
+        wl_labels[rule_id] = "RULE"
+        premises: Sequence[Any] = ()
+        head: Any = None
+        if isinstance(clause, Mapping):
+            premises = clause.get("body", clause.get("premises", clause.get("if", ())))
+            head = clause.get("head", clause.get("conclusion", clause.get("then")))
+        elif isinstance(clause, str) and "->" in clause:
+            lhs, rhs = clause.split("->", 1)
+            premises = [p.strip() for p in lhs.split("&") if p.strip()]
+            head = rhs.strip()
+        elif isinstance(clause, (tuple, list)) and len(clause) == 2:
+            raw_p, head = clause
+            premises = raw_p if isinstance(raw_p, (list, tuple)) else (raw_p,)
+        elif isinstance(clause, (tuple, list)) and clause:
+            premises = clause[:-1]
+            head = clause[-1]
+        for p_idx, prem in enumerate(premises):
+            a_id = f"A:{c_idx}:p{p_idx}"
+            _add_atom(a_id, prem, kind="ATOM")
+            wl_edges.append((rule_id, a_id, "BODY"))
+        if head is not None:
+            h_id = f"A:{c_idx}:h"
+            _add_atom(h_id, head, kind="ATOM")
+            wl_edges.append((h_id, rule_id, "HEAD"))
+
+    if query is not None:
+        q_items = query if isinstance(query, (list, tuple)) and query and not isinstance(query[0], str) else (query,)
+        for q_idx, q_atom in enumerate(q_items):
+            _add_atom(f"Q:{q_idx}", q_atom, kind="QUERY")
+
+    return canonical_graph_isomorphism_hash(wl_edges, directed=True, node_labels=wl_labels)
+
+
+_DEFAULT_ALPHA_KEYS: tuple[str, ...] = ("var", "entity", "symbol", "name", "node", "person")
+
+
+def canonical_ast_hash(
+    node: Any,
+    *,
+    alpha_rename_keys: Sequence[str] = _DEFAULT_ALPHA_KEYS,
+) -> str:
+    """Compute a structural SHA-256 hash over nested AST/dict structures modulo identifier alpha-renaming."""
+
+    rename_set = {str(k).strip().lower() for k in alpha_rename_keys}
+    rename_map: dict[str, str] = {}
+
+    def _rename_scalar(val: Any) -> str:
+        key = str(val)
+        if key not in rename_map:
+            rename_map[key] = f"V{len(rename_map)}"
+        return rename_map[key]
+
+    def _walk(obj: Any, *, under_rename_key: bool = False) -> Any:
+        if isinstance(obj, Mapping):
+            out: dict[str, Any] = {}
+            for k in sorted(obj.keys(), key=lambda x: str(x)):
+                ks = str(k)
+                out[ks] = _walk(obj[k], under_rename_key=(ks.lower() in rename_set))
+            return out
+        if isinstance(obj, (list, tuple)):
+            return [_walk(item, under_rename_key=under_rename_key) for item in obj]
+        if isinstance(obj, (set, frozenset)):
+            walked = [_walk(item, under_rename_key=under_rename_key) for item in obj]
+            return sorted(walked, key=lambda x: _canon_bytes(x))
+        if under_rename_key and isinstance(obj, (str, int)):
+            return _rename_scalar(obj)
+        return obj
+
+    return sha256(_canon_bytes(_walk(node))).hexdigest()
+
+
+def canonical_structural_hash(
+    record: Mapping[str, Any],
+    *,
+    custom_hash_fn: Callable[[Mapping[str, Any]], str | None] | None = None,
+) -> str | None:
+    """Resolve canonical AST / graph / Horn-clause hash for structural split-disjointness custody."""
+
+    if custom_hash_fn is not None:
+        res = custom_hash_fn(record)
+        if res not in (None, ""):
+            return str(res)
+    for k in ("canonical_structural_hash", "structural_hash"):
+        v = record.get(k)
+        if v not in (None, ""):
+            return str(v)
+
+    if isinstance(record.get("edges"), Sequence) and not isinstance(record.get("edges"), (str, bytes)):
+        return canonical_graph_isomorphism_hash(
+            record["edges"],
+            directed=bool(record.get("directed", True)),
+            node_labels=record.get("node_labels") if isinstance(record.get("node_labels"), Mapping) else None,
+        )
+    if isinstance(record.get("graph"), Mapping) and isinstance(record["graph"].get("edges"), Sequence):
+        g = record["graph"]
+        return canonical_graph_isomorphism_hash(
+            g["edges"],
+            directed=bool(g.get("directed", record.get("directed", True))),
+            node_labels=g.get("node_labels") if isinstance(g.get("node_labels"), Mapping) else None,
+        )
+
+    clauses = record.get("horn_clauses", record.get("clauses"))
+    if isinstance(clauses, Sequence) and not isinstance(clauses, (str, bytes)):
+        return canonical_horn_clause_hash(
+            clauses,
+            query=record.get("query"),
+            normalize_predicates=bool(record.get("normalize_predicates", True)),
+        )
+
+    for ast_key in ("ast", "problem_spec"):
+        if ast_key in record and record[ast_key] is not None:
+            return canonical_ast_hash(record[ast_key])
+    return None
+
+
 def validate_cohort_and_split_transitivity(
     splits: Mapping[str, Sequence[Mapping[str, Any]]],
     *,
     cohorts: Sequence[CohortClusterSpec] = (),
+    structural_hash_fn: Callable[[Mapping[str, Any]], str | None] | None = None,
+    check_structural_isomorphism: bool = False,
+    check_prompt_exact: bool = False,
+    fail_closed: bool = False,
 ) -> dict[str, Any]:
-    """Build transitive union-find equivalence classes across world/base/parent/mate/group/cohort links and detect split leaks."""
+    """Build transitive union-find equivalence classes across world/cohort/structural links and detect split leaks."""
 
     uf = _UnionFind()
     split_nodes: dict[str, list[tuple[str, str]]] = {}
+    struct_by_split: dict[str, set[str]] = {}
+    prompt_by_split: dict[str, set[str]] = {}
+    use_struct = bool(check_structural_isomorphism or structural_hash_fn is not None)
 
     for c in cohorts:
         c_node = f"cohort:{c.cluster_id}"
@@ -413,9 +667,24 @@ def validate_cohort_and_split_transitivity(
             split_nodes.setdefault(c.split, []).append((c_node, c.cluster_id))
 
     for split_name, records in splits.items():
-        lst = split_nodes.setdefault(str(split_name), [])
+        sname = str(split_name)
+        lst = split_nodes.setdefault(sname, [])
         for idx, rec in enumerate(records):
             nodes = _record_identifiers(rec)
+            if use_struct:
+                sh = canonical_structural_hash(rec, custom_hash_fn=structural_hash_fn)
+                if sh is not None:
+                    snode = f"struct:{sh}"
+                    nodes.append(snode)
+                    struct_by_split.setdefault(sh, set()).add(sname)
+            if check_prompt_exact:
+                for pkey in ("public_prompt", "prompt", "rendered_text"):
+                    pval = rec.get(pkey)
+                    if isinstance(pval, str) and pval.strip():
+                        ph = sha256(pval.strip().encode("utf-8")).hexdigest()
+                        nodes.append(f"prompt:{ph}")
+                        prompt_by_split.setdefault(ph, set()).add(sname)
+                        break
             if not nodes:
                 nodes = [f"rec:{split_name}:{idx}"]
             head = nodes[0]
@@ -440,7 +709,20 @@ def validate_cohort_and_split_transitivity(
                 }
             )
 
+    structural_leaks = [
+        {"structural_hash": sh, "splits": sorted(sp_set)}
+        for sh, sp_set in sorted(struct_by_split.items())
+        if len(sp_set) > 1
+    ]
+    prompt_leak_count = sum(1 for sp_set in prompt_by_split.values() if len(sp_set) > 1)
+
     passed = len(leaks) == 0
+    if fail_closed and not passed:
+        raise ValueError(
+            f"SPLIT_DISJOINTNESS_VIOLATION: {len(leaks)} cross-split leak(s) detected "
+            f"(structural={len(structural_leaks)}, prompt={prompt_leak_count})"
+        )
+
     return {
         "schema": "anra-planthir-cohort-transitivity-v1",
         "passed": passed,
@@ -449,7 +731,31 @@ def validate_cohort_and_split_transitivity(
         "component_count": len(comp_to_splits),
         "leak_count": len(leaks),
         "leaks": leaks,
+        "structural_leak_count": len(structural_leaks),
+        "structural_leaks": structural_leaks,
+        "prompt_leak_count": prompt_leak_count,
     }
+
+
+def verify_split_disjointness(
+    splits: Mapping[str, Sequence[Mapping[str, Any]]],
+    *,
+    structural_hash_fn: Callable[[Mapping[str, Any]], str | None] | None = None,
+    check_structural_isomorphism: bool = True,
+    check_prompt_exact: bool = True,
+    cohorts: Sequence[CohortClusterSpec] = (),
+    fail_closed: bool = True,
+) -> dict[str, Any]:
+    """Fail-closed split-disjointness verifier catching ID, exact-prompt, and isomorphic AST/graph/Horn leaks."""
+
+    return validate_cohort_and_split_transitivity(
+        splits,
+        cohorts=cohorts,
+        structural_hash_fn=structural_hash_fn,
+        check_structural_isomorphism=check_structural_isomorphism,
+        check_prompt_exact=check_prompt_exact,
+        fail_closed=fail_closed,
+    )
 
 
 def _student_t_pdf(t: float, df: int) -> float:
@@ -1229,9 +1535,14 @@ __all__ = [
     "audit_typed_experimental_design",
     "bootstrap_paired_families",
     "build_paired_seed_observations",
+    "canonical_ast_hash",
+    "canonical_graph_isomorphism_hash",
+    "canonical_horn_clause_hash",
+    "canonical_structural_hash",
     "compare_paired_episode_records",
     "exact_mcnemar_test",
     "holm_bonferroni_adjust",
     "run_paired_comparison_preflight",
     "validate_cohort_and_split_transitivity",
+    "verify_split_disjointness",
 ]
