@@ -399,3 +399,7 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 - Verified `10/10` (`AVENDI_Y3_ANALYSIS (2).zip`, SHA-256 `fad1f353...`) and `339/339` (`AVENDI_Y3_EVIDENCE (1).zip`, SHA-256 `a518838f...`) `SHA256SUMS` digests with `0` mismatches/missing across the clean `4,132.65 s` single-session Kaggle 2xT4 run (`60e8cb27`).
 - Published complete P0–P7 metrics and audit tables in [RESULTS.md](Experiment%20Result/Avendi-V8-Y3/y3-full-88of88/RESULTS.md) & [METRICS.json](Experiment%20Result/Avendi-V8-Y3/y3-full-88of88/METRICS.json) (`88/88` executed, `79/88` jobs & `36/50` studies independently verified, verified `CONFIRM_LOCK.json` across `33` models).
 - Documented unverified audit dispositions (`P1-frozen` rejected on read-only Y1 `analysis/jobs` without `ELENDRIL_V8_Y1_EVIDENCE.zip` blocking `U07..U14`, and `P6-adapt-*` logging inherited `1024 != 256` updates) and updated `Experiment Result/README.md` & `README.md`.
+
+### 2026-11-24 | Codex | Y3 fixture audit and Y4 execution plan
+- Reproduced the P4 oracle failure, P5 public-prefix shortcut and P4/P6 batch sampling defect. Verified both supplied archive manifests.
+- Wrote the Gemini Y4 protocol for 126 jobs, 50 studies and 44 platform uses. CPU fixture checks completed. Y4 implementation and owner GPU execution are pending.
