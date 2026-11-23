@@ -480,15 +480,42 @@ def prune_completed_job_artifacts(
     *,
     keep_latest: bool = True,
     keep_milestones: bool = True,
+    strip_final_optimizer: bool = False,
+    preserve_final_optimizer: bool = True,
+    child_job_ids: Sequence[str] = (),
+    completed_updates: int | None = None,
+    full_job_updates: int | None = None,
 ) -> dict[str, Any]:
-    """Remove redundant `PREVIOUS` pointers and unreferenced `objects/<sha>` directories, never deleting receipts."""
+    """Remove redundant `PREVIOUS` pointers/unreferenced objects, with dependency-aware leaf optimizer stripping."""
 
     root = Path(job_root)
     lp_root = win_long_path(root)
     removed_files = 0
     freed_bytes = 0
+
+    preservation_reasons: list[str] = []
+    if preserve_final_optimizer:
+        preservation_reasons.append("EXPLICIT_PRESERVE_FINAL_OPTIMIZER")
+    child_list = sorted({str(c).strip() for c in child_job_ids if str(c).strip()})
+    if child_list:
+        preservation_reasons.append(f"HAS_DOWNSTREAM_CHILDREN:{','.join(child_list)}")
+    if completed_updates is not None and full_job_updates is not None and int(completed_updates) < int(full_job_updates):
+        preservation_reasons.append(f"INCOMPLETE_FULL_JOB_UPDATES:{int(completed_updates)}<{int(full_job_updates)}")
+
+    can_strip_opt = bool(strip_final_optimizer) and not preservation_reasons
+    compaction_receipts: list[dict[str, Any]] = []
+    optimizer_stripped = False
+
     if not lp_root.exists():
-        return {"job_root": str(root), "removed_files": 0, "freed_bytes": 0}
+        return {
+            "job_root": str(root),
+            "removed_files": 0,
+            "freed_bytes": 0,
+            "optimizer_stripped": False,
+            "optimizer_preserved": bool(preservation_reasons) or not strip_final_optimizer,
+            "preservation_reasons": preservation_reasons,
+            "compaction_receipts": compaction_receipts,
+        }
 
     lineage_dirs: list[Path] = []
     if _is_lineage_dir(root):
@@ -509,15 +536,47 @@ def prune_completed_job_artifacts(
         objs_dir = win_long_path(lin_dir / "objects")
         if objs_dir.is_dir():
             for child in sorted(objs_dir.iterdir(), key=lambda p: p.name):
-                if not child.is_dir() or not _HEX64_RE.match(child.name) or child.name in kept_shas:
+                if not child.is_dir() or not _HEX64_RE.match(child.name):
                     continue
-                for sub_f in child.rglob("*"):
-                    if sub_f.is_file():
-                        freed_bytes += int(os.path.getsize(sub_f))
+                if child.name not in kept_shas:
+                    for sub_f in child.rglob("*"):
+                        if sub_f.is_file():
+                            freed_bytes += int(os.path.getsize(sub_f))
+                            removed_files += 1
+                    shutil.rmtree(child, ignore_errors=True)
+                    continue
+                if can_strip_opt:
+                    opt_file = win_long_path(child / "optimizer.bin")
+                    if opt_file.is_file():
+                        opt_bytes = int(os.path.getsize(opt_file))
+                        opt_file.unlink(missing_ok=True)
+                        freed_bytes += opt_bytes
                         removed_files += 1
-                shutil.rmtree(child, ignore_errors=True)
+                        optimizer_stripped = True
+                        rec = {
+                            "schema": "anra-planthir-leaf-compaction-v1",
+                            "object_sha": child.name,
+                            "stripped_components": ["optimizer.bin"],
+                            "inference_and_weights_only": True,
+                            "freed_bytes": opt_bytes,
+                        }
+                        rec_path = child / "COMPACTION_RECEIPT.json"
+                        tmp_rec = child / f".tmp-COMPACTION_RECEIPT-{os.getpid()}.json"
+                        win_long_path(tmp_rec).write_text(
+                            json.dumps(rec, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+                        )
+                        _atomic_replace(tmp_rec, rec_path)
+                        compaction_receipts.append(rec)
 
-    return {"job_root": str(root), "removed_files": removed_files, "freed_bytes": freed_bytes}
+    return {
+        "job_root": str(root),
+        "removed_files": removed_files,
+        "freed_bytes": freed_bytes,
+        "optimizer_stripped": optimizer_stripped,
+        "optimizer_preserved": (not optimizer_stripped) and (bool(preservation_reasons) or not strip_final_optimizer),
+        "preservation_reasons": preservation_reasons,
+        "compaction_receipts": compaction_receipts,
+    }
 
 
 def mirror_to_working_dir(src_paths: Sequence[Path | str], working_dir: Path | str) -> list[dict[str, str]]:
