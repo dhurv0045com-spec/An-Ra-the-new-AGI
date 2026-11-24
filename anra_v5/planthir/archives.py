@@ -14,7 +14,7 @@ import zipfile
 
 from anra_v5.elendril.codec import canonical
 
-from .execution import _atomic_replace
+from .execution import _atomic_replace, dump_json_safe
 
 _SAFE_ARCHIVE_MEMBER_MAX_BYTES = 512 * 1024 * 1024
 _SAFE_ARCHIVE_MAX_FILES = 10_000
@@ -101,8 +101,9 @@ def export_session_archives(
     summary_max_bytes: int = 5 * 1024 * 1024,
     include_v6_manifest: bool | None = None,
     write_full_zip: bool = True,
+    strict_summary_cap: bool = False,
 ) -> dict[str, Any]:
-    """Export streaming SHA-256 session bundles (and optional v6-verified SUMMARY/EVIDENCE/FULL ZIPs)."""
+    """Export streaming SHA-256 session bundles (writing FULL/EVIDENCE/ANALYSIS before capped SUMMARY)."""
 
     out = Path(output_dir)
     win_long_path(out).mkdir(parents=True, exist_ok=True)
@@ -220,14 +221,6 @@ def export_session_archives(
         archive_paths["analysis"] = str(a_zip)
         archive_hashes["analysis"] = a_sha
 
-    if summary_files is not None:
-        s_zip = out / f"{prefix}_SUMMARY.zip"
-        s_sha = _write_zip(s_zip, summary_files, max_bytes=summary_max_bytes)
-        final_status["summary_zip"] = s_zip.name
-        final_status["summary_zip_sha256"] = s_sha
-        archive_paths["summary"] = str(s_zip)
-        archive_hashes["summary"] = s_sha
-
     if evidence_files is not None:
         e_zip = out / f"{prefix}_EVIDENCE.zip"
         e_sha = _write_zip(e_zip, evidence_files)
@@ -244,24 +237,62 @@ def export_session_archives(
         archive_paths["full"] = str(f_zip)
         archive_hashes["full"] = f_sha
 
-    win_long_path(out / "FINAL_STATUS.json").write_text(
-        json.dumps(final_status, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    summary_compacted = False
+    summary_omitted_for_cap: list[str] = []
+    used_summary_files: Mapping[str, Path | str] | None = summary_files
+    if summary_files is not None:
+        s_zip = out / f"{prefix}_SUMMARY.zip"
+        try:
+            s_sha = _write_zip(s_zip, summary_files, max_bytes=summary_max_bytes)
+        except ValueError as exc:
+            if strict_summary_cap or "exceeds cap" not in str(exc):
+                raise
+            core_summary_names = {
+                "FINAL_STATUS.json",
+                "RESULTS.md",
+                "METRICS.json",
+                "CAMPAIGN_STATUS.json",
+                "REGISTERED_PLAN_STATUS.json",
+                "CONFIRM_LOCK.json",
+                "STAGE_GATES.json",
+                "PENDING_QUEUE.json",
+                "BLOCKED_JOBS.json",
+                "U0000_SMOKE_RECEIPT.json",
+                "STAGE5_PREFLIGHT_RECEIPT.json",
+                "PREPARED_MANIFEST.json",
+                "SESSION_ADMISSION_PLAN.json",
+                "VERIFIED_RESUME_RECEIPT.json",
+            }
+            core_summary_files = {
+                k: v
+                for k, v in summary_files.items()
+                if str(k) in core_summary_names or PurePosixPath(str(k)).name in core_summary_names
+            }
+            summary_compacted = True
+            summary_omitted_for_cap = sorted(set(str(k) for k in summary_files) - set(str(k) for k in core_summary_files))
+            used_summary_files = core_summary_files
+            s_sha = _write_zip(s_zip, core_summary_files, max_bytes=summary_max_bytes)
+        final_status["summary_zip"] = s_zip.name
+        final_status["summary_zip_sha256"] = s_sha
+        archive_paths["summary"] = str(s_zip)
+        archive_hashes["summary"] = s_sha
+
+    win_long_path(out / "FINAL_STATUS.json").write_text(dump_json_safe(final_status), encoding="utf-8")
     receipt = {
         "schema": "anra-planthir-delivery-receipt-v1",
         "verified": True,
         "v6_manifest_embedded": bool(use_v6),
+        "summary_compacted": summary_compacted,
+        "summary_omitted_for_cap": summary_omitted_for_cap,
         "final_status": final_status,
         "archives": archive_paths,
         "archive_sha256": archive_hashes,
         "analysis_entries": sorted(a_map),
-        "summary_entries": sorted(summary_files) if summary_files is not None else [],
+        "summary_entries": sorted(used_summary_files) if used_summary_files is not None else [],
         "evidence_entries": sorted(evidence_files) if evidence_files is not None else [],
         "full_entries": sorted(f_map) if write_full_zip else [],
     }
-    win_long_path(out / "DELIVERY_RECEIPT.json").write_text(
-        json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    win_long_path(out / "DELIVERY_RECEIPT.json").write_text(dump_json_safe(receipt), encoding="utf-8")
     return receipt
 
 

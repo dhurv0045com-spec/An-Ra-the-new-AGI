@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from fractions import Fraction
 import json
+import operator
 import re
 from typing import Any, Callable, Mapping, Sequence
+
+from anra_v5.elendril.representation import SpecialToken, UTF8
 
 from .contracts import UniversalAction, UniversalObservation
 
@@ -656,8 +660,54 @@ class TypedByteSequenceKernel:
         return ()
 
 
+def decode_generated_bytes(
+    token_ids: Iterable[Any],
+    *,
+    stop_chars: Sequence[str] = ("\n",),
+    strip_whitespace: bool = True,
+    stop_on_special_answer: bool = True,
+) -> dict[str, Any]:
+    """Decode unconstrained autoregressive UTF-8 byte token emissions without crashing on non-UTF-8 bytes."""
+
+    ans_id = UTF8.special(SpecialToken.ANSWER)
+    collected: list[Any] = []
+    valid_byte_ids: list[int] = []
+    terminated_by_eos = False
+
+    for raw_tok in token_ids:
+        if isinstance(raw_tok, bool):
+            collected.append(raw_tok)
+            continue
+        try:
+            tok = operator.index(raw_tok)
+        except TypeError:
+            collected.append(raw_tok)
+            continue
+        if tok == UTF8.eos_id or (stop_on_special_answer and tok == ans_id):
+            terminated_by_eos = True
+            break
+        if tok in (UTF8.pad_id, UTF8.bos_id):
+            continue
+        if UTF8.is_ascii_stop_token(tok, stop_chars):
+            terminated_by_eos = True
+            break
+        collected.append(tok)
+        if 4 <= tok < UTF8.vocabulary_size:
+            valid_byte_ids.append(tok)
+
+    raw_text, valid_utf8 = UTF8.decode_lossy(collected, strip_special=True)
+    return {
+        "text": raw_text.strip() if strip_whitespace else raw_text,
+        "raw_text": raw_text,
+        "valid_utf8": bool(valid_utf8),
+        "terminated_by_eos": bool(terminated_by_eos),
+        "generated_bytes": len(valid_byte_ids),
+    }
+
+
 __all__ = [
     "TypedByteSequenceKernel",
+    "decode_generated_bytes",
     "infer_public_byte_bound",
     "normalize_typed_value",
     "parse_typed_output_envelope",

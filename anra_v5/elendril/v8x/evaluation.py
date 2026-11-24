@@ -253,11 +253,18 @@ class X1S20ObservablePolicy:
         self.lesion_mode = lesion_mode
         self.recurrent_steps_override = recurrent_steps_override
         self.policy_id = f"{model_identity}:{x1_spec.architecture}:{mode}"
-        self._b0 = (
-            V8BytePolicy(model, type("_S", (), {"architecture": "B0", "max_sequence_length": x1_spec.max_sequence_length})(), model_identity=model_identity, mode=mode)
-            if x1_spec.architecture == "B0"
-            else None
-        )
+        if x1_spec.architecture == "B0":
+            from anra_v5.elendril.v8.contracts import V8ModelSpec
+
+            self.v8_spec = V8ModelSpec(
+                architecture="B0",
+                base_spec=x1_spec.base_spec,
+                vocabulary_size=x1_spec.base_spec.vocabulary_size,
+                max_sequence_length=x1_spec.max_sequence_length,
+            )
+            self._b0 = V8BytePolicy(model, self.v8_spec, model_identity=model_identity, mode=mode)
+        else:
+            self._b0 = None
 
     @property
     def device(self) -> torch.device:

@@ -135,11 +135,16 @@ from .evidence import (
     write_tier1_summary,
     write_tier2_diagnostic_capsule,
 )
+from .execution import dump_json_safe, sanitize_for_json
 from .instrument import (
+    ADVERSARIAL_BYTE_SEQUENCES,
     audit_sampled_strata,
     run_fault_injection_suite,
+    run_level7_runtime_shield_suite,
     run_scientific_shortcut_calibration,
     score_crossover_panel,
+    validate_byte_decoder_resilience,
+    validate_end_to_end_lifecycle,
     validate_environment_kernel,
     validate_fp16_autocast_forward_backward,
     validate_metric_aggregator,
@@ -192,6 +197,7 @@ from .resources import (
 from .scheduler import IndependentWorkerScheduler, WorkerJobSpec, run_scheduled_workers
 from .scoring import (
     TypedByteSequenceKernel,
+    decode_generated_bytes,
     infer_public_byte_bound,
     normalize_typed_value,
     parse_typed_output_envelope,
@@ -235,6 +241,7 @@ from .validation_study import (
 )
 
 __all__ = [
+    "ADVERSARIAL_BYTE_SEQUENCES",
     "BACKEND_CONTRACT_VERSION",
     "BUNDLE_POINTER_NAME",
     "BUNDLE_POINTER_SCHEMA",
@@ -341,8 +348,10 @@ __all__ = [
     "compute_effective_rank",
     "compute_representation_isotropy",
     "ConfirmLock",
+    "decode_generated_bytes",
     "default_protocol_manifest",
     "detect_truth_leaks",
+    "dump_json_safe",
     "estimate_token_fuel_savings",
     "exact_mcnemar_test",
     "ExperimentModule",
@@ -391,6 +400,7 @@ __all__ = [
     "run_exp_004_live_gpu_cartridge_validation",
     "run_fault_injection_suite",
     "run_invariance_counterfactuals",
+    "run_level7_runtime_shield_suite",
     "run_oracle_information_intervention",
     "run_paired_comparison_preflight",
     "run_representation_linear_probe",
@@ -400,6 +410,7 @@ __all__ = [
     "run_surgical_mechanism_ablation",
     "run_validation_study",
     "safe_extract_planthir_archive",
+    "sanitize_for_json",
     "scaffold_experiment_module",
     "score_crossover_panel",
     "score_typed_output",
@@ -410,7 +421,9 @@ __all__ = [
     "stream_raw_evidence_chunks",
     "summarize_diagnostic_coverage",
     "synthesize_scientific_interpretation",
+    "validate_byte_decoder_resilience",
     "validate_cohort_and_split_transitivity",
+    "validate_end_to_end_lifecycle",
     "validate_environment_kernel",
     "validate_fp16_autocast_forward_backward",
     "validate_metric_aggregator",

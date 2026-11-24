@@ -91,16 +91,16 @@ class AvendiY4ByteModel(nn.Module):
         k_vec = self.ptr_key(hidden)    # (B, T, W)
         b_sz, seq_l, wid = hidden.shape
         attn_raw = torch.bmm(q_vec, k_vec.transpose(1, 2)) / math.sqrt(max(1, wid))
-        causal = torch.triu(torch.full((seq_l, seq_l), -1e9, device=token_ids.device, dtype=attn_raw.dtype), diagonal=1)
-        attn_w = F.softmax(attn_raw + causal.unsqueeze(0), dim=-1)  # (B, T, T)
-        span_p = F.softmax(self.span_head(hidden), dim=-1)  # role weights (B, T, 4)
+        causal = torch.triu(torch.full((seq_l, seq_l), -1e9, device=token_ids.device, dtype=torch.float32), diagonal=1)
+        attn_w = F.softmax(attn_raw.float() + causal.unsqueeze(0), dim=-1)  # (B, T, T) in FP32
+        span_p = F.softmax(self.span_head(hidden).float(), dim=-1)  # role weights (B, T, 4) in FP32
         # Encourage pointer attention onto positions tagged with value role (class 2) and scatter their next tokens
         val_attn = attn_w * span_p[:, :, 2].unsqueeze(1)
         val_attn = val_attn / val_attn.sum(-1, keepdim=True).clamp_min(1e-6)
-        tok_oh = F.one_hot(token_ids.clamp(0, UTF8.vocabulary_size - 1), num_classes=UTF8.vocabulary_size).to(attn_raw.dtype)
+        tok_oh = F.one_hot(token_ids.clamp(0, UTF8.vocabulary_size - 1), num_classes=UTF8.vocabulary_size).to(torch.float32)
         ptr_vocab = torch.bmm(val_attn, tok_oh)  # (B, T, 260)
-        gate = torch.sigmoid(self.ptr_gate(hidden)) * (0.15 if self.use_aux else 0.01)
-        mixed = base_logits + gate * torch.log(ptr_vocab.clamp_min(1e-6))
+        gate = torch.sigmoid(self.ptr_gate(hidden).float()) * (0.15 if self.use_aux else 0.01)
+        mixed = base_logits.float() + gate * torch.log(ptr_vocab.clamp_min(1e-6))
         return mixed, hidden, [hidden.detach()]
 
     def forward(self, token_ids: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -254,7 +254,10 @@ def decode_y4_byte_continuations(
             break
     exact_eos = gen == [*gold_ids, UTF8.eos_id]
     content = [t for t in gen if t >= 4]
-    decoded_str = UTF8.decode(content) if content else "?"
+    if content:
+        decoded_str, decoded_valid = UTF8.decode_lossy(content, strip_special=True)
+    else:
+        decoded_str, decoded_valid = "?", True
     err = "none" if exact_eos else ("termination" if gen and gen[-1] != UTF8.eos_id and content == gold_ids else ("action_class" if gen and gen[0] not in LEGAL_FIRST_BYTES else "wrong_entity"))
     return {
         "first_logits_260": step0.cpu().numpy().astype(np.float32),
@@ -262,6 +265,7 @@ def decode_y4_byte_continuations(
         "first_byte_rank": first_byte_rank,
         "generated_ids": gen,
         "decoded": decoded_str,
+        "valid_utf8": decoded_valid,
         "exact_eos": exact_eos,
         "first_error": err,
     }
@@ -351,10 +355,10 @@ def parse_bytes_with_model(model: AvendiY4ByteModel, cell: Mapping[str, Any]) ->
                 cur.append(pids[pos])
             else:
                 if cur:
-                    out.append(UTF8.decode(cur))
+                    out.append(UTF8.decode_lossy(cur, strip_special=True)[0])
                     cur = []
         if cur:
-            out.append(UTF8.decode(cur))
+            out.append(UTF8.decode_lossy(cur, strip_special=True)[0])
         return out
 
     keys, vals, qs = _runs(1), _runs(2), _runs(3)
@@ -395,8 +399,8 @@ class Y4TypedCompositionModel(nn.Module):
             q_vec = self.q_proj(cur_state)
         k_vec = self.k_proj(rk_emb)  # (B, R, W)
         scores = torch.bmm(q_vec.unsqueeze(1), k_vec.transpose(1, 2)).squeeze(1) / math.sqrt(self.width)
-        scores = scores.masked_fill(~valid_mask, -1e9)
-        attn = F.softmax(scores, dim=-1) * valid_mask.float()
+        scores_f32 = scores.float().masked_fill(~valid_mask, -1e9)
+        attn = F.softmax(scores_f32, dim=-1) * valid_mask.float()
         attn = attn / attn.sum(-1, keepdim=True).clamp_min(1e-9)
         if self.arch == "categorical":
             rv_safe = rv_idx.clamp(0, self.vocab_size - 1)
@@ -406,12 +410,13 @@ class Y4TypedCompositionModel(nn.Module):
                 nxt = F.one_hot(nxt.argmax(-1), num_classes=self.vocab_size).float()
             logits = torch.log(nxt.clamp_min(1e-7))
             return nxt, logits
-        pooled = torch.bmm(attn.unsqueeze(1), rv_emb).squeeze(1)
+        pooled = torch.bmm(attn.unsqueeze(1).to(rv_emb.dtype), rv_emb).squeeze(1)
+        cur_aligned = cur_state.to(pooled.dtype)
         if self.arch == "continuous":
-            nxt = self.gru(pooled, cur_state)
+            nxt = self.gru(pooled, cur_aligned)
         else:
             blk = self.blocks[0 if step_idx == 0 else 1]  # Explicitly reuse block 2 beyond step 2
-            nxt = cur_state + blk(torch.cat([cur_state, pooled], dim=-1))
+            nxt = cur_aligned + blk(torch.cat([cur_aligned, pooled], dim=-1))
         return nxt, self.out_head(nxt)
 
     def forward_trace(

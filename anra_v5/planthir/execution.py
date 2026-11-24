@@ -1,10 +1,12 @@
 """Durable, single-writer execution metadata and update journals."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import math
 import os
 from pathlib import Path
 import tempfile
@@ -13,6 +15,63 @@ import uuid
 from typing import Any, Iterator
 
 from v5_training.checkpoint_lock import checkpoint_writer
+
+
+def sanitize_for_json(obj: Any) -> Any:
+    """Recursively convert Tensors, NumPy scalars/arrays, Paths, NaN/Inf floats, and sets to strict JSON values."""
+
+    if obj is None or isinstance(obj, bool):
+        return obj
+    if isinstance(obj, int):
+        return int(obj)
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, (bytes, bytearray)):
+        return bytes(obj).decode("utf-8", errors="replace")
+    if isinstance(obj, Mapping):
+        return {str(k): sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set, frozenset)):
+        return [sanitize_for_json(v) for v in obj]
+    if hasattr(obj, "detach") and hasattr(obj, "cpu") and hasattr(obj, "numel"):
+        t = obj.detach().cpu()
+        n = int(t.numel())
+        if t.ndim == 0 or n == 1:
+            return sanitize_for_json(t.reshape(()).item()) if n == 1 else []
+        if n <= 4096:
+            return sanitize_for_json(t.tolist())
+        return {
+            "__tensor__": True,
+            "shape": [int(d) for d in t.shape],
+            "dtype": str(t.dtype),
+            "numel": n,
+        }
+    if hasattr(obj, "tolist") and hasattr(obj, "shape") and hasattr(obj, "size"):
+        n = int(obj.size)
+        if getattr(obj, "ndim", None) == 0:
+            return sanitize_for_json(obj.item())
+        if n <= 4096:
+            return sanitize_for_json(obj.tolist())
+        return {
+            "__ndarray__": True,
+            "shape": [int(d) for d in obj.shape],
+            "dtype": str(obj.dtype),
+            "size": n,
+        }
+    if hasattr(obj, "item") and callable(getattr(obj, "item")):
+        scalar = obj.item()
+        if scalar is not obj:
+            return sanitize_for_json(scalar)
+    return str(obj)
+
+
+def dump_json_safe(obj: Any, *, indent: int | None = 2) -> str:
+    """Serialize any Python/PyTorch/NumPy telemetry object to deterministic strict JSON text."""
+
+    return json.dumps(sanitize_for_json(obj), indent=indent, sort_keys=True, allow_nan=False) + "\n"
 
 
 def _json_bytes(value: Any) -> bytes:

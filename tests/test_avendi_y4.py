@@ -410,3 +410,80 @@ def test_recovery_y1_decoy_two_lane_failure_and_confirmlock_crash(tmp_path: Path
     assert c2["status"] == "REUSED_SEALED_CONFIRMATION"
     assert c2["result_sha256"] == c1["result_sha256"]
     assert cu2["custody_valid"] is True
+
+
+def test_y4_level7_0xB5_lossy_decoding_and_fp16_autocast_padded_masks() -> None:
+    import ast
+    from anra_v5.palantiri import validate_fp16_autocast_forward_backward
+    from experiments.avendi_y4.models import decode_y4_byte_continuations, parse_bytes_with_model
+    from experiments.avendi_y4.plan import build_y4_notebook
+
+    # 1. decode_y4_byte_continuations survives 0xB5 unconstrained emission
+    spec = get_y4_byte_spec("S3", cpu_canary=True)
+    m_byte = AvendiY4ByteModel(spec, seed=7, use_aux=True)
+
+    def _emit_0xb5(toks: torch.Tensor):
+        b, t = toks.shape
+        lg = torch.full((b, t, UTF8.vocabulary_size), -10.0, dtype=torch.float32)
+        if t <= 4:
+            lg[:, -1, 4 + 0xB5] = 10.0
+        else:
+            lg[:, -1, UTF8.eos_id] = 10.0
+        hid = torch.zeros((b, t, spec.width), dtype=torch.float32)
+        return lg, hid, []
+
+    orig_ft = m_byte.forward_tokens
+    m_byte.forward_tokens = _emit_0xb5  # type: ignore[method-assign]
+    dec = decode_y4_byte_continuations(m_byte, [UTF8.bos_id, 4 + ord("A"), 4 + ord("?")], "A0", "B1", max_new=3)
+    assert dec["valid_utf8"] is False
+    assert "\ufffd" in dec["decoded"]
+    m_byte.forward_tokens = orig_ft  # type: ignore[method-assign]
+
+    # 2. parse_bytes_with_model survives split multi-byte UTF-8 spans without ValueError
+    cell_u = {"public_prompt": "KEY µ || VAL z || Q: µ?", "gold": "z"}
+    orig_sh = m_byte.span_head
+
+    class _SplitSpanHead(torch.nn.Module):
+        def forward(self, h: torch.Tensor) -> torch.Tensor:
+            out = torch.full((h.shape[0], h.shape[1], 4), -5.0, dtype=torch.float32)
+            out[:, :, 0] = 5.0
+            # Force half of 'µ' (2 UTF-8 bytes) to class 1 so run contains lone UTF-8 lead byte
+            if h.shape[1] > 6:
+                out[:, 5, 1] = 10.0
+            return out
+
+    m_byte.span_head = _SplitSpanHead()  # type: ignore[assignment]
+    parsed = parse_bytes_with_model(m_byte, cell_u)
+    assert "rows" in parsed
+    m_byte.span_head = orig_sh  # type: ignore[assignment]
+
+    # 3. FP16 autocast forward/backward across AvendiY4ByteModel + all 3 Y4TypedCompositionModel archs
+    tok_probe = torch.tensor([[UTF8.bos_id, 4 + ord("A"), 4 + ord("B"), 4 + ord("C")]], dtype=torch.long)
+    rep_byte = validate_fp16_autocast_forward_backward(
+        m_byte,
+        lambda mod: mod.forward_tokens(tok_probe)[0][:, -1, :].sum(),
+        active_param_contract={"ptr_gate.weight", "span_head.weight"},
+    )
+    assert rep_byte["passed"] is True, rep_byte
+
+    fams = build_functional_graph_families("cpu_probe", 1, 4400, depths=(3, 4))
+    rk, rv, q, vm, g = encode_y4_typed_batch([fams[0]["cells"][0], fams[0]["cells"][1]], torch.device("cpu"))
+    # Force padding mask False in last column while keeping >=2 valid rows to exercise -1e9 mask under FP16 autocast
+    vm[:, -1] = False
+    for arch in ("categorical", "continuous", "dense"):
+        tm = Y4TypedCompositionModel(arch, width=16, seed=7)
+        rep_tm = validate_fp16_autocast_forward_backward(
+            tm,
+            lambda mod: torch.nn.functional.cross_entropy(mod.forward_trace(rk, rv, q, vm, steps=2)["final_logits"], g),
+        )
+        assert rep_tm["passed"] is True, f"arch={arch} failed FP16 autocast: {rep_tm}"
+
+    # 4. Pinned Y4 notebook defaults to OWNER_AUTHORIZED=True & try/finally crash mirror
+    nb = build_y4_notebook("7" * 40)
+    c1 = "".join(nb["cells"][1]["source"])
+    c2 = "".join(nb["cells"][2]["source"])
+    assert "OWNER_AUTHORIZED = True" in c1
+    assert "CRASH_RECEIPT.json" in c2
+    for cell in nb["cells"]:
+        if cell.get("cell_type") == "code":
+            ast.parse("".join(cell["source"]))

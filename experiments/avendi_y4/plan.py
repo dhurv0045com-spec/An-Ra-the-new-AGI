@@ -219,16 +219,16 @@ def validate_plan_dag(plan: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def build_y4_notebook(source_commit: str) -> dict[str, Any]:
-    """Generate the source-pinned Avendi V8-Y4 Kaggle 2xT4 notebook (`OWNER_AUTHORIZED=False` by default)."""
+    """Generate the source-pinned Avendi V8-Y4 Kaggle 2xT4 notebook (`OWNER_AUTHORIZED=True` by default)."""
     from anra_v5.palantiri import build_pinned_kaggle_notebook
 
-    globs = ("*.zip", "*.sha256", "FINAL_STATUS.json", "PENDING_QUEUE.json", "BLOCKED_JOBS.json", "RESULTS.md", "METRICS.json", "CONFIRM_LOCK.json", "VERIFIED_AUDIT.json", "SESSION_TELEMETRY.json", "PLATFORM_COVERAGE.json")
+    globs = ("*.zip", "*.sha256", "FINAL_STATUS.json", "PENDING_QUEUE.json", "BLOCKED_JOBS.json", "CRASH_RECEIPT.json", "RESULTS.md", "METRICS.json", "CONFIRM_LOCK.json", "VERIFIED_AUDIT.json", "SESSION_TELEMETRY.json", "PLATFORM_COVERAGE.json")
     nb = build_pinned_kaggle_notebook(
         source_commit=source_commit,
         title="Avendi V8-Y4 · Can a Learned Lookup Rule Compose? (Kaggle 2×T4)",
         launch_command="python -m experiments.avendi_y4.module --mode FULL --session-minutes 330",
         inventory_command="python -m experiments.avendi_y4.module --mode FULL --inventory-only",
-        owner_authorized=False,
+        owner_authorized=True,
         repo_url=REPO_URL,
         campaign_mode="FULL",
         session_minutes=330,
@@ -243,10 +243,10 @@ def build_y4_notebook(source_commit: str) -> dict[str, Any]:
     nb["cells"][0]["source"] = [
         "# Avendi V8-Y4 · Can a Learned Lookup Rule Compose? (Kaggle 2×T4)\n",
         f"- Pinned commit: `{source_commit}` · Baseline: `{TECHNOLOGY_BASELINE}`\n",
-        "- Defaults: `OWNER_AUTHORIZED = False` (set `OWNER_AUTHORIZED = True` to run FULL 126-job campaign on 2×T4), `SESSION_MINUTES = 330`, `ONE_GO = True`.\n",
+        "- Defaults: `OWNER_AUTHORIZED = True` (zero-edit FULL 126-job Run All on 2×T4; set `False` for `--inventory-only`), `SESSION_MINUTES = 330`, `ONE_GO = True`.\n",
     ]
     nb["cells"][1]["source"] = [ln + "\n" for ln in [
-        f"SOURCE_SHA = {source_commit!r}", "OWNER_AUTHORIZED = False", "CAMPAIGN_MODE = 'FULL'", "SESSION_MINUTES = 330", "ONE_GO = True", "RESUME_INPUT = None", f"REPO_URL = {REPO_URL!r}",
+        f"SOURCE_SHA = {source_commit!r}", "OWNER_AUTHORIZED = True", "CAMPAIGN_MODE = 'FULL'", "SESSION_MINUTES = 330", "ONE_GO = True", "RESUME_INPUT = None", f"REPO_URL = {REPO_URL!r}",
         "DISCOVER_INPUTS = ['ELENDRIL_V8_Y1_FULL.zip', 'ELENDRIL_V8_Y1_EVIDENCE.zip', 'AVENDI_V8_Y2_EVIDENCE.zip', 'AVENDI_Y3_EVIDENCE (1).zip', 'AVENDI_Y3_FULL.zip']",
         "MIRROR_WORKING = True", f"EXPORT_GLOBS = {list(globs)!r}",
         "import os, shutil, subprocess, sys", "from pathlib import Path",
@@ -272,6 +272,7 @@ def build_y4_notebook(source_commit: str) -> dict[str, Any]:
         "    free_gb = shutil.disk_usage('/kaggle/working' if Path('/kaggle/working').is_dir() else '.').free / 2**30",
         "    assert free_gb >= 4.0, f'Low disk: {free_gb:.2f} GiB'",
         "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'doctor'])",
+        "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'shield'])",
         "    cdir = Path('work/preflight_y4'); cdir.mkdir(parents=True, exist_ok=True); spec_p = cdir / 'spec.json'",
         "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'init', '--backend', 'avendi_y4', '--out', str(spec_p)])",
         "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'validate', '--spec', str(spec_p), '--canary'])",
@@ -283,7 +284,7 @@ def build_y4_notebook(source_commit: str) -> dict[str, Any]:
         "if not globals().get('OWNER_AUTHORIZED', False):",
         "    print('Launch skipped while OWNER_AUTHORIZED = False.')",
         "else:",
-        "    import os, shutil, subprocess, sys",
+        "    import json, os, shutil, subprocess, sys",
         "    from pathlib import Path",
         "    roots = []",
         "    if Path('/kaggle/input').is_dir():",
@@ -294,23 +295,29 @@ def build_y4_notebook(source_commit: str) -> dict[str, Any]:
         "        rc = [str(p) for p in sorted(Path('/kaggle/input').rglob('AVENDI_Y4_FULL.zip')) if p.is_file()]",
         "        if rc: RESUME_INPUT = rc[-1]",
         "    work = Path('/kaggle/working/avendi_y4_run') if Path('/kaggle/working').is_dir() else Path('runs/avendi_y4_run')",
+        "    work.mkdir(parents=True, exist_ok=True)",
         "    cmd = [sys.executable, '-m', 'experiments.avendi_y4.module', '--mode', CAMPAIGN_MODE, '--session-minutes', str(SESSION_MINUTES), '--work-root', str(work)]",
         "    if not globals().get('ONE_GO', True): cmd.append('--no-one-go')",
         "    if RESUME_INPUT: cmd.extend(['--resume-input', str(RESUME_INPUT)])",
         "    if roots: cmd.extend(['--input-roots', ','.join(roots)])",
         "    print('Launching:', ' '.join(cmd))",
-        "    subprocess.check_call(cmd)",
-        "    if MIRROR_WORKING and Path('/kaggle/working').is_dir():",
-        "        top_dir = Path('/kaggle/working')",
-        "        mp = sorted(p for p in (work / 'archives').iterdir() if p.is_file()) if (work / 'archives').is_dir() else []",
-        "        for pat in EXPORT_GLOBS: mp.extend(p for p in sorted(work.glob(pat)) if p.is_file())",
-        "        for src in mp:",
-        "            dst = top_dir / src.name",
-        "            if dst.resolve() != src.resolve():",
-        "                if dst.exists(): dst.unlink()",
-        "                try: os.link(src, dst)",
-        "                except OSError: shutil.copy2(src, dst)",
-        "        print('Mirrored:', sorted(x.name for x in mp))",
+        "    try:",
+        "        subprocess.check_call(cmd)",
+        "    except BaseException as _exc:",
+        "        (work / 'CRASH_RECEIPT.json').write_text(json.dumps({'status': 'INTERRUPTED' if isinstance(_exc, KeyboardInterrupt) else 'FAILED', 'error': f'{type(_exc).__name__}: {_exc}'}, indent=2, sort_keys=True) + '\\n', encoding='utf-8')",
+        "        raise",
+        "    finally:",
+        "        if MIRROR_WORKING and Path('/kaggle/working').is_dir():",
+        "            top_dir = Path('/kaggle/working')",
+        "            mp = sorted(p for p in (work / 'archives').iterdir() if p.is_file()) if (work / 'archives').is_dir() else []",
+        "            for pat in EXPORT_GLOBS: mp.extend(p for p in sorted(work.glob(pat)) if p.is_file())",
+        "            for src in mp:",
+        "                dst = top_dir / src.name",
+        "                if dst.resolve() != src.resolve():",
+        "                    if dst.exists(): dst.unlink()",
+        "                    try: os.link(src, dst)",
+        "                    except OSError: shutil.copy2(src, dst)",
+        "            print('Mirrored:', sorted(x.name for x in mp))",
     ]]
     return nb
 

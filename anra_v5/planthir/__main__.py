@@ -29,7 +29,7 @@ from .agent_tools import (
 )
 from .cartridge import CartridgeRunner
 from .evidence import DEFAULT_RESULT_ZIP_MAX_BYTES, resolve_published_generation, verify_result_bundle
-from .instrument import run_fault_injection_suite
+from .instrument import run_fault_injection_suite, run_level7_runtime_shield_suite
 from .registry import build_historical_atlas
 from .replay import build_custody_receipt, independent_replay_bundle
 from .validation_study import (
@@ -122,7 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_lvl = sub.add_parser("level", help="Print Level-6 platform architecture, subsystems, backends, and quickstart CLI.")
+    p_lvl = sub.add_parser("level", help="Print Level-7 platform architecture, subsystems, backends, and quickstart CLI.")
     p_ai = sub.add_parser("agent-info", help="Print read-only contract derived from dataclasses and registered backends.")
     p_doc = sub.add_parser("doctor", help="Run fast read-only binding & installation integrity self-check (`green_signal`).")
     p_sch = sub.add_parser("schema", help="Print strict anra-planthir-spec-v1 data-only JSON schema.")
@@ -138,7 +138,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_var.add_argument("--no-sidecar", action="store_true", default=False)
     p_var.add_argument("--no-v6-manifest", action="store_true", default=False)
 
-    p_scaf = sub.add_parser("scaffold", help="Generate a runnable Level-6 ExperimentModule plugin package and smoke test.")
+    p_scaf = sub.add_parser("scaffold", help="Generate a runnable Level-7 ExperimentModule plugin package and smoke test.")
     p_scaf.add_argument("--name", required=True)
     p_scaf.add_argument("--out-dir", required=True)
     p_scaf.add_argument("--overwrite", action="store_true", default=False)
@@ -200,7 +200,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_exp = sub.add_parser("explain-error", help="Explain a Planthir validation/runtime error code and remediation.")
     p_exp.add_argument("--code", required=True)
 
-    sub.add_parser("calibrate", help="Run the 6-fault controlled instrument calibration suite on CPU.")
+    sub.add_parser("calibrate", help="Run the 6-fault controlled instrument calibration suite + Level-7 shield on CPU.")
+    sub.add_parser("shield", help="Run the adversarial Level-7 runtime shield suite (0xB5 byte decode, FP16 -1e9, JSON sanitizer, archive caps).")
 
     p_atlas = sub.add_parser("historical-atlas", help="Print historical AN-RA version registry summary.")
     p_atlas.add_argument("--output-json", default=None)
@@ -387,6 +388,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = run_fault_injection_suite()
         _emit(report)
         return 0 if report["all_detected"] else 1
+
+    if args.command == "shield":
+        report = run_level7_runtime_shield_suite()
+        _emit(report)
+        return 0 if report["passed"] else 1
 
     if args.command == "historical-atlas":
         report = build_historical_atlas(output_json=Path(args.output_json) if args.output_json else None)
