@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from enum import Enum
 import math
+import operator
 import re
 from typing import Any
 
@@ -210,6 +211,88 @@ class Tokenizer:
             return bytes(value - 4 for value in ids).decode("utf-8", errors="strict")
         except UnicodeDecodeError as exc:
             raise ValueError("content is not a complete valid UTF-8 sequence") from exc
+
+    @staticmethod
+    def _coerce_token_id(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return None
+        try:
+            return operator.index(value)
+        except TypeError:
+            return None
+
+    def is_ascii_stop_token(self, token_id: Any, stop_chars: Iterable[str] = ("\n",)) -> bool:
+        """Return True iff `token_id` represents an ASCII stop byte without invoking strict UTF-8 decode."""
+        if not self._byte_level:
+            return False
+        tok = self._coerce_token_id(token_id)
+        if tok is None or not 4 <= tok < 132:
+            return False
+        return chr(tok - 4) in stop_chars
+
+    def decode_lossy(
+        self,
+        ids: Iterable[Any],
+        *,
+        strip_special: bool = True,
+        errors: str = "replace",
+    ) -> tuple[str, bool]:
+        """Never-throwing decode for unconstrained neural byte/symbol emissions.
+
+        Returns ``(decoded_text, is_clean_valid_utf8)``. Invalid, truncated, non-UTF-8,
+        or oversized sequences return ``is_clean_valid_utf8=False`` with lossy fallback
+        instead of raising ``ValueError`` / ``UnicodeDecodeError``.
+        """
+        safe_errors = "replace" if errors == "strict" else errors
+        clean = True
+        if not self._byte_level:
+            chars: list[str] = []
+            for index, raw_val in enumerate(ids):
+                if index >= MAX_TEXT_BYTES:
+                    clean = False
+                    break
+                tok = self._coerce_token_id(raw_val)
+                if tok is None:
+                    clean = False
+                    chars.append("?")
+                elif 0 <= tok < 3:
+                    if not strip_special:
+                        clean = False
+                        chars.append("?")
+                elif 3 <= tok < self.vocabulary_size:
+                    chars.append(codec.ALPHABET[tok - 3])
+                else:
+                    clean = False
+                    chars.append("?")
+            return "".join(chars), clean
+
+        buf = bytearray()
+        repl_bytes = b"\xef\xbf\xbd" if safe_errors == "replace" else b""
+        for index, raw_val in enumerate(ids):
+            if index >= MAX_TEXT_BYTES:
+                clean = False
+                break
+            tok = self._coerce_token_id(raw_val)
+            if tok is None:
+                clean = False
+                buf.extend(repl_bytes)
+            elif 0 <= tok < 4:
+                if not strip_special:
+                    clean = False
+                    buf.extend(repl_bytes)
+            elif 4 <= tok < self.vocabulary_size:
+                buf.append(tok - 4)
+            else:
+                clean = False
+                buf.extend(repl_bytes)
+
+        raw = bytes(buf)
+        if not clean:
+            return raw.decode("utf-8", errors=safe_errors), False
+        try:
+            return raw.decode("utf-8", errors="strict"), True
+        except UnicodeDecodeError:
+            return raw.decode("utf-8", errors=safe_errors), False
 
     def incremental_encoder(self, *, max_tokens: int = MAX_TEXT_BYTES) -> IncrementalEncoder:
         return IncrementalEncoder(self, max_tokens=max_tokens)

@@ -1,4 +1,4 @@
-"""Level-6 Front Door (`Palantiri`), read-only campaign dashboard status, and plugin scaffolder."""
+"""Level-7 Front Door (`Palantiri`), read-only campaign dashboard status, and plugin scaffolder."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import re
 from typing import Any, Mapping, Sequence
+
+from anra_v5.elendril.representation import UTF8
 
 from .archives import (
     export_session_archives,
@@ -22,31 +24,37 @@ from .custody import (
     verify_campaign_ledger,
     verify_split_disjointness,
 )
-from .instrument import validate_fp16_autocast_forward_backward
+from .execution import dump_json_safe, sanitize_for_json
+from .instrument import (
+    run_level7_runtime_shield_suite,
+    validate_byte_decoder_resilience,
+    validate_end_to_end_lifecycle,
+    validate_fp16_autocast_forward_backward,
+)
 from .notebooks import build_pinned_kaggle_notebook, verify_pinned_notebook_bytes
 from .reporting import render_campaign_dashboard, rescore_compact_analysis_archive
 from .runtime import build_x1_spec
-from .scoring import infer_public_byte_bound, score_typed_output
+from .scoring import decode_generated_bytes, infer_public_byte_bound, score_typed_output
 
-PLANTHIR_LEVEL = 6
-PLANTHIR_LEVEL_NAME = "Level 6 — Unified Modular Observatory, Custody & Multi-Session Studio"
+PLANTHIR_LEVEL = 7
+PLANTHIR_LEVEL_NAME = "Level 7 — Zero-Late-Crash Pre-Flight, Adversarial Byte/AMP Shield & Crash-Safe Custody"
 _VALID_NAME_RE = re.compile(r"^[a-z][a-z0-9_]{1,48}$")
 
 
 def level_info() -> dict[str, Any]:
-    """Return Level-6 architecture metadata, subsystems, registered backends, capabilities, and quickstart CLI."""
+    """Return Level-7 architecture metadata, subsystems, registered backends, capabilities, and quickstart CLI."""
 
     return {
-        "schema": "anra-planthir-level6-v1",
+        "schema": "anra-planthir-level7-v1",
         "level": PLANTHIR_LEVEL,
         "name": PLANTHIR_LEVEL_NAME,
         "subsystems": {
             "archives": "Streaming v6 archives, dependency-aware CheckpointStore collection/pruning, zero-copy hardlinks & win_long_path",
             "custody": "ConfirmLock tamper-evident cross-session gate, CampaignLedgerVerifier & structural AST/graph/Horn split disjointness",
-            "notebooks": "Preflight-before-launch Kaggle 2xT4 notebook generator & byte verifier",
+            "notebooks": "Preflight-before-launch Kaggle 2xT4 notebook generator, try/finally crash mirror & byte verifier",
             "reporting": "Analyst-first campaign reports, archive rescoring & live Markdown dashboard",
-            "runtime": "ExperimentModule, GenericExperimentTrainer, BytePromptTrainer, CampaignOrchestrator",
-            "scoring": "Exact typed grammar/byte-sequence scoring, public shape bounds & TypedByteSequenceKernel",
+            "runtime": "ExperimentModule, GenericExperimentTrainer (native AMP), BytePromptTrainer, CampaignOrchestrator",
+            "scoring": "Lossy 0xB5-safe byte decoding, exact typed grammar/byte-sequence scoring & TypedByteSequenceKernel",
             "causal_science": "McNemar + Holm-Bonferroni statistics, linear+MLP probe manifolds, N-hop decomposition, convergence guard",
             "studio": "Unified Palantiri facade, read-only status dashboard & runnable plugin scaffolder",
         },
@@ -71,11 +79,19 @@ def level_info() -> dict[str, Any]:
             "cuda_safe_cpu_representation_handoff",
             "trainer_post_step_and_loop_hooks",
             "u0000_fp16_autocast_gate",
+            "lossy_byte_decoding_shield",
+            "sanitize_for_json_telemetry",
+            "archive_full_evidence_before_summary_cap",
+            "notebook_try_finally_crash_mirror",
+            "trainer_native_amp_grad_scaler",
+            "wave_crash_partial_receipt_persistence",
+            "cli_shield_runtime_suite",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
             "python -m anra_v5.palantiri doctor",
             "python -m anra_v5.palantiri calibrate",
+            "python -m anra_v5.palantiri shield",
             "python -m anra_v5.palantiri status --work-root <dir>",
             "python -m anra_v5.palantiri verify-archive --archive <zip>",
             "python -m anra_v5.palantiri scaffold --name <backend_id> --out-dir <dir>",
@@ -94,7 +110,7 @@ def _read_opt_json(path: Path) -> Any:
 
 
 def inspect_campaign_status(work_root: Path | str) -> dict[str, Any]:
-    """Read-only inspection of a Level-6 CampaignOrchestrator / run work directory plus Markdown dashboard."""
+    """Read-only inspection of a Level-7 CampaignOrchestrator / run work directory plus Markdown dashboard."""
 
     root = Path(work_root)
     lp_root = win_long_path(root)
@@ -103,6 +119,7 @@ def inspect_campaign_status(work_root: Path | str) -> dict[str, Any]:
         "STAGE_GATES.json",
         "BLOCKED_JOBS.json",
         "U0000_SMOKE_RECEIPT.json",
+        "STAGE5_PREFLIGHT_RECEIPT.json",
         "CONFIRM_LOCK.json",
         "PENDING_QUEUE.json",
         "FINAL_STATUS.json",
@@ -577,6 +594,34 @@ class Palantiri:
     @staticmethod
     def validate_fp16_autocast(model: Any, loss_fn: Any, **kwargs: Any) -> dict[str, Any]:
         return validate_fp16_autocast_forward_backward(model, loss_fn, **kwargs)
+
+    @staticmethod
+    def decode_lossy(token_ids: Sequence[Any], *, strip_special: bool = True, errors: str = "replace") -> tuple[str, bool]:
+        return UTF8.decode_lossy(token_ids, strip_special=strip_special, errors=errors)
+
+    @staticmethod
+    def decode_generated_bytes(token_ids: Sequence[Any], **kwargs: Any) -> dict[str, Any]:
+        return decode_generated_bytes(token_ids, **kwargs)
+
+    @staticmethod
+    def validate_byte_decoder(decode_fn: Any = None) -> dict[str, Any]:
+        return validate_byte_decoder_resilience(decode_fn=decode_fn)
+
+    @staticmethod
+    def validate_lifecycle(policy: Any, kernel: Any, worlds: Sequence[Mapping[str, Any]], **kwargs: Any) -> dict[str, Any]:
+        return validate_end_to_end_lifecycle(policy, kernel, worlds, **kwargs)
+
+    @staticmethod
+    def runtime_shield() -> dict[str, Any]:
+        return run_level7_runtime_shield_suite()
+
+    @staticmethod
+    def sanitize_json(obj: Any) -> Any:
+        return sanitize_for_json(obj)
+
+    @staticmethod
+    def dump_json_safe(obj: Any, *, indent: int | None = 2) -> str:
+        return dump_json_safe(obj, indent=indent)
 
 
 __all__ = [

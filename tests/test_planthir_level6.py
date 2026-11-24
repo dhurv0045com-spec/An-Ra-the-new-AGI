@@ -53,16 +53,16 @@ def test_level6_facade_metadata_and_alias_parity() -> None:
     import anra_v5.planter as plt
     import anra_v5.planthir as pla
 
-    assert PLANTHIR_LEVEL == 6
-    assert "Level 6" in PLANTHIR_LEVEL_NAME
-    assert Palantiri.level == 6
+    assert PLANTHIR_LEVEL == 7
+    assert "Level 7" in PLANTHIR_LEVEL_NAME
+    assert Palantiri.level == 7
     assert list(pal.__all__) == list(pla.__all__) == list(plt.__all__)
     assert pal.Palantiri is pla.Palantiri
     assert plt.ConfirmLock is pla.ConfirmLock
 
     info = level_info()
-    assert info["schema"] == "anra-planthir-level6-v1"
-    assert info["level"] == 6
+    assert info["schema"] == "anra-planthir-level7-v1"
+    assert info["level"] == 7
     assert set(info["subsystems"]) >= {
         "archives",
         "custody",
@@ -72,8 +72,8 @@ def test_level6_facade_metadata_and_alias_parity() -> None:
         "causal_science",
         "studio",
     }
-    assert Palantiri.doctor()["platform_level"] == 6
-    assert agent_info()["platform_level"] == 6
+    assert Palantiri.doctor()["platform_level"] == 7
+    assert agent_info()["platform_level"] == 7
 
 
 def test_confirm_lock_custody_and_run_registered_plan_integration(tmp_path: Path) -> None:
@@ -500,7 +500,7 @@ def test_cli_level_status_verify_archive_and_scaffold_subprocess(tmp_path: Path)
     # 1. `level` CLI
     p_lvl = _run_cli(["level"])
     lvl_doc = json.loads(p_lvl.stdout)
-    assert lvl_doc["level"] == 6 and lvl_doc["schema"] == "anra-planthir-level6-v1"
+    assert lvl_doc["level"] == 7 and lvl_doc["schema"] == "anra-planthir-level7-v1"
 
     # 2. `scaffold` CLI -> runnable `--backend-module` doctor + init + validate
     pkg_root = tmp_path / "scaffolds"
@@ -535,7 +535,7 @@ def test_cli_level_status_verify_archive_and_scaffold_subprocess(tmp_path: Path)
     assert stat_json["confirm_lock"]["pending_confirm_jobs"] == ["j2"]
 
     stat_md = _run_cli(["status", "--work-root", str(wroot), "--markdown"]).stdout
-    assert "Palantiri Level-6 Campaign Dashboard" in stat_md
+    assert "Palantiri Level-7 Campaign Dashboard" in stat_md
     assert "['j2']" in stat_md
     assert render_campaign_dashboard(stat_json).strip() == stat_md.strip()
 

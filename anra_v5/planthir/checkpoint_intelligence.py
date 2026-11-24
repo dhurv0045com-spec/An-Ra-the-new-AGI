@@ -967,9 +967,8 @@ class LegacyByteObservablePolicy:
     def _decode_emitted_action(self, content_tokens: Sequence[int]) -> tuple[str, str | None]:
         if not content_tokens:
             return ("ABSTAIN", None)
-        try:
-            text = self.tokenizer.decode(content_tokens)
-        except Exception:
+        text, valid = self.tokenizer.decode_lossy(content_tokens, strip_special=True)
+        if not valid or not text:
             return ("ABSTAIN", None)
         if text == "Q":
             return ("QUERY", None)

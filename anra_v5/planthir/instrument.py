@@ -14,6 +14,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import torch
 
+from anra_v5.elendril.representation import SpecialToken, UTF8
 from anra_v5.elendril.v6_registry import MODEL_PROFILES
 from anra_v5.elendril.v8.contracts import PublicInput, build_v8_model_spec
 from anra_v5.elendril.v8.data import build_d1_training_dataset, render_public_v8
@@ -24,7 +25,8 @@ from anra_v5.elendril.v8.training import V8TypedTrainer, prepare_v8_training_dat
 from anra_v5.elendril.foundation_training import Recipe
 
 from .adapters.v8_adapter import V8EnvironmentKernel
-from .contracts import EnvironmentKernel, UniversalObservation
+from .contracts import EnvironmentKernel, ObservablePolicy, UniversalObservation
+from .scoring import decode_generated_bytes
 
 _TOOL_OP_TO_KEY = {"QUERY": "query", "RETRIEVE": "retrieve"}
 
@@ -704,16 +706,19 @@ def run_fault_injection_suite() -> dict[str, Any]:
         })
 
     sci_cal = run_scientific_shortcut_calibration()
+    shield_report = run_level7_runtime_shield_suite()
     detected_count = sum(1 for c in cases if c["detected"])
     return {
         "schema": "anra-planthir-fault-injection-v1",
         "total_faults": len(cases),
         "detected_faults": detected_count,
         "scientific_shortcuts_rejected": bool(sci_cal["passed"]),
-        "all_detected": detected_count == len(cases) and bool(sci_cal["passed"]),
+        "level7_shield_passed": bool(shield_report["passed"]),
+        "all_detected": detected_count == len(cases) and bool(sci_cal["passed"]) and bool(shield_report["passed"]),
         "healthy_v8_kernel_passed": healthy_report["passed"],
         "cases": cases,
         "scientific_shortcut_calibration": sci_cal,
+        "level7_runtime_shield": shield_report,
     }
 
 
@@ -1293,11 +1298,402 @@ def score_crossover_panel(
     }
 
 
+ADVERSARIAL_BYTE_SEQUENCES: tuple[dict[str, Any], ...] = (
+    {
+        "case_id": "lone_continuation_0xB5",
+        "tokens": (1, 4 + 0xB5, 2),
+        "expect_valid_utf8_default": False,
+    },
+    {
+        "case_id": "truncated_2byte_0xC3",
+        "tokens": (4 + ord("A"), 4 + 0xC3, 2),
+        "expect_valid_utf8_default": False,
+    },
+    {
+        "case_id": "truncated_4byte_0xF0_0x9F",
+        "tokens": (4 + 0xF0, 4 + 0x9F, 4 + ord("B"), 2),
+        "expect_valid_utf8_default": False,
+    },
+    {
+        "case_id": "invalid_0xFF_0xFE",
+        "tokens": (4 + 0xFF, 4 + 0xFE, 2),
+        "expect_valid_utf8_default": False,
+    },
+    {
+        "case_id": "embedded_0xB5_with_answer",
+        "tokens": tuple(4 + b for b in b"ANSWER:ok") + (4 + 0xB5, 4 + ord("!"), 2),
+        "expect_valid_utf8_default": False,
+    },
+    {
+        "case_id": "special_tokens_only",
+        "tokens": (0, 1, 3, 2),
+        "expect_valid_utf8_default": True,
+    },
+    {
+        "case_id": "stop_newline_before_bad_byte",
+        "tokens": (4 + ord("4"), 4 + ord("2"), 4 + ord("\n"), 4 + 0xB5, 2),
+        "expect_valid_utf8_default": True,
+    },
+    {
+        "case_id": "empty_sequence",
+        "tokens": (),
+        "expect_valid_utf8_default": True,
+    },
+)
+
+
+def validate_byte_decoder_resilience(
+    decode_fn: Callable[[Sequence[int]], Any] | None = None,
+) -> dict[str, Any]:
+    """Probe a byte decoder against adversarial non-UTF-8 neural token sequences without crashing."""
+
+    decoder = decode_fn if decode_fn is not None else decode_generated_bytes
+    using_default = decode_fn is None
+    defects: list[str] = []
+    case_results: list[dict[str, Any]] = []
+
+    for spec in ADVERSARIAL_BYTE_SEQUENCES:
+        cid = str(spec["case_id"])
+        toks = list(spec["tokens"])
+        exp_valid = bool(spec["expect_valid_utf8_default"])
+        try:
+            raw_out = decoder(toks)
+            if isinstance(raw_out, Mapping):
+                text = str(raw_out.get("text", raw_out.get("raw_text", "")))
+                valid_flag = raw_out.get("valid_utf8")
+            elif isinstance(raw_out, tuple) and len(raw_out) == 2 and isinstance(raw_out[1], bool):
+                text = str(raw_out[0])
+                valid_flag = bool(raw_out[1])
+            elif isinstance(raw_out, str):
+                text = raw_out
+                valid_flag = None
+            else:
+                text = str(raw_out)
+                valid_flag = None
+
+            if using_default and valid_flag is not exp_valid:
+                defects.append(f"unexpected_valid_utf8:{cid}:got={valid_flag!r},expected={exp_valid!r}")
+            elif (not exp_valid) and (valid_flag is True):
+                defects.append(f"false_valid_utf8_reported:{cid}")
+            case_results.append(
+                {
+                    "case_id": cid,
+                    "passed": True,
+                    "text": text,
+                    "valid_utf8": valid_flag,
+                }
+            )
+        except BaseException as exc:
+            err = f"decoder_raised:{cid}:{type(exc).__name__}:{exc}"
+            defects.append(err)
+            case_results.append(
+                {
+                    "case_id": cid,
+                    "passed": False,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+
+    passed = len(defects) == 0 and len(case_results) == len(ADVERSARIAL_BYTE_SEQUENCES)
+    return {
+        "schema": "anra-planthir-byte-decoder-shield-v1",
+        "passed": passed,
+        "status": "PASS" if passed else "INSTRUMENT_DEFECT_DETECTED",
+        "using_default_decoder": using_default,
+        "checked_cases": len(case_results),
+        "cases": case_results,
+        "defects": defects,
+    }
+
+
+def validate_end_to_end_lifecycle(
+    policy: ObservablePolicy,
+    kernel: EnvironmentKernel,
+    worlds: Sequence[Mapping[str, Any]],
+    *,
+    decode_fn: Callable[[Sequence[int]], Any] | None = None,
+    check_json_roundtrip: bool = True,
+) -> dict[str, Any]:
+    """Run integrated pre-flight over byte decoding, kernel contracts, policy rollouts, and JSON serialization."""
+
+    import json
+    from .execution import dump_json_safe
+
+    world_list = [dict(w) for w in worlds]
+    if not world_list:
+        raise ValueError("validate_end_to_end_lifecycle requires at least one world")
+
+    defects: list[str] = []
+    byte_shield = validate_byte_decoder_resilience(decode_fn=decode_fn)
+    if not byte_shield["passed"]:
+        defects.extend(byte_shield["defects"])
+
+    kernel_report = validate_environment_kernel(kernel, world_list)
+    if not kernel_report["passed"]:
+        defects.extend(kernel_report["defects"])
+
+    rollout_records: list[dict[str, Any]] = []
+    for idx, world in enumerate(world_list[:4]):
+        try:
+            if callable(getattr(policy, "reset_episode", None)):
+                policy.reset_episode()  # type: ignore[attr-defined]
+            state = kernel.initial_state(world)
+            actions_taken: list[tuple[str, Any]] = []
+            for _step_i in range(8):
+                is_term = (
+                    bool(kernel.is_terminal(state))
+                    if callable(getattr(kernel, "is_terminal", None))
+                    else (
+                        bool(state.get("terminal", False))
+                        if isinstance(state, Mapping)
+                        else bool(getattr(state, "terminal", False))
+                    )
+                )
+                if is_term:
+                    break
+                obs = kernel.observe(state)
+                if callable(getattr(policy, "propose_with_telemetry", None)):
+                    proposal = policy.propose_with_telemetry(obs)
+                else:
+                    proposal = policy.propose(obs)  # type: ignore[attr-defined]
+                op_name = str(getattr(proposal, "operation", "ABSTAIN"))
+                arg_val = getattr(proposal, "argument", None)
+                actions_taken.append((op_name, arg_val))
+                state = kernel.step(state, op_name, arg_val)
+            ver = kernel.verify(world, actions_taken)
+            rollout_records.append(
+                {
+                    "world_index": idx,
+                    "steps": len(actions_taken),
+                    "verified": dict(ver) if isinstance(ver, Mapping) else {"result": ver},
+                }
+            )
+        except BaseException as exc:
+            defects.append(f"rollout_failed:world_{idx}:{type(exc).__name__}:{exc}")
+
+    json_roundtrip_ok = True
+    if check_json_roundtrip:
+        try:
+            raw_json = dump_json_safe(
+                {
+                    "byte_shield": byte_shield,
+                    "kernel_status": kernel_report["status"],
+                    "rollouts": rollout_records,
+                }
+            )
+            parsed = json.loads(raw_json)
+            json_roundtrip_ok = isinstance(parsed, Mapping)
+        except BaseException as exc:
+            json_roundtrip_ok = False
+            defects.append(f"json_roundtrip_failed:{type(exc).__name__}:{exc}")
+
+    passed = len(defects) == 0 and bool(rollout_records) and json_roundtrip_ok
+    return {
+        "schema": "anra-planthir-lifecycle-preflight-v1",
+        "passed": passed,
+        "status": "PASS" if passed else "INSTRUMENT_DEFECT_DETECTED",
+        "byte_decoder_shield": byte_shield,
+        "kernel_passed": bool(kernel_report["passed"]),
+        "rollouts_checked": len(rollout_records),
+        "json_roundtrip_ok": json_roundtrip_ok,
+        "defects": defects,
+    }
+
+
+def run_level7_runtime_shield_suite() -> dict[str, Any]:
+    """Run adversarial Level-7 regression shields covering 0xB5 decode, FP16 -1e9, JSON NaN/Tensor, and archive caps."""
+
+    import json
+    import torch.nn as nn
+    import torch.nn.functional as F
+
+    from .archives import export_session_archives, verify_session_archive
+    from .execution import dump_json_safe
+
+    cases: list[dict[str, Any]] = []
+
+    # 1. Unconstrained non-UTF-8 byte 0xB5 decoding (strict fails, Level-7 lossy shield survives)
+    strict_raised = False
+    try:
+        UTF8.decode([UTF8.bos_id, 4 + 0xB5, UTF8.eos_id])
+    except ValueError:
+        strict_raised = True
+    strict_caught = validate_byte_decoder_resilience(decode_fn=UTF8.decode)
+    lossy_shield = validate_byte_decoder_resilience()
+    bad_decoded = decode_generated_bytes([UTF8.bos_id, 4 + 0xB5, UTF8.eos_id])
+    case1_passed = (
+        strict_raised
+        and (not strict_caught["passed"])
+        and bool(lossy_shield["passed"])
+        and (bad_decoded["valid_utf8"] is False)
+    )
+    cases.append(
+        {
+            "shield_id": "adversarial_0xB5_byte_emission",
+            "passed": case1_passed,
+            "strict_decode_raised": strict_raised,
+            "strict_detector_blocked": not strict_caught["passed"],
+            "lossy_shield_passed": lossy_shield["passed"],
+            "sample_0xB5_valid_utf8": bad_decoded["valid_utf8"],
+        }
+    )
+
+    # 2. FP16 autocast -1e9 mask overflow caught on uncast half mask and clean on FP32 softmax mask
+    class _UnsafeMaskNet(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.proj = nn.Linear(4, 4)
+
+        def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+            q = self.proj(x)
+            scores = torch.matmul(q, q.transpose(-2, -1))
+            scores = scores.masked_fill(mask, -1e9)
+            probs = F.softmax(scores, dim=-1)
+            return (probs @ q).sum()
+
+    class _SafeMaskNet(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.proj = nn.Linear(4, 4)
+
+        def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+            q = self.proj(x)
+            scores = torch.matmul(q.float(), q.float().transpose(-2, -1))
+            scores = scores.masked_fill(mask, torch.finfo(scores.dtype).min / 2.0)
+            probs = F.softmax(scores, dim=-1)
+            return (probs @ q.float()).sum()
+
+    x_probe = torch.ones((2, 4), dtype=torch.float32)
+    mask_probe = torch.tensor([[False, True], [False, False]], dtype=torch.bool)
+    unsafe_net = _UnsafeMaskNet()
+    safe_net = _SafeMaskNet()
+    unsafe_report = validate_fp16_autocast_forward_backward(
+        unsafe_net,
+        lambda m: m(x_probe, mask_probe),
+    )
+    safe_report = validate_fp16_autocast_forward_backward(
+        safe_net,
+        lambda m: m(x_probe, mask_probe),
+        active_param_contract={"proj.weight", "proj.bias"},
+    )
+    case2_passed = (not unsafe_report["passed"]) and bool(safe_report["passed"])
+    cases.append(
+        {
+            "shield_id": "fp16_autocast_minus_1e9_overflow",
+            "passed": case2_passed,
+            "unsafe_detected": not unsafe_report["passed"],
+            "safe_passed": safe_report["passed"],
+            "unsafe_defects": unsafe_report["defects"],
+        }
+    )
+
+    # 3. JSON sanitization against NaN, Inf, Tensors, Paths, sets, and raw bytes
+    dirty_payload: dict[str, Any] = {
+        "nan_val": float("nan"),
+        "inf_val": float("inf"),
+        "neg_inf_val": float("-inf"),
+        "tensor_scalar": torch.tensor(2.5),
+        "tensor_big": torch.zeros(5000),
+        "path_obj": Path("ckpt/step_001.bin"),
+        "raw_bytes": b"\xb5ok",
+        "tag_set": {"alpha", "beta"},
+    }
+    raw_json_rejected = False
+    try:
+        json.dumps(dirty_payload, allow_nan=False)
+    except (TypeError, ValueError):
+        raw_json_rejected = True
+    safe_text = dump_json_safe(dirty_payload)
+    reparsed = json.loads(safe_text)
+    case3_passed = (
+        raw_json_rejected
+        and reparsed["nan_val"] is None
+        and reparsed["inf_val"] is None
+        and reparsed["neg_inf_val"] is None
+        and abs(float(reparsed["tensor_scalar"]) - 2.5) < 1e-6
+        and reparsed["tensor_big"]["__tensor__"] is True
+        and isinstance(reparsed["tag_set"], list)
+    )
+    cases.append(
+        {
+            "shield_id": "telemetry_json_tensor_nan_inf_sanitizer",
+            "passed": case3_passed,
+            "raw_json_rejected": raw_json_rejected,
+        }
+    )
+
+    # 4. Safe archive ordering (ANALYSIS/EVIDENCE/FULL written before capped SUMMARY compaction)
+    with tempfile.TemporaryDirectory(prefix="l7sh_", ignore_cleanup_errors=True) as tmp:
+        tmp_path = Path(tmp)
+        src_dir = tmp_path / "src"
+        out_dir = tmp_path / "out"
+        src_dir.mkdir(parents=True, exist_ok=True)
+        core_f = src_dir / "CORE_METRICS.json"
+        core_f.write_text('{"ok": true}\n', encoding="utf-8")
+        evid_f = src_dir / "JOB_RECEIPT.json"
+        evid_f.write_text('{"job_id": "j1"}\n', encoding="utf-8")
+        # Incompressible high-entropy payload so SUMMARY cap overflows and triggers compaction
+        huge_f = src_dir / "HEAVY_TRACE.bin"
+        huge_f.write_bytes(random.Random(7).randbytes(64 * 1024))
+
+        receipt = export_session_archives(
+            tmp_path,
+            out_dir,
+            prefix="SHIELD",
+            summary_files={"CORE_METRICS.json": core_f, "HEAVY_TRACE.bin": huge_f},
+            evidence_files={"CORE_METRICS.json": core_f, "JOB_RECEIPT.json": evid_f},
+            analysis_files={"CORE_METRICS.json": core_f},
+            full_files={"CORE_METRICS.json": core_f, "JOB_RECEIPT.json": evid_f, "HEAVY_TRACE.bin": huge_f},
+            status="COMPLETE",
+            source_commit="7" * 40,
+            summary_max_bytes=12 * 1024,
+            strict_summary_cap=False,
+        )
+        ver_full = verify_session_archive(receipt["archives"]["full"], expected_source_commit="7" * 40)
+        ver_evid = verify_session_archive(receipt["archives"]["evidence"], expected_source_commit="7" * 40)
+        ver_sum = verify_session_archive(
+            receipt["archives"]["summary"],
+            max_bytes=12 * 1024,
+            expected_source_commit="7" * 40,
+        )
+        deliv = json.loads((out_dir / "DELIVERY_RECEIPT.json").read_text(encoding="utf-8"))
+        case4_passed = (
+            bool(ver_full["verified"])
+            and bool(ver_evid["verified"])
+            and bool(ver_sum["verified"])
+            and bool(receipt.get("summary_compacted"))
+            and "HEAVY_TRACE.bin" in receipt.get("summary_omitted_for_cap", [])
+            and bool(deliv.get("summary_compacted"))
+        )
+    cases.append(
+        {
+            "shield_id": "archive_full_evidence_before_capped_summary",
+            "passed": case4_passed,
+            "summary_compacted": bool(receipt.get("summary_compacted")),
+            "omitted_for_cap": receipt.get("summary_omitted_for_cap", []),
+        }
+    )
+
+    passed = all(c["passed"] for c in cases)
+    return {
+        "schema": "anra-planthir-level7-runtime-shield-v1",
+        "passed": passed,
+        "status": "LEVEL7_SHIELD_PASS" if passed else "LEVEL7_SHIELD_FAILED",
+        "total_shields": len(cases),
+        "passed_shields": sum(1 for c in cases if c["passed"]),
+        "shields": cases,
+    }
+
+
 __all__ = [
+    "ADVERSARIAL_BYTE_SEQUENCES",
     "audit_sampled_strata",
     "run_fault_injection_suite",
+    "run_level7_runtime_shield_suite",
     "run_scientific_shortcut_calibration",
     "score_crossover_panel",
+    "validate_byte_decoder_resilience",
+    "validate_end_to_end_lifecycle",
     "validate_environment_kernel",
     "validate_fp16_autocast_forward_backward",
     "validate_metric_aggregator",
