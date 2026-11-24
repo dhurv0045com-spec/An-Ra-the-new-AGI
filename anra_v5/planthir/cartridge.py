@@ -756,7 +756,15 @@ class CartridgeRunner:
                 grad_check = initial_record["grad_check"]
             else:
                 loss_fn = active_backend.sample_gradient_loss_fn(trainer, arm, cartridge.train_data, dev_obj)
-                grad_check = validate_model_and_gradients(trainer.model, loss_fn)
+                wants_amp = bool(
+                    active_backend.capabilities().supports_fp16
+                    or str(getattr(arm.recipe, "precision", "fp32")).lower() in ("fp16", "amp", "float16")
+                )
+                grad_check = validate_model_and_gradients(
+                    trainer.model,
+                    loss_fn,
+                    check_fp16_autocast=wants_amp,
+                )
 
             if not grad_check["passed"]:
                 raise RuntimeError(f"Gate 3 gradient check failed for {arm.arm_id}: {grad_check}")

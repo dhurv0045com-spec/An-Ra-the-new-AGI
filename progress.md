@@ -419,3 +419,8 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 - Synced `.detach().cpu()` representation normalization (`causal.py`, `cartridge.py`, `observatory.py`, `validation_study.py`, `runtime.py`), trainer `post_step_hook`/`train_loop`, `build_x1_spec`, `owner_authorized=True`, `include_verify_module`, 3-way docs, and tests.
 - Preserved all existing `hitchhiker` Avendi Y3/Y4 experiment files, notebooks, and non-Palantiri paths untouched.
 - Verified on CPU (`cuda_available=false`): `21 passed in 108.51s` across 4 suites and `doctor` `GREEN_SIGNAL`; live GPU runs pending.
+
+### 2026-11-24 | Antigravity | Sync Palantiri FP16 autocast gate from palantiri (31365341)
+- Synced `instrument.py`, `cartridge.py`, `runtime.py`, `studio.py`, `__init__.py`, 3-way docs, and `test_planthir_fp16_autocast_gate.py` from `palantiri` (`31365341`).
+- Preserved all existing `hitchhiker` Avendi Y3/Y4 experiment files and non-Palantiri paths untouched.
+- Verified on CPU (`cuda_available=false`): `21 passed in 124.46s` across 4 suites and `palantiri doctor` `GREEN_SIGNAL`; live GPU runs pending.
