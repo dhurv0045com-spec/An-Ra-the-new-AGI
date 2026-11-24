@@ -442,3 +442,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced `instrument.py`, `runtime.py`, `studio.py`, `__init__.py`, 3-way docs, and `test_planthir_fp16_autocast_gate.py` from `palantiri` (`31365341`), and surgically patched Gate 3 `check_fp16_autocast=wants_amp` in `Elendril` `cartridge.py`.
 - Preserved all existing `Elendril` V8-X2/X3/FP16-autocast files (`1ea398bc`, `e226a243`, `dc563968`) and divergent `anra_v5/planthir/` helpers untouched.
 - Verified on CPU (`cuda_available=false`): `21 passed in 138.89s` across 4 Palantiri suites, `2 passed, 4 deselected in 3.71s` (`gate5`/`autocast`), and `palantiri doctor` `GREEN_SIGNAL`; live GPU runs pending.
+
+### 2026-11-25 | Antigravity | V8-X3 Safe Byte Decoding on Non-UTF-8 Emissions (Stage 5 0xB5 Fix)
+- Fixed `X3CognitiveModel.generate_bytes` (`experiments/x3/models.py`) to check ASCII stop bytes directly and decode emitted bytes (`4 <= t < 260`) via `errors="strict"` with `errors="replace"` fallback (`valid_utf8: bool`), preventing `UnicodeDecodeError` (`0xB5`) in Stage 5 sealed evaluation.
+- Rebased onto `66167a62` (`8768e715906410986cc25d254fc4cd7272076f1d`), verified `doctor`/`calibrate` + `20 passed in 121.29s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,408` B, `7be4078d...`).
