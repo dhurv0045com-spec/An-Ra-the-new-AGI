@@ -452,3 +452,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Updated `experiments/x3/models.py` (`generate_bytes` using `UTF8.is_ascii_stop_token` + `UTF8.decode_lossy`) and `tools/build_elendril_x3_notebook.py` (`try/except BaseException (CRASH_RECEIPT.json)/finally` `/kaggle/working` salvage mirroring).
 - Verified on CPU (`cuda_available=false`): `25 passed in 156.50s` (`test_x3_recover_compute_stop_20261124.py` + `level7` + `level6` + `manuals` + `fp16`), `doctor` (`GREEN_SIGNAL`, `platform_level=7`), and `shield` (`4/4`); pinned `notebooks/ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` to `0fc53114` (`match=true`, `X3_AST_OK 8`).
 - Pending execution: owner Kaggle 2xT4 X3 FULL GPU launch with R0-R7 datasets.
+
+### 2026-11-25 | Antigravity | Sync Level-7 Manuals, Planthir Docs & V8-X3 README (8485dbb6)
+- Synced Level-7 3-way manuals, `purpose.md`, `ARCHITECTURE_AND_PHILOSOPHY.md`, `Experiment Result/Planthir/README.md`, and `tests/test_planthir_two_agent_manuals.py` from `palantiri` (`7b8af108`) onto `Elendril` (`8485dbb6`).
+- Re-pinned `notebooks/ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`18,729` B, `117b05b2...`, `RESERVE_MINUTES=45`) to `8485dbb6` (`match=true`, `5` AST-checked cells) and updated `Experiment Result/V8-X3/README.md`.
+- Verified on CPU (`cuda_available=false`): `9 passed in 6.74s` docs checks, `32 passed in 90.16s` (`-n auto`) across Level-7/Level-6/manual/FP16/X3/tree suites, and `palantiri shield` (`4/4`); Kaggle 2xT4 GPU launch pending.
