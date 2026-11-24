@@ -446,3 +446,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-25 | Antigravity | V8-X3 Safe Byte Decoding on Non-UTF-8 Emissions (Stage 5 0xB5 Fix)
 - Fixed `X3CognitiveModel.generate_bytes` (`experiments/x3/models.py`) to check ASCII stop bytes directly and decode emitted bytes (`4 <= t < 260`) via `errors="strict"` with `errors="replace"` fallback (`valid_utf8: bool`), preventing `UnicodeDecodeError` (`0xB5`) in Stage 5 sealed evaluation.
 - Rebased onto `66167a62` (`8768e715906410986cc25d254fc4cd7272076f1d`), verified `doctor`/`calibrate` + `20 passed in 121.29s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,408` B, `7be4078d...`).
+
+### 2026-11-25 | Antigravity | Sync Palantiri Level 7 and harden V8-X3 (`0fc53114`)
+- Synced Level-7 `anra_v5` modules, 3-way manuals, and `tests/test_planthir_level6.py` + `tests/test_planthir_level7.py` from `palantiri` (`73bc58ac`), surgically patching diverged `checkpoint_intelligence.py`, `cartridge.py`, `agent_tools.py`, and `__main__.py` while preserving all Elendril V8-X2/X3 helpers (`v8x/data.py`, `v8x/evaluation.py`, `replay.py`).
+- Updated `experiments/x3/models.py` (`generate_bytes` using `UTF8.is_ascii_stop_token` + `UTF8.decode_lossy`) and `tools/build_elendril_x3_notebook.py` (`try/except BaseException (CRASH_RECEIPT.json)/finally` `/kaggle/working` salvage mirroring).
+- Verified on CPU (`cuda_available=false`): `25 passed in 156.50s` (`test_x3_recover_compute_stop_20261124.py` + `level7` + `level6` + `manuals` + `fp16`), `doctor` (`GREEN_SIGNAL`, `platform_level=7`), and `shield` (`4/4`); pinned `notebooks/ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` to `0fc53114` (`match=true`, `X3_AST_OK 8`).
+- Pending execution: owner Kaggle 2xT4 X3 FULL GPU launch with R0-R7 datasets.
