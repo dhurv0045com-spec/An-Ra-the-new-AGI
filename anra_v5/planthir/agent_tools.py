@@ -1637,9 +1637,30 @@ def planthir_doctor() -> dict[str, Any]:
         all_ok = False
         checks["paired_comparison_preflight"] = {"passed": False, "error": str(exc)}
 
+    # 7. Level-7 runtime shield (0xB5 byte decode, FP16 -1e9, JSON NaN/Tensor, archive ordering)
+    try:
+        from .instrument import run_level7_runtime_shield_suite
+
+        l7 = run_level7_runtime_shield_suite()
+        l7_ok = bool(l7.get("passed", False))
+        checks["level7_runtime_shield"] = {
+            "passed": l7_ok,
+            "passed_shields": int(l7.get("passed_shields", 0)),
+            "total_shields": int(l7.get("total_shields", 0)),
+            "shields": [
+                {"shield_id": s["shield_id"], "passed": bool(s["passed"])}
+                for s in l7.get("shields", [])
+            ],
+        }
+        if not l7_ok:
+            all_ok = False
+    except Exception as exc:
+        all_ok = False
+        checks["level7_runtime_shield"] = {"passed": False, "error": str(exc)}
+
     return {
         "schema": "anra-planthir-doctor-v1",
-        "platform_level": 6,
+        "platform_level": 7,
         "green_signal": all_ok,
         "status": "GREEN_SIGNAL" if all_ok else "CHECK_FAILED",
         "mutates_files": False,
@@ -1653,7 +1674,7 @@ def agent_info() -> dict[str, Any]:
 
     return {
         "schema": "anra-planthir-agent-info-v1",
-        "platform_level": 6,
+        "platform_level": 7,
         "inputs": {
             "ExperimentCartridge": _fields(ExperimentCartridge),
             "CartridgeArmSpec": _fields(CartridgeArmSpec),
@@ -1672,6 +1693,8 @@ def agent_info() -> dict[str, Any]:
             "level": {"mutates_files": False, "trains": False},
             "agent-info": {"mutates_files": False, "trains": False},
             "doctor": {"mutates_files": False, "trains": False},
+            "calibrate": {"mutates_files": False, "trains": False},
+            "shield": {"mutates_files": False, "trains": False},
             "status": {"mutates_files": False, "trains": False},
             "verify-archive": {"mutates_files": False, "trains": False},
             "scaffold": {"mutates_files": True, "trains": False},

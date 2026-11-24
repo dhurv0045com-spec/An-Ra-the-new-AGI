@@ -24,6 +24,8 @@ def _launch_and_mirror_lines(
     if use_globals_fallback:
         lines = [
             f"{pad}env_map = dict(globals().get('run_env') or os.environ)\n",
+            f"{pad}if os.environ.get('PLANTHIR_BACKEND_MODULES'):\n",
+            f"{pad}    env_map['PLANTHIR_BACKEND_MODULES'] = os.environ['PLANTHIR_BACKEND_MODULES']\n",
             f"{pad}env_map['PLANTHIR_CAMPAIGN_MODE'] = str(globals().get('CAMPAIGN_MODE', 'FULL'))\n",
             f"{pad}env_map['PLANTHIR_SESSION_MINUTES'] = str(globals().get('SESSION_MINUTES', 300))\n",
             f"{pad}if globals().get('RESUME_INPUT') is not None:\n",
@@ -36,6 +38,8 @@ def _launch_and_mirror_lines(
     else:
         lines = [
             f"{pad}env_map = run_env\n",
+            f"{pad}if os.environ.get('PLANTHIR_BACKEND_MODULES'):\n",
+            f"{pad}    env_map['PLANTHIR_BACKEND_MODULES'] = os.environ['PLANTHIR_BACKEND_MODULES']\n",
             f"{pad}disc_inputs = DISCOVER_INPUTS\n",
             f"{pad}launch_cmd = LAUNCH_CMD\n",
             f"{pad}mirror_work = MIRROR_WORKING\n",
@@ -47,19 +51,26 @@ def _launch_and_mirror_lines(
             f"{pad}    for name in disc_inputs:\n",
             f"{pad}        found = sorted(Path('/kaggle/input').rglob(name))\n",
             f"{pad}        print('KAGGLE_INPUT', name, [str(p) for p in found])\n",
-            f"{pad}subprocess.check_call(launch_cmd, env=env_map)\n",
-            f"{pad}if mirror_work and Path('/kaggle/working').is_dir():\n",
-            f"{pad}    for pat in exp_globs:\n",
-            f"{pad}        for p in sorted(Path('.').glob(pat)):\n",
-            f"{pad}            if p.is_file():\n",
-            f"{pad}                dst = Path('/kaggle/working') / p.name\n",
-            f"{pad}                if p.resolve() != dst.resolve():\n",
-            f"{pad}                    if dst.exists():\n",
-            f"{pad}                        dst.unlink()\n",
-            f"{pad}                    try:\n",
-            f"{pad}                        os.link(p, dst)\n",
-            f"{pad}                    except OSError:\n",
-            f"{pad}                        shutil.copy2(p, dst)\n",
+            f"{pad}try:\n",
+            f"{pad}    subprocess.check_call(launch_cmd, env=env_map)\n",
+            f"{pad}except BaseException as _exc:\n",
+            f"{pad}    import json as _json\n",
+            f"{pad}    Path('CRASH_RECEIPT.json').write_text(_json.dumps({{'schema': 'anra-planthir-crash-receipt-v1', 'error_type': type(_exc).__name__, 'error': str(_exc), 'launch_cmd': list(launch_cmd)}}, indent=2, sort_keys=True) + '\\n', encoding='utf-8')\n",
+            f"{pad}    raise\n",
+            f"{pad}finally:\n",
+            f"{pad}    if mirror_work and Path('/kaggle/working').is_dir():\n",
+            f"{pad}        _mirror_pats = list(dict.fromkeys([*exp_globs, 'CRASH_RECEIPT.json', 'REGISTERED_PLAN_STATUS.json', 'CAMPAIGN_STATUS.json', 'JOB_RECEIPTS.json', 'PENDING_QUEUE.json']))\n",
+            f"{pad}        for pat in _mirror_pats:\n",
+            f"{pad}            for p in sorted(Path('.').glob(pat)):\n",
+            f"{pad}                if p.is_file():\n",
+            f"{pad}                    dst = Path('/kaggle/working') / p.name\n",
+            f"{pad}                    if p.resolve() != dst.resolve():\n",
+            f"{pad}                        if dst.exists():\n",
+            f"{pad}                            dst.unlink()\n",
+            f"{pad}                        try:\n",
+            f"{pad}                            os.link(p, dst)\n",
+            f"{pad}                        except OSError:\n",
+            f"{pad}                            shutil.copy2(p, dst)\n",
         ]
     )
     return lines
@@ -86,6 +97,7 @@ def build_pinned_kaggle_notebook(
     working_export_globs: Sequence[str] = ("*.zip", "*.sha256", "FINAL_STATUS.json"),
     emit_file_links: bool = False,
     backend_modules: Sequence[str] = (),
+    preflight_cuda_canary: bool = False,
 ) -> dict[str, Any]:
     """Generate a deterministic, pinned Kaggle 2xT4 `.ipynb` executing preflight gates BEFORE launch."""
 
@@ -103,7 +115,9 @@ def build_pinned_kaggle_notebook(
     input_names = [str(x) for x in discover_kaggle_inputs]
     export_globs = [str(x) for x in working_export_globs]
     backend_mods = [str(x) for x in backend_modules]
-    has_gate_cell = bool(require_dual_gpu or preflight_canary_backend or backend_mods or preflight_cmds)
+    has_gate_cell = bool(
+        require_dual_gpu or preflight_canary_backend or backend_mods or preflight_cmds or preflight_cuda_canary
+    )
 
     code_lines = [
         f"SOURCE_SHA = {source_commit!r}\n",
@@ -116,6 +130,7 @@ def build_pinned_kaggle_notebook(
         f"DISCOVER_INPUTS = {input_names!r}\n",
         f"MIRROR_WORKING = {bool(mirror_outputs_to_working)!r}\n",
         f"EXPORT_GLOBS = {export_globs!r}\n",
+        f"BACKEND_MODULES = {backend_mods!r}\n",
         f"INVENTORY_CMD = {inv_args!r}\n",
         f"LAUNCH_CMD = {cmd_args!r}\n",
         "from pathlib import Path\n",
@@ -132,6 +147,9 @@ def build_pinned_kaggle_notebook(
         "    os.chdir(str(rp))\n",
         "    if str(Path.cwd()) not in sys.path:\n",
         "        sys.path.insert(0, str(Path.cwd()))\n",
+        "if BACKEND_MODULES:\n",
+        "    _existing_bm = [x.strip() for x in os.environ.get('PLANTHIR_BACKEND_MODULES', '').split(',') if x.strip()]\n",
+        "    os.environ['PLANTHIR_BACKEND_MODULES'] = ','.join(dict.fromkeys([*_existing_bm, *BACKEND_MODULES]))\n",
         "run_env = dict(os.environ)\n",
         "run_env['PLANTHIR_CAMPAIGN_MODE'] = str(CAMPAIGN_MODE)\n",
         "run_env['PLANTHIR_SESSION_MINUTES'] = str(SESSION_MINUTES)\n",
@@ -183,12 +201,14 @@ def build_pinned_kaggle_notebook(
         gate_lines = [
             f"REQUIRE_DUAL_GPU = {bool(require_dual_gpu)!r}\n",
             f"PREFLIGHT_BACKEND = {preflight_canary_backend!r}\n",
+            f"PREFLIGHT_CUDA_CANARY = {bool(preflight_cuda_canary)!r}\n",
             f"BACKEND_MODULES = {backend_mods!r}\n",
             f"PREFLIGHT_COMMANDS = {preflight_cmds!r}\n",
             "import os, shutil, subprocess, sys, torch\n",
             "from pathlib import Path\n",
             "if BACKEND_MODULES:\n",
-            "    os.environ['PLANTHIR_BACKEND_MODULES'] = ','.join(BACKEND_MODULES)\n",
+            "    _existing_bm = [x.strip() for x in os.environ.get('PLANTHIR_BACKEND_MODULES', '').split(',') if x.strip()]\n",
+            "    os.environ['PLANTHIR_BACKEND_MODULES'] = ','.join(dict.fromkeys([*_existing_bm, *BACKEND_MODULES]))\n",
             "if REQUIRE_DUAL_GPU and globals().get('OWNER_AUTHORIZED', False):\n",
             "    assert torch.cuda.device_count() >= 2, f'Expected >=2 GPUs, found {torch.cuda.device_count()}'\n",
             "elif REQUIRE_DUAL_GPU:\n",
@@ -205,6 +225,8 @@ def build_pinned_kaggle_notebook(
             "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'run', '--spec', str(spec_p), '--work-root', str(cdir / 'cpu'), '--canary', '--device', 'cpu'])\n",
             "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'verify-bundle', '--bundle-dir', str(cdir / 'cpu' / 'result_bundle')])\n",
             "    subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'replay-bundle', '--bundle-dir', str(cdir / 'cpu' / 'result_bundle'), '--output', str(cdir / 'REPLAY_RECEIPT.json')])\n",
+            "    if PREFLIGHT_CUDA_CANARY and globals().get('OWNER_AUTHORIZED', False) and torch.cuda.is_available():\n",
+            "        subprocess.check_call([sys.executable, '-m', 'anra_v5.palantiri', 'run', '--spec', str(spec_p), '--work-root', str(cdir / 'cuda'), '--canary', '--device', 'cuda:0'])\n",
             "if globals().get('OWNER_AUTHORIZED', False):\n",
         ]
         gate_lines.extend(

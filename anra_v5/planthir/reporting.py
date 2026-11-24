@@ -341,7 +341,7 @@ def rescore_compact_analysis_archive(
 
 
 def render_campaign_dashboard(status_payload: Mapping[str, Any]) -> str:
-    """Render a scannable Level-6 Markdown campaign status dashboard from `inspect_campaign_status`."""
+    """Render a scannable Level-7 Markdown campaign status dashboard from `inspect_campaign_status`."""
 
     counts = status_payload.get("counts", {})
     lock_info = status_payload.get("confirm_lock") or {}
@@ -350,7 +350,7 @@ def render_campaign_dashboard(status_payload: Mapping[str, Any]) -> str:
     archives = status_payload.get("archives") or {}
 
     lines = [
-        f"# Palantiri Level-6 Campaign Dashboard (`{status_payload.get('campaign_id', 'unknown')}`)",
+        f"# Palantiri Level-7 Campaign Dashboard (`{status_payload.get('campaign_id', 'unknown')}`)",
         "",
         f"- **Work root:** `{status_payload.get('work_root', '')}`",
         f"- **Campaign status:** `{status_payload.get('status', 'UNKNOWN')}`",

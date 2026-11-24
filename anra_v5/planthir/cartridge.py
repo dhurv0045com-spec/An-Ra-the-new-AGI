@@ -60,6 +60,7 @@ from .evidence import (
     verify_tier2_capsule,
 )
 from .instrument import (
+    validate_byte_decoder_resilience,
     validate_environment_kernel,
     validate_metric_aggregator,
     validate_model_and_gradients,
@@ -590,12 +591,17 @@ class CartridgeRunner:
                 "final_accuracy": max(items, key=lambda pair: int(pair[1]["epoch"]))[1]["accuracy"],
             }
         )
+        byte_shield = validate_byte_decoder_resilience()
         gate1 = {
             "gate": "gate1_instrument_integrity",
-            "passed": bool(kernel_check["passed"] and agg_check["passed"]),
+            "passed": bool(kernel_check["passed"] and agg_check["passed"] and byte_shield["passed"]),
             "kernel_id": cartridge.kernel.kernel_id,
-            "checks": {"kernel": kernel_check["checks"], "aggregator": agg_check},
-            "defects": [*kernel_check["defects"], *agg_check["defects"]],
+            "checks": {
+                "kernel": kernel_check["checks"],
+                "aggregator": agg_check,
+                "byte_decoder_shield": byte_shield,
+            },
+            "defects": [*kernel_check["defects"], *agg_check["defects"], *byte_shield["defects"]],
         }
         if not gate1["passed"]:
             raise RuntimeError(f"Gate 1 Instrument Integrity failed: {gate1['defects']}")

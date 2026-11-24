@@ -49,6 +49,8 @@ from .custody import (
     verify_campaign_ledger,
     verify_split_disjointness,
 )
+from .execution import dump_json_safe, sanitize_for_json
+from .instrument import validate_byte_decoder_resilience
 from .notebooks import build_pinned_kaggle_notebook, serialize_pinned_notebook, verify_pinned_notebook_bytes
 from .reporting import (
     build_analyst_first_page_report,
@@ -61,6 +63,7 @@ from .resources import measure_free_disk_bytes
 from .scheduler import IndependentWorkerScheduler, WorkerJobSpec
 from .scoring import (
     TypedByteSequenceKernel,
+    decode_generated_bytes,
     infer_public_byte_bound,
     normalize_typed_value,
     parse_typed_output_envelope,
@@ -101,6 +104,8 @@ class GenericTrainRecipe:
             raise ValueError("GenericTrainRecipe weights/margin must be finite and nonnegative")
         if self.schedule not in ("cosine", "constant"):
             raise ValueError(f"unsupported schedule: {self.schedule!r}")
+        if str(self.precision).lower() not in ("fp32", "fp16", "amp", "float16", "bf16", "bfloat16"):
+            raise ValueError(f"unsupported precision: {self.precision!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,6 +219,14 @@ class GenericExperimentTrainer:
         self.rng = torch.Generator(device="cpu")
         self.rng.manual_seed(int(recipe.seed))
         self.model = model.to(self.device)
+        prec = str(getattr(recipe, "precision", "fp32")).lower()
+        self.precision = prec
+        self.amp_enabled = prec in ("fp16", "amp", "float16", "bf16", "bfloat16")
+        self.amp_dtype = torch.bfloat16 if prec in ("bf16", "bfloat16") else torch.float16
+        self.scaler = torch.amp.GradScaler(
+            "cuda",
+            enabled=(self.device.type == "cuda" and prec in ("fp16", "amp", "float16")),
+        )
         self.optimizer = build_adamw_optimizer(self.model, lr=float(recipe.lr), torch_module=torch)
 
         # Build deterministic epoch-shuffled update plan
@@ -286,6 +299,10 @@ class GenericExperimentTrainer:
             state, payloads = self.store.restore(self.parent)
             self.model.load_state_dict(_load(payloads["model.bin"]), strict=True)
             self.optimizer.load_state_dict(_load(payloads["optimizer.bin"]))
+            if self.scaler.is_enabled():
+                sched_doc = json.loads(payloads["scheduler.json"])
+                if sched_doc.get("scaler"):
+                    self.scaler.load_state_dict(sched_doc["scaler"])
             self.rng.set_state(torch.tensor(list(payloads["rng.bin"]), dtype=torch.uint8))
             self.state = replace(state)
             self.published_update = state.global_update
@@ -337,20 +354,49 @@ class GenericExperimentTrainer:
         chosen = [self.items[i] for i in self.plan[u]]
         micro = max(1, min(len(chosen), int(self.recipe.micro_batch_size)))
         acc_loss = 0.0
+        amp_dev_type = "cuda" if self.device.type == "cuda" else "cpu"
         for start in range(0, len(chosen), micro):
             chunk = chosen[start : start + micro]
             scale = float(len(chunk)) / float(max(1, len(chosen)))
-            scaled_loss, scalar = _compute_loss_from_fn(self.loss_fn, self.model, chunk, self.recipe, scale)
-            scaled_loss.backward()
+            with torch.amp.autocast(device_type=amp_dev_type, dtype=self.amp_dtype, enabled=self.amp_enabled):
+                scaled_loss, scalar = _compute_loss_from_fn(self.loss_fn, self.model, chunk, self.recipe, scale)
+            if self.scaler.is_enabled():
+                self.scaler.scale(scaled_loss).backward()
+            else:
+                scaled_loss.backward()
             acc_loss += scalar
 
+        if self.scaler.is_enabled():
+            self.scaler.unscale_(self.optimizer)
         validate_parameter_ownership(self.model, self.optimizer)
-        norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), float(self.recipe.clip), error_if_nonfinite=True)
-        self.optimizer.step()
+        amp_overflow_skipped = False
+        if self.scaler.is_enabled():
+            norm = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), float(self.recipe.clip), error_if_nonfinite=False
+            )
+            norm_val = float(norm)
+            if not math.isfinite(norm_val):
+                amp_overflow_skipped = True
+                norm_val = 0.0
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            norm = torch.nn.utils.clip_grad_norm_(
+                self.model.parameters(), float(self.recipe.clip), error_if_nonfinite=True
+            )
+            norm_val = float(norm)
+            self.optimizer.step()
         if any(not torch.isfinite(p).all() for p in self.model.parameters()):
             raise FloatingPointError("nonfinite parameter after optimizer step")
 
-        step_meta = {"update": u + 1, "loss": float(acc_loss), "pre_clip": float(norm), "lr": float(lr)}
+        step_meta: dict[str, Any] = {
+            "update": u + 1,
+            "loss": float(acc_loss),
+            "pre_clip": float(norm_val),
+            "lr": float(lr),
+        }
+        if self.amp_enabled:
+            step_meta["amp_overflow_skipped"] = bool(amp_overflow_skipped)
         active_hook = post_step_hook if post_step_hook is not None else self.post_step_hook
         if active_hook is not None:
             active_hook(self, dict(step_meta))
@@ -382,7 +428,9 @@ class GenericExperimentTrainer:
             "model.bin": _dump({k: v.detach().cpu() for k, v in self.model.state_dict().items()}),
             "optimizer.bin": _dump(self.optimizer.state_dict()),
             "rng.bin": self.rng_bytes(),
-            "scheduler.json": canonical({"metadata": self.metadata, "scaler": {}}),
+            "scheduler.json": canonical(
+                {"metadata": self.metadata, "scaler": (self.scaler.state_dict() if self.scaler.is_enabled() else {})}
+            ),
             "cursor.json": canonical(asdict(state.cursor)),
             "ledger.json": canonical(dict(state.tokens_by_source)),
             "training_state.json": canonical(state.canonical()),
@@ -1628,7 +1676,7 @@ class CampaignOrchestrator:
             "job_count": len(jobs),
             "jobs": [asdict(j) for j in jobs],
         }
-        (self.work_dir / "PREPARED_MANIFEST.json").write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (self.work_dir / "PREPARED_MANIFEST.json").write_text(dump_json_safe(doc), encoding="utf-8")
         return doc
 
     def admit(
@@ -1667,7 +1715,7 @@ class CampaignOrchestrator:
             "time_ok": time_ok,
             "disk_ok": disk_ok,
         }
-        (self.work_dir / "ADMISSION_RECEIPT.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (self.work_dir / "ADMISSION_RECEIPT.json").write_text(dump_json_safe(receipt), encoding="utf-8")
         if not admitted:
             raise RuntimeError(f"campaign admission denied: time_ok={time_ok}, disk_ok={disk_ok}")
         return receipt
@@ -1757,12 +1805,8 @@ class CampaignOrchestrator:
             "pending_job_ids": deferred_ids,
             "next_resumable_job_id": plan["next_resumable_job_id"],
         }
-        (self.work_dir / "SESSION_ADMISSION_PLAN.json").write_text(
-            json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-        (self.work_dir / "PENDING_QUEUE.json").write_text(
-            json.dumps(queue_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        (self.work_dir / "SESSION_ADMISSION_PLAN.json").write_text(dump_json_safe(plan), encoding="utf-8")
+        (self.work_dir / "PENDING_QUEUE.json").write_text(dump_json_safe(queue_doc), encoding="utf-8")
         return plan
 
     def reconcile_verified_resume(
@@ -1798,16 +1842,17 @@ class CampaignOrchestrator:
                 arch_raw = raw.get("archive_path")
                 if arch_raw:
                     ap = Path(str(arch_raw))
-                    if not ap.is_file():
+                    lp_ap = win_long_path(ap)
+                    if not lp_ap.is_file():
                         reasons.append("MISSING_ARCHIVE_FILE")
                     else:
                         if raw.get("archive_sha256"):
-                            actual_sha = sha256(ap.read_bytes()).hexdigest()
+                            actual_sha = _stream_file_sha256(lp_ap)
                             if actual_sha != str(raw["archive_sha256"]):
                                 reasons.append("ARCHIVE_SHA256_MISMATCH")
                         req_members = tuple(raw.get("required_archive_members", ()) or required_archive_members)
                         if req_members:
-                            with zipfile.ZipFile(ap, "r") as zf:
+                            with zipfile.ZipFile(lp_ap, "r") as zf:
                                 z_names = set(zf.namelist())
                             for mem in req_members:
                                 if str(mem) not in z_names:
@@ -1823,7 +1868,7 @@ class CampaignOrchestrator:
         verified_sorted = sorted(verified_ids)
         pending_ids = [str(r["job_id"]) for r in registry_rows if str(r["job_id"]) not in set(verified_sorted)]
         (self.work_dir / "COMPLETED_JOBS.json").write_text(
-            json.dumps({"completed_jobs": verified_sorted}, indent=2, sort_keys=True) + "\n",
+            dump_json_safe({"completed_jobs": verified_sorted}),
             encoding="utf-8",
         )
         receipt = {
@@ -1836,7 +1881,7 @@ class CampaignOrchestrator:
             "next_resumable_job_id": pending_ids[0] if pending_ids else None,
         }
         (self.work_dir / "VERIFIED_RESUME_RECEIPT.json").write_text(
-            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+            dump_json_safe(receipt),
             encoding="utf-8",
         )
         if fail_on_rejection and rejected:
@@ -1881,7 +1926,7 @@ class CampaignOrchestrator:
             rec = sched.run(worker_specs)
             wave_receipts.append(rec)
             completed.update(rec["succeeded_workers"])
-            done_file.write_text(json.dumps({"completed_jobs": sorted(completed)}, indent=2) + "\n", encoding="utf-8")
+            done_file.write_text(dump_json_safe({"completed_jobs": sorted(completed)}), encoding="utf-8")
 
         all_done = len(completed) >= len(jobs)
         summary = {
@@ -1893,7 +1938,7 @@ class CampaignOrchestrator:
             "completed_jobs": sorted(completed),
             "waves": wave_receipts,
         }
-        (self.work_dir / "CAMPAIGN_STATUS.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        (self.work_dir / "CAMPAIGN_STATUS.json").write_text(dump_json_safe(summary), encoding="utf-8")
         return summary
 
     def run_stage_dag(
@@ -1907,39 +1952,52 @@ class CampaignOrchestrator:
         ctx: dict[str, Any] = dict(initial_context or {})
         stage_records: list[dict[str, Any]] = []
         any_failed = False
-        for stage in stages:
-            if selected_phase not in ("all", stage.phase, stage.stage_id):
-                stage_records.append(
-                    {"stage_id": stage.stage_id, "phase": stage.phase, "status": "SKIPPED_BY_PHASE", "reason": f"selected_phase={selected_phase!r}"}
-                )
-                continue
-            if stage.predicate_fn is not None:
-                eligible, reason = stage.predicate_fn(ctx)
-                if not eligible:
-                    rec = {"stage_id": stage.stage_id, "phase": stage.phase, "status": "NOT_APPLICABLE", "reason": str(reason)}
+        try:
+            for stage in stages:
+                if selected_phase not in ("all", stage.phase, stage.stage_id):
+                    stage_records.append(
+                        {"stage_id": stage.stage_id, "phase": stage.phase, "status": "SKIPPED_BY_PHASE", "reason": f"selected_phase={selected_phase!r}"}
+                    )
+                    continue
+                if stage.predicate_fn is not None:
+                    eligible, reason = stage.predicate_fn(ctx)
+                    if not eligible:
+                        rec = {"stage_id": stage.stage_id, "phase": stage.phase, "status": "NOT_APPLICABLE", "reason": str(reason)}
+                        stage_records.append(rec)
+                        ctx.setdefault("stages", {})[stage.stage_id] = rec
+                        continue
+                try:
+                    res = dict(stage.runner_fn(ctx))
+                except Exception as exc:
+                    any_failed = True
+                    rec = {
+                        "stage_id": stage.stage_id,
+                        "phase": stage.phase,
+                        "status": "FAILED",
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
                     stage_records.append(rec)
                     ctx.setdefault("stages", {})[stage.stage_id] = rec
-                    continue
-            res = dict(stage.runner_fn(ctx))
-            status = str(res.get("status", "COMPLETE"))
-            if status in ("FAILED", "INVALID", "INVALID_RESULTS", "ERROR"):
-                any_failed = True
-            rec = {"stage_id": stage.stage_id, "phase": stage.phase, "status": status, "result": res}
-            stage_records.append(rec)
-            ctx.setdefault("stages", {})[stage.stage_id] = rec
-            ctx.update({k: v for k, v in res.items() if k not in ("status", "stages")})
-
-        receipt = {
-            "schema": "anra-planthir-stage-dag-v1",
-            "campaign_id": self.campaign_id,
-            "selected_phase": selected_phase,
-            "status": "FAILED" if any_failed else "COMPLETE",
-            "stages": stage_records,
-        }
-        (self.work_dir / "STAGE_DAG_RECEIPT.json").write_text(
-            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+                    raise
+                status = str(res.get("status", "COMPLETE"))
+                if status in ("FAILED", "INVALID", "INVALID_RESULTS", "ERROR"):
+                    any_failed = True
+                rec = {"stage_id": stage.stage_id, "phase": stage.phase, "status": status, "result": res}
+                stage_records.append(rec)
+                ctx.setdefault("stages", {})[stage.stage_id] = rec
+                ctx.update({k: v for k, v in res.items() if k not in ("status", "stages")})
+        finally:
+            receipt = {
+                "schema": "anra-planthir-stage-dag-v1",
+                "campaign_id": self.campaign_id,
+                "selected_phase": selected_phase,
+                "status": "FAILED" if any_failed else "COMPLETE",
+                "stages": stage_records,
+            }
+            (self.work_dir / "STAGE_DAG_RECEIPT.json").write_text(
+                dump_json_safe(receipt),
+                encoding="utf-8",
+            )
         return receipt
 
     def evaluate_frozen_checkpoints(
@@ -2028,7 +2086,7 @@ class CampaignOrchestrator:
                 "retraining_recipe": None,
             }
         (self.work_dir / "FROZEN_EVAL_RECEIPT.json").write_text(
-            json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+            dump_json_safe(receipt),
             encoding="utf-8",
         )
         return receipt
@@ -2059,6 +2117,8 @@ class CampaignOrchestrator:
         u0000_smoke_fn: Callable[[str, SessionJob, Path], Mapping[str, Any] | bool] | None = None,
         u0000_fp16_autocast_fn: Callable[[str, SessionJob, Path], Mapping[str, Any] | bool] | None = None,
         require_u0000_fp16_autocast: bool = False,
+        byte_decode_fn: Callable[[Sequence[int]], Any] | None = None,
+        stage5_preflight_fn: Callable[[Path], Mapping[str, Any] | bool] | None = None,
         export_prefix: str | None = None,
         export_dir: Path | str | None = None,
         extra_summary_files: Mapping[str, Path | str] | None = None,
@@ -2311,6 +2371,8 @@ class CampaignOrchestrator:
                 "wall_clock_preempted": False,
                 "preemption_reason": None,
                 "u0000_smoke_receipt": None,
+                "stage5_preflight_receipt": None,
+                "byte_decoder_shield": None,
                 "completed_jobs": sorted(verified_completed),
                 "dispatched_devices": [],
                 "observed_seeds": sorted({int(j.init_seed) for j in job_list}),
@@ -2328,7 +2390,7 @@ class CampaignOrchestrator:
                 "rescore_receipt": None,
             }
             (self.work_dir / "INVENTORY_PLAN.json").write_text(
-                json.dumps(inv_doc, indent=2, sort_keys=True) + "\n",
+                dump_json_safe(inv_doc),
                 encoding="utf-8",
             )
             return inv_doc
@@ -2349,13 +2411,33 @@ class CampaignOrchestrator:
                 or bool(j.extra.get("amp", False))
             )
 
+        byte_shield: dict[str, Any] | None = None
+        stage5_preflight_receipt: dict[str, Any] | None = None
         u0000_smoke_receipt: dict[str, Any] | None = None
+        if admitted_jobs:
+            byte_shield = validate_byte_decoder_resilience(decode_fn=byte_decode_fn)
+            if not bool(byte_shield.get("passed", False)):
+                u0000_smoke_receipt = {
+                    "schema": "anra-planthir-u0000-smoke-v1",
+                    "campaign_id": self.campaign_id,
+                    "passed": False,
+                    "byte_decoder_shield": byte_shield,
+                    "fp16_autocast_checked": False,
+                    "architectures": {},
+                }
+                (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
+                    dump_json_safe(u0000_smoke_receipt),
+                    encoding="utf-8",
+                )
+                raise RuntimeError(f"U0000_BYTE_DECODER_SHIELD_FAILED:{byte_shield}")
+
         any_amp_job = any(_job_requests_amp(j) for j in admitted_jobs)
         if (
             u0000_smoke_fn is not None
             or u0000_fp16_autocast_fn is not None
             or require_u0000_fp16_autocast
             or any_amp_job
+            or byte_decode_fn is not None
         ) and admitted_jobs:
             arch_reps: dict[str, SessionJob] = {}
             arch_amp_rep: dict[str, SessionJob] = {}
@@ -2415,12 +2497,13 @@ class CampaignOrchestrator:
                     u0000_smoke_receipt = {
                         "schema": "anra-planthir-u0000-smoke-v1",
                         "campaign_id": self.campaign_id,
-                        "passed": all(r["passed"] for r in arch_results.values()),
+                        "passed": bool(all(r["passed"] for r in arch_results.values()) and bool(byte_shield is None or byte_shield.get("passed"))),
+                        "byte_decoder_shield": byte_shield,
                         "fp16_autocast_checked": any(bool(r.get("fp16_autocast_passed")) for r in arch_results.values()),
                         "architectures": arch_results,
                     }
                     (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
-                        json.dumps(u0000_smoke_receipt, indent=2, sort_keys=True) + "\n",
+                        dump_json_safe(u0000_smoke_receipt),
                         encoding="utf-8",
                     )
                     if u0000_smoke_fn is not None and not smoke_passed:
@@ -2429,6 +2512,54 @@ class CampaignOrchestrator:
                         raise RuntimeError(f"U0000_FP16_AUTOCAST_FAILED:{arch}:{fp16_detail}")
                     if arch_needs_fp16 and u0000_fp16_autocast_fn is None and not bool(fp16_passed):
                         raise RuntimeError(f"U0000_FP16_AUTOCAST_REQUIRED_FOR_AMP_JOB:{arch}:{rep_eff.job_id}")
+
+        if stage5_preflight_fn is not None and admitted_jobs:
+            with tempfile.TemporaryDirectory(prefix="s5p_", ignore_cleanup_errors=True) as s5_tmp:
+                s5_dir = Path(s5_tmp) / "stage5"
+                s5_dir.mkdir(parents=True, exist_ok=True)
+                s5_err: BaseException | None = None
+                try:
+                    raw_s5 = stage5_preflight_fn(s5_dir)
+                    if isinstance(raw_s5, Mapping):
+                        s5_passed = bool(raw_s5.get("passed", True))
+                        s5_detail = dict(raw_s5)
+                        s5_detail.setdefault("passed", s5_passed)
+                    else:
+                        s5_passed = bool(raw_s5)
+                        s5_detail = {"passed": s5_passed}
+                except BaseException as exc:
+                    s5_passed = False
+                    s5_err = exc
+                    s5_detail = {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+                stage5_preflight_receipt = {
+                    "schema": "anra-planthir-stage5-preflight-v1",
+                    "campaign_id": self.campaign_id,
+                    **s5_detail,
+                }
+                if u0000_smoke_receipt is None:
+                    u0000_smoke_receipt = {
+                        "schema": "anra-planthir-u0000-smoke-v1",
+                        "campaign_id": self.campaign_id,
+                        "passed": bool(s5_passed and (byte_shield is None or byte_shield.get("passed"))),
+                        "byte_decoder_shield": byte_shield,
+                        "fp16_autocast_checked": False,
+                        "architectures": {},
+                    }
+                else:
+                    u0000_smoke_receipt["passed"] = bool(u0000_smoke_receipt.get("passed", True) and s5_passed)
+                u0000_smoke_receipt["stage5_preflight"] = stage5_preflight_receipt
+                (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
+                    dump_json_safe(u0000_smoke_receipt),
+                    encoding="utf-8",
+                )
+                (self.work_dir / "STAGE5_PREFLIGHT_RECEIPT.json").write_text(
+                    dump_json_safe(stage5_preflight_receipt),
+                    encoding="utf-8",
+                )
+                if not s5_passed:
+                    if s5_err is not None:
+                        raise RuntimeError(f"STAGE5_PREFLIGHT_FAILED:{s5_detail}") from s5_err
+                    raise RuntimeError(f"STAGE5_PREFLIGHT_FAILED:{s5_detail}")
 
         def _job_deps(j: SessionJob) -> tuple[str, ...]:
             raw: list[str] = []
@@ -2485,6 +2616,173 @@ class CampaignOrchestrator:
         wall_clock_preempted = False
         preemption_reason: str | None = None
 
+        pending_queue_path = self.work_dir / "PENDING_QUEUE.json"
+        reg_status_path = self.work_dir / "REGISTERED_PLAN_STATUS.json"
+
+        def _write_queue_and_receipts() -> tuple[list[str], list[str]]:
+            jobs_dir = self.work_dir / "jobs"
+            if jobs_dir.is_dir():
+                for j in job_list:
+                    if j.job_id in receipts_by_id:
+                        continue
+                    jr_path = win_long_path(jobs_dir / j.job_id / "JOB_RECEIPT.json")
+                    if jr_path.is_file():
+                        try:
+                            jr_data = json.loads(jr_path.read_text(encoding="utf-8"))
+                            if isinstance(jr_data, Mapping):
+                                receipts_by_id[j.job_id] = dict(jr_data)
+                                completed_set.add(j.job_id)
+                                if j.job_id not in succeeded_this_session:
+                                    succeeded_this_session.append(j.job_id)
+                        except (OSError, ValueError):
+                            pass
+
+            comp_jobs = sorted(completed_set)
+            pend_jobs = [
+                j.job_id
+                for j in job_list
+                if j.job_id not in completed_set and j.job_id not in blocked_ids and j.job_id not in locked_ids
+            ]
+            (self.work_dir / "JOB_RECEIPTS.json").write_text(
+                dump_json_safe(
+                    {
+                        "schema": "anra-planthir-job-receipts-v1",
+                        "campaign_id": self.campaign_id,
+                        "source_commit": self.source_commit,
+                        "receipts": [receipts_by_id[k] for k in sorted(receipts_by_id)],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            done_file.write_text(
+                dump_json_safe({"completed_jobs": comp_jobs}),
+                encoding="utf-8",
+            )
+            pending_queue_path.write_text(
+                dump_json_safe(
+                    {
+                        "schema": "anra-planthir-pending-queue-v1",
+                        "campaign_id": self.campaign_id,
+                        "pending_job_ids": pend_jobs,
+                        "next_resumable_job_id": pend_jobs[0] if pend_jobs else None,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (self.work_dir / "BLOCKED_JOBS.json").write_text(
+                dump_json_safe(
+                    {
+                        "schema": "anra-planthir-blocked-jobs-v1",
+                        "campaign_id": self.campaign_id,
+                        "blocked_job_ids": sorted(blocked_ids),
+                        "blocked_jobs": blocked_jobs,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (self.work_dir / "STAGE_GATES.json").write_text(
+                dump_json_safe(
+                    {
+                        "schema": "anra-planthir-stage-gates-v1",
+                        "campaign_id": self.campaign_id,
+                        "stage_gate_results": stage_gate_results,
+                        "gated_locked_job_ids": sorted(locked_ids),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return comp_jobs, pend_jobs
+
+        def _write_status_artifacts(
+            comp_jobs: list[str],
+            pend_jobs: list[str],
+            *,
+            status_override: str | None = None,
+            error_msg: str | None = None,
+            confirm_lock_report: dict[str, Any] | None = None,
+            pruned_summary: dict[str, Any] | None = None,
+        ) -> tuple[str, dict[str, Any]]:
+            obs_seeds = sorted({int(job_by_id[jid].init_seed) for jid in comp_jobs if jid in job_by_id})
+            ds_counts: dict[str, int] = {}
+            for jid in comp_jobs:
+                r_counts = (
+                    receipts_by_id[jid].get("dataset_counts")
+                    if jid in receipts_by_id and isinstance(receipts_by_id[jid].get("dataset_counts"), Mapping)
+                    else None
+                )
+                e_counts = (
+                    job_by_id[jid].extra.get("dataset_counts")
+                    if jid in job_by_id and isinstance(job_by_id[jid].extra.get("dataset_counts"), Mapping)
+                    else None
+                )
+                src = r_counts if r_counts else e_counts
+                if isinstance(src, Mapping):
+                    for dk, dv in src.items():
+                        iv = int(dv)
+                        prev_v = ds_counts.get(str(dk))
+                        ds_counts[str(dk)] = iv if prev_v is None else max(prev_v, iv)
+
+            camp_status = status_override or (
+                "COMPLETE"
+                if (not pend_jobs and not failed_job_ids and not blocked_jobs and not wall_clock_preempted)
+                else "PARTIAL"
+            )
+            c_doc: dict[str, Any] = {
+                "schema": "anra-planthir-campaign-status-v1",
+                "campaign_id": self.campaign_id,
+                "status": camp_status,
+                "total_jobs": len(job_list),
+                "completed_count": len(comp_jobs),
+                "completed_jobs": comp_jobs,
+                "waves": waves,
+                "confirm_lock": confirm_lock_report,
+                "pruned_artifacts": pruned_summary,
+            }
+            if error_msg is not None:
+                c_doc["error"] = error_msg
+            (self.work_dir / "CAMPAIGN_STATUS.json").write_text(dump_json_safe(c_doc), encoding="utf-8")
+
+            s_doc: dict[str, Any] = {
+                "schema": "anra-planthir-registered-plan-status-v1",
+                "status": camp_status,
+                "campaign_id": self.campaign_id,
+                "source_commit": self.source_commit,
+                "work_dir": str(self.work_dir),
+                "total_jobs": len(job_list),
+                "prepared": prepared,
+                "resume_receipt": resume_receipt,
+                "admission_plan": admission_plan,
+                "admitted_job_ids": admitted_ids,
+                "deferred_pending_job_ids": pend_jobs,
+                "dispatched_job_ids": dispatched_job_ids,
+                "newly_executed_job_ids": succeeded_this_session,
+                "failed_job_ids": failed_job_ids,
+                "blocked_jobs": blocked_jobs,
+                "blocked_job_ids": sorted(blocked_ids),
+                "stage_gate_results": stage_gate_results,
+                "gated_locked_job_ids": sorted(locked_ids),
+                "wall_clock_preempted": wall_clock_preempted,
+                "preemption_reason": preemption_reason,
+                "u0000_smoke_receipt": u0000_smoke_receipt,
+                "stage5_preflight_receipt": stage5_preflight_receipt,
+                "byte_decoder_shield": byte_shield,
+                "completed_jobs": comp_jobs,
+                "dispatched_devices": sorted(d for d in dispatched_devices_set if d),
+                "observed_seeds": obs_seeds,
+                "dataset_counts": ds_counts,
+                "pending_queue_path": str(pending_queue_path),
+                "waves": waves,
+                "confirm_lock": confirm_lock_report,
+                "pruned_artifacts": pruned_summary,
+                "export_receipt": None,
+                "archive_verifications": {},
+                "rescore_receipt": None,
+            }
+            if error_msg is not None:
+                s_doc["error"] = error_msg
+            reg_status_path.write_text(dump_json_safe(s_doc), encoding="utf-8")
+            return camp_status, s_doc
+
         prev_runner = self.in_process_runner
         try:
             if job_runner is not None:
@@ -2516,7 +2814,7 @@ class CampaignOrchestrator:
                         }
                         j_rec.pop("exit_code", None)
                         receipt_file.write_text(
-                            json.dumps(j_rec, indent=2, sort_keys=True) + "\n",
+                            dump_json_safe(j_rec),
                             encoding="utf-8",
                         )
                     return {"exit_code": exit_code}
@@ -2689,109 +2987,31 @@ class CampaignOrchestrator:
                                 "dataset_counts": dict(job.extra.get("dataset_counts", {})),
                             }
                             per_job_path.parent.mkdir(parents=True, exist_ok=True)
-                            per_job_path.write_text(json.dumps(j_rec, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                            per_job_path.write_text(dump_json_safe(j_rec), encoding="utf-8")
                         receipts_by_id[wid] = j_rec
                     else:
                         if wid not in failed_job_ids:
                             failed_job_ids.append(wid)
 
                 done_file.write_text(
-                    json.dumps({"completed_jobs": sorted(completed_set)}, indent=2) + "\n",
+                    dump_json_safe({"completed_jobs": sorted(completed_set)}),
                     encoding="utf-8",
                 )
                 pending_admitted = [pj for pj in pending_admitted if pj.job_id not in selected_ids]
+        except BaseException as exc:
+            interrupt_label = "INTERRUPTED" if isinstance(exc, KeyboardInterrupt) else "FAILED"
+            p_comp, p_pend = _write_queue_and_receipts()
+            _write_status_artifacts(
+                p_comp,
+                p_pend,
+                status_override=interrupt_label,
+                error_msg=f"{type(exc).__name__}: {exc}",
+            )
+            raise
         finally:
             self.in_process_runner = prev_runner
 
-        completed_jobs = sorted(completed_set)
-        all_pending = [
-            j.job_id
-            for j in job_list
-            if j.job_id not in completed_set and j.job_id not in blocked_ids and j.job_id not in locked_ids
-        ]
-
-        (self.work_dir / "JOB_RECEIPTS.json").write_text(
-            json.dumps(
-                {
-                    "schema": "anra-planthir-job-receipts-v1",
-                    "campaign_id": self.campaign_id,
-                    "source_commit": self.source_commit,
-                    "receipts": [receipts_by_id[k] for k in sorted(receipts_by_id)],
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        done_file.write_text(
-            json.dumps({"completed_jobs": completed_jobs}, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        pending_queue_path = self.work_dir / "PENDING_QUEUE.json"
-        pending_queue_path.write_text(
-            json.dumps(
-                {
-                    "schema": "anra-planthir-pending-queue-v1",
-                    "campaign_id": self.campaign_id,
-                    "pending_job_ids": all_pending,
-                    "next_resumable_job_id": all_pending[0] if all_pending else None,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        (self.work_dir / "BLOCKED_JOBS.json").write_text(
-            json.dumps(
-                {
-                    "schema": "anra-planthir-blocked-jobs-v1",
-                    "campaign_id": self.campaign_id,
-                    "blocked_job_ids": sorted(blocked_ids),
-                    "blocked_jobs": blocked_jobs,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        (self.work_dir / "STAGE_GATES.json").write_text(
-            json.dumps(
-                {
-                    "schema": "anra-planthir-stage-gates-v1",
-                    "campaign_id": self.campaign_id,
-                    "stage_gate_results": stage_gate_results,
-                    "gated_locked_job_ids": sorted(locked_ids),
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-
-        observed_seeds = sorted({int(job_by_id[jid].init_seed) for jid in completed_jobs if jid in job_by_id})
-        dataset_counts: dict[str, int] = {}
-        for jid in completed_jobs:
-            r_counts = (
-                receipts_by_id[jid].get("dataset_counts")
-                if jid in receipts_by_id and isinstance(receipts_by_id[jid].get("dataset_counts"), Mapping)
-                else None
-            )
-            e_counts = (
-                job_by_id[jid].extra.get("dataset_counts")
-                if jid in job_by_id and isinstance(job_by_id[jid].extra.get("dataset_counts"), Mapping)
-                else None
-            )
-            # Runtime receipts take precedence so declared job metadata cannot mask compressed execution denominators.
-            src = r_counts if r_counts else e_counts
-            if isinstance(src, Mapping):
-                for dk, dv in src.items():
-                    iv = int(dv)
-                    prev_v = dataset_counts.get(str(dk))
-                    dataset_counts[str(dk)] = iv if prev_v is None else max(prev_v, iv)
+        completed_jobs, all_pending = _write_queue_and_receipts()
 
         pruned_summary: dict[str, Any] | None = None
         if prune_completed_checkpoints:
@@ -2843,66 +3063,12 @@ class CampaignOrchestrator:
         if confirm_lock_obj is not None:
             confirm_lock_report = confirm_lock_obj.unlock_if_ready(completed_jobs)
 
-        campaign_status = (
-            "COMPLETE"
-            if (not all_pending and not failed_job_ids and not blocked_jobs and not wall_clock_preempted)
-            else "PARTIAL"
+        campaign_status, status_doc = _write_status_artifacts(
+            completed_jobs,
+            all_pending,
+            confirm_lock_report=confirm_lock_report,
+            pruned_summary=pruned_summary,
         )
-        (self.work_dir / "CAMPAIGN_STATUS.json").write_text(
-            json.dumps(
-                {
-                    "schema": "anra-planthir-campaign-status-v1",
-                    "campaign_id": self.campaign_id,
-                    "status": campaign_status,
-                    "total_jobs": len(job_list),
-                    "completed_count": len(completed_jobs),
-                    "completed_jobs": completed_jobs,
-                    "waves": waves,
-                    "confirm_lock": confirm_lock_report,
-                    "pruned_artifacts": pruned_summary,
-                },
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        status_doc: dict[str, Any] = {
-            "schema": "anra-planthir-registered-plan-status-v1",
-            "status": campaign_status,
-            "campaign_id": self.campaign_id,
-            "source_commit": self.source_commit,
-            "work_dir": str(self.work_dir),
-            "total_jobs": len(job_list),
-            "prepared": prepared,
-            "resume_receipt": resume_receipt,
-            "admission_plan": admission_plan,
-            "admitted_job_ids": admitted_ids,
-            "deferred_pending_job_ids": all_pending,
-            "dispatched_job_ids": dispatched_job_ids,
-            "newly_executed_job_ids": succeeded_this_session,
-            "failed_job_ids": failed_job_ids,
-            "blocked_jobs": blocked_jobs,
-            "blocked_job_ids": sorted(blocked_ids),
-            "stage_gate_results": stage_gate_results,
-            "gated_locked_job_ids": sorted(locked_ids),
-            "wall_clock_preempted": wall_clock_preempted,
-            "preemption_reason": preemption_reason,
-            "u0000_smoke_receipt": u0000_smoke_receipt,
-            "completed_jobs": completed_jobs,
-            "dispatched_devices": sorted(d for d in dispatched_devices_set if d),
-            "observed_seeds": observed_seeds,
-            "dataset_counts": dataset_counts,
-            "pending_queue_path": str(pending_queue_path),
-            "waves": waves,
-            "confirm_lock": confirm_lock_report,
-            "pruned_artifacts": pruned_summary,
-            "export_receipt": None,
-            "archive_verifications": {},
-            "rescore_receipt": None,
-        }
-        reg_status_path = self.work_dir / "REGISTERED_PLAN_STATUS.json"
-        reg_status_path.write_text(json.dumps(status_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
         if export_prefix is not None:
             out_dir = Path(export_dir) if export_dir is not None else (self.work_dir / "exports")
@@ -2917,6 +3083,7 @@ class CampaignOrchestrator:
                 "BLOCKED_JOBS.json",
                 "STAGE_GATES.json",
                 "U0000_SMOKE_RECEIPT.json",
+                "STAGE5_PREFLIGHT_RECEIPT.json",
                 "CONFIRM_LOCK.json",
                 "REGISTERED_PLAN_STATUS.json",
             )
@@ -2980,7 +3147,7 @@ class CampaignOrchestrator:
             status_doc["export_receipt"] = export_receipt
             status_doc["archive_verifications"] = archive_verifications
             status_doc["rescore_receipt"] = rescore_receipt
-            reg_status_path.write_text(json.dumps(status_doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            reg_status_path.write_text(dump_json_safe(status_doc), encoding="utf-8")
 
         return status_doc
 
@@ -3376,6 +3543,8 @@ __all__ = [
     "canonical_structural_hash",
     "collect_minimal_checkpoint_files",
     "compute_ce_and_pair_margin_terms",
+    "decode_generated_bytes",
+    "dump_json_safe",
     "export_session_archives",
     "frame_byte_prompt_sample",
     "infer_public_byte_bound",
@@ -3387,8 +3556,10 @@ __all__ = [
     "render_campaign_results_markdown",
     "rescore_compact_analysis_archive",
     "safe_extract_planthir_archive",
+    "sanitize_for_json",
     "score_typed_output",
     "serialize_pinned_notebook",
+    "validate_byte_decoder_resilience",
     "verify_campaign_ledger",
     "verify_full_mode_dispatch",
     "verify_pinned_notebook_bytes",
