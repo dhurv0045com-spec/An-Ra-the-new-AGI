@@ -319,3 +319,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added canonical AST/graph/Horn-clause isomorphism hashing & fail-closed split disjointness (`design.py`, `custody.py`) plus dependency-aware leaf-only optimizer compaction protecting continuation parents (`archives.py`, `runtime.py`).
 - Exposed new capabilities across `studio.py`, `__init__.py`, and 3-way docs (`orchestrator_agent.md`, `execution_agent.md`, `agent.md`) with tests in `tests/test_planthir_x3_feedback_upgrades.py`.
 - Verified on CPU (`cuda_available=false`): `37 passed` across 8 suites (`15` + `22`), `level` (`level=6`), `doctor` (`GREEN_SIGNAL`), and `calibrate` (`6/6` + `SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED`); live 2xT4 GPU runs pending.
+
+### 2026-11-24 | Antigravity | Upstream Avendi Y4 & Elendril X3 Feedback into Palantiri Level 6
+- Normalized `.detach().cpu()` across all representation consumers (`causal.py`, `cartridge.py`, `observatory.py`, `runtime.py`, `validation_study.py`) to eliminate CUDA/CPU `cat` mismatches.
+- Added `GenericExperimentTrainer` `post_step_hook` + `train_loop(..., save_final=..., post_train_hook=...)`, `build_x1_spec(cpu_canary=...)`, `include_verify_module=True`, and `owner_authorized=True` notebook defaults (`runtime.py`, `notebooks.py`, `studio.py`, `__init__.py`).
+- Updated 3-way manuals (`verify.py` layout, `git archive --format=zip`, trainer/X1 gotchas) and added `tests/test_planthir_y4_x3_feedback_upgrades.py`.
+- Verified on CPU (`cuda_available=false`): `41 passed` across 9 suites (`19` + `22`), `level` (`level=6`), `doctor` (`GREEN_SIGNAL`), and `calibrate` (`6/6`); live CUDA/2xT4 GPU runs pending.

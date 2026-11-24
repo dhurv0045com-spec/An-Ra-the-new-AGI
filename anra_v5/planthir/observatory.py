@@ -34,7 +34,8 @@ def compute_effective_rank(hidden: torch.Tensor) -> float:
         raise ValueError(f"expected 2D hidden tensor [N, D], got shape {tuple(hidden.shape)}")
     if hidden.shape[0] < 2:
         return 1.0
-    centered = hidden.float() - hidden.float().mean(dim=0, keepdim=True)
+    h_cpu = hidden.detach().cpu().float()
+    centered = h_cpu - h_cpu.mean(dim=0, keepdim=True)
     sv = torch.linalg.svdvals(centered)
     pos = sv[sv > 1e-12]
     if pos.numel() == 0:
@@ -56,7 +57,7 @@ def compute_representation_isotropy(hidden: torch.Tensor) -> dict[str, float | N
     n, d = hidden.shape
     if n < 2 or d == 0:
         return {"mean_offdiag_cosine": None, "isotropy": None}
-    normed = F.normalize(hidden.float(), dim=-1, eps=1e-8)
+    normed = F.normalize(hidden.detach().cpu().float(), dim=-1, eps=1e-8)
     if not torch.isfinite(normed).all():
         raise ValueError("hidden representations must be finite")
     cos = normed @ normed.transpose(0, 1)
@@ -170,17 +171,17 @@ class InternalTelemetryCollector:
                 policy.reset_episode()
             reps = policy.extract_representations(probe_observations)
             if "decision_hidden" in reps:
-                h = reps["decision_hidden"]
+                h = reps["decision_hidden"].detach().cpu()
                 rep_metrics["effective_rank"] = compute_effective_rank(h)
                 rep_metrics["hidden_dim"] = int(h.shape[-1])
                 rep_metrics.update(compute_representation_isotropy(h))
             if "pointer_gate" in reps:
-                gate_t = reps["pointer_gate"].float()
+                gate_t = reps["pointer_gate"].detach().cpu().float()
                 mech_telemetry["pointer_gate_mean"] = float(gate_t.mean().item())
                 mech_telemetry["pointer_gate_min"] = float(gate_t.min().item())
                 mech_telemetry["pointer_gate_max"] = float(gate_t.max().item())
             if "pointer_entropy" in reps:
-                mech_telemetry["pointer_attention_entropy_mean"] = float(reps["pointer_entropy"].float().mean().item())
+                mech_telemetry["pointer_attention_entropy_mean"] = float(reps["pointer_entropy"].detach().cpu().float().mean().item())
 
             sample_obs = probe_observations[: min(8, len(probe_observations))]
             rec_means: list[float] = []
@@ -506,7 +507,7 @@ def analyze_checkpoint_trajectory(
         if policy is None:
             continue
         funnel = analyzer.evaluate_suite(policy, kernel, eval_worlds, include_subgoals=False)
-        reps = policy.extract_representations(obs_batch)["decision_hidden"]
+        reps = policy.extract_representations(obs_batch)["decision_hidden"].detach().cpu()
         eff_rank = compute_effective_rank(reps)
         iso = compute_representation_isotropy(reps)["isotropy"]
         probe = probe_fn(policy, kernel, probe_train_worlds, eval_worlds)

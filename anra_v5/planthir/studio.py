@@ -24,6 +24,7 @@ from .custody import (
 )
 from .notebooks import build_pinned_kaggle_notebook, verify_pinned_notebook_bytes
 from .reporting import render_campaign_dashboard, rescore_compact_analysis_archive
+from .runtime import build_x1_spec
 from .scoring import infer_public_byte_bound, score_typed_output
 
 PLANTHIR_LEVEL = 6
@@ -66,6 +67,8 @@ def level_info() -> dict[str, Any]:
             "exact_typed_byte_sequence_scoring",
             "canonical_ast_graph_horn_split_disjointness",
             "dependency_aware_leaf_optimizer_compaction",
+            "cuda_safe_cpu_representation_handoff",
+            "trainer_post_step_and_loop_hooks",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
@@ -226,6 +229,7 @@ def scaffold_experiment_module(
     out_dir: Path | str,
     *,
     overwrite: bool = False,
+    include_verify_module: bool = False,
 ) -> dict[str, Any]:
     """Generate a runnable, Level-6 compliant ExperimentModule package + pytest smoke test."""
 
@@ -238,9 +242,12 @@ def scaffold_experiment_module(
     pkg_dir = base / name
     init_file = pkg_dir / "__init__.py"
     mod_file = pkg_dir / "module.py"
+    verify_file = pkg_dir / "verify.py"
     test_file = base / f"test_{name}.py"
 
-    targets = (init_file, mod_file, test_file)
+    targets = [init_file, mod_file, test_file]
+    if include_verify_module:
+        targets.append(verify_file)
     if not overwrite:
         for p in targets:
             if win_long_path(p).exists():
@@ -253,6 +260,39 @@ def scaffold_experiment_module(
         '__all__ = ["BACKEND_ID", "build_module", "confirm_lock", "register_planthir_backends"]\n',
         encoding="utf-8",
     )
+    if include_verify_module:
+        verify_src = "\n".join(
+            [
+                f'"""Independent receipt and study claim verifier for `{name}`."""',
+                "",
+                "from __future__ import annotations",
+                "",
+                "from typing import Any, Mapping, Sequence",
+                "",
+                "from anra_v5.palantiri import CampaignLedgerVerifier, verify_session_archive",
+                "",
+                "",
+                "def verify_campaign_claims(",
+                "    job_receipts: Mapping[str, Mapping[str, Any]],",
+                "    expected_job_ids: Sequence[str] = (),",
+                ") -> dict[str, Any]:",
+                '    """Audit completed campaign records and release gates before unsealing confirm."""',
+                "    ledger = CampaignLedgerVerifier.verify(",
+                "        expected_job_ids=list(expected_job_ids),",
+                "        job_receipts=dict(job_receipts),",
+                "    )",
+                "    return {",
+                '        "passed": bool(ledger.get("verified", False)),',
+                '        "ledger": ledger,',
+                '        "records_audited": len(job_receipts),',
+                "    }",
+                "",
+                "",
+                '__all__ = ["CampaignLedgerVerifier", "verify_campaign_claims", "verify_session_archive"]',
+                "",
+            ]
+        )
+        win_long_path(verify_file).write_text(verify_src, encoding="utf-8")
 
     net_cls = "".join(part.capitalize() for part in name.split("_")) + "Net"
     mod_src = "\n".join(
@@ -393,7 +433,12 @@ def scaffold_experiment_module(
         "backend_id": name,
         "out_dir": str(base),
         "module_dotted_path": f"{name}.module",
-        "created_files": [str(init_file), str(mod_file), str(test_file)],
+        "created_files": [
+            str(init_file),
+            str(mod_file),
+            *([str(verify_file)] if include_verify_module else []),
+            str(test_file),
+        ],
         "next_command": f"python -m anra_v5.palantiri --backend-module {name}.module doctor",
     }
 
@@ -493,8 +538,23 @@ class Palantiri:
         return mirror_to_working_dir(src_paths, working_dir)
 
     @staticmethod
-    def scaffold(name: str, out_dir: Path | str, *, overwrite: bool = False) -> dict[str, Any]:
-        return scaffold_experiment_module(name, out_dir, overwrite=overwrite)
+    def build_x1_spec(architecture: str, **kwargs: Any) -> Any:
+        return build_x1_spec(architecture, **kwargs)
+
+    @staticmethod
+    def scaffold(
+        name: str,
+        out_dir: Path | str,
+        *,
+        overwrite: bool = False,
+        include_verify_module: bool = False,
+    ) -> dict[str, Any]:
+        return scaffold_experiment_module(
+            name,
+            out_dir,
+            overwrite=overwrite,
+            include_verify_module=include_verify_module,
+        )
 
     @staticmethod
     def score_typed_output(*args: Any, **kwargs: Any) -> dict[str, Any]:

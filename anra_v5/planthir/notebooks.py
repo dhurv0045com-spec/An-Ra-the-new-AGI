@@ -70,7 +70,7 @@ def build_pinned_kaggle_notebook(
     source_commit: str,
     title: str,
     launch_command: Sequence[str] | str,
-    owner_authorized: bool = False,
+    owner_authorized: bool = True,
     repo_url: str | None = None,
     repo_dir: str = "repo",
     campaign_mode: str = "FULL",
