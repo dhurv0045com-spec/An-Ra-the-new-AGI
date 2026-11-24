@@ -675,11 +675,13 @@ def _fit_ridge_classifier(
 ) -> torch.Tensor:
     """Closed-form multi-class ridge probe with unpenalized bias column."""
 
-    n, d = x_train.shape
+    x_tr = x_train.detach().cpu().float()
+    y_tr = y_train.detach().cpu().long()
+    n, d = x_tr.shape
     ones = torch.ones((n, 1), dtype=torch.float32)
-    xa = torch.cat([x_train.float(), ones], dim=1)
+    xa = torch.cat([x_tr, ones], dim=1)
     y_onehot = torch.zeros((n, num_classes), dtype=torch.float32)
-    y_onehot.scatter_(1, y_train.long().unsqueeze(1), 1.0)
+    y_onehot.scatter_(1, y_tr.unsqueeze(1), 1.0)
     reg_diag = torch.cat([torch.full((d,), float(l2_reg)), torch.tensor([1e-6])])
     gram = xa.T @ xa + torch.diag(reg_diag)
     rhs = xa.T @ y_onehot
@@ -687,11 +689,14 @@ def _fit_ridge_classifier(
 
 
 def _eval_ridge_classifier(weights: torch.Tensor, x_eval: torch.Tensor, y_eval: torch.Tensor) -> float:
-    ones = torch.ones((x_eval.shape[0], 1), dtype=torch.float32)
-    xa = torch.cat([x_eval.float(), ones], dim=1)
-    logits = xa @ weights
+    w_cpu = weights.detach().cpu().float()
+    x_ev = x_eval.detach().cpu().float()
+    y_ev = y_eval.detach().cpu().long()
+    ones = torch.ones((x_ev.shape[0], 1), dtype=torch.float32)
+    xa = torch.cat([x_ev, ones], dim=1)
+    logits = xa @ w_cpu
     preds = logits.argmax(dim=-1)
-    return float((preds == y_eval.long()).float().mean().item())
+    return float((preds == y_ev).float().mean().item())
 
 
 def _fit_and_eval_mlp_probe(

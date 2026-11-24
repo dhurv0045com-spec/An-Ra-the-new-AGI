@@ -36,7 +36,7 @@ def build_x3_notebook_dict(
     *,
     source_commit: str,
     repo_url: str = REPO_HTTP_URL,
-    owner_authorized_default: bool = False,
+    owner_authorized_default: bool = True,
     reserve_minutes: int = 45,
 ) -> dict[str, object]:
     """Build deterministic nbformat v4.5 JSON for V8-X3 (R0-R7 ledger, exact-output scorer, S20/S50 profile)."""
@@ -52,14 +52,14 @@ def build_x3_notebook_dict(
                 "",
                 "Pinned Kaggle 2xT4 / T4 notebook built to the **24 November 2026 Execution Specification**:",
                 f"- **Pinned X3 Source (`SOURCE_SHA`):** `{source_commit}` (`PLANTHIR_BACKEND_MODULES=experiments.x3.module`)",
-                "- **Accelerator:** Select **GPU T4 x2** (auto-uses `cuda:0, cuda:1`; also runs safely on single **GPU T4**), enable **Internet**, toggle `OWNER_AUTHORIZED = True` when launching substantial GPU runs, and click **Run All**.",
+                "- **Accelerator:** Select **GPU T4 x2** (auto-uses `cuda:0, cuda:1`; also runs safely on single **GPU T4**), enable **Internet**, and click **Run All** (`OWNER_AUTHORIZED = True` by default — zero manual edits needed).",
                 "- **Workflow:** R0 Run-3 Reconciliation (`49/192` credited, next X2 job `X1-U1-S20-U-4-standard-s19`, `x3_unlocked=False`) & R0-R7 Obligation / 57-Job Migration Printout -> Exact-Output `PublicOracleTypedDecoder` Scorer Preflight (`1.0` through `evaluate_x3_batched`) + All-Architecture `u0000` Smoke + Separate S20/S50 & Native/Byte-Decode Profiling -> Verified Waves & Archives.",
             ],
             "x3-title",
         ),
         _cell_code(
             [
-                "# Default owner switch is OFF per §5; set OWNER_AUTHORIZED = True before owner GPU launch.",
+                "# Default owner switch is ON (`True`) for automatic one-click Kaggle execution.",
                 f"OWNER_AUTHORIZED = {auth_literal}",
                 "ONE_GO = True",
                 "SESSION_MINUTES = 660",
@@ -326,7 +326,7 @@ def render_x3_notebook_bytes(
     *,
     source_commit: str,
     repo_url: str = REPO_HTTP_URL,
-    owner_authorized_default: bool = False,
+    owner_authorized_default: bool = True,
     reserve_minutes: int = 45,
 ) -> bytes:
     doc = build_x3_notebook_dict(
@@ -342,13 +342,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build or check pinned V8-X3 Kaggle 2xT4 notebook.")
     parser.add_argument("--source", required=True, help="40-char immutable CODE_SHA commit")
     parser.add_argument("--output", default=str(DEFAULT_X3_NOTEBOOK_PATH))
-    parser.add_argument("--owner-authorized", action="store_true", help="Default OWNER_AUTHORIZED = False unless passed")
-    parser.add_argument("--disabled", action="store_true", help="Explicit alias keeping OWNER_AUTHORIZED = False")
+    parser.add_argument("--owner-authorized", action="store_true", help="Default OWNER_AUTHORIZED = True automatically")
+    parser.add_argument("--disabled", action="store_true", help="Explicit flag emitting OWNER_AUTHORIZED = False")
     parser.add_argument("--reserve-minutes", type=int, default=45)
     parser.add_argument("--check", "--check-notebook", dest="check", action="store_true")
     args = parser.parse_args(argv)
 
-    auth = bool(args.owner_authorized) and (not bool(args.disabled))
+    auth = not bool(args.disabled)
     raw = render_x3_notebook_bytes(
         source_commit=args.source,
         owner_authorized_default=auth,

@@ -368,7 +368,7 @@ class X3CognitivePolicy:
         out = self.model(toks, pos, mask, action_positions=apos)
         if was_train:
             self.model.train()
-        return {"decision_hidden": out["decision_hidden"].detach()}
+        return {"decision_hidden": out["decision_hidden"].detach().cpu()}
 
 
 class PublicOracleTypedDecoder(nn.Module):
@@ -1969,7 +1969,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             canary=bool(args.canary),
             updates_override=args.updates_override,
         )
-        print(json.dumps({"job_id": rec["job_id"], "status": rec["status"], "dev_macro_mean": rec["dev_macro_mean"]}, indent=2))
+        print(json.dumps({"job_id": rec["job_id"], "status": rec["status"], "dev_macro_mean": rec.get("dev_macro_mean")}, indent=2))
         return 0
     if args.command == "run-campaign":
         devs = ["cpu"] if args.canary else [f"cuda:{d.strip()}" for d in args.devices.split(",") if d.strip()]

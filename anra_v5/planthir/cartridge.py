@@ -324,13 +324,13 @@ def _collect_capsule_arrays(
 
     reps = policy.extract_representations(obs_list)
     arrays: dict[str, torch.Tensor] = {
-        "decision_hidden": reps["decision_hidden"],
+        "decision_hidden": reps["decision_hidden"].detach().cpu(),
         "y_op": torch.tensor(y_op, dtype=torch.int64),
         "y_hop1": torch.tensor(y_hop1, dtype=torch.int64),
         "y_final": torch.tensor(y_final, dtype=torch.int64),
     }
     if "pointer_gate" in reps:
-        arrays["pointer_gate"] = reps["pointer_gate"]
+        arrays["pointer_gate"] = reps["pointer_gate"].detach().cpu()
     return arrays
 
 

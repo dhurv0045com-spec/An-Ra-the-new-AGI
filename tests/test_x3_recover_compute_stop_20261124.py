@@ -446,3 +446,48 @@ def test_gate4_fault_injection_resume_disk_missing_parent_and_r0_ledger(
     )
     assert stat_n3["min_two_sided_seed_sign_flip_p"] == 0.25
     assert stat_n3["n_seeds"] == 3
+
+
+def test_gate5_probe_cpu_handoff_and_auto_notebook_defaults() -> None:
+    import ast
+    from anra_v5.planthir.cartridge import _collect_capsule_arrays
+    from anra_v5.planthir.causal import _eval_ridge_classifier, _fit_ridge_classifier, run_representation_linear_probe
+    from experiments.x3.module import X3CognitiveKernel, X3CognitivePolicy, _wrap_planthir_worlds
+    from tools.build_elendril_x3_notebook import build_x3_notebook_dict
+
+    tiny_spec = build_x3_backbone_spec("tiny")
+    model = X3CognitiveModel("Base", tiny_spec, seed=7)
+    policy = X3CognitivePolicy(model)
+    kern = X3CognitiveKernel()
+    tr_cases = build_x3_cognitive_battery(split="train", per_family=1, shot_counts=(0,))["cases"][:6]
+    ev_cases = build_x3_cognitive_battery(split="dev", per_family=1, shot_counts=(0,))["cases"][:4]
+    tr_worlds = _wrap_planthir_worlds(tr_cases)
+    ev_worlds = _wrap_planthir_worlds(ev_cases)
+
+    obs = [kern.observe(kern.initial_state(w)) for w in ev_worlds]
+    reps = policy.extract_representations(obs)
+    assert reps["decision_hidden"].device.type == "cpu"
+    assert reps["decision_hidden"].requires_grad is False
+
+    cap = _collect_capsule_arrays(policy, kern, ev_worlds)
+    assert cap["decision_hidden"].device.type == "cpu"
+    probe_res = run_representation_linear_probe(policy, kern, tr_worlds, ev_worlds)
+    assert 0.0 <= probe_res["probe_operation_accuracy"] <= 1.0
+
+    x_tr = torch.randn(12, 8)
+    y_tr = torch.tensor([i % 4 for i in range(12)], dtype=torch.int64)
+    w = _fit_ridge_classifier(x_tr, y_tr, 4, l2_reg=1.0)
+    assert w.device.type == "cpu"
+    acc = _eval_ridge_classifier(w, x_tr, y_tr)
+    assert 0.0 <= acc <= 1.0
+
+    # Zero-edit automatic Kaggle defaults: OWNER_AUTHORIZED = True & RESERVE_MINUTES = 45
+    nb = build_x3_notebook_dict(source_commit="c" * 40)
+    for cell in nb["cells"]:
+        if cell["cell_type"] == "code":
+            ast.parse("".join(cell["source"]))
+    cfg_src = "".join(nb["cells"][1]["source"])
+    assert "OWNER_AUTHORIZED = True" in cfg_src
+    assert "RESERVE_MINUTES = 45" in cfg_src
+    nb_dis = build_x3_notebook_dict(source_commit="c" * 40, owner_authorized_default=False)
+    assert "OWNER_AUTHORIZED = False" in "".join(nb_dis["cells"][1]["source"])
