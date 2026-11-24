@@ -108,6 +108,20 @@ In **`EXP-PLANTHIR-004`** (live on `NVIDIA GeForce RTX 4050 Laptop GPU`, `60` up
 
 ---
 
+## 7c. Level-6 Modular Custody/Stats & Level-7 Zero-Late-Crash Runtime Shields
+
+Building on the historical Level-5 cartridge above (`PLANTHIR_LEVEL = 7`, schema `anra-planthir-level7-v1`, unified front door [`agent.md`](agent.md) / [`orchestrator_agent.md`](orchestrator_agent.md) / [`execution_agent.md`](execution_agent.md)), `anra_v5/planthir/` adds modular multi-session infrastructure and adversarial preflight hardening:
+
+- **Modular Architecture:** Split cleanly across `archives.py` (streaming v6 ZIPs, dependency-aware `prune_completed_job_artifacts`, `win_long_path`), `custody.py` (`ConfirmLock`, `CampaignLedgerVerifier`), `design.py` (1-WL structural split disjointness, `exact_mcnemar_test`, `holm_bonferroni_adjust`), `scoring.py` (`TypedByteSequenceKernel`, `score_typed_output`, `decode_generated_bytes`), `notebooks.py` (preflight-before-launch Kaggle 2×T4 notebooks with `PLANTHIR_BACKEND_MODULES` & `try/finally` crash mirroring), `reporting.py` (analyst-first reports & live dashboards), `runtime.py` (`ExperimentModule` plugin registry, native AMP `GenericExperimentTrainer`, `CampaignOrchestrator.run_registered_plan`), and `studio.py` (`Palantiri` unified facade + runnable plugin scaffolder).
+- **Level-7 Zero-Late-Crash Shields (`instrument.py`, `execution.py`, `archives.py`, `notebooks.py`):**
+  1. *Non-Throwing Neural Byte Decoding:* `UTF8.is_ascii_stop_token` + `UTF8.decode_lossy` (`representation.py`) and `decode_generated_bytes` (`scoring.py`) eliminate `ValueError` crashes on unconstrained neural byte emissions (e.g., lone `0xB5` continuation bytes in Stage 5), while keeping strict `UTF8.decode` intact for ground-truth oracles; enforced in Gate 1 and `run_registered_plan(..., byte_decode_fn=..., stage5_preflight_fn=...)` via `validate_byte_decoder_resilience` and `validate_end_to_end_lifecycle`.
+  2. *FP16 Autocast Mask Guard:* `validate_fp16_autocast_forward_backward` catches `-1e9` `c10::Half` overflows in padded masked attention across CPU/CUDA autocast before Wave 0.
+  3. *Strict Telemetry JSON Sanitization:* `sanitize_for_json` / `dump_json_safe` (`execution.py`) convert PyTorch `Tensor`, NumPy arrays/scalars, `Path`, `bytes`, `set`, and non-finite `NaN`/`Inf` floats to strict JSON cleanly.
+  4. *Crash-Safe Archive Ordering & Partial Wave Custody:* `export_session_archives` commits `ANALYSIS`, `EVIDENCE`, and `FULL` archives **before** writing capped `SUMMARY.zip` (auto-compacting oversized `SUMMARY` when `strict_summary_cap=False`), `run_registered_plan` persists partial `JOB_RECEIPTS.json` / `COMPLETED_JOBS.json` / `PENDING_QUEUE.json` / `REGISTERED_PLAN_STATUS.json` on `BaseException`, and `build_pinned_kaggle_notebook` wraps launch + `/kaggle/working` mirroring in `try/except BaseException (CRASH_RECEIPT.json)/finally:`.
+  5. *Adversarial Verification CLI:* `python -m anra_v5.palantiri shield` (`run_level7_runtime_shield_suite()`, also wired as Check 7 in `doctor` and attached to `calibrate`) verifies all four runtime failure classes in one command.
+
+---
+
 ## 8. Minimal Extension Guide (`< 50` Lines for Future AN-RA Programs)
 
 To bring a **V9 architecture**, **continual learning scheduler**, **external episodic memory bank**, or **metacognitive confidence predictor** into Planthir without changing core observatory, causal, or evidence code:
@@ -133,19 +147,17 @@ class MyV9Policy:
         return {"decision_hidden": hidden_tensor}  # [N, D]
 ```
 
-Once those two classes exist (~30–50 lines), `validate_environment_kernel`, `InternalTelemetryCollector`, `ProcessFunnelAnalyzer`, `run_representation_linear_probe`, `synthesize_scientific_interpretation`, and `package_three_tier_evidence` work out of the box.
+Once those two classes exist (~30–50 lines), `validate_environment_kernel`, `InternalTelemetryCollector`, `ProcessFunnelAnalyzer`, `run_representation_linear_probe`, `synthesize_scientific_interpretation`, and `package_three_tier_evidence` work out of the box (or wrap them inside `ExperimentModule(...).register()` + `run_registered_plan(...)` for full CLI/multi-GPU campaign custody).
 
 ---
 
-## 9. Limitations & 10–20 Day Reassessment Protocol
+## 9. Limitations & Maintenance Protocol
 
 ### Known Current Limitations
-1. **CPU Validation Scope:** Local validation tests tiny models (`17.7k–26.8k` params, 6 updates) to validate pipeline mechanics and calibration. It measures neither `S20`-scale optimization dynamics nor Kaggle `2xT4` throughput.
-2. **Closed-Form Linear Probe Scope:** `run_representation_linear_probe` fits L2 ridge classifiers on `decision_hidden` (`D <= 512`). For high-dimensional hidden states (`D > 2048`) or nonlinear encodings, add randomized sketching or MLP probes in a future minor increment.
-3. **Subgoal Counterfactual Scope:** `run_subgoal_hop_decomposition` currently decomposes 2-hop chains into `hop_1` and `hop_2_given_bridge`; deeper `3–4` hop chains in V9 will benefit from generalized recursive `hop_k` specs in `EnvironmentKernel.decompose_subgoals`.
-4. **Binary Bundle & Capsule Git Exclusion:** `.zip` bundles (`result.zip`, `checkpoint_full.zip`), `.npz` capsules, and `.bin` checkpoint files are excluded from Git by `.gitignore` and `AGENTS.md`; external artifact buckets store the verified bundles while curated Markdown reports, SHA-256 manifests, and summary JSON live in Git.
+1. **CPU Validation Scope:** Local validation tests tiny canary models (`<= 100k` params, `<= 32` samples, `<= 8` updates) to verify mechanics, Level-7 runtime shields, and calibration; live CUDA / Kaggle `2xT4` execution remains required for full-scale scientific claims.
+2. **Binary Bundle & Capsule Git Exclusion:** `.zip` bundles (`result.zip`, `checkpoint_full.zip`, session archives), `.npz` capsules, and `.bin` checkpoint files are excluded from Git by `.gitignore` and `AGENTS.md`; external artifact buckets store the verified bundles while curated Markdown reports, SHA-256 manifests, and summary JSON live in Git.
 
-### Reassessment Checklist (Every 10–20 Days)
-1. Re-run `python -m anra_v5.planthir calibrate` before and after any evaluator or data-generator edit.
-2. Audit `EXP-PLANTHIR-003` (`historical-atlas`) against newly completed Kaggle/Colab runs (`V8` and beyond).
-3. Inspect whether newly emerging research hypotheses (e.g., continual learning forgetting curves, memory overwrite interference, metacognitive abstention calibration) require adding one new reusable counterfactual helper in `causal.py` rather than ad-hoc notebook scripts.
+### Reassessment & Preflight Checklist (Before Every Campaign Launch)
+1. Run `python -m anra_v5.palantiri doctor`, `python -m anra_v5.palantiri calibrate`, and `python -m anra_v5.palantiri shield` before and after any evaluator, decoder, or data-generator edit.
+2. Audit `EXP-PLANTHIR-003` (`historical-atlas`) and recent `progress.md` / `Experiment Result/` entries before designing the next campaign (`orchestrator_agent.md`).
+3. Verify `validate_end_to_end_lifecycle`, `validate_fp16_autocast_forward_backward`, and `--check-notebook` (`match=true`) before launching any multi-hour GPU notebook.

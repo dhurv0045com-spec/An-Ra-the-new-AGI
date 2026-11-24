@@ -64,6 +64,18 @@ def test_two_agent_manuals_mirror_parity_quality_override_and_branch_neutrality(
     ):
         assert needle in guide, f"missing {needle!r} in agent.md"
 
+    for lvl7_needle in (
+        "PLANTHIR_LEVEL = 7",
+        "shield",
+        "decode_lossy",
+        "decode_generated_bytes",
+        "dump_json_safe",
+        "CRASH_RECEIPT.json",
+    ):
+        assert lvl7_needle in orch, f"missing Level-7 needle {lvl7_needle!r} in orchestrator_agent.md"
+        assert lvl7_needle in exec_doc, f"missing Level-7 needle {lvl7_needle!r} in execution_agent.md"
+        assert lvl7_needle in guide, f"missing Level-7 needle {lvl7_needle!r} in agent.md"
+
     hardcoded_branch_claim = "Work, commit, and push directly on **`hitchhiker`**"
     assert hardcoded_branch_claim not in orch
     assert hardcoded_branch_claim not in exec_doc

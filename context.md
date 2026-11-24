@@ -1,4 +1,6 @@
-# Avendi V8-Y2, AN-RA V8-Y1 & Hitchhiker context
+# Avendi V8-Y4, V8-Y2, AN-RA V8-Y1 & Hitchhiker context
+
+**2026-11-25.** **Avendi V8-Y4 Level-7 readiness:** [Avendi V8-Y4 specification](research/avendi/GEMINI_AVENDI_V8_Y4.md), `experiments/avendi_y4/`, and [notebooks/AVENDI_V8_Y4_T4X2.ipynb](notebooks/AVENDI_V8_Y4_T4X2.ipynb) are synced onto **Planthir / Palantiri Level 7 (`PLANTHIR_LEVEL = 7`)** with non-throwing unconstrained byte decoding (`UTF8.decode_lossy`), FP32 attention masking before `-1e9` across `AvendiY4ByteModel` and all 3 `Y4TypedCompositionModel` architectures, `OWNER_AUTHORIZED = True` + `try/except BaseException (CRASH_RECEIPT.json)/finally` `/kaggle/working` salvage mirroring, and CPU verification (`18 passed` across `test_avendi_y4.py` + `test_planthir_level7.py` + `test_planthir_two_agent_manuals.py`, `shield` `4/4`, `doctor` `GREEN_SIGNAL`); owner Kaggle 2×T4 FULL 126-job GPU execution remains pending.
 
 **2026-11-21.** [Avendi Y3 partial GPU audit](Experiment%20Result/Avendi-V8-Y3/y3-partial-57of88/RESULTS.md) covers 57 of 88 jobs. The margin objective improved four-cell development accuracy at all three seeds, but missed the registered improvement and row-order qualification gates.
 
