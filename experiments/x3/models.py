@@ -721,6 +721,7 @@ class X3CognitiveModel(nn.Module):
         max_in = max(8, self.max_ctx - bound - 2)
         if len(encoded) > max_in:
             encoded = encoded[-max_in:]
+        stop_bytes = {ord(ch) for ch in stop_chars if len(ch) == 1 and ord(ch) < 128}
         generated_ids: list[int] = []
         terminated_by_eos = False
         last_uncert = [0.5, 0.5]
@@ -745,17 +746,23 @@ class X3CognitiveModel(nn.Module):
                 terminated_by_eos = True
                 break
             generated_ids.append(nxt)
-            if nxt >= 4:
-                decoded_ch = UTF8.decode([nxt])
-                if decoded_ch in stop_chars:
-                    generated_ids.pop()
-                    terminated_by_eos = True
-                    break
+            if nxt >= 4 and (nxt - 4) in stop_bytes:
+                generated_ids.pop()
+                terminated_by_eos = True
+                break
         if was_training:
             self.train()
-        clean_ids = [t for t in generated_ids if t >= 4]
+        clean_ids = [t for t in generated_ids if 4 <= t < 260]
+        raw_bytes = bytes(t - 4 for t in clean_ids)
+        try:
+            decoded_text = raw_bytes.decode("utf-8", errors="strict")
+            valid_utf8 = True
+        except UnicodeDecodeError:
+            decoded_text = raw_bytes.decode("utf-8", errors="replace")
+            valid_utf8 = False
         return {
-            "text": UTF8.decode(clean_ids).strip(),
+            "text": decoded_text.strip(),
+            "valid_utf8": bool(valid_utf8),
             "terminated_by_eos": bool(terminated_by_eos),
             "bound_bytes": bound,
             "generated_bytes": len(clean_ids),

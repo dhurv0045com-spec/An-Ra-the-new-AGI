@@ -536,3 +536,15 @@ def test_gate6_all_29_architectures_fp16_autocast_padded_finite() -> None:
         assert not dead, f"Dead grads under FP16 on {arch}: {dead}"
         non_finite_grads = [n for n, p in m.named_parameters() if p.grad is not None and not torch.isfinite(p.grad).all()]
         assert not non_finite_grads, f"Non-finite grads under FP16 on {arch}: {non_finite_grads}"
+
+    # Regression for Kaggle Stage 5 UnicodeDecodeError when byte LM emits invalid UTF-8 bytes (e.g. 0xB5)
+    m_bad_utf8 = X3CognitiveModel("Base", tiny_spec, seed=7)
+    with torch.no_grad():
+        m_bad_utf8.lm_bias.fill_(-1e4)
+        m_bad_utf8.lm_bias[4 + 0xB5] = 1e4
+    gen_bad = m_bad_utf8.generate_bytes("C01|RULE|k=1|1*1=3|Q:2*2=?", max_new_bytes=4)
+    assert gen_bad["valid_utf8"] is False
+    assert isinstance(gen_bad["text"], str)
+    bad_case = build_x3_cognitive_battery(split="dev", per_family=1, shot_counts=(0,))["cases"][0]
+    ev_bad = evaluate_x3_batched(m_bad_utf8, [bad_case], batch_size=1, device="cpu", use_generative_bytes=True)
+    assert len(ev_bad) == 1 and ev_bad[0]["correct"] is False
