@@ -334,6 +334,20 @@ def _collect_capsule_arrays(
     return arrays
 
 
+def _probe_initial_actions_and_hidden(policy: Any, parity_obs: Sequence[Any]) -> tuple[list[tuple[str, str | None]], torch.Tensor]:
+    """Probe single-step initial predictions and hidden states with explicit per-world episode resets."""
+    actions: list[tuple[str, str | None]] = []
+    for obs in parity_obs:
+        if callable(getattr(policy, "reset_episode", None)):
+            policy.reset_episode()
+        act = policy.propose_with_telemetry(obs)
+        actions.append((act.operation, act.argument))
+    if callable(getattr(policy, "reset_episode", None)):
+        policy.reset_episode()
+    hidden = policy.extract_representations(parity_obs)["decision_hidden"].detach().cpu()
+    return actions, hidden
+
+
 def _validate_cartridge(
     cartridge: ExperimentCartridge,
     device: str,
@@ -760,13 +774,7 @@ class CartridgeRunner:
                 policy=live_policy,
                 probe_observations=telemetry_probe_obs,
             )
-            live_actions = []
-            for obs in parity_obs:
-                if callable(getattr(live_policy, "reset_episode", None)):
-                    live_policy.reset_episode()
-                a = live_policy.propose_with_telemetry(obs)
-                live_actions.append((a.operation, a.argument))
-            live_hidden = live_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
+            live_actions, live_hidden = _probe_initial_actions_and_hidden(live_policy, parity_obs)
 
             arm_training_records[arm.arm_id] = {
                 "exp_id": exp_id,
@@ -1095,13 +1103,7 @@ class CartridgeRunner:
                     candidates[0], mode=arm.policy_mode, device=device)
                 loaded_zip["source_archive"] = "checkpoint_full.zip (exact weights)"
                 z_policy = loaded_zip["policy"]
-                zip_actions = []
-                for obs in parity_obs:
-                    if callable(getattr(z_policy, "reset_episode", None)):
-                        z_policy.reset_episode()
-                    a = z_policy.propose_with_telemetry(obs)
-                    zip_actions.append((a.operation, a.argument))
-                zip_hidden = z_policy.extract_representations(parity_obs)["decision_hidden"].cpu()
+                zip_actions, zip_hidden = _probe_initial_actions_and_hidden(z_policy, parity_obs)
 
                 live_actions = tr_info["live_actions"]
                 live_hidden = tr_info["live_hidden"]

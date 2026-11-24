@@ -432,3 +432,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-24 | Antigravity | V8-X3 FP16 Autocast Safety Across All 29 Architectures & Notebook Re-Pin
 - Eliminated `c10::Half` `-1e9` masked-softmax overflow and FP16 underflow in `experiments/x3/models.py` (pointer copy, U-cell, slot read, P1/R5 heads, log-prob heads) and `experiments/x3/module.py` (`logits_19` float cast).
 - Added `test_gate6_all_29_architectures_fp16_autocast_padded_finite` in `tests/test_x3_recover_compute_stop_20261124.py`, verified `doctor`/`calibrate` + `12 passed in 87.32s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,408` B, `10fbcafc...`) to `1ea398bcaaf26877d58c6b146659365e511af4e3`.
+
+### 2026-11-24 | Antigravity | Sync Avendi Y4 & Elendril X3 Level-6 upgrades from palantiri (fa8057cc)
+- Synced `.detach().cpu()` representation normalization (`causal.py`, `observatory.py`, `validation_study.py`, `runtime.py`, `_probe_initial_actions_and_hidden` in `cartridge.py`), trainer `post_step_hook`/`train_loop`, `build_x1_spec`, `owner_authorized=True`, `include_verify_module`, 3-way docs, and tests onto `e226a243`.
+- Preserved all existing `Elendril` V8-X2/X3/FP16-autocast files (`1ea398bc`, `e226a243`) and non-Palantiri paths untouched.
+- Verified on CPU (`cuda_available=false`): `5 passed in 3.91s` (`y4_x3` + `manuals`), `2 passed, 4 deselected in 2.95s` (`gate5`/`autocast`), and `doctor` `GREEN_SIGNAL` on `e226a243` (plus `21 passed in 113.99s` across 4 Palantiri suites prior to rebase); live GPU runs pending.

@@ -772,7 +772,7 @@ def run_representation_linear_probe(
             obs_list.append(kernel.observe(st))
             op, _ = kernel.ideal_action(st)
             y_list.append(op_vocab.index(op))
-        reps = policy.extract_representations(obs_list)["decision_hidden"]
+        reps = policy.extract_representations(obs_list)["decision_hidden"].detach().cpu()
         return reps, torch.tensor(y_list, dtype=torch.int64)
 
     x_op_tr, y_op_tr = _collect_op_xy(train_worlds)
@@ -835,7 +835,7 @@ def run_representation_linear_probe(
             return None, None, None, []
         if callable(getattr(policy, "reset_episode", None)):
             policy.reset_episode()
-        reps = policy.extract_representations(obs_list)["decision_hidden"]
+        reps = policy.extract_representations(obs_list)["decision_hidden"].detach().cpu()
         return (
             reps,
             torch.tensor(y_hop1, dtype=torch.int64),

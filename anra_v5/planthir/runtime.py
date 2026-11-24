@@ -183,6 +183,7 @@ class GenericExperimentTrainer:
         max_cpu_params: int = 100_000,
         max_cpu_samples: int = 32,
         max_cpu_updates: int = 8,
+        post_step_hook: Callable[["GenericExperimentTrainer", dict[str, Any]], None] | None = None,
     ) -> None:
         if not items:
             raise ValueError("GenericExperimentTrainer requires non-empty training items")
@@ -195,6 +196,7 @@ class GenericExperimentTrainer:
         self.loss_fn = loss_fn
         self.items = tuple(items)
         self.order_seed = int(order_seed)
+        self.post_step_hook = post_step_hook
         self.device = torch.device(device)
         param_count = sum(int(p.numel()) for p in model.parameters())
 
@@ -317,7 +319,11 @@ class GenericExperimentTrainer:
             if not isinstance(tensor, torch.Tensor) or tensor.shape != ref.shape or not torch.isfinite(tensor).all():
                 raise ValueError(f"checkpoint tensor invalid: {name}")
 
-    def step(self) -> dict[str, Any]:
+    def step(
+        self,
+        *,
+        post_step_hook: Callable[["GenericExperimentTrainer", dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
         if self.faulted or self.state.complete:
             raise ValueError("complete or faulted trainer requires fresh restore")
         self.faulted = True
@@ -344,6 +350,13 @@ class GenericExperimentTrainer:
         if any(not torch.isfinite(p).all() for p in self.model.parameters()):
             raise FloatingPointError("nonfinite parameter after optimizer step")
 
+        step_meta = {"update": u + 1, "loss": float(acc_loss), "pre_clip": float(norm), "lr": float(lr)}
+        active_hook = post_step_hook if post_step_hook is not None else self.post_step_hook
+        if active_hook is not None:
+            active_hook(self, dict(step_meta))
+            if any(not torch.isfinite(p).all() for p in self.model.parameters()):
+                raise FloatingPointError("nonfinite parameter after post_step_hook")
+
         step_tokens = len(chosen)
         self.state = replace(
             self.state,
@@ -359,7 +372,7 @@ class GenericExperimentTrainer:
         )
         self.state.assert_valid()
         self.faulted = False
-        return {"update": u + 1, "loss": float(acc_loss), "pre_clip": float(norm), "lr": float(lr)}
+        return step_meta
 
     def save(self, *, inject_crash_at: str | None = None, prune_old: bool = True) -> str:
         if self.faulted or self.state.global_update <= self.published_update:
@@ -389,6 +402,49 @@ class GenericExperimentTrainer:
         self.state = state
         self.faulted = False
         return self.parent
+
+    def train_loop(
+        self,
+        *,
+        total_updates: int | None = None,
+        checkpoint_every: int = 0,
+        save_final: bool = True,
+        post_step_hook: Callable[["GenericExperimentTrainer", dict[str, Any]], None] | None = None,
+        post_train_hook: Callable[["GenericExperimentTrainer"], None] | None = None,
+        prune_old: bool = True,
+    ) -> dict[str, Any]:
+        """Run bounded updates with optional periodic checkpoints, post-step/post-train hooks, and single final save."""
+
+        target_u = int(self.recipe.total_updates if total_updates is None else total_updates)
+        if target_u < 0 or target_u > int(self.recipe.total_updates):
+            raise ValueError(
+                f"total_updates={target_u} must lie in [0, recipe.total_updates={int(self.recipe.total_updates)}]"
+            )
+        ckpt_interval = max(0, int(checkpoint_every))
+        step_logs: list[dict[str, Any]] = []
+        while self.state.global_update < target_u:
+            rec = self.step(post_step_hook=post_step_hook)
+            step_logs.append(rec)
+            cur_u = int(self.state.global_update)
+            if ckpt_interval > 0 and cur_u % ckpt_interval == 0:
+                if cur_u == target_u and (post_train_hook is not None or not save_final):
+                    continue
+                self.save(prune_old=prune_old)
+
+        if post_train_hook is not None:
+            post_train_hook(self)
+            if any(not torch.isfinite(p).all() for p in self.model.parameters()):
+                raise FloatingPointError("nonfinite parameter after post_train_hook")
+
+        if save_final and self.state.global_update > self.published_update:
+            self.save(prune_old=prune_old)
+
+        return {
+            "updates_completed": int(self.state.global_update),
+            "saved_final": bool(save_final and self.published_update == self.state.global_update),
+            "latest_checkpoint_sha256": self.parent,
+            "step_logs": step_logs,
+        }
 
     def save_inference_milestone_weights(
         self,
@@ -883,7 +939,7 @@ class LogitsPolicy:
 
     def extract_representations(self, obs_batch: Sequence[UniversalObservation]) -> dict[str, torch.Tensor]:
         _, hidden = self._forward_logits_and_hidden(obs_batch)
-        return {"decision_hidden": hidden}
+        return {"decision_hidden": hidden.detach().cpu()}
 
 
 @dataclass(frozen=True)
@@ -1022,6 +1078,7 @@ class BytePromptTrainer(GenericExperimentTrainer):
         max_cpu_params: int = 100_000,
         max_cpu_samples: int = 32,
         max_cpu_updates: int = 8,
+        post_step_hook: Callable[["GenericExperimentTrainer", dict[str, Any]], None] | None = None,
     ) -> None:
         spec.assert_valid()
         rcp = recipe if recipe is not None else GenericTrainRecipe()
@@ -1064,6 +1121,7 @@ class BytePromptTrainer(GenericExperimentTrainer):
             max_cpu_params=max_cpu_params,
             max_cpu_samples=max_cpu_samples,
             max_cpu_updates=max_cpu_updates,
+            post_step_hook=post_step_hook,
         )
 
 
@@ -3153,6 +3211,91 @@ def verify_shared_backbone_and_head_overhead(
     }
 
 
+def build_x1_spec(
+    architecture: str,
+    *,
+    cpu_canary: bool = False,
+    base_spec: Any | None = None,
+    width: int | None = None,
+    layers: int | None = None,
+    query_heads: int | None = None,
+    kv_heads: int | None = None,
+    ffn_width: int | None = None,
+    context_length: int | None = None,
+    pointer_dim: int | None = None,
+    slot_dim: int | None = None,
+    num_slots: int | None = None,
+    slot_edge_hidden: int | None = None,
+    agg_iterations: int | None = None,
+    msg_iterations: int | None = None,
+    recurrent_dim: int | None = None,
+    max_sequence_length: int | None = None,
+) -> Any:
+    """Build a validated X1ModelSpec from canonical or `X1-*` names with CPU canary defaults."""
+
+    from anra_v5.elendril.v8x.contracts import (
+        DEFAULT_X1_AGG_ITERS,
+        DEFAULT_X1_EDGE_HIDDEN,
+        DEFAULT_X1_MSG_ITERS,
+        DEFAULT_X1_NUM_SLOTS,
+        DEFAULT_X1_POINTER_DIM,
+        DEFAULT_X1_RECURRENT_DIM,
+        DEFAULT_X1_SLOT_DIM,
+        X1_ARCHITECTURES,
+        build_x1_model_spec,
+        build_x1_s20_base,
+    )
+
+    alias_map = {
+        "X1-P": "P",
+        "X1-R": "R",
+        "X1-R-noedge": "R-noedge",
+        "X1-P-capR": "P-capR",
+    }
+    arch_raw = str(architecture).strip()
+    arch = alias_map.get(arch_raw, arch_raw)
+    if arch not in X1_ARCHITECTURES:
+        raise ValueError(f"unsupported X1 architecture: {architecture!r}")
+
+    resolved_base = base_spec if base_spec is not None else build_x1_s20_base()
+    has_base_overrides = any(
+        x is not None for x in (width, layers, query_heads, kv_heads, ffn_width, context_length)
+    )
+    if (base_spec is None and cpu_canary) or has_base_overrides:
+        use_canary_defaults = bool(base_spec is None and cpu_canary)
+        w = (32 if use_canary_defaults else int(resolved_base.width)) if width is None else int(width)
+        n_layers = (2 if use_canary_defaults else int(resolved_base.layers)) if layers is None else int(layers)
+        qh = (2 if use_canary_defaults else int(resolved_base.query_heads)) if query_heads is None else int(query_heads)
+        kh = (2 if use_canary_defaults else int(resolved_base.kv_heads)) if kv_heads is None else int(kv_heads)
+        ffn = (64 if use_canary_defaults else int(resolved_base.ffn_width)) if ffn_width is None else int(ffn_width)
+        ctx = (128 if use_canary_defaults else int(resolved_base.context_length)) if context_length is None else int(context_length)
+        if qh <= 0 or w % qh != 0:
+            raise ValueError(f"width ({w}) must be cleanly divisible by query_heads ({qh})")
+        resolved_base = replace(
+            resolved_base,
+            width=w,
+            layers=n_layers,
+            query_heads=qh,
+            kv_heads=kh,
+            head_dimension=w // qh,
+            ffn_width=ffn,
+            context_length=ctx,
+        )
+
+    return build_x1_model_spec(
+        arch,
+        base_spec=resolved_base,
+        pointer_dim=(16 if cpu_canary else DEFAULT_X1_POINTER_DIM) if pointer_dim is None else int(pointer_dim),
+        slot_dim=(16 if cpu_canary else DEFAULT_X1_SLOT_DIM) if slot_dim is None else int(slot_dim),
+        num_slots=(4 if cpu_canary else DEFAULT_X1_NUM_SLOTS) if num_slots is None else int(num_slots),
+        slot_edge_hidden=(16 if cpu_canary else DEFAULT_X1_EDGE_HIDDEN) if slot_edge_hidden is None else int(slot_edge_hidden),
+        agg_iterations=DEFAULT_X1_AGG_ITERS if agg_iterations is None else int(agg_iterations),
+        msg_iterations=DEFAULT_X1_MSG_ITERS if msg_iterations is None else int(msg_iterations),
+        recurrent_dim=(16 if cpu_canary else DEFAULT_X1_RECURRENT_DIM) if recurrent_dim is None else int(recurrent_dim),
+        max_sequence_length=max_sequence_length,
+    )
+
+
 __all__ = [
     "BytePromptSample",
     "BytePromptTrainer",
@@ -3174,6 +3317,7 @@ __all__ = [
     "build_analyst_first_page_report",
     "build_pinned_kaggle_notebook",
     "build_verification_matrix",
+    "build_x1_spec",
     "canonical_structural_hash",
     "collect_minimal_checkpoint_files",
     "compute_ce_and_pair_margin_terms",
