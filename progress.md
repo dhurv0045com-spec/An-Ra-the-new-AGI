@@ -428,3 +428,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-24 | Antigravity | V8-X3 CUDA Ridge Handoff Fix & Automatic Kaggle Notebook Defaults
 - Fixed CUDA/CPU device mismatch (`wrapper_CUDA_cat`) in `X3CognitivePolicy.extract_representations`, `anra_v5/planthir/causal.py` ridge probes, and `anra_v5/planthir/cartridge.py` capsule capture, plus `.get("dev_macro_mean")` safety in `experiments/x3/module.py` CLI.
 - Rebased on `739544b5`, enabled `OWNER_AUTHORIZED = True` (`RESERVE_MINUTES = 45`) by default in `tools/build_elendril_x3_notebook.py` (`e4baefb973b0bbc4bb3986515bf79b40897717ce`), verified `doctor`/`calibrate` + `24 passed in 106.76s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,408` B, `4f6716f3...`).
+
+### 2026-11-24 | Antigravity | V8-X3 FP16 Autocast Safety Across All 29 Architectures & Notebook Re-Pin
+- Eliminated `c10::Half` `-1e9` masked-softmax overflow and FP16 underflow in `experiments/x3/models.py` (pointer copy, U-cell, slot read, P1/R5 heads, log-prob heads) and `experiments/x3/module.py` (`logits_19` float cast).
+- Added `test_gate6_all_29_architectures_fp16_autocast_padded_finite` in `tests/test_x3_recover_compute_stop_20261124.py`, verified `doctor`/`calibrate` + `12 passed in 87.32s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`17,408` B, `10fbcafc...`) to `1ea398bcaaf26877d58c6b146659365e511af4e3`.
