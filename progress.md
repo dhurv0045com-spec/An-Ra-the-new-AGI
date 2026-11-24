@@ -408,3 +408,9 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 - Synced \scoring.py\, structural split hashing (\design.py\, \custody.py\), dependency-aware leaf-only optimizer compaction (\rchives.py\, untime.py\), \studio.py\, \__init__.py\, 3-way manuals, and \	ests/test_planthir_x3_feedback_upgrades.py\.
 - Preserved all existing \hitchhiker\ Avendi Y3/Y4 experiment files, results, and non-Palantiri paths untouched.
 - Verified on CPU (\cuda_available=false\): 	 passed\ +  passed, 4 deselected\, and \doctor\ \GREEN_SIGNAL\; live GPU runs pending.
+
+### 2026-11-24 | Antigravity | Implement, verify on CPU, and pin Avendi V8-Y4 onto hitchhiker
+- Implemented `experiments/avendi_y4/` (`__init__`, `plan`, `tasks`, `models`, `verify`, `module`) registered under backend `avendi_y4` across all 126 jobs (120 trained + 6 historical), 50 studies, and 44 platform uses, plus `tests/test_avendi_y4.py`.
+- Verified on CPU (`435200ac`): `palantiri doctor` (`GREEN_SIGNAL`), `calibrate` (`6/6`), `u0000` (`15/15`), fresh-subprocess CLI chain (`REPLAY_VERIFIED`), and `pytest` (`24 passed` across `test_avendi_y4.py`, `test_elendril_tree.py`, `test_planthir_v2_audit_upgrades.py`, `test_planthir_x3_feedback_upgrades.py`).
+- Generated `notebooks/AVENDI_V8_Y4_T4X2.ipynb` pinned to `435200ac` (`OWNER_AUTHORIZED=False`, `SESSION_MINUTES=330`, `ONE_GO=True`) and verified clean `git archive` `--inventory-only`.
+- Pending execution: owner Kaggle 2xT4 FULL 126-job GPU launch (`OWNER_AUTHORIZED=True` with mounted Y1/Y2/Y3 datasets).
