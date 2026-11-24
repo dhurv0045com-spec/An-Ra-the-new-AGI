@@ -424,3 +424,9 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 - Synced `instrument.py`, `cartridge.py`, `runtime.py`, `studio.py`, `__init__.py`, 3-way docs, and `test_planthir_fp16_autocast_gate.py` from `palantiri` (`31365341`).
 - Preserved all existing `hitchhiker` Avendi Y3/Y4 experiment files and non-Palantiri paths untouched.
 - Verified on CPU (`cuda_available=false`): `21 passed in 124.46s` across 4 suites and `palantiri doctor` `GREEN_SIGNAL`; live GPU runs pending.
+
+### 2026-11-25 | Antigravity | Sync Palantiri Level 7 and defuse Avendi Y4 (`38ae753f`)
+- Synced Level-7 `anra_v5` upgrades, 3-way manuals, and `tests/test_planthir_level6.py` + `tests/test_planthir_level7.py` from `palantiri` (`73bc58ac`).
+- Defused `experiments/avendi_y4/models.py` (`UTF8.decode_lossy` on unconstrained byte continuations/span runs; FP32 mask softmax before `-1e9` in `AvendiY4ByteModel` & `Y4TypedCompositionModel`) and updated `experiments/avendi_y4/plan.py` (`OWNER_AUTHORIZED = True` + `try/finally` `CRASH_RECEIPT.json` mirroring).
+- Verified on CPU (`cuda_available=false`): `18 passed` (`test_avendi_y4.py` + `test_planthir_level7.py` + `test_planthir_two_agent_manuals.py`), `doctor` (`GREEN_SIGNAL`, `platform_level=7`), and `shield` (`4/4`); pinned `notebooks/AVENDI_V8_Y4_T4X2.ipynb` to `38ae753f` (`match=true`, `AST_OK 4`).
+- Pending execution: owner Kaggle 2xT4 FULL 126-job GPU launch with Y1/Y2/Y3 input archives.
