@@ -23,7 +23,7 @@ planthir = "anra_v5.planthir.__main__:main"
 py-modules = ["v5_checkpointing"]
 
 [tool.setuptools.packages.find]
-include = ["experiments.avendi_y3*", "elendril", "anra_v5", "anra_v5.elendril*", "anra_v5.palantiri*", "anra_v5.planter*", "anra_v5.planthir*", "v5_contracts", "v5_data", "v5_evaluation", "v5_model", "v5_objectives", "v5_training"]
+include = ["experiments*", "experiments.avendi_y3*", "experiments.avendi_y4*", "elendril", "anra_v5", "anra_v5.elendril*", "anra_v5.palantiri*", "anra_v5.planter*", "anra_v5.planthir*", "v5_contracts", "v5_data", "v5_evaluation", "v5_model", "v5_objectives", "v5_training"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
