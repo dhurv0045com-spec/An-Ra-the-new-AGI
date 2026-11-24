@@ -421,7 +421,11 @@ def test_scheduler_cuda_ordinal_remap_and_orchestrator_archives(tmp_path: Path) 
         safe_extract_planthir_archive(bad_zip, tmp_path / "ext_bad")
 
     nb = build_pinned_kaggle_notebook(source_commit="a" * 40, title="Test NB", launch_command="python -m tool")
-    assert "OWNER_AUTHORIZED = False" in "".join(nb["cells"][1]["source"])
+    assert "OWNER_AUTHORIZED = True" in "".join(nb["cells"][1]["source"])
+    nb_dry = build_pinned_kaggle_notebook(
+        source_commit="a" * 40, title="Test NB", launch_command="python -m tool", owner_authorized=False
+    )
+    assert "OWNER_AUTHORIZED = False" in "".join(nb_dry["cells"][1]["source"])
 
 
 def test_hitchhiker_audit_fixes_registry_replay_stats_strata_and_docs(tmp_path: Path) -> None:
@@ -1363,7 +1367,7 @@ def test_campaign_dual_clock_verified_resume_backbone_notebook_and_agent_docs(tm
     )
     assert len(nb["cells"]) == 5
     nb_src = "\n".join("".join(c["source"]) for c in nb["cells"])
-    for tok in ("OWNER_AUTHORIZED = False", "device_count() >= 2", "replay-bundle", "FileLink"):
+    for tok in ("OWNER_AUTHORIZED = True", "device_count() >= 2", "replay-bundle", "FileLink"):
         assert tok in nb_src
 
     # 5. Root agent.md == anra_v5/planthir/agent.md with Two-Agent Framework Protocol

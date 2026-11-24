@@ -414,3 +414,8 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 - Verified on CPU (`435200ac`): `palantiri doctor` (`GREEN_SIGNAL`), `calibrate` (`6/6`), `u0000` (`15/15`), fresh-subprocess CLI chain (`REPLAY_VERIFIED`), and `pytest` (`24 passed` across `test_avendi_y4.py`, `test_elendril_tree.py`, `test_planthir_v2_audit_upgrades.py`, `test_planthir_x3_feedback_upgrades.py`).
 - Generated `notebooks/AVENDI_V8_Y4_T4X2.ipynb` pinned to `435200ac` (`OWNER_AUTHORIZED=False`, `SESSION_MINUTES=330`, `ONE_GO=True`) and verified clean `git archive` `--inventory-only`.
 - Pending execution: owner Kaggle 2xT4 FULL 126-job GPU launch (`OWNER_AUTHORIZED=True` with mounted Y1/Y2/Y3 datasets).
+
+### 2026-11-24 | Antigravity | Sync Avendi Y4 & Elendril X3 Level-6 upgrades from palantiri (fa8057cc)
+- Synced `.detach().cpu()` representation normalization (`causal.py`, `cartridge.py`, `observatory.py`, `validation_study.py`, `runtime.py`), trainer `post_step_hook`/`train_loop`, `build_x1_spec`, `owner_authorized=True`, `include_verify_module`, 3-way docs, and tests.
+- Preserved all existing `hitchhiker` Avendi Y3/Y4 experiment files, notebooks, and non-Palantiri paths untouched.
+- Verified on CPU (`cuda_available=false`): `21 passed in 108.51s` across 4 suites and `doctor` `GREEN_SIGNAL`; live GPU runs pending.
