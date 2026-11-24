@@ -10,10 +10,13 @@ This directory stores curated Tier-1 scientific reports and provenance-bound sum
 
 **Curation & Storage Policy:** Consistent with `AGENTS.md`, only lightweight Tier-1 Markdown reports and summary JSON artifacts live here under Git. During runs (including `EXP-PLANTHIR-002` and `EXP-PLANTHIR-004` in temporary directories), `export_result_bundle()` also builds self-describing `FINAL_STATUS.json`, `CHECKPOINT_INDEX.json`, `RESULT_OVERVIEW.md`, compact `result.zip` (`<= 20 MB`, bundling Tier-1 results, Tier-2 capsules, and full checkpoints or `float16` `model_fp16.bin` weights), and whole-store `checkpoint_full.zip` — excluded from Git via `.gitignore` and directly loadable via `CheckpointCatalog.load_from_result_zip()` and `CheckpointCatalog.restore_full_checkpoint_zip()`.
 
-Reproduce locally on CPU/GPU and verify bundle tooling via:
+Reproduce current Level-7 verification checks and inspect/verify bundles via (see [`orchestrator_agent.md`](../../orchestrator_agent.md), [`execution_agent.md`](../../execution_agent.md), and [`agent.md`](../../agent.md) for current workflows; `run-validation-study` and `run-gpu-validation` are preserved as historical Python APIs while CLI automation uses `schema` / `init` / `validate` / `run`):
 
 ```bash
-python -m anra_v5.planthir run-validation-study --output-dir "Experiment Result/Planthir"
-python -m anra_v5.planthir run-gpu-validation --output-dir "Experiment Result/Planthir" --updates 60
-python -m anra_v5.planthir verify-bundle --dir <bundle_dir>
+python -m anra_v5.palantiri level
+python -m anra_v5.palantiri doctor
+python -m anra_v5.palantiri calibrate
+python -m anra_v5.palantiri shield
+python -m anra_v5.palantiri verify-bundle --bundle-dir <bundle_dir>
+python -m anra_v5.palantiri verify-archive --archive <session_zip>
 ```

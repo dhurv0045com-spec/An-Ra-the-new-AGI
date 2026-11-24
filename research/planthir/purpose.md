@@ -1,8 +1,8 @@
-# Historical proposal: the [reliability handoff](GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md) documents corrected claims, supported execution and pending qualification. Preserve this original proposal as history, not evidence that all its guarantees hold.
+# Historical proposal (`PLANTHIR_LEVEL = 7` live): the [reliability handoff](GEMINI_RELIABILITY_AND_UPGRADE_HANDOFF.md), [architecture overview](ARCHITECTURE_AND_PHILOSOPHY.md), and two-agent manuals ([`orchestrator_agent.md`](orchestrator_agent.md), [`execution_agent.md`](execution_agent.md), [`agent.md`](agent.md)) document current Level-7 contracts, supported multi-backend execution, runtime shields, and pending GPU qualification. Preserve this original Level-5 proposal below as history.
 
 # Planthir (`anra_v5/planthir`) — Purpose, Architecture & Adversarial Audit Brief
 
-> **Audience:** Independent AI reviewers and research engineers auditing AN-RA's universal experimental infrastructure (`Planthir` Level 5) for reasoning errors, statistical blind spots, edge cases, or engineering flaws.
+> **Audience:** Independent AI reviewers and research engineers auditing AN-RA's universal experimental infrastructure (originally specified at `Planthir` Level 5; now upgraded to **`Planthir / Palantiri` Level 7**).
 >
 > **How to use this document:** Read this specification alongside `anra_v5/planthir/` and `tests/test_planthir_universal_infrastructure.py`. Challenge every threshold, mathematical formulation, protocol assumption, and gate invariant below. Do **not** assume correctness merely because existing tests pass.
 
