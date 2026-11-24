@@ -437,3 +437,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced `.detach().cpu()` representation normalization (`causal.py`, `observatory.py`, `validation_study.py`, `runtime.py`, `_probe_initial_actions_and_hidden` in `cartridge.py`), trainer `post_step_hook`/`train_loop`, `build_x1_spec`, `owner_authorized=True`, `include_verify_module`, 3-way docs, and tests onto `e226a243`.
 - Preserved all existing `Elendril` V8-X2/X3/FP16-autocast files (`1ea398bc`, `e226a243`) and non-Palantiri paths untouched.
 - Verified on CPU (`cuda_available=false`): `5 passed in 3.91s` (`y4_x3` + `manuals`), `2 passed, 4 deselected in 2.95s` (`gate5`/`autocast`), and `doctor` `GREEN_SIGNAL` on `e226a243` (plus `21 passed in 113.99s` across 4 Palantiri suites prior to rebase); live GPU runs pending.
+
+### 2026-11-24 | Antigravity | Sync Palantiri FP16 autocast gate from palantiri (31365341)
+- Synced `instrument.py`, `runtime.py`, `studio.py`, `__init__.py`, 3-way docs, and `test_planthir_fp16_autocast_gate.py` from `palantiri` (`31365341`), and surgically patched Gate 3 `check_fp16_autocast=wants_amp` in `Elendril` `cartridge.py`.
+- Preserved all existing `Elendril` V8-X2/X3/FP16-autocast files (`1ea398bc`, `e226a243`, `dc563968`) and divergent `anra_v5/planthir/` helpers untouched.
+- Verified on CPU (`cuda_available=false`): `21 passed in 138.89s` across 4 Palantiri suites, `2 passed, 4 deselected in 3.71s` (`gate5`/`autocast`), and `palantiri doctor` `GREEN_SIGNAL`; live GPU runs pending.

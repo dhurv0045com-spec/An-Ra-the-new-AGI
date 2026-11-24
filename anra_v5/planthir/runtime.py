@@ -1154,6 +1154,7 @@ class ExperimentModule:
         extra_recipe_keys: Sequence[str] = (),
         extra_arch_head_keys: Sequence[str] = (),
         supports_grouped_loss: bool = False,
+        supports_fp16: bool = False,
     ) -> None:
         self.backend_id = str(backend_id)
         self.backend_version = str(backend_version)
@@ -1195,6 +1196,7 @@ class ExperimentModule:
         self.extra_recipe_keys = tuple(str(k) for k in extra_recipe_keys)
         self.extra_arch_head_keys = tuple(str(k) for k in extra_arch_head_keys)
         self.supports_grouped_loss = bool(supports_grouped_loss)
+        self.supports_fp16 = bool(supports_fp16)
 
     def register(self) -> "ExperimentModule":
         register_backend(self)
@@ -1211,7 +1213,7 @@ class ExperimentModule:
             supported_devices=("cpu", "cuda"),
             supports_grouped_loss=self.supports_grouped_loss,
             supports_resume=True,
-            supports_fp16=False,
+            supports_fp16=self.supports_fp16,
         )
 
     def json_schema_extensions(self) -> dict[str, tuple[str, ...]]:
@@ -2055,6 +2057,8 @@ class CampaignOrchestrator:
         live_wall_clock_preemption: bool = True,
         clock_fn: Callable[[], float] | None = None,
         u0000_smoke_fn: Callable[[str, SessionJob, Path], Mapping[str, Any] | bool] | None = None,
+        u0000_fp16_autocast_fn: Callable[[str, SessionJob, Path], Mapping[str, Any] | bool] | None = None,
+        require_u0000_fp16_autocast: bool = False,
         export_prefix: str | None = None,
         export_dir: Path | str | None = None,
         extra_summary_files: Mapping[str, Path | str] | None = None,
@@ -2339,41 +2343,92 @@ class CampaignOrchestrator:
                 metadata={"campaign_id": self.campaign_id},
             )
 
+        def _job_requests_amp(j: SessionJob) -> bool:
+            return bool(
+                str(j.extra.get("precision", "")).lower() in ("fp16", "amp", "float16")
+                or bool(j.extra.get("amp", False))
+            )
+
         u0000_smoke_receipt: dict[str, Any] | None = None
-        if u0000_smoke_fn is not None and admitted_jobs:
+        any_amp_job = any(_job_requests_amp(j) for j in admitted_jobs)
+        if (
+            u0000_smoke_fn is not None
+            or u0000_fp16_autocast_fn is not None
+            or require_u0000_fp16_autocast
+            or any_amp_job
+        ) and admitted_jobs:
             arch_reps: dict[str, SessionJob] = {}
+            arch_amp_rep: dict[str, SessionJob] = {}
             for j in admitted_jobs:
                 arch_reps.setdefault(j.architecture, j)
+                if _job_requests_amp(j):
+                    arch_amp_rep.setdefault(j.architecture, j)
             arch_results: dict[str, Any] = {}
             with tempfile.TemporaryDirectory(prefix="u0_", ignore_cleanup_errors=True) as u0_tmp:
                 for a_idx, (arch, rep_job) in enumerate(arch_reps.items()):
+                    rep_eff = arch_amp_rep.get(arch, rep_job)
                     s_dir = Path(u0_tmp) / f"a{a_idx:02d}"
                     s_dir.mkdir(parents=True, exist_ok=True)
-                    raw_smoke = u0000_smoke_fn(arch, rep_job, s_dir)
-                    if isinstance(raw_smoke, Mapping):
-                        passed = bool(raw_smoke.get("passed", True))
-                        detail = dict(raw_smoke)
-                    else:
-                        passed = bool(raw_smoke)
-                        detail = {"passed": passed}
-                    arch_results[arch] = {
+                    smoke_passed = True
+                    detail: dict[str, Any] = {}
+                    if u0000_smoke_fn is not None:
+                        raw_smoke = u0000_smoke_fn(arch, rep_eff, s_dir)
+                        if isinstance(raw_smoke, Mapping):
+                            smoke_passed = bool(raw_smoke.get("passed", True))
+                            detail = dict(raw_smoke)
+                        else:
+                            smoke_passed = bool(raw_smoke)
+                            detail = {"passed": smoke_passed}
+
+                    arch_needs_fp16 = bool(
+                        require_u0000_fp16_autocast
+                        or u0000_fp16_autocast_fn is not None
+                        or _job_requests_amp(rep_eff)
+                    )
+                    fp16_passed: bool | None = None
+                    fp16_detail: dict[str, Any] | None = None
+                    if u0000_fp16_autocast_fn is not None:
+                        fp16_dir = s_dir / "fp16"
+                        fp16_dir.mkdir(parents=True, exist_ok=True)
+                        raw_fp16 = u0000_fp16_autocast_fn(arch, rep_eff, fp16_dir)
+                        if isinstance(raw_fp16, Mapping):
+                            fp16_passed = bool(raw_fp16.get("passed", True))
+                            fp16_detail = dict(raw_fp16)
+                        else:
+                            fp16_passed = bool(raw_fp16)
+                            fp16_detail = {"passed": fp16_passed}
+                    elif arch_needs_fp16:
+                        fp16_passed = bool(detail.get("fp16_autocast_passed", False))
+
+                    passed = bool(smoke_passed and (True if fp16_passed is None else fp16_passed))
+                    entry: dict[str, Any] = {
                         "architecture": arch,
-                        "sample_job_id": rep_job.job_id,
+                        "sample_job_id": rep_eff.job_id,
                         **detail,
                         "passed": passed,
                     }
+                    if fp16_detail is not None:
+                        entry["fp16_autocast"] = fp16_detail
+                    if fp16_passed is not None:
+                        entry["fp16_autocast_passed"] = fp16_passed
+                    arch_results[arch] = entry
                     u0000_smoke_receipt = {
                         "schema": "anra-planthir-u0000-smoke-v1",
                         "campaign_id": self.campaign_id,
                         "passed": all(r["passed"] for r in arch_results.values()),
+                        "fp16_autocast_checked": any(bool(r.get("fp16_autocast_passed")) for r in arch_results.values()),
                         "architectures": arch_results,
                     }
                     (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
                         json.dumps(u0000_smoke_receipt, indent=2, sort_keys=True) + "\n",
                         encoding="utf-8",
                     )
-                    if not passed:
+                    if u0000_smoke_fn is not None and not smoke_passed:
                         raise RuntimeError(f"U0000_SMOKE_FAILED:{arch}:{detail}")
+                    if u0000_fp16_autocast_fn is not None and not bool(fp16_passed):
+                        raise RuntimeError(f"U0000_FP16_AUTOCAST_FAILED:{arch}:{fp16_detail}")
+                    if arch_needs_fp16 and u0000_fp16_autocast_fn is None and not bool(fp16_passed):
+                        raise RuntimeError(f"U0000_FP16_AUTOCAST_REQUIRED_FOR_AMP_JOB:{arch}:{rep_eff.job_id}")
 
         def _job_deps(j: SessionJob) -> tuple[str, ...]:
             raw: list[str] = []
