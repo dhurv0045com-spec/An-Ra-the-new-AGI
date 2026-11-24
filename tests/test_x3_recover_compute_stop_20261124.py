@@ -491,3 +491,48 @@ def test_gate5_probe_cpu_handoff_and_auto_notebook_defaults() -> None:
     assert "RESERVE_MINUTES = 45" in cfg_src
     nb_dis = build_x3_notebook_dict(source_commit="c" * 40, owner_authorized_default=False)
     assert "OWNER_AUTHORIZED = False" in "".join(nb_dis["cells"][1]["source"])
+
+
+def test_gate6_all_29_architectures_fp16_autocast_padded_finite() -> None:
+    """Verify all 29 X3 architectures run finite forward + backward under float16 autocast with padding."""
+    tiny_spec = build_x3_backbone_spec("tiny")
+    # Padded 2-sample batch with A..P symbols (65..80), non-A..P delimiter (61), ANSWER (3), and trailing pad=0
+    toks = torch.tensor(
+        [
+            [1, 65, 66, 61, 67, 3, 0, 0],
+            [1, 68, 61, 69, 3, 0, 0, 0],
+        ],
+        dtype=torch.long,
+    )
+    segs = torch.tensor(
+        [
+            [0, 0, 0, 0, 0, 0, -1, -1],
+            [0, 0, 0, 0, 0, -1, -1, -1],
+        ],
+        dtype=torch.long,
+    )
+    pos, mask = packed_layout(segs, torch_module=torch)
+    apos = torch.tensor([5, 4], dtype=torch.long)
+
+    for arch in X3_ARCHITECTURES:
+        m = X3CognitiveModel(arch, tiny_spec, seed=7)
+        m.train()
+        m.zero_grad(set_to_none=True)
+        with torch.amp.autocast("cpu", dtype=torch.float16):
+            out = m(toks, pos, mask, action_positions=apos)
+            loss = (
+                out["logits"].float().mean()
+                + out["action_logits"].float().mean()
+                + 0.1 * out["uncertainties"].float().mean()
+                + 0.02 * out["ponder_cost"].float().mean()
+            )
+        assert torch.isfinite(out["logits"]).all(), f"Non-finite logits under FP16 on {arch}"
+        assert torch.isfinite(out["action_logits"]).all(), f"Non-finite action_logits under FP16 on {arch}"
+        assert torch.isfinite(out["uncertainties"]).all(), f"Non-finite uncertainties under FP16 on {arch}"
+        assert torch.isfinite(out["ponder_cost"]).all(), f"Non-finite ponder_cost under FP16 on {arch}"
+        assert math.isfinite(float(loss.item())), f"Non-finite FP16 loss on {arch}"
+        loss.backward()
+        dead = [n for n, p in m.named_parameters() if p.requires_grad and p.grad is None]
+        assert not dead, f"Dead grads under FP16 on {arch}: {dead}"
+        non_finite_grads = [n for n, p in m.named_parameters() if p.grad is not None and not torch.isfinite(p.grad).all()]
+        assert not non_finite_grads, f"Non-finite grads under FP16 on {arch}: {non_finite_grads}"

@@ -307,7 +307,7 @@ class X3CognitivePolicy:
         if was_train:
             self.model.train()
 
-        logits_19 = out["action_logits"][0].clone()
+        logits_19 = out["action_logits"][0].float().clone()
         raw_idx = int(torch.argmax(logits_19).item())
         raw_op, raw_arg = _action_pair_from_idx(raw_idx)
 

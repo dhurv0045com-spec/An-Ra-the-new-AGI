@@ -183,8 +183,8 @@ class _AnchoredRecurrentUCell(nn.Module):
         q_t = self.u_q(z_t)
         k_all = self.u_k(h_bank)
         v_all = self.u_v(h_bank)
-        scores = torch.bmm(q_t.unsqueeze(1), k_all.transpose(1, 2)).squeeze(1) / math.sqrt(float(self.recurrent_dim))
-        weights = F.softmax(scores.masked_fill(~valid_mask, -1e9), dim=-1)
+        scores = (q_t.unsqueeze(1) @ k_all.transpose(1, 2)).squeeze(1) / math.sqrt(float(self.recurrent_dim))
+        weights = F.softmax(scores.float().masked_fill(~valid_mask, -1e9), dim=-1).to(dtype=v_all.dtype)
         read_vec = torch.bmm(weights.unsqueeze(1), v_all).squeeze(1)
         gru_cand = self.u_gru(self.u_out(read_vec), z_t)
         ref = h0 if self.anchored else z_t
@@ -367,29 +367,30 @@ class X3CognitiveModel(nn.Module):
             q = self.ptr_q(h_act).unsqueeze(1)
             s_full = self.out_proj(slot_fallback)
             k = self.ptr_k(s_full)
-            attn = F.softmax((q @ k.transpose(1, 2)) / math.sqrt(float(self.m_dim)), dim=-1)
+            attn = F.softmax(((q @ k.transpose(1, 2)).float() / math.sqrt(float(self.m_dim))), dim=-1).to(dtype=slot_fallback.dtype)
             slot_ctx = (attn @ slot_fallback).squeeze(1)
-            return F.softmax(self.cls_head(slot_ctx), dim=-1)
+            return F.softmax(self.cls_head(slot_ctx).float(), dim=-1).clamp(min=1e-7)
 
         if self._ablation_mode == "disable_pointer":
-            return torch.full((bsz, 16), 1.0 / 16.0, device=dev, dtype=dtype)
+            return torch.full((bsz, 16), 1.0 / 16.0, device=dev, dtype=torch.float32)
 
         q_vec = self.ptr_q(h_act)
         if q_offset is not None:
-            q_vec = q_vec + q_offset
+            q_vec = q_vec + q_offset.to(dtype=q_vec.dtype)
         q = q_vec.unsqueeze(1)
         k = self.ptr_k(h_all)
-        scores = (q @ k.transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim))
+        scores = (q @ k.transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
         is_ap = (token_ids >= AP_MIN_TOKEN_ID) & (token_ids <= AP_MAX_TOKEN_ID) & valid_tok
         has_any_ap = is_ap.any(dim=1, keepdim=True)
         attn_mask = torch.where(has_any_ap, is_ap, valid_tok)
+        # Apply -1e9 mask in FP32 so FP16 autocast never overflows c10::Half
         safe_scores = scores.masked_fill(~attn_mask, -1e9)
         attn_probs = F.softmax(safe_scores, dim=-1)
 
-        sym_probs = torch.zeros((bsz, 16), device=dev, dtype=dtype)
+        sym_probs = torch.zeros((bsz, 16), device=dev, dtype=torch.float32)
         fallback_bucket = token_ids % 16
         tok_bucket = torch.where(has_any_ap, (token_ids - AP_MIN_TOKEN_ID).clamp(0, 15), fallback_bucket)
-        active_weights = torch.where(has_any_ap, attn_probs * is_ap.to(dtype), attn_probs * valid_tok.to(dtype))
+        active_weights = torch.where(has_any_ap, attn_probs * is_ap.float(), attn_probs * valid_tok.float())
         sym_probs = sym_probs.scatter_add(1, tok_bucket, active_weights)
         return sym_probs.clamp(min=1e-7)
 
@@ -463,7 +464,7 @@ class X3CognitiveModel(nn.Module):
             else:
                 w = self.slot_init.expand(bsz, -1, -1).contiguous()
 
-            mask_bias = (~valid_tok).to(dtype=h.dtype) * (-1e9)
+            slot_valid_mask = valid_tok.unsqueeze(1)
             k_mem = self.read_k(tok_mem)
             v_mem = self.read_v(tok_mem)
 
@@ -478,8 +479,8 @@ class X3CognitiveModel(nn.Module):
 
             for step_t in range(n_steps):
                 q_slot = self.read_q(w + q_vec.unsqueeze(1))
-                attn_s = (q_slot @ k_mem.transpose(1, 2)) / math.sqrt(float(self.m_dim))
-                attn_w = F.softmax(attn_s + mask_bias.unsqueeze(1), dim=-1)
+                attn_s = (q_slot @ k_mem.transpose(1, 2)).float() / math.sqrt(float(self.m_dim))
+                attn_w = F.softmax(attn_s.masked_fill(~slot_valid_mask, -1e9), dim=-1).to(dtype=v_mem.dtype)
                 read_vec = attn_w @ v_mem
 
                 if no_rel:
@@ -594,9 +595,10 @@ class X3CognitiveModel(nn.Module):
             pos_emb = self.dense_pos_proj(r_feats) if hasattr(self, "dense_pos_proj") else self.role_feat_proj(r_feats)
             k_c = self.comp_k(h) + pos_emb
             v_c = self.comp_v(h)
-            mb = (~valid_tok).to(dtype=h.dtype) * (-1e9)
-            a1 = F.softmax((self.comp_q1(h_act).unsqueeze(1) @ k_c.transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim)) + mb, dim=-1)
-            a2 = F.softmax((self.comp_q2(h_act).unsqueeze(1) @ k_c.transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim)) + mb, dim=-1)
+            s1 = (self.comp_q1(h_act).unsqueeze(1) @ k_c.transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
+            s2 = (self.comp_q2(h_act).unsqueeze(1) @ k_c.transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
+            a1 = F.softmax(s1.masked_fill(~valid_tok, -1e9), dim=-1).to(dtype=v_c.dtype)
+            a2 = F.softmax(s2.masked_fill(~valid_tok, -1e9), dim=-1).to(dtype=v_c.dtype)
             e1 = torch.bmm(a1.unsqueeze(1), v_c).squeeze(1)
             e2 = torch.bmm(a2.unsqueeze(1), v_c).squeeze(1)
             if self.architecture == "P1-ParallelRead":
@@ -604,19 +606,20 @@ class X3CognitiveModel(nn.Module):
             else:
                 comp_rep = self.comp_u(e1) * self.comp_w(e2)
             comp_logits = self.comp_out(F.silu(comp_rep))
-            three_way_probs = F.softmax(self.three_way_switch(decision_hidden), dim=-1)  # [B, 3]
+            three_way_probs = F.softmax(self.three_way_switch(decision_hidden).float(), dim=-1)  # [B, 3]
             telemetry["three_way_switch"] = three_way_probs.detach()
         else:
             comp_logits = None
 
         ce_op_shift = torch.zeros((bsz, 4), device=dev, dtype=h.dtype)
         if hasattr(self, "ce_q"):
-            mb = (~valid_tok).to(dtype=h.dtype) * (-1e9)
             ckv = self.cand_kv(h)
             c_k, c_v = ckv.chunk(2, dim=-1)
-            ca = F.softmax((self.cand_q(h_act).unsqueeze(1) @ c_k.transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim)) + mb, dim=-1)
+            cs = (self.cand_q(h_act).unsqueeze(1) @ c_k.transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
+            ca = F.softmax(cs.masked_fill(~valid_tok, -1e9), dim=-1).to(dtype=c_v.dtype)
             cand_vec = torch.bmm(ca.unsqueeze(1), c_v).squeeze(1)
-            ce_a = F.softmax((self.ce_q(torch.cat([h_act, cand_vec], dim=-1)).unsqueeze(1) @ self.ce_k(h).transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim)) + mb, dim=-1)
+            ces = (self.ce_q(torch.cat([h_act, cand_vec], dim=-1)).unsqueeze(1) @ self.ce_k(h).transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
+            ce_a = F.softmax(ces.masked_fill(~valid_tok, -1e9), dim=-1).to(dtype=h.dtype)
             e_ce = torch.bmm(ce_a.unsqueeze(1), self.ce_v(h)).squeeze(1)
             if self.architecture == "ContradictionShuffle" or self._ablation_mode == "shuffle_counterexample":
                 if bsz > 1:
@@ -632,8 +635,8 @@ class X3CognitiveModel(nn.Module):
                 ce_op_shift = 0.25 * raw_ce
 
         if hasattr(self, "op_bank"):
-            mb = (~valid_tok).to(dtype=h.dtype) * (-1e9)
-            al_a = F.softmax((self.align_q(h_act).unsqueeze(1) @ self.align_k(h).transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim)) + mb, dim=-1)
+            als = (self.align_q(h_act).unsqueeze(1) @ self.align_k(h).transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
+            al_a = F.softmax(als.masked_fill(~valid_tok, -1e9), dim=-1).to(dtype=h.dtype)
             if self._ablation_mode == "swap_alignment" and seq_len > 1:
                 al_a = torch.roll(al_a, shifts=max(1, seq_len // 3), dims=-1)
             e_al = torch.bmm(al_a.unsqueeze(1), self.align_v(h)).squeeze(1)
@@ -648,8 +651,8 @@ class X3CognitiveModel(nn.Module):
             slot_cls_logits = slot_cls_logits + self.cls_head(ep_vec)
             ctx_feat = ctx_feat + self.out_proj(ep_vec)
         elif hasattr(self, "ret_q"):
-            mb = (~valid_tok).to(dtype=h.dtype) * (-1e9)
-            ra = F.softmax((self.ret_q(h_act).unsqueeze(1) @ self.ret_k(h).transpose(1, 2)).squeeze(1) / math.sqrt(float(self.m_dim)) + mb, dim=-1)
+            rs = (self.ret_q(h_act).unsqueeze(1) @ self.ret_k(h).transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
+            ra = F.softmax(rs.masked_fill(~valid_tok, -1e9), dim=-1).to(dtype=h.dtype)
             ret_vec = torch.bmm(ra.unsqueeze(1), self.ret_v(h)).squeeze(1)
             slot_cls_logits = slot_cls_logits + self.cls_head(ret_vec)
             ctx_feat = ctx_feat + self.out_proj(ret_vec)
@@ -664,20 +667,20 @@ class X3CognitiveModel(nn.Module):
             ptr_sym_probs = self._compute_pointer_symbol_probs(
                 h, h_act, token_ids, valid_tok, q_offset=r_ptr_offset, slot_fallback=slot_mem_for_nocopy
             )
-            mix = F.softmax(self.copy_mix_head(decision_hidden), dim=-1)
-            copy_log = torch.log(ptr_sym_probs.clamp_min(1e-7))
-            gen_log = F.log_softmax(slot_cls_logits, dim=-1)
+            mix = F.softmax(self.copy_mix_head(decision_hidden).float(), dim=-1)
+            copy_log = torch.log(ptr_sym_probs.float().clamp_min(1e-7))
+            gen_log = F.log_softmax(slot_cls_logits.float(), dim=-1)
             if three_way_probs is not None and comp_logits is not None:
-                comp_log = F.log_softmax(comp_logits, dim=-1)
+                comp_log = F.log_softmax(comp_logits.float(), dim=-1)
                 # Combine copy, compositional bilinear, and lexical generation while keeping copy_mix_head active
                 base_sym = mix[:, :1] * copy_log + mix[:, 1:2] * gen_log
                 sym_log = three_way_probs[:, 0:1] * base_sym + three_way_probs[:, 1:2] * comp_log + three_way_probs[:, 2:3] * gen_log
             else:
                 sym_log = mix[:, :1] * copy_log + mix[:, 1:2] * gen_log
         else:
-            sym_log = F.log_softmax(slot_cls_logits, dim=-1)
+            sym_log = F.log_softmax(slot_cls_logits.float(), dim=-1)
 
-        op_log = F.log_softmax(op_logits, dim=-1)
+        op_log = F.log_softmax(op_logits.float(), dim=-1)
         ans_action_log = op_log[:, 0:1] + sym_log
         action_19_logits = torch.cat([ans_action_log, op_log[:, 1:]], dim=-1)
 
