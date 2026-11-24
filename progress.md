@@ -325,3 +325,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added `GenericExperimentTrainer` `post_step_hook` + `train_loop(..., save_final=..., post_train_hook=...)`, `build_x1_spec(cpu_canary=...)`, `include_verify_module=True`, and `owner_authorized=True` notebook defaults (`runtime.py`, `notebooks.py`, `studio.py`, `__init__.py`).
 - Updated 3-way manuals (`verify.py` layout, `git archive --format=zip`, trainer/X1 gotchas) and added `tests/test_planthir_y4_x3_feedback_upgrades.py`.
 - Verified on CPU (`cuda_available=false`): `41 passed` across 9 suites (`19` + `22`), `level` (`level=6`), `doctor` (`GREEN_SIGNAL`), and `calibrate` (`6/6`); live CUDA/2xT4 GPU runs pending.
+
+### 2026-11-24 | Antigravity | Add padded FP16 autocast Gate 3 and u0000 smoke verification
+- Added `validate_fp16_autocast_forward_backward` and `check_fp16_autocast` (`instrument.py`), automatic Gate 3 AMP verification when `supports_fp16=True` or `precision="fp16"` (`cartridge.py`), `ExperimentModule(..., supports_fp16=...)`, and `u0000_fp16_autocast_fn` / `require_u0000_fp16_autocast` enforcement in `CampaignOrchestrator.run_registered_plan` (`runtime.py`).
+- Exposed `Palantiri.validate_fp16_autocast` and `"u0000_fp16_autocast_gate"` (`studio.py`, `__init__.py`), updated 3-way manuals with `c10::Half` `-1e9` guidance, and added `tests/test_planthir_fp16_autocast_gate.py`.
+- Verified on CPU (`cuda_available=false`): `45 passed` across 10 suites (`23` + `22`), `level` (`level=6`, 19 capabilities), `doctor` (`GREEN_SIGNAL`), and `calibrate` (`6/6`); live CUDA/2xT4 GPU runs pending.

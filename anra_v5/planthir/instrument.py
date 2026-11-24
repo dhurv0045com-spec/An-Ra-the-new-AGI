@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import replace
 import math
@@ -345,13 +346,9 @@ def validate_metric_aggregator(
     }
 
 
-def validate_model_and_gradients(
-    model: torch.nn.Module,
-    loss_fn: Callable[[torch.nn.Module], torch.Tensor],
-    *,
-    active_param_contract: set[str] | frozenset[str] | None = None,
-) -> dict[str, Any]:
-    """Perform a non-mutating forward/backward graph integrity and active-parameter check."""
+@contextmanager
+def _preserve_model_and_rng_state(model: torch.nn.Module):
+    """Snapshot and restore model training mode, buffers, grads, and RNG state across non-mutating probes."""
 
     modes = [(m, m.training) for m in model.modules()]
     buffers = [(b, b.detach().clone()) for b in model.buffers()]
@@ -364,13 +361,100 @@ def validate_model_and_gradients(
     except ImportError:
         np = None
     numpy_rng = np.random.get_state() if np is not None else None
+    try:
+        yield
+    finally:
+        with torch.no_grad():
+            for buffer, value in buffers:
+                buffer.copy_(value)
+            for param, original, value in gradients:
+                param.grad = original
+                if original is not None:
+                    original.copy_(value)
+        for m, was in modes:
+            m.training = was
+        torch.set_rng_state(cpu_rng)
+        if cuda_rng is not None:
+            torch.cuda.set_rng_state_all(cuda_rng)
+        random.setstate(python_rng)
+        if np is not None:
+            np.random.set_state(numpy_rng)
+
+
+def validate_fp16_autocast_forward_backward(
+    model: torch.nn.Module,
+    loss_fn: Callable[[torch.nn.Module], torch.Tensor],
+    *,
+    active_param_contract: set[str] | frozenset[str] | None = None,
+    dtype: torch.dtype = torch.float16,
+) -> dict[str, Any]:
+    """Perform a non-mutating FP16 autocast forward/backward probe catching Half overflow and dead grads."""
+
+    device_type = "cuda" if any(p.is_cuda for p in model.parameters()) else "cpu"
+    defects: list[str] = []
+    non_none_params: set[str] = set()
+    nonzero_params: set[str] = set()
+    loss_value: float | None = None
+
+    with _preserve_model_and_rng_state(model):
+        try:
+            model.train()
+            model.zero_grad(set_to_none=True)
+            with torch.amp.autocast(device_type, dtype=dtype):
+                loss = loss_fn(model)
+            loss_value = float(loss.detach().item())
+            if not math.isfinite(loss_value):
+                defects.append(f"nonfinite_fp16_loss:{loss_value!r}")
+            else:
+                loss.backward()
+                for name, param in model.named_parameters():
+                    if not param.requires_grad or param.grad is None:
+                        continue
+                    if not torch.isfinite(param.grad).all():
+                        defects.append(f"nonfinite_fp16_grad:{name}")
+                        continue
+                    norm = float(param.grad.detach().float().norm().item())
+                    non_none_params.add(name)
+                    if norm > 0.0:
+                        nonzero_params.add(name)
+                if not nonzero_params:
+                    defects.append("no_nonzero_fp16_gradients")
+                if active_param_contract is not None:
+                    for name in sorted(active_param_contract - nonzero_params):
+                        defects.append(f"missing_active_fp16_gradient:{name}")
+        except (RuntimeError, FloatingPointError, OverflowError) as exc:
+            defects.append(f"fp16_autocast_runtime_error:{type(exc).__name__}:{exc}")
+
+    passed = len(defects) == 0
+    return {
+        "schema": "anra-planthir-fp16-autocast-check-v1",
+        "passed": passed,
+        "status": "PASS" if passed else "INSTRUMENT_DEFECT_DETECTED",
+        "device_type": device_type,
+        "dtype": str(dtype),
+        "loss": loss_value,
+        "non_none_grad_count": len(non_none_params),
+        "nonzero_grad_count": len(nonzero_params),
+        "defects": defects,
+    }
+
+
+def validate_model_and_gradients(
+    model: torch.nn.Module,
+    loss_fn: Callable[[torch.nn.Module], torch.Tensor],
+    *,
+    active_param_contract: set[str] | frozenset[str] | None = None,
+    check_fp16_autocast: bool = False,
+) -> dict[str, Any]:
+    """Perform a non-mutating forward/backward graph integrity and active-parameter check."""
+
     defects: list[str] = []
     grad_norms: dict[str, float] = {}
     non_none_params: set[str] = set()
     nonzero_params: set[str] = set()
     loss_value: float | None = None
 
-    try:
+    with _preserve_model_and_rng_state(model):
         model.train()
         model.zero_grad(set_to_none=True)
         loss = loss_fn(model)
@@ -398,22 +482,15 @@ def validate_model_and_gradients(
             missing = sorted(active_param_contract - nonzero_params)
             for name in missing:
                 defects.append(f"missing_active_gradient:{name}")
-    finally:
-        with torch.no_grad():
-            for buffer, value in buffers:
-                buffer.copy_(value)
-            for param, original, value in gradients:
-                param.grad = original
-                if original is not None:
-                    original.copy_(value)
-        for m, was in modes:
-            m.training = was
-        torch.set_rng_state(cpu_rng)
-        if cuda_rng is not None:
-            torch.cuda.set_rng_state_all(cuda_rng)
-        random.setstate(python_rng)
-        if np is not None:
-            np.random.set_state(numpy_rng)
+
+    fp16_report: dict[str, Any] | None = None
+    if check_fp16_autocast:
+        fp16_report = validate_fp16_autocast_forward_backward(
+            model,
+            loss_fn,
+            active_param_contract=active_param_contract,
+        )
+        defects.extend(fp16_report["defects"])
 
     passed = len(defects) == 0
     return {
@@ -423,6 +500,7 @@ def validate_model_and_gradients(
         "loss": loss_value,
         "non_none_grad_count": len(non_none_params),
         "nonzero_grad_count": len(nonzero_params),
+        "fp16_autocast": fp16_report,
         "defects": defects,
     }
 
@@ -1221,6 +1299,7 @@ __all__ = [
     "run_scientific_shortcut_calibration",
     "score_crossover_panel",
     "validate_environment_kernel",
+    "validate_fp16_autocast_forward_backward",
     "validate_metric_aggregator",
     "validate_model_and_gradients",
     "validate_nonanticipating_teacher",

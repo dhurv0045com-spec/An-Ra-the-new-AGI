@@ -22,6 +22,7 @@ from .custody import (
     verify_campaign_ledger,
     verify_split_disjointness,
 )
+from .instrument import validate_fp16_autocast_forward_backward
 from .notebooks import build_pinned_kaggle_notebook, verify_pinned_notebook_bytes
 from .reporting import render_campaign_dashboard, rescore_compact_analysis_archive
 from .runtime import build_x1_spec
@@ -69,6 +70,7 @@ def level_info() -> dict[str, Any]:
             "dependency_aware_leaf_optimizer_compaction",
             "cuda_safe_cpu_representation_handoff",
             "trainer_post_step_and_loop_hooks",
+            "u0000_fp16_autocast_gate",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
@@ -571,6 +573,10 @@ class Palantiri:
     @staticmethod
     def verify_splits(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return verify_split_disjointness(*args, **kwargs)
+
+    @staticmethod
+    def validate_fp16_autocast(model: Any, loss_fn: Any, **kwargs: Any) -> dict[str, Any]:
+        return validate_fp16_autocast_forward_backward(model, loss_fn, **kwargs)
 
 
 __all__ = [
