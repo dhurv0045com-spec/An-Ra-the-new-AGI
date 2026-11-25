@@ -548,3 +548,68 @@ def test_gate6_all_29_architectures_fp16_autocast_padded_finite() -> None:
     bad_case = build_x3_cognitive_battery(split="dev", per_family=1, shot_counts=(0,))["cases"][0]
     ev_bad = evaluate_x3_batched(m_bad_utf8, [bad_case], batch_size=1, device="cpu", use_generative_bytes=True)
     assert len(ev_bad) == 1 and ev_bad[0]["correct"] is False
+
+
+def test_gate7_full_57_job_ledger_dedup_report_and_archive_export(tmp_path: Path) -> None:
+    """End-to-end check over the full 57-job ledger (including S2 & S3 P-R-Iter overlap) through report + archive verification."""
+    commit = "d" * 40
+    dispatched: list[str] = []
+
+    def _mock_57_worker(_wspec, _env, cmd) -> int:
+        spec_p = Path(cmd[cmd.index("--job-json") + 1])
+        wroot = Path(cmd[cmd.index("--work-root") + 1])
+        wroot.mkdir(parents=True, exist_ok=True)
+        job = json.loads(spec_p.read_text(encoding="utf-8"))
+        jid = str(job["job_id"])
+        dispatched.append(jid)
+        arch = str(job["architecture"])
+        score = 0.55 if arch == "P-R-Iter" else 0.35
+        receipt = {
+            "schema": "elendril-x3-job-receipt-v1",
+            "job_id": jid,
+            "stage": str(job.get("stage", "")),
+            "architecture": arch,
+            "objective": str(job["objective"]),
+            "scale": str(job["scale"]),
+            "init_seed": int(job["init_seed"]),
+            "order_seed": int(job["order_seed"]),
+            "status": "COMPLETE",
+            "source_commit": str(job["source_commit"]),
+            "spec_sha256": str(job["spec_sha256"]),
+            "target_updates": int(job["updates"]),
+            "completed_updates": int(job["updates"]),
+            "dev_macro_mean": score,
+            "dev_profile": {
+                "macro_mean": score,
+                "absent_from_input_accuracy": 0.40,
+                "epistemic_vs_info_auroc": 0.65,
+            },
+        }
+        (wroot / "JOB_RECEIPT.json").write_text(json.dumps(receipt, indent=2), encoding="utf-8")
+        return 0
+
+    mirror_dir = tmp_path / "kaggle_working"
+    res = run_x3_campaign(
+        work_dir=tmp_path / "work",
+        export_dir=tmp_path / "export",
+        source_commit=commit,
+        devices=("cuda:0", "cuda:1"),
+        session_minutes=660.0,
+        reserve_minutes=45.0,
+        measured_seconds_per_update=0.001,
+        per_job_disk_bytes=1024,
+        canary=False,
+        in_process_runner=_mock_57_worker,
+        mirror_dir=mirror_dir,
+        force_s50_gate=False,
+    )
+    assert len(dispatched) == 45
+    assert res["status"] == "COMPLETE"
+    assert res["completed_count"] == 45
+    assert res["total_jobs"] == 57
+    assert len(res["gated_s50_job_ids"]) == 12
+    assert "first_page_report" in res["paired_summary"]
+    assert res["confirmation_lock"]["unlocked"] is True
+    assert res["analysis_archive_verified"] is True
+    assert (mirror_dir / "ELENDRIL_V8_X3_ANALYSIS.zip").is_file()
+    assert (mirror_dir / "X3_CAMPAIGN_SUMMARY.json").is_file()

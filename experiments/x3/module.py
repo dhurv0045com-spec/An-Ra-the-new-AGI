@@ -1789,16 +1789,28 @@ def run_x3_campaign(
         }
 
     # Paired bootstrap summary using Palantiri primitives across completed treatment/control arms
-    arm_records = [
-        {
-            "arm_id": f"{r['architecture']}_{r['objective']}_{r['scale']}",
-            "init_seed": int(r["init_seed"]),
-            "order_seed": int(r.get("order_seed", int(r["init_seed"]) + 1000)),
-            "value": float(r.get("dev_macro_mean", 0.0)),
-        }
-        for r in job_receipts.values()
-        if "dev_macro_mean" in r
-    ]
+    # Deduplicate (arm_id, init_seed, order_seed) deterministically across stages (e.g. S2 vs S3 sharing P-R-Iter D3-Hybrid)
+    arm_records: list[dict[str, Any]] = []
+    seen_arm_keys: set[tuple[str, int, int]] = set()
+    for jid in sorted(job_receipts):
+        r = job_receipts[jid]
+        if "dev_macro_mean" not in r:
+            continue
+        arm_id = f"{r['architecture']}_{r['objective']}_{r['scale']}"
+        i_seed = int(r["init_seed"])
+        o_seed = int(r.get("order_seed", i_seed + 1000))
+        key = (arm_id, i_seed, o_seed)
+        if key in seen_arm_keys:
+            continue
+        seen_arm_keys.add(key)
+        arm_records.append(
+            {
+                "arm_id": arm_id,
+                "init_seed": i_seed,
+                "order_seed": o_seed,
+                "value": float(r.get("dev_macro_mean", 0.0)),
+            }
+        )
     paired_summary: dict[str, Any] = {}
     s20_scale_tag = "tiny" if canary else "S20"
     contrast_specs: list[tuple[str, str, str]] = [
