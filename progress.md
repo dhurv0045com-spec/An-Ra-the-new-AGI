@@ -438,3 +438,7 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 ### 2026-11-25 | Codex | Avendi Y4 owner evidence audit
 - Verified the archive and 397,312 first-logit records. Recomputed the five-seed confirmation contrast, reproduced the unchanged pointer sham and solved 280 executive cases using only public prompts.
 - Published a curated report and per-seed metrics. Historical checkpoint regeneration remains blocked.
+
+### 2026-11-26 | Codex | Frozen Y4 checkpoint replay
+- Matched all 120 Y4 checkpoints to the owner receipts. Ran the five-seed byte parser and graph executor crossing, three-factor renderer ablation, and corrected real donor-state replay on CPU.
+- Published compact evidence, reproduction commands and conclusions. The learned bridge solved 632/640 native and 20/640 bracketed complete families.

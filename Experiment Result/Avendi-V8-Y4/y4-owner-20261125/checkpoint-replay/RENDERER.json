@@ -1,0 +1,576 @@
+{
+  "cases_per_seed_render_depth": 32,
+  "families_per_seed_render_depth": 4,
+  "scores": {
+    "7": {
+      "arrow=0,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "complete_families_by_depth": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "arrow=0,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          25,
+          8,
+          4,
+          4
+        ],
+        "complete_families_by_depth": [
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          29,
+          15,
+          12,
+          4
+        ],
+        "complete_families_by_depth": [
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          26,
+          6,
+          2,
+          2
+        ],
+        "complete_families_by_depth": [
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          16,
+          16,
+          2,
+          6
+        ],
+        "complete_families_by_depth": [
+          1,
+          1,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          3,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          8,
+          8,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          2,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "19": {
+      "arrow=0,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "complete_families_by_depth": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "arrow=0,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          26,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          3,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          20,
+          10,
+          2,
+          0
+        ],
+        "complete_families_by_depth": [
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          18,
+          4,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          2,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          6,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          6,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "41": {
+      "arrow=0,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "complete_families_by_depth": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "arrow=0,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          6,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          24,
+          32,
+          8,
+          0
+        ],
+        "complete_families_by_depth": [
+          1,
+          4,
+          1,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          32,
+          12,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          4,
+          1,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          2,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          19,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "73": {
+      "arrow=0,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "complete_families_by_depth": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "arrow=0,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          32,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          4,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          16,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          1,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          6,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          12,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          18,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          1,
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "101": {
+      "arrow=0,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          32,
+          32,
+          32,
+          32
+        ],
+        "complete_families_by_depth": [
+          4,
+          4,
+          4,
+          4
+        ]
+      },
+      "arrow=0,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=0,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=0": {
+        "exact_by_depth": [
+          28,
+          7,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          2,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=0,space_only=1": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=0": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "arrow=1,brackets=1,space_only=1": {
+        "exact_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "complete_families_by_depth": [
+          0,
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  }
+}

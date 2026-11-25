@@ -1,0 +1,34 @@
+{
+  "full_bytes": 4503835147,
+  "full_sha256": "7d006b2e72c18ed5a763d873cb23c5bba053e6ce8426c79ad13cb1857c2bb4a1",
+  "checked_full_manifest_members": 1718,
+  "checked_full_checksum_entries": 1717,
+  "compared_common_payloads": 511,
+  "different_common_payloads": [],
+  "latest_matching_receipts": 120,
+  "latest_digest_exceptions": [],
+  "evidence_sha256": "4890c3c05a753d2f09df7053902a4670f1358d688730d7756cb0674d15629b0b",
+  "pointer_sham_tensor_check": {
+    "seeds": [
+      7,
+      19,
+      41,
+      73,
+      101
+    ],
+    "tensors_per_model": 56,
+    "equal_tensors_each_seed": [
+      56,
+      56,
+      56,
+      56,
+      56
+    ],
+    "criterion": "torch.equal on matching state_dict keys after weights_only CPU load"
+  },
+  "original_iit_training_bank": {
+    "pairs": 256,
+    "donors_reaching_labeled_step_one_state": 0,
+    "actual_donor_states_without_valid_recipient_suffix": 256
+  }
+}
