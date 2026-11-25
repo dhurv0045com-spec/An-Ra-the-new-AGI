@@ -106,6 +106,7 @@ from .design import (
     holm_bonferroni_adjust,
     run_paired_comparison_preflight,
     validate_cohort_and_split_transitivity,
+    validate_paired_arm_records_preflight,
     verify_split_disjointness,
 )
 from .evidence import (
@@ -429,6 +430,7 @@ __all__ = [
     "validate_metric_aggregator",
     "validate_model_and_gradients",
     "validate_nonanticipating_teacher",
+    "validate_paired_arm_records_preflight",
     "validate_spec_document",
     "verify_campaign_ledger",
     "verify_crossover_fixture",

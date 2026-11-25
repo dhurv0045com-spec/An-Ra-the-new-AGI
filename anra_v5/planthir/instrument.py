@@ -1508,6 +1508,7 @@ def run_level7_runtime_shield_suite() -> dict[str, Any]:
     import torch.nn.functional as F
 
     from .archives import export_session_archives, verify_session_archive
+    from .design import build_paired_seed_observations, validate_paired_arm_records_preflight
     from .execution import dump_json_safe
 
     cases: list[dict[str, Any]] = []
@@ -1671,6 +1672,107 @@ def run_level7_runtime_shield_suite() -> dict[str, Any]:
             "passed": case4_passed,
             "summary_compacted": bool(receipt.get("summary_compacted")),
             "omitted_for_cap": receipt.get("summary_omitted_for_cap", []),
+        }
+    )
+
+    # 5. Multi-stage paired arm_records collision detection, stage scoping, and (arm_id, init_seed, order_seed) dedup
+    multi_stage_rows: list[dict[str, Any]] = []
+    for idx, s in enumerate((7, 19, 41)):
+        multi_stage_rows.append(
+            {
+                "stage": "S2",
+                "arm_id": "P-R-Iter_D3-Hybrid_S20",
+                "init_seed": s,
+                "order_seed": s,
+                "value": 0.60 + 0.02 * idx,
+            }
+        )
+        multi_stage_rows.append(
+            {
+                "stage": "S2",
+                "arm_id": "TREATMENT_S2",
+                "init_seed": s,
+                "order_seed": s,
+                "value": 0.65 + 0.02 * (idx % 2),
+            }
+        )
+        multi_stage_rows.append(
+            {
+                "stage": "S3",
+                "arm_id": "P-R-Iter_D3-Hybrid_S20",
+                "init_seed": s,
+                "order_seed": s,
+                "value": 0.60 + 0.02 * idx,
+            }
+        )
+        multi_stage_rows.append(
+            {
+                "stage": "S3",
+                "arm_id": "TREATMENT_S3",
+                "init_seed": s,
+                "order_seed": s,
+                "value": 0.68 + 0.01 * idx,
+            }
+        )
+    unscoped_ms = validate_paired_arm_records_preflight(
+        multi_stage_rows,
+        arm_key="arm_id",
+        require_unique_without_scope=True,
+    )
+    scoped_ms = validate_paired_arm_records_preflight(
+        multi_stage_rows,
+        arm_key="arm_id",
+        require_unique_without_scope=False,
+    )
+    dup_raised = False
+    try:
+        build_paired_seed_observations(
+            multi_stage_rows,
+            contrast_id="SHIELD_MS_ERR",
+            control_arm="P-R-Iter_D3-Hybrid_S20",
+            treatment_arm="TREATMENT_S2",
+            arm_key="arm_id",
+        )
+    except ValueError:
+        dup_raised = True
+    scoped_bundle = build_paired_seed_observations(
+        multi_stage_rows,
+        contrast_id="SHIELD_MS_SCOPED",
+        control_arm="P-R-Iter_D3-Hybrid_S20",
+        treatment_arm="TREATMENT_S2",
+        arm_key="arm_id",
+        scope_key="stage",
+        scope_value="S2",
+    )
+    dedup_bundle = build_paired_seed_observations(
+        multi_stage_rows,
+        contrast_id="SHIELD_MS_DEDUP",
+        control_arm="P-R-Iter_D3-Hybrid_S20",
+        treatment_arm="TREATMENT_S2",
+        arm_key="arm_id",
+        deduplicate="first",
+    )
+    case5_passed = (
+        unscoped_ms["passed"] is False
+        and unscoped_ms["status"] == "COLLIDING_ARM_SEED_KEYS"
+        and scoped_ms["passed"] is True
+        and scoped_ms["status"] == "SCOPED_ARM_SEED_KEYS_UNIQUE"
+        and dup_raised
+        and scoped_bundle["status"] == "COMPLETE_PAIRS"
+        and scoped_bundle["complete_pair_count"] == 3
+        and dedup_bundle["status"] == "COMPLETE_PAIRS"
+        and dedup_bundle["complete_pair_count"] == 3
+        and len(dedup_bundle["deduplicated_records"]) == 3
+    )
+    cases.append(
+        {
+            "shield_id": "multi_stage_arm_record_collision_preflight",
+            "passed": case5_passed,
+            "unscoped_collision_detected": not unscoped_ms["passed"],
+            "scoped_preflight_passed": scoped_ms["passed"],
+            "default_duplicate_rejected": dup_raised,
+            "scoped_pairs": scoped_bundle["complete_pair_count"],
+            "dedup_pairs": dedup_bundle["complete_pair_count"],
         }
     )
 

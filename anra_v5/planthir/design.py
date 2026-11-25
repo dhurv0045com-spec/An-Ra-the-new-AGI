@@ -1284,6 +1284,155 @@ def compare_paired_episode_records(
     }
 
 
+def _lookup_record_field(
+    rec: Mapping[str, Any],
+    key: str,
+) -> Any:
+    if key in rec and rec[key] is not None:
+        return rec[key]
+    extra = rec.get("extra")
+    if isinstance(extra, Mapping) and key in extra and extra[key] is not None:
+        return extra[key]
+    return None
+
+
+def _resolve_arm_value(
+    rec: Mapping[str, Any],
+    *,
+    arm_key: str,
+    fallback_arm_keys: Sequence[str] = (),
+) -> str | None:
+    for cand_key in (arm_key, *fallback_arm_keys):
+        val = _lookup_record_field(rec, str(cand_key))
+        if val is not None and str(val).strip() != "":
+            return str(val)
+    return None
+
+
+def validate_paired_arm_records_preflight(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    arm_key: str = "arm_id",
+    fallback_arm_keys: Sequence[str] = ("architecture",),
+    init_seed_key: str = "init_seed",
+    order_seed_key: str = "order_seed",
+    scope_keys: Sequence[str] = ("stage", "study", "session"),
+    require_unique_without_scope: bool = True,
+    fail_on_collision: bool = False,
+) -> dict[str, Any]:
+    """Verify before training that paired-contrast arm rows either key on stage/study or have unique (arm, init_seed, order_seed)."""
+
+    raw_groups: dict[tuple[str, int, int], list[dict[str, Any]]] = {}
+    scoped_groups: dict[tuple[str, str, int, int], list[dict[str, Any]]] = {}
+    for idx, rec in enumerate(records):
+        arm_val = _resolve_arm_value(rec, arm_key=arm_key, fallback_arm_keys=fallback_arm_keys)
+        if arm_val is None:
+            raise ValueError(
+                f"arm record at index {idx} missing arm identifier ({arm_key!r} or fallback {tuple(fallback_arm_keys)!r})"
+            )
+        raw_init = _lookup_record_field(rec, init_seed_key)
+        if raw_init is None:
+            raise ValueError(f"arm record at index {idx} missing required key {init_seed_key!r}")
+        init_s = int(raw_init)
+        raw_ord = _lookup_record_field(rec, order_seed_key)
+        ord_s = int(init_s if raw_ord is None else raw_ord)
+
+        scope_key_used: str | None = None
+        scope_val = ""
+        for sk in scope_keys:
+            sv = _lookup_record_field(rec, str(sk))
+            if sv is not None and str(sv).strip() != "":
+                scope_key_used = str(sk)
+                scope_val = str(sv).strip()
+                break
+
+        row_info = {
+            "index": idx,
+            "arm": arm_val,
+            "init_seed": init_s,
+            "order_seed": ord_s,
+            "scope_key": scope_key_used,
+            "scope": scope_val,
+            "job_id": _lookup_record_field(rec, "job_id"),
+        }
+        raw_groups.setdefault((arm_val, init_s, ord_s), []).append(row_info)
+        if scope_val:
+            scoped_groups.setdefault((scope_val, arm_val, init_s, ord_s), []).append(row_info)
+
+    collisions: list[dict[str, Any]] = []
+    scoped_collisions: list[dict[str, Any]] = []
+    for (arm_val, init_s, ord_s) in sorted(raw_groups):
+        rows = raw_groups[(arm_val, init_s, ord_s)]
+        if len(rows) <= 1:
+            continue
+        scopes = [str(r["scope"]) for r in rows]
+        job_ids = [str(r["job_id"]) for r in rows if r["job_id"] is not None]
+        disambiguated = all(bool(s) for s in scopes) and len(set(scopes)) == len(scopes)
+        entry = {
+            "arm": arm_val,
+            "init_seed": init_s,
+            "order_seed": ord_s,
+            "count": len(rows),
+            "scopes": scopes,
+            "job_ids": job_ids,
+            "disambiguated_by_scope": disambiguated,
+        }
+        collisions.append(entry)
+        if not disambiguated:
+            missing_scope_count = sum(1 for s in scopes if not s)
+            dup_scopes = sorted({s for s in scopes if s and scopes.count(s) > 1})
+            scoped_collisions.append(
+                {
+                    **entry,
+                    "missing_scope_count": missing_scope_count,
+                    "duplicate_scopes": dup_scopes,
+                }
+            )
+
+    if not collisions:
+        passed = True
+        status = "UNIQUE_ARM_SEED_KEYS"
+    elif require_unique_without_scope:
+        passed = False
+        status = "COLLIDING_ARM_SEED_KEYS"
+    elif not scoped_collisions:
+        passed = True
+        status = "SCOPED_ARM_SEED_KEYS_UNIQUE"
+    else:
+        passed = False
+        status = "COLLIDING_SCOPED_ARM_SEED_KEYS"
+
+    remediation = (
+        "No paired arm-seed collisions detected."
+        if not collisions
+        else (
+            "Key multi-stage contrasts by stage/study (e.g. build_paired_seed_observations(..., scope_key='stage', "
+            "scope_value=...)) or deduplicate arm_records over (arm_id, init_seed, order_seed) with deduplicate='first'/'last'."
+        )
+    )
+    report = {
+        "schema": "anra-planthir-paired-arm-preflight-v1",
+        "passed": passed,
+        "status": status,
+        "record_count": len(records),
+        "unique_arm_seed_count": len(raw_groups),
+        "unique_scoped_arm_seed_count": len(scoped_groups),
+        "collision_count": len(collisions),
+        "scoped_collision_count": len(scoped_collisions),
+        "requires_scope_key": bool(collisions),
+        "recommended_scope_keys": [str(k) for k in scope_keys],
+        "collisions": collisions,
+        "scoped_collisions": scoped_collisions,
+        "remediation": remediation,
+    }
+    if fail_on_collision and not passed:
+        preview = ", ".join(
+            f"({c['arm']}, {c['init_seed']}, {c['order_seed']}) x{c['count']}" for c in collisions[:5]
+        )
+        raise ValueError(f"{status}: paired arm-seed collision(s) on {preview}; {remediation}")
+    return report
+
+
 def build_paired_seed_observations(
     arm_records: Sequence[Mapping[str, Any]],
     *,
@@ -1294,20 +1443,74 @@ def build_paired_seed_observations(
     init_seed_key: str = "init_seed",
     order_seed_key: str = "order_seed",
     arm_key: str = "architecture",
+    scope_key: str | None = None,
+    scope_value: str | None = None,
+    deduplicate: str = "error",
 ) -> dict[str, Any]:
     """Pair arm-level job rows into typed `PairedSeedObservation` objects, reporting missing arms cleanly without discarding completed rows."""
 
+    if deduplicate not in ("error", "first", "last"):
+        raise ValueError(f"deduplicate must be 'error', 'first', or 'last', got {deduplicate!r}")
+    if scope_key is not None and scope_value is None:
+        raise ValueError("scope_value must be provided when scope_key is set")
+
+    filtered_records: list[Mapping[str, Any]] = []
+    for rec in arm_records:
+        if scope_key is not None:
+            sc_val = _lookup_record_field(rec, str(scope_key))
+            if sc_val is None or str(sc_val) != str(scope_value):
+                continue
+        filtered_records.append(rec)
+
     grouped: dict[tuple[int, int], dict[str, Mapping[str, Any]]] = {}
-    for idx, rec in enumerate(arm_records):
+    kept_slots: dict[tuple[int, int, str], int] = {}
+    surviving_records: list[dict[str, Any] | None] = []
+    deduplicated_records: list[dict[str, Any]] = []
+    for idx, rec in enumerate(filtered_records):
         if arm_key not in rec or init_seed_key not in rec or metric_key not in rec:
             raise ValueError(f"arm record at index {idx} missing required key ({arm_key!r}, {init_seed_key!r}, or {metric_key!r})")
         init_s = int(rec[init_seed_key])
         ord_s = int(rec.get(order_seed_key, init_s))
         arm_val = str(rec[arm_key])
         bucket = grouped.setdefault((init_s, ord_s), {})
+        slot_key = (init_s, ord_s, arm_val)
         if arm_val in bucket:
-            raise ValueError(f"duplicate record for arm {arm_val!r} at seed ({init_s}, {ord_s})")
+            if deduplicate == "error":
+                raise ValueError(f"duplicate record for arm {arm_val!r} at seed ({init_s}, {ord_s})")
+            if deduplicate == "first":
+                deduplicated_records.append(
+                    {
+                        "arm": arm_val,
+                        "init_seed": init_s,
+                        "order_seed": ord_s,
+                        "action": "skipped_duplicate",
+                        "record": dict(rec),
+                    }
+                )
+                continue
+            # deduplicate == "last"
+            prev_rec = bucket[arm_val]
+            prev_idx = kept_slots[slot_key]
+            deduplicated_records.append(
+                {
+                    "arm": arm_val,
+                    "init_seed": init_s,
+                    "order_seed": ord_s,
+                    "action": "replaced_earlier",
+                    "record": dict(prev_rec),
+                }
+            )
+            bucket[arm_val] = rec
+            surviving_records[prev_idx] = None
+            kept_slots[slot_key] = len(surviving_records)
+            surviving_records.append(dict(rec))
+            continue
+
         bucket[arm_val] = rec
+        kept_slots[slot_key] = len(surviving_records)
+        surviving_records.append(dict(rec))
+
+    preserved_records = [r for r in surviving_records if r is not None]
 
     observations: list[PairedSeedObservation] = []
     missing_pairs: list[dict[str, Any]] = []
@@ -1369,10 +1572,14 @@ def build_paired_seed_observations(
         "contrast_id": str(contrast_id),
         "control_arm": str(control_arm),
         "treatment_arm": str(treatment_arm),
+        "scope_key": scope_key,
+        "scope_value": (str(scope_value) if scope_value is not None else None),
+        "deduplicate_mode": deduplicate,
+        "deduplicated_records": deduplicated_records,
         "complete_pair_count": len(observations),
         "observations": [o.to_dict() for o in observations],
         "missing_pairs": missing_pairs,
-        "preserved_arm_records": [dict(r) for r in arm_records],
+        "preserved_arm_records": preserved_records,
         "inference": inference,
     }
 
@@ -1408,6 +1615,37 @@ def run_paired_comparison_preflight(
         treatment_arm=treatment_arm,
     )
 
+    multi_stage_rows: list[dict[str, Any]] = [dict(r, stage="S2") for r in complete_rows]
+    for idx, s in enumerate(seed_list):
+        multi_stage_rows.append({"stage": "S3", "architecture": control_arm, "init_seed": s, "order_seed": s, "value": 0.60 + 0.02 * idx})
+        multi_stage_rows.append({"stage": "S3", "architecture": f"{treatment_arm}_INTEG", "init_seed": s, "order_seed": s, "value": 0.64 + 0.02 * idx})
+
+    unscoped_pf = validate_paired_arm_records_preflight(
+        multi_stage_rows,
+        arm_key="architecture",
+        require_unique_without_scope=True,
+    )
+    scoped_pf = validate_paired_arm_records_preflight(
+        multi_stage_rows,
+        arm_key="architecture",
+        require_unique_without_scope=False,
+    )
+    scoped_fx = build_paired_seed_observations(
+        multi_stage_rows,
+        contrast_id="PREFLIGHT_MULTI_STAGE_SCOPED",
+        control_arm=control_arm,
+        treatment_arm=treatment_arm,
+        scope_key="stage",
+        scope_value="S2",
+    )
+    dedup_fx = build_paired_seed_observations(
+        multi_stage_rows,
+        contrast_id="PREFLIGHT_MULTI_STAGE_DEDUP",
+        control_arm=control_arm,
+        treatment_arm=treatment_arm,
+        deduplicate="first",
+    )
+
     last_s = seed_list[-1]
     complete_ok = (
         complete_fx["status"] == "COMPLETE_PAIRS"
@@ -1424,13 +1662,32 @@ def run_paired_comparison_preflight(
         and len(dropped_fx["preserved_arm_records"]) == len(dropped_rows)
         and (len(seed_list) - 1 < 2 or bool(dropped_fx["inference"].get("passed", False)))
     )
-    passed = bool(complete_ok and dropped_ok)
+    multi_stage_ok = (
+        unscoped_pf["passed"] is False
+        and unscoped_pf["status"] == "COLLIDING_ARM_SEED_KEYS"
+        and unscoped_pf["collision_count"] == len(seed_list)
+        and scoped_pf["passed"] is True
+        and scoped_pf["status"] == "SCOPED_ARM_SEED_KEYS_UNIQUE"
+        and scoped_fx["status"] == "COMPLETE_PAIRS"
+        and scoped_fx["complete_pair_count"] == len(seed_list)
+        and dedup_fx["status"] == "COMPLETE_PAIRS"
+        and dedup_fx["complete_pair_count"] == len(seed_list)
+        and len(dedup_fx["deduplicated_records"]) == len(seed_list)
+    )
+    passed = bool(complete_ok and dropped_ok and multi_stage_ok)
     return {
         "schema": "anra-planthir-paired-preflight-v1",
         "passed": passed,
         "status": "PREFLIGHT_PASSED" if passed else "PREFLIGHT_FAILED",
         "complete_fixture": complete_fx,
         "dropped_arm_fixture": dropped_fx,
+        "multi_stage_collision_fixture": {
+            "unscoped_preflight": unscoped_pf,
+            "scoped_preflight": scoped_pf,
+            "scoped_bundle": scoped_fx,
+            "dedup_bundle": dedup_fx,
+            "passed": multi_stage_ok,
+        },
     }
 
 
@@ -1544,5 +1801,6 @@ __all__ = [
     "holm_bonferroni_adjust",
     "run_paired_comparison_preflight",
     "validate_cohort_and_split_transitivity",
+    "validate_paired_arm_records_preflight",
     "verify_split_disjointness",
 ]

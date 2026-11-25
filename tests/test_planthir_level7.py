@@ -31,6 +31,7 @@ from anra_v5.palantiri import (
     SessionJob,
     agent_info,
     build_cartridge_from_spec,
+    build_paired_seed_observations,
     build_pinned_kaggle_notebook,
     build_x1_spec,
     decode_generated_bytes,
@@ -45,6 +46,7 @@ from anra_v5.palantiri import (
     serialize_pinned_notebook,
     validate_byte_decoder_resilience,
     validate_end_to_end_lifecycle,
+    validate_paired_arm_records_preflight,
     verify_pinned_notebook_bytes,
     verify_session_archive,
 )
@@ -287,7 +289,7 @@ def test_level7_trainer_native_amp_and_shield_suite(tmp_path: Path) -> None:
 
     shield = run_level7_runtime_shield_suite()
     assert shield["passed"] is True
-    assert shield["passed_shields"] == shield["total_shields"] == 4
+    assert shield["passed_shields"] == shield["total_shields"] == 5
 
 
 def test_level7_orchestrator_preflight_blocks_and_crash_partial_custody(tmp_path: Path) -> None:
@@ -396,7 +398,11 @@ def test_level7_facade_cartridge_doctor_and_shield_cli(tmp_path: Path) -> None:
     doc = planthir_doctor()
     assert doc["platform_level"] == 7
     assert doc["green_signal"] is True
+    assert doc["checks"]["paired_comparison_preflight"]["passed"] is True
+    assert doc["checks"]["paired_comparison_preflight"]["multi_stage_collision_detected"] is True
+    assert doc["checks"]["paired_comparison_preflight"]["multi_stage_scoped_disambiguated"] is True
     assert doc["checks"]["level7_runtime_shield"]["passed"] is True
+    assert doc["checks"]["level7_runtime_shield"]["passed_shields"] == 5
     assert "shield" in agent_info()["cli"]
 
     cal = run_fault_injection_suite()
@@ -404,6 +410,242 @@ def test_level7_facade_cartridge_doctor_and_shield_cli(tmp_path: Path) -> None:
     assert cal["level7_shield_passed"] is True
 
     shield_cli = json.loads(_run_cli(["shield"]).stdout)
-    assert shield_cli["passed"] is True and shield_cli["passed_shields"] == 4
+    assert shield_cli["passed"] is True and shield_cli["passed_shields"] == 5
     lvl_cli = json.loads(_run_cli(["level"]).stdout)
     assert lvl_cli["level"] == 7 and lvl_cli["schema"] == "anra-planthir-level7-v1"
+
+
+def test_level7_multi_stage_paired_arm_preflight_scoping_dedup_and_orchestrator(tmp_path: Path) -> None:
+    assert "multi_stage_paired_arm_preflight" in level_info()["capabilities"]
+
+    seeds = (7, 19, 41)
+    # Build a full 57-job multi-stage ledger where S2 and S3 share P-R-Iter_D3-Hybrid_S20
+    full_ledger_jobs: list[SessionJob] = []
+    # S0 (6), S1 (18), S2 (15), S3 (6 -> includes shared P-R-Iter_D3-Hybrid_S20), S4 (12) = 57 jobs
+    stage_specs = (
+        ("S0", ("REDGE_BASE", "REDGE_CTRL"), 6),
+        ("S1", ("D3_A", "D3_B", "D3_C", "D3_D", "D3_E", "D3_F"), 18),
+        ("S2", ("P-R-Iter_D3-Hybrid_S20", "ARCH_B", "ARCH_C", "ARCH_D", "ARCH_E"), 15),
+        ("S3", ("P-R-Iter_D3-Hybrid_S20", "INTEG_TRT"), 6),
+        ("S4", ("S50_A", "S50_B", "S50_C", "S50_D"), 12),
+    )
+    job_counter = 0
+    for stg, arms, expected_count in stage_specs:
+        created = 0
+        for arm in arms:
+            for s in seeds:
+                if created >= expected_count:
+                    break
+                job_counter += 1
+                full_ledger_jobs.append(
+                    SessionJob(
+                        job_id=f"X3-{stg}-{job_counter:02d}-s{s}",
+                        architecture=arm,
+                        init_seed=s,
+                        order_seed=s,
+                        updates=4,
+                        session=stg,
+                        extra={
+                            "stage": stg,
+                            "arm_id": arm,
+                            "dataset_counts": {"train": 16},
+                        },
+                    )
+                )
+                created += 1
+        assert created == expected_count
+    assert len(full_ledger_jobs) == 57
+
+    arm_records_57: list[dict[str, object]] = []
+    for idx, j in enumerate(full_ledger_jobs):
+        arm_id = str(j.extra["arm_id"])
+        bonus = 0.04 if arm_id in ("ARCH_B", "INTEG_TRT") else 0.0
+        if j.session == "S3" and arm_id == "P-R-Iter_D3-Hybrid_S20":
+            bonus = 0.01
+        arm_records_57.append(
+            {
+                "job_id": j.job_id,
+                "stage": j.session,
+                "arm_id": arm_id,
+                "init_seed": j.init_seed,
+                "order_seed": j.order_seed,
+                "value": 0.60 + 0.015 * (idx % 3) + bonus,
+            }
+        )
+
+    # 1. Preflight flags cross-stage shared arm when require_unique_without_scope=True
+    pf_strict = validate_paired_arm_records_preflight(
+        arm_records_57,
+        arm_key="arm_id",
+        require_unique_without_scope=True,
+    )
+    assert pf_strict["passed"] is False
+    assert pf_strict["status"] == "COLLIDING_ARM_SEED_KEYS"
+    assert pf_strict["collision_count"] == 3
+    assert pf_strict["requires_scope_key"] is True
+    assert all(c["arm"] == "P-R-Iter_D3-Hybrid_S20" and c["disambiguated_by_scope"] for c in pf_strict["collisions"])
+
+    with pytest.raises(ValueError, match="COLLIDING_ARM_SEED_KEYS"):
+        validate_paired_arm_records_preflight(
+            arm_records_57,
+            arm_key="arm_id",
+            require_unique_without_scope=True,
+            fail_on_collision=True,
+        )
+
+    # 2. Preflight passes when stage/study disambiguates cross-stage sharing, via facade too
+    pf_scoped = Palantiri.validate_paired_arm_records(
+        arm_records_57,
+        arm_key="arm_id",
+        require_unique_without_scope=False,
+    )
+    assert pf_scoped["passed"] is True
+    assert pf_scoped["status"] == "SCOPED_ARM_SEED_KEYS_UNIQUE"
+    assert pf_scoped["scoped_collision_count"] == 0
+
+    # 3. Within-stage duplicate fails even with require_unique_without_scope=False
+    bad_dup_rows = list(arm_records_57) + [
+        {
+            "job_id": "X3-S2-DUP-s7",
+            "stage": "S2",
+            "arm_id": "P-R-Iter_D3-Hybrid_S20",
+            "init_seed": 7,
+            "order_seed": 7,
+            "value": 0.62,
+        }
+    ]
+    pf_within_dup = validate_paired_arm_records_preflight(
+        bad_dup_rows,
+        arm_key="arm_id",
+        require_unique_without_scope=False,
+    )
+    assert pf_within_dup["passed"] is False
+    assert pf_within_dup["status"] == "COLLIDING_SCOPED_ARM_SEED_KEYS"
+    assert pf_within_dup["scoped_collision_count"] == 1
+    with pytest.raises(ValueError, match="COLLIDING_SCOPED_ARM_SEED_KEYS"):
+        validate_paired_arm_records_preflight(
+            bad_dup_rows,
+            arm_key="arm_id",
+            require_unique_without_scope=False,
+            fail_on_collision=True,
+        )
+
+    # 4. build_paired_seed_observations: default error, scope_key filtering, dedup="first"/"last"
+    with pytest.raises(ValueError, match="duplicate record for arm 'P-R-Iter_D3-Hybrid_S20'"):
+        build_paired_seed_observations(
+            arm_records_57,
+            contrast_id="S2_ARCH",
+            control_arm="P-R-Iter_D3-Hybrid_S20",
+            treatment_arm="ARCH_B",
+            arm_key="arm_id",
+        )
+
+    with pytest.raises(ValueError, match="scope_value"):
+        build_paired_seed_observations(
+            arm_records_57,
+            contrast_id="S2_ARCH",
+            control_arm="P-R-Iter_D3-Hybrid_S20",
+            treatment_arm="ARCH_B",
+            arm_key="arm_id",
+            scope_key="stage",
+        )
+    with pytest.raises(ValueError, match="deduplicate"):
+        build_paired_seed_observations(
+            arm_records_57,
+            contrast_id="S2_ARCH",
+            control_arm="P-R-Iter_D3-Hybrid_S20",
+            treatment_arm="ARCH_B",
+            arm_key="arm_id",
+            deduplicate="invalid",
+        )
+
+    s2_scoped = build_paired_seed_observations(
+        arm_records_57,
+        contrast_id="S2_ARCH",
+        control_arm="P-R-Iter_D3-Hybrid_S20",
+        treatment_arm="ARCH_B",
+        arm_key="arm_id",
+        scope_key="stage",
+        scope_value="S2",
+    )
+    assert s2_scoped["status"] == "COMPLETE_PAIRS"
+    assert s2_scoped["complete_pair_count"] == 3
+    assert s2_scoped["deduplicated_records"] == []
+    assert s2_scoped["scope_key"] == "stage" and s2_scoped["scope_value"] == "S2"
+
+    dedup_first = build_paired_seed_observations(
+        arm_records_57,
+        contrast_id="S3_INTEG_FIRST",
+        control_arm="P-R-Iter_D3-Hybrid_S20",
+        treatment_arm="INTEG_TRT",
+        arm_key="arm_id",
+        deduplicate="first",
+    )
+    dedup_last = build_paired_seed_observations(
+        arm_records_57,
+        contrast_id="S3_INTEG_LAST",
+        control_arm="P-R-Iter_D3-Hybrid_S20",
+        treatment_arm="INTEG_TRT",
+        arm_key="arm_id",
+        deduplicate="last",
+    )
+    assert dedup_first["status"] == "COMPLETE_PAIRS" and dedup_first["complete_pair_count"] == 3
+    assert len(dedup_first["deduplicated_records"]) == 3
+    assert all(d["action"] == "skipped_duplicate" and d["record"]["stage"] == "S3" for d in dedup_first["deduplicated_records"])
+    assert dedup_last["status"] == "COMPLETE_PAIRS" and dedup_last["complete_pair_count"] == 3
+    assert len(dedup_last["deduplicated_records"]) == 3
+    assert all(d["action"] == "replaced_earlier" and d["record"]["stage"] == "S2" for d in dedup_last["deduplicated_records"])
+    # Last keeps the S3 control value (+0.01 higher than S2 control), so control_value increases by 0.01
+    assert abs((dedup_last["observations"][0]["control_value"] - dedup_first["observations"][0]["control_value"]) - 0.01) < 1e-9
+
+    # 5. CampaignOrchestrator.prepare & run_registered_plan integration on full 57-job ledger
+    strict_dir = tmp_path / "orch_strict"
+    orch_strict = CampaignOrchestrator(campaign_id="X3-STRICT", source_commit="8" * 40, work_dir=strict_dir)
+    with pytest.raises(ValueError, match="COLLIDING_ARM_SEED_KEYS"):
+        orch_strict.run_registered_plan(
+            full_ledger_jobs,
+            devices=("cuda:0", "cuda:1"),
+            measured_seconds_per_update=1.0,
+            inventory_only=True,
+            require_unique_arms_without_scope=True,
+            fail_on_paired_arm_collision=True,
+        )
+    strict_manifest = json.loads((strict_dir / "PREPARED_MANIFEST.json").read_text(encoding="utf-8"))
+    assert strict_manifest["paired_arm_preflight"]["passed"] is False
+    assert strict_manifest["paired_arm_preflight"]["collision_count"] == 3
+
+    # Scoped multi-stage 57-job ledger passes pre-training inventory & prepare checks cleanly
+    scoped_dir = tmp_path / "orch_scoped"
+    orch_scoped = CampaignOrchestrator(campaign_id="X3-SCOPED", source_commit="8" * 40, work_dir=scoped_dir)
+    inv_ok = orch_scoped.run_registered_plan(
+        full_ledger_jobs,
+        devices=("cuda:0", "cuda:1"),
+        measured_seconds_per_update=1.0,
+        inventory_only=True,
+        require_unique_arms_without_scope=False,
+        fail_on_paired_arm_collision=True,
+    )
+    assert inv_ok["status"] == "INVENTORY_ONLY"
+    assert inv_ok["paired_arm_preflight"]["status"] == "SCOPED_ARM_SEED_KEYS_UNIQUE"
+    assert inv_ok["paired_arm_preflight"]["passed"] is True
+    assert len(inv_ok["prepared"]["jobs"]) == 57
+
+    # Same-stage duplicate fails fail-closed even when scoped check is enabled
+    dup_stage_jobs = list(full_ledger_jobs) + [
+        SessionJob(
+            job_id="X3-S2-DUP-s7",
+            architecture="P-R-Iter_D3-Hybrid_S20",
+            init_seed=7,
+            order_seed=7,
+            updates=4,
+            session="S2",
+            extra={"stage": "S2", "arm_id": "P-R-Iter_D3-Hybrid_S20"},
+        )
+    ]
+    dup_dir = tmp_path / "orch_dup"
+    with pytest.raises(ValueError, match="COLLIDING_SCOPED_ARM_SEED_KEYS"):
+        CampaignOrchestrator(campaign_id="X3-DUP", source_commit="8" * 40, work_dir=dup_dir).prepare(
+            dup_stage_jobs,
+            require_unique_without_scope=False,
+            fail_on_arm_collision=True,
+        )

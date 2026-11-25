@@ -49,6 +49,7 @@ from .custody import (
     verify_campaign_ledger,
     verify_split_disjointness,
 )
+from .design import validate_paired_arm_records_preflight
 from .execution import dump_json_safe, sanitize_for_json
 from .instrument import validate_byte_decoder_resilience
 from .notebooks import build_pinned_kaggle_notebook, serialize_pinned_notebook, verify_pinned_notebook_bytes
@@ -1668,15 +1669,57 @@ class CampaignOrchestrator:
         self.min_disk_bytes = int(min_disk_bytes)
         self.in_process_runner = in_process_runner
 
-    def prepare(self, jobs: Sequence[SessionJob]) -> dict[str, Any]:
-        doc = {
+    def preflight_paired_arm_records(
+        self,
+        jobs: Sequence[SessionJob],
+        *,
+        arm_key: str = "arm_id",
+        fallback_arm_keys: Sequence[str] = ("architecture",),
+        require_unique_without_scope: bool = False,
+        fail_on_collision: bool = False,
+    ) -> dict[str, Any]:
+        """Validate paired-contrast arm uniqueness/scoping across the full campaign job ledger before training."""
+
+        records = [asdict(j) for j in jobs]
+        return validate_paired_arm_records_preflight(
+            records,
+            arm_key=arm_key,
+            fallback_arm_keys=fallback_arm_keys,
+            require_unique_without_scope=require_unique_without_scope,
+            fail_on_collision=fail_on_collision,
+        )
+
+    def prepare(
+        self,
+        jobs: Sequence[SessionJob],
+        *,
+        check_paired_uniqueness: bool = True,
+        require_unique_without_scope: bool = False,
+        fail_on_arm_collision: bool = False,
+    ) -> dict[str, Any]:
+        job_dicts = [asdict(j) for j in jobs]
+        doc: dict[str, Any] = {
             "schema": "anra-planthir-campaign-manifest-v1",
             "campaign_id": self.campaign_id,
             "source_commit": self.source_commit,
             "job_count": len(jobs),
-            "jobs": [asdict(j) for j in jobs],
+            "jobs": job_dicts,
         }
+        paired_pf: dict[str, Any] | None = None
+        if check_paired_uniqueness:
+            paired_pf = validate_paired_arm_records_preflight(
+                job_dicts,
+                require_unique_without_scope=require_unique_without_scope,
+                fail_on_collision=False,
+            )
+            doc["paired_arm_preflight"] = paired_pf
         (self.work_dir / "PREPARED_MANIFEST.json").write_text(dump_json_safe(doc), encoding="utf-8")
+        if paired_pf is not None and fail_on_arm_collision and not bool(paired_pf.get("passed", False)):
+            validate_paired_arm_records_preflight(
+                job_dicts,
+                require_unique_without_scope=require_unique_without_scope,
+                fail_on_collision=True,
+            )
         return doc
 
     def admit(
@@ -2132,6 +2175,9 @@ class CampaignOrchestrator:
         confirm_required_job_ids: Sequence[str] = (),
         prune_completed_checkpoints: bool = False,
         strip_leaf_optimizers: bool = False,
+        check_paired_arm_uniqueness: bool = True,
+        require_unique_arms_without_scope: bool = False,
+        fail_on_paired_arm_collision: bool = False,
     ) -> dict[str, Any]:
         """Execute a full registered multi-job campaign with resume, profiling, gating, 2-GPU preemption, and export."""
 
@@ -2157,7 +2203,12 @@ class CampaignOrchestrator:
         if not inventory_only and command_builder is None and job_runner is None and self.in_process_runner is None:
             raise ValueError("run_registered_plan requires command_builder, job_runner, or in_process_runner")
 
-        prepared = self.prepare(job_list)
+        prepared = self.prepare(
+            job_list,
+            check_paired_uniqueness=check_paired_arm_uniqueness,
+            require_unique_without_scope=require_unique_arms_without_scope,
+            fail_on_arm_collision=fail_on_paired_arm_collision,
+        )
         registry_rows: list[dict[str, Any]] = []
         for job in job_list:
             spec_sha = job.extra.get("spec_sha256")
@@ -2357,6 +2408,7 @@ class CampaignOrchestrator:
                 "source_commit": self.source_commit,
                 "work_dir": str(self.work_dir),
                 "prepared": prepared,
+                "paired_arm_preflight": prepared.get("paired_arm_preflight"),
                 "resume_receipt": resume_receipt,
                 "admission_plan": admission_plan,
                 "admitted_job_ids": admitted_ids,
@@ -2750,6 +2802,7 @@ class CampaignOrchestrator:
                 "work_dir": str(self.work_dir),
                 "total_jobs": len(job_list),
                 "prepared": prepared,
+                "paired_arm_preflight": prepared.get("paired_arm_preflight"),
                 "resume_receipt": resume_receipt,
                 "admission_plan": admission_plan,
                 "admitted_job_ids": admitted_ids,

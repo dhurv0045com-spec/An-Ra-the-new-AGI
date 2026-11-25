@@ -24,6 +24,7 @@ from .custody import (
     verify_campaign_ledger,
     verify_split_disjointness,
 )
+from .design import validate_paired_arm_records_preflight
 from .execution import dump_json_safe, sanitize_for_json
 from .instrument import (
     run_level7_runtime_shield_suite,
@@ -86,6 +87,7 @@ def level_info() -> dict[str, Any]:
             "trainer_native_amp_grad_scaler",
             "wave_crash_partial_receipt_persistence",
             "cli_shield_runtime_suite",
+            "multi_stage_paired_arm_preflight",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
@@ -622,6 +624,10 @@ class Palantiri:
     @staticmethod
     def dump_json_safe(obj: Any, *, indent: int | None = 2) -> str:
         return dump_json_safe(obj, indent=indent)
+
+    @staticmethod
+    def validate_paired_arm_records(records: Sequence[Mapping[str, Any]], **kwargs: Any) -> dict[str, Any]:
+        return validate_paired_arm_records_preflight(records, **kwargs)
 
 
 __all__ = [

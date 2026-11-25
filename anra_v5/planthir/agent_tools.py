@@ -1625,10 +1625,19 @@ def planthir_doctor() -> dict[str, Any]:
 
         pf = run_paired_comparison_preflight()
         pf_ok = bool(pf.get("passed", False))
+        ms_fx = pf.get("multi_stage_collision_fixture") or {}
         checks["paired_comparison_preflight"] = {
             "passed": pf_ok,
             "complete_pairs": pf["complete_fixture"]["complete_pair_count"],
             "dropped_pair_detected": len(pf["dropped_arm_fixture"]["missing_pairs"]) == 1,
+            "multi_stage_collision_detected": (
+                ms_fx.get("unscoped_preflight", {}).get("status") == "COLLIDING_ARM_SEED_KEYS"
+            ),
+            "multi_stage_scoped_disambiguated": (
+                ms_fx.get("scoped_preflight", {}).get("status") == "SCOPED_ARM_SEED_KEYS_UNIQUE"
+                and ms_fx.get("scoped_bundle", {}).get("complete_pair_count")
+                == pf["complete_fixture"]["complete_pair_count"]
+            ),
         }
         if not pf_ok:
             all_ok = False

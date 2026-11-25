@@ -47,7 +47,7 @@ Your job is to convert that research specification into **10/10 genuine, verifie
    python -m anra_v5.palantiri calibrate
    python -m anra_v5.palantiri shield
    ```
-   Confirm `PLANTHIR_LEVEL = 7`, `GREEN_SIGNAL`, `6/6` faults detected (plus `SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED`), and `4/4` `LEVEL7_SHIELD_PASS`.
+   Confirm `PLANTHIR_LEVEL = 7`, `GREEN_SIGNAL`, `6/6` faults detected (plus `SHORTCUTS_REJECTED_AND_ORACLE_QUALIFIED`), and `5/5` `LEVEL7_SHIELD_PASS`.
 
 ### Step 2 — Choose Your Integration Path
 - **Path A — Declarative `spec.json` (`<50` lines):** Use when varying hyperparameters/arms on already-registered backends (`v8`, `x1_rd2`, `x1_s20`):
@@ -77,13 +77,13 @@ Follow every item here so live Kaggle 2×T4 runs never stall, overflow `/kaggle/
 7. **Honest Multi-Backbone GPU Profiling:** Tag jobs with `extra={"profile_group": "S20" | "S50"}` (or pass `measured_seconds_per_update_by_group`), synchronize CUDA via `torch.cuda.synchronize(dev)` around timed updates, and free temporary profiling models (`del m, opt, x; torch.cuda.empty_cache()`).
 8. **Fail-Fast Pinned Kaggle Notebook with `try/finally` Crash Mirroring:** Pass `preflight_commands=...` to `build_pinned_kaggle_notebook(...)` (defaults to **`owner_authorized=True`** for zero-edit Kaggle Run All; pass `owner_authorized=False` explicitly for dry-run / `--inventory-only`) alongside `preflight_canary_backend`, `backend_modules=...` (auto-propagated into `PLANTHIR_BACKEND_MODULES`), and `require_dual_gpu=True` so `torch.cuda.device_count() >= 2`, `doctor`, and `shield`/CPU gates run BEFORE multi-hour training; when `mirror_outputs_to_working=True`, launch + mirroring run inside `try ... except BaseException ... finally:` writing `CRASH_RECEIPT.json` and salvaging partial `/kaggle/working` receipts even on mid-run failure.
 9. **Strict Telemetry & Receipt JSON Sanitization (`dump_json_safe` / `sanitize_for_json`):** Never pass raw `torch.Tensor`, `np.ndarray`, `Path`, `bytes`, `set`, or `NaN`/`Inf` floats to bare `json.dumps(...)` at the end of a multi-hour run; serialize all campaign/job/stage receipts and metrics with **`dump_json_safe(...)`** or **`sanitize_for_json(...)`**.
-10. **End-to-End Stage-1-Through-Final Lifecycle Rehearsal (`<30s` Before Wave 0):** Never leave downstream Stage-5 scoring, `ConfirmLock`, `export_session_archives`, or `/kaggle/working` salvage mirroring untested until Hour 5; run **`validate_end_to_end_lifecycle(...)`**, `stage5_preflight_fn`, unconstrained `0xB5` decode checks, and archive export/verify in preflight before launching GPU waves.
+10. **End-to-End Stage-1-Through-Final Lifecycle Rehearsal Over the Full Job Ledger (`<30s` Before Wave 0):** Never leave downstream Stage-5 scoring, multi-stage paired-contrast aggregation, `ConfirmLock`, `export_session_archives`, or `/kaggle/working` salvage mirroring untested until Hour 5, and never test campaign reporting/export solely on small synthetic `jobs_override` subsets: run **`validate_paired_arm_records_preflight(...)`** (`run_registered_plan(..., fail_on_paired_arm_collision=True)`), **`validate_end_to_end_lifecycle(...)`**, `stage5_preflight_fn`, unconstrained `0xB5` decode checks, and full-ledger report + archive export/verify in preflight before launching GPU waves.
 
 ### Step 4 — Fast Tiered Verification Suite
 **NEVER run 560+ legacy tests single-threaded.** Run this fast tiered suite:
 1. **Unit, `u0000` All-Architecture Smoke, & `FULL`-Dispatch Suite:**
    - Run `python -m pytest tests/test_<name>.py -q` (or `-n auto` if `pytest-xdist` is installed).
-   - Must test: tokenized oracle, split custody + planted leak, shortcut panel, destructive masks, batched-vs-serial eval parity (`atol=1e-4`), **CPU `u0000` init+train+eval+`0xB5`-decode smoke on EVERY architecture/worker adapter**, mocked 2-GPU `FULL` dispatch + deferral/resume (`verify_full_mode_dispatch` or `in_process_runner` test), complete-cohort confirmation lock guard, and 3 targeted recovery tests (~90 lines using `in_process_runner`: mid-update crash/resume parity, swapped `spec_sha256`/missing member rejection via `reconcile_verified_resume(..., fail_on_rejection=True)`, and 1-lane failure preserving peer work + `PARTIAL` export).
+   - Must test: tokenized oracle, split custody + planted leak, shortcut panel, destructive masks, batched-vs-serial eval parity (`atol=1e-4`), **CPU `u0000` init+train+eval+`0xB5`-decode smoke on EVERY architecture/worker adapter**, full multi-stage job-ledger reporting/export & `validate_paired_arm_records_preflight` (never only tiny `jobs_override` subsets), mocked 2-GPU `FULL` dispatch + deferral/resume (`verify_full_mode_dispatch` or `in_process_runner` test), complete-cohort confirmation lock guard, and 3 targeted recovery tests (~90 lines using `in_process_runner`: mid-update crash/resume parity, swapped `spec_sha256`/missing member rejection via `reconcile_verified_resume(..., fail_on_rejection=True)`, and 1-lane failure preserving peer work + `PARTIAL` export).
 2. **Fresh-Subprocess Plugin CLI Chain (`--backend-module` or `PLANTHIR_BACKEND_MODULES`):**
    ```bash
    python -m anra_v5.palantiri --backend-module experiments.<name>.module init --backend <id> --out <tmp>/spec.json
@@ -152,8 +152,9 @@ build_pinned_kaggle_notebook(*, source_commit, title, launch_command, owner_auth
 verify_shared_backbone_and_head_overhead(control_model, treatment_model, *, backbone_prefix="core.", max_head_overhead_ratio=0.05, max_control_parity_ratio=None)
 
 # 5. Paired Stats & Reporting
+validate_paired_arm_records_preflight(records, *, arm_key="arm_id", fallback_arm_keys=("architecture",), scope_keys=("stage", "study", "session"), require_unique_without_scope=True, fail_on_collision=False)
 bootstrap_paired_families(control_scores, treatment_scores, *, resamples=2000, seed=1801)
-build_paired_seed_observations(arm_records, *, contrast_id="PRIMARY", control_arm=..., treatment_arm=..., metric_key="value")
+build_paired_seed_observations(arm_records, *, contrast_id="PRIMARY", control_arm=..., treatment_arm=..., metric_key="value", scope_key=None, scope_value=None, deduplicate="error")
 compare_paired_episode_records(control_episodes, treatment_episodes)
 exact_mcnemar_test(baseline_correct, treatment_correct)
 holm_bonferroni_adjust(p_values, *, alpha=0.05)
@@ -165,15 +166,15 @@ render_campaign_dashboard(status_payload)
 from anra_v5.palantiri import Palantiri, ConfirmLock, CampaignLedgerVerifier, verify_campaign_ledger, validate_fp16_autocast_forward_backward, validate_model_and_gradients
 from anra_v5.palantiri import collect_minimal_checkpoint_files, prune_completed_job_artifacts, mirror_to_working_dir, verify_pinned_notebook_bytes, build_x1_spec
 from anra_v5.palantiri import TypedByteSequenceKernel, decode_generated_bytes, infer_public_byte_bound, score_typed_output, canonical_structural_hash, verify_split_disjointness
-from anra_v5.palantiri import sanitize_for_json, dump_json_safe, validate_byte_decoder_resilience, validate_end_to_end_lifecycle, run_level7_runtime_shield_suite
+from anra_v5.palantiri import sanitize_for_json, dump_json_safe, validate_byte_decoder_resilience, validate_end_to_end_lifecycle, validate_paired_arm_records_preflight, run_level7_runtime_shield_suite
 Palantiri.status(work_root) / Palantiri.dashboard(work_root) / Palantiri.scaffold(name, out_dir, include_verify_module=True)
-Palantiri.runtime_shield() / Palantiri.decode_lossy(ids) / Palantiri.decode_generated_bytes(ids) / Palantiri.validate_byte_decoder() / Palantiri.validate_lifecycle(policy, kernel, worlds) / Palantiri.sanitize_json(obj)
+Palantiri.runtime_shield() / Palantiri.validate_paired_arm_records(records, ...) / Palantiri.decode_lossy(ids) / Palantiri.decode_generated_bytes(ids) / Palantiri.validate_byte_decoder() / Palantiri.validate_lifecycle(policy, kernel, worlds) / Palantiri.sanitize_json(obj)
 Palantiri.score_typed_output(prompt, raw_output, ...) / Palantiri.verify_splits(splits) / Palantiri.build_x1_spec(arch, cpu_canary=True/False) / Palantiri.validate_fp16_autocast(model, loss_fn)
 ```
 
 - **Level-7 CLI Shortcuts & Upgraded Safeguards:**
   - `python -m anra_v5.palantiri level` (inspect Level-7 subsystems & registered backends)
-  - `python -m anra_v5.palantiri shield` (run 4/4 adversarial Level-7 runtime shields: `0xB5` byte decode, FP16 `-1e9`, `NaN`/`Tensor` JSON sanitizer, and archive cap auto-compaction)
+  - `python -m anra_v5.palantiri shield` (run 5/5 adversarial Level-7 runtime shields: `0xB5` byte decode, FP16 `-1e9`, `NaN`/`Tensor` JSON sanitizer, archive cap auto-compaction, and `multi_stage_arm_record_collision_preflight`)
   - `python -m anra_v5.palantiri doctor` (includes Check 7 `level7_runtime_shield`), `calibrate` (`6/6` + `shield`)
   - `python -m anra_v5.palantiri scaffold --name my_exp --out-dir experiments` (generate a runnable plugin + smoke test + `ConfirmLock`)
   - `python -m anra_v5.palantiri status --work-root <dir> --markdown` (live read-only campaign dashboard & `pending_confirm_jobs`)
@@ -209,4 +210,5 @@ Palantiri.score_typed_output(prompt, raw_output, ...) / Palantiri.verify_splits(
 | Default `owner_authorized=True` & CUDA probe handoff (`wrapper_CUDA_cat`) | `build_pinned_kaggle_notebook` defaults to **`owner_authorized=True`** (pass `owner_authorized=False` explicitly for dry-run / `--inventory-only`). Representation consumers (`causal.py`, `cartridge.py`, `observatory.py`, `runtime.py`, `validation_study.py`) normalize `.detach().cpu()` automatically. |
 | Raw `json.dumps` `TypeError`/`ValueError` on `Tensor`, `Path`, `bytes`, `set`, `NaN`/`Inf` | Never call bare `json.dumps(..., allow_nan=False)` on training/eval telemetry. Always serialize campaign, stage, and job receipts via **`dump_json_safe(...)`** or **`sanitize_for_json(...)`** so `Tensor`, `ndarray`/NumPy scalars, `Path`, `bytes`, `set`, and non-finite floats never abort a finished run. |
 | `SUMMARY.zip` cap overflow or custom notebook crash hiding partial outputs | `export_session_archives` commits `ANALYSIS`, `EVIDENCE`, and `FULL` **before** capped `SUMMARY.zip` and auto-compacts oversized `SUMMARY.zip` (`strict_summary_cap=False`). Any custom notebook launch cell must wrap execution + `/kaggle/working` mirroring in **`try / except BaseException (CRASH_RECEIPT.json) / finally:`** (`mirror_to_working_dir`) to salvage partial receipts on error. |
+| `ValueError: duplicate record for arm ...` in `build_paired_seed_observations` | Multi-stage ledgers sharing an arm across stages (e.g. `S2` vs `S3` sharing `P-R-Iter_D3-Hybrid_S20`) collide over `(arm_id, init_seed, order_seed)`. Run **`validate_paired_arm_records_preflight(...)`** (`Palantiri.validate_paired_arm_records(...)`, wired into `CampaignOrchestrator.prepare` / `run_registered_plan`) over the full ledger before training, pass **`scope_key`/`scope_value`** or **`deduplicate="first"|"last"`** to `build_paired_seed_observations(...)`, and never test campaign reporting only on small `jobs_override` subsets. |
 | CLI `--dir` error & bare `pytest` | Always pass **`--bundle-dir`** for `verify-bundle`/`replay-bundle`, run **`python -m pytest`** (so repo root is on `sys.path`), and use `python -m anra_v5.palantiri explain-error --code <CODE>` for instant diagnostics. |
