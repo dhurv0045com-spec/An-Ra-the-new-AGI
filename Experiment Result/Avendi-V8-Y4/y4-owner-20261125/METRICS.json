@@ -1,0 +1,6060 @@
+{
+  "archive": {
+    "bytes": 361215183,
+    "checksum_list_entries_checked": 511,
+    "logit_panels_checked": 194,
+    "logit_rows_checked": 397312,
+    "manifest_entries_checked": 512,
+    "name": "AVENDI_Y4_EVIDENCE.zip",
+    "sha256": "4890c3c05a753d2f09df7053902a4670f1358d688730d7756cb0674d15629b0b"
+  },
+  "arm_means": {
+    "A ce": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.322851563,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.188671875,
+      "n": 5,
+      "query_flip": 0.023230088,
+      "raw": 0.323144531
+    },
+    "A margin": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.293164062,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.167578125,
+      "n": 5,
+      "query_flip": 0.117477876,
+      "raw": 0.282910156
+    },
+    "A pointer": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.287402344,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.167382813,
+      "n": 5,
+      "query_flip": 0.045575221,
+      "raw": 0.273828125
+    },
+    "A pointer_sham": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.287402344,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.167382813,
+      "n": 5,
+      "query_flip": 0.045575221,
+      "raw": 0.273828125
+    },
+    "B address": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.312988281,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.176757812,
+      "n": 3,
+      "query_flip": 0.050884956,
+      "raw": 0.295735677
+    },
+    "B address_sham": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.35921224,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.201334635,
+      "n": 3,
+      "query_flip": 0.053097345,
+      "raw": 0.342122396
+    },
+    "B curriculum": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.354817708,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.194498698,
+      "n": 3,
+      "query_flip": 0.034660767,
+      "raw": 0.355143229
+    },
+    "B low_lr": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.190755208,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.122721354,
+      "n": 3,
+      "query_flip": 0.026548673,
+      "raw": 0.180175781
+    },
+    "B refresh": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.373697917,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.22265625,
+      "n": 3,
+      "query_flip": 0.020648968,
+      "raw": 0.361328125
+    },
+    "B rename": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.293457031,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.17203776,
+      "n": 3,
+      "query_flip": 0.039085546,
+      "raw": 0.283854167
+    },
+    "B rename_sham": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.275390625,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.165364583,
+      "n": 3,
+      "query_flip": 0.032817109,
+      "raw": 0.281575521
+    },
+    "C categorical_endpoint_only": {
+      "d3": 1.0,
+      "d34": 1.0,
+      "d4": 1.0,
+      "n": 5
+    },
+    "C categorical_true_step": {
+      "d3": 1.0,
+      "d34": 1.0,
+      "d4": 1.0,
+      "n": 5
+    },
+    "C categorical_true_step_iit": {
+      "d3": 1.0,
+      "d34": 0.9984375,
+      "d4": 0.996875,
+      "n": 5
+    },
+    "C categorical_true_step_sham_iit": {
+      "d3": 1.0,
+      "d34": 1.0,
+      "d4": 1.0,
+      "n": 5
+    },
+    "C continuous_endpoint_only": {
+      "d3": 0.990625,
+      "d34": 0.9875,
+      "d4": 0.984375,
+      "n": 5
+    },
+    "C continuous_true_step": {
+      "d3": 0.996875,
+      "d34": 0.9984375,
+      "d4": 1.0,
+      "n": 5
+    },
+    "C dense_endpoint_only": {
+      "d3": 0.65,
+      "d34": 0.3765625,
+      "d4": 0.103125,
+      "n": 5
+    },
+    "C dense_true_step": {
+      "d3": 0.665625,
+      "d34": 0.4,
+      "d4": 0.134375,
+      "n": 5
+    },
+    "D a_to_a": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.054761905,
+      "mean_realized_utility": -1.785714286,
+      "n": 3,
+      "post_tool_terminal_acc": 0.0,
+      "raw": 0.402018229,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.0
+    },
+    "D direct_plus_info": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.783333333,
+      "mean_realized_utility": -0.473809524,
+      "n": 3,
+      "post_tool_terminal_acc": 0.117423168,
+      "raw": 0.400878906,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.366666667
+    },
+    "D direct_plus_neutral": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.04047619,
+      "mean_realized_utility": -1.821428571,
+      "n": 3,
+      "post_tool_terminal_acc": 0.0,
+      "raw": 0.41389974,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.0
+    },
+    "D replace_direct": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.778571429,
+      "mean_realized_utility": -0.46702381,
+      "n": 3,
+      "post_tool_terminal_acc": 0.094847021,
+      "raw": 0.399902344,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.283333333
+    },
+    "E learned_writer": {
+      "bounded_weight_update": 0.24609375,
+      "context_only": 0.240885417,
+      "erased_memory": 0.24609375,
+      "learned_memory_irrelevant": 0.27734375,
+      "learned_memory_none": 0.24609375,
+      "learned_memory_relevant": 0.240885417,
+      "n": 3,
+      "shuffled_memory": 0.225260417
+    },
+    "E sham_writer": {
+      "bounded_weight_update": 0.279947917,
+      "context_only": 0.236979167,
+      "erased_memory": 0.279947917,
+      "learned_memory_irrelevant": 0.276041667,
+      "learned_memory_none": 0.279947917,
+      "learned_memory_relevant": 0.236979167,
+      "n": 3,
+      "shuffled_memory": 0.26171875
+    },
+    "F s20_ce": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.26546224,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.128580729,
+      "n": 3,
+      "query_flip": 0.035029499,
+      "raw": 0.243652344
+    },
+    "F s20_low_lr": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.276204427,
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "literal": 0.177897135,
+      "n": 3,
+      "query_flip": 0.04719764,
+      "raw": 0.27360026
+    },
+    "G sham_cap": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.064285714,
+      "mean_realized_utility": -1.771428571,
+      "n": 3,
+      "post_tool_terminal_acc": 0.0,
+      "raw": 0.371582031,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.0
+    },
+    "G true_cap": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.073809524,
+      "mean_realized_utility": -1.742857143,
+      "n": 3,
+      "post_tool_terminal_acc": 0.0,
+      "raw": 0.372558594,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.0
+    },
+    "G uncapped": {
+      "fam4": 0.0,
+      "fam8": 0.0,
+      "macro_optimal": 0.785714286,
+      "mean_realized_utility": -0.478571429,
+      "n": 3,
+      "post_tool_terminal_acc": 0.105514322,
+      "raw": 0.37516276,
+      "sufficient_false_abstention": 0.0,
+      "worst_condition": 0.35
+    },
+    "H F00": {
+      "n": 3
+    },
+    "H F11": {
+      "n": 3
+    },
+    "M ce": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.042643229,
+      "n": 3,
+      "query_flip": 0.049410029
+    },
+    "M margin": {
+      "dev_native_fam8": 0.0,
+      "dev_native_raw": 0.162434896,
+      "n": 3,
+      "query_flip": 0.007374631
+    }
+  },
+  "confirmation": {
+    "cohort_size": 114,
+    "lock": "06f93143b01bc33be3c255abad1db8084eb1f60e95052446f0888b28ee254019",
+    "protocol_in_lock": null,
+    "reported_opened_count": 1,
+    "result_sha256": "d96c9b6537eca948e28677744deeeb0d86d7f9b6125e01ef750de4595be3ad50"
+  },
+  "embedded_verifier": {
+    "claim_coverage": {
+      "byte_integrity": {
+        "passed": 126,
+        "status": "PASS",
+        "total": 126
+      },
+      "checkpoint_restore": {
+        "child_restored": 21,
+        "child_total": 21,
+        "passed": 21,
+        "status": "BLOCKED",
+        "total": 27,
+        "y1_restored": 0,
+        "y1_total": 6
+      },
+      "oracle_fixture_correctness": {
+        "passed": 4,
+        "status": "PASS",
+        "total": 4
+      },
+      "recorded_action_replay": {
+        "corrupted_tokens_jobs": [],
+        "passed": 54,
+        "status": "PASS",
+        "total": 54
+      },
+      "regenerated_per_case_agreement": {
+        "passed": 0,
+        "status": "UNAVAILABLE",
+        "total": 6
+      },
+      "training_reproduction": {
+        "passed": 1,
+        "status": "PASS",
+        "total": 1
+      }
+    },
+    "jobs_total": 126,
+    "jobs_verified": 120,
+    "studies_total": 50,
+    "studies_verified": 41,
+    "unverified_studies": {
+      "U07": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U07"
+      },
+      "U08": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U08"
+      },
+      "U09": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U09"
+      },
+      "U10": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U10"
+      },
+      "U11": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U11"
+      },
+      "U12": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U12"
+      },
+      "U13": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U13"
+      },
+      "U14": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U14"
+      },
+      "U50": {
+        "evidence_status": "BLOCKED_MISSING_PARENT",
+        "execution_status": "COMPLETE",
+        "reasons": [
+          "JOB_UNVERIFIED:H-F00-s7",
+          "JOB_UNVERIFIED:H-F00-s19",
+          "JOB_UNVERIFIED:H-F00-s41",
+          "JOB_UNVERIFIED:H-F11-s7",
+          "JOB_UNVERIFIED:H-F11-s19",
+          "JOB_UNVERIFIED:H-F11-s41"
+        ],
+        "study_id": "U50"
+      }
+    }
+  },
+  "jobs": {
+    "A-ce-s101": {
+      "arm": "ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.24951171875
+      },
+      "dev_literal_raw": 0.1396484375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 18,
+        "raw": 0.2666015625
+      },
+      "seed": 101,
+      "stage": "A"
+    },
+    "A-ce-s19": {
+      "arm": "ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.3984375
+      },
+      "dev_literal_raw": 0.26025390625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 21,
+        "raw": 0.39697265625
+      },
+      "seed": 19,
+      "stage": "A"
+    },
+    "A-ce-s41": {
+      "arm": "ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.408203125
+      },
+      "dev_literal_raw": 0.2392578125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 26,
+        "raw": 0.3955078125
+      },
+      "seed": 41,
+      "stage": "A"
+    },
+    "A-ce-s7": {
+      "arm": "ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.31005859375
+      },
+      "dev_literal_raw": 0.193359375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 13,
+        "raw": 0.30224609375
+      },
+      "seed": 7,
+      "stage": "A"
+    },
+    "A-ce-s73": {
+      "arm": "ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.24951171875
+      },
+      "dev_literal_raw": 0.11083984375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 27,
+        "raw": 0.2529296875
+      },
+      "seed": 73,
+      "stage": "A"
+    },
+    "A-margin-s101": {
+      "arm": "margin",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2373046875
+      },
+      "dev_literal_raw": 0.16796875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 158,
+        "raw": 0.2783203125
+      },
+      "seed": 101,
+      "stage": "A"
+    },
+    "A-margin-s19": {
+      "arm": "margin",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2880859375
+      },
+      "dev_literal_raw": 0.16259765625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 73,
+        "raw": 0.28125
+      },
+      "seed": 19,
+      "stage": "A"
+    },
+    "A-margin-s41": {
+      "arm": "margin",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.37451171875
+      },
+      "dev_literal_raw": 0.16455078125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 170,
+        "raw": 0.37646484375
+      },
+      "seed": 41,
+      "stage": "A"
+    },
+    "A-margin-s7": {
+      "arm": "margin",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2490234375
+      },
+      "dev_literal_raw": 0.1748046875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 91,
+        "raw": 0.27880859375
+      },
+      "seed": 7,
+      "stage": "A"
+    },
+    "A-margin-s73": {
+      "arm": "margin",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.265625
+      },
+      "dev_literal_raw": 0.16796875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 39,
+        "raw": 0.2509765625
+      },
+      "seed": 73,
+      "stage": "A"
+    },
+    "A-pointer-s101": {
+      "arm": "pointer",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.26025390625
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 0.99609375,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.17041015625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 29,
+        "raw": 0.27490234375
+      },
+      "seed": 101,
+      "stage": "A"
+    },
+    "A-pointer-s19": {
+      "arm": "pointer",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.31201171875
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 1.0,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.2060546875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 30,
+        "raw": 0.31689453125
+      },
+      "seed": 19,
+      "stage": "A"
+    },
+    "A-pointer-s41": {
+      "arm": "pointer",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.24072265625
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 1.0,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.15771484375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 77,
+        "raw": 0.2783203125
+      },
+      "seed": 41,
+      "stage": "A"
+    },
+    "A-pointer-s7": {
+      "arm": "pointer",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2724609375
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 1.0,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.15625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 37,
+        "raw": 0.27783203125
+      },
+      "seed": 7,
+      "stage": "A"
+    },
+    "A-pointer-s73": {
+      "arm": "pointer",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.28369140625
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 0.99609375,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.146484375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 33,
+        "raw": 0.2890625
+      },
+      "seed": 73,
+      "stage": "A"
+    },
+    "A-pointer_sham-s101": {
+      "arm": "pointer_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.26025390625
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 0.99609375,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.17041015625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 29,
+        "raw": 0.27490234375
+      },
+      "seed": 101,
+      "stage": "A"
+    },
+    "A-pointer_sham-s19": {
+      "arm": "pointer_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.31201171875
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 1.0,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.2060546875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 30,
+        "raw": 0.31689453125
+      },
+      "seed": 19,
+      "stage": "A"
+    },
+    "A-pointer_sham-s41": {
+      "arm": "pointer_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.24072265625
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 1.0,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.15771484375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 77,
+        "raw": 0.2783203125
+      },
+      "seed": 41,
+      "stage": "A"
+    },
+    "A-pointer_sham-s7": {
+      "arm": "pointer_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2724609375
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 1.0,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.15625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 37,
+        "raw": 0.27783203125
+      },
+      "seed": 7,
+      "stage": "A"
+    },
+    "A-pointer_sham-s73": {
+      "arm": "pointer_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.28369140625
+      },
+      "dev_bridge": {
+        "ablated_pointer_fam4": 0.0,
+        "exact_parse_rate": 0.99609375,
+        "oracle_parsed_chain_rate": 1.0,
+        "pointer_gate_delta": 0.0
+      },
+      "dev_literal_raw": 0.146484375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 33,
+        "raw": 0.2890625
+      },
+      "seed": 73,
+      "stage": "A"
+    },
+    "B-address-s19": {
+      "arm": "address",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.251953125
+      },
+      "dev_literal_raw": 0.15478515625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 46,
+        "raw": 0.26806640625
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-address-s41": {
+      "arm": "address",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.40087890625
+      },
+      "dev_literal_raw": 0.2275390625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 51,
+        "raw": 0.3916015625
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-address-s7": {
+      "arm": "address",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.234375
+      },
+      "dev_literal_raw": 0.14794921875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 41,
+        "raw": 0.279296875
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "B-address_sham-s19": {
+      "arm": "address_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.390625
+      },
+      "dev_literal_raw": 0.2265625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 61,
+        "raw": 0.40576171875
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-address_sham-s41": {
+      "arm": "address_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.39599609375
+      },
+      "dev_literal_raw": 0.23291015625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 41,
+        "raw": 0.39306640625
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-address_sham-s7": {
+      "arm": "address_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.23974609375
+      },
+      "dev_literal_raw": 0.14453125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 42,
+        "raw": 0.27880859375
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "B-curriculum-s19": {
+      "arm": "curriculum",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.40185546875
+      },
+      "dev_literal_raw": 0.23486328125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 17,
+        "raw": 0.40087890625
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-curriculum-s41": {
+      "arm": "curriculum",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.412109375
+      },
+      "dev_literal_raw": 0.22705078125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 45,
+        "raw": 0.4052734375
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-curriculum-s7": {
+      "arm": "curriculum",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.25146484375
+      },
+      "dev_literal_raw": 0.12158203125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 32,
+        "raw": 0.25830078125
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "B-low_lr-s19": {
+      "arm": "low_lr",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.1826171875
+      },
+      "dev_literal_raw": 0.13671875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 27,
+        "raw": 0.19921875
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-low_lr-s41": {
+      "arm": "low_lr",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.18212890625
+      },
+      "dev_literal_raw": 0.1103515625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 17,
+        "raw": 0.1884765625
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-low_lr-s7": {
+      "arm": "low_lr",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.17578125
+      },
+      "dev_literal_raw": 0.12109375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 28,
+        "raw": 0.1845703125
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "B-refresh-s19": {
+      "arm": "refresh",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.39013671875
+      },
+      "dev_literal_raw": 0.25,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 19,
+        "raw": 0.4033203125
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-refresh-s41": {
+      "arm": "refresh",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.41748046875
+      },
+      "dev_literal_raw": 0.251953125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 15,
+        "raw": 0.4091796875
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-refresh-s7": {
+      "arm": "refresh",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2763671875
+      },
+      "dev_literal_raw": 0.166015625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 22,
+        "raw": 0.30859375
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "B-rename-s19": {
+      "arm": "rename",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.251953125
+      },
+      "dev_literal_raw": 0.17333984375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 24,
+        "raw": 0.26416015625
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-rename-s41": {
+      "arm": "rename",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.3583984375
+      },
+      "dev_literal_raw": 0.21240234375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 61,
+        "raw": 0.353515625
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-rename-s7": {
+      "arm": "rename",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2412109375
+      },
+      "dev_literal_raw": 0.13037109375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 21,
+        "raw": 0.2626953125
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "B-rename_sham-s19": {
+      "arm": "rename_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.384765625
+      },
+      "dev_literal_raw": 0.2431640625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 29,
+        "raw": 0.376953125
+      },
+      "seed": 19,
+      "stage": "B"
+    },
+    "B-rename_sham-s41": {
+      "arm": "rename_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.248046875
+      },
+      "dev_literal_raw": 0.130859375,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 28,
+        "raw": 0.23779296875
+      },
+      "seed": 41,
+      "stage": "B"
+    },
+    "B-rename_sham-s7": {
+      "arm": "rename_sham",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2119140625
+      },
+      "dev_literal_raw": 0.1220703125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 32,
+        "raw": 0.21142578125
+      },
+      "seed": 7,
+      "stage": "B"
+    },
+    "C-categorical_endpoint_only-s101": {
+      "arm": "categorical_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.29296875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.23828125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2578125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.25390625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.20703125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.23046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_endpoint_only-s19": {
+      "arm": "categorical_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.25390625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.26171875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.171875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.21875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_endpoint_only-s41": {
+      "arm": "categorical_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.22265625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.28515625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.19140625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.23046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.19140625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.20703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_endpoint_only-s7": {
+      "arm": "categorical_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.28125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.19921875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.20703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_endpoint_only-s73": {
+      "arm": "categorical_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.20703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.171875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.17578125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step-s101": {
+      "arm": "categorical_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.2421875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.24609375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.23046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.20703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step-s19": {
+      "arm": "categorical_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.24609375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.26171875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.18359375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.2265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step-s41": {
+      "arm": "categorical_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.234375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.28515625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2421875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2265625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.1953125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step-s7": {
+      "arm": "categorical_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.22265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.18359375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.2109375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step-s73": {
+      "arm": "categorical_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.28515625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.1875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_iit-s101": {
+      "arm": "categorical_true_step_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.30078125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.25,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2421875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2109375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.22265625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.234375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_iit-s19": {
+      "arm": "categorical_true_step_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26171875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.2734375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.25,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.23828125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.203125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_iit-s41": {
+      "arm": "categorical_true_step_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.27734375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2109375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2578125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23046875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.23828125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_iit-s7": {
+      "arm": "categorical_true_step_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.23828125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2265625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.23828125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23828125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.21484375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_iit-s73": {
+      "arm": "categorical_true_step_iit",
+      "confirm": {
+        "d34": 0.9921875,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 0.984375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 0.984375
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.96875,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.96875,
+          "4": 0.984375
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.2734375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.21484375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.99609375,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1875,
+          "oracle_injection_acc": 0.99609375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.1953125,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 0.98828125,
+          "wrong_donor_intended_acc": 0.00390625
+        }
+      }
+    },
+    "C-categorical_true_step_sham_iit-s101": {
+      "arm": "categorical_true_step_sham_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.2421875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2421875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.234375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.20703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_sham_iit-s19": {
+      "arm": "categorical_true_step_sham_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.24609375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.26171875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1796875,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.2265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_sham_iit-s41": {
+      "arm": "categorical_true_step_sham_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.234375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.28515625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2421875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.22265625,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.19921875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_sham_iit-s7": {
+      "arm": "categorical_true_step_sham_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2109375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.22265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.18359375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.21484375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-categorical_true_step_sham_iit-s73": {
+      "arm": "categorical_true_step_sham_iit",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "hard_argmax": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "simplex_noise_acc": 0.28125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "simplex_noise_acc": 0.2265625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1953125,
+          "oracle_injection_acc": 1.0,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "simplex_noise_acc": 0.19140625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_endpoint_only-s101": {
+      "arm": "continuous_endpoint_only",
+      "confirm": {
+        "d34": 0.9921875,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 1.0,
+          "4": 0.96875
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26171875,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.234375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 0.99609375,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.9921875,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23828125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.9921875,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_endpoint_only-s19": {
+      "arm": "continuous_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 0.984375
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.265625,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2421875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 0.99609375,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.99609375,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23046875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_endpoint_only-s41": {
+      "arm": "continuous_endpoint_only",
+      "confirm": {
+        "d34": 0.953125,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.96875,
+          "4": 0.9375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.96875,
+          "4": 0.9375
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.953125,
+          "4": 0.953125
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.984375,
+          "4": 0.953125
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.953125,
+          "3": 0.953125,
+          "4": 0.953125
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 0.99609375,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2578125,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.9921875,
+          "mlp_probe_acc": 0.9765625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2421875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9765625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.9921875,
+          "wrong_donor_actual_acc": 0.99609375,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.9921875,
+          "identity_preserved": 0.984375,
+          "mlp_probe_acc": 0.94921875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21484375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.94921875,
+          "suffix_rewire_both_correct": 0.984375,
+          "unpatched_acc": 0.984375,
+          "wrong_donor_actual_acc": 0.984375,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_endpoint_only-s7": {
+      "arm": "continuous_endpoint_only",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 0.984375
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 0.984375,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 0.99609375,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.99609375,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.234375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.99609375,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.99609375,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26171875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 0.99609375,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.953125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.20703125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.953125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 0.98046875,
+          "wrong_donor_intended_acc": 0.0078125
+        }
+      }
+    },
+    "C-continuous_endpoint_only-s73": {
+      "arm": "continuous_endpoint_only",
+      "confirm": {
+        "d34": 0.9921875,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 0.984375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 0.984375
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.28125,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2578125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_true_step-s101": {
+      "arm": "continuous_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23828125,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.25390625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.24609375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_true_step-s19": {
+      "arm": "continuous_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.25390625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.16796875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_true_step-s41": {
+      "arm": "continuous_true_step",
+      "confirm": {
+        "d34": 0.9921875,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 0.984375
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 0.984375
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.984375,
+          "4": 1.0
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.9765625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.18359375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9765625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.9921875,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.94921875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.20703125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.94921875,
+          "suffix_rewire_both_correct": 0.9921875,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 0.99609375,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_true_step-s7": {
+      "arm": "continuous_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 0.984375
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.25390625,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2578125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.234375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-continuous_true_step-s73": {
+      "arm": "continuous_true_step",
+      "confirm": {
+        "d34": 1.0,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 1.0,
+          "4": 1.0
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 1.0,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2734375,
+          "patch_step": 1,
+          "ridge_probe_acc": 1.0,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.98046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.265625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.98046875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.95703125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.19140625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.95703125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        }
+      }
+    },
+    "C-dense_endpoint_only-s101": {
+      "arm": "dense_endpoint_only",
+      "confirm": {
+        "d34": 0.421875,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.671875,
+          "4": 0.171875
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.671875,
+          "4": 0.171875
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.65625,
+          "4": 0.125
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.609375,
+          "4": 0.171875
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.65625,
+          "4": 0.265625
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.8984375,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.8984375,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 0.9921875,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.58984375,
+          "identity_preserved": 0.84765625,
+          "mlp_probe_acc": 0.7890625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23046875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.7890625,
+          "suffix_rewire_both_correct": 0.44921875,
+          "unpatched_acc": 0.84765625,
+          "wrong_donor_actual_acc": 0.46484375,
+          "wrong_donor_intended_acc": 0.01953125
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.21484375,
+          "identity_preserved": 0.4453125,
+          "mlp_probe_acc": 0.76953125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.19921875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.76953125,
+          "suffix_rewire_both_correct": 0.1328125,
+          "unpatched_acc": 0.4453125,
+          "wrong_donor_actual_acc": 0.19140625,
+          "wrong_donor_intended_acc": 0.0234375
+        }
+      }
+    },
+    "C-dense_endpoint_only-s19": {
+      "arm": "dense_endpoint_only",
+      "confirm": {
+        "d34": 0.3828125,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.65625,
+          "4": 0.109375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.65625,
+          "4": 0.109375
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.515625,
+          "4": 0.09375
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.96875,
+          "3": 0.578125,
+          "4": 0.078125
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.609375,
+          "4": 0.09375
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.9921875,
+          "mlp_probe_acc": 0.92578125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.3046875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.92578125,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.9921875,
+          "wrong_donor_actual_acc": 0.99609375,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.6171875,
+          "identity_preserved": 0.859375,
+          "mlp_probe_acc": 0.78515625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.25390625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.78515625,
+          "suffix_rewire_both_correct": 0.5,
+          "unpatched_acc": 0.859375,
+          "wrong_donor_actual_acc": 0.59765625,
+          "wrong_donor_intended_acc": 0.00390625
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.22265625,
+          "identity_preserved": 0.34375,
+          "mlp_probe_acc": 0.84765625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.84765625,
+          "suffix_rewire_both_correct": 0.15625,
+          "unpatched_acc": 0.34375,
+          "wrong_donor_actual_acc": 0.171875,
+          "wrong_donor_intended_acc": 0.02734375
+        }
+      }
+    },
+    "C-dense_endpoint_only-s41": {
+      "arm": "dense_endpoint_only",
+      "confirm": {
+        "d34": 0.3515625,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.625,
+          "4": 0.078125
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.625,
+          "4": 0.078125
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.96875,
+          "3": 0.53125,
+          "4": 0.078125
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.515625,
+          "4": 0.03125
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.96875,
+          "3": 0.546875,
+          "4": 0.078125
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.90625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.265625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.90625,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.546875,
+          "identity_preserved": 0.82421875,
+          "mlp_probe_acc": 0.82421875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.22265625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.82421875,
+          "suffix_rewire_both_correct": 0.4375,
+          "unpatched_acc": 0.82421875,
+          "wrong_donor_actual_acc": 0.5,
+          "wrong_donor_intended_acc": 0.01171875
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.17578125,
+          "identity_preserved": 0.40625,
+          "mlp_probe_acc": 0.84375,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.140625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.84375,
+          "suffix_rewire_both_correct": 0.125,
+          "unpatched_acc": 0.40625,
+          "wrong_donor_actual_acc": 0.14453125,
+          "wrong_donor_intended_acc": 0.015625
+        }
+      }
+    },
+    "C-dense_endpoint_only-s7": {
+      "arm": "dense_endpoint_only",
+      "confirm": {
+        "d34": 0.3984375,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.703125,
+          "4": 0.09375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 0.984375,
+          "2": 0.96875,
+          "3": 0.703125,
+          "4": 0.0625
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.625,
+          "4": 0.21875
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.96875,
+          "3": 0.609375,
+          "4": 0.140625
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.703125,
+          "4": 0.125
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.9140625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23046875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9140625,
+          "suffix_rewire_both_correct": 0.9921875,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.59375,
+          "identity_preserved": 0.87109375,
+          "mlp_probe_acc": 0.78125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.27734375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.78125,
+          "suffix_rewire_both_correct": 0.48828125,
+          "unpatched_acc": 0.87109375,
+          "wrong_donor_actual_acc": 0.6015625,
+          "wrong_donor_intended_acc": 0.00390625
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.23046875,
+          "identity_preserved": 0.45703125,
+          "mlp_probe_acc": 0.81640625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1953125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.81640625,
+          "suffix_rewire_both_correct": 0.125,
+          "unpatched_acc": 0.45703125,
+          "wrong_donor_actual_acc": 0.24609375,
+          "wrong_donor_intended_acc": 0.01953125
+        }
+      }
+    },
+    "C-dense_endpoint_only-s73": {
+      "arm": "dense_endpoint_only",
+      "confirm": {
+        "d34": 0.328125,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.59375,
+          "4": 0.0625
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.59375,
+          "4": 0.0625
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.5625,
+          "4": 0.09375
+        },
+        "topology": {
+          "1": 0.984375,
+          "2": 0.984375,
+          "3": 0.578125,
+          "4": 0.078125
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.59375,
+          "4": 0.09375
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.9140625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.265625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9140625,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 0.98828125,
+          "wrong_donor_intended_acc": 0.00390625
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.5546875,
+          "identity_preserved": 0.7890625,
+          "mlp_probe_acc": 0.765625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23046875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.765625,
+          "suffix_rewire_both_correct": 0.4453125,
+          "unpatched_acc": 0.7890625,
+          "wrong_donor_actual_acc": 0.60546875,
+          "wrong_donor_intended_acc": 0.0078125
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.19140625,
+          "identity_preserved": 0.3828125,
+          "mlp_probe_acc": 0.8515625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.203125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.8515625,
+          "suffix_rewire_both_correct": 0.12109375,
+          "unpatched_acc": 0.3828125,
+          "wrong_donor_actual_acc": 0.140625,
+          "wrong_donor_intended_acc": 0.015625
+        }
+      }
+    },
+    "C-dense_true_step-s101": {
+      "arm": "dense_true_step",
+      "confirm": {
+        "d34": 0.4375,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.6875,
+          "4": 0.1875
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.65625,
+          "4": 0.1875
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.65625,
+          "4": 0.203125
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.703125,
+          "4": 0.109375
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.6875,
+          "4": 0.234375
+        }
+      },
+      "seed": 101,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.9921875,
+          "mlp_probe_acc": 0.9140625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.265625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9140625,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 0.9921875,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.59765625,
+          "identity_preserved": 0.84765625,
+          "mlp_probe_acc": 0.81640625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.21875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.81640625,
+          "suffix_rewire_both_correct": 0.4765625,
+          "unpatched_acc": 0.84765625,
+          "wrong_donor_actual_acc": 0.5390625,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.21875,
+          "identity_preserved": 0.5,
+          "mlp_probe_acc": 0.8671875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.19140625,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.8671875,
+          "suffix_rewire_both_correct": 0.13671875,
+          "unpatched_acc": 0.5,
+          "wrong_donor_actual_acc": 0.234375,
+          "wrong_donor_intended_acc": 0.01953125
+        }
+      }
+    },
+    "C-dense_true_step-s19": {
+      "arm": "dense_true_step",
+      "confirm": {
+        "d34": 0.3828125,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.671875,
+          "4": 0.09375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.671875,
+          "4": 0.09375
+        },
+        "native": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.578125,
+          "4": 0.125
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.609375,
+          "4": 0.0625
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.65625,
+          "4": 0.15625
+        }
+      },
+      "seed": 19,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 0.9921875,
+          "mlp_probe_acc": 0.9296875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26953125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9296875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 0.9921875,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.63671875,
+          "identity_preserved": 0.84765625,
+          "mlp_probe_acc": 0.8125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26171875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.8125,
+          "suffix_rewire_both_correct": 0.47265625,
+          "unpatched_acc": 0.84765625,
+          "wrong_donor_actual_acc": 0.62109375,
+          "wrong_donor_intended_acc": 0.00390625
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.22265625,
+          "identity_preserved": 0.40625,
+          "mlp_probe_acc": 0.87109375,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2421875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.87109375,
+          "suffix_rewire_both_correct": 0.14453125,
+          "unpatched_acc": 0.40625,
+          "wrong_donor_actual_acc": 0.18359375,
+          "wrong_donor_intended_acc": 0.00390625
+        }
+      }
+    },
+    "C-dense_true_step-s41": {
+      "arm": "dense_true_step",
+      "confirm": {
+        "d34": 0.390625,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.6875,
+          "4": 0.09375
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.671875,
+          "4": 0.078125
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.96875,
+          "3": 0.625,
+          "4": 0.0625
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.484375,
+          "4": 0.09375
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 0.96875,
+          "3": 0.53125,
+          "4": 0.109375
+        }
+      },
+      "seed": 41,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.9296875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.28125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9296875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.55859375,
+          "identity_preserved": 0.8125,
+          "mlp_probe_acc": 0.85546875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.24609375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.85546875,
+          "suffix_rewire_both_correct": 0.4140625,
+          "unpatched_acc": 0.8125,
+          "wrong_donor_actual_acc": 0.5234375,
+          "wrong_donor_intended_acc": 0.00390625
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.19140625,
+          "identity_preserved": 0.3671875,
+          "mlp_probe_acc": 0.89453125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1796875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.89453125,
+          "suffix_rewire_both_correct": 0.12109375,
+          "unpatched_acc": 0.3671875,
+          "wrong_donor_actual_acc": 0.140625,
+          "wrong_donor_intended_acc": 0.01171875
+        }
+      }
+    },
+    "C-dense_true_step-s7": {
+      "arm": "dense_true_step",
+      "confirm": {
+        "d34": 0.5078125,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.765625,
+          "4": 0.25
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.765625,
+          "4": 0.234375
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.84375,
+          "4": 0.25
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.78125,
+          "4": 0.1875
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.78125,
+          "4": 0.21875
+        }
+      },
+      "seed": 7,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 0.99609375,
+          "identity_preserved": 0.99609375,
+          "mlp_probe_acc": 0.94140625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.2109375,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.94140625,
+          "suffix_rewire_both_correct": 0.99609375,
+          "unpatched_acc": 0.99609375,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.609375,
+          "identity_preserved": 0.89453125,
+          "mlp_probe_acc": 0.8125,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23828125,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.8125,
+          "suffix_rewire_both_correct": 0.46484375,
+          "unpatched_acc": 0.89453125,
+          "wrong_donor_actual_acc": 0.62890625,
+          "wrong_donor_intended_acc": 0.00390625
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.25390625,
+          "identity_preserved": 0.5625,
+          "mlp_probe_acc": 0.87890625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.23046875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.87890625,
+          "suffix_rewire_both_correct": 0.15234375,
+          "unpatched_acc": 0.5625,
+          "wrong_donor_actual_acc": 0.234375,
+          "wrong_donor_intended_acc": 0.01171875
+        }
+      }
+    },
+    "C-dense_true_step-s73": {
+      "arm": "dense_true_step",
+      "confirm": {
+        "d34": 0.28125,
+        "metric": "d34_complete",
+        "rates": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.515625,
+          "4": 0.046875
+        }
+      },
+      "dev": {
+        "distractor": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.53125,
+          "4": 0.046875
+        },
+        "native": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.5625,
+          "4": 0.078125
+        },
+        "topology": {
+          "1": 1.0,
+          "2": 0.984375,
+          "3": 0.625,
+          "4": 0.125
+        },
+        "variable_stop": {
+          "1": 1.0,
+          "2": 1.0,
+          "3": 0.59375,
+          "4": 0.125
+        }
+      },
+      "seed": 73,
+      "stage": "C",
+      "swap": {
+        "2": {
+          "depth": 2,
+          "donor_patch_acc": 1.0,
+          "identity_preserved": 1.0,
+          "mlp_probe_acc": 0.9296875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.25,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.9296875,
+          "suffix_rewire_both_correct": 1.0,
+          "unpatched_acc": 1.0,
+          "wrong_donor_actual_acc": 1.0,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "3": {
+          "depth": 3,
+          "donor_patch_acc": 0.57421875,
+          "identity_preserved": 0.7578125,
+          "mlp_probe_acc": 0.8046875,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.26171875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.8046875,
+          "suffix_rewire_both_correct": 0.4296875,
+          "unpatched_acc": 0.7578125,
+          "wrong_donor_actual_acc": 0.6328125,
+          "wrong_donor_intended_acc": 0.0
+        },
+        "4": {
+          "depth": 4,
+          "donor_patch_acc": 0.20703125,
+          "identity_preserved": 0.44140625,
+          "mlp_probe_acc": 0.91015625,
+          "n_pairs": 256,
+          "off_manifold_noise_acc": 0.1875,
+          "patch_step": 1,
+          "ridge_probe_acc": 0.91015625,
+          "suffix_rewire_both_correct": 0.1328125,
+          "unpatched_acc": 0.44140625,
+          "wrong_donor_actual_acc": 0.16796875,
+          "wrong_donor_intended_acc": 0.00390625
+        }
+      }
+    },
+    "D-a_to_a-s19": {
+      "arm": "a_to_a",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.1142857142857143,
+          "mean_realized_utility": -1.5928571428571427,
+          "per_condition": {
+            "irrelevant_missing": 0.35,
+            "newly_irrelevant": 0.2,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.25
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.38916015625
+      },
+      "seed": 19,
+      "stage": "D"
+    },
+    "D-a_to_a-s41": {
+      "arm": "a_to_a",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.014285714285714287,
+          "mean_realized_utility": -1.9142857142857144,
+          "per_condition": {
+            "irrelevant_missing": 0.05,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.0
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.419921875
+      },
+      "seed": 41,
+      "stage": "D"
+    },
+    "D-a_to_a-s7": {
+      "arm": "a_to_a",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.03571428571428571,
+          "mean_realized_utility": -1.85,
+          "per_condition": {
+            "irrelevant_missing": 0.15,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.05
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.39697265625
+      },
+      "seed": 7,
+      "stage": "D"
+    },
+    "D-direct_plus_info-s19": {
+      "arm": "direct_plus_info",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.7785714285714285,
+          "mean_realized_utility": -0.5114285714285713,
+          "per_condition": {
+            "irrelevant_missing": 0.9,
+            "newly_irrelevant": 0.75,
+            "newly_relevant": 0.7,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.95,
+            "stale_contradictory": 0.25,
+            "sufficient": 0.9
+          },
+          "post_tool_terminal_acc": 0.08333333333333333,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.25
+        },
+        "raw": 0.40234375
+      },
+      "seed": 19,
+      "stage": "D"
+    },
+    "D-direct_plus_info-s41": {
+      "arm": "direct_plus_info",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.7642857142857142,
+          "mean_realized_utility": -0.4753571428571429,
+          "per_condition": {
+            "irrelevant_missing": 0.9,
+            "newly_irrelevant": 0.85,
+            "newly_relevant": 0.65,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.9,
+            "stale_contradictory": 0.35,
+            "sufficient": 0.7
+          },
+          "post_tool_terminal_acc": 0.14893617021276595,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.35
+        },
+        "raw": 0.41552734375
+      },
+      "seed": 41,
+      "stage": "D"
+    },
+    "D-direct_plus_info-s7": {
+      "arm": "direct_plus_info",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.8071428571428572,
+          "mean_realized_utility": -0.4346428571428572,
+          "per_condition": {
+            "irrelevant_missing": 0.95,
+            "newly_irrelevant": 0.8,
+            "newly_relevant": 0.65,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.9,
+            "stale_contradictory": 0.5,
+            "sufficient": 0.85
+          },
+          "post_tool_terminal_acc": 0.12,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.5
+        },
+        "raw": 0.384765625
+      },
+      "seed": 7,
+      "stage": "D"
+    },
+    "D-direct_plus_neutral-s19": {
+      "arm": "direct_plus_neutral",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.0642857142857143,
+          "mean_realized_utility": -1.7428571428571429,
+          "per_condition": {
+            "irrelevant_missing": 0.25,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.15
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.400390625
+      },
+      "seed": 19,
+      "stage": "D"
+    },
+    "D-direct_plus_neutral-s41": {
+      "arm": "direct_plus_neutral",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.021428571428571432,
+          "mean_realized_utility": -1.8928571428571428,
+          "per_condition": {
+            "irrelevant_missing": 0.0,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.1
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.43505859375
+      },
+      "seed": 41,
+      "stage": "D"
+    },
+    "D-direct_plus_neutral-s7": {
+      "arm": "direct_plus_neutral",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.03571428571428571,
+          "mean_realized_utility": -1.8285714285714285,
+          "per_condition": {
+            "irrelevant_missing": 0.15,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.05
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.40625
+      },
+      "seed": 7,
+      "stage": "D"
+    },
+    "D-replace_direct-s19": {
+      "arm": "replace_direct",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.7857142857142857,
+          "mean_realized_utility": -0.5160714285714286,
+          "per_condition": {
+            "irrelevant_missing": 0.95,
+            "newly_irrelevant": 0.75,
+            "newly_relevant": 0.75,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 1.0,
+            "stale_contradictory": 0.15,
+            "sufficient": 0.9
+          },
+          "post_tool_terminal_acc": 0.044444444444444446,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.15
+        },
+        "raw": 0.4052734375
+      },
+      "seed": 19,
+      "stage": "D"
+    },
+    "D-replace_direct-s41": {
+      "arm": "replace_direct",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.7285714285714285,
+          "mean_realized_utility": -0.45392857142857146,
+          "per_condition": {
+            "irrelevant_missing": 0.85,
+            "newly_irrelevant": 0.75,
+            "newly_relevant": 0.55,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.95,
+            "stale_contradictory": 0.3,
+            "sufficient": 0.7
+          },
+          "post_tool_terminal_acc": 0.1956521739130435,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.3
+        },
+        "raw": 0.42041015625
+      },
+      "seed": 41,
+      "stage": "D"
+    },
+    "D-replace_direct-s7": {
+      "arm": "replace_direct",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.8214285714285714,
+          "mean_realized_utility": -0.4310714285714286,
+          "per_condition": {
+            "irrelevant_missing": 1.0,
+            "newly_irrelevant": 0.85,
+            "newly_relevant": 0.65,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.9,
+            "stale_contradictory": 0.4,
+            "sufficient": 0.95
+          },
+          "post_tool_terminal_acc": 0.044444444444444446,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.4
+        },
+        "raw": 0.3740234375
+      },
+      "seed": 7,
+      "stage": "D"
+    },
+    "E-learned_writer-s19": {
+      "arm": "learned_writer",
+      "confirm": {
+        "acquisition_utility": {
+          "dp_optimal": 0.9499999999999997,
+          "forced_informative": 0.9499999999999997,
+          "learned": 0.9499999999999997,
+          "passive": 0.5,
+          "random": 0.7249999999999998
+        },
+        "bounded_weight_update": 0.26953125,
+        "context_only": 0.25,
+        "engineered_bayes_relevant": 1.0,
+        "engineered_no_info_ceiling": 0.5,
+        "engineered_writer_reference": {
+          "bayes_incorrect": 0.0,
+          "bayes_irrelevant": 0.5,
+          "bayes_relevant": 1.0,
+          "no_info_ceiling": 0.5,
+          "writer": "ENGINEERED_NOT_LEARNED"
+        },
+        "erased_memory": 0.26953125,
+        "frozen_writer": 0.26953125,
+        "irrelevant_update_control": 0.26953125,
+        "learned_memory_incorrect": 0.20703125,
+        "learned_memory_irrelevant": 0.26953125,
+        "learned_memory_none": 0.26953125,
+        "learned_memory_relevant": 0.25,
+        "metric": "p6_confirm",
+        "n_blocks": 256,
+        "new_outer_optimizer_steps": 0,
+        "shuffled_memory": 0.2265625,
+        "writer": "LEARNED_GRU_WRITER",
+        "wrong_update_control": 0.26953125,
+        "zero_update_control": 0.26953125
+      },
+      "seed": 19,
+      "stage": "E"
+    },
+    "E-learned_writer-s41": {
+      "arm": "learned_writer",
+      "confirm": {
+        "acquisition_utility": {
+          "dp_optimal": 0.9499999999999997,
+          "forced_informative": 0.9499999999999997,
+          "learned": 0.9499999999999997,
+          "passive": 0.5,
+          "random": 0.7249999999999998
+        },
+        "bounded_weight_update": 0.2421875,
+        "context_only": 0.234375,
+        "engineered_bayes_relevant": 1.0,
+        "engineered_no_info_ceiling": 0.5,
+        "engineered_writer_reference": {
+          "bayes_incorrect": 0.0,
+          "bayes_irrelevant": 0.5,
+          "bayes_relevant": 1.0,
+          "no_info_ceiling": 0.5,
+          "writer": "ENGINEERED_NOT_LEARNED"
+        },
+        "erased_memory": 0.2421875,
+        "frozen_writer": 0.2421875,
+        "irrelevant_update_control": 0.2421875,
+        "learned_memory_incorrect": 0.20703125,
+        "learned_memory_irrelevant": 0.2734375,
+        "learned_memory_none": 0.2421875,
+        "learned_memory_relevant": 0.234375,
+        "metric": "p6_confirm",
+        "n_blocks": 256,
+        "new_outer_optimizer_steps": 0,
+        "shuffled_memory": 0.2421875,
+        "writer": "LEARNED_GRU_WRITER",
+        "wrong_update_control": 0.2421875,
+        "zero_update_control": 0.2421875
+      },
+      "seed": 41,
+      "stage": "E"
+    },
+    "E-learned_writer-s7": {
+      "arm": "learned_writer",
+      "confirm": {
+        "acquisition_utility": {
+          "dp_optimal": 0.9499999999999997,
+          "forced_informative": 0.9499999999999997,
+          "learned": 0.9499999999999997,
+          "passive": 0.5,
+          "random": 0.7249999999999998
+        },
+        "bounded_weight_update": 0.2265625,
+        "context_only": 0.23828125,
+        "engineered_bayes_relevant": 1.0,
+        "engineered_no_info_ceiling": 0.5,
+        "engineered_writer_reference": {
+          "bayes_incorrect": 0.0,
+          "bayes_irrelevant": 0.5,
+          "bayes_relevant": 1.0,
+          "no_info_ceiling": 0.5,
+          "writer": "ENGINEERED_NOT_LEARNED"
+        },
+        "erased_memory": 0.2265625,
+        "frozen_writer": 0.2265625,
+        "irrelevant_update_control": 0.2265625,
+        "learned_memory_incorrect": 0.203125,
+        "learned_memory_irrelevant": 0.2890625,
+        "learned_memory_none": 0.2265625,
+        "learned_memory_relevant": 0.23828125,
+        "metric": "p6_confirm",
+        "n_blocks": 256,
+        "new_outer_optimizer_steps": 0,
+        "shuffled_memory": 0.20703125,
+        "writer": "LEARNED_GRU_WRITER",
+        "wrong_update_control": 0.2265625,
+        "zero_update_control": 0.2265625
+      },
+      "seed": 7,
+      "stage": "E"
+    },
+    "E-sham_writer-s19": {
+      "arm": "sham_writer",
+      "confirm": {
+        "acquisition_utility": {
+          "dp_optimal": 0.9499999999999997,
+          "forced_informative": 0.9499999999999997,
+          "learned": 0.9499999999999997,
+          "passive": 0.5,
+          "random": 0.7249999999999998
+        },
+        "bounded_weight_update": 0.26953125,
+        "context_only": 0.2265625,
+        "engineered_bayes_relevant": 1.0,
+        "engineered_no_info_ceiling": 0.5,
+        "engineered_writer_reference": {
+          "bayes_incorrect": 0.0,
+          "bayes_irrelevant": 0.5,
+          "bayes_relevant": 1.0,
+          "no_info_ceiling": 0.5,
+          "writer": "ENGINEERED_NOT_LEARNED"
+        },
+        "erased_memory": 0.26953125,
+        "frozen_writer": 0.26953125,
+        "irrelevant_update_control": 0.26953125,
+        "learned_memory_incorrect": 0.21484375,
+        "learned_memory_irrelevant": 0.27734375,
+        "learned_memory_none": 0.26953125,
+        "learned_memory_relevant": 0.2265625,
+        "metric": "p6_confirm",
+        "n_blocks": 256,
+        "new_outer_optimizer_steps": 0,
+        "shuffled_memory": 0.26171875,
+        "writer": "LEARNED_GRU_WRITER",
+        "wrong_update_control": 0.26953125,
+        "zero_update_control": 0.26953125
+      },
+      "seed": 19,
+      "stage": "E"
+    },
+    "E-sham_writer-s41": {
+      "arm": "sham_writer",
+      "confirm": {
+        "acquisition_utility": {
+          "dp_optimal": 0.9499999999999997,
+          "forced_informative": 0.9499999999999997,
+          "learned": 0.9499999999999997,
+          "passive": 0.5,
+          "random": 0.7249999999999998
+        },
+        "bounded_weight_update": 0.28515625,
+        "context_only": 0.265625,
+        "engineered_bayes_relevant": 1.0,
+        "engineered_no_info_ceiling": 0.5,
+        "engineered_writer_reference": {
+          "bayes_incorrect": 0.0,
+          "bayes_irrelevant": 0.5,
+          "bayes_relevant": 1.0,
+          "no_info_ceiling": 0.5,
+          "writer": "ENGINEERED_NOT_LEARNED"
+        },
+        "erased_memory": 0.28515625,
+        "frozen_writer": 0.28515625,
+        "irrelevant_update_control": 0.28515625,
+        "learned_memory_incorrect": 0.21484375,
+        "learned_memory_irrelevant": 0.26953125,
+        "learned_memory_none": 0.28515625,
+        "learned_memory_relevant": 0.265625,
+        "metric": "p6_confirm",
+        "n_blocks": 256,
+        "new_outer_optimizer_steps": 0,
+        "shuffled_memory": 0.25390625,
+        "writer": "LEARNED_GRU_WRITER",
+        "wrong_update_control": 0.28515625,
+        "zero_update_control": 0.28515625
+      },
+      "seed": 41,
+      "stage": "E"
+    },
+    "E-sham_writer-s7": {
+      "arm": "sham_writer",
+      "confirm": {
+        "acquisition_utility": {
+          "dp_optimal": 0.9499999999999997,
+          "forced_informative": 0.9499999999999997,
+          "learned": 0.9499999999999997,
+          "passive": 0.5,
+          "random": 0.7249999999999998
+        },
+        "bounded_weight_update": 0.28515625,
+        "context_only": 0.21875,
+        "engineered_bayes_relevant": 1.0,
+        "engineered_no_info_ceiling": 0.5,
+        "engineered_writer_reference": {
+          "bayes_incorrect": 0.0,
+          "bayes_irrelevant": 0.5,
+          "bayes_relevant": 1.0,
+          "no_info_ceiling": 0.5,
+          "writer": "ENGINEERED_NOT_LEARNED"
+        },
+        "erased_memory": 0.28515625,
+        "frozen_writer": 0.28515625,
+        "irrelevant_update_control": 0.28515625,
+        "learned_memory_incorrect": 0.20703125,
+        "learned_memory_irrelevant": 0.28125,
+        "learned_memory_none": 0.28515625,
+        "learned_memory_relevant": 0.21875,
+        "metric": "p6_confirm",
+        "n_blocks": 256,
+        "new_outer_optimizer_steps": 0,
+        "shuffled_memory": 0.26953125,
+        "writer": "LEARNED_GRU_WRITER",
+        "wrong_update_control": 0.28515625,
+        "zero_update_control": 0.28515625
+      },
+      "seed": 7,
+      "stage": "E"
+    },
+    "F-s20_ce-s19": {
+      "arm": "s20_ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2841796875
+      },
+      "dev_literal_raw": 0.134765625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 47,
+        "raw": 0.31005859375
+      },
+      "seed": 19,
+      "stage": "F"
+    },
+    "F-s20_ce-s41": {
+      "arm": "s20_ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.2060546875
+      },
+      "dev_literal_raw": 0.1220703125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 22,
+        "raw": 0.232421875
+      },
+      "seed": 41,
+      "stage": "F"
+    },
+    "F-s20_ce-s7": {
+      "arm": "s20_ce",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.24072265625
+      },
+      "dev_literal_raw": 0.12890625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 26,
+        "raw": 0.25390625
+      },
+      "seed": 7,
+      "stage": "F"
+    },
+    "F-s20_low_lr-s19": {
+      "arm": "s20_low_lr",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.35009765625
+      },
+      "dev_literal_raw": 0.24169921875,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 32,
+        "raw": 0.34423828125
+      },
+      "seed": 19,
+      "stage": "F"
+    },
+    "F-s20_low_lr-s41": {
+      "arm": "s20_low_lr",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.24072265625
+      },
+      "dev_literal_raw": 0.14501953125,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 55,
+        "raw": 0.25390625
+      },
+      "seed": 41,
+      "stage": "F"
+    },
+    "F-s20_low_lr-s7": {
+      "arm": "s20_low_lr",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "raw": 0.22998046875
+      },
+      "dev_literal_raw": 0.14697265625,
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 41,
+        "raw": 0.23046875
+      },
+      "seed": 7,
+      "stage": "F"
+    },
+    "G-sham_cap-s19": {
+      "arm": "sham_cap",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.14285714285714285,
+          "mean_realized_utility": -1.55,
+          "per_condition": {
+            "irrelevant_missing": 0.35,
+            "newly_irrelevant": 0.3,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.35
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.39892578125
+      },
+      "seed": 19,
+      "stage": "G"
+    },
+    "G-sham_cap-s41": {
+      "arm": "sham_cap",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.028571428571428574,
+          "mean_realized_utility": -1.8928571428571428,
+          "per_condition": {
+            "irrelevant_missing": 0.05,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.1
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.40771484375
+      },
+      "seed": 41,
+      "stage": "G"
+    },
+    "G-sham_cap-s7": {
+      "arm": "sham_cap",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.021428571428571432,
+          "mean_realized_utility": -1.8714285714285714,
+          "per_condition": {
+            "irrelevant_missing": 0.05,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.05
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.30810546875
+      },
+      "seed": 7,
+      "stage": "G"
+    },
+    "G-true_cap-s19": {
+      "arm": "true_cap",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.16428571428571428,
+          "mean_realized_utility": -1.4857142857142858,
+          "per_condition": {
+            "irrelevant_missing": 0.4,
+            "newly_irrelevant": 0.35,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.4
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.396484375
+      },
+      "seed": 19,
+      "stage": "G"
+    },
+    "G-true_cap-s41": {
+      "arm": "true_cap",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.028571428571428574,
+          "mean_realized_utility": -1.8928571428571428,
+          "per_condition": {
+            "irrelevant_missing": 0.05,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.1
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.4072265625
+      },
+      "seed": 41,
+      "stage": "G"
+    },
+    "G-true_cap-s7": {
+      "arm": "true_cap",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.028571428571428574,
+          "mean_realized_utility": -1.85,
+          "per_condition": {
+            "irrelevant_missing": 0.1,
+            "newly_irrelevant": 0.05,
+            "newly_relevant": 0.0,
+            "req_missing_obtainable": 0.0,
+            "req_missing_unobtainable": 0.0,
+            "stale_contradictory": 0.0,
+            "sufficient": 0.05
+          },
+          "post_tool_terminal_acc": 0.0,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.0
+        },
+        "raw": 0.31396484375
+      },
+      "seed": 7,
+      "stage": "G"
+    },
+    "G-uncapped-s19": {
+      "arm": "uncapped",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.7785714285714286,
+          "mean_realized_utility": -0.5521428571428572,
+          "per_condition": {
+            "irrelevant_missing": 0.95,
+            "newly_irrelevant": 0.75,
+            "newly_relevant": 0.7,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.95,
+            "stale_contradictory": 0.3,
+            "sufficient": 0.8
+          },
+          "post_tool_terminal_acc": 0.06666666666666667,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.3
+        },
+        "raw": 0.396484375
+      },
+      "seed": 19,
+      "stage": "G"
+    },
+    "G-uncapped-s41": {
+      "arm": "uncapped",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.7714285714285715,
+          "mean_realized_utility": -0.42250000000000004,
+          "per_condition": {
+            "irrelevant_missing": 0.85,
+            "newly_irrelevant": 0.9,
+            "newly_relevant": 0.65,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 1.0,
+            "stale_contradictory": 0.3,
+            "sufficient": 0.7
+          },
+          "post_tool_terminal_acc": 0.18604651162790697,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.3
+        },
+        "raw": 0.4052734375
+      },
+      "seed": 41,
+      "stage": "G"
+    },
+    "G-uncapped-s7": {
+      "arm": "uncapped",
+      "confirm": {
+        "fam4": 0.0,
+        "fam8": 0.0,
+        "metric": "fam8_rate",
+        "p5_confirm": {
+          "macro_optimal": 0.8071428571428572,
+          "mean_realized_utility": -0.46107142857142863,
+          "per_condition": {
+            "irrelevant_missing": 0.95,
+            "newly_irrelevant": 0.85,
+            "newly_relevant": 0.65,
+            "req_missing_obtainable": 1.0,
+            "req_missing_unobtainable": 0.8,
+            "stale_contradictory": 0.45,
+            "sufficient": 0.95
+          },
+          "post_tool_terminal_acc": 0.06382978723404255,
+          "sufficient_false_abstention": 0.0,
+          "worst_condition": 0.45
+        },
+        "raw": 0.32373046875
+      },
+      "seed": 7,
+      "stage": "G"
+    },
+    "H-F00-s19": {
+      "arm": "F00",
+      "confirm": {},
+      "historical_restore": {
+        "lineage_id": "Y1-t1_factorial-S3-F00-s19",
+        "matched_reference_cases": 0,
+        "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED",
+        "reference_cases": 0,
+        "staging": {
+          "manifest_verified": false,
+          "status": "MISSING_PARENT"
+        },
+        "status": "MISSING_PARENT"
+      },
+      "seed": 19,
+      "stage": "H"
+    },
+    "H-F00-s41": {
+      "arm": "F00",
+      "confirm": {},
+      "historical_restore": {
+        "lineage_id": "Y1-t1_factorial-S3-F00-s41",
+        "matched_reference_cases": 0,
+        "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED",
+        "reference_cases": 0,
+        "staging": {
+          "manifest_verified": false,
+          "status": "MISSING_PARENT"
+        },
+        "status": "MISSING_PARENT"
+      },
+      "seed": 41,
+      "stage": "H"
+    },
+    "H-F00-s7": {
+      "arm": "F00",
+      "confirm": {},
+      "historical_restore": {
+        "lineage_id": "Y1-t1_factorial-S3-F00-s7",
+        "matched_reference_cases": 0,
+        "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED",
+        "reference_cases": 0,
+        "staging": {
+          "manifest_verified": false,
+          "status": "MISSING_PARENT"
+        },
+        "status": "MISSING_PARENT"
+      },
+      "seed": 7,
+      "stage": "H"
+    },
+    "H-F11-s19": {
+      "arm": "F11",
+      "confirm": {},
+      "historical_restore": {
+        "lineage_id": "Y1-t1_factorial-S3-F11-s19",
+        "matched_reference_cases": 0,
+        "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED",
+        "reference_cases": 0,
+        "staging": {
+          "manifest_verified": false,
+          "status": "MISSING_PARENT"
+        },
+        "status": "MISSING_PARENT"
+      },
+      "seed": 19,
+      "stage": "H"
+    },
+    "H-F11-s41": {
+      "arm": "F11",
+      "confirm": {},
+      "historical_restore": {
+        "lineage_id": "Y1-t1_factorial-S3-F11-s41",
+        "matched_reference_cases": 0,
+        "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED",
+        "reference_cases": 0,
+        "staging": {
+          "manifest_verified": false,
+          "status": "MISSING_PARENT"
+        },
+        "status": "MISSING_PARENT"
+      },
+      "seed": 41,
+      "stage": "H"
+    },
+    "H-F11-s7": {
+      "arm": "F11",
+      "confirm": {},
+      "historical_restore": {
+        "lineage_id": "Y1-t1_factorial-S3-F11-s7",
+        "matched_reference_cases": 0,
+        "parity_status": "UNAVAILABLE_Y1_EVIDENCE_NOT_MOUNTED",
+        "reference_cases": 0,
+        "staging": {
+          "manifest_verified": false,
+          "status": "MISSING_PARENT"
+        },
+        "status": "MISSING_PARENT"
+      },
+      "seed": 7,
+      "stage": "H"
+    },
+    "M-ce-s19": {
+      "arm": "ce",
+      "confirm": {},
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 32,
+        "raw": 0.0283203125
+      },
+      "seed": 19,
+      "small_set_claim": 0.0,
+      "stage": "M"
+    },
+    "M-ce-s41": {
+      "arm": "ce",
+      "confirm": {},
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 13,
+        "raw": 0.044921875
+      },
+      "seed": 41,
+      "small_set_claim": 0.0,
+      "stage": "M"
+    },
+    "M-ce-s7": {
+      "arm": "ce",
+      "confirm": {},
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 89,
+        "raw": 0.0546875
+      },
+      "seed": 7,
+      "small_set_claim": 0.0,
+      "stage": "M"
+    },
+    "M-margin-s19": {
+      "arm": "margin",
+      "confirm": {},
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 1,
+        "raw": 0.17041015625
+      },
+      "seed": 19,
+      "small_set_claim": 0.0,
+      "stage": "M"
+    },
+    "M-margin-s41": {
+      "arm": "margin",
+      "confirm": {},
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 8,
+        "raw": 0.16064453125
+      },
+      "seed": 41,
+      "small_set_claim": 0.0,
+      "stage": "M"
+    },
+    "M-margin-s7": {
+      "arm": "margin",
+      "confirm": {},
+      "dev_native": {
+        "different_first_byte_query_pairs": 904,
+        "fam8": 0.0,
+        "first_byte_query_changes": 11,
+        "raw": 0.15625
+      },
+      "seed": 7,
+      "small_set_claim": 0.0,
+      "stage": "M"
+    }
+  },
+  "replicated_controls": {
+    "byte_training_cells": {
+      "assignments_selected": [
+        0
+      ],
+      "cells_available_per_family": 8,
+      "cells_selected_per_family": 4,
+      "ordering": [
+        "assignment",
+        "query",
+        "reverse_order"
+      ]
+    },
+    "executive_public_only": {
+      "implementation": "Public-only choose() in RESULTS.md",
+      "splits": {
+        "confirm": {
+          "correct": 140,
+          "tool_payloads_ending_in_true_answer": 120,
+          "unavailable_labeled_actions": 5,
+          "worlds": 140
+        },
+        "dev": {
+          "correct": 140,
+          "tool_payloads_ending_in_true_answer": 120,
+          "unavailable_labeled_actions": 5,
+          "worlds": 140
+        }
+      }
+    },
+    "pointer_sham": {
+      "changed_selected_span_targets_per_seed": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "matching_paired_logit_files": 20,
+      "seeds": [
+        7,
+        19,
+        41,
+        73,
+        101
+      ],
+      "selected_training_cells_per_seed": 4096,
+      "total_paired_logit_files": 20
+    }
+  },
+  "telemetry": {
+    "elapsed_seconds": 12843.6568,
+    "exit_reason": "ALL_JOBS_COMPLETE",
+    "finished_utc": "2026-11-24T21:45:25.632253+00:00",
+    "started_utc": "2026-11-24T18:11:21.975427+00:00"
+  }
+}

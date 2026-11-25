@@ -434,3 +434,7 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 ### 2026-11-25 | Antigravity | Sync Level-7 Manuals, Planthir Docs & Context (`ecec9114`)
 - Synced upgraded Level-7 `orchestrator_agent.md`, `execution_agent.md`, `agent.md` (+ 3-way mirrors), `purpose.md`, `ARCHITECTURE_AND_PHILOSOPHY.md`, `Experiment Result/Planthir/README.md`, and `tests/test_planthir_two_agent_manuals.py` from `palantiri` (`7b8af108`), and prepended the `2026-11-25` Avendi V8-Y4 Level-7 readiness status to `context.md`.
 - Verified on CPU (`cuda_available=false`): `11 passed` across `test_planthir_two_agent_manuals.py`, `test_planthir_fp16_autocast_gate.py`, and `test_planthir_y4_x3_feedback_upgrades.py`; re-pinned `notebooks/AVENDI_V8_Y4_T4X2.ipynb` to `ecec9114` (`match=true`) and confirmed post-commit `doctor` (`GREEN_SIGNAL`); live 2xT4 GPU launch pending.
+
+### 2026-11-25 | Codex | Avendi Y4 owner evidence audit
+- Verified the archive and 397,312 first-logit records. Recomputed the five-seed confirmation contrast, reproduced the unchanged pointer sham and solved 280 executive cases using only public prompts.
+- Published a curated report and per-seed metrics. Historical checkpoint regeneration remains blocked.
