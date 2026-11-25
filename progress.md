@@ -457,3 +457,7 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Synced Level-7 3-way manuals, `purpose.md`, `ARCHITECTURE_AND_PHILOSOPHY.md`, `Experiment Result/Planthir/README.md`, and `tests/test_planthir_two_agent_manuals.py` from `palantiri` (`7b8af108`) onto `Elendril` (`8485dbb6`).
 - Re-pinned `notebooks/ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`18,729` B, `117b05b2...`, `RESERVE_MINUTES=45`) to `8485dbb6` (`match=true`, `5` AST-checked cells) and updated `Experiment Result/V8-X3/README.md`.
 - Verified on CPU (`cuda_available=false`): `9 passed in 6.74s` docs checks, `32 passed in 90.16s` (`-n auto`) across Level-7/Level-6/manual/FP16/X3/tree suites, and `palantiri shield` (`4/4`); Kaggle 2xT4 GPU launch pending.
+
+### 2026-11-25 | Antigravity | V8-X3 Cross-Stage Arm Deduplication & Full 57-Job End-to-End Campaign Gate
+- Deduplicated `arm_records` in `run_x3_campaign` (`experiments/x3/module.py`) over `(arm_id, init_seed, order_seed)` across `sorted(job_receipts)` so Stage 2 (`S2`) and Stage 3 (`S3`) `P-R-Iter_D3-Hybrid_S20` rows no longer raise `duplicate record` inside `build_paired_seed_observations`.
+- Rebased onto Level-7 `e0129bcb` (`7654543bfa882bf3f9afe9fe1eae940b0d18b515`), added `test_gate7_full_57_job_ledger_dedup_report_and_archive_export`, verified `doctor`/`calibrate` (L7) + `20 passed in 139.71s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`18,729` B, `333b9478...`).
