@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+import ast
+from contextlib import contextmanager, nullcontext
 from copy import deepcopy
 from dataclasses import replace
+import inspect
 import math
 from hashlib import sha256
 import random
 from pathlib import Path
 import tempfile
-from typing import Any, Callable, Mapping, Sequence
+import textwrap
+from typing import Any, Callable, Iterator, Mapping, Sequence
+import warnings
 
 import torch
+from torch.overrides import TorchFunctionMode
 
 from anra_v5.elendril.representation import SpecialToken, UTF8
 from anra_v5.elendril.v6_registry import MODEL_PROFILES
@@ -383,14 +388,604 @@ def _preserve_model_and_rng_state(model: torch.nn.Module):
             np.random.set_state(numpy_rng)
 
 
+_FP32_DTYPE_NAMES = {"float", "float32"}
+_FP32_PRESERVING_METHODS = {
+    "masked_fill",
+    "masked_fill_",
+    "softmax",
+    "log_softmax",
+    "clamp",
+    "clamp_",
+    "detach",
+    "contiguous",
+    "view",
+    "reshape",
+    "unsqueeze",
+    "squeeze",
+    "transpose",
+    "permute",
+}
+_MATMUL_FUNC_NAMES = {"matmul", "bmm", "mm", "addmm", "einsum"}
+
+
+@contextmanager
+def amp_autocast_context(
+    device: torch.device | str | None = None,
+    *,
+    use_amp: bool | None = None,
+    dtype: torch.dtype = torch.float16,
+) -> Iterator[None]:
+    """Enter FP16/BF16 autocast safely on CPU or CUDA, deferring cleanly when use_amp=None."""
+
+    if use_amp is None:
+        yield
+        return
+    dev_str = str(device.type if isinstance(device, torch.device) else (device or "cpu")).lower()
+    dev_type = "cuda" if dev_str.startswith("cuda") and torch.cuda.is_available() else "cpu"
+    with torch.amp.autocast(device_type=dev_type, dtype=dtype, enabled=bool(use_amp)):
+        yield
+
+
+class _CudaHalfMatmulEmulationMode(TorchFunctionMode):
+    """Emulate CUDA c10::Half matmul/bmm/einsum downcasting inside CPU FP16 autocast probes."""
+
+    _HALF_MATMUL_FUNCS = (
+        torch.matmul,
+        torch.bmm,
+        torch.mm,
+        torch.einsum,
+        torch.Tensor.__matmul__,
+    )
+
+    @staticmethod
+    def _cast_operand(obj: Any) -> Any:
+        if isinstance(obj, torch.Tensor):
+            if obj.device.type == "cpu" and obj.is_floating_point() and obj.dtype != torch.float16:
+                return obj.to(torch.float16)
+            return obj
+        if isinstance(obj, tuple):
+            return tuple(_CudaHalfMatmulEmulationMode._cast_operand(x) for x in obj)
+        if isinstance(obj, list):
+            return [_CudaHalfMatmulEmulationMode._cast_operand(x) for x in obj]
+        return obj
+
+    def __torch_function__(
+        self,
+        func: Any,
+        types: Any,
+        args: tuple[Any, ...] = (),
+        kwargs: dict[str, Any] | None = None,
+    ) -> Any:
+        kwargs = kwargs or {}
+        if (
+            func in self._HALF_MATMUL_FUNCS
+            and torch.is_autocast_enabled("cpu")
+            and torch.get_autocast_dtype("cpu") == torch.float16
+        ):
+            new_args = tuple(self._cast_operand(a) for a in args)
+            new_kwargs = {k: self._cast_operand(v) for k, v in kwargs.items()}
+            return func(*new_args, **new_kwargs)
+        return func(*args, **kwargs)
+
+
+def _attr_dotted_tail(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        prefix = _attr_dotted_tail(node.value)
+        return f"{prefix}.{node.attr}" if prefix else node.attr
+    return ""
+
+
+def _extract_numeric_constant(node: ast.AST | None) -> float | None:
+    if node is None:
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+        return float(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        inner = _extract_numeric_constant(node.operand)
+        return -inner if inner is not None else None
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.UAdd):
+        return _extract_numeric_constant(node.operand)
+    return None
+
+
+def _is_fp32_dtype_arg(node: ast.AST) -> bool:
+    tail = _attr_dotted_tail(node)
+    return tail in _FP32_DTYPE_NAMES or tail in {"torch.float", "torch.float32"}
+
+
+def _is_fp32_cast_expr(node: ast.AST, fp32_vars: set[str]) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in fp32_vars
+    if isinstance(node, ast.Subscript):
+        return _is_fp32_cast_expr(node.value, fp32_vars)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+        attr = node.func.attr
+        if attr == "float":
+            return True
+        if attr == "to":
+            if node.args and _is_fp32_dtype_arg(node.args[0]):
+                return True
+            for kw in node.keywords:
+                if kw.arg in ("dtype", None) and _is_fp32_dtype_arg(kw.value):
+                    return True
+        if attr in _FP32_PRESERVING_METHODS:
+            return _is_fp32_cast_expr(node.func.value, fp32_vars)
+        if attr in ("tensor", "zeros", "ones", "empty", "full"):
+            for kw in node.keywords:
+                if kw.arg == "dtype" and _is_fp32_dtype_arg(kw.value):
+                    return True
+    return False
+
+
+def _expr_uses_matmul(node: ast.AST, matmul_vars: set[str]) -> bool:
+    for child in ast.walk(node):
+        if isinstance(child, ast.BinOp) and isinstance(child.op, ast.MatMult):
+            return True
+        if isinstance(child, ast.Name) and child.id in matmul_vars:
+            return True
+        if isinstance(child, ast.Call):
+            tail = _attr_dotted_tail(child.func).split(".")[-1]
+            if tail in _MATMUL_FUNC_NAMES:
+                return True
+    return False
+
+
+def _assigned_var_names(target: ast.AST) -> list[str]:
+    names: list[str] = []
+    for child in ast.walk(target):
+        if isinstance(child, ast.Name):
+            names.append(child.id)
+    return names
+
+
+def _collect_fp16_audit_sources(source_or_obj: Any, *, label: str) -> list[tuple[str, str]]:
+    if isinstance(source_or_obj, str):
+        return [(label, source_or_obj)]
+    if isinstance(source_or_obj, Path):
+        p = source_or_obj
+        if p.is_file():
+            return [(str(p), p.read_text(encoding="utf-8"))]
+        if p.is_dir():
+            return [(str(pyf), pyf.read_text(encoding="utf-8")) for pyf in sorted(p.rglob("*.py"))]
+        return []
+    if isinstance(source_or_obj, torch.nn.Module):
+        pairs: list[tuple[str, str]] = []
+        seen_cls: set[type[Any]] = set()
+        for mod in source_or_obj.modules():
+            cls = type(mod)
+            if cls in seen_cls:
+                continue
+            seen_cls.add(cls)
+            if getattr(cls, "__module__", "").startswith(("torch.", "builtins")):
+                continue
+            try:
+                src = textwrap.dedent(inspect.getsource(cls))
+            except (OSError, TypeError):
+                continue
+            pairs.append((f"{label}:{cls.__name__}", src))
+        return pairs
+    try:
+        src = textwrap.dedent(inspect.getsource(source_or_obj))
+        obj_name = getattr(source_or_obj, "__name__", label)
+        return [(str(obj_name), src)]
+    except (OSError, TypeError):
+        return []
+
+
+def audit_fp16_autocast_source(source_or_obj: Any, *, label: str = "<source>") -> dict[str, Any]:
+    """Inspect source code or module AST for bare `@`/`bmm`/`einsum` + `-1e9` c10::Half overflow & CUDA autocast hazards."""
+
+    sources = _collect_fp16_audit_sources(source_or_obj, label=label)
+    errors: list[dict[str, Any]] = []
+    warnings_out: list[dict[str, Any]] = []
+
+    def _scan_expr(
+        expr: ast.AST,
+        *,
+        src_label: str,
+        fn_name: str,
+        fp32_vars: set[str],
+        matmul_vars: set[str],
+        inside_autocast: bool,
+    ) -> None:
+        for child in ast.walk(expr):
+            if isinstance(child, ast.Call) and isinstance(child.func, ast.Attribute):
+                attr = child.func.attr
+                if attr in ("masked_fill", "masked_fill_"):
+                    val_node = child.args[1] if len(child.args) >= 2 else None
+                    if val_node is None:
+                        for kw in child.keywords:
+                            if kw.arg == "value":
+                                val_node = kw.value
+                                break
+                    lit = _extract_numeric_constant(val_node)
+                    if lit is not None and abs(lit) > 65504.0:
+                        recv = child.func.value
+                        if not _is_fp32_cast_expr(recv, fp32_vars):
+                            errors.append(
+                                {
+                                    "code": "FP16_HALF_MASK_OVERFLOW_HAZARD",
+                                    "severity": "error",
+                                    "label": src_label,
+                                    "lineno": int(getattr(child, "lineno", 0)),
+                                    "function": fn_name,
+                                    "op": attr,
+                                    "literal_value": lit,
+                                    "from_matmul_op": _expr_uses_matmul(recv, matmul_vars),
+                                    "inside_autocast": inside_autocast,
+                                    "remediation": (
+                                        "Cast tensor with .float() or .to(torch.float32) before masking, or use "
+                                        "torch.finfo(x.dtype).min / 2.0."
+                                    ),
+                                }
+                            )
+                elif attr == "where" and len(child.args) >= 3:
+                    a_lit = _extract_numeric_constant(child.args[1])
+                    b_lit = _extract_numeric_constant(child.args[2])
+                    if a_lit is not None and abs(a_lit) > 65504.0 and not _is_fp32_cast_expr(child.args[2], fp32_vars):
+                        errors.append(
+                            {
+                                "code": "FP16_HALF_MASK_OVERFLOW_HAZARD",
+                                "severity": "error",
+                                "label": src_label,
+                                "lineno": int(getattr(child, "lineno", 0)),
+                                "function": fn_name,
+                                "op": "where",
+                                "literal_value": a_lit,
+                                "from_matmul_op": _expr_uses_matmul(child.args[2], matmul_vars),
+                                "inside_autocast": inside_autocast,
+                                "remediation": "Cast tensor operand with .float() before torch.where(..., -1e9).",
+                            }
+                        )
+                    if b_lit is not None and abs(b_lit) > 65504.0 and not _is_fp32_cast_expr(child.args[1], fp32_vars):
+                        errors.append(
+                            {
+                                "code": "FP16_HALF_MASK_OVERFLOW_HAZARD",
+                                "severity": "error",
+                                "label": src_label,
+                                "lineno": int(getattr(child, "lineno", 0)),
+                                "function": fn_name,
+                                "op": "where",
+                                "literal_value": b_lit,
+                                "from_matmul_op": _expr_uses_matmul(child.args[1], matmul_vars),
+                                "inside_autocast": inside_autocast,
+                                "remediation": "Cast tensor operand with .float() before torch.where(..., -1e9).",
+                            }
+                        )
+            elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name) and child.func.id == "where" and len(child.args) >= 3:
+                for lit_idx, tensor_idx in ((1, 2), (2, 1)):
+                    lit = _extract_numeric_constant(child.args[lit_idx])
+                    if lit is not None and abs(lit) > 65504.0 and not _is_fp32_cast_expr(child.args[tensor_idx], fp32_vars):
+                        errors.append(
+                            {
+                                "code": "FP16_HALF_MASK_OVERFLOW_HAZARD",
+                                "severity": "error",
+                                "label": src_label,
+                                "lineno": int(getattr(child, "lineno", 0)),
+                                "function": fn_name,
+                                "op": "where",
+                                "literal_value": lit,
+                                "from_matmul_op": _expr_uses_matmul(child.args[tensor_idx], matmul_vars),
+                                "inside_autocast": inside_autocast,
+                                "remediation": "Cast tensor operand with .float() before where(..., -1e9).",
+                            }
+                        )
+            elif isinstance(child, ast.BinOp) and isinstance(child.op, ast.Mult):
+                l_lit = _extract_numeric_constant(child.left)
+                r_lit = _extract_numeric_constant(child.right)
+                if l_lit is not None and abs(l_lit) > 65504.0 and r_lit is None and not _is_fp32_cast_expr(child.right, fp32_vars):
+                    errors.append(
+                        {
+                            "code": "FP16_HALF_MASK_OVERFLOW_HAZARD",
+                            "severity": "error",
+                            "label": src_label,
+                            "lineno": int(getattr(child, "lineno", 0)),
+                            "function": fn_name,
+                            "op": "mul",
+                            "literal_value": l_lit,
+                            "from_matmul_op": _expr_uses_matmul(child.right, matmul_vars),
+                            "inside_autocast": inside_autocast,
+                            "remediation": "Cast mask/score tensor to .float() before multiplying by -1e9.",
+                        }
+                    )
+                elif r_lit is not None and abs(r_lit) > 65504.0 and l_lit is None and not _is_fp32_cast_expr(child.left, fp32_vars):
+                    errors.append(
+                        {
+                            "code": "FP16_HALF_MASK_OVERFLOW_HAZARD",
+                            "severity": "error",
+                            "label": src_label,
+                            "lineno": int(getattr(child, "lineno", 0)),
+                            "function": fn_name,
+                            "op": "mul",
+                            "literal_value": r_lit,
+                            "from_matmul_op": _expr_uses_matmul(child.left, matmul_vars),
+                            "inside_autocast": inside_autocast,
+                            "remediation": "Cast mask/score tensor to .float() before multiplying by -1e9.",
+                        }
+                    )
+
+    def _walk_stmt_list(
+        stmts: Sequence[ast.stmt],
+        *,
+        src_label: str,
+        fn_name: str,
+        fp32_vars: set[str],
+        matmul_vars: set[str],
+        autocast_depth: int,
+    ) -> None:
+        for stmt in stmts:
+            if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=stmt.name,
+                    fp32_vars=set(),
+                    matmul_vars=set(),
+                    autocast_depth=autocast_depth,
+                )
+                continue
+            if isinstance(stmt, ast.ClassDef):
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=set(),
+                    matmul_vars=set(),
+                    autocast_depth=autocast_depth,
+                )
+                continue
+            if isinstance(stmt, (ast.With, ast.AsyncWith)):
+                added_depth = 0
+                for item in stmt.items:
+                    ctx_expr = item.context_expr
+                    _scan_expr(
+                        ctx_expr,
+                        src_label=src_label,
+                        fn_name=fn_name,
+                        fp32_vars=fp32_vars,
+                        matmul_vars=matmul_vars,
+                        inside_autocast=autocast_depth > 0,
+                    )
+                    if isinstance(ctx_expr, ast.Call) and _attr_dotted_tail(ctx_expr.func).split(".")[-1] == "autocast":
+                        enabled_false = False
+                        has_enabled_kw = False
+                        for kw in ctx_expr.keywords:
+                            if kw.arg == "enabled":
+                                has_enabled_kw = True
+                                if isinstance(kw.value, ast.Constant) and kw.value.value is False:
+                                    enabled_false = True
+                        if not enabled_false:
+                            added_depth += 1
+                            dev_node = ctx_expr.args[0] if ctx_expr.args else None
+                            if dev_node is None:
+                                for kw in ctx_expr.keywords:
+                                    if kw.arg == "device_type":
+                                        dev_node = kw.value
+                                        break
+                            if isinstance(dev_node, ast.Constant) and str(dev_node.value).lower().startswith("cuda"):
+                                enabled_true_kw = any(
+                                    kw.arg == "enabled" and isinstance(kw.value, ast.Constant) and kw.value.value is True
+                                    for kw in ctx_expr.keywords
+                                )
+                                if enabled_true_kw or not has_enabled_kw:
+                                    warnings_out.append(
+                                        {
+                                            "code": "HARDCODED_CUDA_AUTOCAST_WITHOUT_GUARD",
+                                            "severity": "warning",
+                                            "label": src_label,
+                                            "lineno": int(getattr(ctx_expr, "lineno", 0)),
+                                            "function": fn_name,
+                                            "remediation": (
+                                                "Use amp_autocast_context(device, use_amp=None|True|False) or check "
+                                                "torch.cuda.is_available() to avoid CPU autocast warnings."
+                                            ),
+                                        }
+                                    )
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=set(fp32_vars),
+                    matmul_vars=set(matmul_vars),
+                    autocast_depth=autocast_depth + added_depth,
+                )
+                continue
+            if isinstance(stmt, ast.If):
+                _scan_expr(
+                    stmt.test,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    inside_autocast=autocast_depth > 0,
+                )
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=set(fp32_vars),
+                    matmul_vars=set(matmul_vars),
+                    autocast_depth=autocast_depth,
+                )
+                _walk_stmt_list(
+                    stmt.orelse,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=set(fp32_vars),
+                    matmul_vars=set(matmul_vars),
+                    autocast_depth=autocast_depth,
+                )
+                continue
+            if isinstance(stmt, (ast.For, ast.AsyncFor)):
+                _scan_expr(
+                    stmt.iter,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    inside_autocast=autocast_depth > 0,
+                )
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    autocast_depth=autocast_depth,
+                )
+                _walk_stmt_list(
+                    stmt.orelse,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    autocast_depth=autocast_depth,
+                )
+                continue
+            if isinstance(stmt, ast.While):
+                _scan_expr(
+                    stmt.test,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    inside_autocast=autocast_depth > 0,
+                )
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    autocast_depth=autocast_depth,
+                )
+                continue
+            if isinstance(stmt, ast.Try):
+                _walk_stmt_list(
+                    stmt.body,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    autocast_depth=autocast_depth,
+                )
+                for h in stmt.handlers:
+                    _walk_stmt_list(
+                        h.body,
+                        src_label=src_label,
+                        fn_name=fn_name,
+                        fp32_vars=fp32_vars,
+                        matmul_vars=matmul_vars,
+                        autocast_depth=autocast_depth,
+                    )
+                _walk_stmt_list(
+                    stmt.orelse,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    autocast_depth=autocast_depth,
+                )
+                _walk_stmt_list(
+                    stmt.finalbody,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    autocast_depth=autocast_depth,
+                )
+                continue
+            if isinstance(stmt, ast.Assign):
+                _scan_expr(
+                    stmt.value,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    inside_autocast=autocast_depth > 0,
+                )
+                is_fp32 = _is_fp32_cast_expr(stmt.value, fp32_vars)
+                uses_mm = (not is_fp32) and _expr_uses_matmul(stmt.value, matmul_vars)
+                for tgt in stmt.targets:
+                    for vname in _assigned_var_names(tgt):
+                        if is_fp32:
+                            fp32_vars.add(vname)
+                            matmul_vars.discard(vname)
+                        elif uses_mm:
+                            matmul_vars.add(vname)
+                            fp32_vars.discard(vname)
+                        else:
+                            fp32_vars.discard(vname)
+                            matmul_vars.discard(vname)
+                continue
+            if isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+                _scan_expr(
+                    stmt.value,
+                    src_label=src_label,
+                    fn_name=fn_name,
+                    fp32_vars=fp32_vars,
+                    matmul_vars=matmul_vars,
+                    inside_autocast=autocast_depth > 0,
+                )
+                is_fp32 = _is_fp32_cast_expr(stmt.value, fp32_vars)
+                uses_mm = (not is_fp32) and _expr_uses_matmul(stmt.value, matmul_vars)
+                for vname in _assigned_var_names(stmt.target):
+                    if is_fp32:
+                        fp32_vars.add(vname)
+                        matmul_vars.discard(vname)
+                    elif uses_mm:
+                        matmul_vars.add(vname)
+                        fp32_vars.discard(vname)
+                    else:
+                        fp32_vars.discard(vname)
+                        matmul_vars.discard(vname)
+                continue
+            _scan_expr(
+                stmt,
+                src_label=src_label,
+                fn_name=fn_name,
+                fp32_vars=fp32_vars,
+                matmul_vars=matmul_vars,
+                inside_autocast=autocast_depth > 0,
+            )
+
+    for src_label, src_text in sources:
+        tree = ast.parse(src_text)
+        _walk_stmt_list(
+            tree.body,
+            src_label=src_label,
+            fn_name="<module>",
+            fp32_vars=set(),
+            matmul_vars=set(),
+            autocast_depth=0,
+        )
+
+    passed = len(errors) == 0
+    return {
+        "schema": "anra-planthir-fp16-static-audit-v1",
+        "passed": passed,
+        "status": "PASS" if passed else "FP16_OVERFLOW_HAZARD_DETECTED",
+        "sources_scanned": len(sources),
+        "error_count": len(errors),
+        "warning_count": len(warnings_out),
+        "errors": errors,
+        "warnings": warnings_out,
+    }
+
+
 def validate_fp16_autocast_forward_backward(
     model: torch.nn.Module,
     loss_fn: Callable[[torch.nn.Module], torch.Tensor],
     *,
     active_param_contract: set[str] | frozenset[str] | None = None,
     dtype: torch.dtype = torch.float16,
+    emulate_cuda_half_ops: bool = True,
+    audit_source: bool = False,
+    use_amp: bool | None = True,
 ) -> dict[str, Any]:
-    """Perform a non-mutating FP16 autocast forward/backward probe catching Half overflow and dead grads."""
+    """Perform a non-mutating FP16 autocast forward/backward probe catching Half overflow, static hazards, and dead grads."""
 
     device_type = "cuda" if any(p.is_cuda for p in model.parameters()) else "cpu"
     defects: list[str] = []
@@ -398,11 +993,20 @@ def validate_fp16_autocast_forward_backward(
     nonzero_params: set[str] = set()
     loss_value: float | None = None
 
+    emulation_active = bool(
+        device_type == "cpu"
+        and dtype == torch.float16
+        and emulate_cuda_half_ops
+        and use_amp is not False
+    )
+    static_audit = audit_fp16_autocast_source(model, label=type(model).__name__)
+
     with _preserve_model_and_rng_state(model):
         try:
             model.train()
             model.zero_grad(set_to_none=True)
-            with torch.amp.autocast(device_type, dtype=dtype):
+            half_ctx = _CudaHalfMatmulEmulationMode() if emulation_active else nullcontext()
+            with amp_autocast_context(device_type, use_amp=use_amp, dtype=dtype), half_ctx:
                 loss = loss_fn(model)
             loss_value = float(loss.detach().item())
             if not math.isfinite(loss_value):
@@ -427,6 +1031,10 @@ def validate_fp16_autocast_forward_backward(
         except (RuntimeError, FloatingPointError, OverflowError) as exc:
             defects.append(f"fp16_autocast_runtime_error:{type(exc).__name__}:{exc}")
 
+    if audit_source and not static_audit["passed"]:
+        for err in static_audit["errors"]:
+            defects.append(f"fp16_static_ast_hazard:{err['op']}@line{err['lineno']}")
+
     passed = len(defects) == 0
     return {
         "schema": "anra-planthir-fp16-autocast-check-v1",
@@ -434,9 +1042,11 @@ def validate_fp16_autocast_forward_backward(
         "status": "PASS" if passed else "INSTRUMENT_DEFECT_DETECTED",
         "device_type": device_type,
         "dtype": str(dtype),
+        "cuda_half_emulation_active": emulation_active,
         "loss": loss_value,
         "non_none_grad_count": len(non_none_params),
         "nonzero_grad_count": len(nonzero_params),
+        "static_audit": static_audit,
         "defects": defects,
     }
 
@@ -1539,7 +2149,7 @@ def run_level7_runtime_shield_suite() -> dict[str, Any]:
         }
     )
 
-    # 2. FP16 autocast -1e9 mask overflow caught on uncast half mask and clean on FP32 softmax mask
+    # 2. FP16 autocast -1e9 mask overflow caught via Half emulation + static AST audit + zero-warning use_amp=None
     class _UnsafeMaskNet(nn.Module):
         def __init__(self) -> None:
             super().__init__()
@@ -1552,37 +2162,80 @@ def run_level7_runtime_shield_suite() -> dict[str, Any]:
             probs = F.softmax(scores, dim=-1)
             return (probs @ q).sum()
 
+    class _UnsafeBmmEinsumNet(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.proj = nn.Linear(4, 4)
+
+        def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+            with amp_autocast_context("cuda", use_amp=None):
+                q = self.proj(x).unsqueeze(0)
+                scores = torch.einsum("bid,bjd->bij", q, q) + torch.bmm(q, q.transpose(-1, -2))
+                scores = scores.masked_fill(mask.unsqueeze(0), -1e9)
+                probs = F.softmax(scores, dim=-1)
+                return torch.bmm(probs, q).sum()
+
     class _SafeMaskNet(nn.Module):
         def __init__(self) -> None:
             super().__init__()
             self.proj = nn.Linear(4, 4)
 
         def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-            q = self.proj(x)
-            scores = torch.matmul(q.float(), q.float().transpose(-2, -1))
-            scores = scores.masked_fill(mask, torch.finfo(scores.dtype).min / 2.0)
-            probs = F.softmax(scores, dim=-1)
-            return (probs @ q.float()).sum()
+            with amp_autocast_context("cuda", use_amp=None):
+                q = self.proj(x)
+                scores = torch.matmul(q.float(), q.float().transpose(-2, -1))
+                scores = scores.masked_fill(mask, torch.finfo(scores.dtype).min / 2.0)
+                probs = F.softmax(scores, dim=-1)
+                return (probs @ q.float()).sum()
 
     x_probe = torch.ones((2, 4), dtype=torch.float32)
     mask_probe = torch.tensor([[False, True], [False, False]], dtype=torch.bool)
     unsafe_net = _UnsafeMaskNet()
+    unsafe_bmm_net = _UnsafeBmmEinsumNet()
     safe_net = _SafeMaskNet()
     unsafe_report = validate_fp16_autocast_forward_backward(
         unsafe_net,
         lambda m: m(x_probe, mask_probe),
     )
-    safe_report = validate_fp16_autocast_forward_backward(
-        safe_net,
-        lambda m: m(x_probe, mask_probe),
-        active_param_contract={"proj.weight", "proj.bias"},
+    with warnings.catch_warnings(record=True) as shield_warnings:
+        warnings.simplefilter("always")
+        bmm_report = validate_fp16_autocast_forward_backward(
+            unsafe_bmm_net,
+            lambda m: m(x_probe, mask_probe),
+        )
+        safe_report = validate_fp16_autocast_forward_backward(
+            safe_net,
+            lambda m: m(x_probe, mask_probe),
+            active_param_contract={"proj.weight", "proj.bias"},
+        )
+        with amp_autocast_context("cuda", use_amp=True):
+            _ = safe_net(x_probe, mask_probe)
+    cuda_warn_seen = any("CUDA is not available" in str(w.message) for w in shield_warnings)
+    ast_unsafe = audit_fp16_autocast_source(
+        'def _bad(q, k, mask):\n    with torch.amp.autocast("cuda", dtype=torch.float16, enabled=True):\n        s = torch.einsum("bid,bjd->bij", q, k)\n        return torch.softmax(s.masked_fill(mask, -1e9), dim=-1)\n',
+        label="shield_unsafe_ast",
     )
-    case2_passed = (not unsafe_report["passed"]) and bool(safe_report["passed"])
+    ast_safe = audit_fp16_autocast_source(
+        'def _good(q, k, mask):\n    with amp_autocast_context("cuda", use_amp=None):\n        s = torch.einsum("bid,bjd->bij", q, k)\n        return torch.softmax(s.float().masked_fill(mask, -1e9), dim=-1)\n',
+        label="shield_safe_ast",
+    )
+    case2_passed = (
+        (not unsafe_report["passed"])
+        and (not bmm_report["passed"])
+        and bool(safe_report["passed"])
+        and (not cuda_warn_seen)
+        and (not ast_unsafe["passed"])
+        and bool(ast_safe["passed"])
+    )
     cases.append(
         {
             "shield_id": "fp16_autocast_minus_1e9_overflow",
             "passed": case2_passed,
             "unsafe_detected": not unsafe_report["passed"],
+            "bmm_einsum_unsafe_detected": not bmm_report["passed"],
+            "static_ast_unsafe_detected": not ast_unsafe["passed"],
+            "static_ast_safe_passed": bool(ast_safe["passed"]),
+            "use_amp_none_zero_warnings": not cuda_warn_seen,
             "safe_passed": safe_report["passed"],
             "unsafe_defects": unsafe_report["defects"],
         }
@@ -1789,6 +2442,8 @@ def run_level7_runtime_shield_suite() -> dict[str, Any]:
 
 __all__ = [
     "ADVERSARIAL_BYTE_SEQUENCES",
+    "amp_autocast_context",
+    "audit_fp16_autocast_source",
     "audit_sampled_strata",
     "run_fault_injection_suite",
     "run_level7_runtime_shield_suite",

@@ -288,3 +288,119 @@ def test_manuals_document_fp16_autocast_u0000_gate_and_c10_half_gotcha() -> None
             "c10::Half",
         ):
             assert needle in text, f"missing {needle!r} in {name}"
+
+
+class _EinsumBmmOverflowNet(nn.Module):
+    """Uses torch.bmm + torch.einsum under FP16 autocast to test CPU CUDA-Half emulation & AST audit."""
+
+    def __init__(self, *, overflow_bug: bool = True, cast_explicit_fp32: bool = False) -> None:
+        super().__init__()
+        self.overflow_bug = bool(overflow_bug)
+        self.cast_explicit_fp32 = bool(cast_explicit_fp32)
+        self.q = nn.Linear(4, 4)
+        self.head = nn.Linear(4, 2)
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        from anra_v5.palantiri import amp_autocast_context
+
+        with amp_autocast_context("cuda", use_amp=None):
+            h = self.q(x)
+            scores_e = torch.einsum("bid,bjd->bij", h, h)
+            scores_b = torch.bmm(h, h.transpose(-1, -2))
+            scores = scores_e + scores_b
+            if self.overflow_bug and not self.cast_explicit_fp32:
+                masked = scores.masked_fill(mask, -1e9)
+            else:
+                masked = scores.float().masked_fill(mask, -1e9)
+            probs = F.softmax(masked.float(), dim=-1)
+            ctx = torch.matmul(probs, h.float())[:, 0, :]
+            return self.head(ctx)
+
+
+def test_cpu_half_emulation_static_ast_audit_and_zero_warning_amp_context(tmp_path: Path) -> None:
+    import warnings
+    from anra_v5.palantiri import amp_autocast_context, audit_fp16_autocast_source, level_info
+
+    assert "fp16_static_ast_and_half_emulation" in level_info()["capabilities"]
+    x_in = torch.ones((2, 3, 4), dtype=torch.float32)
+    mask_in = torch.tensor([[[False, False, True]], [[False, True, False]]], dtype=torch.bool)
+    mask_all_false = torch.zeros((2, 3, 3), dtype=torch.bool)
+    targets = torch.tensor([0, 1], dtype=torch.long)
+
+    # 1. CPU CUDA-Half emulation catches bmm/einsum + masked_fill(-1e9) with zero CUDA warnings when use_amp=None
+    unsafe_net = _EinsumBmmOverflowNet(overflow_bug=True, cast_explicit_fp32=False)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        rep_bad = validate_fp16_autocast_forward_backward(
+            unsafe_net,
+            lambda m: F.cross_entropy(m(x_in, mask_in).float(), targets),
+        )
+    assert rep_bad["passed"] is False
+    assert rep_bad["cuda_half_emulation_active"] is True
+    assert any("Half" in d or "overflow" in d for d in rep_bad["defects"])
+    assert not any("CUDA is not available" in str(w.message) for w in caught)
+
+    # Disabling outer autocast with use_amp=False leaves tensors in FP32 and passes cleanly
+    rep_fp32 = validate_fp16_autocast_forward_backward(
+        unsafe_net,
+        lambda m: F.cross_entropy(m(x_in, mask_in).float(), targets),
+        use_amp=False,
+    )
+    assert rep_fp32["passed"] is True and rep_fp32["cuda_half_emulation_active"] is False
+
+    # Safe FP32 cast passes runtime probe AND use_amp=True on "cuda" on CPU emits zero warnings
+    safe_net = _EinsumBmmOverflowNet(overflow_bug=False, cast_explicit_fp32=True)
+    with warnings.catch_warnings(record=True) as caught_ok:
+        warnings.simplefilter("always")
+        rep_safe = validate_fp16_autocast_forward_backward(
+            safe_net,
+            lambda m: F.cross_entropy(m(x_in, mask_in).float(), targets),
+        )
+        with amp_autocast_context("cuda", use_amp=True):
+            _ = safe_net(x_in, mask_in)
+        with Palantiri.amp_context("cpu", use_amp=True):
+            with Palantiri.amp_context("cuda", use_amp=None):
+                assert torch.is_autocast_enabled("cpu") is True
+    assert rep_safe["passed"] is True
+    assert not any("CUDA is not available" in str(w.message) for w in caught_ok)
+
+    # 2. Static AST audit detects bare @ / bmm / einsum inside autocast(enabled=True) + -1e9 even with all-False mask
+    unsafe_src = """
+import torch
+def bad_attn(q, k, mask):
+    with torch.amp.autocast("cuda", dtype=torch.float16, enabled=True):
+        scores = torch.einsum("bid,bjd->bij", q, k)
+        scores = scores.masked_fill(mask, -1e9)
+        return torch.softmax(scores, dim=-1)
+"""
+    safe_src = """
+import torch
+def good_attn(q, k, mask):
+    with torch.amp.autocast("cuda", dtype=torch.float16, enabled=True):
+        scores = torch.einsum("bid,bjd->bij", q, k)
+        scores = scores.float().masked_fill(mask, -1e9)
+        return torch.softmax(scores, dim=-1)
+"""
+    audit_bad = audit_fp16_autocast_source(unsafe_src, label="bad_attn.py")
+    assert audit_bad["passed"] is False and audit_bad["status"] == "FP16_OVERFLOW_HAZARD_DETECTED"
+    assert audit_bad["error_count"] == 1
+    assert audit_bad["errors"][0]["from_matmul_op"] is True
+    assert audit_bad["errors"][0]["inside_autocast"] is True
+    assert audit_bad["warning_count"] == 1
+    assert audit_bad["warnings"][0]["code"] == "HARDCODED_CUDA_AUTOCAST_WITHOUT_GUARD"
+
+    audit_good = Palantiri.audit_fp16_source(safe_src, label="good_attn.py")
+    assert audit_good["passed"] is True and audit_good["error_count"] == 0
+
+    src_file = tmp_path / "m_bad.py"
+    src_file.write_text(unsafe_src, encoding="utf-8")
+    assert audit_fp16_autocast_source(src_file)["passed"] is False
+
+    # audit_source=True catches static AST hazard even if runtime mask has all-False entries
+    rep_all_false_masked = validate_fp16_autocast_forward_backward(
+        unsafe_net,
+        lambda m: F.cross_entropy(m(x_in, mask_all_false).float(), targets),
+        audit_source=True,
+    )
+    assert rep_all_false_masked["passed"] is False
+    assert any("fp16_static_ast_hazard" in d for d in rep_all_false_masked["defects"])

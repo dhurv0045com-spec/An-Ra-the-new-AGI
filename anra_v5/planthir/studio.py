@@ -27,6 +27,8 @@ from .custody import (
 from .design import validate_paired_arm_records_preflight
 from .execution import dump_json_safe, sanitize_for_json
 from .instrument import (
+    amp_autocast_context,
+    audit_fp16_autocast_source,
     run_level7_runtime_shield_suite,
     validate_byte_decoder_resilience,
     validate_end_to_end_lifecycle,
@@ -88,6 +90,7 @@ def level_info() -> dict[str, Any]:
             "wave_crash_partial_receipt_persistence",
             "cli_shield_runtime_suite",
             "multi_stage_paired_arm_preflight",
+            "fp16_static_ast_and_half_emulation",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
@@ -596,6 +599,16 @@ class Palantiri:
     @staticmethod
     def validate_fp16_autocast(model: Any, loss_fn: Any, **kwargs: Any) -> dict[str, Any]:
         return validate_fp16_autocast_forward_backward(model, loss_fn, **kwargs)
+
+    @staticmethod
+    def amp_context(device: Any = None, *, use_amp: bool | None = None, dtype: Any = None) -> Any:
+        import torch
+
+        return amp_autocast_context(device, use_amp=use_amp, dtype=(dtype if dtype is not None else torch.float16))
+
+    @staticmethod
+    def audit_fp16_source(source_or_obj: Any, *, label: str = "<source>") -> dict[str, Any]:
+        return audit_fp16_autocast_source(source_or_obj, label=label)
 
     @staticmethod
     def decode_lossy(token_ids: Sequence[Any], *, strip_special: bool = True, errors: str = "replace") -> tuple[str, bool]:

@@ -51,7 +51,7 @@ from .custody import (
 )
 from .design import validate_paired_arm_records_preflight
 from .execution import dump_json_safe, sanitize_for_json
-from .instrument import validate_byte_decoder_resilience
+from .instrument import amp_autocast_context, validate_byte_decoder_resilience
 from .notebooks import build_pinned_kaggle_notebook, serialize_pinned_notebook, verify_pinned_notebook_bytes
 from .reporting import (
     build_analyst_first_page_report,
@@ -355,11 +355,10 @@ class GenericExperimentTrainer:
         chosen = [self.items[i] for i in self.plan[u]]
         micro = max(1, min(len(chosen), int(self.recipe.micro_batch_size)))
         acc_loss = 0.0
-        amp_dev_type = "cuda" if self.device.type == "cuda" else "cpu"
         for start in range(0, len(chosen), micro):
             chunk = chosen[start : start + micro]
             scale = float(len(chunk)) / float(max(1, len(chosen)))
-            with torch.amp.autocast(device_type=amp_dev_type, dtype=self.amp_dtype, enabled=self.amp_enabled):
+            with amp_autocast_context(self.device, use_amp=self.amp_enabled, dtype=self.amp_dtype):
                 scaled_loss, scalar = _compute_loss_from_fn(self.loss_fn, self.model, chunk, self.recipe, scale)
             if self.scaler.is_enabled():
                 self.scaler.scale(scaled_loss).backward()

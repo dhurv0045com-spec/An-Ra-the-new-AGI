@@ -139,6 +139,8 @@ from .evidence import (
 from .execution import dump_json_safe, sanitize_for_json
 from .instrument import (
     ADVERSARIAL_BYTE_SEQUENCES,
+    amp_autocast_context,
+    audit_fp16_autocast_source,
     audit_sampled_strata,
     run_fault_injection_suite,
     run_level7_runtime_shield_suite,
@@ -311,10 +313,12 @@ __all__ = [
     "X1RD2Spec",
     "X1RD2Trainer",
     "agent_info",
+    "amp_autocast_context",
     "analyze_checkpoint_trajectory",
     "analyze_paired_seed_runs",
     "analyze_productivity_study",
     "audit_experimental_design",
+    "audit_fp16_autocast_source",
     "audit_sampled_strata",
     "audit_pair_margin_gradient_sign_reversal",
     "audit_typed_experimental_design",
