@@ -442,3 +442,6 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 ### 2026-11-26 | Codex | Frozen Y4 checkpoint replay
 - Matched all 120 Y4 checkpoints to the owner receipts. Ran the five-seed byte parser and graph executor crossing, three-factor renderer ablation, and corrected real donor-state replay on CPU.
 - Published compact evidence, reproduction commands and conclusions. The learned bridge solved 632/640 native and 20/640 bracketed complete families.
+
+## 2026-11-27 | Codex | Y5 foundation campaign
+Implemented matched repairs, checkpoint custody and cohort confirmation. Replayed frozen seed-7 weights and passed 32 focused CPU tests. Substantive two-GPU training is reserved for the owner.

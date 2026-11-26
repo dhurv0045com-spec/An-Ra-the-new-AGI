@@ -1,5 +1,7 @@
 # Avendi V8-Y2, AN-RA V8-Y1 & Hitchhiker — Elendril mechanism investigation
 
+**2026-11-27.** [Y5 foundation campaign](research/avendi/Y5_FOUNDATION.md) and [owner readiness and launch](research/avendi/Y5_READINESS.md).
+
 **2026-11-22.** [Avendi V8-Y3 full 88/88 GPU results & audit](Experiment%20Result/Avendi-V8-Y3/y3-full-88of88/RESULTS.md). Clean single-session Kaggle 2×T4 run completed all `88/88` jobs in `4,132.65 s` (`50/50` studies complete, `79/88` jobs & `36/50` studies independently verified, verified `CONFIRM_LOCK.json`). `P4-categorical` achieves `1.00` depth `1..2` + causal interchange (`0.00` at depths `3..4`), `P5` `info` forks reach `0.7857` macro-optimal, and `P7-ark` isolates the cap stability-plasticity trade-off, while `P2`/`P3`/`P7-s20` miss the `0.80` qualification gate.
 
 **2026-11-21.** [Avendi Y3 partial GPU audit](Experiment%20Result/Avendi-V8-Y3/y3-partial-57of88/RESULTS.md) covers 57 of 88 jobs. The margin objective improved four-cell development accuracy at all three seeds, but missed the registered improvement and row-order qualification gates.
