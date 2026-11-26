@@ -445,3 +445,6 @@ Verified 57 reused plus the exact 31 pending job IDs in the resumed analysis exp
 
 ## 2026-11-27 | Codex | Y5 foundation campaign
 Implemented matched repairs, checkpoint custody and cohort confirmation. Replayed frozen seed-7 weights and passed 32 focused CPU tests. Substantive two-GPU training is reserved for the owner.
+
+## 2026-11-27 | Codex | Pin and verify Y5 owner handoff
+Pinned the owner notebook and verified its serialized bytes and code cells. Nine-job CPU smoke and fresh FULL resume each finished with five confirmations and zero worker errors.
