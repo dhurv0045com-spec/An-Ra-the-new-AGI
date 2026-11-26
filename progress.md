@@ -484,3 +484,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Added a `per_family=12` (>= production `per_family=8`) 22-family split-disjointness + Oracle `1.0` regression test in `tests/test_elendril_x4_reconstruction.py`.
 - Verified on CPU (`cuda_available=false`): `6 passed in 133.37s`; pinned `ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` (`match=true`) to `e675efd8`.
 - Ready for owner Kaggle 2xT4 execution (`In [3]` preflight + S20 AMP profile previously passed on CUDA at `0.235s/update`, `2930.3 MB` VRAM).
+
+### 2026-11-27 | Antigravity | V8-X4 Production Stress Hardening: O(N) C05, CPU Prepack & Stage-5 Scoping (4e7b59e8)
+- Fixed 3 pre-flight production landmines: batched C05 O(N) generation in `experiments/x4/battery.py`, compact CPU tensor pre-packing in `experiments/x4/objectives.py` (0 MB idle GPU VRAM), and per-configuration Stage-5 L0-L5/U-trajectory scoping in `experiments/x4/module.py`.
+- Verified all 4 data regimes at full `1,024`-update `batch_size=16` scale on CPU (`2.43s-14.87s`, `124.75-155.22 MB` compact CPU tensors) plus `6 passed in 123.13s` in `tests/test_elendril_x4_reconstruction.py`.
+- Pinned `notebooks/ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` (`match=true`, `15,699` bytes) to `4e7b59e8fc25f23f731ddf1dd2e19c16600ccc34`; ready for zero-edit Kaggle 2xT4 run.
