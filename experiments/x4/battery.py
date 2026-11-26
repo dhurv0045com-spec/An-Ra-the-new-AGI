@@ -850,6 +850,8 @@ def build_x4_battery(
     cases: list[dict[str, Any]] = []
     shots = (0, 1, 4, 16, 64)
 
+    from experiments.x3 import cognitive_battery as x3cb
+
     for fam in families:
         if fam in X1_FAMILIES:
             for i in range(per_family):
@@ -860,6 +862,13 @@ def build_x4_battery(
         elif fam == "C04_COMPOSITIONAL_SCAN":
             for i in range(per_family):
                 cases.append(_generate_c04_repaired(split, use_seed, i, phase=phase))
+        elif fam == "C05_RELATIONAL_GRAPH_CF":
+            # Batched O(N) C05 generation (avoids O(N^2) per-index graph rebuild)
+            c05_batch = x3cb._generate_c05_batch(split, use_seed, per_family)
+            for c in c05_batch:
+                c["group"] = FAMILY_TO_GROUP[fam]
+                c["benchmark_provenance"] = "x4_repaired_22fam"
+            cases.extend(c05_batch)
         elif fam == "C09_METACOGNITION_SELF_CHECK":
             for i in range(per_family):
                 cases.append(_generate_c09_repaired(split, use_seed, i))
@@ -953,7 +962,7 @@ def build_x4_curriculum_schedule(
     pool_sizes = {"fixed_400": 400, "fixed_4000": 4000, "fixed_40000": 40000}
     fixed_pools: dict[int, list[dict[str, Any]]] = {}
     if data_regime in pool_sizes:
-        n_total = pool_sizes[data_regime]
+        n_total = min(pool_sizes[data_regime], max(400, int(total_updates) * int(batch_size)))
         per_fam = max(1, (n_total + len(families) - 1) // len(families))
         for ph in (1, 2, 3) if curriculum_mode == "curriculum_p2c" else (3,):
             bat = build_x4_battery(split="train", seed=seed + 100 * ph, per_family=per_fam, families=families, phase=ph)

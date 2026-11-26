@@ -789,7 +789,7 @@ def run_x4_single_job(
         families=fams,
     )
     matched = build_x4_matched_batches(sched, seed=oseed, batch_size=batch_sz, is_schedule=True)
-    batches = prepack_x4_batches(matched, max_length=model.max_ctx, device=dev)
+    batches = prepack_x4_batches(matched, max_length=model.max_ctx, device="cpu")
 
     use_amp = dev.type == "cuda"
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
@@ -1023,6 +1023,7 @@ def run_x4_campaign(
         bsz = 4 if canary else 32
         sealed_jobs: dict[str, Any] = {}
         modes_by_job: dict[str, Any] = {}
+        diag_arms_seen: set[tuple[str, str, str, str, str]] = set()
 
         for jid in sorted(completed_ids):
             meta = dict(job_receipts.get(jid) or jobs_by_id.get(jid) or {})
@@ -1038,19 +1039,29 @@ def run_x4_campaign(
             c_prof = score_x4_multidimensional_profile(c_preds, conf_cases)
             o_preds = evaluate_x4_cases(m, ood_cases, batch_size=bsz, device=eval_dev)
             o_prof = score_x4_multidimensional_profile(o_preds, ood_cases)
-            l_preds = evaluate_x4_cases(m, l0_l5_cases, batch_size=bsz, device=eval_dev)
-            l_prof = score_x4_multidimensional_profile(l_preds, l0_l5_cases)
             if str(meta["architecture"]) == "Base" and baseline_profile is None:
                 baseline_profile = c_prof
 
-            # U step trajectory (0, 1, 2, 4, 8 steps) for U-family architectures
+            # Extra L0-L5 diagnostic progression and 0/1/2/4/8 U-step trajectory once per unique arm config
+            arm_cfg = (
+                str(meta.get("cycle", "")),
+                str(meta["architecture"]),
+                str(meta["objective"]),
+                str(meta.get("data_regime", "")),
+                str(meta.get("curriculum_mode", "")),
+            )
+            l_prof = None
             u_traj = None
-            if m.uses_u:
-                u_traj = {}
-                sub_u = conf_cases[:8]
-                for ks in (0, 1, 2, 4, 8):
-                    up = evaluate_x4_cases(m, sub_u, batch_size=8, device=eval_dev, eval_steps_override=ks)
-                    u_traj[str(ks)] = float(sum(int(bool(x["correct"])) for x in up) / max(1, len(up)))
+            if arm_cfg not in diag_arms_seen:
+                diag_arms_seen.add(arm_cfg)
+                l_preds = evaluate_x4_cases(m, l0_l5_cases, batch_size=bsz, device=eval_dev)
+                l_prof = score_x4_multidimensional_profile(l_preds, l0_l5_cases)
+                if m.uses_u:
+                    u_traj = {}
+                    sub_u = conf_cases[:8]
+                    for ks in (0, 1, 2, 4, 8):
+                        up = evaluate_x4_cases(m, sub_u, batch_size=8, device=eval_dev, eval_steps_override=ks)
+                        u_traj[str(ks)] = float(sum(int(bool(x["correct"])) for x in up) / max(1, len(up)))
 
             sealed_jobs[jid] = {
                 "architecture": meta["architecture"],

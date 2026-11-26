@@ -169,7 +169,7 @@ def build_x4_notebook_dict(
                 '    pm = X4CognitiveModel("ANRA-X4-Int", sp, seed=7).to(dev)',
                 "    popt = torch.optim.AdamW(pm.parameters(), lr=1e-4)",
                 '    pscaler = torch.amp.GradScaler("cuda", enabled=True)',
-                "    pbatches = prepack_x4_batches(prof_matched, max_length=pm.max_ctx, device=dev)",
+                '    pbatches = prepack_x4_batches(prof_matched, max_length=pm.max_ctx, device="cpu")',
                 '    compute_x4_objective_step(pm, popt, pbatches[0], objective="D4-ECCO", use_amp=True, scaler=pscaler)',
                 "    torch.cuda.synchronize(dev)",
                 "    t0 = time.perf_counter()",

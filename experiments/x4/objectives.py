@@ -159,17 +159,16 @@ def prepack_x4_batches(
     matched_bundle: Mapping[str, Any],
     *,
     max_length: int,
-    device: str | torch.device,
+    device: str | torch.device = "cpu",
 ) -> list[dict[str, Any]]:
-    """Pre-pack identical tensor batches once so every objective executes on exact same tokens & pairs."""
-    dev = torch.device(device)
+    """Pre-pack compact CPU integer/bool tensors (zero idle GPU VRAM mask bloat!) once per schedule."""
+    _ = device  # Compact batches always stage on CPU and transfer cleanly per update step
+    cpu_dev = torch.device("cpu")
     out: list[dict[str, Any]] = []
     for b in matched_bundle["batches"]:
         cases = b["cases"]
-        toks, segs, elig_t, prefix_t, end_t = _pack_cases_tensors(cases, max_length=int(max_length), device=dev)
-        pos, mask = packed_layout(segs, torch_module=torch)
+        toks, segs, elig_t, prefix_t, end_t = _pack_cases_tensors(cases, max_length=int(max_length), device=cpu_dev)
 
-        # Prepack counterfactual swapped-target sequences for all cf_pairs (x_a -> y_b, x_b -> y_a)
         cf_pairs: list[tuple[int, int]] = list(b["cf_pairs"])
         swap_pack: dict[str, torch.Tensor] | None = None
         if cf_pairs:
@@ -181,13 +180,11 @@ def prepack_x4_batches(
                 swap_cases.append(cases[ib])
                 swap_targets.append(format_x4_typed_target(cases[ia]))
             sw_toks, sw_segs, sw_elig, _, sw_end = _pack_cases_tensors(
-                swap_cases, targets_override=swap_targets, max_length=int(max_length), device=dev
+                swap_cases, targets_override=swap_targets, max_length=int(max_length), device=cpu_dev
             )
-            sw_pos, sw_mask = packed_layout(sw_segs, torch_module=torch)
             swap_pack = {
                 "toks": sw_toks,
-                "pos": sw_pos,
-                "mask": sw_mask,
+                "segs": sw_segs,
                 "elig_t": sw_elig,
                 "end_t": sw_end,
             }
@@ -196,11 +193,10 @@ def prepack_x4_batches(
             {
                 **b,
                 "_packed": {
-                    "device": str(dev),
+                    "compact_cpu": True,
                     "max_length": int(max_length),
                     "toks": toks,
-                    "pos": pos,
-                    "mask": mask,
+                    "segs": segs,
                     "elig_t": elig_t,
                     "prefix_t": prefix_t,
                     "end_t": end_t,
@@ -237,8 +233,29 @@ def compute_x4_objective_losses(
     if objective not in X4_OBJECTIVES:
         raise ValueError(f"Unknown X4 objective: {objective!r}")
     dev = next(model.parameters()).device
+    nb = dev.type == "cuda"
     packed = batch.get("_packed")
-    if isinstance(packed, Mapping) and packed.get("device") == str(dev) and packed.get("max_length") == model.max_ctx:
+    if isinstance(packed, Mapping) and packed.get("compact_cpu") and packed.get("max_length") == model.max_ctx:
+        toks = packed["toks"].to(dev, non_blocking=nb)
+        segs = packed["segs"].to(dev, non_blocking=nb)
+        elig_t = packed["elig_t"].to(dev, non_blocking=nb)
+        prefix_t = packed["prefix_t"].to(dev, non_blocking=nb)
+        end_t = packed["end_t"].to(dev, non_blocking=nb)
+        pos, mask = packed_layout(segs, torch_module=torch)
+        raw_sw = packed["swap_pack"]
+        if isinstance(raw_sw, Mapping):
+            sw_segs = raw_sw["segs"].to(dev, non_blocking=nb)
+            sw_pos, sw_mask = packed_layout(sw_segs, torch_module=torch)
+            swap_pack = {
+                "toks": raw_sw["toks"].to(dev, non_blocking=nb),
+                "pos": sw_pos,
+                "mask": sw_mask,
+                "elig_t": raw_sw["elig_t"].to(dev, non_blocking=nb),
+                "end_t": raw_sw["end_t"].to(dev, non_blocking=nb),
+            }
+        else:
+            swap_pack = None
+    elif isinstance(packed, Mapping) and packed.get("device") == str(dev) and packed.get("max_length") == model.max_ctx:
         toks = packed["toks"]
         pos = packed["pos"]
         mask = packed["mask"]
