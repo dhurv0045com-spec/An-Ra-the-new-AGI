@@ -136,12 +136,15 @@ build_x1_spec(architecture, *, cpu_canary=False, base_spec=None, width=None, lay
 
 # 3. Campaign Orchestration, Rollout & Verification (persists partial receipts on BaseException!)
 orch = CampaignOrchestrator(*, campaign_id, source_commit, work_dir, max_minutes=330.0, reserve_minutes=45.0, min_disk_bytes=2*2**30, in_process_runner=None)
-orch.run_registered_plan(jobs, *, command_builder=None, job_runner=None, devices=("cuda:0", "cuda:1"), resume_input=None, measured_seconds_per_update=None, measured_seconds_per_update_by_group=None, profile_fn=None, per_job_disk_bytes=128*2**20, outer_remaining_minutes=None, inventory_only=False, fail_on_resume_rejection=True, stage_gates=None, parent_checker=None, live_wall_clock_preemption=True, clock_fn=None, u0000_smoke_fn=None, u0000_fp16_autocast_fn=None, require_u0000_fp16_autocast=False, byte_decode_fn=None, stage5_preflight_fn=None, export_prefix=None, export_dir=None, write_full_zip=True)
+orch.run_registered_plan(jobs, *, command_builder=None, job_runner=None, devices=("cuda:0", "cuda:1"), resume_input=None, measured_seconds_per_update=None, measured_seconds_per_update_by_group=None, profile_fn=None, per_job_disk_bytes=128*2**20, outer_remaining_minutes=None, inventory_only=False, fail_on_resume_rejection=True, stage_gates=None, parent_checker=None, live_wall_clock_preemption=True, clock_fn=None, u0000_smoke_fn=None, u0000_fp16_autocast_fn=None, require_u0000_fp16_autocast=False, byte_decode_fn=None, stage5_preflight_fn=None, split_disjointness_fn=None, production_preflight_fn=None, export_prefix=None, export_dir=None, write_full_zip=True)
 orch.admit_slice(jobs, *, measured_seconds_per_update, per_job_disk_bytes, parallel_workers=2, outer_remaining_minutes=None, startup_overhead_seconds=0.0, export_reserve_bytes=0, per_job_seconds_per_update=None)
 orch.reconcile_verified_resume(imported_receipts, registry_rows, *, required_archive_members=(), fail_on_rejection=False)
 orch.run_waves(jobs, *, command_builder, devices=("cuda:0", "cuda:1"), resume=False)
 batched_rollout(policy, kernel, worlds, *, batch_size=64, max_actions=4, verify_serial_parity_n=0, parity_atol=1e-4)
-verify_full_mode_dispatch(dispatch_fn, *, expected_job_ids, expected_seeds=(7, 19, 41), required_devices=("cuda:0", "cuda:1"), min_dataset_counts=None, tight_session_minutes=None, full_session_minutes=300.0, require_multi_session_resume=True)
+verify_full_mode_dispatch(dispatch_fn, *, expected_job_ids, expected_seeds=(7, 19, 41), required_devices=("cuda:0", "cuda:1"), min_dataset_counts=None, tight_session_minutes=None, full_session_minutes=300.0, require_multi_session_resume=True, split_disjointness_fn=None, production_preflight_fn=None)
+estimate_production_preflight(*, total_updates, num_jobs=1, parallel_workers=1, model_params=0, batch_size=1, seq_len=0, precision="fp16", seconds_per_update=None, step_fn=None, prepacked_payload=None, prepack_sample_updates=None, prepack_bytes_per_worker=None, generator_fn=None, generator_regimes=None, max_vram_bytes_per_worker=14*2**30, max_prepack_bytes_per_worker=2**30, max_session_minutes=660.0, reserve_minutes=45.0, max_disk_bytes=18*2**30)
+audit_generator_scaling(generator_fn=None, *, sample_sizes=(64, 256), target_size=40000, max_scaling_exponent=1.65, max_projected_seconds=120.0, measured_timings=None)
+measure_tensor_container_bytes(obj, *, top_k=8)
 
 # 4. Archives (ANALYSIS/EVIDENCE/FULL before capped SUMMARY), Long Paths, Notebooks & Parity
 win_long_path(path)
@@ -167,7 +170,9 @@ from anra_v5.palantiri import Palantiri, ConfirmLock, CampaignLedgerVerifier, ve
 from anra_v5.palantiri import collect_minimal_checkpoint_files, prune_completed_job_artifacts, mirror_to_working_dir, verify_pinned_notebook_bytes, build_x1_spec
 from anra_v5.palantiri import TypedByteSequenceKernel, decode_generated_bytes, infer_public_byte_bound, score_typed_output, canonical_structural_hash, verify_split_disjointness
 from anra_v5.palantiri import sanitize_for_json, dump_json_safe, validate_byte_decoder_resilience, validate_end_to_end_lifecycle, validate_paired_arm_records_preflight, run_level7_runtime_shield_suite
+from anra_v5.palantiri import estimate_production_preflight, audit_generator_scaling, measure_tensor_container_bytes
 Palantiri.status(work_root) / Palantiri.dashboard(work_root) / Palantiri.scaffold(name, out_dir, include_verify_module=True)
+Palantiri.preflight(**kwargs) / Palantiri.measure_tensor_bytes(obj) / Palantiri.audit_generator_scaling(gen_fn, target_size=40000)
 Palantiri.runtime_shield() / Palantiri.validate_paired_arm_records(records, ...) / Palantiri.decode_lossy(ids) / Palantiri.decode_generated_bytes(ids) / Palantiri.validate_byte_decoder() / Palantiri.validate_lifecycle(policy, kernel, worlds) / Palantiri.sanitize_json(obj)
 Palantiri.score_typed_output(prompt, raw_output, ...) / Palantiri.verify_splits(splits) / Palantiri.verify_production_splits(builder, production_quota=...) / Palantiri.build_x1_spec(arch, cpu_canary=True/False) / Palantiri.validate_fp16_autocast(model, loss_fn) / Palantiri.amp_context(dev, use_amp=None) / Palantiri.audit_fp16_source(obj)
 ```
@@ -175,6 +180,7 @@ Palantiri.score_typed_output(prompt, raw_output, ...) / Palantiri.verify_splits(
 - **Level-7 CLI Shortcuts & Upgraded Safeguards:**
   - `python -m anra_v5.palantiri level` (inspect Level-7 subsystems & registered backends)
   - `python -m anra_v5.palantiri shield` (run 5/5 adversarial Level-7 runtime shields: `0xB5` byte decode, FP16 `-1e9`, `NaN`/`Tensor` JSON sanitizer, archive cap auto-compaction, and `multi_stage_arm_record_collision_preflight`)
+  - `python -m anra_v5.palantiri preflight --total-updates 1024 --num-jobs <N> --parallel-workers 2` (estimate full-schedule VRAM/prepack mask bloat, generator scaling, wall-clock & disk budgets before cloud export)
   - `python -m anra_v5.palantiri doctor` (includes Check 7 `level7_runtime_shield`), `calibrate` (`6/6` + `shield`)
   - `python -m anra_v5.palantiri scaffold --name my_exp --out-dir experiments` (generate a runnable plugin + smoke test + `ConfirmLock`)
   - `python -m anra_v5.palantiri status --work-root <dir> --markdown` (live read-only campaign dashboard & `pending_confirm_jobs`)

@@ -196,7 +196,10 @@ from .resources import (
     ResourceMonitor,
     ResourceQuota,
     ResourceQuotaExceededError,
+    audit_generator_scaling,
     cleanup_unreferenced_staging,
+    estimate_production_preflight,
+    measure_tensor_container_bytes,
 )
 from .scheduler import IndependentWorkerScheduler, WorkerJobSpec, run_scheduled_workers
 from .scoring import (
@@ -320,6 +323,7 @@ __all__ = [
     "analyze_productivity_study",
     "audit_experimental_design",
     "audit_fp16_autocast_source",
+    "audit_generator_scaling",
     "audit_sampled_strata",
     "audit_pair_margin_gradient_sign_reversal",
     "audit_typed_experimental_design",
@@ -358,6 +362,7 @@ __all__ = [
     "default_protocol_manifest",
     "detect_truth_leaks",
     "dump_json_safe",
+    "estimate_production_preflight",
     "estimate_token_fuel_savings",
     "exact_mcnemar_test",
     "ExperimentModule",
@@ -383,6 +388,7 @@ __all__ = [
     "load_legacy_byte_checkpoint",
     "locate_checkpoint_store_root",
     "LogitsPolicy",
+    "measure_tensor_container_bytes",
     "mirror_to_working_dir",
     "normalize_typed_value",
     "package_three_tier_evidence",

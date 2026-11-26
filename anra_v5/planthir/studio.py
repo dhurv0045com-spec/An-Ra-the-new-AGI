@@ -37,6 +37,11 @@ from .instrument import (
 )
 from .notebooks import build_pinned_kaggle_notebook, verify_pinned_notebook_bytes
 from .reporting import render_campaign_dashboard, rescore_compact_analysis_archive
+from .resources import (
+    audit_generator_scaling,
+    estimate_production_preflight,
+    measure_tensor_container_bytes,
+)
 from .runtime import build_x1_spec
 from .scoring import decode_generated_bytes, infer_public_byte_bound, score_typed_output
 
@@ -93,12 +98,14 @@ def level_info() -> dict[str, Any]:
             "multi_stage_paired_arm_preflight",
             "fp16_static_ast_and_half_emulation",
             "production_quota_split_disjointness",
+            "production_stress_preflight_estimator",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
             "python -m anra_v5.palantiri doctor",
             "python -m anra_v5.palantiri calibrate",
             "python -m anra_v5.palantiri shield",
+            "python -m anra_v5.palantiri preflight --total-updates 1024 --num-jobs 12 --parallel-workers 2",
             "python -m anra_v5.palantiri status --work-root <dir>",
             "python -m anra_v5.palantiri verify-archive --archive <zip>",
             "python -m anra_v5.palantiri scaffold --name <backend_id> --out-dir <dir>",
@@ -647,6 +654,18 @@ class Palantiri:
     @staticmethod
     def validate_paired_arm_records(records: Sequence[Mapping[str, Any]], **kwargs: Any) -> dict[str, Any]:
         return validate_paired_arm_records_preflight(records, **kwargs)
+
+    @staticmethod
+    def measure_tensor_bytes(obj: Any, **kwargs: Any) -> dict[str, Any]:
+        return measure_tensor_container_bytes(obj, **kwargs)
+
+    @staticmethod
+    def audit_generator_scaling(generator_fn: Any = None, **kwargs: Any) -> dict[str, Any]:
+        return audit_generator_scaling(generator_fn, **kwargs)
+
+    @staticmethod
+    def preflight(**kwargs: Any) -> dict[str, Any]:
+        return estimate_production_preflight(**kwargs)
 
 
 __all__ = [

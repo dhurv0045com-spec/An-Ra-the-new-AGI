@@ -2163,6 +2163,7 @@ class CampaignOrchestrator:
         byte_decode_fn: Callable[[Sequence[int]], Any] | None = None,
         stage5_preflight_fn: Callable[[Path], Mapping[str, Any] | bool] | None = None,
         split_disjointness_fn: Callable[[Path], Mapping[str, Any] | bool] | None = None,
+        production_preflight_fn: Callable[[Path], Mapping[str, Any] | bool] | None = None,
         export_prefix: str | None = None,
         export_dir: Path | str | None = None,
         extra_summary_files: Mapping[str, Path | str] | None = None,
@@ -2426,6 +2427,7 @@ class CampaignOrchestrator:
                 "u0000_smoke_receipt": None,
                 "stage5_preflight_receipt": None,
                 "split_disjointness_receipt": None,
+                "production_preflight_receipt": None,
                 "byte_decoder_shield": None,
                 "completed_jobs": sorted(verified_completed),
                 "dispatched_devices": [],
@@ -2468,6 +2470,7 @@ class CampaignOrchestrator:
         byte_shield: dict[str, Any] | None = None
         stage5_preflight_receipt: dict[str, Any] | None = None
         split_disjointness_receipt: dict[str, Any] | None = None
+        production_preflight_receipt: dict[str, Any] | None = None
         u0000_smoke_receipt: dict[str, Any] | None = None
         if admitted_jobs:
             byte_shield = validate_byte_decoder_resilience(decode_fn=byte_decode_fn)
@@ -2663,6 +2666,54 @@ class CampaignOrchestrator:
                     if sd_err is not None:
                         raise RuntimeError(f"SPLIT_DISJOINTNESS_PREFLIGHT_FAILED:{sd_detail}") from sd_err
                     raise RuntimeError(f"SPLIT_DISJOINTNESS_PREFLIGHT_FAILED:{sd_detail}")
+
+        if production_preflight_fn is not None and admitted_jobs:
+            with tempfile.TemporaryDirectory(prefix="ppf_", ignore_cleanup_errors=True) as pf_tmp:
+                pf_dir = Path(pf_tmp) / "production_preflight"
+                pf_dir.mkdir(parents=True, exist_ok=True)
+                pf_err: BaseException | None = None
+                try:
+                    raw_pf = production_preflight_fn(pf_dir)
+                    if isinstance(raw_pf, Mapping):
+                        pf_passed = bool(raw_pf.get("passed", True))
+                        pf_detail = dict(raw_pf)
+                        pf_detail.setdefault("passed", pf_passed)
+                    else:
+                        pf_passed = bool(raw_pf)
+                        pf_detail = {"passed": pf_passed}
+                except BaseException as exc:
+                    pf_passed = False
+                    pf_err = exc
+                    pf_detail = {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+                production_preflight_receipt = {
+                    "schema": "anra-planthir-production-preflight-hook-v1",
+                    "campaign_id": self.campaign_id,
+                    **pf_detail,
+                }
+                if u0000_smoke_receipt is None:
+                    u0000_smoke_receipt = {
+                        "schema": "anra-planthir-u0000-smoke-v1",
+                        "campaign_id": self.campaign_id,
+                        "passed": bool(pf_passed and (byte_shield is None or byte_shield.get("passed"))),
+                        "byte_decoder_shield": byte_shield,
+                        "fp16_autocast_checked": False,
+                        "architectures": {},
+                    }
+                else:
+                    u0000_smoke_receipt["passed"] = bool(u0000_smoke_receipt.get("passed", True) and pf_passed)
+                u0000_smoke_receipt["production_preflight"] = production_preflight_receipt
+                (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
+                    dump_json_safe(u0000_smoke_receipt),
+                    encoding="utf-8",
+                )
+                (self.work_dir / "PRODUCTION_PREFLIGHT_RECEIPT.json").write_text(
+                    dump_json_safe(production_preflight_receipt),
+                    encoding="utf-8",
+                )
+                if not pf_passed:
+                    if pf_err is not None:
+                        raise RuntimeError(f"PRODUCTION_PREFLIGHT_FAILED:{pf_detail}") from pf_err
+                    raise RuntimeError(f"PRODUCTION_PREFLIGHT_FAILED:{pf_detail}")
 
         def _job_deps(j: SessionJob) -> tuple[str, ...]:
             raw: list[str] = []
@@ -2870,6 +2921,7 @@ class CampaignOrchestrator:
                 "u0000_smoke_receipt": u0000_smoke_receipt,
                 "stage5_preflight_receipt": stage5_preflight_receipt,
                 "split_disjointness_receipt": split_disjointness_receipt,
+                "production_preflight_receipt": production_preflight_receipt,
                 "byte_decoder_shield": byte_shield,
                 "completed_jobs": comp_jobs,
                 "dispatched_devices": sorted(d for d in dispatched_devices_set if d),
@@ -3190,6 +3242,7 @@ class CampaignOrchestrator:
                 "U0000_SMOKE_RECEIPT.json",
                 "STAGE5_PREFLIGHT_RECEIPT.json",
                 "SPLIT_DISJOINTNESS_RECEIPT.json",
+                "PRODUCTION_PREFLIGHT_RECEIPT.json",
                 "CONFIRM_LOCK.json",
                 "REGISTERED_PLAN_STATUS.json",
             )
@@ -3346,6 +3399,7 @@ def verify_full_mode_dispatch(
     work_root: Path | str | None = None,
     require_multi_session_resume: bool = True,
     split_disjointness_fn: Callable[[], Mapping[str, Any] | bool] | None = None,
+    production_preflight_fn: Callable[[], Mapping[str, Any] | bool] | None = None,
     raise_on_failure: bool = True,
 ) -> dict[str, Any]:
     """Verify FULL-mode multi-GPU job dispatch, uncompressed dataset denominators, and tight-session overflow/resume."""
@@ -3356,7 +3410,9 @@ def verify_full_mode_dispatch(
     min_counts = {str(k): int(v) for k, v in dict(min_dataset_counts or {}).items()}
     defects: list[str] = []
 
-    def _run_suite(root_path: Path) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
+    def _run_suite(
+        root_path: Path,
+    ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
         sd_summary: dict[str, Any] | None = None
         if split_disjointness_fn is not None:
             try:
@@ -3373,6 +3429,23 @@ def verify_full_mode_dispatch(
                 sd_summary = {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
             if not sd_passed:
                 defects.append(f"PRODUCTION_SPLIT_DISJOINTNESS_FAILED:{sd_summary}")
+
+        pf_summary: dict[str, Any] | None = None
+        if production_preflight_fn is not None:
+            try:
+                raw_pf = production_preflight_fn()
+                if isinstance(raw_pf, Mapping):
+                    pf_passed = bool(raw_pf.get("passed", True))
+                    pf_summary = dict(raw_pf)
+                    pf_summary.setdefault("passed", pf_passed)
+                else:
+                    pf_passed = bool(raw_pf)
+                    pf_summary = {"passed": pf_passed}
+            except Exception as exc:
+                pf_passed = False
+                pf_summary = {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+            if not pf_passed:
+                defects.append(f"PRODUCTION_PREFLIGHT_FAILED:{pf_summary}")
 
         full_dir = root_path / "full_pass"
         full_dir.mkdir(parents=True, exist_ok=True)
@@ -3464,15 +3537,15 @@ def verify_full_mode_dispatch(
                 "resume_source": str(resume_src),
             }
 
-        return full_summary, resume_summary, sd_summary
+        return full_summary, resume_summary, sd_summary, pf_summary
 
     if work_root is not None:
         rp = Path(work_root)
         rp.mkdir(parents=True, exist_ok=True)
-        full_summary, resume_summary, sd_summary = _run_suite(rp)
+        full_summary, resume_summary, sd_summary, pf_summary = _run_suite(rp)
     else:
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            full_summary, resume_summary, sd_summary = _run_suite(Path(tmp))
+            full_summary, resume_summary, sd_summary, pf_summary = _run_suite(Path(tmp))
 
     passed = len(defects) == 0
     if not passed and raise_on_failure:
@@ -3484,6 +3557,7 @@ def verify_full_mode_dispatch(
         "full_pass": full_summary,
         "multi_session_resume": resume_summary,
         "split_disjointness": sd_summary,
+        "production_preflight": pf_summary,
     }
 
 

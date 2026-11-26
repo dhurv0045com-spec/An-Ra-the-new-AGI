@@ -1502,6 +1502,43 @@ _ERROR_CATALOG: dict[str, dict[str, Any]] = {
             "Pass `min_per_family >= production_quota` to `verify_split_disjointness(...)` or use `verify_production_split_disjointness(builder, production_quota=...)` in Gate 1 / preflight.",
         ],
     },
+    "PREPACK_VRAM_BLOAT": {
+        "meaning": "Prepacked tensor payload or per-worker prepack mask footprint exceeds max_prepack_bytes_per_worker.",
+        "remediation": [
+            "Construct causal/attention masks lazily per micro-batch or compact CPU uint8/bool prepacks instead of pre-allocating gigabytes of dense masks per worker.",
+            "Measure containers with `Palantiri.measure_tensor_bytes(payload)` and re-run `python -m anra_v5.palantiri preflight ...`.",
+        ],
+    },
+    "WORKER_VRAM_BUDGET_EXCEEDED": {
+        "meaning": "Estimated per-worker VRAM (model states + activations + prepacked buffers + CUDA overhead) exceeds max_vram_bytes_per_worker.",
+        "remediation": [
+            "Reduce micro_batch_size/seq_len/prepack footprint or enable AMP fp16/gradient accumulation before cloud export.",
+        ],
+    },
+    "GENERATOR_SUPERLINEAR_SCALING": {
+        "meaning": "Dataset/world generator timing exhibits superlinear/O(N^2) scaling across probe sizes (projected production build time risks session stall).",
+        "remediation": [
+            "Replace O(N^2) list/pair scans with O(N) hash-set indexing and verify via `Palantiri.audit_generator_scaling(..., target_size=40000)`.",
+        ],
+    },
+    "GENERATOR_WALL_BUDGET_EXCEEDED": {
+        "meaning": "Projected generator wall-clock time at production target_size exceeds max_projected_seconds.",
+        "remediation": [
+            "Vectorize or parallelize world synthesis, eliminate O(N^2) candidate retries, and re-run `audit_generator_scaling`.",
+        ],
+    },
+    "WALL_CLOCK_BUDGET_EXCEEDED": {
+        "meaning": "Projected full-schedule training + generator wall-clock minutes exceed usable session budget (max_session_minutes - reserve_minutes).",
+        "remediation": [
+            "Split waves across sessions with `CampaignOrchestrator.run_registered_plan` (`PENDING_QUEUE.json` + `RESUME_INPUT`) or adjust parallel_workers / session_minutes.",
+        ],
+    },
+    "DISK_BUDGET_EXCEEDED": {
+        "meaning": "Projected total job disk footprint exceeds max_disk_bytes.",
+        "remediation": [
+            "Enable `prune_completed_checkpoints=True`, coarse `ckpt_every`, `strip_leaf_optimizers=True`, and `collect_minimal_checkpoint_files` (`LATEST`-only archives).",
+        ],
+    },
 }
 
 
@@ -1728,6 +1765,7 @@ def agent_info() -> dict[str, Any]:
             "schema": {"mutates_files": False, "trains": False},
             "init": {"mutates_files": "only with --out", "trains": False},
             "validate": {"mutates_files": False, "trains": False},
+            "preflight": {"mutates_files": "only with --output", "trains": False},
             "run": {"mutates_files": True, "trains": True},
             "resume": {"mutates_files": True, "trains": True},
             "inspect-run": {"mutates_files": False, "trains": False},

@@ -11,6 +11,7 @@ from typing import Any, Sequence
 
 from .backend import load_backend_modules
 from .reporting import rescore_compact_analysis_archive
+from .resources import estimate_production_preflight
 from .studio import inspect_campaign_status, level_info, scaffold_experiment_module
 from .archives import verify_session_archive
 
@@ -152,6 +153,31 @@ def build_parser() -> argparse.ArgumentParser:
     p_val.add_argument("--spec", required=True)
     p_val.add_argument("--canary", dest="canary", action="store_true", default=None)
     p_val.add_argument("--no-canary", dest="canary", action="store_false")
+
+    p_pre = sub.add_parser(
+        "preflight",
+        help="Estimate full total_updates VRAM/prepack bloat, generator scaling, wall-clock, and disk budgets.",
+    )
+    p_pre.add_argument("--spec", default=None, help="Optional anra-planthir-spec-v1 JSON spec to read schedule defaults.")
+    p_pre.add_argument("--total-updates", type=int, default=None, help="Total training updates (default 1024 or spec value).")
+    p_pre.add_argument("--num-jobs", type=int, default=None, help="Number of registered campaign jobs (default 1 or spec arms).")
+    p_pre.add_argument("--parallel-workers", type=int, default=1, help="Parallel worker lanes (e.g. 2 for Kaggle 2xT4).")
+    p_pre.add_argument("--model-params", type=int, default=0, help="Approximate parameters per worker.")
+    p_pre.add_argument("--batch-size", type=int, default=None, help="Micro-batch / batch size per worker.")
+    p_pre.add_argument("--seq-len", type=int, default=0, help="Maximum sequence length for activation estimation.")
+    p_pre.add_argument("--hidden-dim", type=int, default=0, help="Model hidden width for activation estimation.")
+    p_pre.add_argument("--num-layers", type=int, default=0, help="Model depth for activation estimation.")
+    p_pre.add_argument("--precision", default=None, help="Numeric precision (fp16, amp, bf16, fp32).")
+    p_pre.add_argument("--seconds-per-update", type=float, default=None, help="Measured seconds per update.")
+    p_pre.add_argument("--prepack-mb", type=float, default=None, help="Prepacked payload / mask bytes per worker in MiB.")
+    p_pre.add_argument("--per-job-disk-mb", type=float, default=128.0, help="Estimated disk bytes per job in MiB.")
+    p_pre.add_argument("--startup-overhead-seconds", type=float, default=0.0, help="Per-wave startup overhead seconds.")
+    p_pre.add_argument("--max-vram-gb", type=float, default=14.0, help="Per-worker VRAM budget in GiB (default 14.0).")
+    p_pre.add_argument("--max-prepack-mb", type=float, default=1024.0, help="Per-worker prepack limit in MiB (default 1024.0).")
+    p_pre.add_argument("--session-minutes", type=float, default=None, help="Session time ceiling in minutes (default 660.0).")
+    p_pre.add_argument("--reserve-minutes", type=float, default=45.0, help="Session reserve minutes (default 45.0).")
+    p_pre.add_argument("--max-disk-gb", type=float, default=None, help="Total disk budget in GiB (default 18.0).")
+    p_pre.add_argument("--output", default=None, help="Optional file path to write JSON preflight receipt.")
 
     run_parsers: list[argparse.ArgumentParser] = []
     for cmd_name, help_text in (
@@ -419,6 +445,76 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             else:
                 _emit({"verified": False, "status": "REPLAY_FAILED", "error": type(exc).__name__, "detail": msg})
+            return 1
+
+    if args.command == "preflight":
+        try:
+            spec_doc = _load_spec_json(args.spec) if args.spec else {}
+            ctrl = spec_doc.get("control_arm") if isinstance(spec_doc.get("control_arm"), dict) else {}
+            trts = spec_doc.get("treatment_arms") if isinstance(spec_doc.get("treatment_arms"), list) else []
+            ctrl_rec = ctrl.get("recipe") if isinstance(ctrl.get("recipe"), dict) else {}
+            exe = spec_doc.get("execution") if isinstance(spec_doc.get("execution"), dict) else {}
+
+            tot_u = int(args.total_updates) if args.total_updates is not None else int(ctrl_rec.get("total_updates", 1024))
+            n_jobs = int(args.num_jobs) if args.num_jobs is not None else (1 + len(trts) if ctrl else 1)
+            bs = int(args.batch_size) if args.batch_size is not None else int(ctrl_rec.get("batch_size", 1))
+            prec = str(args.precision) if args.precision is not None else str(ctrl_rec.get("precision", "fp16"))
+            max_vram_gb = (
+                float(args.max_vram_gb)
+                if args.max_vram_gb is not None
+                else (
+                    float(exe["max_cuda_allocated_bytes"]) / float(1024**3)
+                    if exe.get("max_cuda_allocated_bytes") is not None
+                    else 14.0
+                )
+            )
+            sess_min = (
+                float(args.session_minutes)
+                if args.session_minutes is not None
+                else (
+                    float(exe["max_wall_seconds"]) / 60.0
+                    if exe.get("max_wall_seconds") is not None
+                    else 660.0
+                )
+            )
+            max_disk_gb = (
+                float(args.max_disk_gb)
+                if args.max_disk_gb is not None
+                else (
+                    float(exe["max_total_disk_bytes"]) / float(1024**3)
+                    if exe.get("max_total_disk_bytes") is not None
+                    else 18.0
+                )
+            )
+            prepack_bytes = int(round(float(args.prepack_mb) * 1024.0 * 1024.0)) if args.prepack_mb is not None else None
+            report = estimate_production_preflight(
+                total_updates=tot_u,
+                num_jobs=n_jobs,
+                parallel_workers=int(args.parallel_workers),
+                model_params=int(args.model_params),
+                batch_size=bs,
+                seq_len=int(args.seq_len),
+                hidden_dim=int(args.hidden_dim),
+                num_layers=int(args.num_layers),
+                precision=prec,
+                seconds_per_update=args.seconds_per_update,
+                prepack_bytes_per_worker=prepack_bytes,
+                per_job_disk_bytes=int(round(float(args.per_job_disk_mb) * 1024.0 * 1024.0)),
+                startup_overhead_seconds_per_job=float(args.startup_overhead_seconds),
+                max_vram_bytes_per_worker=int(round(max_vram_gb * float(1024**3))),
+                max_prepack_bytes_per_worker=int(round(float(args.max_prepack_mb) * 1024.0 * 1024.0)),
+                max_session_minutes=sess_min,
+                reserve_minutes=float(args.reserve_minutes),
+                max_disk_bytes=int(round(max_disk_gb * float(1024**3))),
+            )
+            if args.output:
+                out_path = Path(args.output)
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            _emit(report)
+            return 0 if report["passed"] else 1
+        except Exception as exc:
+            _emit({"passed": False, "status": "PREFLIGHT_ERROR", "error": type(exc).__name__, "detail": str(exc)})
             return 1
 
     if args.command == "explain-error":

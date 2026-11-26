@@ -934,3 +934,275 @@ def test_level7_production_quota_split_disjointness_and_orchestrator_gate(tmp_pa
     )
     assert ok_disp["passed"] is True
     assert ok_disp["split_disjointness"]["passed"] is True
+
+
+def test_level7_production_preflight_vram_scaling_and_orchestrator_gate(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from anra_v5.palantiri import (
+        audit_generator_scaling,
+        estimate_production_preflight,
+        explain_error_code,
+        measure_tensor_container_bytes,
+        verify_full_mode_dispatch,
+    )
+    from anra_v5.planthir.__main__ import main as cli_main
+
+    assert "production_stress_preflight_estimator" in level_info()["capabilities"]
+    assert "preflight" in agent_info()["cli"]
+
+    # 1. O(N^2) vs O(N) generator scaling audit at target fixed_40000
+    bad_synth = audit_generator_scaling(measured_timings={64: 0.004, 256: 0.064}, target_size=40000)
+    assert bad_synth["passed"] is False
+    assert bad_synth["scaling_exponent"] >= 1.9
+    assert "GENERATOR_SUPERLINEAR_SCALING" in bad_synth["defect_codes"]
+    assert "GENERATOR_WALL_BUDGET_EXCEEDED" in bad_synth["defect_codes"]
+
+    quad_clock = [0.0]
+
+    def _fake_clock_quad() -> float:
+        return quad_clock[0]
+
+    def _quad_gen(n: int) -> list[int]:
+        quad_clock[0] += float(n * n) * 1e-6
+        return list(range(min(n, 8)))
+
+    bad_live = audit_generator_scaling(
+        _quad_gen,
+        sample_sizes=(64, 256),
+        target_size=40000,
+        clock_fn=_fake_clock_quad,
+    )
+    assert bad_live["passed"] is False
+    assert "GENERATOR_SUPERLINEAR_SCALING" in bad_live["defect_codes"]
+
+    lin_clock = [0.0]
+
+    def _fake_clock_lin() -> float:
+        return lin_clock[0]
+
+    def _lin_gen(n: int) -> list[int]:
+        lin_clock[0] += float(n) * 1e-4
+        return list(range(min(n, 8)))
+
+    ok_lin = audit_generator_scaling(
+        _lin_gen,
+        sample_sizes=(64, 256),
+        target_size=40000,
+        clock_fn=_fake_clock_lin,
+    )
+    assert ok_lin["passed"] is True
+    assert 0.9 <= ok_lin["scaling_exponent"] <= 1.1
+
+    # 2. Prepack mask VRAM bloat detection (storage-deduped container + 2.8 GB/worker)
+    sample_mask = torch.ones((2800, 1024), dtype=torch.float32)  # ~10.94 MiB for 4 sampled updates -> ~2.8 GiB @ 1024
+    payload = {"attn_prepack_mask": sample_mask, "shared_view": sample_mask[:16]}
+    footprint = measure_tensor_container_bytes(payload)
+    assert footprint["tensor_count"] == 2
+    assert footprint["total_bytes"] == sample_mask.element_size() * sample_mask.nelement()
+    assert footprint["logical_bytes"] > footprint["total_bytes"]
+    assert footprint["largest_tensors"][0]["path"] == "$.attn_prepack_mask"
+
+    bloat_rep = Palantiri.preflight(
+        total_updates=1024,
+        num_jobs=12,
+        parallel_workers=2,
+        model_params=20_000_000,
+        precision="fp16",
+        seconds_per_update=0.25,
+        prepacked_payload=payload,
+        prepack_sample_updates=4,
+        generator_regimes={
+            "fixed_40000": {"measured_timings": {64: 0.004, 256: 0.064}, "target_size": 40000},
+        },
+    )
+    assert bloat_rep["passed"] is False
+    assert bloat_rep["status"] == "PREFLIGHT_BUDGET_EXCEEDED"
+    assert "PREPACK_VRAM_BLOAT" in bloat_rep["defect_codes"]
+    assert "GENERATOR_SUPERLINEAR_SCALING" in bloat_rep["defect_codes"]
+
+    direct_bloat = estimate_production_preflight(
+        total_updates=1024,
+        num_jobs=57,
+        parallel_workers=2,
+        model_params=20_000_000,
+        seconds_per_update=1.5,
+        prepack_bytes_per_worker=int(2.8 * 1024**3),
+        per_job_disk_bytes=1024**3,
+        max_disk_bytes=18 * 1024**3,
+    )
+    assert direct_bloat["passed"] is False
+    assert "PREPACK_VRAM_BLOAT" in direct_bloat["defect_codes"]
+    assert "WALL_CLOCK_BUDGET_EXCEEDED" in direct_bloat["defect_codes"]
+    assert "DISK_BUDGET_EXCEEDED" in direct_bloat["defect_codes"]
+    assert direct_bloat["wall_clock"]["estimated_sessions_required"] >= 2
+
+    with pytest.raises(ValueError, match="PRODUCTION_PREFLIGHT_FAILED"):
+        estimate_production_preflight(
+            total_updates=1024,
+            prepack_bytes_per_worker=int(2.8 * 1024**3),
+            fail_closed=True,
+        )
+
+    # Compact / lazy mask + O(N) generator passes cleanly
+    clean_rep = estimate_production_preflight(
+        total_updates=1024,
+        num_jobs=12,
+        parallel_workers=2,
+        model_params=20_000_000,
+        batch_size=32,
+        seq_len=256,
+        precision="fp16",
+        step_fn=lambda: torch.zeros(4).sum(),
+        step_warmup=1,
+        step_repeats=2,
+        generator_regimes={
+            "fixed_40000": {"measured_timings": {64: 0.0064, 256: 0.0256}, "target_size": 40000},
+        },
+    )
+    assert clean_rep["passed"] is True
+    assert clean_rep["wall_clock"]["seconds_per_update_source"] == "measured_step_fn"
+
+    # 3. CampaignOrchestrator & verify_full_mode_dispatch production_preflight_fn gates
+    jobs = [
+        SessionJob("pf_j1", "A", 7, 107, 4, "S1", "cuda:0"),
+        SessionJob("pf_j2", "A", 19, 119, 4, "S1", "cuda:1"),
+    ]
+    dispatched: list[str] = []
+
+    def _ok_runner(job: SessionJob, work_root: Path, device: str) -> dict[str, Any]:
+        dispatched.append(job.job_id)
+        return {"exit_code": 0, "completed_updates": job.updates, "eval_rows": 16, "dataset_counts": {"eval": 16}}
+
+    fail_orch = CampaignOrchestrator(
+        campaign_id="PF-FAIL",
+        source_commit="HEAD",
+        work_dir=tmp_path / "orch_fail",
+    )
+    with pytest.raises(RuntimeError, match="PRODUCTION_PREFLIGHT_FAILED"):
+        fail_orch.run_registered_plan(
+            jobs,
+            job_runner=_ok_runner,
+            devices=("cuda:0", "cuda:1"),
+            measured_seconds_per_update=0.25,
+            production_preflight_fn=lambda _d: bloat_rep,
+            live_wall_clock_preemption=False,
+        )
+    assert dispatched == []
+    assert (tmp_path / "orch_fail" / "PRODUCTION_PREFLIGHT_RECEIPT.json").is_file()
+
+    pass_orch = CampaignOrchestrator(
+        campaign_id="PF-PASS",
+        source_commit="HEAD",
+        work_dir=tmp_path / "orch_pass",
+    )
+    res_pass = pass_orch.run_registered_plan(
+        jobs,
+        job_runner=_ok_runner,
+        devices=("cuda:0", "cuda:1"),
+        measured_seconds_per_update=0.25,
+        production_preflight_fn=lambda _d: clean_rep,
+        export_prefix="PF",
+        write_full_zip=False,
+        live_wall_clock_preemption=False,
+    )
+    assert res_pass["status"] == "COMPLETE"
+    assert res_pass["production_preflight_receipt"]["passed"] is True
+    assert set(dispatched) == {"pf_j1", "pf_j2"}
+
+    def _mock_dispatch(wroot: Path, *, session_minutes: float, resume_input: Path | str | None) -> dict[str, Any]:
+        o = CampaignOrchestrator(
+            campaign_id="PF-DISP",
+            source_commit="HEAD",
+            work_dir=wroot,
+            max_minutes=session_minutes,
+            reserve_minutes=5.0,
+        )
+        return o.run_registered_plan(
+            jobs,
+            job_runner=lambda job, _wr, _dev: {
+                "exit_code": 0,
+                "completed_updates": job.updates,
+                "eval_rows": 16,
+                "dataset_counts": {"eval": 16},
+            },
+            devices=("cuda:0", "cuda:1"),
+            resume_input=resume_input,
+            measured_seconds_per_update=0.25,
+            production_preflight_fn=lambda _d: clean_rep,
+            live_wall_clock_preemption=False,
+        )
+
+    bad_disp = verify_full_mode_dispatch(
+        _mock_dispatch,
+        expected_job_ids=("pf_j1", "pf_j2"),
+        expected_seeds=(7, 19),
+        require_multi_session_resume=False,
+        production_preflight_fn=lambda: bloat_rep,
+        raise_on_failure=False,
+    )
+    assert bad_disp["passed"] is False
+    assert any(d.startswith("PRODUCTION_PREFLIGHT_FAILED:") for d in bad_disp["defects"])
+
+    ok_disp = verify_full_mode_dispatch(
+        _mock_dispatch,
+        expected_job_ids=("pf_j1", "pf_j2"),
+        expected_seeds=(7, 19),
+        require_multi_session_resume=False,
+        production_preflight_fn=lambda: clean_rep,
+    )
+    assert ok_disp["passed"] is True
+    assert ok_disp["production_preflight"]["passed"] is True
+
+    # 4. CLI `preflight` (spec + direct bloat) and `explain-error`
+    spec_doc = init_spec_template(backend_id="x1_rd2", canary=False)
+    spec_path = tmp_path / "preflight_spec.json"
+    spec_path.write_text(json.dumps(spec_doc), encoding="utf-8")
+    out_receipt = tmp_path / "cli_preflight.json"
+
+    capsys.readouterr()
+    rc_ok = cli_main(
+        [
+            "preflight",
+            "--spec",
+            str(spec_path),
+            "--total-updates",
+            "1024",
+            "--num-jobs",
+            "12",
+            "--parallel-workers",
+            "2",
+            "--model-params",
+            "20000000",
+            "--seconds-per-update",
+            "0.25",
+            "--output",
+            str(out_receipt),
+        ]
+    )
+    ok_cli_payload = json.loads(capsys.readouterr().out)
+    assert rc_ok == 0
+    assert ok_cli_payload["passed"] is True
+    assert out_receipt.is_file()
+
+    rc_bad = cli_main(
+        [
+            "preflight",
+            "--total-updates",
+            "1024",
+            "--num-jobs",
+            "12",
+            "--parallel-workers",
+            "2",
+            "--prepack-mb",
+            "2867",
+        ]
+    )
+    bad_cli_payload = json.loads(capsys.readouterr().out)
+    assert rc_bad == 1
+    assert bad_cli_payload["passed"] is False
+    assert "PREPACK_VRAM_BLOAT" in bad_cli_payload["defect_codes"]
+
+    assert explain_error_code("PREPACK_VRAM_BLOAT")["known"] is True
+    assert explain_error_code("GENERATOR_SUPERLINEAR_SCALING")["known"] is True
