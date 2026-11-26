@@ -478,3 +478,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Upgraded `experiments/x4/integrity.py` and `tests/test_elendril_x4_reconstruction.py` with `validate_fp16_autocast_forward_backward(..., dtype=torch.float16)` across all 16 `X4_ARCHITECTURES`.
 - Verified on CPU (`cuda_available=false`): `13 passed in 118.50s` (`test_elendril_x4_reconstruction.py` + `test_planthir_level7.py`), pinned `ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` (`match=true`) to `07600c3a`.
 - Pending owner re-run of `ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` on Kaggle 2xT4 GPU.
+
+### 2026-11-27 | Antigravity | V8-X4 Production-Scale Split Disjointness Fix (e675efd8)
+- Fixed Kaggle `In [4]` `X4_SPLIT_LEAK_DETECTED` across `C04` and `C09`: split-disjoint `(cands, p_cert, low_cost, high_cost)` in `_generate_c09_repaired` and held out `opposite`/`around` 2-clause compositions in `_generate_c04_repaired` (`experiments/x4/battery.py`).
+- Added a `per_family=12` (>= production `per_family=8`) 22-family split-disjointness + Oracle `1.0` regression test in `tests/test_elendril_x4_reconstruction.py`.
+- Verified on CPU (`cuda_available=false`): `6 passed in 133.37s`; pinned `ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` (`match=true`) to `e675efd8`.
+- Ready for owner Kaggle 2xT4 execution (`In [3]` preflight + S20 AMP profile previously passed on CUDA at `0.235s/update`, `2930.3 MB` VRAM).
