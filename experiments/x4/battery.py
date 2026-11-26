@@ -517,27 +517,22 @@ def _generate_c04_repaired(split: str, seed: int, idx: int, phase: int = 3) -> d
 
     if ns == "train":
         if phase <= 1 or (idx % 3 == 0):
-            # All verbs, all directions, all multipliers atomically (disjoint single clauses; keep around/jump represented)
+            # All verbs, all directions, all multipliers atomically (single clause; holds out composed "jump around")
             v = verbs[idx % 4]
             d = dirs[(idx // 4) % 4]
             if v == "jump" and d == "around":
-                v = "walk"  # Hold out "jump around" strictly for dev/confirm/OOD compositional generalization!
+                v = "walk"
             m = "" if (idx % 3 == 0) else f" {mults[idx % 2]}"
             cmd = f"{v} {d}{m}"
         else:
-            v1 = rng.choice(["walk", "run", "jump", "look"])
-            d1 = dirs[idx % 4]
-            if v1 == "jump" and d1 == "around":
-                d1 = "opposite"
-            v2 = rng.choice(["walk", "jump", "look", "run"])
-            d2 = dirs[(idx + 1) % 4]
-            if v2 == "jump" and d2 == "around":
-                d2 = "left"
+            # Phase 2+ 2-clause training mixes left/right with and/after (holding out opposite/around compositions)
+            v1 = rng.choice(verbs)
+            d1 = "left" if (idx % 2 == 0) else "right"
+            v2 = rng.choice(verbs)
+            d2 = "right" if ((idx // 2) % 2 == 0) else "left"
             conn = "and" if idx % 2 == 0 else "after"
             m1 = mults[idx % 2]
             cmd = f"{v1} {d1} {m1} {conn} {v2} {d2}"
-            if "jump around" in cmd:
-                cmd = cmd.replace("jump around", "jump left")
     elif ns == "dev":
         v1 = "jump" if (idx // 2) % 2 == 0 else rng.choice(verbs)
         d1 = "around" if v1 == "jump" else rng.choice(["opposite", "around"])
@@ -640,10 +635,17 @@ def _generate_c09_repaired(split: str, seed: int, idx: int) -> dict[str, Any]:
     rng = _split_rng("X4_C09", ns, seed, idx)
     subtype = ("solvable_easy", "solvable_hard", "missing_premise")[idx % 3]
     if subtype == "missing_premise":
+        split_params = {
+            "train": (X3_SYMBOLS[0:4], 0.20, 0.02, 0.35),
+            "dev": (X3_SYMBOLS[4:8], 0.25, 0.04, 0.40),
+            "confirm": (X3_SYMBOLS[8:12], 0.30, 0.05, 0.45),
+            "ood_transfer": (X3_SYMBOLS[12:16], 0.35, 0.06, 0.50),
+        }
+        cands_t, p_cert, low_c, high_c = split_params[ns]
         regime = "cheap" if (idx // 3) % 2 == 0 else "expensive"
-        cost = 0.02 if regime == "cheap" else 0.35
+        cost = low_c if regime == "cheap" else high_c
         q_useful = ((idx // 6) % 2 == 0)
-        pq, pr = (0.20, 0.00) if q_useful else (0.00, 0.20)
+        pq, pr = (p_cert, 0.00) if q_useful else (0.00, p_cert)
         # Optimal decision via exact Bellman expectation:
         ev_q = pq - cost
         ev_r = pr - cost
@@ -653,9 +655,9 @@ def _generate_c09_repaired(split: str, seed: int, idx: int) -> dict[str, Any]:
             gold = "RETRIEVE"
         else:
             gold = "ABSTAIN"
-        cands = list(X3_SYMBOLS[:4])
+        cands = list(cands_t)
         prompt = _clip_prompt(f"C09|META|MISSING|pQ={pq:.2f}|pR={pr:.2f}|c={cost:.2f}|cand={cands}|OP=?")
-        spec = {"subtype": subtype, "cost": cost, "pQ": pq, "pR": pr, "gold": gold}
+        spec = {"subtype": subtype, "cost": cost, "pQ": pq, "pR": pr, "gold": gold, "cands": cands}
         uk = "information_uncertainty"
     else:
         base_off = {"train": 10, "dev": 25, "confirm": 40, "ood_transfer": 55}[ns]

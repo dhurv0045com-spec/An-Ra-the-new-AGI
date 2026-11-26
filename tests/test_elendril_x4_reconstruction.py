@@ -91,6 +91,15 @@ def test_defects_a_to_p_explicit_regressions() -> None:
     for cid, c_k, t_k in X4_PAIRED_CONTRASTS:
         assert c_k != t_k, f"Self-contrast found: {cid}"
 
+    # Production-scale (per_family=12 >= 8) split disjointness + Oracle==1.0 on dev & confirm
+    full_splits = {sp: build_x4_battery(split=sp, per_family=12)["cases"] for sp in ("train", "dev", "confirm", "ood_transfer")}
+    disj_full = verify_x4_split_disjointness(full_splits)
+    assert disj_full["disjoint"] is True
+    oracle = PublicOracleX4Decoder()
+    for sp_chk in ("dev", "confirm"):
+        preds = evaluate_x4_cases(oracle, full_splits[sp_chk], batch_size=32)
+        assert all(bool(p["correct"]) for p in preds), f"Oracle failed on {sp_chk}"
+
 
 def test_curriculum_fresh_stream_vs_fixed_and_diagnostics() -> None:
     sched_fresh = build_x4_curriculum_schedule(seed=7, total_updates=4, batch_size=8, data_regime="fresh_stream", curriculum_mode="curriculum_p2c")
