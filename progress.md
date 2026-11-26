@@ -472,3 +472,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Built `experiments/x4/` (zero future-target leak <1e-6 across all 16 archs, restored R-Ref pointer+edge_mlp, unified FP32 copy-byte LM, matched D0..D4-ECCO, 81 S20-only jobs / 0 S50).
 - Verified on CPU (`cuda_available=false`): Palantiri L7 doctor/calibrate/shield + 23 passed across 4 suites + isolated archive smoke; pinned ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb to d72b8514.
 - Pending owner execution: cloud 2xT4 Kaggle run of Cycle 1-4 S20 training/confirmation and empirical falsification of H1-H5.
+
+### 2026-11-27 | Antigravity | V8-X4 FP16 Autocast Half Overflow Fix & 16-Arch Gate (07600c3a)
+- Fixed Kaggle T4 In [3] `RuntimeError: value cannot be converted to type c10::Half without overflow` in `experiments/x4/models.py` by running pointer matmul, `-1e9` masking, FP32 probability mixture, and `OpBank` low-rank routing with `autocast(..., enabled=False)`.
+- Upgraded `experiments/x4/integrity.py` and `tests/test_elendril_x4_reconstruction.py` with `validate_fp16_autocast_forward_backward(..., dtype=torch.float16)` across all 16 `X4_ARCHITECTURES`.
+- Verified on CPU (`cuda_available=false`): `13 passed in 118.50s` (`test_elendril_x4_reconstruction.py` + `test_planthir_level7.py`), pinned `ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` (`match=true`) to `07600c3a`.
+- Pending owner re-run of `ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` on Kaggle 2xT4 GPU.
