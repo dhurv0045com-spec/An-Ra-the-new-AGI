@@ -13,6 +13,7 @@ import torch
 
 from anra_v5.elendril.representation import UTF8
 from anra_v5.elendril.v8x.contracts import X1_FAMILIES
+from anra_v5.palantiri import validate_fp16_autocast_forward_backward
 from experiments.x4.battery import (
     PublicOracleX4Decoder,
     X4_22_FAMILIES,
@@ -181,8 +182,13 @@ def test_all_x4_architectures_padded_amp_forward_backward_and_0xb5_shield() -> N
     b0 = matched["batches"][0]
     for arch in X4_ARCHITECTURES:
         m = X4CognitiveModel(arch, tiny, seed=7)
+        amp_rep = validate_fp16_autocast_forward_backward(
+            m,
+            lambda mod: compute_x4_objective_losses(mod, b0, objective="D4-ECCO", update_idx=2, total_updates=4, use_amp=None)["total_loss_t"],
+            dtype=torch.float16,
+        )
+        assert amp_rep["passed"], f"Padded FP16 autocast overflow/defect on {arch}: {amp_rep}"
         opt = torch.optim.AdamW(m.parameters(), lr=1e-4)
-        # Exercises compute_x4_objective_losses + backward + 0xB5 lossy decode parity
         res = compute_x4_objective_losses(m, b0, objective="D4-ECCO", update_idx=2, total_updates=4, use_amp=False)
         opt.zero_grad(set_to_none=True)
         res["total_loss_t"].backward()

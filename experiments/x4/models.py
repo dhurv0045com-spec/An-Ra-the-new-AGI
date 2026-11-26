@@ -93,7 +93,7 @@ class _AnchoredRefinementCell(nn.Module):
         q = self.q_proj(z_t).unsqueeze(1)
         k = self.k_proj(h_bank)
         v = self.v_proj(h_bank)
-        scores = (q @ k.transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.hidden_dim))
+        scores = ((q @ k.transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.hidden_dim))).float()
         weights = F.softmax(scores.masked_fill(~valid_prompt, -1e9), dim=-1).to(dtype=v.dtype)
         read_v = torch.bmm(weights.unsqueeze(1), v).squeeze(1)
 
@@ -372,13 +372,13 @@ class X4CognitiveModel(nn.Module):
             sc = (self.op_align_q(h_prompt).unsqueeze(1) @ self.op_align_k(h).transpose(1, 2)).squeeze(1).float() / math.sqrt(float(self.m_dim))
             aw = F.softmax(sc.masked_fill(~valid_prompt, -1e9), dim=-1).to(dtype=h.dtype)
             e_al = torch.bmm(aw.unsqueeze(1), self.op_align_v(h)).squeeze(1)
-            w_op = F.softmax(self.op_router(h_prompt).float(), dim=-1)  # [B, M]
-            # Low-rank operator application: e_al @ U_m @ V_m -> [B, m]
-            u_mats = torch.einsum("bm,mir->bir", w_op, self.op_U.float())
-            v_mats = torch.einsum("bm,mrj->brj", w_op, self.op_V.float())
-            mid = torch.bmm(e_al.float().unsqueeze(1), u_mats)
-            op_vec = torch.bmm(mid, v_mats).squeeze(1).to(dtype=h.dtype)
-            gate_op = self.op_scale.clamp(-0.5, 0.5).to(dtype=h.dtype)
+            with torch.amp.autocast(dev.type, enabled=False):
+                w_op = F.softmax(self.op_router(h_prompt.float()).float(), dim=-1)  # [B, M]
+                u_mats = torch.einsum("bm,mir->bir", w_op, self.op_U.float())
+                v_mats = torch.einsum("bm,mrj->brj", w_op, self.op_V.float())
+                mid = torch.bmm(e_al.float().unsqueeze(1), u_mats)
+                op_vec = torch.bmm(mid, v_mats).squeeze(1).to(dtype=h.dtype)
+                gate_op = self.op_scale.float().clamp(-0.5, 0.5).to(dtype=h.dtype)
             m_acc = m_acc + gate_op * torch.tanh(op_vec)
             telemetry["op_routing_weights"] = w_op.detach().cpu()
         elif self.uses_opbank_dense:
@@ -479,43 +479,46 @@ class X4CognitiveModel(nn.Module):
         after_mask = (idx_grid >= end_pos.unsqueeze(1)).unsqueeze(-1).to(dtype=h.dtype)
         h_gen = h + after_mask * (0.25 * prompt_ctx.unsqueeze(1))
         gen_logits = F.linear(h_gen, self.core.embedding.weight, self.lm_bias).float()  # [B, L, V]
-        if self.uses_slots:
-            # Route relational op bias directly onto initial op bytes at prompt_end position (A/Q/R)
-            at_end = (idx_grid == end_pos.unsqueeze(1)).unsqueeze(-1).float()
-            op_scatter = torch.zeros((bsz, 1, self.vocab_size), device=dev, dtype=torch.float32)
-            op_scatter.scatter_add_(2, self._op_byte_ids.view(1, 1, 4).expand(bsz, 1, 4), cog["op_bias"].unsqueeze(1))
-            gen_logits = gen_logits + at_end * op_scatter
 
-        # Normalized FP32 probability-space copy + generate mixture (Defects B, D, E fixed!)
-        p_gen = F.softmax(gen_logits, dim=-1)  # [B, L, V]
-        if self.uses_pointer:
-            q_dec = self.ptr_dec_q(h_gen).float() + cog["r_ptr_offset"].unsqueeze(1)  # [B, L, m]
-            k_p = self.ptr_k(h).float()  # [B, L, m]
-            ptr_scores = (q_dec @ k_p.transpose(1, 2)) / math.sqrt(float(self.m_dim))  # [B, L, L]
-            # Mask pointer strictly to prompt positions 0..prompt_end (excluding BOS/PAD)
-            ptr_cand = valid_prompt & (token_ids != UTF8.bos_id)
-            has_cand = ptr_cand.any(dim=1, keepdim=True)  # [B, 1]
-            safe_ptr_mask = torch.where(has_cand, ptr_cand, valid_prompt).unsqueeze(1).expand(bsz, seq_len, seq_len)
-            attn_ptr = F.softmax(ptr_scores.masked_fill(~safe_ptr_mask, -1e9), dim=-1)  # [B, L, L]
-            p_copy = torch.zeros((bsz, seq_len, self.vocab_size), device=dev, dtype=torch.float32)
-            p_copy.scatter_add_(2, token_ids.clamp(0, self.vocab_size - 1).unsqueeze(1).expand(bsz, seq_len, seq_len), attn_ptr)
+        # Run pointer attention + FP32 probability-space copy-gen mixture with autocast disabled so @/bmm/linear stay FP32!
+        with torch.amp.autocast(dev.type, enabled=False):
+            h_f = h.float()
+            h_gen_f = h_gen.float()
+            gen_logits_f = gen_logits.float()
+            if self.uses_slots:
+                at_end = (idx_grid == end_pos.unsqueeze(1)).unsqueeze(-1).float()
+                op_scatter = torch.zeros((bsz, 1, self.vocab_size), device=dev, dtype=torch.float32)
+                op_scatter.scatter_add_(2, self._op_byte_ids.view(1, 1, 4).expand(bsz, 1, 4), cog["op_bias"].float().unsqueeze(1))
+                gen_logits_f = gen_logits_f + at_end * op_scatter
 
-            copy_active = (
-                torch.zeros((bsz, 1, 1), device=dev, dtype=torch.float32)
-                if self._ablation_mode == "disable_pointer"
-                else has_cand.unsqueeze(-1).float()
-            )
-            g_t = torch.sigmoid(self.copy_gate(h_gen.float())) * copy_active  # [B, L, 1]
-            p_unified = ((1.0 - g_t) * p_gen + g_t * p_copy).clamp_min(1e-12)
-            p_unified = p_unified / p_unified.sum(dim=-1, keepdim=True)
-        else:
-            g_t = torch.zeros((bsz, seq_len, 1), device=dev, dtype=torch.float32)
-            p_unified = p_gen.clamp_min(1e-12)
-            p_unified = p_unified / p_unified.sum(dim=-1, keepdim=True)
+            p_gen = F.softmax(gen_logits_f, dim=-1)  # [B, L, V]
+            if self.uses_pointer:
+                q_dec = F.linear(h_gen_f, self.ptr_dec_q.weight.float(), self.ptr_dec_q.bias.float()) + cog["r_ptr_offset"].float().unsqueeze(1)
+                k_p = F.linear(h_f, self.ptr_k.weight.float(), self.ptr_k.bias.float())
+                ptr_scores = (q_dec @ k_p.transpose(1, 2)) / math.sqrt(float(self.m_dim))  # FP32 [B, L, L]
+                ptr_cand = valid_prompt & (token_ids != UTF8.bos_id)
+                has_cand = ptr_cand.any(dim=1, keepdim=True)
+                safe_ptr_mask = torch.where(has_cand, ptr_cand, valid_prompt).unsqueeze(1).expand(bsz, seq_len, seq_len)
+                attn_ptr = F.softmax(ptr_scores.masked_fill(~safe_ptr_mask, -1e9), dim=-1)
+                p_copy = torch.zeros((bsz, seq_len, self.vocab_size), device=dev, dtype=torch.float32)
+                p_copy.scatter_add_(2, token_ids.clamp(0, self.vocab_size - 1).unsqueeze(1).expand(bsz, seq_len, seq_len), attn_ptr)
 
-        log_p_unified = torch.log(p_unified)
-        decision_vec = h_gen[b_idx, end_pos]
-        action_logits = F.log_softmax(log_p_unified[b_idx, end_pos][:, self._compat_byte_ids].float(), dim=-1)
+                copy_active = (
+                    torch.zeros((bsz, 1, 1), device=dev, dtype=torch.float32)
+                    if self._ablation_mode == "disable_pointer"
+                    else has_cand.unsqueeze(-1).float()
+                )
+                g_t = torch.sigmoid(F.linear(h_gen_f, self.copy_gate.weight.float(), self.copy_gate.bias.float())) * copy_active
+                p_unified = ((1.0 - g_t) * p_gen + g_t * p_copy).clamp_min(1e-12)
+                p_unified = p_unified / p_unified.sum(dim=-1, keepdim=True)
+            else:
+                g_t = torch.zeros((bsz, seq_len, 1), device=dev, dtype=torch.float32)
+                p_unified = p_gen.clamp_min(1e-12)
+                p_unified = p_unified / p_unified.sum(dim=-1, keepdim=True)
+
+            log_p_unified = torch.log(p_unified)
+            decision_vec = h_gen_f[b_idx, end_pos]
+            action_logits = F.log_softmax(log_p_unified[b_idx, end_pos][:, self._compat_byte_ids], dim=-1)
         return {
             "logits": log_p_unified,
             "log_p_unified": log_p_unified,

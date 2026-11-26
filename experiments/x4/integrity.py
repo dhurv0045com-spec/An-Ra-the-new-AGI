@@ -13,7 +13,7 @@ import torch.nn.functional as F
 
 from anra_v5.elendril.codec import digest
 from anra_v5.elendril.representation import SpecialToken, UTF8
-from anra_v5.palantiri import dump_json_safe
+from anra_v5.palantiri import dump_json_safe, validate_fp16_autocast_forward_backward
 from v5_model.core import packed_layout
 
 from .battery import (
@@ -252,7 +252,17 @@ def verify_reproducibility_and_byte_amp_shield() -> dict[str, Any]:
         out = mu.generate_bytes("X01|test", max_new_bytes=2, eval_steps_override=k_steps)
         steps_seen.append(k_steps)
         assert math.isfinite(out["seq_log_prob"])
-    return {"passed": True, "u_step_trajectory_verified": steps_seen, "lossy_0xB5_safe": True}
+
+    # Verify padded FP16 autocast forward+backward on ANRA-X4-Int exercises ~safe_ptr_mask without c10::Half overflow
+    bat = build_x4_battery(split="train", per_family=1, families=("X01", "C04_COMPOSITIONAL_SCAN"))["cases"]
+    matched_b = build_x4_matched_batches(bat, seed=7, batch_size=len(bat))["batches"][0]
+    amp_rep = validate_fp16_autocast_forward_backward(
+        m1,
+        lambda mod: compute_x4_objective_losses(mod, matched_b, objective="D4-ECCO", update_idx=1, total_updates=4, use_amp=None)["total_loss_t"],
+        dtype=torch.float16,
+    )
+    assert amp_rep["passed"], f"FP16 autocast probe failed on ANRA-X4-Int: {amp_rep}"
+    return {"passed": True, "u_step_trajectory_verified": steps_seen, "lossy_0xB5_safe": True, "fp16_autocast_passed": True}
 
 
 def run_foundational_integrity_gate(work_dir: Path | str | None = None) -> dict[str, Any]:
