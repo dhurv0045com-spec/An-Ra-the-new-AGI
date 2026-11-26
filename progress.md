@@ -466,3 +466,9 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Verified the FULL export, 45 final checkpoints and all development, confirmation and OOD family counts.
 - Recomputed the paired contrasts and sampler coverage; replayed familiar and fresh cases and tested future-target dependence on saved weights.
 - Recorded the corrected results and next controlled comparison in Experiment Result/V8-X3/OWNER_RUN_01.md.
+
+### 2026-11-26 | Antigravity | V8-X4 Fundamental Reconstruction & Causal Mechanism Discovery (d72b8514)
+- Authored research/v8-x4/AN_RA_FUNDAMENTAL_RECONSTRUCTION_MANDATE_2026-11-26.md covering 4 passes, Defects A-P, H1-H5, 22 families, L0-L5 & Mandatory-Coverage Matrix.
+- Built `experiments/x4/` (zero future-target leak <1e-6 across all 16 archs, restored R-Ref pointer+edge_mlp, unified FP32 copy-byte LM, matched D0..D4-ECCO, 81 S20-only jobs / 0 S50).
+- Verified on CPU (`cuda_available=false`): Palantiri L7 doctor/calibrate/shield + 23 passed across 4 suites + isolated archive smoke; pinned ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb to d72b8514.
+- Pending owner execution: cloud 2xT4 Kaggle run of Cycle 1-4 S20 training/confirmation and empirical falsification of H1-H5.
