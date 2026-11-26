@@ -1,5 +1,8 @@
 # ELENDRIL V8-X3 — Cognitive Intelligence Program (Pre-GPU Qualified One-Go Template)
 
+**2026-11-26 owner results.** The full archive verifies 45 S20 jobs and 12 gated S50 jobs. See the [owner-run analysis](OWNER_RUN_01.md) and [audited metrics](OWNER_RUN_01_METRICS.json). The qualification notes below describe the earlier pre-launch state.
+
+
 - **Qualification Stage:** `CPU_QUALIFIED_READY_FOR_OWNER_GPU`
 - **Status Axes:** `execution=PENDING` · `delivery=PENDING` · `scientific=UNRUN` · `causal=UNRESOLVED`
 - **Code Source Commit (`CODE_SHA`):** `8485dbb695e5bfae63e4a2eeeb8da391fbe3317a`

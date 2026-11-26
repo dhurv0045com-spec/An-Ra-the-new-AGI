@@ -461,3 +461,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 ### 2026-11-25 | Antigravity | V8-X3 Cross-Stage Arm Deduplication & Full 57-Job End-to-End Campaign Gate
 - Deduplicated `arm_records` in `run_x3_campaign` (`experiments/x3/module.py`) over `(arm_id, init_seed, order_seed)` across `sorted(job_receipts)` so Stage 2 (`S2`) and Stage 3 (`S3`) `P-R-Iter_D3-Hybrid_S20` rows no longer raise `duplicate record` inside `build_paired_seed_observations`.
 - Rebased onto Level-7 `e0129bcb` (`7654543bfa882bf3f9afe9fe1eae940b0d18b515`), added `test_gate7_full_57_job_ledger_dedup_report_and_archive_export`, verified `doctor`/`calibrate` (L7) + `20 passed in 139.71s` (`-n auto`), and pinned `ELENDRIL_V8_X3_KAGGLE_T4X2.ipynb` (`18,729` B, `333b9478...`).
+
+### 2026-11-26 | Codex | V8-X3 owner results
+- Verified the FULL export, 45 final checkpoints and all development, confirmation and OOD family counts.
+- Recomputed the paired contrasts and sampler coverage; replayed familiar and fresh cases and tested future-target dependence on saved weights.
+- Recorded the corrected results and next controlled comparison in Experiment Result/V8-X3/OWNER_RUN_01.md.
