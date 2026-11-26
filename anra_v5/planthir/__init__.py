@@ -107,6 +107,7 @@ from .design import (
     run_paired_comparison_preflight,
     validate_cohort_and_split_transitivity,
     validate_paired_arm_records_preflight,
+    verify_production_split_disjointness,
     verify_split_disjointness,
 )
 from .evidence import (
@@ -441,6 +442,7 @@ __all__ = [
     "verify_crossover_fixture",
     "verify_full_mode_dispatch",
     "verify_pinned_notebook_bytes",
+    "verify_production_split_disjointness",
     "verify_provenance_identity",
     "verify_raw_evidence_chunks",
     "verify_result_bundle",

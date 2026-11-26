@@ -737,6 +737,19 @@ def validate_cohort_and_split_transitivity(
     }
 
 
+def _resolve_split_family_label(
+    rec: Mapping[str, Any],
+    *,
+    family_key: str = "family",
+    fallback_family_keys: Sequence[str] = ("family_id", "task_family", "category"),
+) -> str:
+    for cand_key in (family_key, *fallback_family_keys):
+        val = rec.get(str(cand_key))
+        if val is not None and str(val).strip() != "":
+            return str(val)
+    return "_default"
+
+
 def verify_split_disjointness(
     splits: Mapping[str, Sequence[Mapping[str, Any]]],
     *,
@@ -744,18 +757,136 @@ def verify_split_disjointness(
     check_structural_isomorphism: bool = True,
     check_prompt_exact: bool = True,
     cohorts: Sequence[CohortClusterSpec] = (),
+    min_per_split: Mapping[str, int] | None = None,
+    min_per_family: int | None = None,
+    family_key: str = "family",
+    fallback_family_keys: Sequence[str] = ("family_id", "task_family", "category"),
     fail_closed: bool = True,
 ) -> dict[str, Any]:
-    """Fail-closed split-disjointness verifier catching ID, exact-prompt, and isomorphic AST/graph/Horn leaks."""
+    """Fail-closed split-disjointness verifier catching ID, exact-prompt, isomorphic, and under-quota split checks."""
 
-    return validate_cohort_and_split_transitivity(
+    if min_per_family is not None and int(min_per_family) < 1:
+        raise ValueError(f"min_per_family must be >= 1, got {min_per_family!r}")
+
+    res = validate_cohort_and_split_transitivity(
         splits,
         cohorts=cohorts,
         structural_hash_fn=structural_hash_fn,
         check_structural_isomorphism=check_structural_isomorphism,
         check_prompt_exact=check_prompt_exact,
+        fail_closed=False,
+    )
+
+    per_family_counts: dict[str, dict[str, int]] = {}
+    for split_name, records in splits.items():
+        sname = str(split_name)
+        fam_map: dict[str, int] = {}
+        for rec in records:
+            fam = _resolve_split_family_label(
+                rec,
+                family_key=family_key,
+                fallback_family_keys=fallback_family_keys,
+            )
+            fam_map[fam] = fam_map.get(fam, 0) + 1
+        per_family_counts[sname] = {k: fam_map[k] for k in sorted(fam_map)}
+
+    underquota_splits: list[dict[str, Any]] = []
+    if min_per_split is not None:
+        for raw_sname, req_cnt in sorted(min_per_split.items()):
+            sname = str(raw_sname)
+            obs_cnt = int(res["split_counts"].get(sname, 0))
+            if obs_cnt < int(req_cnt):
+                underquota_splits.append({"split": sname, "observed": obs_cnt, "required": int(req_cnt)})
+
+    underquota_families: list[dict[str, Any]] = []
+    if min_per_family is not None:
+        req_fam = int(min_per_family)
+        for split_name in sorted(str(k) for k in splits):
+            obs_split = int(res["split_counts"].get(split_name, 0))
+            if obs_split == 0:
+                underquota_families.append({"split": split_name, "family": "*", "observed": 0, "required": req_fam})
+                continue
+            for fam, cnt in per_family_counts.get(split_name, {}).items():
+                if int(cnt) < req_fam:
+                    underquota_families.append(
+                        {"split": split_name, "family": fam, "observed": int(cnt), "required": req_fam}
+                    )
+
+    quota_checked = bool(min_per_split is not None or min_per_family is not None)
+    quota_passed = not underquota_splits and not underquota_families
+    quota_check = {
+        "checked": quota_checked,
+        "passed": quota_passed,
+        "min_per_split": ({str(k): int(v) for k, v in min_per_split.items()} if min_per_split is not None else None),
+        "min_per_family": (int(min_per_family) if min_per_family is not None else None),
+        "per_family_counts": per_family_counts,
+        "underquota_splits": underquota_splits,
+        "underquota_families": underquota_families,
+    }
+
+    leaks_passed = bool(res["passed"])
+    passed = bool(leaks_passed and quota_passed)
+    res["quota_check"] = quota_check
+    res["passed"] = passed
+    if not leaks_passed:
+        res["status"] = "TRANSITIVE_COHORT_LEAKAGE"
+    elif not quota_passed:
+        res["status"] = "UNDERQUOTA_SPLIT_DISJOINTNESS_CHECK"
+
+    if fail_closed and not leaks_passed:
+        raise ValueError(
+            f"SPLIT_DISJOINTNESS_VIOLATION: {int(res['leak_count'])} cross-split leak(s) detected "
+            f"(structural={int(res['structural_leak_count'])}, prompt={int(res['prompt_leak_count'])})"
+        )
+    if fail_closed and not quota_passed:
+        raise ValueError(
+            f"UNDERQUOTA_SPLIT_DISJOINTNESS_CHECK: split disjointness checked below required production quota "
+            f"(underquota_splits={underquota_splits}, underquota_families={underquota_families}); "
+            f"re-run at >= production quota to prevent cloud split-overlap crashes"
+        )
+    return res
+
+
+def verify_production_split_disjointness(
+    split_builder: Callable[..., Mapping[str, Sequence[Mapping[str, Any]]]],
+    *,
+    production_quota: int,
+    quota_kwarg: str = "per_family",
+    builder_kwargs: Mapping[str, Any] | None = None,
+    min_per_split: Mapping[str, int] | None = None,
+    min_per_family: int | None = None,
+    family_key: str = "family",
+    fallback_family_keys: Sequence[str] = ("family_id", "task_family", "category"),
+    structural_hash_fn: Callable[[Mapping[str, Any]], str | None] | None = None,
+    check_structural_isomorphism: bool = True,
+    check_prompt_exact: bool = True,
+    cohorts: Sequence[CohortClusterSpec] = (),
+    fail_closed: bool = True,
+) -> dict[str, Any]:
+    """Build splits at full production quota and enforce both zero cross-split leakage and quota floors locally."""
+
+    prod_q = int(production_quota)
+    if prod_q < 1:
+        raise ValueError(f"production_quota must be >= 1, got {production_quota!r}")
+    call_kwargs = dict(builder_kwargs or {})
+    call_kwargs[str(quota_kwarg)] = prod_q
+    splits = split_builder(**call_kwargs)
+    eff_min_family = int(min_per_family) if min_per_family is not None else prod_q
+    report = verify_split_disjointness(
+        splits,
+        structural_hash_fn=structural_hash_fn,
+        check_structural_isomorphism=check_structural_isomorphism,
+        check_prompt_exact=check_prompt_exact,
+        cohorts=cohorts,
+        min_per_split=min_per_split,
+        min_per_family=eff_min_family,
+        family_key=family_key,
+        fallback_family_keys=fallback_family_keys,
         fail_closed=fail_closed,
     )
+    report["production_quota"] = prod_q
+    report["quota_kwarg"] = str(quota_kwarg)
+    return report
 
 
 def _student_t_pdf(t: float, df: int) -> float:
@@ -1802,5 +1933,6 @@ __all__ = [
     "run_paired_comparison_preflight",
     "validate_cohort_and_split_transitivity",
     "validate_paired_arm_records_preflight",
+    "verify_production_split_disjointness",
     "verify_split_disjointness",
 ]

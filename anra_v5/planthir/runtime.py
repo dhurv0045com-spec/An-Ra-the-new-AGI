@@ -47,6 +47,7 @@ from .custody import (
     ConfirmLock,
     canonical_structural_hash,
     verify_campaign_ledger,
+    verify_production_split_disjointness,
     verify_split_disjointness,
 )
 from .design import validate_paired_arm_records_preflight
@@ -2161,6 +2162,7 @@ class CampaignOrchestrator:
         require_u0000_fp16_autocast: bool = False,
         byte_decode_fn: Callable[[Sequence[int]], Any] | None = None,
         stage5_preflight_fn: Callable[[Path], Mapping[str, Any] | bool] | None = None,
+        split_disjointness_fn: Callable[[Path], Mapping[str, Any] | bool] | None = None,
         export_prefix: str | None = None,
         export_dir: Path | str | None = None,
         extra_summary_files: Mapping[str, Path | str] | None = None,
@@ -2423,6 +2425,7 @@ class CampaignOrchestrator:
                 "preemption_reason": None,
                 "u0000_smoke_receipt": None,
                 "stage5_preflight_receipt": None,
+                "split_disjointness_receipt": None,
                 "byte_decoder_shield": None,
                 "completed_jobs": sorted(verified_completed),
                 "dispatched_devices": [],
@@ -2464,6 +2467,7 @@ class CampaignOrchestrator:
 
         byte_shield: dict[str, Any] | None = None
         stage5_preflight_receipt: dict[str, Any] | None = None
+        split_disjointness_receipt: dict[str, Any] | None = None
         u0000_smoke_receipt: dict[str, Any] | None = None
         if admitted_jobs:
             byte_shield = validate_byte_decoder_resilience(decode_fn=byte_decode_fn)
@@ -2611,6 +2615,54 @@ class CampaignOrchestrator:
                     if s5_err is not None:
                         raise RuntimeError(f"STAGE5_PREFLIGHT_FAILED:{s5_detail}") from s5_err
                     raise RuntimeError(f"STAGE5_PREFLIGHT_FAILED:{s5_detail}")
+
+        if split_disjointness_fn is not None and admitted_jobs:
+            with tempfile.TemporaryDirectory(prefix="sdp_", ignore_cleanup_errors=True) as sd_tmp:
+                sd_dir = Path(sd_tmp) / "split_disjointness"
+                sd_dir.mkdir(parents=True, exist_ok=True)
+                sd_err: BaseException | None = None
+                try:
+                    raw_sd = split_disjointness_fn(sd_dir)
+                    if isinstance(raw_sd, Mapping):
+                        sd_passed = bool(raw_sd.get("passed", True))
+                        sd_detail = dict(raw_sd)
+                        sd_detail.setdefault("passed", sd_passed)
+                    else:
+                        sd_passed = bool(raw_sd)
+                        sd_detail = {"passed": sd_passed}
+                except BaseException as exc:
+                    sd_passed = False
+                    sd_err = exc
+                    sd_detail = {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+                split_disjointness_receipt = {
+                    "schema": "anra-planthir-split-disjointness-preflight-v1",
+                    "campaign_id": self.campaign_id,
+                    **sd_detail,
+                }
+                if u0000_smoke_receipt is None:
+                    u0000_smoke_receipt = {
+                        "schema": "anra-planthir-u0000-smoke-v1",
+                        "campaign_id": self.campaign_id,
+                        "passed": bool(sd_passed and (byte_shield is None or byte_shield.get("passed"))),
+                        "byte_decoder_shield": byte_shield,
+                        "fp16_autocast_checked": False,
+                        "architectures": {},
+                    }
+                else:
+                    u0000_smoke_receipt["passed"] = bool(u0000_smoke_receipt.get("passed", True) and sd_passed)
+                u0000_smoke_receipt["split_disjointness_preflight"] = split_disjointness_receipt
+                (self.work_dir / "U0000_SMOKE_RECEIPT.json").write_text(
+                    dump_json_safe(u0000_smoke_receipt),
+                    encoding="utf-8",
+                )
+                (self.work_dir / "SPLIT_DISJOINTNESS_RECEIPT.json").write_text(
+                    dump_json_safe(split_disjointness_receipt),
+                    encoding="utf-8",
+                )
+                if not sd_passed:
+                    if sd_err is not None:
+                        raise RuntimeError(f"SPLIT_DISJOINTNESS_PREFLIGHT_FAILED:{sd_detail}") from sd_err
+                    raise RuntimeError(f"SPLIT_DISJOINTNESS_PREFLIGHT_FAILED:{sd_detail}")
 
         def _job_deps(j: SessionJob) -> tuple[str, ...]:
             raw: list[str] = []
@@ -2817,6 +2869,7 @@ class CampaignOrchestrator:
                 "preemption_reason": preemption_reason,
                 "u0000_smoke_receipt": u0000_smoke_receipt,
                 "stage5_preflight_receipt": stage5_preflight_receipt,
+                "split_disjointness_receipt": split_disjointness_receipt,
                 "byte_decoder_shield": byte_shield,
                 "completed_jobs": comp_jobs,
                 "dispatched_devices": sorted(d for d in dispatched_devices_set if d),
@@ -3136,6 +3189,7 @@ class CampaignOrchestrator:
                 "STAGE_GATES.json",
                 "U0000_SMOKE_RECEIPT.json",
                 "STAGE5_PREFLIGHT_RECEIPT.json",
+                "SPLIT_DISJOINTNESS_RECEIPT.json",
                 "CONFIRM_LOCK.json",
                 "REGISTERED_PLAN_STATUS.json",
             )
@@ -3291,6 +3345,7 @@ def verify_full_mode_dispatch(
     full_session_minutes: float = 300.0,
     work_root: Path | str | None = None,
     require_multi_session_resume: bool = True,
+    split_disjointness_fn: Callable[[], Mapping[str, Any] | bool] | None = None,
     raise_on_failure: bool = True,
 ) -> dict[str, Any]:
     """Verify FULL-mode multi-GPU job dispatch, uncompressed dataset denominators, and tight-session overflow/resume."""
@@ -3301,7 +3356,24 @@ def verify_full_mode_dispatch(
     min_counts = {str(k): int(v) for k, v in dict(min_dataset_counts or {}).items()}
     defects: list[str] = []
 
-    def _run_suite(root_path: Path) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    def _run_suite(root_path: Path) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
+        sd_summary: dict[str, Any] | None = None
+        if split_disjointness_fn is not None:
+            try:
+                raw_sd = split_disjointness_fn()
+                if isinstance(raw_sd, Mapping):
+                    sd_passed = bool(raw_sd.get("passed", True))
+                    sd_summary = dict(raw_sd)
+                    sd_summary.setdefault("passed", sd_passed)
+                else:
+                    sd_passed = bool(raw_sd)
+                    sd_summary = {"passed": sd_passed}
+            except Exception as exc:
+                sd_passed = False
+                sd_summary = {"passed": False, "error": f"{type(exc).__name__}: {exc}"}
+            if not sd_passed:
+                defects.append(f"PRODUCTION_SPLIT_DISJOINTNESS_FAILED:{sd_summary}")
+
         full_dir = root_path / "full_pass"
         full_dir.mkdir(parents=True, exist_ok=True)
         res_full = dispatch_fn(full_dir, session_minutes=float(full_session_minutes), resume_input=None)
@@ -3392,15 +3464,15 @@ def verify_full_mode_dispatch(
                 "resume_source": str(resume_src),
             }
 
-        return full_summary, resume_summary
+        return full_summary, resume_summary, sd_summary
 
     if work_root is not None:
         rp = Path(work_root)
         rp.mkdir(parents=True, exist_ok=True)
-        full_summary, resume_summary = _run_suite(rp)
+        full_summary, resume_summary, sd_summary = _run_suite(rp)
     else:
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
-            full_summary, resume_summary = _run_suite(Path(tmp))
+            full_summary, resume_summary, sd_summary = _run_suite(Path(tmp))
 
     passed = len(defects) == 0
     if not passed and raise_on_failure:
@@ -3411,6 +3483,7 @@ def verify_full_mode_dispatch(
         "defects": defects,
         "full_pass": full_summary,
         "multi_session_resume": resume_summary,
+        "split_disjointness": sd_summary,
     }
 
 
@@ -3615,6 +3688,7 @@ __all__ = [
     "verify_campaign_ledger",
     "verify_full_mode_dispatch",
     "verify_pinned_notebook_bytes",
+    "verify_production_split_disjointness",
     "verify_session_archive",
     "verify_shared_backbone_and_head_overhead",
     "verify_split_disjointness",

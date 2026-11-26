@@ -1490,6 +1490,18 @@ _ERROR_CATALOG: dict[str, dict[str, Any]] = {
             "Pin `PYTHONHASHSEED=0` across training and replay subprocesses, eliminate unordered set/dict rendering nondeterminism, and verify `policy.reset_episode()` + `eval()` mode.",
         ],
     },
+    "SPLIT_DISJOINTNESS_VIOLATION": {
+        "meaning": "Cross-split leak detected across IDs, cohort/base ancestors, exact rendered prompts, or canonical structural hashes.",
+        "remediation": [
+            "Separate world generation domains/seeds cleanly per split and verify with `verify_production_split_disjointness(..., production_quota=...)` at >= production quota.",
+        ],
+    },
+    "UNDERQUOTA_SPLIT_DISJOINTNESS_CHECK": {
+        "meaning": "Split-disjointness audit ran below the required production quota (e.g. canary per_family=2 instead of production per_family=8).",
+        "remediation": [
+            "Pass `min_per_family >= production_quota` to `verify_split_disjointness(...)` or use `verify_production_split_disjointness(builder, production_quota=...)` in Gate 1 / preflight.",
+        ],
+    },
 }
 
 

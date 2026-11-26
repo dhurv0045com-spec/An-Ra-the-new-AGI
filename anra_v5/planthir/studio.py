@@ -22,6 +22,7 @@ from .custody import (
     ConfirmLock,
     canonical_structural_hash,
     verify_campaign_ledger,
+    verify_production_split_disjointness,
     verify_split_disjointness,
 )
 from .design import validate_paired_arm_records_preflight
@@ -91,6 +92,7 @@ def level_info() -> dict[str, Any]:
             "cli_shield_runtime_suite",
             "multi_stage_paired_arm_preflight",
             "fp16_static_ast_and_half_emulation",
+            "production_quota_split_disjointness",
         ],
         "quickstart_cli": [
             "python -m anra_v5.palantiri level",
@@ -595,6 +597,10 @@ class Palantiri:
     @staticmethod
     def verify_splits(*args: Any, **kwargs: Any) -> dict[str, Any]:
         return verify_split_disjointness(*args, **kwargs)
+
+    @staticmethod
+    def verify_production_splits(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return verify_production_split_disjointness(*args, **kwargs)
 
     @staticmethod
     def validate_fp16_autocast(model: Any, loss_fn: Any, **kwargs: Any) -> dict[str, Any]:

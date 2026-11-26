@@ -775,3 +775,162 @@ def test_level7_checkpoint_long_path_and_replay_mismatch_diagnostics(tmp_path: P
     assert "ORIGINAL_PREDICTION_MISMATCH" in proc.stderr
     assert "RENDERED_INPUT_HASH_MISMATCH" in proc.stderr
     assert "PYTHONHASHSEED" in proc.stderr
+
+
+def test_level7_production_quota_split_disjointness_and_orchestrator_gate(tmp_path: Path) -> None:
+    from anra_v5.palantiri import (
+        explain_error_code,
+        verify_full_mode_dispatch,
+        verify_production_split_disjointness,
+        verify_split_disjointness,
+    )
+
+    assert "production_quota_split_disjointness" in level_info()["capabilities"]
+    assert explain_error_code("SPLIT_DISJOINTNESS_VIOLATION")["known"] is True
+    assert explain_error_code("UNDERQUOTA_SPLIT_DISJOINTNESS_CHECK")["known"] is True
+
+    # Canary quota per_family=2 looks disjoint, but production quota per_family=8 collides across train & dev!
+    def _leaky_at_prod_builder(*, per_family: int = 2) -> dict[str, list[dict[str, Any]]]:
+        train = [
+            {
+                "world_id": f"tr_{fam}_{i}",
+                "family": fam,
+                "public_prompt": f"Solve {fam} instance {i}",
+            }
+            for fam in ("X01", "X02")
+            for i in range(int(per_family))
+        ]
+        dev = [
+            {
+                "world_id": f"dv_{fam}_{i}",
+                "family": fam,
+                # At per_family >= 8, dev item 0 borrows index 6 from train!
+                "public_prompt": f"Solve {fam} instance {6 if (per_family >= 8 and i == 0) else 100 + i}",
+            }
+            for fam in ("X01", "X02")
+            for i in range(int(per_family))
+        ]
+        return {"train": train, "dev": dev}
+
+    def _clean_prod_builder(*, per_family: int = 2) -> dict[str, list[dict[str, Any]]]:
+        return {
+            "train": [
+                {"world_id": f"tr_{fam}_{i}", "family": fam, "public_prompt": f"Solve {fam} train {i}"}
+                for fam in ("X01", "X02")
+                for i in range(int(per_family))
+            ],
+            "dev": [
+                {"world_id": f"dv_{fam}_{i}", "family": fam, "public_prompt": f"Solve {fam} dev {i}"}
+                for fam in ("X01", "X02")
+                for i in range(int(per_family))
+            ],
+        }
+
+    # 1. Under-quota check at per_family=2 passes unguarded, but fails closed when min_per_family=8 is required
+    canary_res = verify_split_disjointness(_leaky_at_prod_builder(per_family=2))
+    assert canary_res["passed"] is True
+    with pytest.raises(ValueError, match="UNDERQUOTA_SPLIT_DISJOINTNESS_CHECK"):
+        verify_split_disjointness(_leaky_at_prod_builder(per_family=2), min_per_family=8)
+
+    under_nonfatal = verify_split_disjointness(
+        _leaky_at_prod_builder(per_family=2),
+        min_per_family=8,
+        fail_closed=False,
+    )
+    assert under_nonfatal["passed"] is False
+    assert under_nonfatal["status"] == "UNDERQUOTA_SPLIT_DISJOINTNESS_CHECK"
+    assert under_nonfatal["quota_check"]["passed"] is False
+    assert len(under_nonfatal["quota_check"]["underquota_families"]) == 4
+
+    # 2. verify_production_split_disjointness catches the per_family=8 leak locally before cloud submission
+    with pytest.raises(ValueError, match="SPLIT_DISJOINTNESS_VIOLATION"):
+        verify_production_split_disjointness(_leaky_at_prod_builder, production_quota=8)
+
+    with pytest.raises(ValueError, match="SPLIT_DISJOINTNESS_VIOLATION"):
+        Palantiri.verify_production_splits(_leaky_at_prod_builder, production_quota=8)
+
+    ok_prod = Palantiri.verify_production_splits(_clean_prod_builder, production_quota=8)
+    assert ok_prod["passed"] is True
+    assert ok_prod["production_quota"] == 8
+    assert ok_prod["quota_check"]["passed"] is True
+    assert ok_prod["quota_check"]["per_family_counts"]["train"] == {"X01": 8, "X02": 8}
+
+    # 3. CampaignOrchestrator.run_registered_plan blocks Wave 0 when split_disjointness_fn fails at production quota
+    jobs = (
+        SessionJob("sp_j1", "P", 7, 7, 2, extra={"dataset_counts": {"train": 16}}),
+        SessionJob("sp_j2", "R", 19, 19, 2, extra={"dataset_counts": {"train": 16}}),
+    )
+    bad_sd_dir = tmp_path / "bad_sd"
+    orch_bad = CampaignOrchestrator(campaign_id="L7-SD-BAD", source_commit="9" * 40, work_dir=bad_sd_dir)
+    with pytest.raises(RuntimeError, match="SPLIT_DISJOINTNESS_PREFLIGHT_FAILED"):
+        orch_bad.run_registered_plan(
+            jobs,
+            devices=("cuda:0", "cuda:1"),
+            measured_seconds_per_update=0.5,
+            split_disjointness_fn=lambda _d: verify_production_split_disjointness(
+                _leaky_at_prod_builder,
+                production_quota=8,
+            ),
+            job_runner=lambda _j, _w, _d: {"exit_code": 0},
+        )
+    sd_rec = json.loads((bad_sd_dir / "SPLIT_DISJOINTNESS_RECEIPT.json").read_text(encoding="utf-8"))
+    assert sd_rec["passed"] is False and "SPLIT_DISJOINTNESS_VIOLATION" in sd_rec["error"]
+
+    ok_sd_dir = tmp_path / "ok_sd"
+    orch_ok = CampaignOrchestrator(campaign_id="L7-SD-OK", source_commit="9" * 40, work_dir=ok_sd_dir)
+    res_ok = orch_ok.run_registered_plan(
+        jobs,
+        devices=("cuda:0", "cuda:1"),
+        measured_seconds_per_update=0.5,
+        split_disjointness_fn=lambda _d: verify_production_split_disjointness(
+            _clean_prod_builder,
+            production_quota=8,
+        ),
+        job_runner=lambda _j, _w, _d: {"exit_code": 0},
+    )
+    assert res_ok["status"] == "COMPLETE"
+    assert res_ok["split_disjointness_receipt"]["passed"] is True
+
+    # 4. verify_full_mode_dispatch enforces production split disjointness when split_disjointness_fn is supplied
+    def _mock_dispatch(work_dir: Path, *, session_minutes: float, resume_input: Any = None) -> dict[str, Any]:
+        return CampaignOrchestrator(
+            campaign_id="L7-DISP",
+            source_commit="9" * 40,
+            work_dir=work_dir,
+            max_minutes=session_minutes,
+            reserve_minutes=5.0,
+            min_disk_bytes=1024,
+        ).run_registered_plan(
+            (
+                SessionJob("sp_j1", "P", 7, 7, 2, extra={"dataset_counts": {"train": 16}}),
+                SessionJob("sp_j2", "R", 19, 19, 2, extra={"dataset_counts": {"train": 16}}),
+                SessionJob("sp_j3", "P", 41, 41, 2, extra={"dataset_counts": {"train": 16}}),
+            ),
+            devices=("cuda:0", "cuda:1"),
+            resume_input=resume_input,
+            measured_seconds_per_update=2.5,
+            per_job_disk_bytes=1024,
+            available_disk_bytes=10**8,
+            job_runner=lambda _j, _w, _d: {"exit_code": 0},
+        )
+
+    bad_disp = verify_full_mode_dispatch(
+        _mock_dispatch,
+        expected_job_ids=("sp_j1", "sp_j2", "sp_j3"),
+        expected_seeds=(7, 19, 41),
+        split_disjointness_fn=lambda: verify_production_split_disjointness(_leaky_at_prod_builder, production_quota=8),
+        raise_on_failure=False,
+    )
+    assert bad_disp["passed"] is False
+    assert any(d.startswith("PRODUCTION_SPLIT_DISJOINTNESS_FAILED:") for d in bad_disp["defects"])
+
+    ok_disp = verify_full_mode_dispatch(
+        _mock_dispatch,
+        expected_job_ids=("sp_j1", "sp_j2", "sp_j3"),
+        expected_seeds=(7, 19, 41),
+        split_disjointness_fn=lambda: verify_production_split_disjointness(_clean_prod_builder, production_quota=8),
+        tight_session_minutes=5.1,
+        full_session_minutes=60.0,
+    )
+    assert ok_disp["passed"] is True
+    assert ok_disp["split_disjointness"]["passed"] is True
