@@ -27,6 +27,83 @@ from .evidence import (
 from .execution import _atomic_write, _sync_dir
 
 
+class ReplayVerificationError(ValueError):
+    """Structured replay failure preserving custody/mismatch diagnostics and triage hints."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        receipt: Mapping[str, Any] | None = None,
+        defects: Sequence[str] = (),
+        mismatches: Sequence[Mapping[str, Any]] = (),
+        mismatch_reasons: Sequence[str] = (),
+        mismatch_counts_by_reason: Mapping[str, int] | None = None,
+        triage_hints: Sequence[str] = (),
+    ) -> None:
+        super().__init__(message)
+        self.receipt = dict(receipt or {})
+        self.defects = list(defects)
+        self.mismatches = [dict(m) for m in mismatches]
+        self.mismatch_reasons = list(mismatch_reasons)
+        self.mismatch_counts_by_reason = dict(mismatch_counts_by_reason or {})
+        self.triage_hints = list(triage_hints)
+
+
+_REASON_TRIAGE_HINTS = {
+    "RENDERED_INPUT_HASH_MISMATCH": (
+        "Prompt/observation SHA mismatch: pin PYTHONHASHSEED=0 across subprocesses, check dict/set order during world rendering, or verify --worlds-json matches REPLAY_COHORT.json."
+    ),
+    "OBSERVATION_HISTORY_MISMATCH": (
+        "Multi-step observation history diverged: pin PYTHONHASHSEED=0 across subprocesses and check non-deterministic iteration/kernel rendering."
+    ),
+    "PREDICTION_MISMATCH": (
+        "Predicted operation/argument diverged: verify policy eval() mode (no dropout/sampling), reset_episode() isolation, consistent PYTHONHASHSEED, and device parity."
+    ),
+    "ACTION_HISTORY_MISMATCH": (
+        "Multi-step action trajectory diverged: verify policy determinism, reset_episode() cleanup, and PYTHONHASHSEED consistency."
+    ),
+    "EPISODE_HISTORY_MISMATCH": (
+        "Episode step history diverged: inspect per-step rendered_input_sha256 and action differences in mismatches."
+    ),
+    "CHECKPOINT_SHA_MISMATCH": (
+        "Reference checkpoint SHA differs from restored checkpoint: confirm bundle generation and reference_predictions align."
+    ),
+    "BACKEND_MISMATCH": (
+        "Backend identifier mismatch: check --expected-backend and PLANTHIR_BACKEND_MODULES."
+    ),
+    "MISSING_REFERENCE_CASE": (
+        "Reference world_id missing from evaluated cohort: check --worlds-json alignment with REPLAY_COHORT.json."
+    ),
+    "UNREPLAYED_CASE": (
+        "Evaluated world_id missing from replay results: verify policy evaluation completed cleanly for all cohort cases."
+    ),
+    "AGGREGATE_ACCURACY_OUT_OF_TOLERANCE": (
+        "Replay accuracy differs from recorded SCIENTIFIC_SUMMARY.json beyond accuracy_tolerance."
+    ),
+}
+
+
+def _summarize_replay_mismatches(mismatches: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    counts: dict[str, int] = {}
+    for item in mismatches:
+        reason = str(item.get("reason", "UNKNOWN"))
+        counts[reason] = counts.get(reason, 0) + 1
+    reasons = sorted(counts)
+    ordered_counts = {r: counts[r] for r in reasons}
+    hints: list[str] = []
+    for reason in reasons:
+        hint = _REASON_TRIAGE_HINTS.get(reason)
+        if hint and hint not in hints:
+            hints.append(hint)
+    return {
+        "mismatch_reasons": reasons,
+        "mismatch_counts_by_reason": ordered_counts,
+        "triage_hints": hints,
+        "pythonhashseed": os.environ.get("PYTHONHASHSEED"),
+    }
+
+
 def _sha256_file(path: Path) -> str:
     h = sha256()
     with path.open("rb") as f:
@@ -662,6 +739,7 @@ def independent_replay_bundle(
         for r in lineage_reports
         for m in r["original_prediction_agreement"]["mismatches"]
     ]
+    mismatch_summary = _summarize_replay_mismatches(all_agree_mismatches)
     verified = len(defects) == 0
     if verified:
         replay_status = "REPLAY_VERIFIED"
@@ -683,12 +761,20 @@ def independent_replay_bundle(
         "restore_verified": bool(not any(d == "RESTORE_FULL_CHECKPOINT_ZIP_UNVERIFIED" for d in defects)),
         "probe_accuracy": mean_probe_acc,
         "prediction_agreement_status": overall_agreement,
+        "mismatch_reasons": mismatch_summary["mismatch_reasons"],
+        "mismatch_counts_by_reason": mismatch_summary["mismatch_counts_by_reason"],
+        "triage_hints": mismatch_summary["triage_hints"],
+        "pythonhashseed": mismatch_summary["pythonhashseed"],
         "original_prediction_agreement": {
             "status": overall_agreement,
             "matched": (True if overall_agreement == "MATCHED" else (False if overall_agreement in ("MISMATCH", "INSUFFICIENT_REPLAY_EVIDENCE") else None)),
             "join_keys": ["checkpoint_sha256", "rendered_input_sha256", "world_id", "decoder"],
             "checked_cases": sum(r["original_prediction_agreement"]["checked_cases"] for r in lineage_reports),
             "mismatches": all_agree_mismatches,
+            "mismatch_reasons": mismatch_summary["mismatch_reasons"],
+            "mismatch_counts_by_reason": mismatch_summary["mismatch_counts_by_reason"],
+            "triage_hints": mismatch_summary["triage_hints"],
+            "pythonhashseed": mismatch_summary["pythonhashseed"],
             **({"supported_recovery_path": rec_paths[0]} if rec_paths else {}),
         },
         **({"supported_recovery_path": rec_paths[0]} if rec_paths else {}),
@@ -707,11 +793,32 @@ def independent_replay_bundle(
         _atomic_write(op, (json.dumps(receipt, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("utf-8"))
         _sync_dir(op.parent)
     if not verified:
-        raise ValueError(f"independent bundle replay failed: {defects}")
+        msg = f"independent bundle replay failed: {defects}"
+        if mismatch_summary["mismatch_reasons"]:
+            first_m = all_agree_mismatches[0] if all_agree_mismatches else {}
+            msg += (
+                f" | mismatch_reasons={mismatch_summary['mismatch_reasons']}"
+                f" | first_mismatch={{'world_id': {first_m.get('world_id')!r}, "
+                f"'reason': {first_m.get('reason')!r}, 'expected': {first_m.get('expected')!r}, "
+                f"'observed': {first_m.get('observed')!r}}}"
+                f" | pythonhashseed={mismatch_summary['pythonhashseed']!r}"
+            )
+            if mismatch_summary["triage_hints"]:
+                msg += f" | hint={mismatch_summary['triage_hints'][0]}"
+        raise ReplayVerificationError(
+            msg,
+            receipt=receipt,
+            defects=defects,
+            mismatches=all_agree_mismatches,
+            mismatch_reasons=mismatch_summary["mismatch_reasons"],
+            mismatch_counts_by_reason=mismatch_summary["mismatch_counts_by_reason"],
+            triage_hints=mismatch_summary["triage_hints"],
+        )
     return receipt
 
 
 __all__ = [
+    "ReplayVerificationError",
     "build_custody_receipt",
     "independent_replay_bundle",
 ]

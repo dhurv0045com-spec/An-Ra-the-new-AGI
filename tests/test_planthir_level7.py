@@ -649,3 +649,129 @@ def test_level7_multi_stage_paired_arm_preflight_scoping_dedup_and_orchestrator(
             require_unique_without_scope=False,
             fail_on_arm_collision=True,
         )
+
+
+def test_level7_checkpoint_long_path_and_replay_mismatch_diagnostics(tmp_path: Path) -> None:
+    from anra_v5.palantiri import ReplayVerificationError, explain_error_code, independent_replay_bundle
+    from anra_v5.planthir.checkpoint_intelligence import CheckpointCatalog
+    from anra_v5.planthir.evidence import _collect_checkpoint_lineages, _verify_local_checkpoint_streaming
+    from anra_v5.planthir.archives import win_long_path
+
+    # 1. Deep nested Windows path (>275 chars to objects/<sha>/manifest.json) succeeds cleanly
+    deep_root = (
+        tmp_path
+        / ("d_" + "a" * 34)
+        / ("d_" + "b" * 34)
+        / ("d_" + "c" * 34)
+        / ("d_" + "d" * 34)
+        / ("d_" + "e" * 34)
+        / ("d_" + "f" * 34)
+    )
+    win_long_path(deep_root).mkdir(parents=True, exist_ok=True)
+    model = _TinyAMPMLP()
+    spec = GenericModelSpec("tiny_lp", {"dim": 4}, sum(p.numel() for p in model.parameters()), "demo_lp")
+    recipe = GenericTrainRecipe(seed=7, total_updates=4, batch_size=2, micro_batch_size=1, lr=1e-3, precision="fp32")
+    items = [(torch.ones(4), idx % 2) for idx in range(4)]
+
+    def _loss(m: nn.Module, batch: list[tuple[torch.Tensor, int]], _rec: GenericTrainRecipe) -> torch.Tensor:
+        xs = torch.stack([b[0] for b in batch])
+        ys = torch.tensor([b[1] for b in batch], dtype=torch.int64)
+        return F.cross_entropy(m(xs), ys)
+
+    trainer = GenericExperimentTrainer(
+        backend_id="demo_lp",
+        model=model,
+        model_spec=spec,
+        recipe=recipe,
+        loss_fn=_loss,
+        items=items,
+        data_provenance={"dataset_name": "tiny_lp"},
+        order_seed=7,
+        source_commit="9" * 40,
+        root=deep_root,
+        lineage="main",
+        device="cpu",
+        cpu_canary=True,
+    )
+    trainer.step()
+    sha1 = trainer.save()
+    trainer.step()
+    sha2 = trainer.save()
+    manifest_len = len(str(trainer.store.objects / sha2 / "manifest.json"))
+    assert manifest_len > 275, f"expected deep manifest path > 275 chars, got {manifest_len}"
+
+    latest_sha = trainer.store.latest_sha256()
+    assert latest_sha == sha2
+    restored_state, _ = trainer.store.restore(sha2)
+    assert restored_state.global_update == 2
+    assert _verify_local_checkpoint_streaming(trainer.store, sha2).global_update == 2
+    trainer.store.prune(keep=set())
+    assert sha1 in set() or trainer.store.latest_sha256() == sha2
+
+    lineages = _collect_checkpoint_lineages(deep_root)
+    assert "main" in lineages and lineages["main"]["latest_sha256"] == sha2
+    catalog = CheckpointCatalog.discover_checkpoints([deep_root], include_all_generations=True)
+    assert any(r.checkpoint_sha256 == sha2 for r in catalog.records)
+
+    # 2. Structured ORIGINAL_PREDICTION_MISMATCH diagnostics in ReplayVerificationError & CLI stdout/stderr
+    assert explain_error_code("ORIGINAL_PREDICTION_MISMATCH")["known"] is True
+    cli_dir = tmp_path / "replay_diag"
+    cli_spec = cli_dir / "spec.json"
+    cli_run = cli_dir / "run"
+    _run_cli(["init", "--backend", "v8", "--out", str(cli_spec)])
+    _run_cli(["run", "--spec", str(cli_spec), "--work-root", str(cli_run), "--canary", "--device", "cpu"])
+    bdir = cli_run / "result_bundle"
+
+    cohort = json.loads((bdir / "REPLAY_COHORT.json").read_text(encoding="utf-8"))
+    ev_worlds = cohort["worlds"]
+    arch_refs = cohort["reference_predictions"]
+    lin_0 = sorted(arch_refs)[0]
+
+    tampered_refs = json.loads(json.dumps(arch_refs))
+    tampered_refs[lin_0][0]["operation"] = "BOGUS_OP"
+    with pytest.raises(ReplayVerificationError) as exc_info:
+        independent_replay_bundle(bdir, worlds=ev_worlds, reference_predictions=tampered_refs)
+    assert isinstance(exc_info.value, ValueError)
+    assert exc_info.value.mismatch_reasons == ["PREDICTION_MISMATCH"]
+    assert exc_info.value.mismatch_counts_by_reason["PREDICTION_MISMATCH"] >= 1
+    assert exc_info.value.triage_hints
+
+    alt_idx = next(i for i in range(1, len(ev_worlds)) if ev_worlds[i] != ev_worlds[0])
+    bad_worlds = json.loads(json.dumps(ev_worlds))
+    bad_worlds[0] = {**ev_worlds[alt_idx], "world_id": ev_worlds[0]["world_id"]}
+    bad_worlds_path = cli_dir / "bad_worlds.json"
+    bad_worlds_path.write_text(json.dumps(bad_worlds), encoding="utf-8")
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(REPO_ROOT)
+    env["PYTHONHASHSEED"] = "0"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "anra_v5.palantiri",
+            "replay-bundle",
+            "--bundle-dir",
+            str(bdir),
+            "--worlds-json",
+            str(bad_worlds_path),
+        ],
+        cwd=str(REPO_ROOT),
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert proc.returncode == 1
+    cli_err = json.loads(proc.stdout)
+    assert cli_err["verified"] is False
+    assert cli_err["error"] == "ReplayVerificationError"
+    assert "ORIGINAL_PREDICTION_MISMATCH" in cli_err["detail"]
+    assert cli_err["mismatch_reasons"] == ["RENDERED_INPUT_HASH_MISMATCH"]
+    assert cli_err["mismatch_counts_by_reason"]["RENDERED_INPUT_HASH_MISMATCH"] >= 1
+    assert len(cli_err["mismatches"]) >= 1
+    assert any("PYTHONHASHSEED" in h for h in cli_err["triage_hints"])
+    assert cli_err["pythonhashseed"] == "0"
+    assert "ORIGINAL_PREDICTION_MISMATCH" in proc.stderr
+    assert "RENDERED_INPUT_HASH_MISMATCH" in proc.stderr
+    assert "PYTHONHASHSEED" in proc.stderr

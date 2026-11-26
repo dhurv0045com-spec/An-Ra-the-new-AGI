@@ -31,7 +31,7 @@ from .cartridge import CartridgeRunner
 from .evidence import DEFAULT_RESULT_ZIP_MAX_BYTES, resolve_published_generation, verify_result_bundle
 from .instrument import run_fault_injection_suite, run_level7_runtime_shield_suite
 from .registry import build_historical_atlas
-from .replay import build_custody_receipt, independent_replay_bundle
+from .replay import ReplayVerificationError, build_custody_receipt, independent_replay_bundle
 from .validation_study import (
     run_exp_004_live_gpu_cartridge_validation,
     run_validation_study,
@@ -361,6 +361,47 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             _emit(receipt)
             return 0 if receipt["verified"] else 1
+        except ReplayVerificationError as exc:
+            msg = str(exc)
+            rec_status = str(exc.receipt.get("status", ""))
+            if "INSUFFICIENT_REPLAY_EVIDENCE" in msg or rec_status == "INSUFFICIENT_REPLAY_EVIDENCE":
+                err_payload: dict[str, Any] = {
+                    "verified": False,
+                    "status": "INSUFFICIENT_REPLAY_EVIDENCE",
+                    "error": type(exc).__name__,
+                    "detail": msg,
+                    "defects": exc.defects,
+                    "supported_recovery_path": exc.receipt.get(
+                        "supported_recovery_path",
+                        "Re-export bundle with current Planthir (embedding REPLAY_COHORT.json) "
+                        "or supply --worlds-json / explicit reference_predictions.",
+                    ),
+                }
+            else:
+                err_payload = {
+                    "verified": False,
+                    "status": rec_status or "REPLAY_FAILED",
+                    "error": type(exc).__name__,
+                    "detail": msg,
+                    "defects": exc.defects,
+                    "mismatch_reasons": exc.mismatch_reasons,
+                    "mismatch_counts_by_reason": exc.mismatch_counts_by_reason,
+                    "total_mismatch_count": len(exc.mismatches),
+                    "mismatches": exc.mismatches[:10],
+                    "triage_hints": exc.triage_hints,
+                    "pythonhashseed": os.environ.get("PYTHONHASHSEED"),
+                }
+            _emit(err_payload)
+            if exc.mismatch_reasons:
+                first_m = exc.mismatches[0] if exc.mismatches else {}
+                hint = exc.triage_hints[0] if exc.triage_hints else ""
+                print(
+                    f"[replay-bundle] ORIGINAL_PREDICTION_MISMATCH reasons={exc.mismatch_reasons} "
+                    f"first_world={first_m.get('world_id')!r} first_reason={first_m.get('reason')!r} "
+                    f"PYTHONHASHSEED={os.environ.get('PYTHONHASHSEED')!r} hint={hint}",
+                    file=sys.stderr,
+                )
+            return 1
         except Exception as exc:
             msg = str(exc)
             if "INSUFFICIENT_REPLAY_EVIDENCE" in msg:

@@ -181,7 +181,7 @@ from .productivity import (
     default_protocol_manifest,
 )
 from .registry import PlanthirRegistry, build_historical_atlas
-from .replay import build_custody_receipt, independent_replay_bundle
+from .replay import ReplayVerificationError, build_custody_receipt, independent_replay_bundle
 from .reporting import (
     build_analyst_first_page_report,
     build_verification_matrix,
@@ -392,6 +392,7 @@ __all__ = [
     "register_backend",
     "render_campaign_dashboard",
     "render_campaign_results_markdown",
+    "ReplayVerificationError",
     "rescore_compact_analysis_archive",
     "resolve_published_generation",
     "run_compute_depth_scaling_intervention",

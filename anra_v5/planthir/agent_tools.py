@@ -1483,6 +1483,13 @@ _ERROR_CATALOG: dict[str, dict[str, Any]] = {
         "meaning": "Running with `device='cuda'` requires a clean git tracked working tree matching `source_commit`.",
         "remediation": ["Commit tracked edits (`git commit ...`), set `source_commit` to `HEAD`, and retry CUDA run."],
     },
+    "ORIGINAL_PREDICTION_MISMATCH": {
+        "meaning": "Independent bundle replay disagreed with archived reference predictions/observations on one or more cohort cases.",
+        "remediation": [
+            "Inspect `mismatch_reasons`, `mismatch_counts_by_reason`, `mismatches`, `triage_hints`, and `pythonhashseed` emitted by `replay-bundle`.",
+            "Pin `PYTHONHASHSEED=0` across training and replay subprocesses, eliminate unordered set/dict rendering nondeterminism, and verify `policy.reset_episode()` + `eval()` mode.",
+        ],
+    },
 }
 
 

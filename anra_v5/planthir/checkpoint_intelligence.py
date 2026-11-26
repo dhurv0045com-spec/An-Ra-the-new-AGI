@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, fields
 from hashlib import sha256
 import json
+import os
 from pathlib import Path, PurePosixPath
 import shutil
 import tempfile
@@ -25,6 +26,7 @@ from v5_training.checkpoint import CheckpointStore, MILESTONES_FILENAME
 from v5_training.state import TrainingState
 
 from .adapters.v8_adapter import V8ObservablePolicy
+from .archives import win_long_path
 from .contracts import UniversalAction, UniversalObservation
 from .evidence import verify_single_planthir_zip
 
@@ -63,24 +65,34 @@ class CheckpointRecord:
         return asdict(self)
 
 
+def _strip_win_long_prefix(path: Path) -> str:
+    s = str(path)
+    if s.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + s[8:]
+    if s.startswith("\\\\?\\"):
+        return s[4:]
+    return s
+
+
 def _resolve_store_for_lineage_dir(lineage_dir: Path, sample_sha: str | None = None) -> CheckpointStore | None:
     """Resolve the (root, lineage_id) pair matching an on-disk CheckpointStore lineage directory."""
 
-    lineage_id = lineage_dir.name
-    candidates = [lineage_dir.parent, lineage_dir.parent.parent]
-    resolved_dir = lineage_dir.resolve()
+    ldir_clean = Path(_strip_win_long_prefix(lineage_dir))
+    lineage_id = ldir_clean.name
+    candidates = [ldir_clean.parent, ldir_clean.parent.parent]
+    resolved_str = os.path.normcase(os.path.abspath(str(ldir_clean)))
     for cand_root in candidates:
         try:
             store = CheckpointStore(cand_root, lineage_id)
         except ValueError:
             continue
-        if store.lineage_root.resolve() != resolved_dir:
+        if os.path.normcase(os.path.abspath(_strip_win_long_prefix(store.lineage_root))) != resolved_str:
             continue
         if sample_sha is None:
-            if store.objects.is_dir() or (lineage_dir / "LATEST").is_file():
+            if win_long_path(store.objects).is_dir() or win_long_path(ldir_clean / "LATEST").is_file():
                 return store
         else:
-            if (store.objects / sample_sha / "manifest.json").is_file():
+            if win_long_path(store.objects / sample_sha / "manifest.json").is_file():
                 return store
     return None
 
@@ -222,10 +234,11 @@ def _build_record_from_object_dir(
     milestone_shas: set[str],
     nearby_metrics: Mapping[str, Any],
 ) -> CheckpointRecord | None:
-    sha = obj_dir.name
-    state_path = obj_dir / "training_state.json"
-    sched_path = obj_dir / "scheduler.json"
-    manifest_path = obj_dir / "manifest.json"
+    obj_fs = win_long_path(obj_dir)
+    sha = obj_fs.name
+    state_path = obj_fs / "training_state.json"
+    sched_path = obj_fs / "scheduler.json"
+    manifest_path = obj_fs / "manifest.json"
     if not (state_path.is_file() and sched_path.is_file() and manifest_path.is_file()):
         return None
     try:
@@ -275,8 +288,8 @@ def _safe_extract_members(
 ) -> None:
     """Extract specific ZIP members into dest_dir while rejecting path traversal."""
 
-    dest_root = dest_dir.resolve()
-    dest_root.mkdir(parents=True, exist_ok=True)
+    dest_root = Path(os.path.abspath(_strip_win_long_prefix(dest_dir)))
+    win_long_path(dest_root).mkdir(parents=True, exist_ok=True)
     for member in members:
         if member.endswith("/"):
             continue
@@ -285,11 +298,14 @@ def _safe_extract_members(
         p = PurePosixPath(member)
         if p.is_absolute() or ".." in p.parts or any(part == "" for part in p.parts):
             raise ValueError(f"unsafe archive member path: {member!r}")
-        target = (dest_root / Path(*p.parts)).resolve()
-        if target != dest_root and dest_root not in target.parents:
+        target = Path(os.path.abspath(str(dest_root / Path(*p.parts))))
+        if os.path.normcase(str(target)) != os.path.normcase(str(dest_root)) and os.path.commonpath(
+            [os.path.normcase(str(dest_root)), os.path.normcase(str(target))]
+        ) != os.path.normcase(str(dest_root)):
             raise ValueError(f"archive member escapes destination directory: {member!r}")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with zf.open(member, "r") as src, target.open("wb") as dst:
+        target_fs = win_long_path(target)
+        target_fs.parent.mkdir(parents=True, exist_ok=True)
+        with zf.open(member, "r") as src, target_fs.open("wb") as dst:
             shutil.copyfileobj(src, dst)
 
 
@@ -430,8 +446,9 @@ def _restore_compact_fp16_object(
         "ledger.json",
         "rng.bin",
     )
-    manifest_path = obj_dir / "manifest.json"
-    fp16_path = obj_dir / "model_fp16.bin"
+    obj_fs = win_long_path(obj_dir)
+    manifest_path = obj_fs / "manifest.json"
+    fp16_path = obj_fs / "model_fp16.bin"
     if not (manifest_path.is_file() and fp16_path.is_file()):
         raise ValueError(f"compact checkpoint object missing manifest.json or model_fp16.bin in {obj_dir}")
 
@@ -448,7 +465,7 @@ def _restore_compact_fp16_object(
             raise ValueError(f"compact checkpoint manifest missing component: {req_name}")
 
     for comp_name, item in comp_map.items():
-        comp_path = obj_dir / comp_name
+        comp_path = obj_fs / comp_name
         if comp_name in ("model.bin", "optimizer.bin") and not comp_path.exists():
             continue
         if not comp_path.is_file():
@@ -463,7 +480,7 @@ def _restore_compact_fp16_object(
     if state.sha256() != manifest.get("state_sha256"):
         raise ValueError("compact checkpoint TrainingState SHA-256 mismatch")
 
-    sched = json.loads((obj_dir / "scheduler.json").read_text(encoding="utf-8"))
+    sched = json.loads((obj_fs / "scheduler.json").read_text(encoding="utf-8"))
     fp16_weights = _load(fp16_path.read_bytes())
     if not isinstance(fp16_weights, Mapping):
         raise ValueError("model_fp16.bin did not deserialize to a state_dict mapping")
@@ -471,7 +488,7 @@ def _restore_compact_fp16_object(
         key: (val.float() if isinstance(val, torch.Tensor) and torch.is_floating_point(val) else val)
         for key, val in fp16_weights.items()
     }
-    payload_keys = [p.name for p in obj_dir.iterdir() if p.is_file()]
+    payload_keys = [p.name for p in obj_fs.iterdir() if p.is_file()]
     return _instantiate_checkpoint_bundle(
         sha=expected_sha,
         state=state,
@@ -508,18 +525,19 @@ class CheckpointCatalog:
         lineage_dirs_seen: set[Path] = set()
 
         for raw_root in roots:
-            root = Path(raw_root)
+            root = win_long_path(raw_root)
             if not root.exists():
                 continue
             for latest_path in sorted(root.rglob("LATEST")):
                 if latest_path.is_file():
-                    lineage_dirs_seen.add(latest_path.parent.resolve())
+                    lineage_dirs_seen.add(Path(_strip_win_long_prefix(latest_path.parent)))
             for ms_path in sorted(root.rglob(MILESTONES_FILENAME)):
                 if ms_path.is_file():
-                    lineage_dirs_seen.add(ms_path.parent.resolve())
+                    lineage_dirs_seen.add(Path(_strip_win_long_prefix(ms_path.parent)))
 
         for lineage_dir in sorted(lineage_dirs_seen):
-            latest_file = lineage_dir / "LATEST"
+            ldir_fs = win_long_path(lineage_dir)
+            latest_file = ldir_fs / "LATEST"
             latest_sha: str | None = None
             if latest_file.is_file():
                 cand = latest_file.read_text(encoding="ascii", errors="ignore").strip()
@@ -527,7 +545,7 @@ class CheckpointCatalog:
                     latest_sha = cand
 
             milestone_shas: set[str] = set()
-            ms_file = lineage_dir / MILESTONES_FILENAME
+            ms_file = ldir_fs / MILESTONES_FILENAME
             if ms_file.is_file():
                 try:
                     ms_doc = json.loads(ms_file.read_text(encoding="utf-8"))
@@ -542,23 +560,24 @@ class CheckpointCatalog:
             if store is None:
                 continue
 
-            nearby_metrics = _read_nearby_metrics(lineage_dir)
+            nearby_metrics = _read_nearby_metrics(ldir_fs)
             target_shas: list[str]
-            if include_all_generations and store.objects.is_dir():
+            store_objs_fs = win_long_path(store.objects)
+            if include_all_generations and store_objs_fs.is_dir():
                 target_shas = [
                     child.name
-                    for child in sorted(store.objects.iterdir())
+                    for child in sorted(store_objs_fs.iterdir())
                     if child.is_dir() and _is_sha256(child.name)
                 ]
             else:
                 target_shas = sorted(({latest_sha} if latest_sha else set()) | milestone_shas)
 
             for sha in target_shas:
-                key = (str(store.lineage_root.resolve()), sha)
+                key = (os.path.normcase(os.path.abspath(_strip_win_long_prefix(store.lineage_root))), sha)
                 if key in seen_keys:
                     continue
                 obj_dir = store.objects / sha
-                if not obj_dir.is_dir():
+                if not win_long_path(obj_dir).is_dir():
                     continue
                 rec = _build_record_from_object_dir(
                     store,
@@ -869,9 +888,10 @@ class CheckpointCatalog:
             staged.rename(dest)
 
         checkpoints_root = dest / "checkpoints"
+        checkpoints_root_fs = win_long_path(checkpoints_root)
         verified_lineages: list[dict[str, Any]] = []
-        if checkpoints_root.is_dir():
-            for ldir in sorted(p for p in checkpoints_root.iterdir() if p.is_dir()):
+        if checkpoints_root_fs.is_dir():
+            for ldir in sorted(p for p in checkpoints_root_fs.iterdir() if p.is_dir()):
                 if not ((ldir / "LATEST").is_file() or (ldir / MILESTONES_FILENAME).is_file()):
                     continue
                 store = CheckpointStore(checkpoints_root, ldir.name)
@@ -880,8 +900,9 @@ class CheckpointCatalog:
                     raise ValueError(f"restored lineage missing LATEST commit: {ldir.name}")
                 latest_state, _ = store.restore(latest_sha)
                 object_count = 0
-                if store.objects.is_dir():
-                    for obj in sorted(store.objects.iterdir()):
+                objs_fs = win_long_path(store.objects)
+                if objs_fs.is_dir():
+                    for obj in sorted(objs_fs.iterdir()):
                         if obj.is_dir():
                             store.restore(obj.name)
                             object_count += 1

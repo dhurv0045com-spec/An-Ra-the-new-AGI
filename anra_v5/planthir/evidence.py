@@ -21,6 +21,7 @@ from v5_training.checkpoint import (CheckpointStore, MILESTONES_FILENAME, MANIFE
                                     REQUIRED_COMPONENTS, _canonical_json)
 from v5_training.state import TrainingState
 
+from .archives import win_long_path
 from .causal import _eval_ridge_classifier, _fit_ridge_classifier
 from .contracts import ExperimentRegistration
 from .execution import _atomic_replace, _atomic_write, _sync_dir, trigger_fault_point
@@ -477,7 +478,7 @@ def _bytes_sha256(raw: bytes) -> tuple[str, int]:
 def _file_sha256(path: Path) -> tuple[str, int]:
     h = sha256()
     size = 0
-    with path.open("rb") as fh:
+    with win_long_path(path).open("rb") as fh:
         while True:
             chunk = fh.read(65536)
             if not chunk:
@@ -541,7 +542,7 @@ def _write_verified_zip(
                         h.update(raw)
                         size = len(raw)
                     else:
-                        with Path(src).open("rb") as inp:
+                        with win_long_path(Path(src)).open("rb") as inp:
                             while chunk := inp.read(1024 * 1024):
                                 dst.write(chunk)
                                 h.update(chunk)
@@ -595,7 +596,7 @@ def _verify_local_checkpoint_streaming(store: CheckpointStore, sha: str) -> Trai
     """Verify a local v1 checkpoint without materializing model or optimizer bytes."""
     if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
         raise ValueError("invalid checkpoint SHA-256")
-    obj = store.objects / sha
+    obj = win_long_path(store.objects / sha)
     manifest_path = obj / "manifest.json"
     if obj.is_symlink() or manifest_path.is_symlink() or not manifest_path.is_file():
         raise ValueError("checkpoint manifest is missing")
@@ -629,34 +630,45 @@ def _verify_local_checkpoint_streaming(store: CheckpointStore, sha: str) -> Trai
     return state
 
 
+def _strip_win_long_prefix(path: Path) -> str:
+    s = str(path)
+    if s.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + s[8:]
+    if s.startswith("\\\\?\\"):
+        return s[4:]
+    return s
+
+
 def _collect_checkpoint_lineages(checkpoint_root: Path | None) -> dict[str, dict[str, Any]]:
     lineages: dict[str, dict[str, Any]] = {}
-    if checkpoint_root is None or not Path(checkpoint_root).exists():
+    if checkpoint_root is None or not win_long_path(checkpoint_root).exists():
         return lineages
-    ckpt_root = Path(checkpoint_root)
-    candidate_dirs: list[Path] = [p for p in sorted(ckpt_root.iterdir()) if p.is_dir()]
+    ckpt_root = Path(_strip_win_long_prefix(win_long_path(checkpoint_root)))
+    candidate_dirs: list[Path] = [p for p in sorted(win_long_path(ckpt_root).iterdir()) if p.is_dir()]
     for ldir in candidate_dirs:
+        ldir_clean = Path(_strip_win_long_prefix(ldir))
         if not ((ldir / "LATEST").is_file() or (ldir / MILESTONES_FILENAME).is_file()):
             continue
-        store = CheckpointStore(ckpt_root, ldir.name)
+        store = CheckpointStore(ckpt_root, ldir_clean.name)
         latest_sha = store.latest_sha256()
         if latest_sha is None:
             continue
         # Verify committed checkpoint integrity before packaging
         state = _verify_local_checkpoint_streaming(store, latest_sha)
-        obj_dir = store.objects / latest_sha
+        obj_dir = win_long_path(store.objects / latest_sha)
         model_payload = obj_dir / "model.bin"
         sched = json.loads((obj_dir / "scheduler.json").read_bytes())
 
         compact_files: dict[str, Path | bytes] = {
-            f"checkpoints/{ldir.name}/LATEST": ldir / "LATEST",
+            f"checkpoints/{ldir_clean.name}/LATEST": win_long_path(ldir_clean / "LATEST"),
         }
         fp16_files: dict[str, Path | bytes] = {
-            f"checkpoints/{ldir.name}/objects/{latest_sha}/model_fp16.bin": model_payload,
+            f"checkpoints/{ldir_clean.name}/objects/{latest_sha}/model_fp16.bin": model_payload,
         }
         if (ldir / MILESTONES_FILENAME).is_file():
-            compact_files[f"checkpoints/{ldir.name}/{MILESTONES_FILENAME}"] = ldir / MILESTONES_FILENAME
-        obj_dir = store.objects / latest_sha
+            compact_files[f"checkpoints/{ldir_clean.name}/{MILESTONES_FILENAME}"] = win_long_path(
+                ldir_clean / MILESTONES_FILENAME
+            )
         for fname in (
             "manifest.json",
             "training_state.json",
@@ -667,21 +679,22 @@ def _collect_checkpoint_lineages(checkpoint_root: Path | None) -> dict[str, dict
         ):
             fp = obj_dir / fname
             if fp.is_file():
-                compact_files[f"checkpoints/{ldir.name}/objects/{latest_sha}/{fname}"] = fp
+                compact_files[f"checkpoints/{ldir_clean.name}/objects/{latest_sha}/{fname}"] = fp
 
         latest_full_files: dict[str, Path | bytes] = {
-            f"checkpoints/{ldir.name}/objects/{latest_sha}/model.bin": obj_dir / "model.bin",
-            f"checkpoints/{ldir.name}/objects/{latest_sha}/optimizer.bin": obj_dir / "optimizer.bin",
+            f"checkpoints/{ldir_clean.name}/objects/{latest_sha}/model.bin": obj_dir / "model.bin",
+            f"checkpoints/{ldir_clean.name}/objects/{latest_sha}/optimizer.bin": obj_dir / "optimizer.bin",
         }
 
         all_store_files: dict[str, Path] = {}
-        for item in sorted(ldir.rglob("*")):
+        for item in sorted(win_long_path(ldir_clean).rglob("*")):
             if item.is_file():
-                arc = f"checkpoints/{ldir.name}/{item.relative_to(ldir).as_posix()}"
+                rel_posix = Path(os.path.relpath(_strip_win_long_prefix(item), str(ldir_clean))).as_posix()
+                arc = f"checkpoints/{ldir_clean.name}/{rel_posix}"
                 all_store_files[arc] = item
 
-        lineages[ldir.name] = {
-            "lineage_id": ldir.name,
+        lineages[ldir_clean.name] = {
+            "lineage_id": ldir_clean.name,
             "latest_sha256": latest_sha,
             "global_update": int(state.global_update),
             "cumulative_tokens": int(state.cumulative_tokens),

@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path, PureWindowsPath
 from typing import Callable, Mapping
 
-from .checkpoint_lock import checkpoint_writer
+from .checkpoint_lock import _win_long_path, checkpoint_writer
 from .distributed_checkpoint import (
     DISTRIBUTED_CHECKPOINT_SCHEMA,
     DISTRIBUTED_COMPONENTS,
@@ -59,8 +59,9 @@ def _sha256(payload: bytes) -> str:
 
 
 def _write_sync(path: Path, payload: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("xb") as handle:
+    lp = _win_long_path(path)
+    lp.parent.mkdir(parents=True, exist_ok=True)
+    with lp.open("xb") as handle:
         handle.write(payload)
         handle.flush()
         os.fsync(handle.fileno())
@@ -92,7 +93,12 @@ class CheckpointStore:
     def __init__(self, root: Path, lineage_id: str, *,
                  payload_validator: Callable[[TrainingState, Mapping[str, bytes]], None] | None = None) -> None:
         _validate_lineage_id(lineage_id)
-        self.root = root.resolve()
+        root_str = str(root)
+        raw_abs = os.path.abspath(root_str)
+        if os.name == "nt" and (root_str.startswith("\\\\?\\") or len(raw_abs) >= 240):
+            self.root = Path(root_str) if root_str.startswith("\\\\?\\") else Path(raw_abs)
+        else:
+            self.root = root.resolve()
         self.lineage_id = lineage_id
         self.lineage_root = self.root / lineage_id
         self.objects = self.lineage_root / "objects"
@@ -100,12 +106,13 @@ class CheckpointStore:
         # Opt-in semantic decoder for new formats. Legacy manifests and payloads
         # remain byte-identical; a new trainer must validate before publication.
         self.payload_validator = payload_validator
-        self.objects.mkdir(parents=True, exist_ok=True)
+        _win_long_path(self.objects).mkdir(parents=True, exist_ok=True)
 
     def latest_sha256(self) -> str | None:
-        if not self.latest.exists():
+        latest_fs = _win_long_path(self.latest)
+        if not latest_fs.exists():
             return None
-        value = self.latest.read_text(encoding="ascii").strip()
+        value = latest_fs.read_text(encoding="ascii").strip()
         if len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
             raise ValueError("LATEST pointer is corrupt")
         return value
@@ -170,9 +177,10 @@ class CheckpointStore:
                 raise ValueError("semantic checkpoint lineage cannot regress or change identities")
 
         staging = self.lineage_root / f".staging-{state.generation}"
-        if staging.exists():
+        staging_fs = _win_long_path(staging)
+        if staging_fs.exists():
             raise ValueError("staging generation already exists; recovery must resolve it")
-        staging.mkdir(parents=True)
+        staging_fs.mkdir(parents=True)
         components: list[Component] = []
         for name in sorted(payloads):
             payload = bytes(payloads[name])
@@ -193,18 +201,19 @@ class CheckpointStore:
         _write_sync(staging / "manifest.json", manifest_bytes)
         if inject_crash_at == "after_manifest":
             raise InjectedCrash(inject_crash_at)
-        self._verify_directory(staging, expected_sha256=checkpoint_sha256)
+        self._verify_directory(staging_fs, expected_sha256=checkpoint_sha256)
         if inject_crash_at == "after_stage":
             raise InjectedCrash("after_stage")
 
         destination = self.objects / checkpoint_sha256
-        if destination.exists():
-            self._verify_directory(destination, expected_sha256=checkpoint_sha256)
-            for path in staging.iterdir():
+        dest_fs = _win_long_path(destination)
+        if dest_fs.exists():
+            self._verify_directory(dest_fs, expected_sha256=checkpoint_sha256)
+            for path in staging_fs.iterdir():
                 path.unlink()
-            staging.rmdir()
+            staging_fs.rmdir()
         else:
-            os.replace(staging, destination)
+            os.replace(staging_fs, dest_fs)
         if inject_crash_at == "after_publish_before_pointer":
             raise InjectedCrash("after_publish_before_pointer")
 
@@ -217,8 +226,8 @@ class CheckpointStore:
             # fallback that might hide a corrupt head. Use an explicit SHA.
             previous_tmp = self.lineage_root / f".PREVIOUS-{state.generation}"
             _write_sync(previous_tmp, f"{current}\n".encode("ascii"))
-            os.replace(previous_tmp, self.lineage_root / "PREVIOUS")
-        os.replace(pointer_tmp, self.latest)
+            os.replace(_win_long_path(previous_tmp), _win_long_path(self.lineage_root / "PREVIOUS"))
+        os.replace(_win_long_path(pointer_tmp), _win_long_path(self.latest))
         if inject_crash_at == "after_pointer":
             raise InjectedCrash("after_pointer")
         return checkpoint_sha256
@@ -273,23 +282,24 @@ class CheckpointStore:
         head = self.latest_sha256()
         if head is not None:
             protected.add(head)
-        previous = self.lineage_root / "PREVIOUS"
+        previous = _win_long_path(self.lineage_root / "PREVIOUS")
         if previous.exists():
             identity = previous.read_text(encoding="ascii").strip()
             _validate_checkpoint_sha(identity)
             protected.add(identity)
         keep = set(keep) | protected
         removed: list[str] = []
-        if not self.objects.exists():
+        objects_fs = _win_long_path(self.objects)
+        if not objects_fs.exists():
             return removed
-        for child in sorted(self.objects.iterdir()):
+        for child in sorted(objects_fs.iterdir()):
             if not child.is_dir() or child.name in keep:
                 continue
             if len(child.name) != 64 or any(
                 c not in "0123456789abcdef" for c in child.name
             ):
                 continue
-            shutil.rmtree(child)
+            shutil.rmtree(_win_long_path(child))
             removed.append(child.name)
         return removed
 
@@ -324,7 +334,7 @@ class CheckpointStore:
         payload = _canonical_json(milestones)
         staging = self.lineage_root / f".{MILESTONES_FILENAME}.tmp"
         _write_sync(staging, payload)
-        os.replace(staging, self.lineage_root / MILESTONES_FILENAME)
+        os.replace(_win_long_path(staging), _win_long_path(self.lineage_root / MILESTONES_FILENAME))
         return dict(milestones)
 
     def protected_shas(self) -> list[str]:
@@ -333,7 +343,7 @@ class CheckpointStore:
         return list(self._read_milestones()["milestones"].values())
 
     def _read_milestones(self) -> dict[str, object]:
-        path = self.lineage_root / MILESTONES_FILENAME
+        path = _win_long_path(self.lineage_root / MILESTONES_FILENAME)
         if not path.exists():
             return {"schema": MILESTONES_SCHEMA, "lineage_id": self.lineage_id,
                     "milestones": {}}
@@ -447,7 +457,7 @@ class CheckpointStore:
     def _manifest_schema_for_sha(self, checkpoint_sha256: str) -> str:
         """Read the content-addressed parent format without rereading model weights."""
 
-        manifest_path = self.objects / checkpoint_sha256 / "manifest.json"
+        manifest_path = _win_long_path(self.objects / checkpoint_sha256 / "manifest.json")
         if manifest_path.is_symlink() or manifest_path.parent.is_symlink() or not manifest_path.is_file():
             raise ValueError("checkpoint parent manifest is missing")
         manifest_bytes = manifest_path.read_bytes()
@@ -493,8 +503,9 @@ class CheckpointStore:
     def _verify_directory(
         self, directory: Path, *, expected_sha256: str
     ) -> tuple[TrainingState, dict[str, bytes]]:
-        manifest_path = directory / "manifest.json"
-        if manifest_path.is_symlink() or directory.is_symlink() or not manifest_path.is_file():
+        dir_fs = _win_long_path(directory)
+        manifest_path = dir_fs / "manifest.json"
+        if manifest_path.is_symlink() or dir_fs.is_symlink() or not manifest_path.is_file():
             raise ValueError("checkpoint manifest is missing")
         manifest_bytes = manifest_path.read_bytes()
         if _sha256(manifest_bytes) != expected_sha256:
@@ -516,7 +527,7 @@ class CheckpointStore:
         names = {item["name"] for item in manifest["components"]}
         if names != required_components or len(manifest["components"]) != len(required_components):
             raise ValueError("checkpoint component inventory is incomplete")
-        actual_children = {path.name for path in directory.iterdir()}
+        actual_children = {path.name for path in dir_fs.iterdir()}
         expected_children = set(required_components) | {"manifest.json"}
         if actual_children != expected_children:
             raise ValueError("checkpoint directory contains missing or untracked components")
@@ -524,7 +535,7 @@ class CheckpointStore:
         for item in manifest["components"]:
             if set(item) != {"name", "sha256", "byte_size"}:
                 raise ValueError("component identity fields do not match schema")
-            path = directory / item["name"]
+            path = dir_fs / item["name"]
             if path.is_symlink() or not path.is_file():
                 raise ValueError(f"checkpoint component is missing: {item['name']}")
             payload = path.read_bytes()
