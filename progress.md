@@ -456,3 +456,6 @@ Audited Palantiri Level 7 and the Y5 scheduler. Specified a global confirmation 
 Replaced per-stage cohorts with a two-pass global `CONFIRM_LOCK.json` embargo, batched `_eval_d`, canonical split/graph checks, blind baselines, `B_varied_pointer_vs_ce`, Stage A/F gates, leaf checkpoint compaction, and `avendi_y5` `ExperimentModule` + evidence-only `rescore_evidence`.
 Verified `60 passed` (`tests/test_avendi_y5_*.py`, `test_elendril_tree.py`, `test_planthir_v2_audit_upgrades.py`, `test_planthir_level7.py`), `--smoke` (`FINISHED_WITH_BLOCKS`, 14 rescored), fresh plugin CLI replay (`REPLAY_VERIFIED`), and pinned `notebooks/AVENDI_V8_Y5_T4X2.ipynb` to `7fe64684`.
 
+
+## 2026-11-27 | Codex | Y5 owner experiment audit
+Verified FULL archive membership, digests and checkpoint identities; reconstructed response metrics. Published observed-cohort results, missing Y4 prerequisite and reader panel alias.
