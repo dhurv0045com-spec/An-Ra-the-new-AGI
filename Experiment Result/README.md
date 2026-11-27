@@ -6,6 +6,8 @@ This is a **results folder only**. It is not an instruction to Codex and does no
 
 ## Saved results
 
+- **[V8-X4 owner results](V8-X4/OWNER_RUN_01.md)**. All 81 S20 fits verified. Includes the generator coverage audit, family-only baseline and checkpoint renderer intervention.
+
 - **[V7.17 — S20 optimization and seed investigation](V7.17/f443d3f4141b4163bbc130d46ebd7395/RESULTS.md)**. Eight verified runs; lower LR improves all three matched seeds, while novel chain tasks and alias robustness remain failures.
 
 - **[V6 — Results of all 19 registered panels](V6/RESULTS.md)**: 15 primary evaluations, four exploratory probes, 14 training-arm results, measured failure patterns, limitations, and provenance.

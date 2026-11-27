@@ -489,3 +489,8 @@ Append an entry after each meaningful change, upgrade or execution. Use the loca
 - Fixed 3 pre-flight production landmines: batched C05 O(N) generation in `experiments/x4/battery.py`, compact CPU tensor pre-packing in `experiments/x4/objectives.py` (0 MB idle GPU VRAM), and per-configuration Stage-5 L0-L5/U-trajectory scoping in `experiments/x4/module.py`.
 - Verified all 4 data regimes at full `1,024`-update `batch_size=16` scale on CPU (`2.43s-14.87s`, `124.75-155.22 MB` compact CPU tensors) plus `6 passed in 123.13s` in `tests/test_elendril_x4_reconstruction.py`.
 - Pinned `notebooks/ELENDRIL_V8_X4_KAGGLE_T4X2.ipynb` (`match=true`, `15,699` bytes) to `4e7b59e8fc25f23f731ddf1dd2e19c16600ccc34`; ready for zero-edit Kaggle 2xT4 run.
+
+### 2026-11-27 | Codex | V8-X4 owner results
+- Verified the full archive, 81 receipts and checkpoints, and all 11 registered contrasts.
+- Rebuilt two schedules, tested future-target isolation and rendering sensitivity, and scored a family-only predictor.
+- Filed the report, measured limits and next controlled experiment under Experiment Result/V8-X4.
