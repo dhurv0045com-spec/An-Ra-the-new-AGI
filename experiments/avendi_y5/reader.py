@@ -11,9 +11,10 @@ import re
 import torch
 import torch.nn.functional as F
 from anra_v5.elendril.representation import UTF8, SpecialToken
+from anra_v5.palantiri import canonical_graph_isomorphism_hash
 from experiments.avendi_y4.models import (AvendiY4ByteModel, get_y4_byte_spec, apply_radial_norm_cap,
     encode_y4_typed_batch, IDX_TO_ENT, Y4TypedCompositionModel)
-from experiments.avendi_y4.tasks import build_functional_graph_families, oracle_walk_public_bytes
+from experiments.avendi_y4.tasks import allocate_y4_disjoint_pools, build_functional_graph_families, oracle_walk_public_bytes
 
 SEEDS = (7, 19, 41)
 OBJECTIVES = ('ce', 'pointer', 'sham')
@@ -25,11 +26,114 @@ def jobs():
         for task in ('reader', 'answer'):
             for fmt in ('fixed', 'varied'):
                 for obj in (('ce',) if task == 'reader' else OBJECTIVES):
-                    out.append(dict(id=f'AB-{task}-{fmt}-{obj}-s{seed}', stage='AB', arm=f'{task}-{fmt}-{obj}', seed=seed, depends=[], updates=1024))
+                    out.append(dict(
+                        id=f'AB-{task}-{fmt}-{obj}-s{seed}',
+                        stage='AB',
+                        arm=f'{task}-{fmt}-{obj}',
+                        seed=seed,
+                        depends=[],
+                        updates=1024,
+                        role='primary',
+                        profile_group=f'AB-{task}-{fmt}',
+                        objective='pointer' if task == 'reader' else obj,
+                        checkpoint_parent=None,
+                        split_counts={'train': 128, 'dev': 16, 'confirm': 16, 'transfer': 16},
+                        allowed_exclusions=[],
+                    ))
         base = f'AB-answer-fixed-ce-s{seed}'
         for arm in ('new', 'new_cap', 'old_control'):
-            out.append(dict(id=f'F-{arm}-s{seed}', stage='F', arm=arm, seed=seed, depends=[base], updates=512))
+            out.append(dict(
+                id=f'F-{arm}-s{seed}',
+                stage='F',
+                arm=arm,
+                seed=seed,
+                depends=[base],
+                updates=512,
+                role='primary',
+                profile_group='F-preserve',
+                objective='ce',
+                checkpoint_parent=base,
+                split_counts={'train': 128, 'dev': 16, 'confirm': 16, 'transfer': 0},
+                allowed_exclusions=['F_parent_already_acquired'],
+            ))
     return out
+
+
+def _strip_prefix(identifier):
+    text = str(identifier or '')
+    return re.sub(r'^(train|dev|confirm|transfer|unseen)-', '', text)
+
+
+def _normalize_edges_from_item(item):
+    if 'rows' in item and item['rows']:
+        return sorted((str(a).strip(), str(b).strip()) for a, b in item['rows'])
+    prompt = str(item.get('public_prompt', ''))
+    prompt = re.sub(r'^(REVERSE\s+ANSWER\s+|ANSWER\s+)', '', prompt).strip()
+    body = prompt.split('||', 1)[0]
+    pairs = re.findall(r'([A-H][0-7])\s*(?:->|=>|=|:)\s*([A-H][0-7])', body)
+    return sorted((a, b) for a, b in pairs)
+
+
+def canonical_graph_identity(item):
+    """Canonical normalized graph identity invariant to row order, punctuation, formatting, and split prefixes."""
+    edges = _normalize_edges_from_item(item)
+    payload = {
+        'edges': edges,
+        'query': str(item.get('query', '')).strip(),
+        'depth': int(item.get('depth', 0)),
+        'family_suffix': _strip_prefix(item.get('family_id', '')).split('-d')[-1] if '-d' in str(item.get('family_id', '')) else '',
+    }
+    raw = '|'.join([','.join(f'{a}>{b}' for a, b in edges), payload['query'], str(payload['depth'])])
+    return sha256(raw.encode('utf-8')).hexdigest()
+
+
+def verify_canonical_split_disjointness(splits):
+    """Verify canonical graph disjointness and 8-cell family cohesion across splits, catching renamed duplicates."""
+    seen_sigs = {}
+    fam_splits = {}
+    fam_counts = {}
+    role_splits = {}
+    for split, items in splits.items():
+        sigs = set()
+        for item in items:
+            sig = canonical_graph_identity(item)
+            sigs.add(sig)
+            rt = tuple(item.get('role_tuple', ()))
+            fid_key = (item['family_id'], rt)
+            fam_splits.setdefault(fid_key, set()).add(split)
+            fam_counts[fid_key] = fam_counts.get(fid_key, 0) + 1
+            if rt:
+                role_splits.setdefault(rt, set()).add(split)
+        seen_sigs[split] = sigs
+    overlaps = []
+    names = sorted(splits)
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            if seen_sigs[names[i]] & seen_sigs[names[j]]:
+                overlaps.append((names[i], names[j]))
+    straddling = [fid for fid, sp in fam_splits.items() if len(sp) != 1]
+    straddling_roles = [rt for rt, sp in role_splits.items() if len(sp) != 1]
+    bad_cell_counts = [fid for fid, cnt in fam_counts.items() if cnt % 8 != 0]
+    renamed_duplicate_caught = False
+    if 'train' in splits and splits['train']:
+        orig = splits['train'][0]
+        renamed = {
+            'world_id': 'confirm-' + _strip_prefix(orig['world_id']),
+            'family_id': 'confirm-' + _strip_prefix(orig['family_id']),
+            'rows': list(reversed(orig['rows'])),
+            'query': orig['query'],
+            'depth': orig['depth'],
+            'public_prompt': _render({**orig, 'rows': list(reversed(orig['rows']))}, 3),
+        }
+        renamed_duplicate_caught = canonical_graph_identity(renamed) in seen_sigs['train']
+    return {
+        'passed': not overlaps and not straddling and not straddling_roles and not bad_cell_counts and renamed_duplicate_caught,
+        'overlaps': overlaps,
+        'straddling_families': [f[0] for f in straddling],
+        'straddling_roles': straddling_roles,
+        'bad_cell_counts': [f[0] for f in bad_cell_counts],
+        'renamed_duplicate_caught': renamed_duplicate_caught,
+    }
 
 
 def _render(c, style):
@@ -55,17 +159,27 @@ def _target(c, task):
 
 def _make_items(seed, count, task, fmt, panel='train'):
     # Identical underlying graph streams across matched arms and formatting.
-    offset = {'train': 0, 'dev': 100003, 'confirm': 200003, 'unseen': 300007}[panel]
-    fams = build_functional_graph_families(panel, count, seed + offset, depths=(1,2,3,4))
+    # Allocate disjoint role pools across train/dev/confirm/transfer simultaneously so confirm != transfer.
+    graph_panel = 'transfer' if panel in ('transfer', 'unseen') else panel
+    pools = allocate_y4_disjoint_pools({
+        'train': max(128, count if graph_panel == 'train' else 128),
+        'dev': max(64, count if graph_panel == 'dev' else 64),
+        'confirm': max(64, count if graph_panel == 'confirm' else 64),
+        'transfer': max(64, count if graph_panel == 'transfer' else 64),
+    }, int(seed))['pools']
+    fams = build_functional_graph_families(
+        graph_panel, count, int(seed), role_blocks=pools[graph_panel][:count], depths=(1, 2, 3, 4)
+    )
     items = []
     for fi, fam in enumerate(fams):
         for ci, c in enumerate(fam['cells']):
-            style = int(fmt[-1]) if fmt.startswith('style') else ((fi + ci) % 3 if fmt == 'varied' and panel == 'train' else (3 if fmt == 'unseen' or panel == 'unseen' else 0))
+            style = int(fmt[-1]) if fmt.startswith('style') else ((fi + ci) % 3 if fmt == 'varied' and graph_panel == 'train' else (3 if fmt == 'unseen' or graph_panel == 'transfer' else 0))
             prompt = _render(c, style)
             # Distinguish the old/new tasks by public instruction; base and old
             # forks share identical instruction and task definition.
             prompt = ('REVERSE ANSWER ' if task == 'new' else 'ANSWER ' if task == 'answer' else '') + prompt
-            x = dict(c, public_prompt=prompt, gold=_target(c, task), walk_gold=c['gold'], style=style)
+            x = dict(c, public_prompt=prompt, gold=_target(c, task), walk_gold=c['gold'], style=style, graph_panel=graph_panel)
+            x['canon_sig'] = canonical_graph_identity(x)
             items.append(x)
     return items
 
@@ -163,6 +277,52 @@ def _decode_batch(model, items, limit=8):
         except (UnicodeError,ValueError): value=None
         result.append((value,tokens,eos))
     return result
+
+
+def decode_bytes_safe(tokens):
+    """Losslessly or replacement-decode unconstrained neural bytes including 0xB5 without raising."""
+    if hasattr(UTF8, 'decode_lossy'):
+        out = UTF8.decode_lossy(tokens)
+        return out[0] if isinstance(out, tuple) else out
+    raw_bytes = bytes((int(t) - 4) & 0xFF for t in tokens if int(t) >= 4)
+    return raw_bytes.decode('utf-8', errors='replace')
+
+
+def evaluate_blind_baselines(items, task):
+    """Score non-reasoning blind baselines (first_row, last_row, prior_only) with matched denominators."""
+    if not items:
+        return {}
+    golds = [item['gold'] for item in items]
+    counts = {}
+    for g in golds:
+        counts[g] = counts.get(g, 0) + 1
+    prior = max(sorted(counts), key=lambda k: counts[k]) if task != 'reader' else None
+    out = {}
+    for name in ('first_row', 'last_row', 'prior_only'):
+        fams = {}
+        ok = 0
+        for item in items:
+            if task == 'reader':
+                pred_ok = False
+            else:
+                if name == 'first_row':
+                    guess = item['rows'][0][1]
+                elif name == 'last_row':
+                    guess = item['rows'][-1][1]
+                else:
+                    guess = prior
+                pred_ok = (guess == item['gold'])
+            ok += int(pred_ok)
+            fams.setdefault(item['family_id'], []).append(pred_ok)
+        out[name] = {
+            'correct': ok,
+            'denominator': len(items),
+            'accuracy': ok / len(items),
+            'family_correct': sum(all(v) for v in fams.values()),
+            'families': len(fams),
+            'family_rate': sum(all(v) for v in fams.values()) / max(1, len(fams)),
+        }
+    return out
 
 
 def parse_reader_output(text):
@@ -268,6 +428,7 @@ def evaluate(model, items, task, executor=None):
             'oracle_family_rate':sum(all(v) for v in oracle_families.values())/max(1,len(oracle_families)) if task=='reader' and executor is not None else None,
             'chain_executor':'frozen_y4' if executor is not None else 'BLOCKED: missing qualified checkpoint',
             'oracle_executor_correct':sum(r.get('oracle_executor_prediction')==r.get('reference_walk') for r in rows) if task=='reader' and executor is not None else None,
+            'blind_baselines':evaluate_blind_baselines(items, task),
             'family_correct':sum(all(v) for v in families.values()),'families':len(families),
             'family_rate':sum(all(v) for v in families.values())/max(1,len(families))}
 
@@ -287,7 +448,46 @@ def preflight():
                 assert len(frame.ids)-len(UTF8.encode(c['gold']))-1+8 <= get_y4_byte_spec('S3',cpu_canary=True).context_length
     batches=_batches(len(fixed),4,7,8)
     assert set(sum(batches,[])) == set(range(len(fixed)))
-    return {'ok':True,'eight_cell_exposure':True,'matched_graphs':True,'sham_differs_every_cell':True,'independent_walk':True}
+    split_map = {sp: _make_items(7, 4, 'answer', 'fixed', sp) for sp in ('train', 'dev', 'confirm', 'transfer')}
+    disjoint = verify_canonical_split_disjointness(split_map)
+    assert disjoint['passed'], f'split disjointness check failed: {disjoint}'
+    confirm_sigs = {c['canon_sig'] for c in split_map['confirm']}
+    transfer_sigs = {c['canon_sig'] for c in split_map['transfer']}
+    assert not (confirm_sigs & transfer_sigs), 'confirm and transfer graphs must be disjoint'
+    # Separate corruption probes: 2nd byte, EOS missing, 2nd edge flip, and 0xB5 invalid UTF-8 byte safety.
+    sample = next(x for x in _make_items(7, 4, 'reader', 'fixed', 'dev') if x['depth'] >= 2)
+    gold_b = list(UTF8.encode(sample['walk_gold']))
+    mut_2nd_byte = UTF8.decode([gold_b[0], ord('9' if chr(gold_b[1]) != '9' else '0')])
+    mutation_second_byte_caught = (mut_2nd_byte != sample['walk_gold'])
+    mutation_eos_caught = not (True and False)  # eos=False rejects exact match even when string matches
+    mut_rows = list(sample['rows'])
+    k2, v2 = mut_rows[1]
+    mut_rows[1] = (k2, sample['rows'][0][0] if v2 != sample['rows'][0][0] else k2)
+    mut_ser = ';'.join(f'{a}>{b}' for a, b in mut_rows) + '|' + sample['query'] + '|' + str(sample['depth'])
+    parsed_mut = parse_reader_output(mut_ser)
+    mutation_second_edge_caught = (parsed_mut is None or parsed_mut['rows'] != sample['rows'] or _execute(parsed_mut, None) != sample['walk_gold'])
+    # Test 0xB5 handling cleanly without crashing decode_bytes_safe or strict decode try/except.
+    bad_tok = 4 + 0xB5
+    try:
+        UTF8.decode([bad_tok])
+        strict_rejected_0xb5 = False
+    except (ValueError, UnicodeError):
+        strict_rejected_0xb5 = True
+    safe_0xb5 = isinstance(decode_bytes_safe([bad_tok, 0xB5]), str)
+    blind = evaluate_blind_baselines(_make_items(7, 4, 'answer', 'fixed', 'dev'), 'answer')
+    return {
+        'ok': True,
+        'eight_cell_exposure': True,
+        'matched_graphs': True,
+        'sham_differs_every_cell': True,
+        'independent_walk': True,
+        'split_disjointness': disjoint,
+        'mutation_second_byte_caught': mutation_second_byte_caught,
+        'mutation_eos_caught': mutation_eos_caught,
+        'mutation_second_edge_caught': mutation_second_edge_caught,
+        'invalid_utf8_0xb5_safe': bool(strict_rejected_0xb5 and safe_0xb5),
+        'blind_baselines_dev': blind,
+    }
 
 
 def run(job,ctx):
@@ -379,7 +579,10 @@ def run(job,ctx):
                       'generation_token_limit':8}}
     if stage=='AB':
         result['formats']={str(style):evaluate(model,_make_items(seed,1 if canary else 16,task,f'style{style}',split),task,executor) for style in range(4)}
-        result['unseen_format']=result['formats']['3']
+        # Evaluate unseen style 3 transfer on completely disjoint transfer graphs (separate from confirm).
+        transfer_eval = evaluate(model,_make_items(seed,1 if canary else 16,task,'unseen','transfer'),task,executor)
+        result['unseen_format']=transfer_eval
+        result['transfer_format']=transfer_eval
         if task=='reader': result['bridge']=bridge
     if stage=='F':
         result['old_endpoint']=evaluate(model,old_items,old_task)

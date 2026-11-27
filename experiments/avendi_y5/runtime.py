@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import torch
-from anra_v5.palantiri import GenericExperimentTrainer, GenericTrainRecipe
+from anra_v5.palantiri import GenericExperimentTrainer, GenericTrainRecipe, prune_completed_job_artifacts
 from v5_training.checkpoint import CheckpointStore
 
 
@@ -39,9 +39,51 @@ def publish(path, value):
 
 def read(path):
     doc = json.loads(Path(path).read_bytes())
-    if digest(doc['content']) != doc['sha256']:
+    if not isinstance(doc, dict) or 'content' not in doc or 'sha256' not in doc or digest(doc['content']) != doc['sha256']:
         raise ValueError(f'damaged receipt: {path}')
     return doc['content']
+
+
+def verify_and_load_weights(weights_root, job_id, sha, *, expected_source=None, expected_updates=None):
+    """Verify full CheckpointStore object OR leaf-compacted (weights-only) object strictly."""
+    weights_root = Path(weights_root)
+    obj_dir = weights_root / job_id / 'objects' / sha
+    comp_rec_path = obj_dir / 'COMPACTION_RECEIPT.json'
+    if not (comp_rec_path.is_file() and not (obj_dir / 'optimizer.bin').exists()):
+        state, payloads = CheckpointStore(weights_root, job_id).restore(sha)
+        if expected_updates is not None and state.global_update != expected_updates:
+            raise ValueError('restored update or source identity mismatch')
+        if expected_source is not None and state.identities.source_commit != expected_source:
+            raise ValueError('restored update or source identity mismatch')
+        return state.global_update, state.identities.source_commit, payloads['model.bin']
+    comp = json.loads(comp_rec_path.read_text(encoding='utf-8'))
+    if comp.get('object_sha') != sha or comp.get('stripped_components') != ['optimizer.bin']:
+        raise ValueError('invalid compaction receipt')
+    manifest_bytes = (obj_dir / 'manifest.json').read_bytes()
+    if hashlib.sha256(manifest_bytes).hexdigest() != sha:
+        raise ValueError('checkpoint manifest hash mismatch')
+    manifest = json.loads(manifest_bytes)
+    if manifest.get('lineage_id') != job_id:
+        raise ValueError('checkpoint lineage mismatch')
+    st = manifest['state']
+    upd = int(st['global_update'])
+    src = str(st['identities']['source_commit'])
+    if expected_updates is not None and upd != expected_updates:
+        raise ValueError('restored update or source identity mismatch')
+    if expected_source is not None and src != expected_source:
+        raise ValueError('restored update or source identity mismatch')
+    payloads = {}
+    for item in manifest['components']:
+        name = item['name']
+        if name == 'optimizer.bin':
+            continue
+        raw = (obj_dir / name).read_bytes()
+        if len(raw) != int(item['byte_size']) or hashlib.sha256(raw).hexdigest() != item['sha256']:
+            raise ValueError(f'checkpoint component corrupt: {name}')
+        payloads[name] = raw
+    if 'model.bin' not in payloads:
+        raise ValueError('missing model.bin in compacted checkpoint')
+    return upd, src, payloads['model.bin']
 
 
 class Context:
@@ -59,10 +101,14 @@ class Context:
         info = receipt['weights']
         if receipt['source'] != self.source or not info:
             raise ValueError(f'missing qualified source weights for {job_id}')
-        state, payloads = CheckpointStore(self.root / 'weights', job_id).restore(info['checkpoint_sha256'])
-        if state.global_update != info['updates'] or state.identities.source_commit != self.source:
-            raise ValueError('restored update or source identity mismatch')
-        weights = torch.load(io.BytesIO(payloads['model.bin']), map_location='cpu', weights_only=True)
+        _, _, model_bytes = verify_and_load_weights(
+            self.root / 'weights',
+            job_id,
+            info['checkpoint_sha256'],
+            expected_source=self.source,
+            expected_updates=info['updates'],
+        )
+        weights = torch.load(io.BytesIO(model_bytes), map_location='cpu', weights_only=True)
         model.load_state_dict(weights, strict=True)
         model.eval()
         return info
@@ -114,6 +160,11 @@ class Context:
             u = trainer.state.global_update + 1
             torch.manual_seed(job['seed'] * 100000 + u)
             meta = trainer.step(post_step_hook=(lambda tr, rec: post_step(rec['update'], tr.model)) if post_step else None)
+            crash_spec = os.environ.get('AVENDI_Y5_CRASH_POINT', '').strip()
+            if crash_spec and crash_spec in (f"{job['id']}:{u}", f"stage:{job['stage']}:{u}", job['id']):
+                sha = trainer.save(prune_old=False)
+                publish(checkpoints / f'{u}.json', dict(update=u, checkpoint_sha256=sha, loss=meta['loss']))
+                raise RuntimeError(f'injected crash at {crash_spec}')
             stop = time.time() >= float(os.environ.get('AVENDI_Y5_STOP_EPOCH','inf'))
             if u in milestones:
                 observe(u)
@@ -131,3 +182,38 @@ class Context:
                             unique_items=len(set(flat)), dataset_items=len(items), **provenance)
         observations = [read(checkpoints / f'observation-{u}.json')['observation'] for u in sorted(milestones)] if on_step else []
         return dict(self.trained, milestones=observations)
+
+
+def prune_job_checkpoints(
+    root,
+    job_id,
+    *,
+    completed_updates,
+    full_job_updates,
+    downstream_children=(),
+    strip_optimizer=False,
+):
+    """Dependency-aware compaction of finished lineage objects after verifying final checkpoint restore."""
+    lin_dir = Path(root) / 'weights' / job_id
+    store = CheckpointStore(Path(root) / 'weights', job_id)
+    latest = store.latest_sha256()
+    if latest is not None:
+        comp_rec = lin_dir / 'objects' / latest / 'COMPACTION_RECEIPT.json'
+        if comp_rec.is_file() and not (lin_dir / 'objects' / latest / 'optimizer.bin').exists():
+            return {'job_root': str(lin_dir), 'already_compacted': True, 'optimizer_stripped': True}
+        verify_and_load_weights(
+            Path(root) / 'weights',
+            job_id,
+            latest,
+            expected_updates=int(completed_updates),
+        )
+    return prune_completed_job_artifacts(
+        lin_dir,
+        keep_latest=True,
+        keep_milestones=True,
+        strip_final_optimizer=bool(strip_optimizer and not downstream_children),
+        preserve_final_optimizer=not bool(strip_optimizer and not downstream_children),
+        child_job_ids=list(downstream_children),
+        completed_updates=int(completed_updates),
+        full_job_updates=int(full_job_updates),
+    )

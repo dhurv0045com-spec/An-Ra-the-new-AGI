@@ -76,3 +76,21 @@ def test_matched_arms_use_same_forward_count_and_batch_sizes():
         c.intervention_loss(model, batch, arm)
         traces[arm] = calls
     assert traces['ordinary'] == traces['iit'] == traces['sham']
+
+
+def test_u0000_categorical_and_transfer_disjoint_and_g_missing():
+    from types import SimpleNamespace
+    model = c.Y4TypedCompositionModel('categorical', 128, seed=7)
+    batch = c.pairs(4, 11)
+    with torch.amp.autocast('cpu', enabled=False):
+        lv = c.intervention_loss(model, batch, 'iit')
+    assert torch.isfinite(lv)
+    lv.backward()
+    assert model.k_proj.weight.grad is not None and torch.isfinite(model.k_proj.weight.grad).all()
+    m = c.measure(model, c.panel(4, 12005, 5), 'cpu')
+    assert m['total'] == 4
+    assert c.preflight()['disjoint_eval_panels']
+    g_job = next(j for j in c.jobs() if j['stage'] == 'G')
+    res = c.run(g_job, SimpleNamespace(inputs=[], root='.', device='cpu'))
+    assert res['status'] == 'BLOCKED'
+

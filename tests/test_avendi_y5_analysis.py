@@ -43,3 +43,61 @@ def test_canary_and_forged_raw_metrics_never_qualify():
     assert summarize({'dev': rows})['matrix']['dev']['D_informative_vs_noninformative']['gate'] == 'INCOMPLETE'
     rows['D-informative-s7']['engineering_canary'] = True
     assert summarize({'dev': rows})['matrix']['dev']['D_informative_vs_noninformative']['gate'] == 'INCOMPLETE'
+
+
+def test_stage_a_b_f_gates_and_rescore_evidence(tmp_path):
+    from experiments.avendi_y5.analysis import rescore_evidence
+    from experiments.avendi_y5.runtime import publish
+    rows = {}
+    for seed in (7, 19, 41):
+        # Stage A: varied gains >=0.15 on unseen while retaining familiar within <=0.05
+        rows[f'AB-reader-varied-ce-s{seed}'] = {
+            'unseen_format': {'family_rate': 0.80, 'families': 16},
+            'formats': {'0': {'family_rate': 0.90, 'families': 16}},
+        }
+        rows[f'AB-reader-fixed-ce-s{seed}'] = {
+            'unseen_format': {'family_rate': 0.40, 'families': 16},
+            'formats': {'0': {'family_rate': 0.92, 'families': 16}},
+        }
+        # Stage B: pointer beats BOTH sham and ce across varied & fixed
+        rows[f'AB-answer-varied-pointer-s{seed}'] = {'primary': {'family_rate': 0.85, 'families': 16}}
+        rows[f'AB-answer-varied-sham-s{seed}'] = {'primary': {'family_rate': 0.50, 'families': 16}}
+        rows[f'AB-answer-varied-ce-s{seed}'] = {'primary': {'family_rate': 0.55, 'families': 16}}
+        rows[f'AB-answer-fixed-pointer-s{seed}'] = {'primary': {'family_rate': 0.85, 'families': 16}}
+        rows[f'AB-answer-fixed-sham-s{seed}'] = {'primary': {'family_rate': 0.50, 'families': 16}}
+        rows[f'AB-answer-fixed-ce-s{seed}'] = {'primary': {'family_rate': 0.55, 'families': 16}}
+        # Stage F stratified parent sources
+        rows[f'F-new-s{seed}'] = {
+            'seed': seed, 'arm': 'new', 'old_source': {'kind': 'AB_answer' if seed == 7 else 'Y4_pointer_reader'},
+            'old_endpoint': {'family_rate': 0.85, 'families': 16}, 'new_endpoint': {'family_rate': 0.85, 'families': 16},
+            'parent_new_endpoint': {'family_rate': 0.1, 'families': 16}, 'parent_new_dev': {'family_rate': 0.1, 'families': 16},
+        }
+    mat = summarize({'confirm': rows})['matrix']['confirm']
+    assert mat['A_reader_varied_vs_fixed_unseen']['gate'] == 'PASS'
+    assert mat['A_reader_varied_familiar_retention']['gate'] == 'PASS'
+    assert mat['B_varied_pointer_vs_ce']['gate'] == 'PASS'
+    assert mat['B_all_seed_dominance'] == {'varied': 'PASS', 'fixed': 'PASS'}
+    assert set(mat['F_parent_stratification']) == {'AB_answer', 'Y4_pointer_reader'}
+
+    # Independent rescorer works strictly from EVIDENCE without weights/ or optimizer.bin, and catches corruption.
+    from experiments.avendi_y5.information import P6LearnedMemoryPolicy, _eval_d
+    ev_dir = tmp_path / 'evidence'
+    d_met = _eval_d(P6LearnedMemoryPolicy(width=8, seed=7), 'informative', 'dev')
+    publish(ev_dir / 'CONFIRM_LOCK.json', {'eligible': {'D-informative-s7': {'dev_sha256': 'x'}}})
+    publish(ev_dir / 'dev' / 'D-informative-s7.json', {
+        'job': {'id': 'D-informative-s7', 'stage': 'D'}, 'split': 'dev', 'status': 'COMPLETE',
+        'result': {'metrics': d_met},
+    })
+    assert rescore_evidence(ev_dir)['verified']
+    # Tamper response accuracy -> strict rescore must raise ValueError.
+    r0 = d_met['responses'][0]
+    flipped = (1 - int(r0['truth'])) if int(r0['terminal_prediction']) == int(r0['truth']) else int(r0['truth'])
+    d_bad = dict(d_met, responses=[dict(r0, terminal_prediction=flipped), *d_met['responses'][1:]])
+    publish(ev_dir / 'dev' / 'D-informative-s19.json', {
+        'job': {'id': 'D-informative-s19', 'stage': 'D'}, 'split': 'dev', 'status': 'COMPLETE',
+        'result': {'metrics': d_bad},
+    })
+    import pytest
+    with pytest.raises(ValueError, match='EVIDENCE_RESCORE_FAILED'):
+        rescore_evidence(ev_dir, strict=True)
+

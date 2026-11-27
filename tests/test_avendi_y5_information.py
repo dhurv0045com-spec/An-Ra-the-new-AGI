@@ -123,3 +123,23 @@ def test_perfect_channel_resolves_every_paired_world_and_cannot_affect_prior_act
     metrics = y._eval_d(y.P6LearnedMemoryPolicy(width=8, seed=7), 'perfect', 'dev')
     assert metrics['action_invariant_to_hidden_observation']
     assert abs(metrics['regret'] - (metrics['oracle_expected_utility'] - metrics['realized_utility'])) < 1e-9
+
+
+def test_bellman_oracle_1e8_batched_parity_and_transfer_split():
+    import pytest
+    for cost in (.05, .35):
+        for rel in (.5, .75, 1.0):
+            s = y.solve(cost, rel)
+            b = y.bellman_oracle_tree(cost, rel)
+            assert abs(s['direct'] - b['direct']) < 1e-8
+            assert abs(s['tool'] - b['tool']) < 1e-8
+            assert s['action'] == b['action']
+    tr = {w['public'] for w in y.worlds('transfer')}
+    used = {w['public'] for sp in ('train', 'dev', 'confirm') for w in y.worlds(sp)}
+    assert not (tr & used)
+    assert y._eval_d(y.P6LearnedMemoryPolicy(width=32, seed=7), 'informative', 'transfer', verify_serial_n=8, parity_atol=1e-4)['samples'] > 0
+    # Induce a batch-vs-serial mismatch (>1e-4) -> must raise ValueError cleanly.
+    m = y.P6LearnedMemoryPolicy(width=8, seed=7)
+    with pytest.raises(ValueError, match='BATCHED_SERIAL_PARITY_MISMATCH'):
+        y._eval_d(m, 'informative', 'dev', verify_serial_n=8, parity_atol=-1.0)
+

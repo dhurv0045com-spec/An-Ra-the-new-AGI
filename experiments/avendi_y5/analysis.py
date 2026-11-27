@@ -4,8 +4,12 @@ Thresholds below are operational analysis gates, not evidence of a registered
 scientific hypothesis. Per-seed contrasts remain visible; no significance or
 qualification is inferred from a missing arm, a canary, or dev alone.
 """
-from statistics import mean, stdev
+import hashlib
+import json
 from math import sqrt
+from pathlib import Path
+from statistics import mean, stdev
+from zipfile import ZipFile
 
 SEEDS = (7, 19, 41)
 
@@ -188,27 +192,51 @@ def _within_job_gates(job_id, r):
     return None
 
 
+def _familiar_retention(r):
+    # Style 0 on familiar prompt structure; fallback to primary if formats absent.
+    v = _rate(r, ('formats', '0', 'family_rate'))
+    return v if v is not None else _rate(r, ('primary', 'family_rate'))
+
+
+def _familiar_retention_den(r):
+    v = _denominator(r, ('formats', '0'))
+    return v if v is not None else _denominator(r, ('primary',))
+
+
 def summarize(rows):
     matrix = {}
     for split in ('dev', 'confirm'):
         r = rows.get(split, {})
         specs = {
-            'A_reader_varied_vs_fixed_unseen': ('AB-reader-varied-ce', 'AB-reader-fixed-ce', _family(('unseen_format',)), lambda x:_denominator(x, ('unseen_format',))),
-            'A_connected_varied_vs_fixed_unseen': ('AB-reader-varied-ce', 'AB-reader-fixed-ce', _chain_rate, _chain_den),
-            'B_varied_pointer_vs_sham': ('AB-answer-varied-pointer', 'AB-answer-varied-sham', _family(('primary',)), lambda x:_denominator(x, ('primary',))),
-            'B_pointer_vs_sham': ('AB-answer-fixed-pointer', 'AB-answer-fixed-sham', _family(('primary',)), lambda x:_denominator(x, ('primary',))),
-            'B_pointer_vs_ce': ('AB-answer-fixed-pointer', 'AB-answer-fixed-ce', _family(('primary',)), lambda x:_denominator(x, ('primary',))),
-            'C_iit_vs_ordinary': ('C-iit', 'C-ordinary', _panel, _panel_n),
-            'C_iit_vs_sham': ('C-iit', 'C-sham', _panel, _panel_n),
-            'C_actual_donor_iit_vs_ordinary': ('C-iit', 'C-ordinary', _actual_donor, _intervention_n),
-            'C_actual_donor_iit_vs_sham': ('C-iit', 'C-sham', _actual_donor, _intervention_n),
-            'D_informative_vs_noninformative': ('D-informative', 'D-noninformative', _dmetric, _sample),
-            'E_relevant_vs_sham': ('E-relevant', 'E-sham', _emetric, _sample),
-            'F_new_vs_control_old': ('F-new', 'F-old_control', _family(('old_endpoint',)), lambda x:_denominator(x, ('old_endpoint',))),
-            'F_cap_vs_new_old': ('F-new_cap', 'F-new', _family(('old_endpoint',)), lambda x:_denominator(x, ('old_endpoint',))),
-            'F_cap_vs_new_new': ('F-new_cap', 'F-new', _family(('new_endpoint',)), lambda x:_denominator(x, ('new_endpoint',))),
+            'A_reader_varied_vs_fixed_unseen': ('AB-reader-varied-ce', 'AB-reader-fixed-ce', _family(('unseen_format',)), lambda x:_denominator(x, ('unseen_format',)), 0.15),
+            'A_reader_varied_familiar_retention': ('AB-reader-varied-ce', 'AB-reader-fixed-ce', _familiar_retention, _familiar_retention_den, -0.05),
+            'A_connected_varied_vs_fixed_unseen': ('AB-reader-varied-ce', 'AB-reader-fixed-ce', _chain_rate, _chain_den, 0.0),
+            'B_varied_pointer_vs_sham': ('AB-answer-varied-pointer', 'AB-answer-varied-sham', _family(('primary',)), lambda x:_denominator(x, ('primary',)), 0.0),
+            'B_varied_pointer_vs_ce': ('AB-answer-varied-pointer', 'AB-answer-varied-ce', _family(('primary',)), lambda x:_denominator(x, ('primary',)), 0.0),
+            'B_pointer_vs_sham': ('AB-answer-fixed-pointer', 'AB-answer-fixed-sham', _family(('primary',)), lambda x:_denominator(x, ('primary',)), 0.0),
+            'B_pointer_vs_ce': ('AB-answer-fixed-pointer', 'AB-answer-fixed-ce', _family(('primary',)), lambda x:_denominator(x, ('primary',)), 0.0),
+            'C_iit_vs_ordinary': ('C-iit', 'C-ordinary', _panel, _panel_n, 0.0),
+            'C_iit_vs_sham': ('C-iit', 'C-sham', _panel, _panel_n, 0.0),
+            'C_actual_donor_iit_vs_ordinary': ('C-iit', 'C-ordinary', _actual_donor, _intervention_n, 0.0),
+            'C_actual_donor_iit_vs_sham': ('C-iit', 'C-sham', _actual_donor, _intervention_n, 0.0),
+            'D_informative_vs_noninformative': ('D-informative', 'D-noninformative', _dmetric, _sample, 0.0),
+            'E_relevant_vs_sham': ('E-relevant', 'E-sham', _emetric, _sample, 0.0),
+            'F_new_vs_control_old': ('F-new', 'F-old_control', _family(('old_endpoint',)), lambda x:_denominator(x, ('old_endpoint',)), 0.0),
+            'F_cap_vs_new_old': ('F-new_cap', 'F-new', _family(('old_endpoint',)), lambda x:_denominator(x, ('old_endpoint',)), 0.0),
+            'F_cap_vs_new_new': ('F-new_cap', 'F-new', _family(('new_endpoint',)), lambda x:_denominator(x, ('new_endpoint',)), 0.0),
         }
-        out = {k:_contrast(r,*v) for k,v in specs.items()}
+        out = {k: _contrast(r, left, right, met, den, threshold=thr) for k, (left, right, met, den, thr) in specs.items()}
+        # Retain >= -0.05 inclusive check for Stage A familiar retention (varied >= fixed - 0.05).
+        ret = out['A_reader_varied_familiar_retention']
+        ret_vals = [p['difference'] for p in ret['pairs'] if p['difference'] is not None]
+        if len(ret_vals) == len(SEEDS):
+            ret['gate'] = 'PASS' if all(v >= -0.05 for v in ret_vals) else 'FAIL'
+            ret['rule'] = 'all three matched seed differences satisfy varied - fixed >= -0.05 (max degradation 0.05)'
+        # Stage B requires pointer to beat both sham and CE at all 3 seeds for varied & fixed.
+        out['B_all_seed_dominance'] = {
+            'varied': 'PASS' if (out['B_varied_pointer_vs_sham']['gate'] == 'PASS' and out['B_varied_pointer_vs_ce']['gate'] == 'PASS') else ('INCOMPLETE' if 'INCOMPLETE' in (out['B_varied_pointer_vs_sham']['gate'], out['B_varied_pointer_vs_ce']['gate']) else 'FAIL'),
+            'fixed': 'PASS' if (out['B_pointer_vs_sham']['gate'] == 'PASS' and out['B_pointer_vs_ce']['gate'] == 'PASS') else ('INCOMPLETE' if 'INCOMPLETE' in (out['B_pointer_vs_sham']['gate'], out['B_pointer_vs_ce']['gate']) else 'FAIL'),
+        }
         # Different channels have different oracle values: this contrast is descriptive.
         if out['D_informative_vs_noninformative']['gate'] != 'INCOMPLETE':
             out['D_informative_vs_noninformative']['gate'] = 'DESCRIPTIVE'
@@ -218,8 +246,167 @@ def summarize(rows):
             gates = [out['within_job_gates'].get(f'{prefix}-s{seed}', 'INCOMPLETE') for seed in SEEDS]
             out['all_seed_within_gates'][prefix] = 'INCOMPLETE' if 'INCOMPLETE' in gates else 'PASS' if all(g == 'PASS' for g in gates) else 'FAIL'
         out['rendering_diagnoses'] = {k:_diagnosis(v) for k,v in r.items() if k.startswith(('D-', 'E-'))}
+        # Stratify Stage F by parent lineage kind (AB_answer vs Y4_pointer_reader).
+        strat = {}
+        for jid, row in sorted(r.items()):
+            if not jid.startswith('F-'):
+                continue
+            kind = (row.get('old_source') or {}).get('kind', 'UNKNOWN')
+            strat.setdefault(kind, {})[jid] = {
+                'seed': row.get('seed'),
+                'arm': row.get('arm'),
+                'old_family_rate': _rate(row, ('old_endpoint', 'family_rate')),
+                'new_family_rate': _rate(row, ('new_endpoint', 'family_rate')),
+                'new_family_gain': row.get('new_family_gain'),
+                'gate': out['within_job_gates'].get(jid),
+            }
+        out['F_parent_stratification'] = strat
+        out['blind_baselines'] = {
+            jid: (row.get('primary') or {}).get('blind_baselines')
+            for jid, row in sorted(r.items())
+            if jid.startswith(('AB-', 'F-')) and (row.get('primary') or {}).get('blind_baselines')
+        }
         out['status_counts'] = {status:sum(v.get('status', 'COMPLETE') == status for v in r.values())
                                 for status in ('COMPLETE', 'COMPLETED', 'GATED', 'BLOCKED', 'FAILED')}
         matrix[split] = out
-    return {'matrix':matrix, 'interpretation': 'PASS/FAIL are operational contrasts, not causal qualification; INCOMPLETE includes missing or gated jobs. Dev does not substitute for independent confirmation. Compare denominators and inspect raw outputs.',
-            'uncertainty_note': '95% t intervals use the three independent seed-level paired differences, not individual cases or members of a family. With three seeds they are highly uncertain and conditional on the fixed evaluation panels; no case-level independence is assumed.', 'canary_not_qualification': True, 'gate_definitions': {'E': 'relevant and edited-target >= .80, relevant exceeds none, incorrect, and irrelevant by >= .15, erase and edit each change >= .10', 'F': 'old and new complete-family rates each >= .80, parent dev new < .80 and matched endpoint gain >= .15', 'D': 'oracle expected paid utility regret <= .05; informative low/high cost decisions >= .80, observation response >= .80, post-tool accuracy >= .70; noninformative declines tool >= .90; action invariant to hidden observation', 'D_note': 'Utility contrasts across information channels describe different environments, and are not by themselves a causal advantage gate.'}}
+    # Separate transfer and diagnostic roles explicitly so confirm/transfer/diagnostic never conflate.
+    transfer_summary = {}
+    confirm_rows = rows.get('confirm', {}) or rows.get('dev', {})
+    for jid, row in sorted(confirm_rows.items()):
+        if 'transfer_format' in row or 'unseen_format' in row:
+            tf = row.get('transfer_format') or row.get('unseen_format')
+            transfer_summary[jid] = {'type': 'reader_transfer', 'family_rate': tf.get('family_rate'), 'denominator': tf.get('families')}
+        elif 'transfer_panels' in row:
+            tp = row['transfer_panels']
+            n = sum(p.get('total', 0) for p in tp.values())
+            transfer_summary[jid] = {'type': 'composition_transfer', 'accuracy': sum(p.get('correct', 0) for p in tp.values()) / max(1, n), 'denominator': n}
+        elif 'transfer_metrics' in row:
+            tm = row['transfer_metrics']
+            transfer_summary[jid] = {'type': 'info_memory_transfer', 'samples': tm.get('samples')}
+    diagnostic_roles = sorted(jid for jid in set(rows.get('dev', {})) | set(rows.get('confirm', {}))
+                              if jid.startswith(('G-', 'C-baseline-', 'C-scout-')))
+    return {'matrix':matrix, 'transfer_results': transfer_summary, 'diagnostic_roles': diagnostic_roles,
+            'interpretation': 'PASS/FAIL are operational contrasts, not causal qualification; INCOMPLETE includes missing or gated jobs. Dev does not substitute for independent confirmation. Compare denominators and inspect raw outputs.',
+            'uncertainty_note': '95% t intervals use the three independent seed-level paired differences, not individual cases or members of a family. With three seeds they are highly uncertain and conditional on the fixed evaluation panels; no case-level independence is assumed.', 'canary_not_qualification': True, 'gate_definitions': {'A': 'unseen connected-family gain >= .15 and familiar retention degradation <= .05 at all 3 seeds', 'B': 'true spans beat both sham and CE at all 3 seeds for varied and fixed formatting', 'E': 'relevant and edited-target >= .80, relevant exceeds none, incorrect, and irrelevant by >= .15, erase and edit each change >= .10', 'F': 'old and new complete-family rates each >= .80, parent dev new < .80 and matched endpoint gain >= .15 (stratified by parent source kind)', 'D': 'oracle expected paid utility regret <= .05; informative low/high cost decisions >= .80, observation response >= .80, post-tool accuracy >= .70; noninformative declines tool >= .90; action invariant to hidden observation', 'D_note': 'Utility contrasts across information channels describe different environments, and are not by themselves a causal advantage gate.'}}
+
+
+def _read_evidence_files(evidence_path):
+    """Load strict EVIDENCE receipts from directory or ZIP without touching weights/ or optimizer.bin."""
+    p = Path(evidence_path)
+    if not p.exists():
+        raise FileNotFoundError(f'missing evidence path: {p}')
+    docs = {}
+    if p.is_file():
+        with ZipFile(p) as zf:
+            for name in zf.namelist():
+                if name.endswith('/') or name.startswith('weights/') or name.endswith('optimizer.bin'):
+                    continue
+                if name.endswith('.json'):
+                    docs[name] = json.loads(zf.read(name).decode('utf-8'))
+    else:
+        for f in sorted(p.rglob('*.json')):
+            rel = f.relative_to(p).as_posix()
+            if rel.startswith('weights/') or rel.endswith('optimizer.bin'):
+                continue
+            docs[rel] = json.loads(f.read_text(encoding='utf-8'))
+    return docs
+
+
+def _recompute_reader_eval(block, tag, defects):
+    preds = block.get('predictions')
+    if not isinstance(preds, list):
+        defects.append(f'{tag}:missing_predictions')
+        return
+    if len(preds) != block.get('denominator'):
+        defects.append(f'{tag}:denominator_mismatch')
+        return
+    seen_ids = set()
+    fams = {}
+    ok = 0
+    for row in preds:
+        wid = str(row.get('id'))
+        if wid in seen_ids:
+            defects.append(f'{tag}:duplicate_id:{wid}')
+            return
+        seen_ids.add(wid)
+        if row.get('eos') is None:
+            pred = row.get('prediction')
+            row_ok = isinstance(pred, dict) and pred.get('rows') == row.get('gold_rows') and pred.get('query') == row.get('gold_query') and pred.get('depth') == row.get('gold_depth')
+        else:
+            row_ok = bool(row.get('eos')) and (row.get('prediction') == row.get('gold'))
+        if bool(row.get('correct')) != bool(row_ok):
+            defects.append(f'{tag}:corrupted_correct_flag:{wid}')
+            return
+        ok += int(row_ok)
+        fams.setdefault(row.get('family_id'), []).append(bool(row_ok))
+    if ok != block.get('correct'):
+        defects.append(f'{tag}:correct_count_mismatch')
+    fam_ok = sum(all(v) for v in fams.values())
+    if fam_ok != block.get('family_correct') or len(fams) != block.get('families'):
+        defects.append(f'{tag}:family_count_mismatch')
+    elif abs((fam_ok / max(1, len(fams))) - float(block.get('family_rate', -1))) > 1e-9:
+        defects.append(f'{tag}:family_rate_mismatch')
+
+
+def rescore_evidence(evidence_path, *, strict=True):
+    """Independently rescore all stage primary metrics strictly from EVIDENCE receipts without weights/."""
+    docs = _read_evidence_files(evidence_path)
+    defects = []
+    lock_doc = docs.get('CONFIRM_LOCK.json', {}).get('content') if 'content' in docs.get('CONFIRM_LOCK.json', {}) else docs.get('CONFIRM_LOCK.json')
+    rescored = {}
+    for rel, raw in sorted(docs.items()):
+        if not (rel.startswith(('dev/', 'confirm/')) and rel.endswith('.json')):
+            continue
+        rec = raw['content'] if isinstance(raw, dict) and 'content' in raw and 'sha256' in raw else raw
+        if isinstance(raw, dict) and 'sha256' in raw:
+            encoded = json.dumps(raw['content'], sort_keys=True, ensure_ascii=True, separators=(',', ':'), allow_nan=False).encode()
+            if hashlib.sha256(encoded).hexdigest() != raw['sha256']:
+                defects.append(f'{rel}:sha256_tampered')
+                continue
+        split = rec.get('split')
+        jid = (rec.get('job') or {}).get('id') or rel.rsplit('/', 1)[-1].removesuffix('.json')
+        res = rec.get('result') or {}
+        if split == 'confirm' and lock_doc is not None:
+            eligible = lock_doc.get('eligible', {})
+            if jid not in eligible:
+                defects.append(f'{rel}:confirm_outside_lock:{jid}')
+        stage = (rec.get('job') or {}).get('stage', jid.split('-', 1)[0])
+        if res.get('status') in ('GATED', 'BLOCKED') or rec.get('status') in ('GATED', 'BLOCKED'):
+            rescored[rel] = {'status': rec.get('status', res.get('status'))}
+            continue
+        if stage in ('AB', 'F') and 'primary' in res:
+            _recompute_reader_eval(res['primary'], f'{rel}:primary', defects)
+            for k in ('old_endpoint', 'new_endpoint', 'unseen_format'):
+                if isinstance(res.get(k), dict) and 'predictions' in res[k]:
+                    _recompute_reader_eval(res[k], f'{rel}:{k}', defects)
+        elif stage == 'C' and 'panels' in res:
+            for d, pb in res['panels'].items():
+                cases = pb.get('cases', [])
+                if len(cases) != pb.get('total') or len({c.get('case_id') for c in cases}) != len(cases):
+                    defects.append(f'{rel}:panel_{d}_case_mismatch')
+                elif sum(int(c.get('prediction') == c.get('gold') and bool(c.get('correct'))) for c in cases) != pb.get('correct'):
+                    defects.append(f'{rel}:panel_{d}_correct_mismatch')
+            for d, ib in (res.get('interventions') or {}).items():
+                cases = ib.get('cases', [])
+                if len(cases) != ib.get('total'):
+                    defects.append(f'{rel}:intervention_{d}_total_mismatch')
+                else:
+                    expected_actual = sum(int((c.get('outcomes') or {}).get('actual_donor', {}).get('correct', False)) for c in cases)
+                    if expected_actual != (ib.get('correct') or {}).get('actual_donor'):
+                        defects.append(f'{rel}:intervention_{d}_actual_donor_mismatch')
+        elif stage == 'D' and 'metrics' in res:
+            if _dmetric(res) is None:
+                defects.append(f'{rel}:stage_d_raw_mismatch')
+        elif stage == 'E' and 'metrics' in res:
+            if not _e_verified(res):
+                defects.append(f'{rel}:stage_e_raw_mismatch')
+        rescored[rel] = {'status': 'RESCORED'}
+    if defects and strict:
+        raise ValueError('EVIDENCE_RESCORE_FAILED: ' + '; '.join(defects))
+    return {
+        'verified': len(defects) == 0,
+        'status': 'VERIFIED_FROM_EVIDENCE_ONLY' if not defects else 'FAILED',
+        'evidence_only': True,
+        'rescored_count': len(rescored),
+        'defects': defects,
+    }

@@ -17,25 +17,47 @@ from experiments.avendi_y4.models import P6LearnedMemoryPolicy
 
 
 def jobs():
-    return [dict(id=f'{stage}-{arm}-s{seed}', stage=stage, arm=arm, seed=seed,
-                 depends=[], updates=400) for stage, arms in
-            [('D', ('informative', 'noninformative')), ('E', ('relevant', 'sham'))]
-            for arm in arms for seed in (7, 19, 41)]
+    rows = []
+    for stage, arms in [('D', ('informative', 'noninformative')), ('E', ('relevant', 'sham'))]:
+        for arm in arms:
+            for seed in (7, 19, 41):
+                rows.append(dict(
+                    id=f'{stage}-{arm}-s{seed}',
+                    stage=stage,
+                    arm=arm,
+                    seed=seed,
+                    depends=[],
+                    updates=400,
+                    role='primary',
+                    profile_group=f'{stage}-{arm}',
+                    objective=arm,
+                    checkpoint_parent=None,
+                    split_counts={'train': 32, 'dev': 16, 'confirm': 16, 'transfer': 16},
+                    allowed_exclusions=[],
+                ))
+    return rows
 
 
 def _styles(split, parity):
-    # Every primitive appears during training; held out tuples are recombinations.
+    # Every primitive appears during training; dev/confirm hold out combinations, transfer adds an unseen marker token.
     candidates = [(a,b) for a,b in product(range(2), repeat=2)
                   if (a ^ b ^ parity) == (0 if split == 'train' else 1)]
-    return candidates if split == 'train' else candidates[:1] if split == 'dev' else candidates[1:]
+    if split == 'train':
+        return candidates
+    if split == 'dev':
+        return candidates[:1]
+    if split == 'transfer':
+        return candidates
+    return candidates[1:]
 
 
 def worlds(split='train'):
     rows = []
+    suffix = (14,) if split == 'transfer' else ()
     for ci, cost in enumerate((.05, .35)):
         for order in (0, 1):
             for style_a, style_b in _styles(split, ci ^ order):
-                public = (ci, 2+order, 4+style_a, 6+style_b)
+                public = (ci, 2+order, 4+style_a, 6+style_b, *suffix)
                 for truth in (0, 1):
                     rows.append(dict(cost=cost, public=public, truth=truth,
                         menu=[0, 1] if order == 0 else [1, 0],
@@ -67,13 +89,30 @@ def d_items(arm, split='train'):
 
 def e_items(arm, split='train'):
     rows = []
+    suffix = (14,) if split == 'transfer' else ()
     for law in (0, 1):
         for style_a, style_b in _styles(split, law):
             for truth, sham in product(range(2), repeat=2):
-                rows.append(dict(public=(law, 4+style_a, 6+style_b), law=law,
+                rows.append(dict(public=(law, 4+style_a, 6+style_b, *suffix), law=law,
                                  truth=truth, feedback=truth if arm == 'relevant' else sham,
                                  gold=truth ^ law))
     return rows
+
+
+def bellman_oracle_tree(cost, reliability):
+    """Independent exhaustive decision-tree expectation enumerating direct vs paid actions."""
+    # Prior P(truth=0)=P(truth=1)=0.5.
+    direct_best = max(0.5 * 1.0, 0.5 * 1.0)
+    # Channel: P(obs=t | truth=t) = reliability, P(obs!=t | truth=t) = 1 - reliability.
+    tool_expected = 0.0
+    for obs in (0, 1):
+        p_t0_obs = 0.5 * (reliability if obs == 0 else (1.0 - reliability))
+        p_t1_obs = 0.5 * (reliability if obs == 1 else (1.0 - reliability))
+        p_obs = p_t0_obs + p_t1_obs
+        best_posterior = max(p_t0_obs, p_t1_obs) / p_obs if p_obs > 0 else 0.5
+        tool_expected += p_obs * best_posterior
+    tool_net = tool_expected - cost
+    return {'direct': direct_best, 'tool': tool_net, 'action': int(tool_net > direct_best)}
 
 
 def _forward(model, public, sup_x=None, sup_y=None):
@@ -156,31 +195,53 @@ class MemorySession:
         return int(_law_logits(logits, torch.tensor([public], device=d)).argmax(-1).item())
 
 
-def _eval_d(model, arm, split):
+def _eval_d(model, arm, split, *, verify_serial_n=8, parity_atol=1e-4):
     items = d_items(arm, split)
+    d = next(model.parameters()).device
     correct_action = correct_terminal = 0
     utility = 0.0
     responses = []
-    for index, r in enumerate(items):
-        d = next(model.parameters()).device
-        with torch.no_grad():
-            p = torch.tensor([r['public']], device=d)
-            logits, act = _forward(model, p, torch.tensor([10], device=d),
-                                   torch.tensor([r['obs']], device=d))
-            position = int(_menu_logits(act, torch.tensor([r['menu']], device=d)).argmax(-1).item())
-            a = r['menu'][position]
-            direct, _ = _forward(model, p)
-            pred = int((logits if a else direct).argmax(-1).item())
-        correct_action += a == r['action']
-        correct_terminal += int(logits.argmax(-1).item()) == r['truth']
-        utility += float(pred == r['truth']) - a * r['cost']
-        responses.append(dict(pair_id=r['pair_id'], public=r['public'], menu=r['menu'], action_position=position, gold_action_position=r['action_position'], cost=r['cost'], truth=r['truth'], observation=r['obs'], action=a, gold_action=r['action'], terminal_prediction=pred, post_tool_prediction=int(logits.argmax(-1).item())))
-    invariant = True
     with torch.no_grad():
-        for w in worlds(split):
-            p = torch.tensor([w['public']], device=d)
-            acts = [int(_forward(model, p, torch.tensor([10], device=d), torch.tensor([o], device=d))[1].argmax(-1).item()) for o in (0, 1)]
-            invariant = invariant and acts[0] == acts[1]
+        p_all = torch.tensor([r['public'] for r in items], device=d)
+        o_all = torch.tensor([r['obs'] for r in items], device=d)
+        menu_all = torch.tensor([r['menu'] for r in items], device=d)
+        logits_all, act_all = _forward(model, p_all, torch.full_like(o_all, 10), o_all)
+        menu_scores_all = _menu_logits(act_all, menu_all)
+        pos_all = menu_scores_all.argmax(-1).tolist()
+        direct_all, _ = _forward(model, p_all)
+        post_pred_all = logits_all.argmax(-1).tolist()
+        direct_pred_all = direct_all.argmax(-1).tolist()
+        # Verify batched-vs-serial parity over the first min(8, len(items)) samples within 1e-4.
+        n_check = min(int(verify_serial_n), len(items))
+        for idx in range(n_check):
+            r = items[idx]
+            sp = torch.tensor([r['public']], device=d)
+            slog, sact = _forward(model, sp, torch.tensor([10], device=d), torch.tensor([r['obs']], device=d))
+            sdir, _ = _forward(model, sp)
+            max_diff = max(
+                float((logits_all[idx:idx+1] - slog).abs().max().item()),
+                float((act_all[idx:idx+1] - sact).abs().max().item()),
+                float((direct_all[idx:idx+1] - sdir).abs().max().item()),
+            )
+            if max_diff > parity_atol:
+                raise ValueError(f'BATCHED_SERIAL_PARITY_MISMATCH:idx={idx}:delta={max_diff:.6g}>{parity_atol}')
+        for r, position, post_p, dir_p in zip(items, pos_all, post_pred_all, direct_pred_all):
+            a = r['menu'][position]
+            pred = int(post_p if a else dir_p)
+            correct_action += int(a == r['action'])
+            correct_terminal += int(post_p == r['truth'])
+            utility += float(pred == r['truth']) - a * r['cost']
+            responses.append(dict(
+                pair_id=r['pair_id'], public=r['public'], menu=r['menu'],
+                action_position=int(position), gold_action_position=r['action_position'],
+                cost=r['cost'], truth=r['truth'], observation=r['obs'], action=a,
+                gold_action=r['action'], terminal_prediction=pred, post_tool_prediction=int(post_p),
+            ))
+        ws = worlds(split)
+        wp = torch.tensor([w['public'] for w in ws], device=d)
+        acts_0 = _forward(model, wp, torch.full((len(ws),), 10, device=d), torch.zeros(len(ws), dtype=torch.long, device=d))[1].argmax(-1)
+        acts_1 = _forward(model, wp, torch.full((len(ws),), 10, device=d), torch.ones(len(ws), dtype=torch.long, device=d))[1].argmax(-1)
+        invariant = bool(torch.equal(acts_0, acts_1))
     n = len(items)
     oracle = sum(solve(r['cost'], {'informative': .75, 'noninformative': .5, 'perfect': 1.0}[arm])['tool'] if r['action'] else .5 for r in items) / n
     return dict(action_accuracy=correct_action/n, action_correct=correct_action, post_tool_accuracy=correct_terminal/n, post_tool_correct=correct_terminal,
@@ -240,12 +301,13 @@ def run(job, ctx):
     loss = _loss_d if job['stage'] == 'D' else _loss_e
     training = ctx.train(model, items, batches, loss, lr=0.003)
     metrics = (_eval_d(model, job['arm'], ctx.split) if job['stage'] == 'D' else _eval_e(model, ctx.split))
+    transfer_metrics = (_eval_d(model, job['arm'], 'transfer') if job['stage'] == 'D' else _eval_e(model, 'transfer'))
     familiar = (_eval_d(model, job['arm'], 'train') if job['stage'] == 'D' else _eval_e(model, 'train'))
     perfect = _eval_d(model, 'perfect', ctx.split) if job['stage'] == 'D' else None
     return dict(id=job['id'], stage=job['stage'], arm=job['arm'], seed=job['seed'],
                 split=ctx.split, engineering_canary=bool(ctx.canary), updates_requested=updates, examples_per_epoch=len(items),
-                training=training, metrics=metrics, familiar_metrics=familiar, perfect_channel_evaluation=perfect,
-                rendering_note='Held-out combinations reuse trained primitive embeddings; known public law and menu are applied as output permutations. This does not test learning or understanding those mappings.')
+                training=training, metrics=metrics, transfer_metrics=transfer_metrics, familiar_metrics=familiar, perfect_channel_evaluation=perfect,
+                rendering_note='Held-out combinations reuse trained primitive embeddings; known public law and menu are applied as output permutations. Transfer adds unseen token 14. This does not test learning or understanding those mappings.')
 
 
 def preflight():
@@ -260,13 +322,27 @@ def preflight():
     sham = e_items('sham')
     corrupted = [dict(x, feedback=x['truth']) for x in sham]
     leaked = [dict(x, public=(*x['public'], x['truth'])) for x in paired]
+    bellman_match = all(
+        abs(solve(c, rel)['direct'] - bellman_oracle_tree(c, rel)['direct']) < 1e-8
+        and abs(solve(c, rel)['tool'] - bellman_oracle_tree(c, rel)['tool']) < 1e-8
+        and solve(c, rel)['action'] == bellman_oracle_tree(c, rel)['action']
+        for c in (.05, .35) for rel in (.5, .75, 1.0)
+    )
+    transfer_pubs = {w['public'] for w in worlds('transfer')}
+    dev_pubs = {w['public'] for w in worlds('dev')}
+    conf_pubs = {w['public'] for w in worlds('confirm')}
+    tr_pubs = {w['public'] for w in worlds('train')}
+    probe_m = P6LearnedMemoryPolicy(width=16, seed=7)
+    _eval_d(probe_m, 'informative', 'dev', verify_serial_n=8, parity_atol=1e-4)
     tests = {'paired_public': check_pairs(paired),
              'public_leak_detected': not check_pairs(leaked),
              'sham_balanced': sham_independent(sham),
              'sham_leak_detected': not sham_independent(corrupted),
              'menu_orders_balanced': all(sum(w['menu'].index(1) == position for w in paired) == len(paired)//2 for position in (0, 1)),
-             'disjoint_renderings': not (set(w['public'] for w in worlds('dev')) & set(w['public'] for w in worlds('confirm'))),
+             'disjoint_renderings': not (dev_pubs & conf_pubs or transfer_pubs & (tr_pubs | dev_pubs | conf_pubs)),
              'solver_cost': solve(.05,.75)['action'] == 1 and solve(.35,.75)['action'] == 0,
+             'bellman_oracle_1e8': bellman_match,
+             'batched_eval_d_parity_1e4': True,
              'perfect_channel_resolves_truth': all(x['obs'] == x['truth'] for x in d_items('perfect')),
              'noninformative_never_useful': solve(.05,.5)['action'] == 0,
              'matched_terminal_supervision': len(d_items('informative')) == len(d_items('noninformative')),

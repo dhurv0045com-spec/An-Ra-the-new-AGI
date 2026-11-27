@@ -18,13 +18,43 @@ def jobs():
     for seed in SEEDS:
         baseline = f'C-baseline-s{seed}'
         scout = f'C-scout-s{seed}'
-        rows += [dict(id=baseline, stage='C', arm='baseline', seed=seed, depends=[], updates=0),
-                 dict(id=scout, stage='C', arm='scout', seed=seed, depends=[baseline], updates=0)]
-        rows += [dict(id=f'C-{arm}-s{seed}', stage='C', arm=arm, seed=seed, depends=[scout], updates=1024)
-                 for arm in ('ordinary', 'iit', 'sham')]
+        parent_y4 = f'C-categorical_endpoint_only-s{seed}'
+        rows += [
+            dict(
+                id=baseline, stage='C', arm='baseline', seed=seed, depends=[], updates=0,
+                role='diagnostic', profile_group='composition_diagnostic', objective='eval_only',
+                checkpoint_parent=parent_y4, split_counts={'train': 0, 'dev': 512, 'confirm': 0, 'transfer': 0},
+                allowed_exclusions=['diagnostic_dev_only'],
+            ),
+            dict(
+                id=scout, stage='C', arm='scout', seed=seed, depends=[baseline], updates=0,
+                role='diagnostic', profile_group='composition_diagnostic', objective='eval_only',
+                checkpoint_parent=parent_y4, split_counts={'train': 0, 'dev': 512, 'confirm': 0, 'transfer': 0},
+                allowed_exclusions=['diagnostic_dev_only'],
+            ),
+        ]
+        rows += [
+            dict(
+                id=f'C-{arm}-s{seed}', stage='C', arm=arm, seed=seed, depends=[scout], updates=1024,
+                role='primary', profile_group=f'composition_{arm}', objective=arm,
+                checkpoint_parent=parent_y4, split_counts={'train': 1024, 'dev': 512, 'confirm': 512, 'transfer': 512},
+                allowed_exclusions=['C_insufficient_headroom', 'C_baseline_unqualified'],
+            )
+            for arm in ('ordinary', 'iit', 'sham')
+        ]
     for lin in Y1_EXPECTED_CKPT_SHAS:
-        rows.append(dict(id=f'G-{lin}', stage='G', arm=lin, seed=int(lin.rsplit('s', 1)[1]), depends=[], updates=0))
+        rows.append(dict(
+            id=f'G-{lin}', stage='G', arm=lin, seed=int(lin.rsplit('s', 1)[1]), depends=[], updates=0,
+            role='diagnostic', profile_group='historical_y1', objective='parity_verify',
+            checkpoint_parent=lin, split_counts={'dev': 0},
+            allowed_exclusions=['G_optional_y1_missing'],
+        ))
     return rows
+
+
+def canonical_panel_signature(item):
+    edges = tuple(sorted((str(a).strip(), str(b).strip()) for a, b in item['rows']))
+    return (edges, str(item['query']).strip(), int(item['depth']))
 
 def walk(rows, start, steps):
     # Independent graph validation; duplicate keys are invalid even if values agree.
@@ -153,7 +183,20 @@ def preflight():
         caught = True
     else:
         caught = False
-    return dict(passed=caught, fixture_count=len(fixtures), deliberately_corrupt_donor_detected=caught)
+    dev_sigs = {canonical_panel_signature(c) for d in (5, 6) for c in panel(32, 9000 + d, d)}
+    conf_sigs = {canonical_panel_signature(c) for d in (5, 6) for c in panel(32, 10000 + d, d)}
+    trans_sigs = {canonical_panel_signature(c) for d in (5, 6) for c in panel(32, 12000 + d, d)}
+    disjoint = not (dev_sigs & conf_sigs or dev_sigs & trans_sigs or conf_sigs & trans_sigs)
+    sample = panel(2, 9005, 5)[0]
+    reordered = dict(sample, case_id='confirm-reordered', rows=list(reversed(sample['rows'])))
+    renamed_caught = canonical_panel_signature(reordered) == canonical_panel_signature(sample)
+    return dict(
+        passed=bool(caught and disjoint and renamed_caught),
+        fixture_count=len(fixtures),
+        deliberately_corrupt_donor_detected=caught,
+        disjoint_eval_panels=disjoint,
+        renamed_duplicate_caught=renamed_caught,
+    )
 
 def _historical(job, ctx):
     from experiments.avendi_y4.verify import stage_historical_checkpoints_to_writable
@@ -237,5 +280,6 @@ def run(job, ctx):
         stats = ctx.train(model, train, batches, lambda m, b: intervention_loss(m, b, arm), 1e-4)
     eval_seed = 9000 if ctx.split == 'dev' else 10000
     data = {str(d): measure(model, panel(32 if ctx.canary else 256, eval_seed+d, d), ctx.device) for d in (5,6)}
+    transfer_data = {str(d): measure(model, panel(32 if ctx.canary else 256, 12000+d, d), ctx.device) for d in (5,6)}
     swaps = {str(d): measure_interventions(model, pairs(16 if ctx.canary else 256, eval_seed+100+d, depth=d), ctx.device) for d in (2, 3, 4)}
-    return dict(status='COMPLETED', verification='TRAINED_AND_MEASURED', qualification='PENDING_MATCHED_COMPARISON', initial_checkpoint_sha256=digest, parent_job=f'C-categorical_endpoint_only-s{seed}', estimand='additional corrected donor objective versus endpoint-only continuation; sham uses alternate valid donor', train=stats, panels=data, interventions=swaps)
+    return dict(status='COMPLETED', verification='TRAINED_AND_MEASURED', qualification='PENDING_MATCHED_COMPARISON', initial_checkpoint_sha256=digest, parent_job=f'C-categorical_endpoint_only-s{seed}', estimand='additional corrected donor objective versus endpoint-only continuation; sham uses alternate valid donor', train=stats, panels=data, transfer_panels=transfer_data, interventions=swaps)

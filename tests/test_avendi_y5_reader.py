@@ -91,3 +91,57 @@ def test_matched_format_panels_share_graphs():
     panels=[reader._make_items(19,4,'reader',f'style{x}','dev') for x in range(4)]
     assert all([x['rows'] for x in p]==[x['rows'] for x in panels[0]] for p in panels)
     assert all({x['style'] for x in p}=={i} for i,p in enumerate(panels))
+
+
+def test_canonical_split_disjointness_and_renamed_duplicates():
+    splits = {sp: reader._make_items(7, 4, 'answer', 'fixed', sp) for sp in ('train', 'dev', 'confirm', 'transfer')}
+    res = reader.verify_canonical_split_disjointness(splits)
+    assert res['passed'] and res['renamed_duplicate_caught']
+    # Confirm and transfer graphs must be completely disjoint (separate panels + unseen style 3 on transfer).
+    assert not ({x['canon_sig'] for x in splits['confirm']} & {x['canon_sig'] for x in splits['transfer']})
+    # Inject a renamed duplicate (swapped prefix + reversed rows + style 3) into confirm -> must be caught.
+    orig = splits['train'][0]
+    tampered = dict(splits)
+    dup = dict(orig, world_id='confirm-x', family_id='confirm-x', rows=list(reversed(orig['rows'])),
+               public_prompt='ANSWER ' + reader._render({**orig, 'rows': list(reversed(orig['rows']))}, 3))
+    tampered['confirm'] = [*splits['confirm'], dup]
+    assert not reader.verify_canonical_split_disjointness(tampered)['passed']
+
+
+def test_blind_baselines_mutations_and_0xb5_safety():
+    items = reader._make_items(7, 4, 'answer', 'fixed', 'dev')
+    bl = reader.evaluate_blind_baselines(items, 'answer')
+    assert set(bl) == {'first_row', 'last_row', 'prior_only'}
+    assert all(v['denominator'] == len(items) and v['family_rate'] <= 0.5 for v in bl.values())
+    # Invalid UTF-8 byte 0xB5 never crashes _decode_batch, _span_parse, or decode_bytes_safe.
+    bad_tok = 4 + 0xB5
+    class BadByteModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.dummy = torch.nn.Parameter(torch.zeros(1))
+            self.spec = type('Spec', (), {'context_length': 512})()
+        def forward_tokens(self, x):
+            logits = torch.full((*x.shape, UTF8.vocabulary_size), -100.0)
+            logits[:, :, bad_tok] = 100.0
+            return logits, torch.zeros(*x.shape, 4), []
+    dec = reader._decode_batch(BadByteModel(), items[:1])
+    assert dec[0][0] is None
+    assert isinstance(reader.decode_bytes_safe([bad_tok, 0xB5]), str)
+    parsed, _ = reader._span_parse(items[0], [bad_tok], [1])
+    assert parsed is None
+
+
+def test_u0000_reader_and_answer_forward_backward_autocast():
+    from experiments.avendi_y4.models import AvendiY4ByteModel, get_y4_byte_spec
+    spec = get_y4_byte_spec('S3', cpu_canary=True)
+    for task, obj in (('reader', 'pointer'), ('answer', 'ce')):
+        model = AvendiY4ByteModel(spec, seed=7, use_aux=True)
+        batch = reader._make_items(7, 1, task, 'fixed', 'train')[:2]
+        with torch.amp.autocast('cpu', dtype=torch.bfloat16, enabled=False):
+            lv = reader.loss(model, batch, obj)
+        assert torch.isfinite(lv)
+        lv.backward()
+        assert any(p.grad is not None and torch.isfinite(p.grad).all() for p in model.parameters())
+        ev = reader.evaluate(model, reader._make_items(7, 1, task, 'fixed', 'dev')[:2], task)
+        assert ev['denominator'] == 2 and 'blind_baselines' in ev
+
